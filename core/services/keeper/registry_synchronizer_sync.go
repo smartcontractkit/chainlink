@@ -147,7 +147,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get keeper list")
 	}
 	keeperIndex := int32(-1)
+	keeperMap := map[ethkey.EIP55Address]int32{}
 	for idx, address := range keeperAddresses {
+		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
 		if address == fromAddress.Address() {
 			keeperIndex = int32(idx)
 		}
@@ -164,6 +166,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		JobID:             rs.job.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        int32(len(keeperAddresses)),
+		KeeperIndexMap:    keeperMap,
 	}, nil
 }
 

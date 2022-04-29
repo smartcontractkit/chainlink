@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -326,6 +326,10 @@ func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*typ
 
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return p.getRoundRobin().BlockByNumber(ctx, number)
+}
+
+func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return p.getRoundRobin().BlockByHash(ctx, hash)
 }
 
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {

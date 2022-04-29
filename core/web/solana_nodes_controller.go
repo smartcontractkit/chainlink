@@ -79,7 +79,11 @@ func (nc *SolanaNodesController) Create(c *gin.Context) {
 		return
 	}
 
-	node, err := orm.CreateNode(request)
+	node, err := orm.CreateNode(db.Node{
+		Name:          request.Name,
+		SolanaChainID: request.SolanaChainID,
+		SolanaURL:     request.SolanaURL,
+	})
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

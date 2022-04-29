@@ -15,8 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
@@ -34,6 +36,16 @@ var FixtureChainID = big.NewInt(0)
 
 // SimulatedChainID is the chain ID for the go-ethereum simulated backend
 var SimulatedChainID = big.NewInt(1337)
+
+// MustNewSimTransactor returns a transactor for interacting with the
+// geth simulated backend.
+func MustNewSimTransactor(t *testing.T) *bind.TransactOpts {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
+	require.NoError(t, err)
+	return transactor
+}
 
 // NewAddress return a random new address
 func NewAddress() common.Address {
@@ -282,6 +294,17 @@ const TestInterval = 10 * time.Millisecond
 // AssertEventually waits for f to return true
 func AssertEventually(t *testing.T, f func() bool) {
 	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+}
+
+// RequireLogMessage fails the test if emitted logs don't contain the given message
+func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
+	for _, l := range observedLogs.All() {
+		if strings.Contains(l.Message, msg) {
+			return
+		}
+	}
+	t.Log("observed logs", observedLogs.All())
+	t.Fatalf("expected observed logs to contain msg %q, but it didn't", msg)
 }
 
 // WaitForLogMessage waits until at least one log message containing the

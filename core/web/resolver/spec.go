@@ -151,8 +151,8 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
 	return r.spec.MinIncomingConfirmationsEnv
 }
 
-// MinContractPayment resolves the spec's evm chain id.
-func (r *DirectRequestSpecResolver) MinContractPayment() string {
+// MinContractPaymentLinkJuels resolves the spec's evm chain id.
+func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
 }
 
@@ -675,6 +675,16 @@ func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
 // ChunkSize resolves the spec's chunk size.
 func (r *VRFSpecResolver) ChunkSize() int32 {
 	return int32(r.spec.ChunkSize)
+}
+
+// BackoffInitialDelay resolves the spec's backoff initial delay.
+func (r *VRFSpecResolver) BackoffInitialDelay() string {
+	return r.spec.BackoffInitialDelay.String()
+}
+
+// BackoffMaxDelay resolves the spec's backoff max delay.
+func (r *VRFSpecResolver) BackoffMaxDelay() string {
+	return r.spec.BackoffMaxDelay.String()
 }
 
 type WebhookSpecResolver struct {

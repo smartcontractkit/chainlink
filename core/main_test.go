@@ -533,9 +533,9 @@ func ExampleRun_chains_evm() {
 	//
 	// COMMANDS:
 	//    create     Create a new EVM chain
-	//    delete     Delete an EVM chain
-	//    list       List all EVM chains
-	//    configure  Configure an EVM chain
+	//    delete     Delete an existing EVM chain
+	//    list       List all existing EVM chains
+	//    configure  Configure an existing EVM chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -552,9 +552,9 @@ func ExampleRun_chains_solana() {
 	//
 	// COMMANDS:
 	//    create     Create a new Solana chain
-	//    delete     Delete a Solana chain
-	//    list       List all Solana chains
-	//    configure  Configure a Solana chain
+	//    delete     Delete an existing Solana chain
+	//    list       List all existing Solana chains
+	//    configure  Configure an existing Solana chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -571,9 +571,9 @@ func ExampleRun_chains_terra() {
 	//
 	// COMMANDS:
 	//    create     Create a new Terra chain
-	//    delete     Delete a Terra chain
-	//    list       List all Terra chains
-	//    configure  Configure a Terra chain
+	//    delete     Delete an existing Terra chain
+	//    list       List all existing Terra chains
+	//    configure  Configure an existing Terra chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help

@@ -6,7 +6,7 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-	chains "github.com/smartcontractkit/chainlink/core/chains"
+	config "github.com/smartcontractkit/chainlink/core/config"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -89,14 +89,14 @@ func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
 }
 
 // ChainType provides a mock function with given fields:
-func (_m *Config) ChainType() chains.ChainType {
+func (_m *Config) ChainType() config.ChainType {
 	ret := _m.Called()
 
-	var r0 chains.ChainType
-	if rf, ok := ret.Get(0).(func() chains.ChainType); ok {
+	var r0 config.ChainType
+	if rf, ok := ret.Get(0).(func() config.ChainType); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(chains.ChainType)
+		r0 = ret.Get(0).(config.ChainType)
 	}
 
 	return r0

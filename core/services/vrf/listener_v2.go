@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -53,6 +54,9 @@ const (
 	// BatchFulfillmentIterationGasCost is the cost of a single iteration of the batch coordinator's
 	// loop. This is used to determine the gas allowance for a batch fulfillment call.
 	BatchFulfillmentIterationGasCost = 52_000
+
+	// backoffFactor is the factor by which to increase the delay each time a request fails.
+	backoffFactor = 1.3
 )
 
 func newListenerV2(
@@ -106,6 +110,10 @@ type pendingRequest struct {
 	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	lb               log.Broadcast
 	utcTimestamp     time.Time
+
+	// used for exponential backoff when retrying
+	attempts int
+	lastTry  time.Time
 }
 
 type vrfPipelineResult struct {
@@ -163,7 +171,7 @@ type listenerV2 struct {
 	wg *sync.WaitGroup
 
 	// aggregator client to get link/eth feed prices from chain.
-	aggregator *aggregator_v3_interface.AggregatorV3Interface
+	aggregator aggregator_v3_interface.AggregatorV3InterfaceInterface
 
 	// deduper prevents processing duplicate requests from the log broadcaster.
 	deduper *logDeduper
@@ -188,6 +196,7 @@ func (lsn *listenerV2) Start(context.Context) error {
 			// right away. We set the real number of confirmations on a per-request basis in
 			// the getConfirmedAt method.
 			MinIncomingConfirmations: 1,
+			ReplayStartedCallback:    lsn.ReplayStartedCallback,
 		})
 
 		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
@@ -239,7 +248,7 @@ func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uin
 	var toProcess = make(map[uint64][]pendingRequest)
 	var toKeep []pendingRequest
 	for i := 0; i < len(lsn.reqs); i++ {
-		if r := lsn.reqs[i]; r.confirmedAtBlock <= latestHead {
+		if r := lsn.reqs[i]; lsn.ready(r, latestHead) {
 			toProcess[r.req.SubId] = append(toProcess[r.req.SubId], r)
 		} else {
 			toKeep = append(toKeep, lsn.reqs[i])
@@ -247,6 +256,37 @@ func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uin
 	}
 	lsn.reqs = toKeep
 	return toProcess
+}
+
+func (lsn *listenerV2) ready(req pendingRequest, latestHead uint64) bool {
+	// Request is not eligible for fulfillment yet
+	if req.confirmedAtBlock > latestHead {
+		return false
+	}
+
+	if lsn.job.VRFSpec.BackoffInitialDelay == 0 || req.attempts == 0 {
+		// Backoff is disabled, or this is the first try
+		return true
+	}
+
+	return time.Now().UTC().After(
+		nextTry(
+			req.attempts,
+			lsn.job.VRFSpec.BackoffInitialDelay,
+			lsn.job.VRFSpec.BackoffMaxDelay,
+			req.lastTry))
+}
+
+func nextTry(retries int, initial, max time.Duration, last time.Time) time.Time {
+	expBackoffFactor := math.Pow(backoffFactor, float64(retries-1))
+
+	var delay time.Duration
+	if expBackoffFactor > float64(max/initial) {
+		delay = max
+	} else {
+		delay = time.Duration(float64(initial) * expBackoffFactor)
+	}
+	return last.Add(delay)
 }
 
 // Remove all entries 10000 blocks or older
@@ -292,7 +332,21 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		for _, subReqs := range confirmed {
 			for _, req := range subReqs {
 				if _, ok := processed[req.req.RequestId.String()]; !ok {
+					req.attempts++
+					req.lastTry = time.Now().UTC()
 					toKeep = append(toKeep, req)
+					if lsn.job.VRFSpec.BackoffInitialDelay != 0 {
+						lsn.l.Infow("Request failed, next retry will be delayed.",
+							"reqID", req.req.RequestId.String(),
+							"subID", req.req.SubId,
+							"attempts", req.attempts,
+							"lastTry", req.lastTry.String(),
+							"nextTry", nextTry(
+								req.attempts,
+								lsn.job.VRFSpec.BackoffInitialDelay,
+								lsn.job.VRFSpec.BackoffMaxDelay,
+								req.lastTry))
+					}
 				}
 			}
 		}
@@ -300,26 +354,35 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		// so we merged the new ones with the ones that need to be requeued.
 		lsn.reqsMu.Lock()
 		lsn.reqs = append(lsn.reqs, toKeep...)
-		lsn.reqsMu.Unlock()
 		lsn.l.Infow("Finished processing pending requests",
-			"total processed", len(processed),
-			"total unprocessed", len(toKeep),
+			"totalProcessed", len(processed),
+			"totalFailed", len(toKeep),
+			"total", len(lsn.reqs),
 			"time", time.Since(start).String())
+		lsn.reqsMu.Unlock() // unlock here since len(lsn.reqs) is a read, to avoid a data race.
 	}()
 
 	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
-		lsn.l.Infow("No pending requests")
+		lsn.l.Infow("No pending requests ready for processing")
 		return
 	}
 	for subID, reqs := range confirmed {
-		sub, err := lsn.coordinator.GetSubscription(nil, subID)
+		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
+			Context: ctx,
+		}, subID)
 		if err != nil {
 			lsn.l.Errorw("Unable to read subscription balance", "err", err)
 			continue
 		}
+
+		if !lsn.shouldProcessSub(subID, sub, reqs) {
+			lsn.l.Warnw("Not processing sub", "subID", subID, "balance", sub.Balance)
+			continue
+		}
+
 		startBalance := sub.Balance
 		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
 		for reqID := range p {
@@ -327,6 +390,49 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 	}
 	lsn.pruneConfirmedRequestCounts()
+}
+
+func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
+	// This really shouldn't happen, but sanity check.
+	// No point in processing a sub if there are no requests to service.
+	if len(reqs) == 0 {
+		return false
+	}
+
+	vrfRequest := reqs[0].req
+	l := lsn.l.With(
+		"subID", subID,
+		"balance", sub.Balance,
+		"requestID", vrfRequest.RequestId.String(),
+	)
+
+	fromAddresses := lsn.fromAddresses()
+	if len(fromAddresses) == 0 {
+		l.Warn("Couldn't get next from address, processing sub anyway")
+		return true
+	}
+
+	// NOTE: we are assuming that all keys have an identical max gas price.
+	// Otherwise, this is a misconfiguration of the node and/or job.
+	fromAddress := fromAddresses[0]
+
+	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+	estimatedFee, err := lsn.estimateFeeJuels(reqs[0].req, gasPriceWei)
+	if err != nil {
+		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
+		return true
+	}
+
+	if sub.Balance.Cmp(estimatedFee) < 0 {
+		l.Infow("Subscription is underfunded, not processing it's requests",
+			"estimatedFeeJuels", estimatedFee,
+		)
+		return false
+	}
+
+	// balance is sufficient for at least one request, good to process
+	return true
 }
 
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
@@ -410,7 +516,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 	l := lsn.l.With(
 		"subID", reqs[0].req.SubId,
-		"reqs", len(reqs),
+		"eligibleSubReqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
 		"batchMaxGas", batchMaxGas,
@@ -419,9 +525,8 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	defer func() {
 		l.Infow("Finished processing for sub",
 			"endBalance", startBalanceNoReserveLink.String(),
-			"total reqs", len(reqs),
-			"total processed", len(processed),
-			"total unique", uniqueReqs(reqs),
+			"totalProcessed", len(processed),
+			"totalUnique", uniqueReqs(reqs),
 			"time", time.Since(start).String())
 	}()
 
@@ -476,9 +581,15 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"fromAddress", fromAddress,
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
-				"gasLimit", p.gasLimit)
+				"gasLimit", p.gasLimit,
+				"attempts", p.req.attempts)
 
 			if p.err != nil {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+					return processed
+				}
+
 				ll.Errorw("Pipeline error", "err", p.err)
 				continue
 			}
@@ -532,7 +643,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	l := lsn.l.With(
 		"subID", reqs[0].req.SubId,
-		"totalSubReqs", len(reqs),
+		"eligibleSubReqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
 	)
@@ -540,9 +651,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 	defer func() {
 		l.Infow("Finished processing for sub",
 			"endBalance", startBalanceNoReserveLink.String(),
-			"total reqs", len(reqs),
-			"total processed", len(processed),
-			"total unique", uniqueReqs(reqs),
+			"totalProcessed", len(processed),
+			"totalUnique", uniqueReqs(reqs),
 			"time", time.Since(start).String())
 	}()
 
@@ -594,9 +704,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"fromAddress", fromAddress,
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
-				"gasLimit", p.gasLimit)
+				"gasLimit", p.gasLimit,
+				"attempts", p.req.attempts)
 
 			if p.err != nil {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+					return processed
+				}
+
 				ll.Errorw("Pipeline error", "err", p.err)
 				continue
 			}
@@ -673,7 +789,10 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		}
 
 		reqBlockNumber := new(big.Int).SetUint64(req.req.Raw.BlockNumber)
-		currBlock := new(big.Int).SetUint64(lsn.getLatestHead())
+
+		// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not
+		// found" errors.
+		currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
 		m := bigmath.Max(reqBlockNumber, currBlock)
 
 		var result string
@@ -722,6 +841,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		if utils.IsEmpty(result) {
 			l.Infow("Request already fulfilled",
 				"reqID", reqs[i].req.RequestId.String(),
+				"attempts", reqs[i].attempts,
 				"txHash", reqs[i].req.Raw.TxHash)
 			fulfilled[i] = true
 		}
@@ -769,9 +889,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 	if err != nil {
 		return nil, errors.Wrap(err, "get aggregator latestAnswer")
 	}
-	// NOTE: no need to sanity check this as this is for logging purposes only
-	// and should not be used to determine whether a user has enough funds in actuality,
-	// we should always simulate for that.
+
 	juelsNeeded, err := EstimateFeeJuels(
 		req.CallbackGasLimit,
 		maxGasPriceWei,
@@ -1009,6 +1127,13 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 // JobID complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
+}
+
+// ReplayStartedCallback is called by the log broadcaster when a replay is about to start.
+func (lsn *listenerV2) ReplayStartedCallback() {
+	// Clear the log deduper cache so that we don't incorrectly ignore logs that have been sent that
+	// are already in the cache.
+	lsn.deduper.clear()
 }
 
 func (lsn *listenerV2) fromAddresses() []common.Address {

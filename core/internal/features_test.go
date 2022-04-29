@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -494,7 +495,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
@@ -795,8 +796,8 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
-	ethClient, sub := cltest.NewEthMocksWithDefaultChain(t)
-	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
+	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
@@ -831,12 +832,16 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil).Maybe()
-
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *evmtypes.Head) }).
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchNewHeads <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 
@@ -857,7 +862,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start(testutils.Context(t)))
-	var newHeads chan<- *evmtypes.Head
+	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):
@@ -885,7 +890,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
 
 	// Simulate one new head and check the gas price got updated
-	newHeads <- cltest.Head(43)
+	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)

@@ -23,7 +23,7 @@ const JOB_PAYLOAD__SPEC = gql`
       evmChainID
       minIncomingConfirmations
       minIncomingConfirmationsEnv
-      # minContractPayment - This is not being used but should we display it?
+      minContractPaymentLinkJuels
       requesters
     }
     ... on FluxMonitorSpec {
@@ -90,6 +90,9 @@ const JOB_PAYLOAD__SPEC = gql`
       batchFulfillmentEnabled
       batchFulfillmentGasMultiplier
       chunkSize
+      requestTimeout
+      backoffInitialDelay
+      backoffMaxDelay
     }
     ... on BlockhashStoreSpec {
       coordinatorV1Address

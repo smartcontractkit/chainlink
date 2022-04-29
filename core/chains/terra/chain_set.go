@@ -63,7 +63,7 @@ func (o ChainSetOpts) validate() (err error) {
 	return
 }
 
-func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
+func (o ChainSetOpts) newChain(dbchain types.Chain) (*chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
@@ -74,9 +74,11 @@ func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
 type ChainSet interface {
 	terra.ChainSet
 
-	Add(context.Context, string, db.ChainCfg) (db.Chain, error)
+	Add(context.Context, string, db.ChainCfg) (types.Chain, error)
 	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error)
+	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (types.Chain, error)
+	Show(id string) (types.Chain, error)
+	Index(offset, limit int) ([]types.Chain, int, error)
 
 	ORM() types.ORM
 }
@@ -119,6 +121,14 @@ func NewChainSet(opts ChainSetOpts) (*chainSet, error) {
 
 func (c *chainSet) ORM() types.ORM {
 	return c.opts.ORM
+}
+
+func (c *chainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+	return c.opts.ORM.Chains(offset, limit)
+}
+
+func (c *chainSet) Show(id string) (types.Chain, error) {
+	return c.opts.ORM.Chain(id)
 }
 
 func (c *chainSet) Chain(ctx context.Context, id string) (terra.Chain, error) {
@@ -168,23 +178,23 @@ func (c *chainSet) Chain(ctx context.Context, id string) (terra.Chain, error) {
 	return c.chains[id], nil
 }
 
-func (c *chainSet) Add(ctx context.Context, id string, config db.ChainCfg) (db.Chain, error) {
+func (c *chainSet) Add(ctx context.Context, id string, config db.ChainCfg) (types.Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
 	if _, exists := c.chains[id]; exists {
-		return db.Chain{}, errors.Errorf("chain already exists with id %s", id)
+		return types.Chain{}, errors.Errorf("chain already exists with id %s", id)
 	}
 
 	dbchain, err := c.opts.ORM.CreateChain(id, config)
 	if err != nil {
-		return db.Chain{}, err
+		return types.Chain{}, err
 	}
 	return dbchain, c.initializeChain(ctx, &dbchain)
 }
 
 // Requires a lock on chainsMu
-func (c *chainSet) initializeChain(ctx context.Context, dbchain *db.Chain) error {
+func (c *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) error {
 	// Start it
 	cid := dbchain.ID
 	chain, err := c.opts.newChain(*dbchain)
@@ -215,14 +225,14 @@ func (c *chainSet) Remove(id string) error {
 	return chain.Close()
 }
 
-func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error) {
+func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (types.Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
 	// Update configuration stored in the database
 	dbchain, err := c.opts.ORM.UpdateChain(id, enabled, config)
 	if err != nil {
-		return db.Chain{}, err
+		return types.Chain{}, err
 	}
 
 	chain, exists := c.chains[id]
@@ -231,7 +241,7 @@ func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, confi
 	case exists && !enabled:
 		// Chain was toggled to disabled
 		delete(c.chains, id)
-		return db.Chain{}, chain.Close()
+		return types.Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
 		return dbchain, c.initializeChain(ctx, &dbchain)

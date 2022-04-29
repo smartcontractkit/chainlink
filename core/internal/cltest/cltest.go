@@ -332,7 +332,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			if chainORM != nil {
 				panic("cannot set more than one chain")
 			}
-			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
+			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
@@ -426,54 +426,38 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
 	testutils.SkipShortDB(t)
-	c, s = NewEthMocks(t)
+	c = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription) {
-	c, s := NewEthClientAndSubMock(t)
+func NewEthMocks(t testing.TB) *evmMocks.Client {
+	c := new(evmMocks.Client)
+	c.Test(t)
 	switch tt := t.(type) {
 	case *testing.T:
 		t.Cleanup(func() {
 			c.AssertExpectations(tt)
-			s.AssertExpectations(tt)
 		})
 	}
-	return c, s
-}
-
-func NewEthClientAndSubMock(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
-	mockSub := new(evmMocks.Subscription)
-	mockSub.Test(t)
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth, mockSub
-}
-
-func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
-	mockEth, mockSub := NewEthClientAndSubMock(t)
-	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
-	return mockEth, mockSub
-}
-
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth
-}
-
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
-	c := NewEthClientMock(t)
-	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return c
+}
+
+// Deprecated: use evmtest.NewEthClientMock
+func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
+	return evmtest.NewEthClientMock(t)
+}
+
+// Deprecated: use evmtest.NewEthClientMockWithDefaultChain
+func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+	return evmtest.NewEthClientMockWithDefaultChain(t)
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	testutils.SkipShort(t, "long test")
-	c, s := NewEthMocks(t)
+	c := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -486,15 +470,13 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	})
 	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
-	s.On("Err").Return(nil).Maybe()
-	s.On("Unsubscribe").Return(nil).Maybe()
 	return c
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Client {
 	testutils.SkipShort(t, "long test")
-	c, s := NewEthMocks(t)
+	c := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -521,9 +503,6 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 		Number: big.NewInt(100),
 	})
 	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
-
-	s.On("Err").Return(nil).Maybe()
-	s.On("Unsubscribe").Return(nil).Maybe()
 
 	return c
 }

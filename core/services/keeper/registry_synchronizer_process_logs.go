@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -138,7 +139,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 
 func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	txHash := broadcast.RawLog().TxHash.Hex()
-	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
+	rs.logger.Debugw("processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
 	if err != nil {
 		rs.logger.With("error", err).Warn("unable to check if log was consumed")
@@ -154,13 +155,16 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
-
-	// set last run to 0 so that keeper can resume checkUpkeep()
-	err = rs.orm.SetLastRunHeightForUpkeepOnJob(rs.job.ID, log.Id.Int64(), 0)
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
 	}
+	rs.logger.Debugw("updated db for UpkeepPerformed log",
+		"jobID", rs.job.ID,
+		"upkeepID", log.Id.Int64(),
+		"blockNumber", int64(broadcast.RawLog().BlockNumber),
+		"fromAddr", ethkey.EIP55AddressFromAddress(log.From))
 
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.With("error", err).With("log", broadcast.String()).Error("unable to mark KeeperRegistryUpkeepPerformed log as consumed")

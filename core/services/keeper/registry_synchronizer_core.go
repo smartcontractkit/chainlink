@@ -38,10 +38,12 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
+	newTurnEnabled           bool
 }
 
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
+	newTurnEnabled           bool
 	contract                 *keeper_registry_wrapper.KeeperRegistry
 	interval                 time.Duration
 	job                      job.Job
@@ -76,6 +78,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		orm:                      opts.ORM,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
+		newTurnEnabled:           opts.newTurnEnabled,
 	}
 }
 
@@ -85,24 +88,41 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		rs.wgDone.Add(2)
 		go rs.run()
 
-		logListenerOpts := log.ListenerOpts{
-			Contract: rs.contract.Address(),
-			ParseLog: rs.contract.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic(): {
-					{},
-					{},
-					{
-						log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
+		var logListenerOpts log.ListenerOpts
+		if rs.newTurnEnabled {
+			logListenerOpts = log.ListenerOpts{
+				Contract: rs.contract.Address(),
+				ParseLog: rs.contract.ParseLog,
+				LogsWithTopics: map[common.Hash][][]log.Topic{
+					keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+					keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
+					keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+					keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+					keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
+				},
+				MinIncomingConfirmations: rs.minIncomingConfirmations,
+			}
+		} else {
+			logListenerOpts = log.ListenerOpts{
+				Contract: rs.contract.Address(),
+				ParseLog: rs.contract.ParseLog,
+				LogsWithTopics: map[common.Hash][][]log.Topic{
+					keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+					keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
+					keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+					keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+					keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic(): {
+						{},
+						{},
+						{
+							log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
+						},
 					},
 				},
-			},
-			MinIncomingConfirmations: rs.minIncomingConfirmations,
+				MinIncomingConfirmations: rs.minIncomingConfirmations,
+			}
 		}
+
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 
 		go func() {

@@ -37,12 +37,14 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
-	Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error)
-	Remove(id *big.Int) error
+	Show(id utils.Big) (types.Chain, error)
+	Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error)
+	Remove(id utils.Big) error
 	Default() (Chain, error)
-	Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
+	Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
+	Index(offset, limit int) ([]types.Chain, int, error)
 	ChainCount() int
 	ORM() types.ORM
 	// GetNode et al retrieves Nodes from the ORM and adds additional state info
@@ -72,7 +74,7 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	}
 	for _, c := range cll.Chains() {
 		if err := c.Start(ctx); err != nil {
-			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
+			cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
 			continue
 		}
 		cll.startedChains = append(cll.startedChains, c)
@@ -118,6 +120,14 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	return nil, errors.Errorf("chain not found with id %v", id.String())
 }
 
+func (cll *chainSet) Show(id utils.Big) (types.Chain, error) {
+	return cll.orm.Chain(id)
+}
+
+func (cll *chainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+	return cll.orm.Chains(offset, limit)
+}
+
 func (cll *chainSet) Default() (Chain, error) {
 	cll.chainsMu.RLock()
 	len := len(cll.chains)
@@ -141,10 +151,9 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) 
 	if err != nil {
 		return err
 	}
-	dbchain.Nodes = nodes
 
 	cid := dbchain.ID.String()
-	chain, err := newChain(*dbchain, cll.opts)
+	chain, err := newChain(*dbchain, nodes, cll.opts)
 	if err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID.String())
 	}
@@ -155,7 +164,7 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) 
 	return nil
 }
 
-func (cll *chainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -164,19 +173,18 @@ func (cll *chainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg
 		return types.Chain{}, errors.Errorf("chain already exists with id %s", id.String())
 	}
 
-	bid := utils.NewBig(id)
-	dbchain, err := cll.orm.CreateChain(*bid, config)
+	dbchain, err := cll.orm.CreateChain(id, config)
 	if err != nil {
 		return types.Chain{}, err
 	}
 	return dbchain, cll.initializeChain(ctx, &dbchain)
 }
 
-func (cll *chainSet) Remove(id *big.Int) error {
+func (cll *chainSet) Remove(id utils.Big) error {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
-	if err := cll.orm.DeleteChain(*utils.NewBig(id)); err != nil {
+	if err := cll.orm.DeleteChain(id); err != nil {
 		return err
 	}
 
@@ -190,13 +198,12 @@ func (cll *chainSet) Remove(id *big.Int) error {
 	return chain.Close()
 }
 
-func (cll *chainSet) Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
 	// Update configuration stored in the database
-	bid := utils.NewBig(id)
-	dbchain, err := cll.orm.UpdateChain(*bid, enabled, config)
+	dbchain, err := cll.orm.UpdateChain(id, enabled, config)
 	if err != nil {
 		return types.Chain{}, err
 	}
@@ -362,14 +369,23 @@ func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	dbchains, err := opts.ORM.EnabledChainsWithNodes()
+	chains, err := opts.ORM.EnabledChains()
 	if err != nil {
 		return nil, errors.Wrap(err, "error loading chains")
 	}
-	return NewChainSet(opts, dbchains)
+	nodesSlice, _, err := opts.ORM.Nodes(0, -1)
+	if err != nil {
+		return nil, errors.Wrap(err, "error loading nodes")
+	}
+	nodes := make(map[string][]types.Node)
+	for _, n := range nodesSlice {
+		id := n.EVMChainID.String()
+		nodes[id] = append(nodes[id], n)
+	}
+	return NewChainSet(opts, chains, nodes)
 }
 
-func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
+func NewChainSet(opts ChainSetOpts, dbchains []types.Chain, nodes map[string][]types.Node) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
@@ -386,7 +402,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := newChain(dbchains[i], opts)
+		chain, err2 := newChain(dbchains[i], nodes[cid], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue

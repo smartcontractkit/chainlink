@@ -53,12 +53,14 @@ func TestHeadTracker_New(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 	config := cltest.NewTestGeneralConfig(t)
-
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription { return mockEth.NewSub(t) },
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
-	sub.On("Unsubscribe").Maybe().Return(nil)
-	sub.On("Err").Return(nil)
 
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(1)))
@@ -127,13 +129,19 @@ func TestHeadTracker_Get(t *testing.T) {
 			config := newCfg(t)
 			orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-			ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
-			sub.On("Err").Return(nil)
-			sub.On("Unsubscribe").Return(nil)
+			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 			chStarted := make(chan struct{})
+			mockEth := &evmtest.MockEth{
+				EthClient: ethClient,
+			}
 			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-				Run(func(mock.Arguments) { close(chStarted) }).
-				Return(sub, nil)
+				Return(
+					func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+						defer close(chStarted)
+						return mockEth.NewSub(t)
+					},
+					func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+				)
 			ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 
 			fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
@@ -167,14 +175,18 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	chStarted := make(chan struct{})
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { close(chStarted) }).
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				defer close(chStarted)
+				return mockEth.NewSub(t)
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 
 	ht := createHeadTracker(t, ethClient, config, orm)
 	ht.Start(t)
@@ -191,9 +203,7 @@ func TestHeadTracker_Start_CancelContext(t *testing.T) {
 	logger := logger.TestLogger(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	chStarted := make(chan struct{})
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Run(func(args mock.Arguments) {
 		ctx := args.Get(0).(context.Context)
@@ -204,9 +214,15 @@ func TestHeadTracker_Start_CancelContext(t *testing.T) {
 			assert.FailNow(t, "context was not cancelled within 10s")
 		}
 	}).Return(cltest.Head(0), nil)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { close(chStarted) }).
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				defer close(chStarted)
+				return mockEth.NewSub(t)
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 
 	ht := createHeadTracker(t, ethClient, config, orm)
 
@@ -228,18 +244,20 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
+	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
-		}).
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
-
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config, orm, checker)
@@ -248,7 +266,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
-	headers <- &evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
+	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)})
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	ht.Stop(t)
@@ -264,14 +282,20 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription { return mockEth.NewSub(t) },
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("cannot reconnect"))
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription { return mockEth.NewSub(t) },
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
-	chErr := make(chan error)
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return((<-chan error)(chErr))
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config, orm, checker)
@@ -281,7 +305,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	// trigger reconnect loop
-	chErr <- errors.New("test error to force reconnect")
+	mockEth.SubsErr(errors.New("test error to force reconnect"))
 	g.Eventually(func() int32 {
 		return checker.OnNewLongestChainCount()
 	}).Should(gomega.Equal(int32(1)))
@@ -296,17 +320,21 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
+	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *evmtypes.Head) }).
 		Twice().
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
-
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config, orm, checker)
@@ -316,13 +344,13 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 
 	headers := <-chchHeaders
 	go func() {
-		headers <- cltest.Head(1)
+		headers.TrySend(cltest.Head(1))
 	}()
 
 	g.Eventually(func() bool { return ht.headTracker.Healthy() == nil }, 5*time.Second, 5*time.Millisecond).Should(gomega.Equal(true))
 
 	// trigger reconnect loop
-	close(headers)
+	headers.CloseCh()
 
 	// wait for full disconnect and a new subscription
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }, 5*time.Second, 5*time.Millisecond).Should(gomega.Equal(int32(1)))
@@ -334,9 +362,13 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 	config := newCfg(t)
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
-
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription { return mockEth.NewSub(t) },
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 
 	heads := []*evmtypes.Head{
 		cltest.Head(0),
@@ -355,9 +387,6 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(2)).Return(heads[2], nil)
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(1)).Return(heads[1], nil)
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).Return(heads[0], nil)
-
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
 
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 	trackable := new(htmocks.HeadTrackable)
@@ -387,25 +416,30 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
+	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 
 	// Head sampling enabled
 	d := 2500 * time.Millisecond
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
 	orm := headtracker.NewORM(db, logger, config, *config.DefaultChainID())
 	ht := createHeadTrackerWithChecker(t, ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
-	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
+	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *evmtypes.Head) }).
-		Return(sub, nil)
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 
 	// ---------------------
 	blocks := cltest.NewBlocks(t, 10)
@@ -490,7 +524,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
-		headers <- h
+		headers.TrySend(h)
 	}
 
 	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
@@ -518,11 +552,11 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
+	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	d := 0 * time.Second
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
@@ -530,14 +564,17 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg, orm, checker)
 
-	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
+	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
-		}).
-		Return(sub, nil)
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 
 	// ---------------------
 	blocks := cltest.NewBlocks(t, 10)
@@ -650,7 +687,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
-		headers <- h
+		headers.TrySend(h)
+		time.Sleep(testutils.TestInterval)
 	}
 
 	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
