@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var registryConfig1_1 = registry1_1.GetConfig{
@@ -91,7 +92,7 @@ func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
 func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	t.Parallel()
 	for _, upkeepID := range []int64{0, 1, 100, 10_000} {
-		_, err := keeper.CalcPositioningConstant(upkeepID, cltest.NewEIP55Address())
+		_, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepID), cltest.NewEIP55Address())
 		require.NoError(t, err)
 	}
 }

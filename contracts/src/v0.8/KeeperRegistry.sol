@@ -14,6 +14,7 @@ import "./interfaces/KeeperCompatibleInterface.sol";
 import "./interfaces/KeeperRegistryInterface.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
+import "./interfaces/ERC677ReceiverInterface.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -26,7 +27,8 @@ contract KeeperRegistry is
   ReentrancyGuard,
   Pausable,
   KeeperRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface
+  MigratableKeeperRegistryInterface,
+  ERC677ReceiverInterface
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -84,10 +86,9 @@ contract KeeperRegistry is
   error OnlyActiveKeepers();
   error InsufficientFunds();
   error KeepersMustTakeTurns();
-  error ParameterLengthMismatch();
+  error ParameterLengthError();
   error OnlyCallableByOwnerOrAdmin();
   error OnlyCallableByLINKToken();
-  error TooFewKeepers();
   error InvalidPayee();
   error DuplicateEntry();
   error ValueNotChanged();
@@ -98,7 +99,6 @@ contract KeeperRegistry is
   error OnlyCallableByPayee();
   error OnlyCallableByProposedPayee();
   error GasLimitCanOnlyIncrease();
-  error CannotChangePayee();
   error OnlyCallableByAdmin();
   error OnlyCallableByOwnerOrRegistrar();
   error InvalidRecipient();
@@ -226,7 +226,6 @@ contract KeeperRegistry is
   function checkUpkeep(uint256 id, address from)
     external
     override
-    whenNotPaused
     cannotExecute
     returns (
       bytes memory performData,
@@ -258,7 +257,12 @@ contract KeeperRegistry is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData) external override returns (bool success) {
+  function performUpkeep(uint256 id, bytes calldata performData)
+    external
+    override
+    whenNotPaused
+    returns (bool success)
+  {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
   }
 
@@ -480,8 +484,7 @@ contract KeeperRegistry is
    * move payments which have been accrued
    */
   function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
-    if (keepers.length != payees.length) revert ParameterLengthMismatch();
-    if (keepers.length < 2) revert TooFewKeepers();
+    if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
     for (uint256 i = 0; i < s_keeperList.length; i++) {
       address keeper = s_keeperList[i];
       s_keeperInfo[keeper].active = false;
@@ -491,8 +494,9 @@ contract KeeperRegistry is
       KeeperInfo storage s_keeper = s_keeperInfo[keeper];
       address oldPayee = s_keeper.payee;
       address newPayee = payees[i];
-      if (newPayee == ZERO_ADDRESS) revert InvalidPayee();
-      if (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS) revert CannotChangePayee();
+      if (
+        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
+      ) revert InvalidPayee();
       if (s_keeper.active) revert DuplicateEntry();
       s_keeper.active = true;
       if (newPayee != IGNORE_ADDRESS) {
@@ -589,6 +593,7 @@ contract KeeperRegistry is
     Storage memory store = s_storage;
     state.nonce = store.nonce;
     state.ownerLinkBalance = s_ownerLinkBalance;
+    state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
     config.paymentPremiumPPB = store.paymentPremiumPPB;
     config.flatFeeMicroLink = store.flatFeeMicroLink;
@@ -726,7 +731,7 @@ contract KeeperRegistry is
     address admin,
     uint96 balance,
     bytes memory checkData
-  ) internal {
+  ) internal whenNotPaused {
     if (!target.isContract()) revert NotAContract();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     s_upkeep[id] = Upkeep({
@@ -738,6 +743,7 @@ contract KeeperRegistry is
       lastKeeper: ZERO_ADDRESS,
       amountSpent: 0
     });
+    s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);
   }
@@ -844,13 +850,6 @@ contract KeeperRegistry is
   }
 
   /**
-   * @dev ensures a upkeep is valid
-   */
-  function _validateUpkeep(uint256 id) private view {
-    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
-  }
-
-  /**
    * @dev ensures all required checks are passed before an upkeep is performed
    */
   function _prePerformUpkeep(
@@ -905,7 +904,7 @@ contract KeeperRegistry is
    * @dev ensures a upkeep is valid
    */
   modifier validUpkeep(uint256 id) {
-    _validateUpkeep(id);
+    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
     _;
   }
 

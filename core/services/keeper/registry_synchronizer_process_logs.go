@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -74,7 +75,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 		return
 	}
 
-	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []int64{cancelledID.Int64()})
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(cancelledID)})
 	if err != nil {
 		rs.logger.With("error", err).Error("unable to batch delete upkeeps")
 		return
@@ -159,8 +160,8 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.With("error", err).Error("Unable to fetch upkeep ID from performed log")
 		return
 	}
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, utils.NewBig(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
 
-	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.UpkeepID.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return

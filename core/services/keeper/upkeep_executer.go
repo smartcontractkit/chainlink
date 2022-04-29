@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -232,6 +231,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 			"fromAddress":           upkeep.Registry.FromAddress.String(),
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID,
+			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
@@ -258,7 +258,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.
-			WithLabelValues(strconv.Itoa(int(upkeep.UpkeepID))).
+			WithLabelValues(upkeep.PrettyID()).
 			Set(float64(elapsed))
 	}
 }
@@ -267,7 +267,7 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 	var performTxData []byte
 	performTxData, err = Registry1_1ABI.Pack(
 		"performUpkeep", // performUpkeep is same across registry ABI versions
-		big.NewInt(upkeep.UpkeepID),
+		upkeep.UpkeepID.ToInt(),
 		common.Hex2Bytes("1234"), // placeholder
 	)
 	if err != nil {

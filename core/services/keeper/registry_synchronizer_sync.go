@@ -2,7 +2,7 @@ package keeper
 
 import (
 	"encoding/binary"
-	"math/big"
+	"math"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -53,23 +53,23 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 	existingSet := make(map[string]bool)
 	activeSet := make(map[string]bool)
 	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
-	newUpkeeps := make([]*big.Int, 0)
+	newUpkeeps := make([]*utils.Big, 0)
 	for _, upkeepID := range existingUpkeepIDs {
 		existingSet[upkeepID.ToInt().String()] = true
 	}
 	for _, upkeepID := range activeUpkeepIDs {
 		activeSet[upkeepID.String()] = true
 		if _, found := existingSet[upkeepID.String()]; !found {
-			newUpkeeps = append(newUpkeeps, upkeepID)
+			newUpkeeps = append(newUpkeeps, utils.NewBig(upkeepID))
 		}
 	}
 	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
 
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
-	canceled := make([]int64, 0)
+	canceled := make([]utils.Big, 0)
 	for _, upkeepID := range existingUpkeepIDs {
 		if _, found := activeSet[upkeepID.ToInt().String()]; !found {
-			canceled = append(canceled, upkeepID.ToInt().Int64())
+			canceled = append(canceled, upkeepID)
 		}
 	}
 	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
@@ -80,7 +80,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
 // for all the IDs within newUpkeeps slice
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []*big.Int) {
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []*utils.Big) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(newUpkeeps))
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
@@ -98,7 +98,7 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpke
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID *big.Int, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID *utils.Big, doneCallback func()) {
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
@@ -109,12 +109,12 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *big.Int) error {
-	upkeepConfig, err := rs.registryWrapper.GetUpkeep(nil, upkeepID)
+func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Big) error {
+	upkeepConfig, err := rs.registryWrapper.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
-	positioningConstant, err := CalcPositioningConstant(upkeepID.Int64(), registry.ContractAddress)
+	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	if err != nil {
 		return errors.Wrap(err, "failed to calc positioning constant")
 	}
@@ -123,7 +123,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *big.Int)
 		ExecuteGas:          uint64(upkeepConfig.ExecuteGas),
 		RegistryID:          registry.ID,
 		PositioningConstant: positioningConstant,
-		UpkeepID:            upkeepID.Int64(),
+		UpkeepID:            upkeepID,
 	}
 	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")
@@ -173,9 +173,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 
 // CalcPositioningConstant calculates a positioning constant.
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
-func CalcPositioningConstant(upkeepID int64, registryAddress ethkey.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID *utils.Big, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(upkeepBytes, upkeepID)
+	binary.PutVarint(upkeepBytes, upkeepID.Mod(math.MaxInt64).Int64())
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
 	checksum, err := utils.Keccak256(bytesToHash)
 	if err != nil {
