@@ -29,7 +29,7 @@ type MailRoom struct {
 
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
-	RegistryWrapper          *RegistryWrapper
+	RegistryWrapper          RegistryWrapper
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
@@ -43,7 +43,7 @@ type RegistrySynchronizerOptions struct {
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
 	newTurnEnabled           bool
-	registryWrapper          *RegistryWrapper
+	registryWrapper          RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM

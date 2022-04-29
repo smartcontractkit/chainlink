@@ -40,7 +40,7 @@ func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32, u
 			MinIncomingConfirmations: minIncomingConfirmations,
 		}, nil
 	default:
-		return nil, getUnsupportedVersionError("GetLogListenerOpts", rw.Version)
+		return nil, newUnsupportedVersionError("GetLogListenerOpts", rw.Version)
 	}
 }
 
@@ -59,7 +59,7 @@ func (rw *RegistryWrapper) GetCancelledUpkeepIDFromLog(broadcast log.Broadcast) 
 		}
 		return broadcastedLog.Id, nil
 	default:
-		return nil, getUnsupportedVersionError("GetCancelledUpkeepIDFromLog", rw.Version)
+		return nil, newUnsupportedVersionError("GetCancelledUpkeepIDFromLog", rw.Version)
 	}
 }
 
@@ -78,7 +78,7 @@ func (rw *RegistryWrapper) GetUpkeepIdFromRegistrationLog(broadcast log.Broadcas
 		}
 		return broadcastedLog.Id, nil
 	default:
-		return nil, getUnsupportedVersionError("GetUpkeepIdFromRegistrationLog", rw.Version)
+		return nil, newUnsupportedVersionError("GetUpkeepIdFromRegistrationLog", rw.Version)
 	}
 }
 
@@ -108,7 +108,7 @@ func (rw *RegistryWrapper) ParseUpkeepPerformedLog(broadcast log.Broadcast) (*Up
 			FromKeeper: broadcastedLog.From,
 		}, nil
 	default:
-		return nil, getUnsupportedVersionError("ParseUpkeepPerformedLog", rw.Version)
+		return nil, newUnsupportedVersionError("ParseUpkeepPerformedLog", rw.Version)
 	}
 }
 
@@ -122,6 +122,6 @@ func (rw *RegistryWrapper) GetIDFromGasLimitSetLog(broadcast log.Broadcast) (*bi
 		}
 		return broadcastedLog.Id, nil
 	default:
-		return nil, getUnsupportedVersionError("GetIDFromGasLimitSetLog", rw.Version)
+		return nil, newUnsupportedVersionError("GetIDFromGasLimitSetLog", rw.Version)
 	}
 }

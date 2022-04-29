@@ -192,6 +192,7 @@ func (rs *RegistrySynchronizer) handleUpkeepGasLimitSetLogs(done func()) {
 		rs.handleUpkeepGasLimitSet(broadcast, registry)
 	}
 }
+
 func (rs *RegistrySynchronizer) handleUpkeepGasLimitSet(broadcast log.Broadcast, registry Registry) {
 	txHash := broadcast.RawLog().TxHash.Hex()
 	rs.logger.Debugw("processing UpkeepGasLimitSet log", "jobID", rs.job.ID, "txHash", txHash)

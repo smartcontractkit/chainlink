@@ -64,7 +64,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
-		RegistryWrapper:          registryWrapper,
+		RegistryWrapper:          *registryWrapper,
 		ORM:                      orm,
 		JRM:                      jpv2.Jrm,
 		LogBroadcaster:           lbMock,

@@ -30,6 +30,6 @@ func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (
 		}
 		return parsedLog.Id, nil
 	default:
-		return nil, getUnsupportedVersionError("GetUpkeepIdFromRawRegistrationLog", rw.Version)
+		return nil, newUnsupportedVersionError("GetUpkeepIdFromRawRegistrationLog", rw.Version)
 	}
 }

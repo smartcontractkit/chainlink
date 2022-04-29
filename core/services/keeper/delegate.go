@@ -83,7 +83,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
-		RegistryWrapper:          registryWrapper,
+		RegistryWrapper:          *registryWrapper,
 		ORM:                      orm,
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),

@@ -83,7 +83,7 @@ func getRegistryVersion(contract1_1 *registry1_1.KeeperRegistry) (*RegistryVersi
 	}
 }
 
-func getUnsupportedVersionError(functionName string, version RegistryVersion) error {
+func newUnsupportedVersionError(functionName string, version RegistryVersion) error {
 	return errors.Errorf("Registry version %d does not support %s", version, functionName)
 }
 
@@ -114,7 +114,7 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		// TODO (sc-37024): Get active upkeep IDs from contract in batches
 		return rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(0), big.NewInt(0))
 	default:
-		return *new([]*big.Int), getUnsupportedVersionError("GetActiveUpkeepIDs", rw.Version)
+		return nil, newUnsupportedVersionError("GetActiveUpkeepIDs", rw.Version)
 	}
 }
 
@@ -147,7 +147,7 @@ func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 			LastKeeper: upkeep.LastKeeper,
 		}, nil
 	default:
-		return nil, getUnsupportedVersionError("GetUpkeep", rw.Version)
+		return nil, newUnsupportedVersionError("GetUpkeep", rw.Version)
 	}
 }
 
@@ -185,7 +185,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			KeeperAddresses:   state.Keepers,
 		}, nil
 	default:
-		return nil, getUnsupportedVersionError("GetConfig", rw.Version)
+		return nil, newUnsupportedVersionError("GetConfig", rw.Version)
 	}
 }
 
@@ -196,7 +196,7 @@ func (rw *RegistryWrapper) SetKeepers(opts *bind.TransactOpts, keepers []common.
 	case RegistryVersion_1_2:
 		return rw.contract1_2.SetKeepers(opts, keepers, payees)
 	default:
-		return nil, getUnsupportedVersionError("SetKeepers", rw.Version)
+		return nil, newUnsupportedVersionError("SetKeepers", rw.Version)
 	}
 }
 
@@ -207,7 +207,7 @@ func (rw *RegistryWrapper) RegisterUpkeep(opts *bind.TransactOpts, target common
 	case RegistryVersion_1_2:
 		return rw.contract1_2.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 	default:
-		return nil, getUnsupportedVersionError("RegisterUpkeep", rw.Version)
+		return nil, newUnsupportedVersionError("RegisterUpkeep", rw.Version)
 	}
 }
 
@@ -218,7 +218,7 @@ func (rw *RegistryWrapper) AddFunds(opts *bind.TransactOpts, id *big.Int, amount
 	case RegistryVersion_1_2:
 		return rw.contract1_2.AddFunds(opts, id, amount)
 	default:
-		return nil, getUnsupportedVersionError("AddFunds", rw.Version)
+		return nil, newUnsupportedVersionError("AddFunds", rw.Version)
 	}
 }
 
@@ -229,7 +229,7 @@ func (rw *RegistryWrapper) PerformUpkeep(opts *bind.TransactOpts, id *big.Int, p
 	case RegistryVersion_1_2:
 		return rw.contract1_2.PerformUpkeep(opts, id, performData)
 	default:
-		return nil, getUnsupportedVersionError("PerformUpkeep", rw.Version)
+		return nil, newUnsupportedVersionError("PerformUpkeep", rw.Version)
 	}
 }
 
@@ -240,6 +240,6 @@ func (rw *RegistryWrapper) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*
 	case RegistryVersion_1_2:
 		return rw.contract1_2.CancelUpkeep(opts, id)
 	default:
-		return nil, getUnsupportedVersionError("CancelUpkeep", rw.Version)
+		return nil, newUnsupportedVersionError("CancelUpkeep", rw.Version)
 	}
 }
