@@ -1,27 +1,21 @@
-/*
- * This test is for KeeperRegistryDev contract which is the
- * development version of KeeperRegistry. Until it's audited and finalised
- * this test will be used for development. There are 2 places marked in the test
- * which will need to be changed when these tests are ported back to the prod version
- */
-
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
-import { BigNumber, Signer, BigNumberish } from 'ethers'
+import { BigNumber, BigNumberish, Signer } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
-// These 2 dependencies are mocked from Dev
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistryDev__factory'
-import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegistryDev'
+import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
+import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
 
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
+import { UpkeepTranscoder } from '../../typechain'
 import { toWei } from '../test-helpers/helpers'
 
 async function getUpkeepID(tx: any) {
@@ -29,9 +23,13 @@ async function getUpkeepID(tx: any) {
   return receipt.events[0].args.id
 }
 
+function randomAddress() {
+  return ethers.Wallet.createRandom().address
+}
+
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
-const PERFORM_GAS_OVERHEAD = BigNumber.from(90000)
+const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
 const CHECK_GAS_OVERHEAD = BigNumber.from(170000)
 // -----------------------------------------------------------------------------------------------
 
@@ -42,7 +40,7 @@ let keeperRegistryFactory: KeeperRegistryFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-
+let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let personas: Personas
 
 before(async () => {
@@ -51,13 +49,13 @@ before(async () => {
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
   mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  // Lifts the Dev contract
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
+  upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
 describe('KeeperRegistry', () => {
@@ -70,14 +68,17 @@ describe('KeeperRegistry', () => {
   const flatFeeMicroLink = BigNumber.from(0)
   const blockCountPerTurn = BigNumber.from(3)
   const emptyBytes = '0x00'
+  const randomBytes = '0x1234abcd'
   const zeroAddress = ethers.constants.AddressZero
   const extraGas = BigNumber.from('250000')
   const registryGasOverhead = BigNumber.from('80000')
   const stalenessSeconds = BigNumber.from(43820)
   const gasCeilingMultiplier = BigNumber.from(1)
-  const maxCheckGas = BigNumber.from(20000000)
+  const checkGasLimit = BigNumber.from(20000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
+  const maxPerformGas = BigNumber.from(5000000)
+  const minUpkeepSpend = BigNumber.from(0)
 
   let owner: Signer
   let keeper1: Signer
@@ -93,7 +94,9 @@ describe('KeeperRegistry', () => {
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
+  let registry2: KeeperRegistry
   let mock: UpkeepMock
+  let transcoder: UpkeepTranscoder
 
   let id: BigNumber
   let keepers: string[]
@@ -128,22 +131,39 @@ describe('KeeperRegistry', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
+    transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
-        maxCheckGas,
+        checkGasLimit,
         stalenessSeconds,
         gasCeilingMultiplier,
+        minUpkeepSpend,
+        maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
-      )
-
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
+    registry2 = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+        blockCountPerTurn,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice,
+        fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
     mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
@@ -162,7 +182,7 @@ describe('KeeperRegistry', () => {
         mock.address,
         executeGas,
         await admin.getAddress(),
-        emptyBytes,
+        randomBytes,
       )
     id = await getUpkeepID(tx)
   })
@@ -205,7 +225,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress(), await keeper1.getAddress()],
             [await payee1.getAddress(), await payee1.getAddress()],
           ),
-        'cannot add keeper twice',
+        'DuplicateEntry()',
       )
     })
 
@@ -217,7 +237,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress(), await keeper2.getAddress()],
             [await payee1.getAddress()],
           ),
-        'address lists not the same length',
+        'ParameterLengthError()',
       )
       await evmRevert(
         registry
@@ -226,7 +246,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress()],
             [await payee1.getAddress(), await payee2.getAddress()],
           ),
-        'address lists not the same length',
+        'ParameterLengthError()',
       )
     })
 
@@ -241,7 +261,7 @@ describe('KeeperRegistry', () => {
               '0x0000000000000000000000000000000000000000',
             ],
           ),
-        'cannot set payee to the zero address',
+        'InvalidPayee()',
       )
     })
 
@@ -252,7 +272,7 @@ describe('KeeperRegistry', () => {
       ]
       const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
       await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
-      assert.deepEqual(oldKeepers, await registry.getKeeperList())
+      assert.deepEqual(oldKeepers, (await registry.getState()).keepers)
 
       // remove keepers
       const newKeepers = [
@@ -261,7 +281,7 @@ describe('KeeperRegistry', () => {
       ]
       const newPayees = [await payee2.getAddress(), await payee3.getAddress()]
       const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
-      assert.deepEqual(newKeepers, await registry.getKeeperList())
+      assert.deepEqual(newKeepers, (await registry.getState()).keepers)
 
       await expect(tx)
         .to.emit(registry, 'KeepersUpdated')
@@ -289,7 +309,7 @@ describe('KeeperRegistry', () => {
       ]
       const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
       await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
-      assert.deepEqual(oldKeepers, await registry.getKeeperList())
+      assert.deepEqual(oldKeepers, (await registry.getState()).keepers)
 
       const newKeepers = [
         await keeper2.getAddress(),
@@ -297,7 +317,7 @@ describe('KeeperRegistry', () => {
       ]
       const newPayees = [IGNORE_ADDRESS, await payee3.getAddress()]
       const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
-      assert.deepEqual(newKeepers, await registry.getKeeperList())
+      assert.deepEqual(newKeepers, (await registry.getState()).keepers)
 
       const ignored = await registry.getKeeperInfo(await keeper2.getAddress())
       assert.equal(await payee2.getAddress(), ignored.payee)
@@ -318,12 +338,31 @@ describe('KeeperRegistry', () => {
             await payee2.getAddress(),
             await owner.getAddress(),
           ]),
-        'cannot change payee',
+        'InvalidPayee()',
       )
     })
   })
 
   describe('#registerUpkeep', () => {
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+      it('reverts', async () => {
+        await evmRevert(
+          registry
+            .connect(owner)
+            .registerUpkeep(
+              zeroAddress,
+              executeGas,
+              await admin.getAddress(),
+              emptyBytes,
+            ),
+          'Pausable: paused',
+        )
+      })
+    })
+
     it('reverts if the target is not a contract', async () => {
       await evmRevert(
         registry
@@ -334,7 +373,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'target is not a contract',
+        'NotAContract()',
       )
     })
 
@@ -348,7 +387,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'Only callable by owner or registrar',
+        'OnlyCallableByOwnerOrRegistrar()',
       )
     })
 
@@ -362,7 +401,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'min gas is 2300',
+        'GasLimitOutsideRange()',
       )
     })
 
@@ -376,7 +415,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'max gas is 5000000',
+        'GasLimitOutsideRange()',
       )
     })
 
@@ -411,7 +450,7 @@ describe('KeeperRegistry', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).addFunds(id.add(1), amount),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
 
@@ -432,8 +471,64 @@ describe('KeeperRegistry', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
+    })
+  })
+
+  describe('#setUpkeepGasLimit', () => {
+    const newGasLimit = BigNumber.from('500000')
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
+        'UpkeepNotActive()',
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
+      await evmRevert(
+        registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
+        'UpkeepNotActive()',
+      )
+    })
+
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry.connect(owner).setUpkeepGasLimit(id, newGasLimit),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if new gas limit is out of bounds', async () => {
+      await evmRevert(
+        registry.connect(admin).setUpkeepGasLimit(id, BigNumber.from('100')),
+        'GasLimitOutsideRange()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepGasLimit(id, BigNumber.from('6000000')),
+        'GasLimitOutsideRange()',
+      )
+    })
+
+    it('updates the gas limit successfully', async () => {
+      const initialGasLimit = (await registry.getUpkeep(id)).executeGas
+      assert.equal(initialGasLimit, executeGas.toNumber())
+      await registry.connect(admin).setUpkeepGasLimit(id, newGasLimit)
+      const updatedGasLimit = (await registry.getUpkeep(id)).executeGas
+      assert.equal(updatedGasLimit, newGasLimit.toNumber())
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry
+        .connect(admin)
+        .setUpkeepGasLimit(id, newGasLimit)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepGasLimitSet')
+        .withArgs(id, newGasLimit)
     })
   })
 
@@ -445,7 +540,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
     })
 
@@ -460,7 +555,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await keeper1.getAddress()),
-          'only for simulated backend',
+          'OnlySimulatedBackend()',
         )
       })
 
@@ -469,7 +564,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await owner.getAddress()),
-          'only for simulated backend',
+          'OnlySimulatedBackend()',
         )
       })
 
@@ -483,7 +578,7 @@ describe('KeeperRegistry', () => {
             registry
               .connect(zeroAddress)
               .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'upkeep not needed',
+            'UpkeepNotNeeded()',
           )
         })
       })
@@ -511,7 +606,7 @@ describe('KeeperRegistry', () => {
             registry
               .connect(zeroAddress)
               .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'call to check target failed',
+            'TargetCheckReverted',
           )
         })
       })
@@ -522,41 +617,22 @@ describe('KeeperRegistry', () => {
           await mock.setCanPerform(true)
         })
 
-        context('and the registry is paused', () => {
-          beforeEach(async () => {
-            await registry.connect(owner).pause()
-          })
-
-          it('reverts', async () => {
-            await evmRevert(
-              registry
-                .connect(zeroAddress)
-                .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-              'Pausable: paused',
-            )
-
-            await registry.connect(owner).unpause()
-
-            await registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress())
-          })
-        })
-
         it('returns true with pricing info if the target can execute', async () => {
           const newGasMultiplier = BigNumber.from(10)
-          await registry
-            .connect(owner)
-            .setConfig(
-              paymentPremiumPPB,
-              flatFeeMicroLink,
-              blockCountPerTurn,
-              maxCheckGas,
-              stalenessSeconds,
-              newGasMultiplier,
-              fallbackGasPrice,
-              fallbackLinkPrice,
-            )
+          await registry.connect(owner).setConfig({
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            blockCountPerTurn,
+            checkGasLimit,
+            stalenessSeconds,
+            gasCeilingMultiplier: newGasMultiplier,
+            minUpkeepSpend,
+            maxPerformGas,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+            transcoder: transcoder.address,
+            registrar: ethers.constants.AddressZero,
+          })
           const response = await registry
             .connect(zeroAddress)
             .callStatic.checkUpkeep(id, await keeper1.getAddress())
@@ -573,9 +649,9 @@ describe('KeeperRegistry', () => {
         })
 
         it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
-          await mock.setCheckGasToBurn(maxCheckGas)
+          await mock.setCheckGasToBurn(checkGasLimit)
           await mock.setPerformGasToBurn(executeGas)
-          const gas = maxCheckGas
+          const gas = checkGasLimit
             .add(executeGas)
             .add(PERFORM_GAS_OVERHEAD)
             .add(CHECK_GAS_OVERHEAD)
@@ -591,6 +667,7 @@ describe('KeeperRegistry', () => {
 
   describe('#performUpkeep', () => {
     let _lastKeeper = keeper1
+
     async function getPerformPaymentAmount() {
       _lastKeeper = _lastKeeper === keeper1 ? keeper2 : keeper1
       const before = (
@@ -607,8 +684,21 @@ describe('KeeperRegistry', () => {
     it('reverts if the registration is not funded', async () => {
       await evmRevert(
         registry.connect(keeper2).performUpkeep(id, '0x'),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
+    })
+
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+
+      it('reverts', async () => {
+        await evmRevert(
+          registry.connect(keeper2).performUpkeep(id, '0x'),
+          'Pausable: paused',
+        )
+      })
     })
 
     context('when the registration is funded', () => {
@@ -668,7 +758,7 @@ describe('KeeperRegistry', () => {
 
         assert.equal(eventLog?.length, 2)
         assert.equal(eventLog?.[1].event, 'UpkeepPerformed')
-        assert.equal(eventLog?.[1].args?.[0].toNumber(), id.toNumber())
+        expect(eventLog?.[1].args?.[0]).to.equal(id)
         assert.equal(eventLog?.[1].args?.[1], true)
         assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress())
         assert.isNotEmpty(eventLog?.[1].args?.[3])
@@ -703,6 +793,27 @@ describe('KeeperRegistry', () => {
         assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
       })
 
+      it('updates amount spent correctly', async () => {
+        const registrationBefore = await registry.getUpkeep(id)
+        const balanceBefore = registrationBefore.balance
+        const amountSpentBefore = registrationBefore.amountSpent
+
+        // Do the thing
+        await registry.connect(keeper1).performUpkeep(id, '0x')
+
+        const registrationAfter = await registry.getUpkeep(id)
+        const balanceAfter = registrationAfter.balance
+        const amountSpentAfter = registrationAfter.amountSpent
+
+        assert.isTrue(balanceAfter.lt(balanceBefore))
+        assert.isTrue(amountSpentAfter.gt(amountSpentBefore))
+        assert.isTrue(
+          amountSpentAfter
+            .sub(amountSpentBefore)
+            .eq(balanceBefore.sub(balanceAfter)),
+        )
+      })
+
       it('only pays for gas used [ @skip-coverage ]', async () => {
         const before = (
           await registry.getKeeperInfo(await keeper1.getAddress())
@@ -724,18 +835,20 @@ describe('KeeperRegistry', () => {
       it('only pays at a rate up to the gas ceiling [ @skip-coverage ]', async () => {
         const multiplier = BigNumber.from(10)
         const gasPrice = BigNumber.from('1000000000') // 10M x the gas feed's rate
-        await registry
-          .connect(owner)
-          .setConfig(
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            maxCheckGas,
-            stalenessSeconds,
-            multiplier,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-          )
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier: multiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        })
 
         const before = (
           await registry.getKeeperInfo(await keeper1.getAddress())
@@ -760,18 +873,20 @@ describe('KeeperRegistry', () => {
         const multiplier = BigNumber.from(10)
         const gasPrice = BigNumber.from(200) // 2X the gas feed's rate
         const effectiveMultiplier = BigNumber.from(2)
-        await registry
-          .connect(owner)
-          .setConfig(
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            maxCheckGas,
-            stalenessSeconds,
-            multiplier,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-          )
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier: multiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        })
 
         const before = (
           await registry.getKeeperInfo(await keeper1.getAddress())
@@ -820,7 +935,7 @@ describe('KeeperRegistry', () => {
       it('reverts if called by a non-keeper', async () => {
         await evmRevert(
           registry.connect(nonkeeper).performUpkeep(id, '0x'),
-          'only active keepers',
+          'OnlyActiveKeepers()',
         )
       })
 
@@ -831,7 +946,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'invalid upkeep id',
+          'UpkeepNotActive()',
         )
       })
 
@@ -878,7 +993,7 @@ describe('KeeperRegistry', () => {
         assert.isTrue(normalAmount.lt(amountWithStaleFeed))
       })
 
-      it('uses the fallback link price if the feed price is non-sensical', async () => {
+      it('uses the fallback link price if the feed price is non-sensical [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
         const roundId = 99
         const updatedAt = Math.floor(Date.now() / 1000)
@@ -899,12 +1014,12 @@ describe('KeeperRegistry', () => {
         await registry.connect(keeper1).performUpkeep(id, '0x')
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'keepers must take turns',
+          'KeepersMustTakeTurns()',
         )
         await registry.connect(keeper2).performUpkeep(id, '0x')
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'keepers must take turns',
+          'KeepersMustTakeTurns()',
         )
         await registry.connect(keeper1).performUpkeep(id, '0x')
       })
@@ -922,7 +1037,7 @@ describe('KeeperRegistry', () => {
 
         assert.equal(eventLog?.length, 2)
         assert.equal(eventLog?.[1].event, 'UpkeepPerformed')
-        assert.equal(eventLog?.[1].args?.[0].toNumber(), id.toNumber())
+        expect(eventLog?.[1].args?.[0]).to.equal(id)
         assert.equal(eventLog?.[1].args?.[1], true)
         assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress())
         assert.isNotEmpty(eventLog?.[1].args?.[3])
@@ -1014,29 +1129,30 @@ describe('KeeperRegistry', () => {
   describe('#withdrawFunds', () => {
     beforeEach(async () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await registry.connect(keeper1).addFunds(id, toWei('1'))
+      await registry.connect(keeper1).addFunds(id, toWei('100'))
+      await registry.connect(keeper1).performUpkeep(id, '0x')
     })
 
     it('reverts if called by anyone but the admin', async () => {
       await evmRevert(
         registry
           .connect(owner)
-          .withdrawFunds(id.add(1).toNumber(), await payee1.getAddress()),
-        'only callable by admin',
+          .withdrawFunds(id.add(1), await payee1.getAddress()),
+        'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if called on an uncanceled upkeep', async () => {
       await evmRevert(
         registry.connect(admin).withdrawFunds(id, await payee1.getAddress()),
-        'upkeep must be canceled',
+        'UpkeepNotCanceled()',
       )
     })
 
     it('reverts if called with the 0 address', async () => {
       await evmRevert(
         registry.connect(admin).withdrawFunds(id, zeroAddress),
-        'cannot send to zero address',
+        'InvalidRecipient()',
       )
     })
 
@@ -1052,7 +1168,7 @@ describe('KeeperRegistry', () => {
         const registryBefore = await linkToken.balanceOf(registry.address)
 
         let registration = await registry.getUpkeep(id)
-        assert.isTrue(toWei('1').eq(registration.balance))
+        let previousBalance = registration.balance
 
         await registry
           .connect(admin)
@@ -1061,27 +1177,197 @@ describe('KeeperRegistry', () => {
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
         const registryAfter = await linkToken.balanceOf(registry.address)
 
-        assert.isTrue(payee1Before.add(toWei('1')).eq(payee1After))
-        assert.isTrue(registryBefore.sub(toWei('1')).eq(registryAfter))
+        assert.isTrue(payee1Before.add(previousBalance).eq(payee1After))
+        assert.isTrue(registryBefore.sub(previousBalance).eq(registryAfter))
 
         registration = await registry.getUpkeep(id)
         assert.equal(0, registration.balance.toNumber())
       })
+
+      it('deducts cancellation fees from upkeep and gives to owner', async () => {
+        let minUpkeepSpend = toWei('10')
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        })
+
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        let upkeepBefore = (await registry.getUpkeep(id)).balance
+        let ownerBefore = (await registry.getState()).state.ownerLinkBalance
+        assert.equal(0, ownerBefore.toNumber())
+
+        let amountSpent = toWei('100').sub(upkeepBefore)
+        let cancellationFee = minUpkeepSpend.sub(amountSpent)
+
+        await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        let upkeepAfter = (await registry.getUpkeep(id)).balance
+        let ownerAfter = (await registry.getState()).state.ownerLinkBalance
+
+        // Post upkeep balance should be 0
+        assert.equal(0, upkeepAfter.toNumber())
+        // balance - cancellationFee should be transferred to payee
+        assert.isTrue(
+          payee1Before.add(upkeepBefore.sub(cancellationFee)).eq(payee1After),
+        )
+        assert.isTrue(ownerAfter.eq(cancellationFee))
+      })
+
+      it('deducts max upto balance as cancellation fees', async () => {
+        // Very high min spend, should deduct whole balance as cancellation fees
+        let minUpkeepSpend = toWei('1000')
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        })
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        let upkeepBefore = (await registry.getUpkeep(id)).balance
+        let ownerBefore = (await registry.getState()).state.ownerLinkBalance
+        assert.equal(0, ownerBefore.toNumber())
+
+        await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        let ownerAfter = (await registry.getState()).state.ownerLinkBalance
+        let upkeepAfter = (await registry.getUpkeep(id)).balance
+
+        assert.equal(0, upkeepAfter.toNumber())
+        // No funds should be transferred, all of upkeepBefore should be given to owner
+        assert.isTrue(payee1After.eq(payee1Before))
+        assert.isTrue(ownerAfter.eq(upkeepBefore))
+      })
+
+      it('does not deduct cancellation fees if enough is spent', async () => {
+        // Very low min spend, already spent in one upkeep
+        let minUpkeepSpend = BigNumber.from(420)
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        })
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        let upkeepBefore = (await registry.getUpkeep(id)).balance
+        let ownerBefore = (await registry.getState()).state.ownerLinkBalance
+        assert.equal(0, ownerBefore.toNumber())
+
+        await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        let ownerAfter = (await registry.getState()).state.ownerLinkBalance
+        let upkeepAfter = (await registry.getUpkeep(id)).balance
+
+        assert.equal(0, upkeepAfter.toNumber())
+        // No cancellation fees for owner
+        assert.equal(0, ownerAfter.toNumber())
+        // Whole balance transferred to payee
+        assert.isTrue(payee1Before.add(upkeepBefore).eq(payee1After))
+      })
+    })
+  })
+
+  describe('#withdrawOwnerFunds', () => {
+    it('can only be called by owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).withdrawOwnerFunds(),
+        'Only callable by owner',
+      )
+    })
+
+    it('withdraws the collected fees to owner', async () => {
+      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
+      await registry.connect(keeper1).addFunds(id, toWei('100'))
+      // Very high min spend, whole balance as cancellation fees
+      let minUpkeepSpend = toWei('1000')
+      await registry.connect(owner).setConfig({
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+        blockCountPerTurn,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice,
+        fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
+      let upkeepBalance = (await registry.getUpkeep(id)).balance
+      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
+
+      await registry.connect(owner).cancelUpkeep(id)
+      await registry.connect(admin).withdrawFunds(id, await payee1.getAddress())
+      // Transfered to owner balance on registry
+      let ownerRegistryBalance = (await registry.getState()).state
+        .ownerLinkBalance
+      assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
+
+      // Now withdraw
+      await registry.connect(owner).withdrawOwnerFunds()
+
+      ownerRegistryBalance = (await registry.getState()).state.ownerLinkBalance
+      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
+
+      // Owner registry balance should be changed to 0
+      assert.isTrue(ownerRegistryBalance.eq(BigNumber.from('0')))
+
+      // Owner should be credited with the balance
+      assert.isTrue(ownerBefore.add(upkeepBalance).eq(ownerAfter))
     })
   })
 
   describe('#cancelUpkeep', () => {
     it('reverts if the ID is not valid', async () => {
       await evmRevert(
-        registry.connect(owner).cancelUpkeep(id.add(1).toNumber()),
-        'too late to cancel upkeep',
+        registry.connect(owner).cancelUpkeep(id.add(1)),
+        'CannotCancel()',
       )
     })
 
     it('reverts if called by a non-owner/non-admin', async () => {
       await evmRevert(
         registry.connect(keeper1).cancelUpkeep(id),
-        'only owner or admin',
+        'OnlyCallableByOwnerOrAdmin()',
       )
     })
 
@@ -1104,22 +1390,12 @@ describe('KeeperRegistry', () => {
           .withArgs(id, BigNumber.from(receipt.blockNumber))
       })
 
-      it('updates the canceled registrations list', async () => {
-        let canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([], canceled)
-
-        await registry.connect(owner).cancelUpkeep(id)
-
-        canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([id], canceled)
-      })
-
       it('immediately prevents upkeep', async () => {
         await registry.connect(owner).cancelUpkeep(id)
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'invalid upkeep id',
+          'UpkeepNotActive()',
         )
       })
 
@@ -1127,7 +1403,7 @@ describe('KeeperRegistry', () => {
         await registry.connect(owner).cancelUpkeep(id)
         await evmRevert(
           registry.connect(owner).cancelUpkeep(id),
-          'too late to cancel upkeep',
+          'CannotCancel()',
         )
       })
 
@@ -1171,15 +1447,15 @@ describe('KeeperRegistry', () => {
           .withArgs(id, BigNumber.from(receipt.blockNumber + delay))
       })
 
-      it('updates the canceled registrations list', async () => {
-        let canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([], canceled)
+      // it('updates the canceled registrations list', async () => {
+      //   let canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([], canceled)
 
-        await registry.connect(admin).cancelUpkeep(id)
+      //   await registry.connect(admin).cancelUpkeep(id)
 
-        canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([id], canceled)
-      })
+      //   canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([id], canceled)
+      // })
 
       it('immediately prevents upkeep', async () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
@@ -1193,7 +1469,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'invalid upkeep id',
+          'UpkeepNotActive()',
         )
       })
 
@@ -1202,18 +1478,18 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(admin).cancelUpkeep(id),
-          'too late to cancel upkeep',
+          'CannotCancel()',
         )
       })
 
-      it('does not revert or double add the cancellation record if called by the owner immediately after', async () => {
-        await registry.connect(admin).cancelUpkeep(id)
+      // it('does not revert or double add the cancellation record if called by the owner immediately after', async () => {
+      //   await registry.connect(admin).cancelUpkeep(id)
 
-        await registry.connect(owner).cancelUpkeep(id)
+      //   await registry.connect(owner).cancelUpkeep(id)
 
-        const canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([id], canceled)
-      })
+      //   const canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([id], canceled)
+      // })
 
       it('reverts if called by the owner after the timeout', async () => {
         await registry.connect(admin).cancelUpkeep(id)
@@ -1224,7 +1500,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(owner).cancelUpkeep(id),
-          'too late to cancel upkeep',
+          'CannotCancel()',
         )
       })
     })
@@ -1245,7 +1521,7 @@ describe('KeeperRegistry', () => {
             await keeper1.getAddress(),
             await nonkeeper.getAddress(),
           ),
-        'only callable by payee',
+        'OnlyCallableByPayee()',
       )
     })
 
@@ -1254,7 +1530,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(payee2)
           .withdrawPayment(await keeper1.getAddress(), zeroAddress),
-        'cannot send to zero address',
+        'InvalidRecipient()',
       )
     })
 
@@ -1314,7 +1590,7 @@ describe('KeeperRegistry', () => {
             await keeper1.getAddress(),
             await payee2.getAddress(),
           ),
-        'only callable by payee',
+        'OnlyCallableByPayee()',
       )
     })
 
@@ -1326,7 +1602,7 @@ describe('KeeperRegistry', () => {
             await keeper1.getAddress(),
             await payee1.getAddress(),
           ),
-        'cannot transfer to self',
+        'ValueNotChanged()',
       )
     })
 
@@ -1390,7 +1666,7 @@ describe('KeeperRegistry', () => {
     it('reverts when called by anyone but the proposed payee', async () => {
       await evmRevert(
         registry.connect(payee1).acceptPayeeship(await keeper1.getAddress()),
-        'only callable by proposed payee',
+        'OnlyCallableByProposedPayee()',
       )
     })
 
@@ -1427,48 +1703,50 @@ describe('KeeperRegistry', () => {
 
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
-        registry
-          .connect(payee1)
-          .setConfig(
-            payment,
-            flatFee,
-            checks,
-            maxGas,
-            staleness,
-            gasCeilingMultiplier,
-            fbGasEth,
-            fbLinkEth,
-          ),
+        registry.connect(payee1).setConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          blockCountPerTurn: checks,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        }),
         'Only callable by owner',
       )
     })
 
     it('updates the config', async () => {
-      const old = await registry.getConfig()
-      const oldFlatFee = await registry.getFlatFee()
+      const old = (await registry.getState()).config
       assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB))
-      assert.isTrue(flatFeeMicroLink.eq(oldFlatFee))
+      assert.isTrue(flatFeeMicroLink.eq(old.flatFeeMicroLink))
       assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
       assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier))
 
-      await registry
-        .connect(owner)
-        .setConfig(
-          payment,
-          flatFee,
-          checks,
-          maxGas,
-          staleness,
-          ceiling,
-          fbGasEth,
-          fbLinkEth,
-        )
+      await registry.connect(owner).setConfig({
+        paymentPremiumPPB: payment,
+        flatFeeMicroLink: flatFee,
+        blockCountPerTurn: checks,
+        checkGasLimit: maxGas,
+        stalenessSeconds: staleness,
+        gasCeilingMultiplier: ceiling,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice: fbGasEth,
+        fallbackLinkPrice: fbLinkEth,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
 
-      const updated = await registry.getConfig()
-      const newFlatFee = await registry.getFlatFee()
+      const updated = (await registry.getState()).config
       assert.equal(updated.paymentPremiumPPB, payment.toNumber())
-      assert.equal(newFlatFee, flatFee.toNumber())
+      assert.equal(updated.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updated.blockCountPerTurn, checks.toNumber())
       assert.equal(updated.stalenessSeconds, staleness.toNumber())
       assert.equal(updated.gasCeilingMultiplier, ceiling.toNumber())
@@ -1478,29 +1756,34 @@ describe('KeeperRegistry', () => {
     })
 
     it('emits an event', async () => {
-      const tx = await registry
-        .connect(owner)
-        .setConfig(
+      const tx = await registry.connect(owner).setConfig({
+        paymentPremiumPPB: payment,
+        flatFeeMicroLink: flatFee,
+        blockCountPerTurn: checks,
+        checkGasLimit: maxGas,
+        stalenessSeconds: staleness,
+        gasCeilingMultiplier: ceiling,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice: fbGasEth,
+        fallbackLinkPrice: fbLinkEth,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
+      await expect(tx)
+        .to.emit(registry, 'ConfigSet')
+        .withArgs([
           payment,
           flatFee,
           checks,
           maxGas,
           staleness,
           ceiling,
+          minUpkeepSpend,
+          maxPerformGas,
           fbGasEth,
           fbLinkEth,
-        )
-      await expect(tx)
-        .to.emit(registry, 'ConfigSet')
-        .withArgs(
-          payment,
-          checks,
-          maxGas,
-          staleness,
-          ceiling,
-          fbGasEth,
-          fbLinkEth,
-        )
+        ])
     })
   })
 
@@ -1508,16 +1791,13 @@ describe('KeeperRegistry', () => {
     const amount = toWei('1')
 
     it('reverts if not called by the LINK token', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['uint256'],
-        [id.toNumber().toString()],
-      )
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
 
       await evmRevert(
         registry
           .connect(keeper1)
           .onTokenTransfer(await keeper1.getAddress(), amount, data),
-        'only callable through LINK',
+        'OnlyCallableByLINKToken()',
       )
     })
 
@@ -1544,15 +1824,12 @@ describe('KeeperRegistry', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
 
     it('updates the funds of the job id passed', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['uint256'],
-        [id.toNumber().toString()],
-      )
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
 
       const before = (await registry.getUpkeep(id)).balance
       await linkToken
@@ -1616,10 +1893,7 @@ describe('KeeperRegistry', () => {
         )
 
       // transfer funds using onTokenTransfer
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['uint256'],
-        [id2.toNumber().toString()],
-      )
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id2])
       await linkToken
         .connect(owner)
         .transferAndCall(registry.address, toWei('1'), data)
@@ -1704,23 +1978,119 @@ describe('KeeperRegistry', () => {
           const premium = premiums[jdx]
           for (let kdx = 0; kdx < flatFees.length; kdx++) {
             const flatFee = flatFees[kdx]
-            await registry
-              .connect(owner)
-              .setConfig(
-                premium,
-                flatFee,
-                blockCountPerTurn,
-                maxCheckGas,
-                stalenessSeconds,
-                gasCeilingMultiplier,
-                fallbackGasPrice,
-                fallbackLinkPrice,
-              )
+            await registry.connect(owner).setConfig({
+              paymentPremiumPPB: premium,
+              flatFeeMicroLink: flatFee,
+              blockCountPerTurn,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier,
+              minUpkeepSpend,
+              maxPerformGas,
+              fallbackGasPrice,
+              fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
+            })
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
           }
         }
       }
+    })
+  })
+
+  describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
+    const peer = randomAddress()
+    it('allows the owner to set the peer registries', async () => {
+      let permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+      await registry.setPeerRegistryMigrationPermission(peer, 1)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(1)
+      await registry.setPeerRegistryMigrationPermission(peer, 2)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(2)
+      await registry.setPeerRegistryMigrationPermission(peer, 0)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+    })
+    it('reverts if passed an unsupported permission', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 10),
+      ).to.be.reverted
+    })
+    it('reverts if not called by the owner', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 1),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+  })
+
+  describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
+    context('when permissions are set', () => {
+      beforeEach(async () => {
+        await linkToken.connect(owner).approve(registry.address, toWei('100'))
+        await registry.connect(owner).addFunds(id, toWei('100'))
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
+      })
+
+      it('migrates an upkeep', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        // migrate
+        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
+        expect((await registry.getUpkeep(id)).balance).to.equal(0)
+        expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
+        expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+      })
+      it('emits an event on both contracts', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        const tx = registry
+          .connect(admin)
+          .migrateUpkeeps([id], registry2.address)
+        await expect(tx)
+          .to.emit(registry, 'UpkeepMigrated')
+          .withArgs(id, toWei('100'), registry2.address)
+        await expect(tx)
+          .to.emit(registry2, 'UpkeepReceived')
+          .withArgs(id, toWei('100'), registry.address)
+      })
+    })
+
+    context('when permissions are not set', () => {
+      it('reverts', async () => {
+        // no permissions
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+        // only outgoing permissions
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+        // only incoming permissions
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+        // permissions opposite direction
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 2)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 1)
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+      })
     })
   })
 
@@ -1731,18 +2101,20 @@ describe('KeeperRegistry', () => {
     const callGasPrice = 1
 
     it('uses the same minimum balance calculation [ @skip-coverage ]', async () => {
-      await registry
-        .connect(owner)
-        .setConfig(
-          paymentPremiumPPB,
-          flatFee,
-          blockCountPerTurn,
-          maxCheckGas,
-          stalenessSeconds,
-          multiplier,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-        )
+      await registry.connect(owner).setConfig({
+        paymentPremiumPPB,
+        flatFeeMicroLink: flatFee,
+        blockCountPerTurn,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier: multiplier,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice,
+        fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 
       const tx1 = await registry
@@ -1790,7 +2162,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(keeper1)
           .performUpkeep(upkeepID1, performData, { gasLimit: extraGas }),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
       await registry
         .connect(keeper1)
@@ -1811,7 +2183,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
       await registry.connect(keeper1).addFunds(id, oneWei)
       await registry

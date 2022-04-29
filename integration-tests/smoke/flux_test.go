@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/integrations-framework/blockchain"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 )
@@ -26,8 +27,8 @@ import (
 var _ = Describe("Flux monitor suite @flux", func() {
 	var (
 		err              error
-		nets             *client.Networks
-		defaultNetwork   client.BlockchainClient
+		nets             *blockchain.Networks
+		defaultNetwork   blockchain.EVMClient
 		cd               contracts.ContractDeployer
 		lt               contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
@@ -55,7 +56,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := client.NewDefaultNetworkRegistry()
+			networkRegistry := blockchain.NewDefaultNetworkRegistry()
 			nets, err = networkRegistry.GetNetworks(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			defaultNetwork = nets.Default
