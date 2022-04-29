@@ -380,7 +380,7 @@ func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
 
 	require.NoError(t, orm.UpdateUpkeepLastKeeperIndex(j.ID, upkeep.UpkeepID, registry.FromAddress))
 
-	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE id = $1`, upkeep.ID)
+	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, upkeep.UpkeepID)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), upkeep.LastKeeperIndex.Int64)
 }
