@@ -22,7 +22,6 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
  *  - The internal AccessController controls the access of the validate method
  */
 contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-
   address private immutable s_L2TokenBridgeAddr;
   address private immutable s_L2ETHTokenAddr;
 
@@ -50,8 +49,8 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   event L2WithdrawalRequested(uint256 amount, address indexed refundAddr);
 
   /**
-  * @notice emitted when gas cost to spend on L2 is updated
-  * @param gasLimit updated gas cost
+   * @notice emitted when gas cost to spend on L2 is updated
+   * @param gasLimit updated gas cost
    */
   event GasLimitUpdated(uint32 gasLimit);
 
@@ -103,8 +102,8 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-  * @notice sets the new gas cost to spend when sending cross chain message
-  * @param gasLimit the updated gas cost
+   * @notice sets the new gas cost to spend when sending cross chain message
+   * @param gasLimit the updated gas cost
    */
   function setGasLimit(uint32 gasLimit) external onlyOwner {
     s_gasLimit = gasLimit;
@@ -112,9 +111,9 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-  * @notice fetches the gas cost of sending a cross chain message
+   * @notice fetches the gas cost of sending a cross chain message
    */
-  function getGasLimit() external view  returns (uint32) {
+  function getGasLimit() external view returns (uint32) {
     return s_gasLimit;
   }
 
@@ -155,13 +154,15 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    */
   function withdrawFundsFromL2(uint256 amount, address refundAddr) external onlyOwner {
     // Third parameter is _l1Gas and is unused in the function.  It is only included there for forward compatibility
-    // Fourth parameter is optional bytes 
-    bytes memory message = abi.encodeWithSelector(IL2ERC20Bridge.withdraw.selector, s_L2ETHTokenAddr, address(this), 0, "");
-    IL1CrossDomainMessenger(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).sendMessage(
-      s_L2TokenBridgeAddr,
-      message,
-      s_gasLimit
+    // Fourth parameter is optional bytes
+    bytes memory message = abi.encodeWithSelector(
+      IL2ERC20Bridge.withdraw.selector,
+      s_L2ETHTokenAddr,
+      address(this),
+      0,
+      ""
     );
+    IL1CrossDomainMessenger(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).sendMessage(s_L2TokenBridgeAddr, message, s_gasLimit);
     emit L2WithdrawalRequested(amount, refundAddr);
   }
 

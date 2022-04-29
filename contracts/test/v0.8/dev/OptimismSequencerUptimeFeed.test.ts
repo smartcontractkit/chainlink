@@ -22,12 +22,12 @@ describe('OptimismSequencerUptimeFeed', () => {
     dummy = accounts[2]
 
     const l2CrossDomainMessengerFactory = await ethers.getContractFactory(
-        "src/v0.8/tests/MockOptimismL2CrossDomainMessenger.sol:MockOptimismL2CrossDomainMessenger",
-        deployer
+      'src/v0.8/tests/MockOptimismL2CrossDomainMessenger.sol:MockOptimismL2CrossDomainMessenger',
+      deployer,
     )
 
-   l2CrossDomainMessenger = await l2CrossDomainMessengerFactory.deploy()
-    
+    l2CrossDomainMessenger = await l2CrossDomainMessengerFactory.deploy()
+
     // Pretend we're on L2
     await network.provider.request({
       method: 'hardhat_impersonateAccount',
@@ -63,12 +63,11 @@ describe('OptimismSequencerUptimeFeed', () => {
         'src/v0.8/dev/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
         deployer,
       )
-    optimismUptimeFeed =
-      await optimismSequencerStatusRecorderFactory.deploy(
-        flags.address,
-        l1Owner.address,
-        l2CrossDomainMessenger.address
-      )
+    optimismUptimeFeed = await optimismSequencerStatusRecorderFactory.deploy(
+      flags.address,
+      l1Owner.address,
+      l2CrossDomainMessenger.address,
+    )
     // Required for OptimismSequencerUptimeFeed to raise/lower flags
     await accessController.addAccess(optimismUptimeFeed.address)
     // Required for OptimismSequencerUptimeFeed to read flags
@@ -79,9 +78,7 @@ describe('OptimismSequencerUptimeFeed', () => {
     // Deployer requires access to invoke initialize
     await accessController.addAccess(deployer.address)
     // Once OptimismSequencerUptimeFeed has access, we can initialise the 0th aggregator round
-    const initTx = await optimismUptimeFeed
-      .connect(deployer)
-      .initialize()
+    const initTx = await optimismUptimeFeed.connect(deployer).initialize()
     await expect(initTx).to.emit(optimismUptimeFeed, 'Initialized')
 
     // Mock consumer
@@ -96,8 +93,7 @@ describe('OptimismSequencerUptimeFeed', () => {
 
   describe('constants', () => {
     it('should have the correct value for FLAG_L2_SEQ_OFFLINE', async () => {
-      const flag: string =
-        await optimismUptimeFeed.FLAG_L2_SEQ_OFFLINE()
+      const flag: string = await optimismUptimeFeed.FLAG_L2_SEQ_OFFLINE()
       expect(flag.toLowerCase()).to.equal(
         '0x6101bcde09d322cf8ae794576755b23289be35b5',
       )
@@ -105,16 +101,20 @@ describe('OptimismSequencerUptimeFeed', () => {
   })
 
   describe('#updateStatus', () => {
-      it ('should revert if called by an address that is not the L2 Cross Domain Messenger', async () => {
-        let timestamp = await optimismUptimeFeed.latestTimestamp()
-        expect(optimismUptimeFeed.connect(dummy).updateStatus(true, timestamp)).to.be.revertedWith("InvalidSender")
-      })
+    it('should revert if called by an address that is not the L2 Cross Domain Messenger', async () => {
+      let timestamp = await optimismUptimeFeed.latestTimestamp()
+      expect(
+        optimismUptimeFeed.connect(dummy).updateStatus(true, timestamp),
+      ).to.be.revertedWith('InvalidSender')
+    })
 
-      it ('should revert if called by an address that is not the L2 Cross Domain Messenger and is not the L1 sender', async () => {
-        let timestamp = await optimismUptimeFeed.latestTimestamp()
-        await l2CrossDomainMessenger.setSender(dummy.address)
-        expect(optimismUptimeFeed.connect(dummy).updateStatus(true, timestamp)).to.be.revertedWith("InvalidSender")
-      })
+    it('should revert if called by an address that is not the L2 Cross Domain Messenger and is not the L1 sender', async () => {
+      let timestamp = await optimismUptimeFeed.latestTimestamp()
+      await l2CrossDomainMessenger.setSender(dummy.address)
+      expect(
+        optimismUptimeFeed.connect(dummy).updateStatus(true, timestamp),
+      ).to.be.revertedWith('InvalidSender')
+    })
 
     it(`should update status when status has changed and incoming timestamp is newer than the latest`, async () => {
       let timestamp = await optimismUptimeFeed.latestTimestamp()
@@ -133,9 +133,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       await expect(tx).not.to.emit(optimismUptimeFeed, 'AnswerUpdated')
       await expect(tx).to.emit(optimismUptimeFeed, 'UpdateIgnored')
       expect(await optimismUptimeFeed.latestAnswer()).to.equal('1')
-      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(
-        timestamp,
-      )
+      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
 
       // Submit another status update, different status, newer timestamp should update
       timestamp = timestamp.add(2000)
@@ -146,9 +144,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         .to.emit(optimismUptimeFeed, 'AnswerUpdated')
         .withArgs(0, 3 /** roundId */, timestamp)
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(0)
-      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(
-        timestamp,
-      )
+      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
     })
 
     it(`should update status when status has changed and incoming timestamp is the same as latest`, async () => {
@@ -168,9 +164,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       await expect(tx).not.to.emit(optimismUptimeFeed, 'AnswerUpdated')
       await expect(tx).to.emit(optimismUptimeFeed, 'UpdateIgnored')
       expect(await optimismUptimeFeed.latestAnswer()).to.equal('1')
-      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(
-        timestamp,
-      )
+      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
 
       // Submit another status update, different status, same timestamp should update
       tx = await optimismUptimeFeed
@@ -180,15 +174,11 @@ describe('OptimismSequencerUptimeFeed', () => {
         .to.emit(optimismUptimeFeed, 'AnswerUpdated')
         .withArgs(0, 3 /** roundId */, timestamp)
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(0)
-      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(
-        timestamp,
-      )
+      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
     })
 
     it('should ignore out-of-order updates', async () => {
-      const timestamp = (
-        await optimismUptimeFeed.latestTimestamp()
-      ).add(10_000)
+      const timestamp = (await optimismUptimeFeed.latestTimestamp()).add(10_000)
       // Update status
       let tx = await optimismUptimeFeed
         .connect(l2Messenger)
@@ -262,10 +252,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Sanity - consumer is not whitelisted
       expect(await optimismUptimeFeed.checkEnabled()).to.be.true
       expect(
-        await optimismUptimeFeed.hasAccess(
-          uptimeFeedConsumer.address,
-          '0x00',
-        ),
+        await optimismUptimeFeed.hasAccess(uptimeFeedConsumer.address, '0x00'),
       ).to.be.false
 
       // Assert reads are not possible from consuming contract
@@ -283,10 +270,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Sanity - consumer is whitelisted
       expect(await optimismUptimeFeed.checkEnabled()).to.be.true
       expect(
-        await optimismUptimeFeed.hasAccess(
-          uptimeFeedConsumer.address,
-          '0x00',
-        ),
+        await optimismUptimeFeed.hasAccess(uptimeFeedConsumer.address, '0x00'),
       ).to.be.true
 
       // Assert reads are possible from consuming contract
@@ -332,9 +316,7 @@ describe('OptimismSequencerUptimeFeed', () => {
 
     describe('Aggregator interface', () => {
       beforeEach(async () => {
-        const timestamp = (
-          await optimismUptimeFeed.latestTimestamp()
-        ).add(1000)
+        const timestamp = (await optimismUptimeFeed.latestTimestamp()).add(1000)
         // Initialise a round
         await optimismUptimeFeed
           .connect(l2Messenger)
