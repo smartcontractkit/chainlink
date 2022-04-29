@@ -1,6 +1,8 @@
 package vrf
 
 import (
+	"sync"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -27,6 +29,9 @@ type logDeduper struct {
 
 	// lastPruneHeight is the blockheight at which logs were last pruned.
 	lastPruneHeight uint64
+
+	// mu synchronizes access to the delivered map.
+	mu sync.Mutex
 }
 
 // logKey represents uniquely identifying information for a single log broadcast.
@@ -43,7 +48,10 @@ type logKey struct {
 }
 
 func (l *logDeduper) shouldDeliver(log types.Log) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock() // unlock in the last defer, so that we hold the lock when pruning.
 	defer l.prune(log.BlockNumber)
+
 	key := logKey{
 		blockHash:   log.BlockHash,
 		blockNumber: log.BlockNumber,
@@ -71,4 +79,12 @@ func (l *logDeduper) prune(logBlock uint64) {
 	}
 
 	l.lastPruneHeight = logBlock
+}
+
+// clear clears the log deduper's internal cache.
+func (l *logDeduper) clear() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.delivered = make(map[logKey]struct{})
 }
