@@ -226,7 +226,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
 			// submit from other keeper (because keepers must alternate)
-			_, err = registryWrapper.PerformUpkeep(nelly, big.NewInt(0), []byte{})
+			_, err = registryWrapper.PerformUpkeep(nelly, upkeepID, []byte{})
 			require.NoError(t, err)
 
 			// change payload
@@ -239,7 +239,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 
 			// cancel upkeep
-			_, err = registryWrapper.CancelUpkeep(carrol, big.NewInt(0))
+			_, err = registryWrapper.CancelUpkeep(carrol, upkeepID)
 			require.NoError(t, err)
 			backend.Commit()
 
