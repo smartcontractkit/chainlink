@@ -69,7 +69,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 	canceled := make([]utils.Big, 0)
 	for _, upkeepID := range existingUpkeepIDs {
 		if _, found := activeSet[upkeepID.ToInt().String()]; !found {
-			canceled = append(canceled, upkeepID)
+			canceled = append(canceled, *upkeepID)
 		}
 	}
 	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
