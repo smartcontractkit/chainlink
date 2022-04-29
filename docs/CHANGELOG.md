@@ -14,7 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
-- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+- Log slow SQL queries
+- Fantom and avalanche block explorer urls
+- Display `requestTimeout` in job UI
+- Keeper upkeep order is shuffled
+
+### Fixed
+
+- `LOG_FILE_MAX_SIZE` handling
+- Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
+- VRFv2 fixes and enhancements
+- UI support for `minContractPaymentLinkJuels`
 
 ## [1.3.0] - 2022-04-18
 
