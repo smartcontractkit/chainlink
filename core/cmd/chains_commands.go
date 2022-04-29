@@ -18,9 +18,10 @@ import (
 
 var chainHeaders = []string{"ID", "Enabled", "Config", "Created", "Updated"}
 
-// chainCommand returns a cli.Command with subcommands for this type of chain.
+// chainCommand returns a cli.Command with subcommands for the given ChainClient.
 // The chainId cli.Flag must be named "id", but may be String or Int.
-func chainCommand[C chains.Config, R presenters.ChainResource[C], P, P2 any](
+// All four types can be inferred from the ChainClient - see newChainClient for details.
+func chainCommand[C chains.Config, R presenters.ChainResource[C], P TableRenderer, P2 ~[]P](
 	typ string, client ChainClient[C, R, P, P2], chainID cli.Flag) cli.Command {
 	if flagName := chainID.GetName(); flagName != "id" {
 		panic(fmt.Errorf("chainID flag name must be 'id', got: %s", flagName))
@@ -56,22 +57,22 @@ func chainCommand[C chains.Config, R presenters.ChainResource[C], P, P2 any](
 	}
 }
 
-// ChainClient is a generic client interface for any type of type.
-type ChainClient[C chains.Config, R presenters.ChainResource[C], P, P2 any] interface {
+// ChainClient is a generic client interface for any type of chain.
+type ChainClient[C chains.Config, R presenters.ChainResource[C], P TableRenderer, P2 ~[]P] interface {
 	IndexChains(c *cli.Context) error
 	CreateChain(c *cli.Context) error
 	RemoveChain(c *cli.Context) error
 	ConfigureChain(c *cli.Context) error
 }
 
-type chainClient[C chains.Config, R presenters.ChainResource[C], P, P2 any] struct {
+type chainClient[C chains.Config, R presenters.ChainResource[C], P TableRenderer, P2 ~[]P] struct {
 	*Client
 	path string
 }
 
-// NewChainClient returns a new ChainClient for a particular type of chain.
-// P is a Presenter corresponding to R, and P2 is the slice variant (type P2 []P).
-func NewChainClient[C chains.Config, R presenters.ChainResource[C], P, P2 any](c *Client, name string) ChainClient[C, R, P, P2] {
+// newChainClient returns a new ChainClient for a particular type of chains.Config.
+// P is a TableRenderer corresponding to R, and P2 is the slice variant (type P2 []P).
+func newChainClient[C chains.Config, R presenters.ChainResource[C], P TableRenderer, P2 ~[]P](c *Client, name string) ChainClient[C, R, P, P2] {
 	return &chainClient[C, R, P, P2]{
 		Client: c,
 		path:   "/v2/chains/" + name,

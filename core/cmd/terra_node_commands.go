@@ -1,17 +1,16 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
-
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
+	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // TerraNodePresenter implements TableRenderer for a TerraNodeResource.
@@ -59,67 +58,29 @@ func (ps TerraNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// IndexTerraNodes returns all Terra nodes.
-func (cli *Client) IndexTerraNodes(c *cli.Context) (err error) {
-	return cli.getPage("/v2/nodes/terra", c.Int("page"), &TerraNodePresenters{})
-}
+func NewTerraNodeClient(c *Client) NodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters] {
+	createNode := func(c *cli.Context) (any, error) {
+		name := c.String("name")
+		chainID := c.String("chain-id")
+		tendermintURL := c.String("tendermint-url")
 
-// CreateTerraNode adds a new node to the nodelink node
-func (cli *Client) CreateTerraNode(c *cli.Context) (err error) {
-	name := c.String("name")
-	chainID := c.String("chain-id")
-	tendermintURL := c.String("tendermint-url")
-
-	if name == "" {
-		return cli.errorOut(errors.New("missing --name"))
-	}
-	if chainID == "" {
-		return cli.errorOut(errors.New("missing --chain-id"))
-	}
-
-	if _, err2 := url.Parse(tendermintURL); err2 != nil {
-		return cli.errorOut(fmt.Errorf("invalid tendermint-url: %v", err2))
-	}
-
-	params := terratypes.NewNode{
-		Name:          name,
-		TerraChainID:  chainID,
-		TendermintURL: tendermintURL,
-	}
-
-	body, err := json.Marshal(params)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post("/v2/nodes/terra", bytes.NewBuffer(body))
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+		if name == "" {
+			return nil, errors.New("missing --name")
 		}
-	}()
+		if chainID == "" {
+			return nil, errors.New("missing --chain-id")
+		}
 
-	return cli.renderAPIResponse(resp, &TerraNodePresenter{})
-}
+		if _, err2 := url.Parse(tendermintURL); err2 != nil {
+			return nil, fmt.Errorf("invalid tendermint-url: %v", err2)
+		}
 
-// RemoveTerraNode removes a specific Terra Node by name.
-func (cli *Client) RemoveTerraNode(c *cli.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the id of the node to be removed"))
+		params := terratypes.NewNode{
+			Name:          name,
+			TerraChainID:  chainID,
+			TendermintURL: tendermintURL,
+		}
+		return params, nil
 	}
-	nodeID := c.Args().First()
-	resp, err := cli.HTTP.Delete("/v2/nodes/terra/" + nodeID)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	fmt.Printf("Node %v deleted\n", c.Args().First())
-	return nil
+	return newNodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters](c, "terra", createNode)
 }

@@ -29,7 +29,7 @@ func TestClient_TerraInit(t *testing.T) {
 
 	// Try to add node
 	c := cli.NewContext(nil, set, nil)
-	err := client.CreateTerraNode(c)
+	err := cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.Error(t, err)
 
 	// Chain first
@@ -42,7 +42,7 @@ func TestClient_TerraInit(t *testing.T) {
 
 	// Then node
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateTerraNode(c)
+	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	assertTableRenders(t, r)

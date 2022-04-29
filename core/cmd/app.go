@@ -1027,119 +1027,41 @@ func NewApp(client *Client) *cli.App {
 			Name:  "nodes",
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
-				{
-					Name:  "evm",
-					Usage: "Commands for handling EVM node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new EVM node",
-							Action: client.CreateEVMNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "ws-url",
-									Usage: "Websocket URL",
-								},
-								cli.StringFlag{
-									Name:  "http-url",
-									Usage: "HTTP URL, optional",
-								},
-								cli.Int64Flag{
-									Name:  "chain-id",
-									Usage: "chain ID",
-								},
-								cli.StringFlag{
-									Name:  "type",
-									Usage: "primary|secondary",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete an EVM node",
-							Action: client.RemoveEVMNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all EVM nodes",
-							Action: client.IndexEVMNodes,
-						},
+				nodeCommand("EVM", NewEvmNodeClient(client),
+					cli.StringFlag{
+						Name:  "ws-url",
+						Usage: "Websocket URL",
 					},
-				},
-				{
-					Name:  "solana",
-					Usage: "Commands for handling Solana node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Solana node",
-							Action: client.CreateSolanaNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "chain-id",
-									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
-								},
-								cli.StringFlag{
-									Name:  "url",
-									Usage: "URL",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Solana node",
-							Action: client.RemoveSolanaNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Solana nodes",
-							Action: client.IndexSolanaNodes,
-						},
+					cli.StringFlag{
+						Name:  "http-url",
+						Usage: "HTTP URL, optional",
 					},
-				},
-				{
-					Name:  "terra",
-					Usage: "Commands for handling Terra node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Terra node",
-							Action: client.CreateTerraNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "chain-id",
-									Usage: "chain ID",
-								},
-								cli.StringFlag{
-									Name:  "tendermint-url",
-									Usage: "Tendermint URL",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Terra node",
-							Action: client.RemoveTerraNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Terra nodes",
-							Action: client.IndexTerraNodes,
-						},
+					cli.Int64Flag{
+						Name:  "chain-id",
+						Usage: "chain ID",
 					},
-				},
+					cli.StringFlag{
+						Name:  "type",
+						Usage: "primary|secondary",
+					}),
+				nodeCommand("Solana", NewSolanaNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+					},
+					cli.StringFlag{
+						Name:  "url",
+						Usage: "URL",
+					}),
+				nodeCommand("Terra", NewTerraNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID",
+					},
+					cli.StringFlag{
+						Name:  "tendermint-url",
+						Usage: "Tendermint URL",
+					}),
 			},
 		},
 		{
