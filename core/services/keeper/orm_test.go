@@ -343,6 +343,48 @@ func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	assert.Equal(t, 1, len(list2))
 }
 
+func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+
+	upkeepIDs, err := orm.AllUpkeepIDsForRegistry(registry.ID)
+	require.NoError(t, err)
+	// No upkeeps returned
+	require.Len(t, upkeepIDs, 0)
+
+	upkeep := newUpkeep(registry, 3)
+	err = orm.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	upkeep = newUpkeep(registry, 8)
+	err = orm.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	// We should get two upkeeps IDs, 3 & 8
+	upkeepIDs, err = orm.AllUpkeepIDsForRegistry(registry.ID)
+	require.NoError(t, err)
+	// No upkeeps returned
+	require.Len(t, upkeepIDs, 2)
+	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(3)))
+	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(8)))
+}
+
+func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+	registry, j := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+
+	require.NoError(t, orm.UpdateUpkeepLastKeeperIndex(j.ID, upkeep.UpkeepID, registry.FromAddress))
+
+	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, upkeep.UpkeepID)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), upkeep.LastKeeperIndex.Int64)
+}
+
 func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)

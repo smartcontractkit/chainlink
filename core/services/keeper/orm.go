@@ -91,6 +91,18 @@ RETURNING *
 	return errors.Wrap(err, "failed to upsert upkeep")
 }
 
+// Update the last keeper index for an upkeep
+func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *utils.Big, fromAddress ethkey.EIP55Address) error {
+	_, err := korm.q.Exec(`
+	UPDATE upkeep_registrations
+	SET
+		last_keeper_index = CAST((SELECT keeper_index_map -> $3 FROM keeper_registries WHERE job_id = $1) as int)
+	WHERE upkeep_id = $2 AND
+	registry_id = (SELECT id FROM keeper_registries WHERE job_id = $1)`,
+		jobID, upkeepID, fromAddress.Hex())
+	return errors.Wrap(err, "UpdateUpkeepLastKeeperIndex failed")
+}
+
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
 func (korm ORM) BatchDeleteUpkeepsForJob(jobID int32, upkeepIDs []utils.Big) (int64, error) {
 	strIds := []string{}
@@ -228,8 +240,18 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 	return nil
 }
 
+func (korm ORM) AllUpkeepIDsForRegistry(regID int64) (upkeeps []utils.Big, err error) {
+	err = korm.q.Select(&upkeeps, `
+SELECT upkeep_id
+FROM upkeep_registrations
+WHERE registry_id = $1
+`, regID)
+	return upkeeps, errors.Wrap(err, "allUpkeepIDs failed")
+}
+
 // LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
+// Note: This function is only applicable for registry version 1_0 and 1_1
 func (korm ORM) LowestUnsyncedID(regID int64) (nextID *utils.Big, err error) {
 	err = korm.q.Get(&nextID, `
 SELECT coalesce(max(upkeep_id), -1) + 1
