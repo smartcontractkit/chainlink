@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// ToIntable represents a type that is convertable to a big.Int, ex utils.Big
+type ToIntable interface {
+	ToInt() *big.Int
+}
+
 // I returns a new big.Int.
 func I() *big.Int { return new(big.Int) }
 
@@ -57,6 +62,9 @@ func Accumulate(s []interface{}) (r *big.Int) {
 }
 
 func bnIfy(val interface{}) *big.Int {
+	if toIntable, ok := val.(ToIntable); ok {
+		return toIntable.ToInt()
+	}
 	switch v := val.(type) {
 	case uint:
 		return big.NewInt(0).SetUint64(uint64(v))
