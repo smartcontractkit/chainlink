@@ -52,15 +52,16 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 
 	existingSet := make(map[string]bool)
 	activeSet := make(map[string]bool)
+
 	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
-	newUpkeeps := make([]*utils.Big, 0)
+	newUpkeeps := make([]utils.Big, 0)
 	for _, upkeepID := range existingUpkeepIDs {
 		existingSet[upkeepID.ToInt().String()] = true
 	}
 	for _, upkeepID := range activeUpkeepIDs {
 		activeSet[upkeepID.String()] = true
 		if _, found := existingSet[upkeepID.String()]; !found {
-			newUpkeeps = append(newUpkeeps, utils.NewBig(upkeepID))
+			newUpkeeps = append(newUpkeeps, *utils.NewBig(upkeepID))
 		}
 	}
 	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
@@ -80,18 +81,18 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
 // for all the IDs within newUpkeeps slice
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []*utils.Big) {
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []utils.Big) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(newUpkeeps))
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
 	done := func() { <-chSyncUpkeepQueue; wg.Done() }
-	for _, upkeepID := range newUpkeeps {
+	for i := range newUpkeeps {
 		select {
 		case <-rs.chStop:
 			return
 		case chSyncUpkeepQueue <- struct{}{}:
-			go rs.syncUpkeepWithCallback(reg, upkeepID, done)
+			go rs.syncUpkeepWithCallback(reg, &newUpkeeps[i], done)
 		}
 	}
 
@@ -110,7 +111,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Big) error {
-	upkeepConfig, err := rs.registryWrapper.GetUpkeep(nil, upkeepID.ToInt())
+	upkeep, err := rs.registryWrapper.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
@@ -119,8 +120,8 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Bi
 		return errors.Wrap(err, "failed to calc positioning constant")
 	}
 	newUpkeep := UpkeepRegistration{
-		CheckData:           upkeepConfig.CheckData,
-		ExecuteGas:          uint64(upkeepConfig.ExecuteGas),
+		CheckData:           upkeep.CheckData,
+		ExecuteGas:          uint64(upkeep.ExecuteGas),
 		RegistryID:          registry.ID,
 		PositioningConstant: positioningConstant,
 		UpkeepID:            upkeepID,
@@ -129,7 +130,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Bi
 		return errors.Wrap(err, "failed to upsert upkeep")
 	}
 
-	if err := rs.orm.UpdateUpkeepLastKeeperIndex(rs.job.ID, upkeepID, ethkey.EIP55AddressFromAddress(upkeepConfig.LastKeeper)); err != nil {
+	if err := rs.orm.UpdateUpkeepLastKeeperIndex(rs.job.ID, upkeepID, ethkey.EIP55AddressFromAddress(upkeep.LastKeeper)); err != nil {
 		return errors.Wrap(err, "failed to update upkeep last keeper index")
 	}
 

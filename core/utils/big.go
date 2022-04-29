@@ -102,11 +102,6 @@ func (b *Big) setString(s string, base int) (*Big, bool) {
 	return (*Big)(w), ok
 }
 
-func (b *Big) setInt64(i int64) (*Big, bool) {
-	w := (*big.Int)(b).SetInt64(i)
-	return (*Big)(w), true
-}
-
 // UnmarshalJSON implements encoding.JSONUnmarshaler.
 func (b *Big) UnmarshalJSON(input []byte) error {
 	return b.UnmarshalText(input)
@@ -131,12 +126,6 @@ func (b *Big) Scan(value interface{}) error {
 		decoded, ok := b.setString(string(v), 10)
 		if !ok {
 			return fmt.Errorf("unable to set string %v of %T to base 10 big.Int for Big", value, value)
-		}
-		*b = *decoded
-	case int64:
-		decoded, ok := b.setInt64(v)
-		if !ok {
-			return fmt.Errorf("unable to set int %v of %T to big.Int for Big", value, value)
 		}
 		*b = *decoded
 	default:
