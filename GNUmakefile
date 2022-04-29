@@ -108,6 +108,10 @@ test_perf: # Run core node performance tests.
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/performance
 
+.PHONY: config-docs
+config-docs: # Generate core node configuration documentation
+	go run ./internal/config/docs/main.go > ./docs/CONFIG.md
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"

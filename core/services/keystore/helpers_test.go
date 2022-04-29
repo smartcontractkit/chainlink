@@ -33,3 +33,7 @@ func (m *master) ResetXXXTestOnly() {
 	m.keyStates = newKeyStates()
 	m.password = ""
 }
+
+func (m *master) SetPassword(pw string) {
+	m.password = pw
+}

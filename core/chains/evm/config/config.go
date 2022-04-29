@@ -73,9 +73,6 @@ type ChainScopedOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
 
-	// OCR2 chain specific config
-	OCR2ContractConfirmations() uint16
-
 	// OCR1 chain specific config
 	OCRContractConfirmations() uint16
 	OCRContractTransmitterTransmitTimeout() time.Duration
