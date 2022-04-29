@@ -10,6 +10,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
+	type_and_version "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/type_and_version_interface_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
@@ -31,6 +32,18 @@ type RegistryWrapper struct {
 }
 
 func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBackend) (*RegistryWrapper, error) {
+	interface_wrapper, err := type_and_version.NewTypeAndVersionInterface(
+		address.Address(),
+		backend,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create type and interface wrapper")
+	}
+	version, err := getRegistryVersion(interface_wrapper)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
+	}
+
 	contract1_1, err := registry1_1.NewKeeperRegistry(
 		address.Address(),
 		backend,
@@ -46,11 +59,6 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 		return nil, errors.Wrap(err, "unable to create keeper registry 1_2 contract wrapper")
 	}
 
-	version, err := getRegistryVersion(contract1_1)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
-	}
-
 	return &RegistryWrapper{
 		Address:     address,
 		Version:     *version,
@@ -59,9 +67,8 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 	}, nil
 }
 
-func getRegistryVersion(contract1_1 *registry1_1.KeeperRegistry) (*RegistryVersion, error) {
-	// Use registry 1_1 wrapper to get version information
-	typeAndVersion, err := contract1_1.TypeAndVersion(nil)
+func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*RegistryVersion, error) {
+	typeAndVersion, err := contract.TypeAndVersion(nil)
 	if err != nil {
 		jsonErr := evmclient.ExtractRPCError(err)
 		if jsonErr != nil {
