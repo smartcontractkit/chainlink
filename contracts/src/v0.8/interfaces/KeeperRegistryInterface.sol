@@ -1,9 +1,4 @@
 // SPDX-License-Identifier: MIT
-/*
- * This is a development version of KeeperRegistryInterface. Once it's audited and finalised
- * it will be copied to KeeperRegistryInterface
- */
-
 pragma solidity ^0.8.0;
 
 /**
