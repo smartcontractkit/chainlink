@@ -367,8 +367,8 @@ func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	require.NoError(t, err)
 	// No upkeeps returned
 	require.Len(t, upkeepIDs, 2)
-	require.Contains(t, upkeepIDs, utils.NewBig(big.NewInt(3)))
-	require.Contains(t, upkeepIDs, utils.NewBig(big.NewInt(8)))
+	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(3)))
+	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(8)))
 }
 
 func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
