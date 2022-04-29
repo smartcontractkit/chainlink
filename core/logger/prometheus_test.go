@@ -56,9 +56,8 @@ func assertCounterValue(t *testing.T, c prometheus.Counter, v int) {
 }
 
 func repeat(f func(args ...interface{}), c int) {
-	for c > 0 {
+	for ; c > 0; c-- {
 		f()
-		c--
 	}
 }
 
