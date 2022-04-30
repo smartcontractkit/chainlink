@@ -59,12 +59,12 @@ type NodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P] interfa
 type nodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P] struct {
 	*Client
 	path       string
-	createNode func(c *cli.Context) (any, error)
+	createNode func(c *cli.Context) (N, error)
 }
 
 // newNodeClient returns a new NodeClient for a particular type of chains.Node.
 // P is a TableRenderer corresponding to R, and P2 is the slice variant (type P2 []P).
-func newNodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P](c *Client, name string, createNode func(*cli.Context) (any, error)) NodeClient[N, R, P, P2] {
+func newNodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P](c *Client, name string, createNode func(*cli.Context) (N, error)) NodeClient[N, R, P, P2] {
 	return &nodeClient[N, R, P, P2]{
 		Client:     c,
 		path:       "/v2/nodes/" + name,

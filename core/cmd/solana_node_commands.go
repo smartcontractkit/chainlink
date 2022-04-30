@@ -56,28 +56,25 @@ func (ps SolanaNodePresenters) RenderTable(rt RendererTable) error {
 }
 
 func NewSolanaNodeClient(c *Client) NodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters] {
-	createNode := func(c *cli.Context) (any, error) {
-		name := c.String("name")
-		chainID := c.String("chain-id")
-		urlStr := c.String("url")
+	createNode := func(c *cli.Context) (node db.Node, err error) {
+		node.Name = c.String("name")
+		node.SolanaChainID = c.String("chain-id")
+		node.SolanaURL = c.String("url")
 
-		if name == "" {
-			return nil, errors.New("missing --name")
+		if node.Name == "" {
+			err = errors.New("missing --name")
+			return
 		}
-		if chainID == "" {
-			return nil, errors.New("missing --chain-id")
-		}
-
-		if _, err2 := url.Parse(urlStr); err2 != nil {
-			return nil, errors.Errorf("invalid url: %v", err2)
+		if node.SolanaChainID == "" {
+			err = errors.New("missing --chain-id")
+			return
 		}
 
-		params := db.NewNode{
-			Name:          name,
-			SolanaChainID: chainID,
-			SolanaURL:     urlStr,
+		if _, err2 := url.Parse(node.SolanaURL); err2 != nil {
+			err = errors.Errorf("invalid url: %v", err2)
+			return
 		}
-		return params, nil
+		return
 	}
 	return newNodeClient[db.Node, presenters.SolanaNodeResource, SolanaNodePresenter, SolanaNodePresenters](c, "solana", createNode)
 }

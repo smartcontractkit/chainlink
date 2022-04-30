@@ -1027,7 +1027,7 @@ func NewApp(client *Client) *cli.App {
 			Name:  "nodes",
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
-				nodeCommand("EVM", NewEvmNodeClient(client),
+				nodeCommand("EVM", NewEVMNodeClient(client),
 					cli.StringFlag{
 						Name:  "ws-url",
 						Usage: "Websocket URL",

@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -59,28 +58,25 @@ func (ps TerraNodePresenters) RenderTable(rt RendererTable) error {
 }
 
 func NewTerraNodeClient(c *Client) NodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters] {
-	createNode := func(c *cli.Context) (any, error) {
-		name := c.String("name")
-		chainID := c.String("chain-id")
-		tendermintURL := c.String("tendermint-url")
+	createNode := func(c *cli.Context) (node db.Node, err error) {
+		node.Name = c.String("name")
+		node.TerraChainID = c.String("chain-id")
+		node.TendermintURL = c.String("tendermint-url")
 
-		if name == "" {
-			return nil, errors.New("missing --name")
+		if node.Name == "" {
+			err = errors.New("missing --name")
+			return
 		}
-		if chainID == "" {
-			return nil, errors.New("missing --chain-id")
-		}
-
-		if _, err2 := url.Parse(tendermintURL); err2 != nil {
-			return nil, fmt.Errorf("invalid tendermint-url: %v", err2)
+		if node.TerraChainID == "" {
+			err = errors.New("missing --chain-id")
+			return
 		}
 
-		params := terratypes.NewNode{
-			Name:          name,
-			TerraChainID:  chainID,
-			TendermintURL: tendermintURL,
+		if _, err2 := url.Parse(node.TendermintURL); err2 != nil {
+			err = fmt.Errorf("invalid tendermint-url: %v", err2)
+			return
 		}
-		return params, nil
+		return
 	}
 	return newNodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters](c, "terra", createNode)
 }

@@ -58,8 +58,8 @@ func (ps EVMNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewEvmNodeClient(c *Client) NodeClient[evmtypes.Node, presenters.EVMNodeResource, EVMNodePresenter, EVMNodePresenters] {
-	createNode := func(c *cli.Context) (any, error) {
+func NewEVMNodeClient(c *Client) NodeClient[evmtypes.Node, presenters.EVMNodeResource, EVMNodePresenter, EVMNodePresenters] {
+	createNode := func(c *cli.Context) (node evmtypes.Node, err error) {
 		name := c.String("name")
 		t := c.String("type")
 		ws := c.String("ws-url")
@@ -67,16 +67,20 @@ func NewEvmNodeClient(c *Client) NodeClient[evmtypes.Node, presenters.EVMNodeRes
 		chainID := c.Int64("chain-id")
 
 		if name == "" {
-			return nil, errors.New("missing --name")
+			err = errors.New("missing --name")
+			return
 		}
 		if chainID == 0 {
-			return nil, errors.New("missing --chain-id")
+			err = errors.New("missing --chain-id")
+			return
 		}
 		if t != "primary" && t != "sendonly" {
-			return nil, errors.New("invalid or unspecified --type, must be either primary or sendonly")
+			err = errors.New("invalid or unspecified --type, must be either primary or sendonly")
+			return
 		}
 		if t == "primary" && ws == "" {
-			return nil, errors.New("missing --ws-url")
+			err = errors.New("missing --ws-url")
+			return
 		}
 		var httpURL = null.NewString(httpURLStr, true)
 		if httpURLStr == "" {
@@ -88,14 +92,14 @@ func NewEvmNodeClient(c *Client) NodeClient[evmtypes.Node, presenters.EVMNodeRes
 			wsURL = null.StringFrom(ws)
 		}
 
-		params := evmtypes.NewNode{
+		node = evmtypes.Node{
 			Name:       name,
 			EVMChainID: *utils.NewBigI(chainID),
 			WSURL:      wsURL,
 			HTTPURL:    httpURL,
 			SendOnly:   t == "sendonly",
 		}
-		return params, nil
+		return
 	}
 	return newNodeClient[evmtypes.Node, presenters.EVMNodeResource, EVMNodePresenter, EVMNodePresenters](c, "evm", createNode)
 }
