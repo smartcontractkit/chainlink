@@ -7,14 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
-- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
-
 ### Changed
 
 - Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+```
 Must be longer than 12 characters
 Must comprise at least 3 of:
 	lowercase characters
@@ -25,6 +21,27 @@ Must not comprise:
 	A user's API email
 	More than three identical consecutive characters
 This will prevent application boot in a future version of Chainlink.
+```
+
+### Added 
+- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+
+## [1.4.0] - 2022-05-02
+
+### Added
+
+- JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
+- Log slow SQL queries
+- Fantom and avalanche block explorer urls
+- Display `requestTimeout` in job UI
+- Keeper upkeep order is shuffled
+
+### Fixed
+
+- `LOG_FILE_MAX_SIZE` handling
+- Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
+- VRFv2 fixes and enhancements
+- UI support for `minContractPaymentLinkJuels`
 
 ## [1.3.0] - 2022-04-18
 
