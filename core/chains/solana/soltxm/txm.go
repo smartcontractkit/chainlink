@@ -21,11 +21,9 @@ import (
 )
 
 const (
-	MaxQueueLen       = 1000
-	MaxRetryTimeMs    = 500              // max tx retry time
-	MaxRetryTxTimeout = 5 * time.Second  // transaction timeout to stop retrying
-	MaxSigsToConfirm  = 256              // max number of signatures in GetSignatureStatus call
-	MaxConfirmTimeout = 15 * time.Second // confirmation timeout to stop checking signature
+	MaxQueueLen      = 1000
+	MaxRetryTimeMs   = 500 // max tx retry time (exponential retry will taper to retry every 0.5s)
+	MaxSigsToConfirm = 256 // max number of signatures in GetSignatureStatus call
 )
 
 var (
@@ -185,15 +183,15 @@ func (txm *Txm) confirm(ctx context.Context) {
 	timestamps := map[solanaGo.Signature]time.Time{}
 	timestampsMu := sync.Mutex{}
 
-	// if transaction is older than MaxConfirmTimeout, trigger Cancel (removes from list of signatures to check)
+	// if transaction is older than TxConfirmTimeout, trigger Cancel (removes from list of signatures to check)
 	checkTimestamp := func(sig solanaGo.Signature, warnStr string) {
 		timestampsMu.Lock()
 		timestamp, exists := timestamps[sig]
 		if !exists { // if new, add timestamp
 			timestamps[sig] = time.Now()
-		} else if time.Since(timestamp) > MaxConfirmTimeout { // if timed out, drop tx sig (remove from txs + timestamps)
+		} else if time.Since(timestamp) > txm.cfg.TxConfirmTimeout() { // if timed out, drop tx sig (remove from txs + timestamps)
 			txm.txs.Cancel(sig)
-			txm.lggr.Warnw(warnStr, "signature", sig, "timeoutSeconds", MaxConfirmTimeout)
+			txm.lggr.Warnw(warnStr, "signature", sig, "timeoutSeconds", txm.cfg.TxConfirmTimeout())
 			delete(timestamps, sig)
 		}
 		timestampsMu.Unlock()
@@ -307,7 +305,6 @@ func (txm *Txm) confirm(ctx context.Context) {
 			}
 			wg.Wait() // wait for processing to finish
 		}
-		// TODO: defaults to 1s - should change to 0.5s
 		tick = time.After(utils.WithJitter(txm.cfg.ConfirmPollPeriod()))
 	}
 }
@@ -352,7 +349,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	msg := pendingTx{
 		tx:      tx,
-		timeout: MaxRetryTxTimeout,
+		timeout: txm.cfg.TxRetryTimeout(),
 	}
 
 	select {
