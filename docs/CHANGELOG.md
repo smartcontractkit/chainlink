@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+```
 Must be longer than 12 characters
 Must comprise at least 3 of:
 	lowercase characters
@@ -20,6 +21,10 @@ Must not comprise:
 	A user's API email
 	More than three identical consecutive characters
 This will prevent application boot in a future version of Chainlink.
+```
+
+### Added 
+- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
 
 ## [1.4.0] - 2022-05-02
 
