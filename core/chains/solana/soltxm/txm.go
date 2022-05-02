@@ -36,18 +36,18 @@ var (
 // Txm manages transactions for the solana blockchain.
 // simple implementation with no persistently stored txs
 type Txm struct {
-	starter  utils.StartStopOnce
-	lggr     logger.Logger
-	queue    chan queueMsg
-	simQueue chan queueMsg
-	stop     chan struct{}
-	done     sync.WaitGroup
-	cfg      config.Config
-	txs      *TxProcesses
-	client   *LazyLoad[solanaClient.ReaderWriter]
+	starter utils.StartStopOnce
+	lggr    logger.Logger
+	chSend  chan pendingTx
+	chSim   chan pendingTx
+	chStop  chan struct{}
+	done    sync.WaitGroup
+	cfg     config.Config
+	txs     *pendingTxContextWithProm
+	client  *LazyLoad[solanaClient.ReaderWriter]
 }
 
-type queueMsg struct {
+type pendingTx struct {
 	tx        *solanaGo.Transaction
 	timeout   time.Duration
 	signature solanaGo.Signature
@@ -57,20 +57,20 @@ type queueMsg struct {
 func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lggr logger.Logger) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
-		starter:  utils.StartStopOnce{},
-		lggr:     lggr,
-		queue:    make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
-		simQueue: make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
-		stop:     make(chan struct{}),
-		cfg:      cfg,
-		txs:      NewTxProcesses(chainID),
-		client:   NewLazyLoad(tc),
+		starter: utils.StartStopOnce{},
+		lggr:    lggr,
+		chSend:  make(chan pendingTx, MaxQueueLen), // queue can support 1000 pending txs
+		chSim:   make(chan pendingTx, MaxQueueLen), // queue can support 1000 pending txs
+		chStop:  make(chan struct{}),
+		cfg:     cfg,
+		txs:     newPendingTxContextWithProm(chainID),
+		client:  NewLazyLoad(tc),
 	}
 }
 
 // Start subscribes to queuing channel and processes them.
 func (txm *Txm) Start(context.Context) error {
-	return txm.starter.StartOnce("solanatxm", func() error {
+	return txm.starter.StartOnce("solana_txm", func() error {
 		txm.done.Add(3) // waitgroup: tx retry, confirmer, simulator
 		go txm.run()
 		return nil
@@ -79,7 +79,7 @@ func (txm *Txm) Start(context.Context) error {
 
 func (txm *Txm) run() {
 	defer txm.done.Done()
-	ctx, cancel := utils.ContextFromChan(txm.stop)
+	ctx, cancel := utils.ContextFromChan(txm.chStop)
 	defer cancel()
 
 	// start confirmer + simulator
@@ -88,25 +88,25 @@ func (txm *Txm) run() {
 
 	for {
 		select {
-		case msg := <-txm.queue:
+		case msg := <-txm.chSend:
 			// process tx
 			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
 			if err != nil {
 				txm.lggr.Errorw("failed to send transaction", "error", err)
-				txm.client.Clear() // clear client if tx fails immediately (potentially bad RPC)
+				txm.client.Reset() // clear client if tx fails immediately (potentially bad RPC)
 				continue           // skip remainining
 			}
 
 			// send tx + signature to simulation queue
 			msg.signature = sig
 			select {
-			case txm.simQueue <- msg:
+			case txm.chSim <- msg:
 			default:
-				txm.lggr.Warnw("failed to enqeue tx for simulation", "queueFull", len(txm.queue) == MaxQueueLen, "tx", msg)
+				txm.lggr.Warnw("failed to enqeue tx for simulation", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", msg)
 			}
 
 			txm.lggr.Debugw("transaction sent", "signature", sig.String())
-		case <-txm.stop:
+		case <-txm.chStop:
 			return
 		}
 	}
@@ -208,7 +208,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			// get list of tx signatures to confirm
 			sigs := txm.txs.FetchAndUpdateInflight()
 
-			// skip loop if not txs to confirm
+			// exit switch if not txs to confirm
 			if len(sigs) == 0 {
 				break
 			}
@@ -221,15 +221,11 @@ func (txm *Txm) confirm(ctx context.Context) {
 			}
 
 			// batch sigs no more than MaxSigsToConfirm each
-			sigsBatch := [][]solanaGo.Signature{}
-			for len(sigs) > MaxSigsToConfirm {
-				sigs, sigsBatch = sigs[MaxSigsToConfirm:], append(sigsBatch, sigs[:MaxSigsToConfirm])
+			sigsBatch, err := BatchSplit(sigs, MaxSigsToConfirm)
+			if err != nil { // this should never happen
+				txm.lggr.Criticalw("failed to batch signatures", "error", err)
+				break // exit switch
 			}
-			sigsBatch = append(sigsBatch, sigs)
-
-			// waitgroup for processing
-			var wg sync.WaitGroup
-			wg.Add(len(sigsBatch))
 
 			// process signatures
 			processSigs := func(s []solanaGo.Signature, res []*rpc.SignatureStatusesResult) {
@@ -289,6 +285,10 @@ func (txm *Txm) confirm(ctx context.Context) {
 				}
 			}
 
+			// waitgroup for processing
+			var wg sync.WaitGroup
+			wg.Add(len(sigsBatch))
+
 			// loop through batch
 			for i := 0; i < len(sigsBatch); i++ {
 				// fetch signature statuses
@@ -296,7 +296,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 				if err != nil {
 					txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "error", err)
 					wg.Done() // don't block if exit early
-					break     // exit switch
+					break     // exit for loop
 				}
 
 				// nonblocking: process batches as soon as they come in
@@ -313,6 +313,8 @@ func (txm *Txm) confirm(ctx context.Context) {
 }
 
 // goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
+// simulate can cancel the send retry function early in the tx management process
+// additionally, it can provide reasons for why a tx failed in the logs
 func (txm *Txm) simulate(ctx context.Context) {
 	defer txm.done.Done()
 
@@ -320,12 +322,12 @@ func (txm *Txm) simulate(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-txm.simQueue:
+		case msg := <-txm.chSim:
 			// get client
 			client, err := txm.client.Get()
 			if err != nil {
 				txm.lggr.Errorw("failed to get client in soltxm.simulate", "error", err)
-				break // exit switch
+				continue
 			}
 
 			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
@@ -333,14 +335,14 @@ func (txm *Txm) simulate(ctx context.Context) {
 				// this error can occur if endpoint goes down or if invalid signature (invalid signature should occur further upstream in sendWithRetry)
 				// allow retry to continue in case temporary endpoint failure (if still invalid, confirm or timeout will cleanup)
 				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
-				break // exit switch
+				continue
 			}
 
 			// stop tx retrying if simulate returns error
 			if res.Err != nil {
 				txm.txs.Failed(msg.signature) // cancel retry
 				txm.lggr.Errorw("simulate error", "signature", msg.signature, "error", res)
-				break
+				continue
 			}
 		}
 	}
@@ -348,15 +350,15 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 // Enqueue enqueue a msg destined for the solana chain.
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
-	msg := queueMsg{
+	msg := pendingTx{
 		tx:      tx,
 		timeout: MaxRetryTxTimeout,
 	}
 
 	select {
-	case txm.queue <- msg:
+	case txm.chSend <- msg:
 	default:
-		txm.lggr.Errorw("failed to enqeue tx", "queueFull", len(txm.queue) == MaxQueueLen, "tx", msg)
+		txm.lggr.Errorw("failed to enqeue tx", "queueFull", len(txm.chSend) == MaxQueueLen, "tx", msg)
 		return errors.Errorf("failed to enqueue transaction for %s", accountID)
 	}
 	return nil
@@ -369,7 +371,7 @@ func (txm *Txm) InflightTxs() int {
 // Close close service
 func (txm *Txm) Close() error {
 	return txm.starter.StopOnce("solanatxm", func() error {
-		close(txm.stop)
+		close(txm.chStop)
 		txm.done.Wait()
 		return nil
 	})
