@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/helmenv/environment"
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
+	"github.com/smartcontractkit/integrations-framework/blockchain"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/contracts/ethereum"
@@ -23,7 +24,7 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		err                error
-		nets               *client.Networks
+		nets               *blockchain.Networks
 		cd                 contracts.ContractDeployer
 		consumer           contracts.VRFConsumerV2
 		coordinator        contracts.VRFCoordinatorV2
@@ -54,7 +55,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := client.NewDefaultNetworkRegistry()
+			networkRegistry := blockchain.NewDefaultNetworkRegistry()
 			nets, err = networkRegistry.GetNetworks(e)
 			Expect(err).ShouldNot(HaveOccurred())
 			cd, err = contracts.NewContractDeployer(nets.Default)

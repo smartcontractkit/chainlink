@@ -196,6 +196,7 @@ func (lsn *listenerV2) Start(context.Context) error {
 			// right away. We set the real number of confirmations on a per-request basis in
 			// the getConfirmedAt method.
 			MinIncomingConfirmations: 1,
+			ReplayStartedCallback:    lsn.ReplayStartedCallback,
 		})
 
 		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
@@ -1126,6 +1127,13 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 // JobID complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
+}
+
+// ReplayStartedCallback is called by the log broadcaster when a replay is about to start.
+func (lsn *listenerV2) ReplayStartedCallback() {
+	// Clear the log deduper cache so that we don't incorrectly ignore logs that have been sent that
+	// are already in the cache.
+	lsn.deduper.clear()
 }
 
 func (lsn *listenerV2) fromAddresses() []common.Address {

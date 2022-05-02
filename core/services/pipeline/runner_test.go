@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -40,7 +41,8 @@ func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pi
 
 	orm.On("GetQ").Return(q)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
 }
 
@@ -459,7 +461,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr)
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]
