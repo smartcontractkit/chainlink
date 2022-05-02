@@ -52,7 +52,6 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseLockingMode":                            "DATABASE_LOCKING_MODE",
 		"DatabaseURL":                                    "DATABASE_URL",
 		"DefaultChainID":                                 "ETH_CHAIN_ID",
-		"DefaultHTTPAllowUnrestrictedNetworkAccess":      "DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS",
 		"DefaultHTTPLimit":                               "DEFAULT_HTTP_LIMIT",
 		"DefaultHTTPTimeout":                             "DEFAULT_HTTP_TIMEOUT",
 		"Dev":                                            "CHAINLINK_DEV",

@@ -77,6 +77,8 @@ type ChainSet interface {
 	Add(context.Context, string, db.ChainCfg) (Chain, error)
 	Remove(string) error
 	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (Chain, error)
+	Show(id string) (Chain, error)
+	Index(offset, limit int) ([]Chain, int, error)
 
 	ORM() ORM
 }
@@ -119,6 +121,14 @@ func NewChainSet(opts ChainSetOpts) (*chainSet, error) {
 
 func (c *chainSet) ORM() ORM {
 	return c.opts.ORM
+}
+
+func (c *chainSet) Index(offset, limit int) ([]Chain, int, error) {
+	return c.opts.ORM.Chains(offset, limit)
+}
+
+func (c *chainSet) Show(id string) (Chain, error) {
+	return c.opts.ORM.Chain(id)
 }
 
 func (c *chainSet) Chain(ctx context.Context, id string) (solana.Chain, error) {

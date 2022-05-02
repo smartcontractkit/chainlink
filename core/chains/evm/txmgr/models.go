@@ -41,7 +41,7 @@ type EthTxMeta struct {
 	SubID *uint64 `json:"SubId,omitempty"`
 
 	// Used for keepers
-	UpkeepID *int64 `json:"UpkeepID,omitempty"`
+	UpkeepID *string `json:"UpkeepID,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted

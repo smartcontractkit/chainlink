@@ -1,11 +1,26 @@
-package pipeline
+package http
 
 import (
 	"net"
+	"net/url"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 )
+
+type emptyDBURLcfg struct{}
+
+func (emptyDBURLcfg) DatabaseURL() url.URL {
+	return url.URL{}
+}
+
+type testDBURLcfg struct{ t *testing.T }
+
+func (c testDBURLcfg) DatabaseURL() url.URL {
+	return *testutils.MustParseURL(c.t, "postgresql://postgres@1.2.3.4:5432/chainlink_test?sslmode=disable")
+}
 
 func TestHttpAllowedIPS_isRestrictedIP(t *testing.T) {
 	t.Parallel()
@@ -39,7 +54,11 @@ func TestHttpAllowedIPS_isRestrictedIP(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.ip.String(), func(t *testing.T) {
-			assert.Equal(t, test.isRestricted, isRestrictedIP(test.ip))
+			assert.Equal(t, test.isRestricted, isRestrictedIP(test.ip, emptyDBURLcfg{}, logger.TestLogger(t)))
 		})
 	}
+
+	t.Run("disallows queries to database IP", func(t *testing.T) {
+		assert.True(t, isRestrictedIP(net.ParseIP("1.2.3.4"), testDBURLcfg{t}, logger.TestLogger(t)))
+	})
 }
