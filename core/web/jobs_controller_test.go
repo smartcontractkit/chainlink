@@ -224,6 +224,23 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			},
 		},
 		{
+			name: "cron-dot-separator",
+			toml: testspecs.CronSpecDotSep,
+			assertion: func(t *testing.T, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				resource := presenters.JobResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
+				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.CronSpec)
+
+				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				require.Equal(t, "CRON_TZ=UTC * 0 0 1 1 *", jb.CronSpec.CronSchedule)
+			},
+		},
+		{
 			name: "directrequest",
 			toml: testspecs.DirectRequestSpec,
 			assertion: func(t *testing.T, r *http.Response) {

@@ -18,7 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/denom"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -43,7 +42,7 @@ func TestClient_SendTerraCoins(t *testing.T) {
 	chain, err := chains.Terra.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Terra.ORM().CreateNode(terratypes.NewNode{
+	_, err = chains.Terra.ORM().CreateNode(terradb.Node{
 		Name:          t.Name(),
 		TerraChainID:  chainID,
 		TendermintURL: tendermintURL,

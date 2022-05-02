@@ -104,15 +104,14 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 }
 
 // Send eth from prefunded account.
-// Amount is number of ETH not wei.
-func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount int) error {
+// Amount is number of wei.
+func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int) error {
 	txOpts := k.buildTxOpts(ctx)
-	txOpts.Value = big.NewInt(0).Mul(big.NewInt(int64(amount)), big.NewInt(1000000000000000000))
 
 	tx := types.NewTx(&types.LegacyTx{
 		Nonce:    txOpts.Nonce.Uint64(),
 		To:       &to,
-		Value:    txOpts.Value,
+		Value:    amount,
 		Gas:      txOpts.GasLimit,
 		GasPrice: txOpts.GasPrice,
 		Data:     nil,

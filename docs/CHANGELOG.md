@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ...
+
+## [1.4.0] - 2022-05-02
+
+### Added
+
+- JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
+- Log slow SQL queries
+- Fantom and avalanche block explorer urls
+- Display `requestTimeout` in job UI
+- Keeper upkeep order is shuffled
+
+### Fixed
+
+- `LOG_FILE_MAX_SIZE` handling
+- Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
+- VRFv2 fixes and enhancements
+- UI support for `minContractPaymentLinkJuels`
+
 ## [1.3.0] - 2022-04-18
 
 ### Added
@@ -64,12 +82,14 @@ export EVM_NODES='
 
 ### Changed
 
-- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
+- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in the future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
 - EIP-1559 is now enabled by default on mainnet. To disable (go back to legacy mode) set `EVM_EIP1559_DYNAMIC_FEES=false`. The default settings should work well, but if you wish to tune your gas controls, see the [documentation](https://docs.chain.link/docs/configuration-variables/#evm-gas-controls).
 
-Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended to enable this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
+Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended enabling this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
 
 See issue: https://github.com/maticnetwork/bor/issues/347
+
+- The pipeline task runs have changed persistence protocol (database), which will result in inability to decode some existing task runs. All new runs should be working with no issues.
 
 ### Removed
 
@@ -77,7 +97,7 @@ See issue: https://github.com/maticnetwork/bor/issues/347
 
 ## [1.2.1] - 2022-03-17
 
-This release hotfixes issues from moving a new CI/CD system. Featurewise the functionality is the same as `v1.2.0`.
+This release hotfixes issues from moving a new CI/CD system. Feature-wise the functionality is the same as `v1.2.0`.
 
 ### Fixed
 

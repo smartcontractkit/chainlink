@@ -25,7 +25,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -41,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var prometheus *ginprom.Prometheus
@@ -162,6 +164,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.TerraEnabled() {
 		terraLggr := appLggr.Named("Terra")
+		if err := terra.SetupNodes(db, cfg, terraLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup Terra nodes")
+		}
 		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
@@ -172,6 +177,24 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Terra chainset")
+		}
+	}
+
+	if cfg.SolanaEnabled() {
+		solLggr := appLggr.Named("Solana")
+		if err := solana.SetupNodes(db, cfg, solLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup Solana nodes")
+		}
+		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
+			Config:           cfg,
+			Logger:           solLggr,
+			DB:               db,
+			KeyStore:         keyStore.Solana(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              solana.NewORM(db, solLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
 	}
 

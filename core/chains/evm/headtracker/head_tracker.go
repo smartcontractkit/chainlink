@@ -43,8 +43,8 @@ type headTracker struct {
 	chainID         big.Int
 	config          Config
 
-	backfillMB   *utils.Mailbox
-	broadcastMB  *utils.Mailbox
+	backfillMB   *utils.Mailbox[*evmtypes.Head]
+	broadcastMB  *utils.Mailbox[*evmtypes.Head]
 	headListener httypes.HeadListener
 	chStop       chan struct{}
 	wgDone       sync.WaitGroup
@@ -67,8 +67,8 @@ func NewHeadTracker(
 		chainID:         *ethClient.ChainID(),
 		config:          config,
 		log:             lggr,
-		backfillMB:      utils.NewMailbox(1),
-		broadcastMB:     utils.NewMailbox(HeadsBufferSize),
+		backfillMB:      utils.NewMailbox[*evmtypes.Head](1),
+		broadcastMB:     utils.NewMailbox[*evmtypes.Head](HeadsBufferSize),
 		chStop:          chStop,
 		headListener:    NewHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
@@ -228,7 +228,7 @@ func (ht *headTracker) broadcastLoop() {
 				if item == nil {
 					continue
 				}
-				ht.headBroadcaster.BroadcastNewLongestChain(evmtypes.AsHead(item))
+				ht.headBroadcaster.BroadcastNewLongestChain(item)
 			}
 		}
 	} else {
@@ -243,7 +243,7 @@ func (ht *headTracker) broadcastLoop() {
 					if !exists {
 						break
 					}
-					ht.headBroadcaster.BroadcastNewLongestChain(evmtypes.AsHead(item))
+					ht.headBroadcaster.BroadcastNewLongestChain(item)
 				}
 			}
 		}
@@ -262,11 +262,10 @@ func (ht *headTracker) backfillLoop() {
 			return
 		case <-ht.backfillMB.Notify():
 			for {
-				item, exists := ht.backfillMB.Retrieve()
+				head, exists := ht.backfillMB.Retrieve()
 				if !exists {
 					break
 				}
-				head := evmtypes.AsHead(item)
 				{
 					err := ht.Backfill(ctx, head, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {

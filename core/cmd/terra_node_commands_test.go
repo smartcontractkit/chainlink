@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
-func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) db.Chain {
+func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) types.Chain {
 	chain, err := orm.CreateChain(id, db.ChainCfg{})
 	require.NoError(t, err)
 	return chain
@@ -46,7 +46,7 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_ = mustInsertTerraChain(t, orm, chainID)
 
-	params := types.NewNode{
+	params := db.Node{
 		Name:          "second",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -102,13 +102,13 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
-	assertEqual(t, types.NewNode{
+	assertEqualNodesTerra(t, types.NewNode{
 		Name:          "first",
 		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}, n)
 	n = nodes[initialNodesCount+1]
-	assertEqual(t, types.NewNode{
+	assertEqualNodesTerra(t, types.NewNode{
 		Name:          "second",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -129,7 +129,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_ = mustInsertTerraChain(t, orm, chainID)
 
-	params := types.NewNode{
+	params := db.Node{
 		Name:          "first",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/columbus-5",
@@ -153,7 +153,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
+func assertEqualNodesTerra(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

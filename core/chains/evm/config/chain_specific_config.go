@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/config"
 )
 
 var (
@@ -29,7 +29,7 @@ type (
 		blockHistoryEstimatorBlockHistorySize          uint16
 		blockHistoryEstimatorEIP1559FeeCapBufferBlocks *uint16
 		blockHistoryEstimatorTransactionPercentile     uint16
-		chainType                                      chains.ChainType
+		chainType                                      config.ChainType
 		eip1559DynamicFees                             bool
 		ethTxReaperInterval                            time.Duration
 		ethTxReaperThreshold                           time.Duration
@@ -53,6 +53,7 @@ type (
 		headTrackerSamplingInterval                    time.Duration
 		linkContractAddress                            string
 		logBackfillBatchSize                           uint32
+		logPollInterval                                time.Duration
 		maxGasPriceWei                                 big.Int
 		maxInFlightTransactions                        uint32
 		maxQueuedTransactions                          uint64
@@ -65,6 +66,7 @@ type (
 		nodePollInterval                               time.Duration
 
 		nonceAutoSync       bool
+		useForwarders       bool
 		rpcDefaultBatchSize uint32
 		// set true if fully configured
 		complete bool
@@ -128,6 +130,7 @@ func setChainSpecificConfigDefaultSets() {
 		headTrackerSamplingInterval:           1 * time.Second,
 		linkContractAddress:                   "",
 		logBackfillBatchSize:                  100,
+		logPollInterval:                       15 * time.Second,
 		maxGasPriceWei:                        *assets.GWei(5000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
@@ -139,6 +142,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
 		nonceAutoSync:                         true,
+		useForwarders:                         false,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
@@ -176,12 +180,13 @@ func setChainSpecificConfigDefaultSets() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := fallbackDefaultSet
-	xDaiMainnet.chainType = chains.XDai
+	xDaiMainnet.chainType = config.ChainXDai
 	xDaiMainnet.gasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.gasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
 	xDaiMainnet.maxGasPriceWei = *assets.GWei(500)
 	xDaiMainnet.linkContractAddress = "0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2"
+	xDaiMainnet.logPollInterval = 5 * time.Second
 
 	// BSC uses Clique consensus with ~3s block times
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
@@ -205,6 +210,7 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
 	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
+	bscMainnet.logPollInterval = 3 * time.Second
 
 	hecoMainnet := bscMainnet
 
@@ -228,12 +234,13 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.minIncomingConfirmations = 5
 	polygonMainnet.minRequiredOutgoingConfirmations = 12
+	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
 	polygonMumbai.linkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	arbitrumMainnet := fallbackDefaultSet
-	arbitrumMainnet.chainType = chains.Arbitrum
+	arbitrumMainnet.chainType = config.ChainArbitrum
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasLimitDefault = 7000000
 	arbitrumMainnet.gasLimitTransfer = 800000            // estimating gas returns 695,344 so 800,000 should be safe with some buffer
@@ -251,7 +258,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet := fallbackDefaultSet
 	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
-	optimismMainnet.chainType = chains.Optimism
+	optimismMainnet.chainType = config.ChainOptimism
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
@@ -273,6 +280,7 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.minRequiredOutgoingConfirmations = 2
+	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 
@@ -285,6 +293,7 @@ func setChainSpecificConfigDefaultSets() {
 	rskMainnet.gasFeeCapDefault = *big.NewInt(100000000) // rsk does not yet support EIP-1559 but this allows validation to pass
 	rskMainnet.minGasPriceWei = *big.NewInt(0)
 	rskMainnet.minimumContractPayment = assets.NewLinkFromJuels(1000000000000000)
+	rskMainnet.logPollInterval = 30 * time.Second
 	rskTestnet := rskMainnet
 	rskTestnet.linkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
@@ -301,6 +310,7 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheMainnet.minIncomingConfirmations = 1
 	avalancheMainnet.minRequiredOutgoingConfirmations = 1
 	avalancheMainnet.ocrContractConfirmations = 1
+	avalancheMainnet.logPollInterval = 3 * time.Second
 
 	avalancheFuji := avalancheMainnet
 	avalancheFuji.linkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
@@ -311,13 +321,14 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
 	harmonyMainnet.minRequiredOutgoingConfirmations = 2
+	harmonyMainnet.logPollInterval = 2 * time.Second
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
 	// OKExChain
 	// (stubbed so that the ChainType is autoset for known IDs)
 	okxMainnet := fallbackDefaultSet
-	okxMainnet.chainType = chains.ExChain
+	okxMainnet.chainType = config.ChainExChain
 
 	okxTestnet := okxMainnet
 

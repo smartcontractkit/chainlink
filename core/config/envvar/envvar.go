@@ -4,35 +4,45 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/parse"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+//nolint
 var (
-	// LogLevel reprents a parseable version of the `LOG_LEVEL`env var.
-	LogLevel = New("LogLevel", parse.LogLevel)
-	// RootDir reprents a parseable version of the `ROOT`env var.
-	RootDir = New("RootDir", parse.HomeDir)
-	// JSONConsole reprents a parseable version of the `JSON_CONSOLE`env var.
-	JSONConsole = New("JSONConsole", parse.Bool)
-	// LogFileMaxSize reprents a parseable version of the `LOG_FILE_MAX_SIZE`env var.
-	LogFileMaxSize = New("LogFileMaxSize", parse.FileSize)
-	// LogFileMaxAge reprents a parseable version of the `LOG_FILE_MAX_AGE`env var.
-	LogFileMaxAge = New("LogFileMaxAge", parse.Int64)
-	// LogFileMaxBackups reprents a parseable version of the `LOG_FILE_MAX_BACKUPS`env var.
-	LogFileMaxBackups = New("LogFileMaxBackups", parse.Int64)
-	// LogUnixTS reprents a parseable version of the `LOG_UNIX_TS`env var.
-	LogUnixTS = New("LogUnixTS", parse.Bool)
+	AdvisoryLockID                    = NewInt64("AdvisoryLockID")
+	AuthenticatedRateLimitPeriod      = NewDuration("AuthenticatedRateLimitPeriod")
+	AutoPprofPollInterval             = NewDuration("AutoPprofPollInterval")
+	AutoPprofGatherDuration           = NewDuration("AutoPprofGatherDuration")
+	AutoPprofGatherTraceDuration      = NewDuration("AutoPprofGatherTraceDuration")
+	BlockBackfillDepth                = NewUint64("BlockBackfillDepth")
+	HTTPServerWriteTimeout            = NewDuration("HTTPServerWriteTimeout")
+	JobPipelineMaxRunDuration         = NewDuration("JobPipelineMaxRunDuration")
+	JobPipelineResultWriteQueueDepth  = NewUint64("JobPipelineResultWriteQueueDepth")
+	JobPipelineReaperInterval         = NewDuration("JobPipelineReaperInterval")
+	JobPipelineReaperThreshold        = NewDuration("JobPipelineReaperThreshold")
+	KeeperRegistryCheckGasOverhead    = NewUint64("KeeperRegistryCheckGasOverhead")
+	KeeperRegistryPerformGasOverhead  = NewUint64("KeeperRegistryPerformGasOverhead")
+	KeeperRegistrySyncInterval        = NewDuration("KeeperRegistrySyncInterval")
+	KeeperRegistrySyncUpkeepQueueSize = NewUint32("KeeperRegistrySyncUpkeepQueueSize")
+	LogLevel                          = New[zapcore.Level]("LogLevel", parse.LogLevel)
+	RootDir                           = New[string]("RootDir", parse.HomeDir)
+	JSONConsole                       = NewBool("JSONConsole")
+	LogFileMaxSize                    = New("LogFileMaxSize", parse.FileSize)
+	LogFileMaxAge                     = New("LogFileMaxAge", parse.Int64)
+	LogFileMaxBackups                 = New("LogFileMaxBackups", parse.Int64)
+	LogUnixTS                         = NewBool("LogUnixTS")
 )
 
-// EnvVar is an environment variable which
-type EnvVar struct {
+// EnvVar is an environment variable parsed as T.
+type EnvVar[T any] struct {
 	name  string
-	parse func(string) (interface{}, error)
+	parse func(string) (T, error)
 
 	envVarName   string
 	defaultValue string
@@ -41,14 +51,14 @@ type EnvVar struct {
 
 // New creates a new EnvVar for the given name and parse func.
 // name must match the ConfigSchema field.
-func New(name string, parse func(string) (interface{}, error)) *EnvVar {
-	e := &EnvVar{name: name, parse: parse, envVarName: Name(name)}
+func New[T any](name string, parse func(string) (T, error)) *EnvVar[T] {
+	e := &EnvVar[T]{name: name, parse: parse, envVarName: Name(name)}
 	e.defaultValue, e.hasDefault = DefaultValue(name)
 	return e
 }
 
 // Parse attempts to parse the value returned from the environment, falling back to the default value when empty or invalid.
-func (e *EnvVar) Parse() (v interface{}, invalid string) {
+func (e *EnvVar[T]) Parse() (v T, invalid string) {
 	var err error
 	v, invalid, err = e.ParseFrom(os.Getenv)
 	if err != nil {
@@ -59,7 +69,7 @@ func (e *EnvVar) Parse() (v interface{}, invalid string) {
 
 // ParseFrom attempts to parse the value returned from calling get with the env var name, falling back to the default
 // value when empty or invalid.
-func (e *EnvVar) ParseFrom(get func(string) string) (v interface{}, invalid string, err error) {
+func (e *EnvVar[T]) ParseFrom(get func(string) string) (v T, invalid string, err error) {
 	str := get(e.envVarName)
 	if str != "" {
 		v, err = e.parse(str)
@@ -68,13 +78,14 @@ func (e *EnvVar) ParseFrom(get func(string) string) (v interface{}, invalid stri
 		}
 		var df interface{} = e.defaultValue
 		if !e.hasDefault {
-			df = ZeroValue(e.name)
+			var t T
+			df = t
 		}
 		invalid = fmt.Sprintf(`Invalid value provided for %s, "%s" - falling back to default "%s": %v`, e.name, str, df, err)
 	}
 
 	if !e.hasDefault {
-		v = ZeroValue(e.name)
+		// zero value
 		return
 	}
 
@@ -83,44 +94,30 @@ func (e *EnvVar) ParseFrom(get func(string) string) (v interface{}, invalid stri
 	return
 }
 
-// ParseString parses string
-func (e *EnvVar) ParseString() (v string, invalid string) {
-	var i interface{}
-	i, invalid = e.Parse()
-	return i.(string), invalid
+func NewString(name string) *EnvVar[string] {
+	return New[string](name, parse.String)
 }
 
-// ParseBool parses bool
-func (e *EnvVar) ParseBool() (v bool, invalid string) {
-	var i interface{}
-	i, invalid = e.Parse()
-	return i.(bool), invalid
+func NewBool(name string) *EnvVar[bool] {
+	return New[bool](name, strconv.ParseBool)
 }
 
-// ParseInt64 parses value into `int64`
-func (e *EnvVar) ParseInt64() (v int64, invalid string) {
-	var i interface{}
-	i, invalid = e.Parse()
-	return i.(int64), invalid
+func NewInt64(name string) *EnvVar[int64] {
+	return New[int64](name, parse.Int64)
 }
 
-// ParseFileSize parses value into `utils.FileSize`
-func (e *EnvVar) ParseFileSize() (v utils.FileSize, invalid string) {
-	var i interface{}
-	i, invalid = e.Parse()
-	return i.(utils.FileSize), invalid
+func NewUint64(name string) *EnvVar[uint64] {
+	return New[uint64](name, parse.Uint64)
 }
 
-// ParseLogLevel parses an env var's log level
-func (e *EnvVar) ParseLogLevel() (v zapcore.Level, invalid string) {
-	var i interface{}
-	i, invalid = e.Parse()
-	var ll zapcore.Level
-	switch v := i.(type) {
-	case zapcore.Level:
-		ll = v
-	case *zapcore.Level:
-		ll = *v
-	}
-	return ll, invalid
+func NewUint32(name string) *EnvVar[uint32] {
+	return New[uint32](name, parse.Uint32)
+}
+
+func NewUint16(name string) *EnvVar[uint16] {
+	return New[uint16](name, parse.Uint16)
+}
+
+func NewDuration(name string) *EnvVar[time.Duration] {
+	return New[time.Duration](name, time.ParseDuration)
 }

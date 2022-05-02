@@ -48,3 +48,8 @@ func NewClientWithTestNode(cfg NodeConfig, lggr logger.Logger, rpcUrl string, rp
 func Wrap(err error, s string) error {
 	return wrap(err, s)
 }
+
+type TestableSendOnlyNode interface {
+	SendOnlyNode
+	SetEthClient(newBatchSender BatchSender, newSender TxSender)
+}

@@ -15,7 +15,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -146,13 +147,17 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM   evm.ChainSet
-	Terra terra.ChainSet // nil if disabled
+	EVM    evm.ChainSet
+	Solana solana.ChainSet // nil if disabled
+	Terra  terra.ChainSet  // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.EVM != nil {
 		s = append(s, c.EVM)
+	}
+	if c.Solana != nil {
+		s = append(s, c.Solana)
 	}
 	if c.Terra != nil {
 		s = append(s, c.Terra)
@@ -321,6 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
+			cfg,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
@@ -334,7 +340,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.EVM, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			solanaRelayerCtx := solanaRelayer
 			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
 		}
@@ -374,6 +380,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
+
+	// We start the log poller after the job spawner
+	// so jobs have a chance to apply their initial log filters.
+	if cfg.FeatureLogPoller() {
+		for _, c := range chains.EVM.Chains() {
+			subservices = append(subservices, c.LogPoller())
+		}
+	}
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm

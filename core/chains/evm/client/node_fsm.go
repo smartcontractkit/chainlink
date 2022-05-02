@@ -184,9 +184,7 @@ func (n *node) transitionToOutOfSync(fn func()) {
 	}
 	switch n.state {
 	case NodeStateAlive:
-		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
-		n.cancelInflightRequests()
+		n.disconnectAll()
 		n.state = NodeStateOutOfSync
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateOutOfSync))
@@ -211,9 +209,7 @@ func (n *node) transitionToUnreachable(fn func()) {
 	}
 	switch n.state {
 	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID:
-		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
-		n.cancelInflightRequests()
+		n.disconnectAll()
 		n.state = NodeStateUnreachable
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateUnreachable))
@@ -238,9 +234,7 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 	}
 	switch n.state {
 	case NodeStateDialed:
-		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
-		n.cancelInflightRequests()
+		n.disconnectAll()
 		n.state = NodeStateInvalidChainID
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateInvalidChainID))

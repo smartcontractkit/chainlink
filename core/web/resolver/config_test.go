@@ -80,6 +80,8 @@ func TestResolver_Config(t *testing.T) {
 					KeeperMaximumGracePeriod:                  null.IntFrom(1),
 					KeeperRegistrySyncInterval:                nil,
 					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
+					KeeperTurnLookBack:                        null.IntFrom(0),
+					KeeperTurnFlagEnabled:                     null.BoolFrom(true),
 					LogLevel:                                  &logLevel,
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
@@ -269,6 +271,14 @@ func TestResolver_Config(t *testing.T) {
       {
         "key": "KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED",
         "value": "false"
+      },
+      {
+        "key": "KEEPER_TURN_LOOK_BACK",
+        "value": "0"
+      },
+      {
+        "key": "KEEPER_TURN_FLAG_ENABLED",
+        "value": "true"
       },
       {
         "key": "LEASE_LOCK_DURATION",
