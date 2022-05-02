@@ -17,12 +17,12 @@ func (rs *RegistrySynchronizer) fullSync() {
 
 	registry, err := rs.syncRegistry()
 	if err != nil {
-		rs.logger.With("error", err).Error("failed to sync registry during fullSyncing registry")
+		rs.logger.Error(errors.Wrap(err, "failed to sync registry during fullSyncing registry"))
 		return
 	}
 
 	if err := rs.fullSyncUpkeeps(registry); err != nil {
-		rs.logger.With("error", err).Error("failed to sync upkeeps during fullSyncing registry")
+		rs.logger.Error(errors.Wrap(err, "failed to sync upkeeps during fullSyncing registry"))
 		return
 	}
 }
@@ -43,7 +43,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(nil)
 	if err != nil {
-		return errors.Wrapf(err, "unable to get active upkeep IDs")
+		return errors.Wrap(err, "unable to get active upkeep IDs")
 	}
 	existingUpkeepIDs, err := rs.orm.AllUpkeepIDsForRegistry(reg.ID)
 	if err != nil {
