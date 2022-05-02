@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/helmenv/environment"
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
+	"github.com/smartcontractkit/integrations-framework/blockchain"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/config"
 	"github.com/smartcontractkit/integrations-framework/contracts"
@@ -23,7 +24,7 @@ import (
 var _ = Describe("Direct request suite @runlog", func() {
 	var (
 		err            error
-		nets           *client.Networks
+		nets           *blockchain.Networks
 		cd             contracts.ContractDeployer
 		chainlinkNodes []client.Chainlink
 		oracle         contracts.Oracle
@@ -48,7 +49,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := client.NewDefaultNetworkRegistry()
+			networkRegistry := blockchain.NewDefaultNetworkRegistry()
 			nets, err = networkRegistry.GetNetworks(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(nets.Default)
@@ -73,7 +74,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Oracle Contract shouldn't fail")
 			consumer, err = cd.DeployAPIConsumer(lt.Address())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Consumer Contract shouldn't fail")
-			err = nets.Default.SetWallet(0)
+			err = nets.Default.SetDefaultWallet(0)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting default wallet shouldn't fail")
 			err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 			Expect(err).ShouldNot(HaveOccurred(), "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))

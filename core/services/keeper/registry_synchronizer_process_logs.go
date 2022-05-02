@@ -5,17 +5,18 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
 	wg := sync.WaitGroup{}
-	wg.Add(4)
+	wg.Add(5)
 	go rs.handleSyncRegistryLog(wg.Done)
 	go rs.handleUpkeepCanceledLogs(wg.Done)
 	go rs.handleUpkeepRegisteredLogs(wg.Done)
 	go rs.handleUpkeepPerformedLogs(wg.Done)
+	go rs.handleUpkeepGasLimitSetLogs(wg.Done)
 	wg.Wait()
 }
 
@@ -67,12 +68,14 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	if was {
 		return
 	}
-	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepCanceled)
-	if !ok {
-		rs.logger.AssumptionViolationf("expected UpkeepCanceled log but got %T", broadcastedLog)
+
+	cancelledID, err := rs.registryWrapper.GetCancelledUpkeepIDFromLog(broadcast)
+	if err != nil {
+		rs.logger.With("error", err).Error("Unable to fetch cancelled upkeep ID from log")
 		return
 	}
-	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []int64{broadcastedLog.Id.Int64()})
+
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(cancelledID)})
 	if err != nil {
 		rs.logger.With("error", err).Error("unable to batch delete upkeeps")
 		return
@@ -111,12 +114,14 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 	if was {
 		return
 	}
-	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepRegistered)
-	if !ok {
-		rs.logger.AssumptionViolationf("expected UpkeepRegistered log but got %T", broadcastedLog)
+
+	upkeepID, err := rs.registryWrapper.GetUpkeepIdFromRegistrationLog(broadcast)
+	if err != nil {
+		rs.logger.With("error", err).Error("Unable to fetch upkeep ID from registration log")
 		return
 	}
-	err = rs.syncUpkeep(registry, broadcastedLog.Id.Int64())
+
+	err = rs.syncUpkeep(registry, utils.NewBig(upkeepID))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to sync upkeep, log: %v", broadcast.String())
 		return
@@ -150,23 +155,68 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		return
 	}
 
-	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
-	if !ok {
-		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
+	log, err := rs.registryWrapper.ParseUpkeepPerformedLog(broadcast)
+	if err != nil {
+		rs.logger.With("error", err).Error("Unable to fetch upkeep ID from performed log")
 		return
 	}
-	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, utils.NewBig(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
+
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
 	}
 	rs.logger.Debugw("updated db for UpkeepPerformed log",
 		"jobID", rs.job.ID,
-		"upkeepID", log.Id.Int64(),
+		"upkeepID", log.UpkeepID.Int64(),
 		"blockNumber", int64(broadcast.RawLog().BlockNumber),
-		"fromAddr", ethkey.EIP55AddressFromAddress(log.From))
+		"fromAddr", ethkey.EIP55AddressFromAddress(log.FromKeeper))
 
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.With("error", err).With("log", broadcast.String()).Error("unable to mark KeeperRegistryUpkeepPerformed log as consumed")
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepGasLimitSetLogs(done func()) {
+	defer done()
+	registry, err := rs.orm.RegistryForJob(rs.job.ID)
+	if err != nil {
+		rs.logger.With("error", err).Error("unable to find registry for job")
+		return
+	}
+	for {
+		broadcast, exists := rs.mailRoom.mbUpkeepGasLimitSet.Retrieve()
+		if !exists {
+			return
+		}
+		rs.handleUpkeepGasLimitSet(broadcast, registry)
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepGasLimitSet(broadcast log.Broadcast, registry Registry) {
+	txHash := broadcast.RawLog().TxHash.Hex()
+	rs.logger.Debugw("processing UpkeepGasLimitSet log", "jobID", rs.job.ID, "txHash", txHash)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+	if err != nil {
+		rs.logger.With("error", err).Warn("unable to check if log was consumed")
+		return
+	}
+	if was {
+		return
+	}
+
+	upkeepID, err := rs.registryWrapper.GetIDFromGasLimitSetLog(broadcast)
+	if err != nil {
+		rs.logger.With("error", err).Error("Unable to fetch upkeep ID from gas limit set log")
+		return
+	}
+
+	err = rs.syncUpkeep(registry, utils.NewBig(upkeepID))
+	if err != nil {
+		rs.logger.With("error", err).Error("failed to sync upkeep, log: %v", broadcast.String())
+		return
+	}
+	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
+		rs.logger.With("error", err).Errorf("unable to mark KeeperRegistryUpkeepGasLimitSet log as consumed, log: %v", broadcast.String())
 	}
 }

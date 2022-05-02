@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
 func makeHTTPRequest(
@@ -19,7 +20,7 @@ func makeHTTPRequest(
 	method StringParam,
 	url URLParam,
 	requestData MapParam,
-	allowUnrestrictedNetworkAccess BoolParam,
+	client *http.Client,
 	httpLimit int64,
 ) ([]byte, int, http.Header, time.Duration, error) {
 
@@ -38,13 +39,11 @@ func makeHTTPRequest(
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	httpRequest := HTTPRequest{
+	httpRequest := clhttp.HTTPRequest{
+		Client:  client,
 		Request: request,
-		Config: HTTPRequestConfig{
-			SizeLimit:                      httpLimit,
-			AllowUnrestrictedNetworkAccess: bool(allowUnrestrictedNetworkAccess),
-		},
-		Logger: lggr.Named("HTTPRequest"),
+		Config:  clhttp.HTTPRequestConfig{SizeLimit: httpLimit},
+		Logger:  lggr.Named("HTTPRequest"),
 	}
 
 	start := time.Now()

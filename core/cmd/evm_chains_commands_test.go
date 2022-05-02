@@ -41,7 +41,7 @@ func TestClient_IndexEVMChains(t *testing.T) {
 	chain, err := orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexEVMChains(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.EVMChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.EVMChainPresenters)
 	require.Len(t, chains, initialCount+1)
 	c := chains[initialCount]
@@ -71,7 +71,7 @@ func TestClient_CreateEVMChain(t *testing.T) {
 	set.Parse([]string{`{}`})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.CreateEVMChain(c)
+	err = cmd.EVMChainClient(client).CreateChain(c)
 	require.NoError(t, err)
 
 	chains, _, err := orm.Chains(0, 25)
@@ -109,7 +109,7 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 	set.Parse([]string{id.String()})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveEVMChain(c)
+	err = cmd.EVMChainClient(client).RemoveChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
@@ -151,7 +151,7 @@ func TestClient_ConfigureEVMChain(t *testing.T) {
 	set.Parse([]string{"BlockHistoryEstimatorBlockDelay=9", "EvmGasBumpPercent=null"})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.ConfigureEVMChain(c)
+	err = cmd.EVMChainClient(client).ConfigureChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)

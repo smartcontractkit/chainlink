@@ -361,26 +361,22 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		echc := EVMChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
-		authv2.POST("/chains/evm", echc.Create)
-		authv2.GET("/chains/evm/:ID", echc.Show)
-		authv2.PATCH("/chains/evm/:ID", echc.Update)
-		authv2.DELETE("/chains/evm/:ID", echc.Delete)
-
-		schc := SolanaChainsController{app}
-		authv2.GET("/chains/solana", paginatedRequest(schc.Index))
-		authv2.POST("/chains/solana", schc.Create)
-		authv2.GET("/chains/solana/:ID", schc.Show)
-		authv2.PATCH("/chains/solana/:ID", schc.Update)
-		authv2.DELETE("/chains/solana/:ID", schc.Delete)
-
-		tchc := TerraChainsController{app}
-		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
-		authv2.POST("/chains/terra", tchc.Create)
-		authv2.GET("/chains/terra/:ID", tchc.Show)
-		authv2.PATCH("/chains/terra/:ID", tchc.Update)
-		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
+		for _, chain := range []struct {
+			path string
+			cc   ChainsController
+		}{
+			{"evm", NewEVMChainsController(app)},
+			{"solana", NewSolanaChainsController(app)},
+			{"terra", NewTerraChainsController(app)},
+		} {
+			path := fmt.Sprintf("/chains/%s", chain.path)
+			authv2.GET(path, paginatedRequest(chain.cc.Index))
+			authv2.POST(path, chain.cc.Create)
+			pathID := fmt.Sprintf("/chains/%s/:ID", chain.path)
+			authv2.GET(pathID, chain.cc.Show)
+			authv2.PATCH(pathID, chain.cc.Update)
+			authv2.DELETE(pathID, chain.cc.Delete)
+		}
 
 		enc := EVMNodesController{app}
 		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration

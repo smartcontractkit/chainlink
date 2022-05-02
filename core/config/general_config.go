@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -101,7 +102,6 @@ type GeneralOnlyConfig interface {
 	DatabaseLockingMode() string
 	DatabaseURL() url.URL
 	DefaultChainID() *big.Int
-	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
 	DefaultLogLevel() zapcore.Level
@@ -406,7 +406,29 @@ EVM_ENABLED=false
 		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
+	if !c.Dev() {
+		if err := validateDBURL(c.DatabaseURL()); err != nil {
+			// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
+			c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink.\n\n", err, utils.PasswordComplexityRequirements)
+		}
+	}
+
 	return nil
+}
+
+func validateDBURL(dbURI url.URL) error {
+	if strings.Contains(dbURI.Redacted(), "_test") {
+		return nil
+	}
+	userInfo := dbURI.User
+	if userInfo == nil {
+		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed (got: %s)", dbURI.Redacted())
+	}
+	pw, pwSet := userInfo.Password()
+	if !pwSet {
+		return errors.Errorf("DB URL must be authenticated; password is required (got: %s)", dbURI.Redacted())
+	}
+	return utils.VerifyPasswordComplexity(pw)
 }
 
 func (c *generalConfig) GetAdvisoryLockIDConfiguredOrDefault() int64 {
@@ -603,12 +625,6 @@ func (c *generalConfig) DefaultHTTPLimit() int64 {
 // DefaultHTTPTimeout defines the default timeout for http requests
 func (c *generalConfig) DefaultHTTPTimeout() models.Duration {
 	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("DefaultHTTPTimeout")))
-}
-
-// DefaultHTTPAllowUnrestrictedNetworkAccess controls whether http requests are unrestricted by default
-// It is recommended that this be left disabled
-func (c *generalConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
-	return c.viper.GetBool(envvar.Name("DefaultHTTPAllowUnrestrictedNetworkAccess"))
 }
 
 // Dev configures "development" mode for chainlink.
