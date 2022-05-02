@@ -1,20 +1,32 @@
-package pipeline
+package http
 
 import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-var (
-	// Client represents a HTTP Client
-	Client *http.Client
-	// UnrestrictedClient represents a HTTP Client with no Transport restrictions
-	UnrestrictedClient *http.Client
-)
+type httpClientConfig interface {
+	DatabaseURL() url.URL
+}
+
+// NewRestrictedHTTPClient returns a secure HTTP Client (queries to certain
+// local addresses are blocked)
+func NewRestrictedHTTPClient(cfg httpClientConfig, lggr logger.Logger) *http.Client {
+	tr := newDefaultTransport()
+	tr.DialContext = makeRestrictedDialContext(cfg, lggr)
+	return &http.Client{Transport: tr}
+}
+
+// NewUnrestrictedClient returns a HTTP Client with no Transport restrictions
+func NewUnrestrictedHTTPClient() *http.Client {
+	unrestrictedTr := newDefaultTransport()
+	return &http.Client{Transport: unrestrictedTr}
+}
 
 func newDefaultTransport() *http.Transport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
@@ -26,17 +38,9 @@ func newDefaultTransport() *http.Transport {
 	return t
 }
 
-func init() {
-	tr := newDefaultTransport()
-	tr.DialContext = restrictedDialContext
-	Client = &http.Client{Transport: tr}
-
-	unrestrictedTr := newDefaultTransport()
-	UnrestrictedClient = &http.Client{Transport: unrestrictedTr}
-}
-
 // HTTPRequest holds the request and config struct for a http request
 type HTTPRequest struct {
+	Client  *http.Client
 	Request *http.Request
 	Config  HTTPRequestConfig
 	Logger  logger.Logger
@@ -44,22 +48,15 @@ type HTTPRequest struct {
 
 // HTTPRequestConfig holds the configurable settings for a http request
 type HTTPRequestConfig struct {
-	SizeLimit                      int64
-	AllowUnrestrictedNetworkAccess bool
+	SizeLimit int64
 }
 
 // SendRequest sends a HTTPRequest,
 // returns a body, status code, and error.
 func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, headers http.Header, err error) {
-	var client *http.Client
-	if h.Config.AllowUnrestrictedNetworkAccess {
-		client = UnrestrictedClient
-	} else {
-		client = Client
-	}
 	start := time.Now()
 
-	r, err := client.Do(h.Request)
+	r, err := h.Client.Do(h.Request)
 	if err != nil {
 		h.Logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, nil, err

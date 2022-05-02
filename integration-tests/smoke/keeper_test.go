@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/helmenv/environment"
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
+	"github.com/smartcontractkit/integrations-framework/blockchain"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/config"
 	"github.com/smartcontractkit/integrations-framework/contracts"
@@ -19,7 +20,7 @@ import (
 var _ = Describe("Keeper suite @keeper", func() {
 	var (
 		err              error
-		networks         *client.Networks
+		networks         *blockchain.Networks
 		contractDeployer contracts.ContractDeployer
 		registry         contracts.KeeperRegistry
 		consumer         contracts.KeeperConsumer
@@ -44,7 +45,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := client.NewDefaultNetworkRegistry()
+			networkRegistry := blockchain.NewDefaultNetworkRegistry()
 			networks, err = networkRegistry.GetNetworks(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(networks.Default)

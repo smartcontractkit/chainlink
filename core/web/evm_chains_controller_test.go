@@ -30,15 +30,13 @@ func Test_EVMChainsController_Create(t *testing.T) {
 
 	newChainId := *utils.NewBigI(42)
 
-	body, err := json.Marshal(web.CreateEVMChainRequest{
-		ID: newChainId,
-		Config: types.ChainCfg{
+	body, err := json.Marshal(web.NewCreateChainRequest(newChainId,
+		types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(1),
 			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(12),
 			EvmEIP1559DynamicFees:                 null.BoolFrom(false),
 			MinIncomingConfirmations:              null.IntFrom(10),
-		},
-	})
+		}))
 	require.NoError(t, err)
 
 	resp, cleanup := controller.client.Post("/v2/chains/evm", bytes.NewReader(body))
@@ -148,7 +146,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	controller := setupEVMChainsControllerTest(t)
 
-	newChains := []web.CreateEVMChainRequest{
+	newChains := []web.CreateChainRequest[utils.Big, types.ChainCfg]{
 		{
 			ID: *utils.NewBigI(24),
 			Config: types.ChainCfg{
@@ -229,7 +227,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 func Test_EVMChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateEVMChainRequest{
+	chainUpdate := web.UpdateChainRequest[types.ChainCfg]{
 		Enabled: true,
 		Config: types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(55),

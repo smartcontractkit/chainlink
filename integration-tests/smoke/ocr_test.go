@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/helmenv/environment"
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
+	"github.com/smartcontractkit/integrations-framework/blockchain"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/config"
 	"github.com/smartcontractkit/integrations-framework/contracts"
@@ -20,7 +21,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		err               error
 		env               *environment.Environment
-		networks          *client.Networks
+		networks          *blockchain.Networks
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
 		chainlinkNodes    []client.Chainlink
@@ -45,7 +46,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 		By("Connecting to launched resources", func() {
 			// Load Networks
-			networkRegistry := client.NewDefaultNetworkRegistry()
+			networkRegistry := blockchain.NewDefaultNetworkRegistry()
 			var err error
 			networks, err = networkRegistry.GetNetworks(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
