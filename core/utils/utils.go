@@ -41,11 +41,9 @@ var ZeroAddress = common.Address{}
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
 
-var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
-
 // Uint256ToBytes is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
-	if x.Cmp(maxUint256) > 0 {
+	if x.Cmp(MaxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
 	}
 	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
@@ -354,7 +352,7 @@ var zero = big.NewInt(0)
 
 // CheckUint256 returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
-	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
+	if n.Cmp(zero) < 0 || n.Cmp(MaxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
 	}
 	return nil
@@ -487,85 +485,84 @@ func (da *dependentAwaiter) DependentReady() {
 }
 
 // BoundedQueue is a FIFO queue that discards older items when it reaches its capacity.
-type BoundedQueue struct {
-	capacity uint
-	items    []interface{}
-	mu       *sync.RWMutex
+type BoundedQueue[T any] struct {
+	capacity int
+	items    []T
+	mu       sync.RWMutex
 }
 
 // NewBoundedQueue creates a new BoundedQueue instance
-func NewBoundedQueue(capacity uint) *BoundedQueue {
-	return &BoundedQueue{
-		capacity: capacity,
-		mu:       &sync.RWMutex{},
-	}
+func NewBoundedQueue[T any](capacity int) *BoundedQueue[T] {
+	var bq BoundedQueue[T]
+	bq.capacity = capacity
+	return &bq
 }
 
 // Add appends items to a BoundedQueue
-func (q *BoundedQueue) Add(x interface{}) {
+func (q *BoundedQueue[T]) Add(x T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.items = append(q.items, x)
-	if uint(len(q.items)) > q.capacity {
-		excess := uint(len(q.items)) - q.capacity
+	if len(q.items) > q.capacity {
+		excess := len(q.items) - q.capacity
 		q.items = q.items[excess:]
 	}
 }
 
 // Take pulls the first item from the array and removes it
-func (q *BoundedQueue) Take() interface{} {
+func (q *BoundedQueue[T]) Take() (t T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.items) == 0 {
-		return nil
+		return
 	}
-	x := q.items[0]
+	t = q.items[0]
 	q.items = q.items[1:]
-	return x
+	return
 }
 
 // Empty check is a BoundedQueue is empty
-func (q *BoundedQueue) Empty() bool {
+func (q *BoundedQueue[T]) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return len(q.items) == 0
 }
 
 // Full checks if a BoundedQueue is over capacity.
-func (q *BoundedQueue) Full() bool {
+func (q *BoundedQueue[T]) Full() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
-	return uint(len(q.items)) >= q.capacity
+	return len(q.items) >= q.capacity
 }
 
 // BoundedPriorityQueue stores a series of BoundedQueues
 // with associated priorities and capacities
-type BoundedPriorityQueue struct {
-	queues     map[uint]*BoundedQueue
+type BoundedPriorityQueue[T any] struct {
+	queues     map[uint]*BoundedQueue[T]
 	priorities []uint
-	capacities map[uint]uint
-	mu         *sync.RWMutex
+	capacities map[uint]int
+	mu         sync.RWMutex
 }
 
 // NewBoundedPriorityQueue creates a new BoundedPriorityQueue
-func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
-	queues := make(map[uint]*BoundedQueue)
+func NewBoundedPriorityQueue[T any](capacities map[uint]int) *BoundedPriorityQueue[T] {
+	queues := make(map[uint]*BoundedQueue[T])
 	var priorities []uint
 	for priority, capacity := range capacities {
 		priorities = append(priorities, priority)
-		queues[priority] = NewBoundedQueue(capacity)
+		queues[priority] = NewBoundedQueue[T](capacity)
 	}
 	sort.Slice(priorities, func(i, j int) bool { return priorities[i] < priorities[j] })
-	return &BoundedPriorityQueue{
+	bpq := BoundedPriorityQueue[T]{
 		queues:     queues,
 		priorities: priorities,
 		capacities: capacities,
-		mu:         &sync.RWMutex{},
 	}
+	return &bpq
 }
 
 // Add pushes an item into a subque within a BoundedPriorityQueue
-func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
+func (q *BoundedPriorityQueue[T]) Add(priority uint, x T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -578,7 +575,7 @@ func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 }
 
 // Take takes from the BoundedPriorityQueue's subque
-func (q *BoundedPriorityQueue) Take() interface{} {
+func (q *BoundedPriorityQueue[T]) Take() (t T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -589,12 +586,12 @@ func (q *BoundedPriorityQueue) Take() interface{} {
 		}
 		return queue.Take()
 	}
-	return nil
+	return
 }
 
 // Empty checks the BoundedPriorityQueue
 // if all subqueues are empty
-func (q *BoundedPriorityQueue) Empty() bool {
+func (q *BoundedPriorityQueue[T]) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
@@ -1004,4 +1001,30 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
+}
+
+// AllEqual returns true iff all the provided elements are equal to each other.
+func AllEqual[T comparable](elems ...T) bool {
+	for i := 1; i < len(elems); i++ {
+		if elems[i] != elems[0] {
+			return false
+		}
+	}
+	return true
+}
+
+// RandUint256 generates a random bigNum up to 2 ** 256 - 1
+func RandUint256() *big.Int {
+	n, err := rand.Int(rand.Reader, MaxUint256)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
+func LeftPadBitString(input string, length int) string {
+	if len(input) >= length {
+		return input
+	}
+	return strings.Repeat("0", length-len(input)) + input
 }

@@ -12,10 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -24,8 +23,7 @@ import (
 )
 
 func TestChainScopedConfig(t *testing.T) {
-	orm := new(evmmocks.ORM)
-	orm.Test(t)
+	orm := make(fakeChainConfigORM)
 	chainID := big.NewInt(rand.Int63())
 	gcfg := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t).With("evmChainID", chainID.String())
@@ -37,13 +35,15 @@ func TestChainScopedConfig(t *testing.T) {
 		t.Run("sets the gas price", func(t *testing.T) {
 			assert.Equal(t, big.NewInt(20000000000), cfg.EvmGasPriceDefault())
 
-			orm.On("StoreString", chainID, "EvmGasPriceDefault", "42000000000").Return(nil)
 			err := cfg.SetEvmGasPriceDefault(big.NewInt(42000000000))
 			assert.NoError(t, err)
 
 			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
 
-			orm.AssertExpectations(t)
+			got, ok := orm.LoadString(*utils.NewBig(chainID), "EvmGasPriceDefault")
+			if assert.True(t, ok) {
+				assert.Equal(t, "42000000000", got)
+			}
 		})
 		t.Run("is not allowed to set gas price to below EvmMinGasPriceWei", func(t *testing.T) {
 			assert.Equal(t, big.NewInt(1000000000), cfg.EvmMinGasPriceWei())
@@ -124,8 +124,7 @@ func TestChainScopedConfig(t *testing.T) {
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
-	orm := new(evmmocks.ORM)
-	orm.Test(t)
+	orm := make(fakeChainConfigORM)
 	chainID := big.NewInt(56)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t).With("evmChainID", chainID.String())
@@ -197,7 +196,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(chains.Arbitrum)),
+				ChainType:        null.StringFrom(string(config.ChainArbitrum)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
 			assert.Error(t, cfg.Validate())
@@ -225,7 +224,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(chains.Optimism)),
+				ChainType:        null.StringFrom(string(config.ChainOptimism)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
 			assert.Error(t, cfg.Validate())
@@ -247,4 +246,33 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			assert.Error(t, cfg.Validate())
 		})
 	})
+}
+
+type fakeChainConfigORM map[string]map[string]string
+
+func (f fakeChainConfigORM) LoadString(chainID utils.Big, key string) (val string, ok bool) {
+	var m map[string]string
+	m, ok = f[chainID.String()]
+	if ok {
+		val, ok = m[key]
+	}
+	return
+}
+
+func (f fakeChainConfigORM) StoreString(chainID utils.Big, key, val string) error {
+	m, ok := f[chainID.String()]
+	if !ok {
+		m = make(map[string]string)
+		f[chainID.String()] = m
+	}
+	m[key] = val
+	return nil
+}
+
+func (f fakeChainConfigORM) Clear(chainID utils.Big, key string) error {
+	m, ok := f[chainID.String()]
+	if ok {
+		delete(m, key)
+	}
+	return nil
 }

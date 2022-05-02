@@ -14,11 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 var (
@@ -105,7 +105,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
-	ChainType() chains.ChainType
+	ChainType() config.ChainType
 	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
@@ -304,7 +304,7 @@ func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, origin
 	}
 	if bumpedGasPrice.Cmp(maxGasPrice) > 0 {
 		return maxGasPrice, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
-			bumpedGasPrice.String(), maxGasPrice, originalGasPrice.String(), static.EthNodeConnectivityProblemLabel)
+			bumpedGasPrice.String(), maxGasPrice, originalGasPrice.String(), label.NodeConnectivityProblemWarning)
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
@@ -359,7 +359,7 @@ func bumpDynamicFee(cfg Config, lggr logger.SugaredLogger, currentTipCap, curren
 	}
 	if bumpedTipCap.Cmp(maxGasPrice) > 0 {
 		return bumpedFee, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped tip cap of %s would exceed configured max gas price of %s (original fee: tip cap %s, fee cap %s). %s",
-			bumpedTipCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), static.EthNodeConnectivityProblemLabel)
+			bumpedTipCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), label.NodeConnectivityProblemWarning)
 	} else if bumpedTipCap.Cmp(originalFee.TipCap) <= 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
@@ -385,7 +385,7 @@ func bumpDynamicFee(cfg Config, lggr logger.SugaredLogger, currentTipCap, curren
 
 	if bumpedFeeCap.Cmp(maxGasPrice) > 0 {
 		return bumpedFee, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped fee cap of %s would exceed configured max gas price of %s (original fee: tip cap %s, fee cap %s). %s",
-			bumpedFeeCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), static.EthNodeConnectivityProblemLabel)
+			bumpedFeeCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), label.NodeConnectivityProblemWarning)
 	}
 
 	return DynamicFee{FeeCap: bumpedFeeCap, TipCap: bumpedTipCap}, nil

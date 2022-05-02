@@ -33,7 +33,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.17](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.18](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/). See the current version in `package.json` at the root of this repo under the `engines.node` key.
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
@@ -47,6 +47,26 @@ regarding Chainlink social accounts, news, and networking.
 7. Run the node: `chainlink help`
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
+
+### Mac M1/ARM64 [EXPERIMENTAL]
+
+Chainlink can be experimentally compiled with ARM64 as the target arch. You may run into errors with cosmwasm:
+
+```
+# github.com/CosmWasm/wasmvm/api
+ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
+Undefined symbols for architecture arm64:# github.com/CosmWasm/wasmvm/api
+ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
+Undefined symbols for architecture arm64:
+```
+
+In this case, try the following steps:
+
+1. `git clone git@github.com:mandrean/terra-core.git`
+2. `cd terra-core; git checkout feat/multiarch`
+3. `make install; cd ..`
+4. `go work init /path/to/chainlink`
+5. `go work use /path/to/terra-core`
 
 ### Ethereum Node Requirements
 
@@ -98,19 +118,21 @@ To find out more about the Chainlink CLI, you can always run `chainlink help`.
 
 Check out the [doc](https://docs.chain.link/) pages on [Jobs](https://docs.chain.link/docs/jobs/) to learn more about how to create Jobs.
 
-## Configuration
+### Configuration
 
 Node configuration is managed by a combination of environment variables and direct setting via API/UI/CLI.
 
 Check the [official documentation](https://docs.chain.link/docs/configuration-variables) for more information on how to configure your node.
 
-## External Adapters
+### External Adapters
 
 External adapters are what make Chainlink easily extensible, providing simple integration of custom computations and specialized APIs. A Chainlink node communicates with external adapters via a simple REST API.
 
 For more information on creating and using external adapters, please see our [external adapters page](https://docs.chain.link/docs/external-adapters).
 
-## Running tests
+## Development
+
+### Running tests
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
@@ -157,13 +179,24 @@ If you do end up modifying the migrations for the database, you will need to rer
 go test ./...
 ```
 
-### Notes
+#### Notes
 
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
 - The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
 
-### Solidity Development
+#### Fuzz tests
+
+As of Go 1.18, fuzz tests `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.
+
+Additionally, you can run active fuzzing to search for new cases:
+```bash
+go test ./pkg/path -run=XXX -fuzz=FuzzTestName
+```
+
+https://go.dev/doc/fuzz/
+
+### Solidity
 
 Inside the `contracts/` directory:
 1. Install dependencies:
@@ -178,7 +211,7 @@ yarn
 yarn test
 ```
 
-### Use of Go Generate
+### Code Generation
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
 
@@ -208,11 +241,11 @@ createuser --superuser --no-password chainlink -h localhost
 
 Now you can run tests or compile code as usual.
 
-### Development Tips
+### Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
 
-## Contributing
+### Contributing
 
 Chainlink's source code is [licensed under the MIT License](./LICENSE), and contributions are welcome.
 

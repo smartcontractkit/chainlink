@@ -80,11 +80,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					},
 				}, nil)
 				f.App.On("TxmORM").Return(f.Mocks.txmORM)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     query,
@@ -140,11 +136,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					},
 				}, nil)
 				f.App.On("TxmORM").Return(f.Mocks.txmORM)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     query,

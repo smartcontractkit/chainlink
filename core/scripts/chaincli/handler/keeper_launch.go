@@ -27,20 +27,21 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_vb_wrapper"
+	keeperRegV1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 const (
-	defaultChainlinkNodeImage = "smartcontract/chainlink:1.1.0"
+	defaultChainlinkNodeImage = "smartcontract/chainlink:latest"
 	defaultPOSTGRESImage      = "postgres:13"
 
-	defaultChainlinkNodeLogin    = "test@smartcontract.com"
-	defaultChainlinkNodePassword = "!PASsword000!"
+	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
+	defaultChainlinkNodePassword = "twochains"
 )
 
 type cfg struct {
@@ -86,7 +87,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	wg.Wait()
 
 	// Deploy keeper registry or get an existing one
-	var registry *keeper.KeeperRegistryVB
+	var registry *keeperRegV1.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
 	if k.cfg.RegistryAddress != "" {
@@ -158,8 +159,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		log.Println("Keeper job has been successfully created in the Chainlink node with address ", startedNode.url)
 
 		// Fund node if needed
-		if k.cfg.FundNodeAmount > 0 {
-			if err = k.sendEth(ctx, nodeAddr, k.cfg.FundNodeAmount); err != nil {
+		fundAmt, ok := (&big.Int{}).SetString(k.cfg.FundNodeAmount, 10)
+		if !ok {
+			log.Printf("failed to parse FUND_CHAINLINK_NODE: %s", k.cfg.FundNodeAmount)
+			continue
+		}
+		if fundAmt.Cmp(big.NewInt(0)) != 0 {
+			if err = k.sendEth(ctx, nodeAddr, fundAmt); err != nil {
 				log.Println("Failed to fund chainlink node: ", err)
 				continue
 			}
@@ -201,7 +207,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 }
 
 // cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
-func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistryVB) error {
+func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeperRegV1.KeeperRegistry) error {
 	count, err := registryInstance.GetUpkeepCount(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get upkeeps count: %s", err)
@@ -261,6 +267,7 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 			FromAddress:              nodeAddr,
 			EvmChainID:               int(k.cfg.ChainID),
 			MinIncomingConfirmations: 1,
+			ObservationSource:        keeper.ExpectedObservationSource,
 		}).Toml(),
 	})
 	if err != nil {
@@ -370,6 +377,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 			"GAS_ESTIMATOR_MODE=BlockHistory",
 			"ALLOW_ORIGINS=*",
 			"DATABASE_TIMEOUT=0",
+			"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED=true",
 		},
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},

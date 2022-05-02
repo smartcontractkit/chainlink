@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -42,25 +43,25 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	g.Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
@@ -78,9 +79,9 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		FilterLogs:          backfillTimes,
 	}
 
-	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
@@ -89,7 +90,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
-	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		backfillCount.Store(1)
 		require.Equal(t, lastStoredBlockHeight-numConfirmations-int64(blockBackfillDepth), fromBlock)
 	}
@@ -106,15 +107,15 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
 	helper.unsubscribeAll()
 
 	// now the backfill must use the blockBackfillDepth
-	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		require.Equal(t, blockHeight-int64(blockBackfillDepth), fromBlock)
 		backfillCount.Store(2)
 	}
@@ -122,13 +123,13 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	listenerLast := helper.newLogListenerWithJob("last")
 	helper.register(listenerLast, newMockContract(), 1)
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
-	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.WaitTimeout(t), time.Second)
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
@@ -145,9 +146,9 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		FilterLogs:          2,
 	}
 
-	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	maxNumConfirmations := int64(10)
@@ -164,7 +165,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
-	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
 		if times == 0 {
 			require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
@@ -177,7 +178,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
-		require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
 		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), time.Second)
 
 		helper.lb.ReplayFromBlock(replayFrom, false)
@@ -185,8 +186,8 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, cltest.WaitTimeout(t), time.Second)
 	}()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
-	helper.mockEth.assertExpectations(t)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_ReplaysLogs(t *testing.T) {
@@ -202,11 +203,11 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		blocks.LogOnBlockNum(7, contract.Address()),
 	}
 
-	mockEth := newMockEthClient(t, make(chan chan<- types.Log, 4), blockHeight, mockEthClientExpectedCalls{
+	mockEth := newMockEthClient(t, make(chan evmtest.RawSub[types.Log], 4), blockHeight, mockEthClientExpectedCalls{
 		FilterLogs:       4,
 		FilterLogsResult: sentLogs,
 	})
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(blockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(blockHeight))
 	helper.mockEth = mockEth
 
 	listener := helper.newLogListenerWithJob("listener")
@@ -257,7 +258,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 
 	}()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
@@ -309,8 +310,8 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		})
 
 		chRawLogs := <-helper.chchRawLogs
-		chRawLogs <- log1
-		chRawLogs <- log2
+		chRawLogs.TrySend(log1)
+		chRawLogs.TrySend(log2)
 
 		<-headsDone
 
@@ -460,9 +461,9 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 		FilterLogs:          backfillTimes,
 	}
 
-	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	backfillDepth := 15
@@ -479,7 +480,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	helper.register(listener2, newMockContract(), uint32(2))
 
 	// the backfill does not use the height from DB because BlockBackfillSkip is true
-	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		backfillCount.Store(1)
 		require.Equal(t, blockHeight-int64(backfillDepth), fromBlock)
 	}
@@ -488,12 +489,12 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
-		require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
 		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), time.Second)
 	}()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
-	helper.mockEth.assertExpectations(t)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BackfillInBatches(t *testing.T) {
@@ -512,9 +513,9 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 		FilterLogs:          expectedBatches,
 	}
 
-	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
@@ -525,7 +526,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
-	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
 		lggr.Infof("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
@@ -549,9 +550,9 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
@@ -585,9 +586,9 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 		FilterLogsResult: backfilledLogs,
 	}
 
-	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
@@ -595,7 +596,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	var backfillCount atomic.Int64
 
 	lggr := logger.TestLogger(t)
-	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
+	mockEth.CheckFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
 		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 	}
@@ -607,9 +608,9 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	g.Eventually(func() int64 { return backfillCount.Load() }, cltest.WaitTimeout(t), time.Second).Should(gomega.Equal(int64(expectedBatches)))
 
 	helper.unsubscribeAll()
-	g.Eventually(func() int32 { return helper.mockEth.unsubscribeCallCount() }, cltest.WaitTimeout(t), time.Second).Should(gomega.BeNumerically(">=", int32(1)))
+	g.Eventually(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, cltest.WaitTimeout(t), time.Second).Should(gomega.BeNumerically(">=", int32(1)))
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
@@ -638,14 +639,15 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	listener3 := helper.newLogListenerWithJob("listener 3")
 	listener4 := helper.newLogListenerWithJob("listener 4")
 
+	helper.register(listener1, contract1, 1)
+	helper.register(listener2, contract1, 1)
+	helper.register(listener3, contract2, 1)
+	helper.register(listener4, contract2, 1)
+
 	func() {
 		helper.start()
 		defer helper.stop()
 
-		helper.register(listener1, contract1, 1)
-		helper.register(listener2, contract1, 1)
-		helper.register(listener3, contract2, 1)
-		helper.register(listener4, contract2, 1)
 		headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     0,
 			EndBlock:       9,
@@ -658,10 +660,10 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		chRawLogs := <-helper.chchRawLogs
 
 		for _, log := range addr1SentLogs {
-			chRawLogs <- log
+			chRawLogs.TrySend(log)
 		}
 		for _, log := range addr2SentLogs {
-			chRawLogs <- log
+			chRawLogs.TrySend(log)
 		}
 
 		<-headsDone
@@ -673,7 +675,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		requireEqualLogs(t, addr2SentLogs, listener3.received.getUniqueLogs())
 		requireEqualLogs(t, addr2SentLogs, listener4.received.getUniqueLogs())
 	}()
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
@@ -707,7 +709,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	chRawLogs := <-helper.chchRawLogs
 
 	for _, log := range addr1SentLogs {
-		chRawLogs <- log
+		chRawLogs.TrySend(log)
 	}
 
 	helper.requireBroadcastCount(5)
@@ -756,7 +758,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	assert.Equal(t, len(logsOnBlocks), len(expectedLogsOnBlocks))
 	require.Equal(t, logsOnBlocks, expectedLogsOnBlocks)
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
@@ -794,7 +796,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	chRawLogs := <-helper.chchRawLogs
 
 	for _, log := range addr1SentLogs {
-		chRawLogs <- log
+		chRawLogs.TrySend(log)
 	}
 
 	helper.requireBroadcastCount(6)
@@ -859,7 +861,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	chRawLogs := <-helper.chchRawLogs
 
 	for _, log := range addr1SentLogs {
-		chRawLogs <- log
+		chRawLogs.TrySend(log)
 	}
 
 	<-headsDone
@@ -961,7 +963,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	chRawLogs := <-helper.chchRawLogs
 
 	for _, log := range addr1SentLogs {
-		chRawLogs <- log
+		chRawLogs.TrySend(log)
 	}
 
 	<-headsDone
@@ -997,9 +999,9 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	chRawLogs := <-helper.chchRawLogs
 
-	chRawLogs <- addr1SentLogs[0]
-	chRawLogs <- addr1SentLogs[1]
-	chRawLogs <- addr1SentLogs[2]
+	chRawLogs.TrySend(addr1SentLogs[0])
+	chRawLogs.TrySend(addr1SentLogs[1])
+	chRawLogs.TrySend(addr1SentLogs[2])
 
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
@@ -1008,7 +1010,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 		Blocks:         blocks,
 	})
 
-	chRawLogs <- addr1SentLogs[3]
+	chRawLogs.TrySend(addr1SentLogs[3])
 
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     4,
@@ -1020,7 +1022,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	helper.requireBroadcastCount(4)
 	helper.stop()
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testing.T) {
@@ -1044,7 +1046,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 	chRawLogs := <-helper.chchRawLogs
 
 	for _, log := range addr1SentLogs {
-		chRawLogs <- log
+		chRawLogs.TrySend(log)
 	}
 
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
@@ -1068,7 +1070,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 		listener1.received.getLogs(),
 	)
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testing.T) {
@@ -1100,7 +1102,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 	})
 
 	for _, log := range addr1SentLogs {
-		chRawLogs <- log
+		chRawLogs.TrySend(log)
 	}
 
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
@@ -1124,7 +1126,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 		listener1.received.getLogs(),
 	)
 
-	helper.mockEth.assertExpectations(t)
+	helper.mockEth.AssertExpectations(t)
 }
 
 func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
@@ -1134,28 +1136,41 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		expectedBlock = 5
 	)
 	var (
-		ethClient, sub = cltest.NewEthClientAndSubMock(t)
-		contract0      = newMockContract()
-		contract1      = newMockContract()
-		contract2      = newMockContract()
+		ethClient = new(evmmocks.Client)
+		contract0 = newMockContract()
+		contract1 = newMockContract()
+		contract2 = newMockContract()
 	)
-
-	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	ethClient.Test(t)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
 	chStarted := make(chan struct{})
 	ethClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			chchRawLogs <- args.Get(2).(chan<- types.Log)
-			close(chStarted)
-		}).
-		Return(sub, nil).
+		Return(
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
+				defer close(chStarted)
+				sub := mockEth.NewSub(t)
+				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
+				return nil
+			},
+		).
 		Once()
 
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			chchRawLogs <- args.Get(2).(chan<- types.Log)
-		}).
-		Return(sub, nil).
+		Return(
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
+				return nil
+			},
+		).
 		Times(3)
 
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
@@ -1193,9 +1208,6 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		}).
 		Return(nil, nil).
 		Once()
-
-	sub.On("Unsubscribe").Return()
-	sub.On("Err").Return(nil)
 
 	helper := newBroadcasterHelperWithEthClient(t, ethClient, nil)
 	helper.lb.AddDependents(1)
@@ -1252,7 +1264,6 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	}
 
 	cltest.EventuallyExpectationsMet(t, ethClient, cltest.WaitTimeout(t), time.Second)
-	cltest.EventuallyExpectationsMet(t, sub, cltest.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
@@ -1380,7 +1391,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 						return
 					}
 					lggr.Warnf("  ** yup!")
-					chRawLogs1 <- logsA[uint(head.Number)]
+					chRawLogs1.TrySend(logsA[uint(head.Number)])
 				})},
 			})
 
@@ -1389,10 +1400,10 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			logListenerA.requireAllReceived(t, expectedA)
 
 			<-headsDone
-			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: test.blockHeight2}, nil).Once()
+			helper.mockEth.EthClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: test.blockHeight2}, nil).Once()
 
 			combinedLogs := append(pickLogs(logsA, test.backfillableLogs), pickLogs(logsB, test.backfillableLogs)...)
-			call := helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(combinedLogs, nil).Once()
+			call := helper.mockEth.EthClient.On("FilterLogs", mock.Anything, mock.Anything).Return(combinedLogs, nil).Once()
 			call.Run(func(args mock.Arguments) {
 				// Validate that the ethereum.FilterQuery is specified correctly for the backfill that we expect
 				fromBlock := args.Get(1).(ethereum.FilterQuery).FromBlock
@@ -1412,18 +1423,19 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			// Send second batch of new logs
 			chRawLogs2 := <-helper.chchRawLogs
-			_ = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+			headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock: test.blockHeight2,
 				Blocks:     blocks,
 				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
-						chRawLogs2 <- logsA[uint(head.Number)]
+						chRawLogs2.TrySend(logsA[uint(head.Number)])
 					}
 					if _, exists := logsB[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
-						chRawLogs2 <- logsB[uint(head.Number)]
+						chRawLogs2.TrySend(logsB[uint(head.Number)])
 					}
 				})},
 			})
+			defer func() { <-headsDone }()
 
 			expectedA = newReceived(pickLogs(logsA, test.expectedFilteredA))
 			expectedB := newReceived(pickLogs(logsB, test.expectedFilteredB))
@@ -1431,7 +1443,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			logListenerB.requireAllReceived(t, expectedB)
 			helper.requireBroadcastCount(len(test.expectedFilteredA) + len(test.expectedFilteredB))
 
-			helper.mockEth.ethClient.AssertExpectations(t)
+			helper.mockEth.EthClient.AssertExpectations(t)
 		})
 	}
 }
@@ -1525,14 +1537,14 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 
 	chRawLogs := <-helper.chchRawLogs
 
-	chRawLogs <- log1
-	chRawLogs <- log2
+	chRawLogs.TrySend(log1)
+	chRawLogs.TrySend(log2)
 
 	<-headsDone
 	require.Eventually(t, func() bool { return len(logListener.received.getUniqueLogs()) >= 2 }, cltest.WaitTimeout(t), time.Second)
 	helper.requireBroadcastCount(2)
 
-	helper.mockEth.ethClient.AssertExpectations(t)
+	helper.mockEth.EthClient.AssertExpectations(t)
 }
 
 func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
@@ -1602,11 +1614,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 			ctx, _ := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
 			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
-			select {
-			case chRawLogs <- x:
-			case <-time.After(cltest.WaitTimeout(t)):
-				t.Fatal("timed out sending log")
-			}
+			chRawLogs.TrySend(x)
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
@@ -1621,7 +1629,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	require.Equal(t, expectedA, listenerA.getUniqueLogs())
 	require.Equal(t, expectedB, listenerB.getUniqueLogs())
 
-	helper.mockEth.ethClient.AssertExpectations(t)
+	helper.mockEth.EthClient.AssertExpectations(t)
 }
 
 func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
@@ -1629,8 +1637,8 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 2)
-	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: blockHeight}, nil).Times(2)
-	helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(2)
+	helper.mockEth.EthClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: blockHeight}, nil).Times(2)
+	helper.mockEth.EthClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(2)
 
 	helper.start()
 	defer helper.stop()
@@ -1646,8 +1654,8 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 	}
 	helper.registerWithTopics(listener1, contract, topics1, 1)
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	<-helper.chchRawLogs
 
@@ -1655,8 +1663,8 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 	}
 	helper.registerWithTopics(listener2, contract, topics2, 1)
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 2 }, cltest.WaitTimeout(t), 100*time.Millisecond)
-	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 2 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
 
 	helper.unsubscribeAll()
 }
@@ -1677,28 +1685,26 @@ func requireEqualLogs(t *testing.T, expectedLogs, actualLogs []types.Log) {
 	}
 }
 
-type sub struct {
-}
-
-func (s sub) Unsubscribe() {
-}
-
-func (s sub) Err() <-chan error {
-	return nil
-}
-
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm := gomega.NewWithT(t)
 
 	ethClient := new(evmmocks.Client)
 	ethClient.Test(t)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("ChainID").Return(big.NewInt(0)).Maybe()
-	logsChCh := make(chan chan<- types.Log)
+	logsChCh := make(chan evmtest.RawSub[types.Log])
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			logsChCh <- args.Get(2).(chan<- types.Log)
-		}).
-		Return(sub{}, nil)
+		Return(
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				logsChCh <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
+				return nil
+			},
+		).
+		Once()
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
 		Return(&evmtypes.Head{Number: 1}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
@@ -1761,11 +1767,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	logs := <-logsChCh
 
 	for _, log := range addr1SentLogs {
-		select {
-		case logs <- log:
-		case <-time.After(time.Second):
-			t.Error("failed to send log to log broadcaster")
-		}
+		logs.TrySend(log)
 	}
 	// Wait until the logpool has the 3 logs
 	gm.Eventually(func() bool {

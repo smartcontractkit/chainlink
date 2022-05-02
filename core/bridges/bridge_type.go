@@ -143,10 +143,11 @@ func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[strin
 // BridgeName defines what Adapter a TaskSpec will use.
 type BridgeName string
 
+var bridgeNameRegex = regexp.MustCompile("^[a-zA-Z0-9-_]*$")
+
 // ParseBridgeName returns a formatted Task type.
 func ParseBridgeName(val string) (BridgeName, error) {
-	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
-	if !re.MatchString(val) {
+	if !bridgeNameRegex.MatchString(val) {
 		return "", fmt.Errorf("task type validation: name %v contains invalid characters", val)
 	}
 

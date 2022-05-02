@@ -2,6 +2,7 @@ package testspecs
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,18 @@ externalJobID       =  "123e4567-e89b-12d3-a456-426655440003"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`
+	CronSpecDotSep = `
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
+externalJobID       =  "123e4567-e89b-12d3-a456-426655440013"
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data.price" separator="."];
 ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
 """
@@ -97,26 +110,21 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-isBootstrapPeer = false
 p2pBootstrapPeers = []
 relay = "solana"
+pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
 observationSource = """
 """
+[pluginConfig]
 juelsPerFeeCoinSource = """
 """
 
 [relayConfig]
-nodeEndpointHTTP = "http://127.0.0.1:8899"
 ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
-usePreflight       = true
-commitment         = "processed"
-txTimeout          = "1m"
-pollingInterval    = "2s"
-pollingCtxTimeout  = "4s"
-staleTimeout       = "30s"`
+chainID = "Chainlink-99"`
 	OCR2TerraSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
@@ -179,6 +187,7 @@ type KeeperSpecParams struct {
 	FromAddress              string
 	EvmChainID               int
 	MinIncomingConfirmations int
+	ObservationSource        string
 }
 
 type KeeperSpec struct {
@@ -200,55 +209,32 @@ fromAddress     		 	= "%s"
 evmChainID      		 	= %d
 minIncomingConfirmations	= %d
 externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
-
-
-observationSource = """
-encode_check_upkeep_tx   [type=ethabiencode
-                          abi="checkUpkeep(uint256 id, address from)"
-                          data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
-check_upkeep_tx          [type=ethcall
-                          failEarly=true
-                          extractRevertReason=true
-                          evmChainID="$(jobSpec.evmChainID)"
-                          contract="$(jobSpec.contractAddress)"
-                          gas="$(jobSpec.checkUpkeepGasLimit)"
-                          gasPrice="$(jobSpec.gasPrice)"
-                          gasTipCap="$(jobSpec.gasTipCap)"
-                          gasFeeCap="$(jobSpec.gasFeeCap)"
-                          data="$(encode_check_upkeep_tx)"]
-decode_check_upkeep_tx   [type=ethabidecode
-                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
-encode_perform_upkeep_tx [type=ethabiencode
-                          abi="performUpkeep(uint256 id, bytes calldata performData)"
-                          data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
-perform_upkeep_tx        [type=ethtx
-                          minConfirmations=0
-                          to="$(jobSpec.contractAddress)"
-                          from="[$(jobSpec.fromAddress)]"
-                          evmChainID="$(jobSpec.evmChainID)"
-                          data="$(encode_perform_upkeep_tx)"
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
-"""
+observationSource = """%s"""
 `
+	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations, escapedObvSource),
 	}
 }
 
 type VRFSpecParams struct {
-	JobID                    string
-	Name                     string
-	CoordinatorAddress       string
-	MinIncomingConfirmations int
-	FromAddresses            []string
-	PublicKey                string
-	ObservationSource        string
-	RequestedConfsDelay      int
-	RequestTimeout           time.Duration
-	V2                       bool
+	JobID                         string
+	Name                          string
+	CoordinatorAddress            string
+	BatchCoordinatorAddress       string
+	BatchFulfillmentEnabled       bool
+	BatchFulfillmentGasMultiplier float64
+	MinIncomingConfirmations      int
+	FromAddresses                 []string
+	PublicKey                     string
+	ObservationSource             string
+	RequestedConfsDelay           int
+	RequestTimeout                time.Duration
+	V2                            bool
+	ChunkSize                     int
+	BackoffInitialDelay           time.Duration
+	BackoffMaxDelay               time.Duration
 }
 
 type VRFSpec struct {
@@ -273,6 +259,14 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.CoordinatorAddress != "" {
 		coordinatorAddress = params.CoordinatorAddress
 	}
+	batchCoordinatorAddress := "0x5C7B1d96CA3132576A84423f624C2c492f668Fea"
+	if params.BatchCoordinatorAddress != "" {
+		batchCoordinatorAddress = params.BatchCoordinatorAddress
+	}
+	batchFulfillmentGasMultiplier := 1.0
+	if params.BatchFulfillmentGasMultiplier >= 1.0 {
+		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
+	}
 	confirmations := 6
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
@@ -284,6 +278,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
+	}
+	chunkSize := 20
+	if params.ChunkSize != 0 {
+		chunkSize = params.ChunkSize
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -340,16 +338,25 @@ type = "vrf"
 schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
+batchCoordinatorAddress = "%s"
+batchFulfillmentEnabled = %v
+batchFulfillmentGasMultiplier = %s
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
 publicKey = "%s"
+chunkSize = %d
+backoffInitialDelay = "%s"
+backoffMaxDelay = "%s"
 observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
-		requestTimeout.String(), publicKey, observationSource)
+	toml := fmt.Sprintf(template,
+		jobID, name, coordinatorAddress, batchCoordinatorAddress,
+		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
+		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {
@@ -362,11 +369,16 @@ observationSource = """
 		JobID:                    jobID,
 		Name:                     name,
 		CoordinatorAddress:       coordinatorAddress,
+		BatchCoordinatorAddress:  batchCoordinatorAddress,
+		BatchFulfillmentEnabled:  params.BatchFulfillmentEnabled,
 		MinIncomingConfirmations: confirmations,
 		PublicKey:                publicKey,
 		ObservationSource:        observationSource,
 		RequestedConfsDelay:      params.RequestedConfsDelay,
 		RequestTimeout:           requestTimeout,
+		ChunkSize:                chunkSize,
+		BackoffInitialDelay:      params.BackoffInitialDelay,
+		BackoffMaxDelay:          params.BackoffMaxDelay,
 	}, toml: toml}
 }
 
@@ -374,8 +386,10 @@ type OCRSpecParams struct {
 	JobID              string
 	Name               string
 	TransmitterAddress string
+	ContractAddress    string
 	DS1BridgeName      string
 	DS2BridgeName      string
+	EVMChainID         string
 }
 
 type OCRSpec struct {
@@ -396,6 +410,10 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.TransmitterAddress != "" {
 		transmitterAddress = params.TransmitterAddress
 	}
+	contractAddress := "0x613a38AC1659769640aaE063C651F48E0250454C"
+	if params.ContractAddress != "" {
+		contractAddress = params.ContractAddress
+	}
 	name := "web oracle spec"
 	if params.Name != "" {
 		name = params.Name
@@ -408,11 +426,17 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.DS2BridgeName != "" {
 		ds2BridgeName = params.DS2BridgeName
 	}
+	// set to empty so it defaults to the default evm chain id
+	evmChainID := "0"
+	if params.EVMChainID != "" {
+		evmChainID = params.EVMChainID
+	}
 	template := `
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
-contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+contractAddress    = "%s"
+evmChainID         = %s
 p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 externalJobID      =  "%s"
 p2pBootstrapPeers  = [
@@ -451,7 +475,7 @@ observationSource = """
 		TransmitterAddress: transmitterAddress,
 		DS1BridgeName:      ds1BridgeName,
 		DS2BridgeName:      ds2BridgeName,
-	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
+	}, toml: fmt.Sprintf(template, name, contractAddress, evmChainID, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
 }
 
 type WebhookSpecParams struct {

@@ -23,7 +23,7 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
 	"github.com/ulule/limiter"
@@ -257,6 +257,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/transfers/evm", ets.Create)
 		tts := TerraTransfersController{app}
 		authv2.POST("/transfers/terra", tts.Create)
+		sts := SolanaTransfersController{app}
+		authv2.POST("/transfers/solana", sts.Create)
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
@@ -359,19 +361,22 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		echc := EVMChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
-		authv2.POST("/chains/evm", echc.Create)
-		authv2.GET("/chains/evm/:ID", echc.Show)
-		authv2.PATCH("/chains/evm/:ID", echc.Update)
-		authv2.DELETE("/chains/evm/:ID", echc.Delete)
-
-		tchc := TerraChainsController{app}
-		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
-		authv2.POST("/chains/terra", tchc.Create)
-		authv2.GET("/chains/terra/:ID", tchc.Show)
-		authv2.PATCH("/chains/terra/:ID", tchc.Update)
-		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
+		for _, chain := range []struct {
+			path string
+			cc   ChainsController
+		}{
+			{"evm", NewEVMChainsController(app)},
+			{"solana", NewSolanaChainsController(app)},
+			{"terra", NewTerraChainsController(app)},
+		} {
+			path := fmt.Sprintf("/chains/%s", chain.path)
+			authv2.GET(path, paginatedRequest(chain.cc.Index))
+			authv2.POST(path, chain.cc.Create)
+			pathID := fmt.Sprintf("/chains/%s/:ID", chain.path)
+			authv2.GET(pathID, chain.cc.Show)
+			authv2.PATCH(pathID, chain.cc.Update)
+			authv2.DELETE(pathID, chain.cc.Delete)
+		}
 
 		enc := EVMNodesController{app}
 		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
@@ -388,6 +393,12 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
 		authv2.POST("/nodes/evm/forwarders", efc.Create)
 		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
+
+		snc := SolanaNodesController{app}
+		authv2.GET("/nodes/solana", paginatedRequest(snc.Index))
+		authv2.GET("/chains/solana/:ID/nodes", paginatedRequest(snc.Index))
+		authv2.POST("/nodes/solana", snc.Create)
+		authv2.DELETE("/nodes/solana/:ID", snc.Delete)
 
 		tnc := TerraNodesController{app}
 		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))

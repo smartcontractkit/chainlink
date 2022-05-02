@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -180,9 +181,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "keeper",
 			toml: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-				Name:            "example keeper spec",
-				ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
-				FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+				Name:              "example keeper spec",
+				ContractAddress:   "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+				FromAddress:       "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+				ObservationSource: keeper.ExpectedObservationSource,
 			}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -209,6 +211,23 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "cron",
 			toml: testspecs.CronSpec,
+			assertion: func(t *testing.T, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				resource := presenters.JobResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
+				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.CronSpec)
+
+				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				require.Equal(t, "CRON_TZ=UTC * 0 0 1 1 *", jb.CronSpec.CronSchedule)
+			},
+		},
+		{
+			name: "cron-dot-separator",
+			toml: testspecs.CronSpecDotSep,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}

@@ -61,6 +61,10 @@ func (e *erroringNode) BlockByNumber(ctx context.Context, number *big.Int) (*typ
 	return nil, errors.New(e.errMsg)
 }
 
+func (e *erroringNode) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }

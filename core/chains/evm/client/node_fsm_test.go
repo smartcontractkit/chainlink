@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type fnMock struct{ calls int }
@@ -28,6 +30,15 @@ func (fm *fnMock) AssertCalled(t *testing.T) {
 func (fm *fnMock) AssertNumberOfCalls(t *testing.T, n int) {
 	assert.Equal(t, n, fm.calls)
 }
+
+var _ ethereum.Subscription = (*subMock)(nil)
+
+type subMock struct{ unsubbed bool }
+
+func (s *subMock) Unsubscribe() {
+	s.unsubbed = true
+}
+func (s *subMock) Err() <-chan error { return nil }
 
 func TestUnit_Node_StateTransitions(t *testing.T) {
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (string, string) {
@@ -86,6 +97,15 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		n.transitionToOutOfSync(m.Fn)
 		m.AssertCalled(t)
 	})
+	t.Run("transitionToOutOfSync unsubscribes everything", func(t *testing.T) {
+		m := new(fnMock)
+		n.setState(NodeStateAlive)
+		sub := &subMock{}
+		n.registerSub(sub)
+		n.transitionToOutOfSync(m.Fn)
+		m.AssertNumberOfCalls(t, 1)
+		assert.True(t, sub.unsubbed)
+	})
 	t.Run("transitionToUnreachable", func(t *testing.T) {
 		m := new(fnMock)
 		n.setState(NodeStateUnreachable)
@@ -105,6 +125,18 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		n.setState(NodeStateUndialed)
 		n.transitionToUnreachable(m.Fn)
 		m.AssertNumberOfCalls(t, 4)
+		n.setState(NodeStateInvalidChainID)
+		n.transitionToUnreachable(m.Fn)
+		m.AssertNumberOfCalls(t, 5)
+	})
+	t.Run("transitionToUnreachable unsubscribes everything", func(t *testing.T) {
+		m := new(fnMock)
+		n.setState(NodeStateDialed)
+		sub := &subMock{}
+		n.registerSub(sub)
+		n.transitionToUnreachable(m.Fn)
+		m.AssertNumberOfCalls(t, 1)
+		assert.True(t, sub.unsubbed)
 	})
 	t.Run("transitionToInvalidChainID", func(t *testing.T) {
 		m := new(fnMock)
@@ -116,6 +148,15 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		n.setState(NodeStateDialed)
 		n.transitionToInvalidChainID(m.Fn)
 		m.AssertCalled(t)
+	})
+	t.Run("transitionToInvalidChainID unsubscribes everything", func(t *testing.T) {
+		m := new(fnMock)
+		n.setState(NodeStateDialed)
+		sub := &subMock{}
+		n.registerSub(sub)
+		n.transitionToInvalidChainID(m.Fn)
+		m.AssertNumberOfCalls(t, 1)
+		assert.True(t, sub.unsubbed)
 	})
 	t.Run("Close", func(t *testing.T) {
 		// first attempt panics due to node being unstarted

@@ -14,7 +14,12 @@ contract CronUpkeepTestHelper is CronUpkeep {
   using Cron for Spec;
   using Cron for string;
 
-  constructor(address owner, address delegate) CronUpkeep(owner, delegate) {}
+  constructor(
+    address owner,
+    address delegate,
+    uint256 maxJobs,
+    bytes memory firstJob
+  ) CronUpkeep(owner, delegate, maxJobs, firstJob) {}
 
   /**
    * @notice createCronJobFromString is a helper function for creating cron jobs

@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -111,7 +111,7 @@ func (er *EthResender) resendUnconfirmed() error {
 		return nil
 	}
 
-	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
+	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(attempts))
 
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	reqs, err := batchSendTransactions(er.ctx, er.db, attempts, batchSize, er.logger, er.ethClient)
