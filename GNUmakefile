@@ -75,11 +75,11 @@ testdb-user-only: ## Prepares the test database with user only.
 presubmit: ## Format go files and imports.
 	goimports -w ./core
 	gofmt -w ./core
-	go mod tidy -compat=1.17
+	go mod tidy
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.8.0
+	go install github.com/vektra/mockery/v2@v2.10.1
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.

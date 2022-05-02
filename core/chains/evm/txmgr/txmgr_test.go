@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -127,13 +127,12 @@ func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
 		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
-		require.EqualError(t, err, fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse", maxUnconfirmedTransactions))
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
 
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 		err = txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
-
-		require.EqualError(t, err, fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse", maxUnconfirmedTransactions))
+		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
 	})
 
 	t.Run("with different chain ID ignores txes", func(t *testing.T) {
@@ -264,7 +263,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			Meta:           nil,
 			Strategy:       txmgr.SendEveryStrategy{},
 		})
-		assert.EqualError(t, err, "Txm#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Txm#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS")
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
@@ -348,7 +348,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	t.Run("meta and vrf checker", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-
+		testDefaultSubID := uint64(2)
+		testDefaultMaxLink := "1000000000000000000"
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
@@ -356,8 +357,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			JobID:         jobID,
 			RequestID:     requestID,
 			RequestTxHash: requestTxHash,
-			MaxLink:       "1000000000000000000", // 1e18
-			SubID:         2,
+			MaxLink:       &testDefaultMaxLink, // 1e18
+			SubID:         &testDefaultSubID,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		checker := txmgr.TransmitCheckerSpec{
@@ -599,7 +600,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := new(txmmocks.Config)
 		cfg.Test(t)
-		cfg.On("ChainType").Return(chains.ChainType(""))
+		cfg.On("ChainType").Return(config.ChainType(""))
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
@@ -613,7 +614,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := new(txmmocks.Config)
 		cfg.Test(t)
-		cfg.On("ChainType").Return(chains.ExChain)
+		cfg.On("ChainType").Return(config.ChainExChain)
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()

@@ -19,11 +19,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
@@ -79,7 +79,7 @@ type (
 		lrrMu                sync.RWMutex
 
 		// ContractConfig
-		configsMB utils.Mailbox
+		configsMB utils.Mailbox[ocrtypes.ContractConfig]
 		chConfigs chan ocrtypes.ContractConfig
 
 		// LatestBlockHeight
@@ -128,7 +128,7 @@ func NewOCRContractTracker(
 		nil,
 		offchainaggregator.OffchainAggregatorRoundRequested{},
 		sync.RWMutex{},
-		*utils.NewMailbox(configMailboxSanityLimit),
+		*utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
 		make(chan ocrtypes.ContractConfig),
 		-1,
 		sync.RWMutex{},
@@ -212,13 +212,9 @@ func (t *OCRContractTracker) processLogs() {
 			// new config. To avoid blocking the log broadcaster, we use this
 			// background thread to deliver them and a mailbox as the buffer.
 			for {
-				x, exists := t.configsMB.Retrieve()
+				cc, exists := t.configsMB.Retrieve()
 				if !exists {
 					break
-				}
-				cc, ok := x.(ocrtypes.ContractConfig)
-				if !ok {
-					panic(fmt.Sprintf("expected ocrtypes.ContractConfig but got %T", x))
 				}
 				select {
 				case t.chConfigs <- cc:
@@ -393,7 +389,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	// We skip confirmation checking anyway on Optimism so there's no need to
 	// care about the block height; we have no way of getting the L1 block
 	// height anyway
-	if t.cfg.ChainType() == chains.Optimism {
+	if t.cfg.ChainType() == config.ChainOptimism {
 		return 0, nil
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

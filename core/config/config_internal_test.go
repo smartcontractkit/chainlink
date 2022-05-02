@@ -19,7 +19,7 @@ import (
 func TestGeneralConfig_Defaults(t *testing.T) {
 	config := NewGeneralConfig(logger.TestLogger(t))
 	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
-	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
+	assert.Equal(t, (*url.URL)(nil), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
 	assert.True(t, config.EVMRPCEnabled())
 	assert.True(t, config.EVMEnabled())

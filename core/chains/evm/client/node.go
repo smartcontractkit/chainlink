@@ -98,6 +98,7 @@ type Node interface {
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
@@ -133,6 +134,10 @@ type node struct {
 
 	state   NodeState
 	stateMu sync.RWMutex
+
+	// Need to track subscriptions because closing the RPC does not (always?)
+	// close the underlying subscription
+	subs []ethereum.Subscription
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
@@ -344,12 +349,40 @@ func (n *node) Close() {
 	}
 }
 
+// registerSub adds the sub to the node list
+func (n *node) registerSub(sub ethereum.Subscription) {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	n.subs = append(n.subs, sub)
+}
+
+// disconnectAll disconnects all clients connected to the node
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the n.stateMu lock
+func (n *node) disconnectAll() {
+	if n.ws.rpc != nil {
+		n.ws.rpc.Close()
+	}
+	n.cancelInflightRequests()
+	n.unsubscribeAll()
+}
+
 // cancelInflightRequests closes and replaces the chStopInFlight
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the n.stateMu lock
 func (n *node) cancelInflightRequests() {
 	close(n.chStopInFlight)
 	n.chStopInFlight = make(chan struct{})
+}
+
+// unsubscribeAll unsubscribes all subscriptions
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the n.stateMu lock
+func (n *node) unsubscribeAll() {
+	for _, sub := range n.subs {
+		sub.Unsubscribe()
+	}
+	n.subs = nil
 }
 
 // getChStopInflight provides a convenience helper that mutex wraps a
@@ -444,6 +477,9 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 		"err", err,
 	)
 
+	if sub != nil {
+		n.registerSub(sub)
+	}
 	return sub, err
 }
 
@@ -770,6 +806,35 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 	return
 }
 
+func (n *node) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Block, err error) {
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n)).With("hash", hash)
+
+	lggr.Debug("RPC call: evmclient.Client#BlockByHash")
+	start := time.Now()
+	if n.http != nil {
+		b, err = n.http.geth.BlockByHash(ctx, hash)
+		err = n.wrapHTTP(err)
+	} else {
+		b, err = n.ws.geth.BlockByHash(ctx, hash)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "BlockByHash",
+		"block", b,
+		"duration", duration,
+		"rpcDomain", n.getRPCDomain(),
+		"err", err,
+	)
+
+	return
+}
+
 func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
@@ -847,6 +912,10 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 		"rpcDomain", n.getRPCDomain(),
 		"err", err,
 	)
+
+	if sub != nil {
+		n.registerSub(sub)
+	}
 
 	return
 }

@@ -215,7 +215,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
+	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()))
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -464,7 +464,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 			type v struct {
 				count     int
-				updatedAt string
+				updatedAt int64
 			}
 			expectedMeta := map[string]v{}
 			var expMetaMu sync.Mutex
@@ -481,7 +481,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 						k := m.Meta.LatestAnswer.String()
 						expMetaMu.Lock()
 						curr := expectedMeta[k]
-						expectedMeta[k] = v{curr.count + 1, m.Meta.UpdatedAt.String()}
+						assert.True(t, m.Meta.UpdatedAt.IsInt64()) // sanity check unix ts
+						expectedMeta[k] = v{curr.count + 1, m.Meta.UpdatedAt.Int64()}
 						expMetaMu.Unlock()
 					}
 				},

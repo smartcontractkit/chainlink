@@ -116,11 +116,16 @@ type ConfigSchema struct {
 	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
 	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
+	// LogPoller
+	FeatureLogPoller bool `env:"FEATURE_LOG_POLLER" default:"false"` //nodoc
+
 	// General chains/RPC
-	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
-	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
-	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
-	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
+	EVMEnabled    bool   `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled bool   `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled bool   `env:"SOLANA_ENABLED" default:"false"`
+	SolanaNodes   string `env:"SOLANA_NODES"`
+	TerraEnabled  bool   `env:"TERRA_ENABLED" default:"false"`
+	TerraNodes    string `env:"TERRA_NODES"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
@@ -144,6 +149,7 @@ type ConfigSchema struct {
 	EvmHeadTrackerMaxBufferSize       uint          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
 	EvmHeadTrackerSamplingInterval    time.Duration `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`
 	EvmLogBackfillBatchSize           uint32        `env:"ETH_LOG_BACKFILL_BATCH_SIZE"`
+	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
@@ -180,6 +186,7 @@ type ConfigSchema struct {
 	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
 	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
 	EvmNonceAutoSync           bool   `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmUseForwarders           bool   `env:"ETH_USE_FORWARDERS"`
 
 	// Job Pipeline and tasks
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
@@ -268,6 +275,8 @@ type ConfigSchema struct {
 	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
+	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
+	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
 
 	// CLI client
 	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
@@ -317,17 +326,4 @@ func DefaultValue(name string) (string, bool) {
 	}
 	log.Panicf("Invariant violated, no field of name %s found for DefaultValue", name)
 	return "", false
-}
-
-// ZeroValue returns the zero value for a named field, or panics if it does not exist.
-func ZeroValue(name string) interface{} {
-	schemaT := reflect.TypeOf(ConfigSchema{})
-	if item, ok := schemaT.FieldByName(name); ok {
-		if item.Type.Kind() == reflect.Ptr {
-			return nil
-		}
-		return reflect.New(item.Type).Interface()
-	}
-	log.Panicf("Invariant violated, no field of name %s found for ZeroValue", name)
-	return nil
 }

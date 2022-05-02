@@ -15,8 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
@@ -31,6 +33,19 @@ import (
 // It is set to 0 since no real chain ever has this ID and allows a virtual
 // "test" chain ID to be used without clashes
 var FixtureChainID = big.NewInt(0)
+
+// SimulatedChainID is the chain ID for the go-ethereum simulated backend
+var SimulatedChainID = big.NewInt(1337)
+
+// MustNewSimTransactor returns a transactor for interacting with the
+// geth simulated backend.
+func MustNewSimTransactor(t *testing.T) *bind.TransactOpts {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
+	require.NoError(t, err)
+	return transactor
+}
 
 // NewAddress return a random new address
 func NewAddress() common.Address {
@@ -99,6 +114,14 @@ func MustParseURL(t *testing.T, input string) *url.URL {
 	u, err := url.Parse(input)
 	require.NoError(t, err)
 	return u
+}
+
+// MustParseBigInt parses a big int value from string or fails the test
+func MustParseBigInt(t *testing.T, input string) *big.Int {
+	i := new(big.Int)
+	_, err := fmt.Sscan(input, i)
+	require.NoError(t, err)
+	return i
 }
 
 // JSONRPCHandler is called with the method and request param(s).
