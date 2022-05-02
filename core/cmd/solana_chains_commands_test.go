@@ -29,7 +29,7 @@ func TestClient_IndexSolanaChains(t *testing.T) {
 	chain, err := orm.CreateChain(solanatest.RandomChainID(), db.ChainCfg{})
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexSolanaChains(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.SolanaChainPresenters)
 	require.Len(t, chains, initialCount+1)
 	c := chains[initialCount]
@@ -53,7 +53,7 @@ func TestClient_CreateSolanaChain(t *testing.T) {
 	set.Parse([]string{`{}`})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.CreateSolanaChain(c)
+	err = cmd.SolanaChainClient(client).CreateChain(c)
 	require.NoError(t, err)
 
 	chains, _, err := orm.Chains(0, 25)
@@ -85,7 +85,7 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 	set.Parse([]string{solanaChainID})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveSolanaChain(c)
+	err = cmd.SolanaChainClient(client).RemoveChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
@@ -125,7 +125,7 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.ConfigureSolanaChain(c)
+	err = cmd.SolanaChainClient(client).ConfigureChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
