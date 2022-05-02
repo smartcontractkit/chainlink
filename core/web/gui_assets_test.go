@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -26,7 +27,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := &http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make sure the test cases don't exceed the rate limit
 	testCases := []struct {
@@ -56,7 +57,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := &http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make sure the test cases don't exceed the rate limit
 	testCases := []struct {
@@ -89,7 +90,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := &http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make calls equal to the rate limit
 	rateLimit := 20

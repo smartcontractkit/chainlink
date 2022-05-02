@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -133,7 +134,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 		Name:        bridge.Name.String(),
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(cfg, db, uuid.UUID{})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -186,7 +188,8 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		RequestData: ethUSDPairing,
 		Async:       "true",
 	}
-	task.HelperSetDependencies(cfg, db, id)
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(cfg, db, id, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)
@@ -359,7 +362,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 				RequestData:       test.requestData,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(cfg, db, uuid.UUID{})
+			c := clhttptest.NewTestLocalOnlyHTTPClient()
+			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -422,7 +426,8 @@ func TestBridgeTask_Meta(t *testing.T) {
 		RequestData: ethUSDPairing,
 		Name:        bridge.Name.String(),
 	}
-	task.HelperSetDependencies(cfg, db, uuid.UUID{})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 	mp := map[string]interface{}{"meta": metaDataForBridge}
 	res, _ := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
@@ -471,7 +476,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(cfg, db, uuid.UUID{})
+			c := clhttptest.NewTestLocalOnlyHTTPClient()
+			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
@@ -520,7 +526,8 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		Name:        bridge.Name.String(),
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(cfg, db, uuid.UUID{})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -554,7 +561,8 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		Name:        bridge.Name.String(),
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(cfg, db, uuid.UUID{})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -574,7 +582,8 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(cfg, db, uuid.UUID{})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
