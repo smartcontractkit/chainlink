@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-...
+### Changed
+
+- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+Must be longer than 12 characters
+Must comprise at least 3 of:
+	lowercase characters
+	uppercase characters
+	numbers
+	symbols
+Must not comprise:
+	A user's API email
+	More than three identical consecutive characters
+This will prevent application boot in a future version of Chainlink.
 
 ## [1.4.0] - 2022-05-02
 
@@ -25,20 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
 - VRFv2 fixes and enhancements
 - UI support for `minContractPaymentLinkJuels`
-
-### Changed
-
-- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
-Must be longer than 12 characters
-Must comprise at least 3 of:
-	lowercase characters
-	uppercase characters
-	numbers
-	symbols
-Must not comprise:
-	A user's API email
-	More than three identical consecutive characters
-This will prevent application boot in a future version of Chainlink.
 
 ## [1.3.0] - 2022-04-18
 
