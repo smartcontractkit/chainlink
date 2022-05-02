@@ -726,7 +726,7 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 		return err
 	})
 
-	return jobID, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return jobID, errors.Wrap(err, "FindJobIDByAddress failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
@@ -804,7 +804,7 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 		return err
 	})
 
-	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 // FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
@@ -825,7 +825,7 @@ LIMIT $3
 		return err
 	})
 
-	return ids, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
 }
 
 // FindPipelineRunsByIDs returns pipeline runs with the ids.
@@ -846,7 +846,7 @@ WHERE id = ANY($1)
 		return err
 	})
 
-	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+	return runs, errors.Wrap(err, "FindPipelineRunsByIDs failed")
 }
 
 // FindPipelineRunByID returns pipeline run with the id.
@@ -924,20 +924,19 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var args []interface{}
-		var where string
+		var filter string
 		if jobID != nil {
-			where = " WHERE jobs.id = $1"
+			filter = "JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = $1" // TODO:  add support for more than 1 jobID?
 			args = append(args, *jobID)
 		}
-		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id%s`, where)
+		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
 		if err = tx.QueryRowx(sql, args...).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
 
-		sql = fmt.Sprintf(`SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id%s
+		sql = fmt.Sprintf(`SELECT pipeline_runs.* FROM pipeline_runs %s
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC
-		OFFSET $%d LIMIT $%d
-		;`, where, len(args)+1, len(args)+2)
+		OFFSET $%d LIMIT $%d;`, filter, len(args)+1, len(args)+2)
 
 		if err = tx.Select(&runs, sql, append(args, offset, size)...); err != nil {
 			return errors.Wrap(err, "error loading runs")
