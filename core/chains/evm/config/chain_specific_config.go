@@ -214,7 +214,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	hecoMainnet := bscMainnet
 
-	// Polygon has a 1s block time and looser finality guarantees than ereum.
+	// Polygon has a 1s block time and looser finality guarantees than ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
 	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
@@ -225,9 +225,10 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	polygonMainnet.maxQueuedTransactions = 5000         // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-	polygonMainnet.maxGasPriceWei = *assets.UEther(200) // 200,000 GWei
-	polygonMainnet.minGasPriceWei = *assets.GWei(1)
+	polygonMainnet.maxQueuedTransactions = 5000                // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxGasPriceWei = *assets.UEther(200)        // 200,000 GWei
+	polygonMainnet.gasPriceDefault = *assets.GWei(30)          // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
+	polygonMainnet.minGasPriceWei = *assets.GWei(30)           // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
 	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
@@ -236,6 +237,8 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.minRequiredOutgoingConfirmations = 12
 	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
+	polygonMumbai.gasPriceDefault = *assets.GWei(1)
+	polygonMumbai.minGasPriceWei = *assets.GWei(1)
 	polygonMumbai.linkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer

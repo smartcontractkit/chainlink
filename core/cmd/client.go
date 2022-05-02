@@ -36,13 +36,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -198,7 +198,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
+	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)
+	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		SqlxDB:                   db,
@@ -209,6 +211,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		CloseLogger:              closeLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
+		RestrictedHTTPClient:     restrictedClient,
+		UnrestrictedHTTPClient:   unrestrictedClient,
 	})
 }
 
