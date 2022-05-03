@@ -152,7 +152,7 @@ func TestOcr2Provider(t *testing.T) {
 
 	// Creat Relayer
 	backgroundCtx := context.Background()
-	relayer := customendpoint.NewRelayer(lggr, cfg, pipelineORM, clock)
+	relayer := customendpoint.NewRelayer(lggr, cfg, pipelineORM, &clock)
 	err = relayer.Start(backgroundCtx)
 	require.NoError(t, err)
 
