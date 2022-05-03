@@ -91,7 +91,7 @@ RETURNING *
 	return errors.Wrap(err, "failed to upsert upkeep")
 }
 
-// Update the last keeper index for an upkeep
+// UpdateUpkeepLastKeeperIndex updates the last keeper index for an upkeep
 func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *utils.Big, fromAddress ethkey.EIP55Address) error {
 	_, err := korm.q.Exec(`
 	UPDATE upkeep_registrations
@@ -124,7 +124,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 	return rowsAffected, nil
 }
 
-//EligibleUpkeepsForRegistry fetches eligible upkeeps for processing
+// NewEligibleUpkeepsForRegistry fetches eligible upkeeps for processing
 //The query checks the following conditions
 // - checks the registry address is correct and the registry has some keepers associated
 // -- is it my turn AND my keeper was not the last perform for this upkeep OR my keeper was the last before BUT it is past the grace period
@@ -247,18 +247,6 @@ FROM upkeep_registrations
 WHERE registry_id = $1
 `, regID)
 	return upkeeps, errors.Wrap(err, "allUpkeepIDs failed")
-}
-
-// LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
-// to sync from the contract
-// Note: This function is only applicable for registry version 1_0 and 1_1
-func (korm ORM) LowestUnsyncedID(regID int64) (nextID *utils.Big, err error) {
-	err = korm.q.Get(&nextID, `
-SELECT coalesce(max(upkeep_id), -1) + 1
-FROM upkeep_registrations
-WHERE registry_id = $1
-`, regID)
-	return nextID, errors.Wrap(err, "LowestUnsyncedID failed")
 }
 
 //SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
