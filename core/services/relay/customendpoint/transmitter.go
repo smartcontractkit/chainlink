@@ -93,13 +93,11 @@ func (c *contractTracker) doTransmit(
 			"Result: ", result.String(),
 			"Error:", err)
 	} else {
-		c.ansLock.RLock()
-		defer c.ansLock.RUnlock()
+		c.ansLock.Lock()
+		defer c.ansLock.Unlock()
 
 		// Skip saving the storedAnswer if a more recent saved storedAnswer already exists
 		if epoch > c.storedAnswer.epoch || (epoch == c.storedAnswer.epoch && round > c.storedAnswer.round) {
-			c.ansLock.RLock()
-			defer c.ansLock.RUnlock()
 			c.storedAnswer = answer{
 				Data:      medianBigInt,
 				Timestamp: c.clock.Now(),

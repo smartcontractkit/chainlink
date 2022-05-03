@@ -1,4 +1,4 @@
-package cltest
+package testutils
 
 import "time"
 
@@ -17,12 +17,12 @@ func NewSimulatedClock(currentTime time.Time) SimulatedClock {
 }
 
 // Now returns the current time on this clock.
-func (c SimulatedClock) Now() time.Time {
+func (c *SimulatedClock) Now() time.Time {
 	return c.currentTime
 }
 
 // Moves the clock ahead by provided duration
-func (c SimulatedClock) FastForwardBy(duration time.Duration) time.Time {
+func (c *SimulatedClock) FastForwardBy(duration time.Duration) time.Time {
 	c.currentTime = c.currentTime.Add(duration)
 	return c.currentTime
 }

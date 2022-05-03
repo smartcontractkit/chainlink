@@ -134,30 +134,30 @@ func (p *ocr2Provider) Close() error {
 	return p.tracker.Close()
 }
 
-func (p ocr2Provider) Ready() error {
+func (p *ocr2Provider) Ready() error {
 	return p.tracker.Ready()
 }
 
-func (p ocr2Provider) Healthy() error {
+func (p *ocr2Provider) Healthy() error {
 	return p.tracker.Healthy()
 }
 
-func (p ocr2Provider) ContractTransmitter() types.ContractTransmitter {
+func (p *ocr2Provider) ContractTransmitter() types.ContractTransmitter {
 	return p.tracker
 }
 
-func (p ocr2Provider) ContractConfigTracker() types.ContractConfigTracker {
+func (p *ocr2Provider) ContractConfigTracker() types.ContractConfigTracker {
 	return p.tracker
 }
 
-func (p ocr2Provider) OffchainConfigDigester() types.OffchainConfigDigester {
+func (p *ocr2Provider) OffchainConfigDigester() types.OffchainConfigDigester {
 	return p.configDigester
 }
 
-func (p ocr2Provider) ReportCodec() median.ReportCodec {
+func (p *ocr2Provider) ReportCodec() median.ReportCodec {
 	return p.reportCodec
 }
 
-func (p ocr2Provider) MedianContract() median.MedianContract {
+func (p *ocr2Provider) MedianContract() median.MedianContract {
 	return p.tracker
 }

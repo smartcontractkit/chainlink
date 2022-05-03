@@ -24,6 +24,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -126,7 +127,7 @@ func TestOcr2Provider(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, lggr, cfg)
 
-	clock := cltest.NewSimulatedClock(time.Now())
+	clock := testutils.NewSimulatedClock(time.Now())
 
 	spec := makeOCR2JobSpecFromToml(t, testspecs.OCR2CustomEndpointSpecMinimal)
 	var relayConfig customendpoint.RelayConfig
