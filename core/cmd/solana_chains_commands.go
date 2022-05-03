@@ -60,5 +60,5 @@ func (ps SolanaChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func SolanaChainClient(client *Client) ChainClient[db.ChainCfg, presenters.SolanaChainResource, SolanaChainPresenter, SolanaChainPresenters] {
-	return NewChainClient[db.ChainCfg, presenters.SolanaChainResource, SolanaChainPresenter, SolanaChainPresenters](client, "solana")
+	return newChainClient[db.ChainCfg, presenters.SolanaChainResource, SolanaChainPresenter, SolanaChainPresenters](client, "solana")
 }

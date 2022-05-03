@@ -60,5 +60,5 @@ func (ps TerraChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func TerraChainClient(client *Client) ChainClient[db.ChainCfg, presenters.TerraChainResource, TerraChainPresenter, TerraChainPresenters] {
-	return NewChainClient[db.ChainCfg, presenters.TerraChainResource, TerraChainPresenter, TerraChainPresenters](client, "terra")
+	return newChainClient[db.ChainCfg, presenters.TerraChainResource, TerraChainPresenter, TerraChainPresenters](client, "terra")
 }

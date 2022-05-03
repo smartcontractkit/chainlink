@@ -54,7 +54,7 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexSolanaNodes(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.NewSolanaNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.SolanaNodePresenters)
 	require.Len(t, nodes, initialCount+1)
@@ -85,7 +85,7 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	set.String("url", "http://tender.mint.test/columbus-5", "")
 	set.String("chain-id", chainIDA, "")
 	c := cli.NewContext(nil, set, nil)
-	err = client.CreateSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	set = flag.NewFlagSet("cli", 0)
@@ -93,7 +93,7 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	set.String("url", "http://tender.mint.test/bombay-12", "")
 	set.String("chain-id", chainIDB, "")
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	nodes, _, err := orm.Nodes(0, 25)
@@ -142,7 +142,7 @@ func TestClient_RemoveSolanaNode(t *testing.T) {
 	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).RemoveNode(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Nodes(0, 25)
