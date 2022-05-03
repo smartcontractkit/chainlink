@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -106,6 +107,27 @@ func main() {
 	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
 
 	switch os.Args[1] {
+	case "keepers-vrf-consumer-deploy":
+		cmd := flag.NewFlagSet("keepers-vrf-consumer-deploy", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "vrf coordinator v2 address")
+		subID := cmd.Uint64("sub-id", 0, "subscription id")
+		keyHash := cmd.String("key-hash", "", "vrf v2 key hash")
+		requestConfs := cmd.Uint("request-confs", 3, "request confirmations")
+		upkeepIntervalSeconds := cmd.Int64("upkeep-interval-seconds", 600, "upkeep interval in seconds")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "key-hash")
+		_, tx, _, err := keepers_vrf_consumer.DeployKeepersVRFConsumer(
+			owner, ec,
+			common.HexToAddress(*coordinatorAddress), // vrf coordinator address
+			*subID,                                   // subscription id
+			common.HexToHash(*keyHash),               // key hash
+			uint16(*requestConfs),                    // request confirmations
+			big.NewInt(*upkeepIntervalSeconds),       // upkeep interval seconds
+		)
+		helpers.PanicErr(err)
+		keepersVrfConsumer, err := bind.WaitDeployed(context.Background(), ec, tx)
+		helpers.PanicErr(err)
+		fmt.Println("Deploy tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+		fmt.Println("Keepers vrf consumer:", keepersVrfConsumer.Hex())
 	case "batch-coordinatorv2-deploy":
 		cmd := flag.NewFlagSet("batch-coordinatorv2-deploy", flag.ExitOnError)
 		coordinatorAddr := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
