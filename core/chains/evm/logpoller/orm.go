@@ -146,13 +146,14 @@ func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Addres
 
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs, `
-		SELECT max(block_number) as block_number, evm_chain_id, address, event_sig, topics, data
-		FROM logs WHERE 
-			evm_chain_id = $1 AND
-			event_sig = ANY($2) AND
-			address = ANY($3) AND
-			block_number > $4
-		GROUP BY evm_chain_id, address, event_sig, topics, data
+		SELECT * FROM logs WHERE (block_number, address, event_sig) IN (
+			SELECT MAX(block_number), address, event_sig FROM logs 
+				WHERE evm_chain_id = $1 AND
+				    event_sig = ANY($2) AND
+					address = ANY($3) AND
+		   			block_number > $4
+			GROUP BY event_sig, address
+		)
 		ORDER BY block_number ASC
 	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock)
 	if err != nil {
