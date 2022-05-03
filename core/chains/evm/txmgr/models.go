@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -207,6 +208,7 @@ func (e EthTx) GetMeta() (*EthTxMeta, error) {
 func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 	lgr = lgr.With(
 		"ethTxID", e.ID,
+		"nonce", e.Nonce,
 		"checker", e.TransmitChecker,
 		"gasLimit", e.GasLimit,
 	)
@@ -218,11 +220,23 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 	}
 
 	if meta != nil {
-		lgr = lgr.With(
-			"jobID", meta.JobID,
-			"requestID", meta.RequestID,
-			"requestTxHash", meta.RequestTxHash,
-		)
+		lgr = lgr.With("jobID", meta.JobID)
+
+		if meta.RequestTxHash != utils.EmptyHash {
+			lgr = lgr.With("requestTxHash", meta.RequestTxHash)
+		}
+
+		if meta.RequestID != utils.EmptyHash {
+			lgr = lgr.With("requestID", new(big.Int).SetBytes(meta.RequestID[:]).String())
+		}
+
+		if len(meta.RequestIDs) != 0 {
+			var ids []string
+			for _, id := range meta.RequestIDs {
+				ids = append(ids, new(big.Int).SetBytes(id[:]).String())
+			}
+			lgr = lgr.With("requestIDs", strings.Join(ids, ","))
+		}
 
 		if meta.UpkeepID != nil {
 			lgr = lgr.With("upkeepID", *meta.UpkeepID)
