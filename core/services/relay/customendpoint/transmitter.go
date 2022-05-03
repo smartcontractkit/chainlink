@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
 var _ types.ContractTransmitter = (*contractTracker)(nil)
@@ -130,10 +131,6 @@ func (c *contractTracker) uploadResults(ctx context.Context, result decimal.Deci
 		requestData[k] = v
 	}
 
-	// URL is "safe" because it comes from the node's own database
-	// Some node operators may run external adapters on their own hardware
-	allowUnrestrictedNetworkAccess := true
-
 	requestDataJSON, err := json.Marshal(requestData)
 	if err != nil {
 		return err
@@ -145,8 +142,10 @@ func (c *contractTracker) uploadResults(ctx context.Context, result decimal.Deci
 
 	requestCtx, cancel := context.WithTimeout(ctx, c.config.DefaultHTTPTimeout().Duration())
 	defer cancel()
-
-	responseBytes, _, _, elapsed, err := pipeline.MakeHTTPRequest(requestCtx, c.lggr, "POST", url, requestData, allowUnrestrictedNetworkAccess, c.config.DefaultHTTPLimit())
+	// URL is "safe" because it comes from the node's own database
+	// Some node operators may run external adapters on their own hardware
+	client := clhttp.NewUnrestrictedHTTPClient()
+	responseBytes, _, _, elapsed, err := pipeline.MakeHTTPRequest(requestCtx, c.lggr, "POST", url, requestData, client, c.config.DefaultHTTPLimit())
 	if err != nil {
 		return err
 	}
