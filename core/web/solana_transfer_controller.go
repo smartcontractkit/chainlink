@@ -12,7 +12,7 @@ import (
 
 	solanaGo "github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	solanamodels "github.com/smartcontractkit/chainlink/core/store/models/solana"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -42,7 +42,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 	chain, err := solanaChains.Chain(c.Request.Context(), tr.SolanaChainID)
 	switch err {
-	case solana.ErrChainIDInvalid, solana.ErrChainIDEmpty:
+	case chains.ErrChainIDInvalid, chains.ErrChainIDEmpty:
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	case nil:

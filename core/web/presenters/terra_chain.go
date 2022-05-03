@@ -19,7 +19,7 @@ func (r TerraChainResource) GetName() string {
 }
 
 // NewTerraChainResource returns a new TerraChainResource for chain.
-func NewTerraChainResource(chain types.Chain) TerraChainResource {
+func NewTerraChainResource(chain types.DBChain) TerraChainResource {
 	return TerraChainResource{chainResource[db.ChainCfg]{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,

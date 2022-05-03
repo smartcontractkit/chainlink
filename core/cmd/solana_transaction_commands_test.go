@@ -37,7 +37,8 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	chain, err := chains.Solana.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Solana.ORM().CreateNode(solanadb.Node{
+	ctx := testutils.Context(t)
+	_, err = chains.Solana.CreateNode(ctx, solanadb.Node{
 		Name:          t.Name(),
 		SolanaChainID: chainID,
 		SolanaURL:     url,
