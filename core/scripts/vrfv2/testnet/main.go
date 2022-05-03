@@ -115,7 +115,7 @@ func main() {
 		requestConfs := cmd.Uint("request-confs", 3, "request confirmations")
 		upkeepIntervalSeconds := cmd.Int64("upkeep-interval-seconds", 600, "upkeep interval in seconds")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "key-hash")
-		keepersVrfConsumer, tx, _, err := keepers_vrf_consumer.DeployKeepersVRFConsumer(
+		_, tx, _, err := keepers_vrf_consumer.DeployKeepersVRFConsumer(
 			owner, ec,
 			common.HexToAddress(*coordinatorAddress), // vrf coordinator address
 			*subID,                                   // subscription id
@@ -124,7 +124,7 @@ func main() {
 			big.NewInt(*upkeepIntervalSeconds),       // upkeep interval seconds
 		)
 		helpers.PanicErr(err)
-		keepersVrfConsumer, err = bind.WaitDeployed(context.Background(), ec, tx)
+		keepersVrfConsumer, err := bind.WaitDeployed(context.Background(), ec, tx)
 		helpers.PanicErr(err)
 		fmt.Println("Deploy tx:", helpers.ExplorerLink(chainID, tx.Hash()))
 		fmt.Println("Keepers vrf consumer:", keepersVrfConsumer.Hex())
