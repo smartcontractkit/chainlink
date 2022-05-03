@@ -608,8 +608,8 @@ func ExampleRun_nodes_evm() {
 	//
 	// COMMANDS:
 	//    create  Create a new EVM node
-	//    delete  Delete an EVM node
-	//    list    List all EVM nodes
+	//    delete  Delete an existing EVM node
+	//    list    List all existing EVM nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -626,8 +626,8 @@ func ExampleRun_nodes_solana() {
 	//
 	// COMMANDS:
 	//    create  Create a new Solana node
-	//    delete  Delete a Solana node
-	//    list    List all Solana nodes
+	//    delete  Delete an existing Solana node
+	//    list    List all existing Solana nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -644,8 +644,8 @@ func ExampleRun_nodes_terra() {
 	//
 	// COMMANDS:
 	//    create  Create a new Terra node
-	//    delete  Delete a Terra node
-	//    list    List all Terra nodes
+	//    delete  Delete an existing Terra node
+	//    list    List all existing Terra nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

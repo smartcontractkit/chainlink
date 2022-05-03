@@ -41,7 +41,7 @@ type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struc
 	newResource   func(chains.Chain[I, C]) R
 }
 
-func NewChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet ChainSet[I, C], errNotEnabled error,
+func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet ChainSet[I, C], errNotEnabled error,
 	parseChainID func(string) (I, error), newResource func(chains.Chain[I, C]) R) *chainsController[I, C, R] {
 	return &chainsController[I, C, R]{
 		resourceName:  prefix + "_chain",
