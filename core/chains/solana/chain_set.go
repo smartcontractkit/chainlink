@@ -79,6 +79,10 @@ type ChainSet interface {
 	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (Chain, error)
 	Show(id string) (Chain, error)
 	Index(offset, limit int) ([]Chain, int, error)
+	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
+	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
+	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
+	DeleteNode(ctx context.Context, id int32) error
 
 	ORM() ORM
 }
@@ -251,6 +255,22 @@ func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, confi
 	}
 
 	return dbchain, nil
+}
+
+func (c *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error) {
+	return c.opts.ORM.Nodes(offset, limit, pg.WithParentCtx(ctx))
+}
+
+func (c *chainSet) GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error) {
+	return c.opts.ORM.NodesForChain(chainID, offset, limit, pg.WithParentCtx(ctx))
+}
+
+func (c *chainSet) CreateNode(ctx context.Context, data db.Node) (db.Node, error) {
+	return c.opts.ORM.CreateNode(data, pg.WithParentCtx(ctx))
+}
+
+func (c *chainSet) DeleteNode(ctx context.Context, id int32) error {
+	return c.opts.ORM.DeleteNode(id, pg.WithParentCtx(ctx))
 }
 
 func (c *chainSet) Start(ctx context.Context) error {

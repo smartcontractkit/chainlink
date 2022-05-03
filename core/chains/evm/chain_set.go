@@ -48,10 +48,12 @@ type ChainSet interface {
 	ChainCount() int
 	ORM() types.ORM
 	// GetNode et al retrieves Nodes from the ORM and adds additional state info
-	GetNode(ctx context.Context, id int32) (node evmtypes.Node, err error)
-	GetNodes(ctx context.Context, offset, limit int) (nodes []evmtypes.Node, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []evmtypes.Node, count int, err error)
+	GetNode(ctx context.Context, id int32) (node types.Node, err error)
+	GetNodes(ctx context.Context, offset, limit int) (nodes []types.Node, count int, err error)
+	GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error)
 	GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error)
+	CreateNode(ctx context.Context, data types.Node) (types.Node, error)
+	DeleteNode(ctx context.Context, id int32) error
 }
 
 type chainSet struct {
@@ -325,6 +327,14 @@ func (cll *chainSet) GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Bi
 		cll.addStateToNode(&nodes[i])
 	}
 	return
+}
+
+func (cll *chainSet) CreateNode(ctx context.Context, data types.Node) (types.Node, error) {
+	return cll.opts.ORM.CreateNode(data, pg.WithParentCtx(ctx))
+}
+
+func (cll *chainSet) DeleteNode(ctx context.Context, id int32) error {
+	return cll.opts.ORM.DeleteNode(id, pg.WithParentCtx(ctx))
 }
 
 func (cll *chainSet) addStateToNode(n *evmtypes.Node) {

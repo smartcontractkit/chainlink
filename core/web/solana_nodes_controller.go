@@ -2,8 +2,6 @@ package web
 
 import (
 	"database/sql"
-	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -17,103 +15,25 @@ import (
 // ErrSolanaNotEnabled is returned when SOLANA_ENABLED is not true.
 var ErrSolanaNotEnabled = errors.New("Solana is disabled. Set SOLANA_ENABLED=true to enable.")
 
-// SolanaNodesController manages Solana nodes.
-type SolanaNodesController struct {
-	App chainlink.Application
-}
+func NewSolanaNodesController(app chainlink.Application) NodesController {
+	parse := func(s string) (string, error) { return s, nil }
+	return newNodesController[string, db.Node, presenters.SolanaNodeResource](
+		app.GetChains().Solana, ErrSolanaNotEnabled, parse, presenters.NewSolanaNodeResource, func(c *gin.Context) (db.Node, error) {
+			var request db.NewNode
 
-// Index lists Solana nodes, and optionally filters by chain id.
-func (nc *SolanaNodesController) Index(c *gin.Context, size, page, offset int) {
-	solanaChains := nc.App.GetChains().Solana
-	if solanaChains == nil {
-		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
-		return
-	}
-	orm := solanaChains.ORM()
-
-	id := c.Param("ID")
-
-	var nodes []db.Node
-	var count int
-	var err error
-
-	if id == "" {
-		// fetch all nodes
-		nodes, count, err = orm.Nodes(offset, size)
-
-	} else {
-		nodes, count, err = orm.NodesForChain(id, offset, size)
-	}
-
-	var resources []presenters.SolanaNodeResource
-	for _, node := range nodes {
-		resources = append(resources, presenters.NewSolanaNodeResource(node))
-	}
-
-	paginatedResponse(c, "node", size, page, resources, count, err)
-}
-
-// Create adds a new Solana node.
-func (nc *SolanaNodesController) Create(c *gin.Context) {
-	solanaChains := nc.App.GetChains().Solana
-	if solanaChains == nil {
-		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
-		return
-	}
-	orm := solanaChains.ORM()
-
-	var request db.NewNode
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	// Ensure chain exists.
-	if _, err := orm.Chain(request.SolanaChainID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			jsonAPIError(c, http.StatusBadRequest, errors.Errorf("Solana chain %s must be added first", request.SolanaChainID))
-			return
-		}
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	node, err := orm.CreateNode(db.Node{
-		Name:          request.Name,
-		SolanaChainID: request.SolanaChainID,
-		SolanaURL:     request.SolanaURL,
-	})
-
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
-	}
-
-	jsonAPIResponse(c, presenters.NewSolanaNodeResource(node), "node")
-}
-
-// Delete removes a Solana node.
-func (nc *SolanaNodesController) Delete(c *gin.Context) {
-	solanaChains := nc.App.GetChains().Solana
-	if solanaChains == nil {
-		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
-		return
-	}
-	orm := solanaChains.ORM()
-
-	id, err := strconv.ParseInt(c.Param("ID"), 10, 32)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	err = orm.DeleteNode(int32(id))
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
+			if err := c.ShouldBindJSON(&request); err != nil {
+				return db.Node{}, err
+			}
+			if _, err := app.GetChains().Solana.ORM().Chain(request.SolanaChainID); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					err = errors.Errorf("Solana chain %s must be added first", request.SolanaChainID)
+				}
+				return db.Node{}, err
+			}
+			return db.Node{
+				Name:          request.Name,
+				SolanaChainID: request.SolanaChainID,
+				SolanaURL:     request.SolanaURL,
+			}, nil
+		})
 }

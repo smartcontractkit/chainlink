@@ -13,12 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// EVMForwardersController manages EVM chains.
+// EVMForwardersController manages EVM forwarders.
 type EVMForwardersController struct {
 	App chainlink.Application
 }
 
-// Index lists EVM chains.
+// Index lists EVM forwarders.
 func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int) {
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig())
 	fwds, count, err := orm.FindForwarders(0, size)
@@ -36,13 +36,13 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 	paginatedResponse(c, "forwarder", size, page, resources, count, err)
 }
 
-// CreateEVMChainRequest is a JSONAPI request for creating an EVM chain.
+// CreateEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
 type CreateEVMForwarderRequest struct {
 	EVMChainID *utils.Big     `json:"chainID"`
 	Address    common.Address `json:"address"`
 }
 
-// Create adds a new EVM chain.
+// Create adds a new EVM forwarder.
 func (cc *EVMForwardersController) Create(c *gin.Context) {
 	request := &CreateEVMForwarderRequest{}
 
@@ -61,7 +61,7 @@ func (cc *EVMForwardersController) Create(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, presenters.NewEVMForwarderResource(fwd), "forwarder", http.StatusCreated)
 }
 
-// Delete removes an EVM chain.
+// Delete removes an EVM Forwarder.
 func (cc *EVMForwardersController) Delete(c *gin.Context) {
 	id, err := stringutils.ToInt32(c.Param("fwdID"))
 	if err != nil {
