@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -43,11 +44,13 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
 
 	_, err := txm.SendEther(big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
@@ -211,7 +214,9 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -422,7 +427,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
-
+	cfg.On("EvmUseForwarders").Return(false).Maybe()
 	cfg.On("LogSQL").Maybe().Return(false)
 
 	return cfg
@@ -449,7 +454,9 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, &testCheckerFactory{})
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, &testCheckerFactory{}, lp)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -547,7 +554,10 @@ func TestTxm_Lifecycle(t *testing.T) {
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory)
+
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory, lp)
 
 	head := cltest.Head(42)
 	// It should not hang or panic
