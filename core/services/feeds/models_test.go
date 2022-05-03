@@ -86,7 +86,7 @@ func Test_OCR1Config_Value(t *testing.T) {
 			P2PPeerID:   null.StringFrom("peerid"),
 			KeyBundleID: null.StringFrom("ocrkeyid"),
 		}
-		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","ocr_key_id":"ocrkeyid"}`
+		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`
 	)
 
 	val, err := give.Value()
@@ -102,7 +102,7 @@ func Test_OCR1Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","ocr_key_id":"ocrkeyid"}`
+		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`
 		want = OCR1Config{
 			Enabled:     true,
 			IsBootstrap: false,
@@ -130,7 +130,7 @@ func Test_OCR2Config_Value(t *testing.T) {
 			P2PPeerID:   null.StringFrom("peerid"),
 			KeyBundleID: null.StringFrom("ocrkeyid"),
 		}
-		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","ocr_key_id":"ocrkeyid"}`
+		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`
 	)
 
 	val, err := give.Value()
@@ -146,7 +146,7 @@ func Test_OCR2Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","ocr_key_id":"ocrkeyid"}`
+		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`
 		want = OCR2Config{
 			Enabled:     true,
 			IsBootstrap: false,

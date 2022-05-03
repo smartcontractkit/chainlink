@@ -976,7 +976,7 @@ func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) err
 func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) CountManagers() (int64, error) { return 0, ErrFeedsManagerDisabled }
+func (ns NullService) CountManagers() (int64, error) { return 0, nil }
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
@@ -998,7 +998,7 @@ func (ns NullService) ListManagersByIDs(ids []int64) ([]FeedsManager, error) {
 func (ns NullService) GetSpec(id int64) (*JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
-func (ns NullService) ListManagers() ([]FeedsManager, error) { return nil, ErrFeedsManagerDisabled }
+func (ns NullService) ListManagers() ([]FeedsManager, error) { return nil, nil }
 func (ns NullService) CreateChainConfig(cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
@@ -1015,7 +1015,7 @@ func (ns NullService) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfi
 func (ns NullService) UpdateChainConfig(cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
-func (ns NullService) ListJobProposals() ([]JobProposal, error) { return nil, ErrFeedsManagerDisabled }
+func (ns NullService) ListJobProposals() ([]JobProposal, error) { return nil, nil }
 func (ns NullService) ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
 }
@@ -1028,7 +1028,7 @@ func (ns NullService) RegisterManager(params RegisterManagerParams) (int64, erro
 func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) SyncNodeInfo(id int64) error { return ErrFeedsManagerDisabled }
+func (ns NullService) SyncNodeInfo(id int64) error { return nil }
 func (ns NullService) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }
@@ -1036,7 +1036,7 @@ func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
-	return false, ErrFeedsManagerDisabled
+	return false, nil
 }
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
