@@ -35,10 +35,10 @@ func TestPopulateLoadedDB(t *testing.T) {
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
 
-	for j := 0; j < 1000; j++ {
+	for j := 1; j < 1000; j++ {
 		var logs []logpoller.Log
 		// Max we can insert per batch
-		for i := 0; i < 1000; i++ {
+		for i := 1; i < 1000; i++ {
 			addr := address1
 			if (i+(1000*j))%2 == 0 {
 				addr = address2
@@ -49,6 +49,11 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}
 	s := time.Now()
 	lgs, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1[:])
+	require.NoError(t, err)
+	t.Log(time.Since(s), len(lgs))
+
+	s = time.Now()
+	lgs, err = o.LatestLogEventSigsAddrs(0, []common.Address{address1}, []common.Hash{event1})
 	require.NoError(t, err)
 	t.Log(time.Since(s), len(lgs))
 }

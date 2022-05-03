@@ -482,7 +482,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
 		}
 
-		l := logger.Sugared(lggr.With(
+		l := logger.Sugared(attempt.EthTx.GetLogger(lggr).With(
 			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID,
 			"ethTxID", attempt.EthTxID, "err", err, "nonce", attempt.EthTx.Nonce,
 		))
@@ -760,18 +760,20 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
 	for _, etx := range etxs {
-		attempt, err := ec.attemptForRebroadcast(ctx, *etx)
+		lggr := etx.GetLogger(ec.lggr)
+
+		attempt, err := ec.attemptForRebroadcast(ctx, lggr, *etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
 
-		ec.lggr.Debugw("Rebroadcasting transaction", "ethTxID", etx.ID, "nonce", etx.Nonce, "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+		lggr.Debugw("Rebroadcasting transaction", "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
 		if err := ec.saveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
 		}
 
-		if err := ec.handleInProgressAttempt(ctx, *etx, attempt, blockHeight); err != nil {
+		if err := ec.handleInProgressAttempt(ctx, lggr, *etx, attempt, blockHeight); err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
@@ -791,7 +793,7 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
-		err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight)
+		err := ec.handleInProgressAttempt(ctx, a.EthTx.GetLogger(ec.lggr), a.EthTx, a, blockHeight)
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
@@ -973,7 +975,7 @@ ORDER BY nonce ASC
 	return
 }
 
-func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (attempt EthTxAttempt, err error) {
+func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx EthTx) (attempt EthTxAttempt, err error) {
 	if len(etx.EthTxAttempts) > 0 {
 		previousAttempt := etx.EthTxAttempts[0]
 		previousAttempt.EthTx = etx
@@ -981,14 +983,14 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 		if previousAttempt.State == EthTxAttemptInsufficientEth {
 			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
-			ec.lggr.Debugw("Rebroadcast InsufficientEth", logFields...)
+			lggr.Debugw("Rebroadcast InsufficientEth", logFields...)
 			previousAttempt.State = EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
 		attempt, err = ec.bumpGas(previousAttempt)
 
 		if gas.IsBumpErr(err) {
-			ec.lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
+			lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
 			previousAttempt.BroadcastBeforeBlockNum = nil
@@ -1076,13 +1078,13 @@ func (ec *EthConfirmer) saveInProgressAttempt(attempt *EthTxAttempt) error {
 	return nil
 }
 
-func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
+func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx EthTx, attempt EthTxAttempt, blockHeight int64) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 
 	now := time.Now()
-	sendError := sendTransaction(ctx, ec.ethClient, attempt, etx, ec.lggr)
+	sendError := sendTransaction(ctx, ec.ethClient, attempt, etx, lggr)
 
 	if sendError.IsTerminallyUnderpriced() {
 		// This should really not ever happen in normal operation since we
@@ -1094,7 +1096,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		ec.lggr.With(
+		lggr.With(
 			"sendError", sendError,
 			"maxGasPriceConfig", ec.config.EvmMaxGasPriceWei(),
 			"previousAttempt", attempt,
@@ -1104,7 +1106,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		if err := saveReplacementInProgressAttempt(ec.q, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
-		return ec.handleInProgressAttempt(ctx, etx, replacementAttempt, blockHeight)
+		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -1114,7 +1116,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// In that case, the safest thing to do is to pretend the transaction
 		// was accepted and continue the normal gas bumping cycle until we can
 		// get it into the mempool
-		ec.lggr.Infow("Transaction temporarily underpriced", "ethTxID", etx.ID, "attemptID", attempt.ID, "err", sendError.Error(), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+		lggr.Infow("Transaction temporarily underpriced", "attemptID", attempt.ID, "err", sendError.Error(), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		sendError = nil
 	}
 
@@ -1123,8 +1125,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		//
 		// Best thing we can do is to re-send the previous attempt at the old
 		// price and discard this bumped version.
-		ec.lggr.Errorw(fmt.Sprintf("Transaction gas bump failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
-			"ethTxID", etx.ID,
+		lggr.Errorw(fmt.Sprintf("Transaction gas bump failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"err", sendError,
 			"gasPrice", attempt.GasPrice,
 			"gasLimit", etx.GasLimit,
@@ -1143,8 +1144,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		//
 		// The only scenario imaginable where this might take place is if
 		// geth/parity have been updated between broadcasting and confirming steps.
-		ec.lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
-			"ethTxID", etx.ID,
+		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
 			"err", sendError,
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
 			"blockHeight", blockHeight,
@@ -1157,7 +1157,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		sendError = nil
-		ec.lggr.Debugw("Nonce already used", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
+		lggr.Debugw("Nonce already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
 		return saveConfirmedMissingReceiptAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), ec.lggr, &attempt, now)
 	}
 
@@ -1174,7 +1174,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// In this case the simplest and most robust way to recover is to ignore
 		// this attempt and wait until the next bump threshold is reached in
 		// order to bump again.
-		ec.lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
+		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
 			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
@@ -1185,7 +1185,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 	}
 
 	if sendError.IsInsufficientEth() {
-		ec.lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) was rejected due to insufficient eth. "+
+		lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
@@ -1194,8 +1194,8 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 	}
 
 	if sendError == nil {
-		ec.lggr.Debugw("Successfully broadcast transaction", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
-		return saveSentAttempt(ec.db, ec.lggr, &attempt, now)
+		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
+		return saveSentAttempt(ec.db, lggr, &attempt, now)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the

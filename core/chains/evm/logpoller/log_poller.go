@@ -435,3 +435,7 @@ func (lp *LogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address 
 	}
 	return log, nil
 }
+
+func (lp *LogPoller) LatestLogEventSigsAddrs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.LatestLogEventSigsAddrs(fromBlock, addresses, eventSigs, qopts...)
+}

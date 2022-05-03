@@ -30,7 +30,7 @@ func TestClient_SolanaInit(t *testing.T) {
 
 	// Try to add node
 	c := cli.NewContext(nil, set, nil)
-	err := client.CreateSolanaNode(c)
+	err := cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.Error(t, err)
 
 	// Chain first
@@ -43,7 +43,7 @@ func TestClient_SolanaInit(t *testing.T) {
 
 	// Then node
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	assertTableRenders(t, r)

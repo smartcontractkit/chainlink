@@ -54,7 +54,7 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexTerraNodes(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.NewTerraNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.TerraNodePresenters)
 	require.Len(t, nodes, initialCount+1)
@@ -86,7 +86,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	set.String("fcd-url", "http://fcd.test/columbus-5", "")
 	set.String("chain-id", chainIDA, "")
 	c := cli.NewContext(nil, set, nil)
-	err = client.CreateTerraNode(c)
+	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	set = flag.NewFlagSet("cli", 0)
@@ -95,7 +95,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	set.String("fcd-url", "http://fcd.test/bombay-12", "")
 	set.String("chain-id", chainIDB, "")
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateTerraNode(c)
+	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	nodes, _, err := orm.Nodes(0, 25)
@@ -144,7 +144,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveTerraNode(c)
+	err = cmd.NewTerraNodeClient(client).RemoveNode(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Nodes(0, 25)
