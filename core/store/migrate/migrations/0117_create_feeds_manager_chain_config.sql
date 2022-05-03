@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE feeds_manager_chain_configs (
-	id SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     chain_id VARCHAR NOT NULL,
     chain_type VARCHAR NOT NULL,
     account_address VARCHAR NOT NULL,
@@ -10,8 +10,8 @@ CREATE TABLE feeds_manager_chain_configs (
     flux_monitor_config JSONB,
     ocr1_config JSONB,
     ocr2_config JSONB,
-	created_at timestamptz NOT NULL,
-	updated_at timestamptz NOT NULL
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
 );
 
 CREATE INDEX idx_feeds_manager_chain_configs_chain_id_chain_type ON feeds_manager_chain_configs(chain_id, chain_type);
@@ -42,6 +42,3 @@ ADD CONSTRAINT chk_ocr_bootstrap_peer_multiaddr CHECK ( NOT (
 
 DROP TABLE feeds_manager_chain_configs;
 -- +goose StatementEnd
-
-
---  CONSTRAINT chk_ocr_bootstrap_peer_multiaddr CHECK (NOT (is_ocr_bootstrap_peer AND (ocr_bootstrap_peer_multiaddr IS NULL OR ocr_bootstrap_peer_multiaddr::text = ''::text)))
