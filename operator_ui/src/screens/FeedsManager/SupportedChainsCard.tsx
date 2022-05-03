@@ -32,11 +32,11 @@ import {
   DetailsCardItemTitle,
   DetailsCardItemValue,
 } from 'src/components/Cards/DetailsCard'
-import { FEEDS_MANAGERS_WITH_PROPOSALS_QUERY } from './FeedsManagerScreen'
 import { NewSupportedChainDialog } from './NewSupportedChainDialog'
 import { useMutationErrorHandler } from 'src/hooks/useMutationErrorHandler'
 import Button from 'src/components/Button'
 import { EditSupportedChainDialog } from './EditSupportedChainDialog'
+import { FEEDS_MANAGERS_WITH_PROPOSALS_QUERY } from 'src/hooks/queries/useFeedsManagersWithProposalsQuery'
 
 export const CREATE_FEEDS_MANAGER_CHAIN_CONFIG_MUTATION = gql`
   mutation CreateFeedsManagerChainConfig(

@@ -348,7 +348,7 @@ const AccountAddrField = ({ accounts, ...props }: FieldAttributes<any>) => {
     ) {
       setFieldValue(props.name, '')
     }
-  }, [chainID, accountAddr, accounts])
+  }, [chainID, accountAddr, accounts, setFieldValue, props.name])
 
   return <Field {...props} />
 }

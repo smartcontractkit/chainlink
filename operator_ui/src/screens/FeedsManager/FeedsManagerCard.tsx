@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { gql } from '@apollo/client'
-
 import CancelIcon from '@material-ui/icons/Cancel'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import EditIcon from '@material-ui/icons/Edit'
@@ -24,47 +22,6 @@ import {
 } from 'src/components/Cards/DetailsCard'
 import { shortenHex } from 'src/utils/shortenHex'
 import { MenuItemLink } from 'src/components/MenuItemLink'
-
-const FEEDS_MANAGER__CHAIN_CONFIG_FIELDS = gql`
-  fragment FeedsManager_ChainConfigFields on FeedsManagerChainConfig {
-    id
-    chainID
-    chainType
-    accountAddr
-    adminAddr
-    fluxMonitorJobConfig {
-      enabled
-    }
-    ocr1JobConfig {
-      enabled
-      isBootstrap
-      multiaddr
-      p2pPeerID
-      keyBundleID
-    }
-    ocr2JobConfig {
-      enabled
-      isBootstrap
-      multiaddr
-      p2pPeerID
-      keyBundleID
-    }
-  }
-`
-
-export const FEEDS_MANAGER_FIELDS = gql`
-  ${FEEDS_MANAGER__CHAIN_CONFIG_FIELDS}
-  fragment FeedsManagerFields on FeedsManager {
-    id
-    name
-    uri
-    publicKey
-    isConnectionActive
-    chainConfigs {
-      ...FeedsManager_ChainConfigFields
-    }
-  }
-`
 
 const connectionStatusStyles = () => {
   return createStyles({
