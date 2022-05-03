@@ -59,5 +59,5 @@ func (ps EVMChainPresenters) RenderTable(rt RendererTable) error {
 }
 
 func EVMChainClient(client *Client) ChainClient[evmtypes.ChainCfg, presenters.EVMChainResource, EVMChainPresenter, EVMChainPresenters] {
-	return NewChainClient[evmtypes.ChainCfg, presenters.EVMChainResource, EVMChainPresenter, EVMChainPresenters](client, "evm")
+	return newChainClient[evmtypes.ChainCfg, presenters.EVMChainResource, EVMChainPresenter, EVMChainPresenters](client, "evm")
 }

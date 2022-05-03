@@ -19,14 +19,6 @@ type ChainSet struct {
 	mock.Mock
 }
 
-func (_m *ChainSet) Show(id utils.Big) (types.Chain, error) {
-	panic("implement me")
-}
-
-func (_m *ChainSet) Index(offset, limit int) ([]types.Chain, int, error) {
-	panic("implement me")
-}
-
 // Add provides a mock function with given fields: ctx, id, config
 func (_m *ChainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error) {
 	ret := _m.Called(ctx, id, config)
@@ -354,4 +346,20 @@ func (_m *ChainSet) UpdateConfig(id *big.Int, updaters ...evm.ChainConfigUpdater
 	}
 
 	return r0
+}
+
+func (_m *ChainSet) CreateNode(ctx context.Context, data types.Node) (types.Node, error) {
+	panic("implement me")
+}
+
+func (_m *ChainSet) DeleteNode(ctx context.Context, id int32) error {
+	panic("implement me")
+}
+
+func (_m *ChainSet) Show(id utils.Big) (types.Chain, error) {
+	panic("implement me")
+}
+
+func (_m *ChainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+	panic("implement me")
 }
