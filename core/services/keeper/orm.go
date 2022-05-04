@@ -230,7 +230,6 @@ func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID, height int64
 	SET last_run_block_height = $1,
 		last_keeper_index = CAST((SELECT keeper_index_map -> $4 FROM keeper_registries WHERE job_id = $3) as int)
 	WHERE upkeep_id = $2 AND
-	registry_id = (SELECT id FROM keeper_registries WHERE job_id = $3) AND
-	last_run_block_height < $1`, height, upkeepID, jobID, fromAddress.Hex())
+	registry_id = (SELECT id FROM keeper_registries WHERE job_id = $3)`, height, upkeepID, jobID, fromAddress.Hex())
 	return errors.Wrap(err, "SetLastRunInfoForUpkeepOnJob failed")
 }

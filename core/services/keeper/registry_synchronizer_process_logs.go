@@ -155,7 +155,12 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
-	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
+	heightToSet := int64(0) // This is a legacy turn taking algo. We set height to 0 to circumvent grace period logic
+	if rs.newTurnEnabled {
+		heightToSet = int64(broadcast.RawLog().BlockNumber)
+	}
+	rs.logger.Debugw("Going to update DB", "upID", log.Id.Int64(), "heightToSet", heightToSet, "blockNumber", int64(broadcast.RawLog().BlockNumber))
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), heightToSet, ethkey.EIP55AddressFromAddress(log.From))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
