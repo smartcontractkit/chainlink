@@ -1,10 +1,43 @@
 package utils
 
 import (
+	"encoding/hex"
+	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func tempFileName() string {
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	return filepath.Join(os.TempDir(), hex.EncodeToString(randBytes))
+}
+
+func TestFileExists(t *testing.T) {
+	t.Parallel()
+
+	exists := FileExists(tempFileName())
+	assert.False(t, exists)
+
+	exists = FileExists(os.Args[0])
+	assert.True(t, exists)
+}
+
+func TestTooPermissive(t *testing.T) {
+	t.Parallel()
+
+	res := TooPermissive(os.FileMode(0700), os.FileMode(0600))
+	assert.True(t, res)
+
+	res = TooPermissive(os.FileMode(0600), os.FileMode(0600))
+	assert.False(t, res)
+
+	res = TooPermissive(os.FileMode(0600), os.FileMode(0700))
+	assert.False(t, res)
+}
 
 func TestFileSize_MarshalText_String(t *testing.T) {
 	t.Parallel()
