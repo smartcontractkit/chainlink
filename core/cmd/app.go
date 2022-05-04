@@ -5,8 +5,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -239,6 +240,11 @@ func NewApp(client *Client) *cli.App {
 					Name:   "archive",
 					Usage:  "Archive a Job and all its associated Runs",
 					Action: client.ArchiveJobSpec,
+				},
+				{
+					Name:   "restore",
+					Usage:  "Restore an archived Job and all its associated Runs",
+					Action: client.RestoreJobSpec,
 				},
 			},
 		},

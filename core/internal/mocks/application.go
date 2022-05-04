@@ -431,6 +431,27 @@ func (_m *Application) ReplayFromBlock(number uint64) error {
 	return r0
 }
 
+// RestoreJob provides a mock function with given fields: _a0
+func (_m *Application) RestoreJob(_a0 models.JobID) (models.JobSpec, error) {
+	ret := _m.Called(_a0)
+
+	var r0 models.JobSpec
+	if rf, ok := ret.Get(0).(func(models.JobID) models.JobSpec); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(models.JobSpec)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(models.JobID) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ResumeAllInProgress provides a mock function with given fields:
 func (_m *Application) ResumeAllInProgress() error {
 	ret := _m.Called()

@@ -19,6 +19,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -32,6 +33,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 
 	"github.com/gobuffalo/packr"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -52,10 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
@@ -80,6 +82,7 @@ type Application interface {
 	services.RunManager // For managing job runs.
 	AddJob(job models.JobSpec) error
 	ArchiveJob(models.JobID) error
+	RestoreJob(models.JobID) (models.JobSpec, error)
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 
 	// V2 Jobs (TOML specified)
@@ -672,7 +675,10 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	if err != nil {
 		return err
 	}
+	return app.addJob(job)
+}
 
+func (app *ChainlinkApplication) addJob(job models.JobSpec) error {
 	app.Scheduler.AddJob(job)
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
 	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
@@ -780,6 +786,16 @@ func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 		logger.Warnf("Failed to delete job with id %s from external initiator: %v", ID, err)
 	}
 	return app.Store.ArchiveJob(ID)
+}
+
+// RestoreJob restores the archived job to the system.
+func (app *ChainlinkApplication) RestoreJob(ID models.JobID) (js models.JobSpec, err error) {
+	js, err = app.Store.RestoreJob(ID)
+	if err != nil {
+		return
+	}
+	err = app.addJob(js)
+	return
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
