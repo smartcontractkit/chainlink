@@ -136,20 +136,23 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
-	for i := int64(0); i < 3; i++ {
-		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+	expectedUpkeepID := cltest.MustInsertUpkeepForRegistry(t, db, config, registry).UpkeepID
+	var upkeepIDs []utils.Big
+	for i := 0; i < 2; i++ {
+		upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+		upkeepIDs = append(upkeepIDs, *upkeep.UpkeepID)
 	}
 
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)
 
-	_, err := orm.BatchDeleteUpkeepsForJob(job.ID, []utils.Big{*utils.NewBigI(0), *utils.NewBigI(2)})
+	_, err := orm.BatchDeleteUpkeepsForJob(job.ID, upkeepIDs)
 	require.NoError(t, err)
 	cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
 	var remainingUpkeep keeper.UpkeepRegistration
 	err = db.Get(&remainingUpkeep, `SELECT * FROM upkeep_registrations ORDER BY id LIMIT 1`)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), remainingUpkeep.UpkeepID.Int64())
+	require.Equal(t, expectedUpkeepID, remainingUpkeep.UpkeepID)
 }
 
 func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
