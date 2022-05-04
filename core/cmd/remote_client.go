@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/manyminds/api2go/jsonapi"
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -244,6 +244,27 @@ func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	return nil
+}
+
+// RestoreJobSpec restores a soft deleted job and its associated runs.
+func (cli *Client) RestoreJobSpec(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to be restored"))
+	}
+
+	resp, err := cli.HTTP.Put(fmt.Sprintf("/v2/specs/%s/restore", c.Args().First()), nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var js presenters.JobSpec
+	err = cli.renderAPIResponse(resp, &js)
+	return err
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON

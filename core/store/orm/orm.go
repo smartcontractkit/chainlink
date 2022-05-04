@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
+
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -31,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/multierr"
 
 	"gorm.io/datatypes"
 	gormpostgres "gorm.io/driver/postgres"
@@ -752,6 +754,21 @@ func (orm *ORM) ArchiveJob(ID models.JobID) error {
 			dbtx.Exec("UPDATE job_specs SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL", ID).Error,
 		)
 	})
+}
+
+// RestoreJob restores a soft deleted job, and its initiator.
+func (orm *ORM) RestoreJob(ID models.JobID) (models.JobSpec, error) {
+	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return multierr.Combine(
+			dbtx.Exec("UPDATE initiators SET deleted_at = NULL WHERE job_spec_id = ?", ID).Error,
+			dbtx.Exec("UPDATE task_specs SET deleted_at = NULL WHERE job_spec_id = ?", ID).Error,
+			dbtx.Exec("UPDATE job_specs SET deleted_at = NULL WHERE id = ?", ID).Error,
+		)
+	})
+	if err != nil {
+		return models.JobSpec{}, err
+	}
+	return orm.FindJobWithErrors(ID)
 }
 
 // CreateServiceAgreement saves a Service Agreement, its JobSpec and its

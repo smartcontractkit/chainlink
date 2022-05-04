@@ -24,15 +24,16 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
+	"github.com/ulule/limiter"
+	mgin "github.com/ulule/limiter/drivers/middleware/gin"
+	"github.com/ulule/limiter/drivers/store/memory"
+	"github.com/unrolled/secure"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/ulule/limiter"
-	mgin "github.com/ulule/limiter/drivers/middleware/gin"
-	"github.com/ulule/limiter/drivers/store/memory"
-	"github.com/unrolled/secure"
 )
 
 var prometheus *ginprom.Prometheus
@@ -239,6 +240,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
+		authv2.PUT("/specs/:SpecID/restore", j.Restore)
 
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -162,4 +163,27 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
+}
+
+// Restore restores a soft deleted job spec.
+// Example:
+//  "<application>/specs/:SpecID/restore"
+func (jsc *JobSpecsController) Restore(c *gin.Context) {
+	id, err := models.NewJobIDFromString(c.Param("SpecID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	js, err := jsc.App.RestoreJob(id)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		return
+	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, showJobPresenter(jsc, js), "job")
 }
