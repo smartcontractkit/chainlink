@@ -123,7 +123,11 @@ func (mc *MigrateController) MigrateJobSpec(c *config.Config, js models.JobSpec)
 	case models.InitiatorCron:
 		return migrateCronJob(js)
 	case models.InitiatorRunLog:
-		return migrateRunLogJob(js)
+		j, warnDotSep, err := migrateRunLogJob(js)
+		if err == nil && warnDotSep {
+			mc.App.GetLogger().Warn("V2 jobs use comma (,) separators instead of dot (.) for parsing JSON paths. If you cannot use comma, a custom separator can be specified starting with version 1.4.0")
+		}
+		return j, err
 	case models.InitiatorWeb:
 		return migrateWebJob(js)
 	case models.InitiatorExternal:
@@ -281,7 +285,7 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	ps, pd, err := BuildTaskDAG(js, job.Cron)
+	ps, pd, _, err := BuildTaskDAG(js, job.Cron)
 	if err != nil {
 		return jb, err
 	}
@@ -292,7 +296,7 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 	return jb, nil
 }
 
-func migrateRunLogJob(js models.JobSpec) (job.Job, error) {
+func migrateRunLogJob(js models.JobSpec) (job.Job, bool, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
 
@@ -309,15 +313,15 @@ func migrateRunLogJob(js models.JobSpec) (job.Job, error) {
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	ps, pd, err := BuildTaskDAG(js, job.DirectRequest)
+	ps, pd, warnDotSep, err := BuildTaskDAG(js, job.DirectRequest)
 	if err != nil {
-		return jb, err
+		return jb, false, err
 	}
 	jb.PipelineSpec = &pipeline.Spec{
 		DotDagSource: ps,
 	}
 	jb.Pipeline = *pd
-	return jb, nil
+	return jb, warnDotSep, nil
 }
 
 func migrateWebJob(js models.JobSpec) (job.Job, error) {
@@ -332,7 +336,7 @@ func migrateWebJob(js models.JobSpec) (job.Job, error) {
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	ps, pd, err := BuildTaskDAG(js, job.Webhook)
+	ps, pd, _, err := BuildTaskDAG(js, job.Webhook)
 	if err != nil {
 		return jb, err
 	}
@@ -373,7 +377,7 @@ func (mc *MigrateController) migrateExternalJob(js models.JobSpec) (job.Job, err
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	ps, pd, err := BuildTaskDAG(js, job.Webhook)
+	ps, pd, _, err := BuildTaskDAG(js, job.Webhook)
 	if err != nil {
 		return jb, err
 	}
@@ -385,7 +389,12 @@ func (mc *MigrateController) migrateExternalJob(js models.JobSpec) (job.Job, err
 	return jb, nil
 }
 
-func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, error) {
+func BuildTaskDAG(js models.JobSpec, tpe job.Type) (
+	generatedDotDagSource string,
+	p *pipeline.Pipeline,
+	warnJSONPathDotSeparator bool,
+	err error,
+) {
 	replacements := make(map[string]string)
 	dg := pipeline.NewGraph()
 	var foundEthTx = false
@@ -428,13 +437,14 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			}
 
 			mapp := make(map[string]interface{})
-			err := json.Unmarshal(ts.Params.Bytes(), &mapp)
+			err = json.Unmarshal(ts.Params.Bytes(), &mapp)
 			if err != nil {
-				return "", nil, err
+				return
 			}
-			marshal, err := json.Marshal(&mapp)
+			var marshal []byte
+			marshal, err = json.Marshal(&mapp)
 			if err != nil {
-				return "", nil, err
+				return
 			}
 
 			template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
@@ -477,6 +487,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				pathString := path.String()
 
 				if path.IsArray() {
+					warnJSONPathDotSeparator = true
 					var pathSegments []string
 					path.ForEach(func(key, value gjson.Result) bool {
 						pathSegments = append(pathSegments, value.String())
@@ -498,6 +509,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					replacements["\""+template+"\""] = fmt.Sprintf(`{ "path": "%v" }`, *pathStr)
 					attrs["right"] = template
 				} else {
+					warnJSONPathDotSeparator = true
 					template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 					replacements["\""+template+"\""] = `{}`
 					attrs["right"] = template
@@ -665,10 +677,10 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			foundEthTx = true
 		default:
 			// assume it's a bridge task
-
-			encodedValue1, err := encodeTemplate(ts.Params.Bytes())
+			var encodedValue1 string
+			encodedValue1, err = encodeTemplate(ts.Params.Bytes())
 			if err != nil {
-				return "", nil, err
+				return
 			}
 			template1 := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 			i++
@@ -704,16 +716,18 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		}
 	}
 	if !foundEthTx && tpe == job.DirectRequest {
-		return "", nil, errors.New("expected ethtx in FM v1 / Runlog job spec")
+		err = errors.New("expected ethtx in FM v1 / Runlog job spec")
+		return
 	}
 
-	s, err := dot.Marshal(dg, "", "", "")
+	var s []byte
+	s, err = dot.Marshal(dg, "", "", "")
 	if err != nil {
-		return "", nil, err
+		return
 	}
 
 	// Double check we can unmarshal it
-	generatedDotDagSource := string(s)
+	generatedDotDagSource = string(s)
 	generatedDotDagSource = strings.Replace(generatedDotDagSource, "strict digraph {", "", 1)
 	generatedDotDagSource = strings.Replace(generatedDotDagSource, "\n// Node definitions.\n", "", 1)
 	generatedDotDagSource = strings.Replace(generatedDotDagSource, "\n", "\n\t", 100)
@@ -722,12 +736,13 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		generatedDotDagSource = strings.Replace(generatedDotDagSource, key, "<"+replacements[key]+">", 1)
 	}
 	generatedDotDagSource = generatedDotDagSource[:len(generatedDotDagSource)-1] // Remove final }
-	p, err := pipeline.Parse(generatedDotDagSource)
+	p, err = pipeline.Parse(generatedDotDagSource)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "failed to generate pipeline from: \n%v", generatedDotDagSource)
+		err = errors.Wrapf(err, "failed to generate pipeline from: \n%v", generatedDotDagSource)
+		return
 	}
 
-	return generatedDotDagSource, p, err
+	return
 }
 
 func encodeTemplate(bytes []byte) (string, error) {
