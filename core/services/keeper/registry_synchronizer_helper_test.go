@@ -48,7 +48,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
 	switch version {
 	case keeper.RegistryVersion_1_0, keeper.RegistryVersion_1_1:
-		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.1.0").Once()
+		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.1.1").Once()
 	case keeper.RegistryVersion_1_2:
 		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
 	}
