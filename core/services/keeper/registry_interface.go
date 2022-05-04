@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -78,11 +79,11 @@ func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*Re
 		}
 		return nil, errors.Wrap(err, "unable to fetch version of registry")
 	}
-	switch typeAndVersion {
-	case "KeeperRegistry 1.1.0":
+	switch {
+	case strings.HasPrefix(typeAndVersion, "KeeperRegistry 1.1"):
 		version := RegistryVersion_1_1
 		return &version, nil
-	case "KeeperRegistry 1.2.0":
+	case strings.HasPrefix(typeAndVersion, "KeeperRegistry 1.2"):
 		version := RegistryVersion_1_2
 		return &version, nil
 	default:
