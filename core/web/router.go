@@ -264,12 +264,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", cc.Patch)
 
-		feedsMgrCtlr := FeedsManagerController{app}
-		authv2.GET("/feeds_managers", feedsMgrCtlr.List)
-		authv2.POST("/feeds_managers", feedsMgrCtlr.Create)
-		authv2.GET("/feeds_managers/:id", feedsMgrCtlr.Show)
-		authv2.PATCH("/feeds_managers/:id", feedsMgrCtlr.Update)
-
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
 		authv2.GET("/tx_attempts/evm", paginatedRequest(tas.Index))

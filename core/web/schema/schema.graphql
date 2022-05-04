@@ -46,6 +46,7 @@ type Mutation {
     createChain(input: CreateChainInput!): CreateChainPayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createFeedsManagerChainConfig(input: CreateFeedsManagerChainConfigInput!): CreateFeedsManagerChainConfigPayload!
     createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
@@ -55,6 +56,7 @@ type Mutation {
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteChain(id: ID!): DeleteChainPayload!
     deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteFeedsManagerChainConfig(id: ID!): DeleteFeedsManagerChainConfigPayload!
     deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
@@ -71,6 +73,7 @@ type Mutation {
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateChain(id: ID!, input: UpdateChainInput!): UpdateChainPayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    updateFeedsManagerChainConfig(id: ID!, input: UpdateFeedsManagerChainConfigInput!): UpdateFeedsManagerChainConfigPayload!
     updateJobProposalSpecDefinition(id: ID!, input: UpdateJobProposalSpecDefinitionInput!): UpdateJobProposalSpecDefinitionPayload!
     updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
 }
