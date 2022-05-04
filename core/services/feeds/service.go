@@ -313,12 +313,12 @@ func (s *service) DeleteChainConfig(id int64) (int64, error) {
 
 	_, err = s.orm.DeleteChainConfig(id)
 	if err != nil {
-		return 0, errors.Wrap(err, "CreateChainConfig failed")
+		return 0, errors.Wrap(err, "DeleteChainConfig failed")
 	}
 
 	mgr, err := s.orm.GetManager(cfg.FeedsManagerID)
 	if err != nil {
-		return 0, errors.Wrap(err, "CreateChainConfig: failed to fetch manager")
+		return 0, errors.Wrap(err, "DeleteChainConfig: failed to fetch manager")
 	}
 
 	if err := s.SyncNodeInfo(mgr.ID); err != nil {
@@ -351,7 +351,7 @@ func (s *service) UpdateChainConfig(cfg ChainConfig) (int64, error) {
 
 	ccfg, err := s.orm.GetChainConfig(cfg.ID)
 	if err != nil {
-		return 0, errors.Wrap(err, "DeleteChainConfig failed: could not get chain config")
+		return 0, errors.Wrap(err, "UpdateChainConfig failed: could not get chain config")
 	}
 
 	if err := s.SyncNodeInfo(ccfg.FeedsManagerID); err != nil {
