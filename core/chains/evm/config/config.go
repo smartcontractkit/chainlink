@@ -222,10 +222,10 @@ func (c *chainScopedConfig) validate() (err error) {
 		case config.ChainOptimism:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
-			case "Optimism", "Optimism2":
+			case "Optimism", "Optimism2", "L2Suggested":
 			default:
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q or %q", gasEst, config.ChainOptimism, "Optimism", "Optimism2"))
+					"must be %q, %q or %q", gasEst, config.ChainOptimism, "Optimism", "Optimism2", "L2Suggested"))
 			}
 		case config.ChainXDai:
 

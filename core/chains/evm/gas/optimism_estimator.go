@@ -19,11 +19,11 @@ import (
 
 var (
 	_ Estimator = &optimismEstimator{}
-	_ Estimator = &optimism2Estimator{}
+	_ Estimator = &l2SuggestedEstimator{}
 )
 
-//go:generate mockery --name optimismRPCClient --output ./mocks/ --case=underscore --structname OptimismRPCClient
-type optimismRPCClient interface {
+//go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname OptimismRPCClient
+type rpcClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 }
 
@@ -31,7 +31,7 @@ type optimismEstimator struct {
 	utils.StartStopOnce
 
 	config     Config
-	client     optimismRPCClient
+	client     rpcClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -46,7 +46,7 @@ type optimismEstimator struct {
 }
 
 // NewOptimismEstimator returns a new optimism estimator
-func NewOptimismEstimator(lggr logger.Logger, config Config, client optimismRPCClient) Estimator {
+func NewOptimismEstimator(lggr logger.Logger, config Config, client rpcClient) Estimator {
 	return &optimismEstimator{
 		utils.StartStopOnce{},
 		config,
@@ -210,11 +210,11 @@ func (o *optimismEstimator) getGasPrices() (l1GasPrice, l2GasPrice *big.Int) {
 	return o.l1GasPrice, o.l2GasPrice
 }
 
-type optimism2Estimator struct {
+type l2SuggestedEstimator struct {
 	utils.StartStopOnce
 
 	config     Config
-	client     optimismRPCClient
+	client     rpcClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -227,14 +227,14 @@ type optimism2Estimator struct {
 	chDone         chan struct{}
 }
 
-// NewOptimism2Estimator returns a new optimism 2.0 estimator
-func NewOptimism2Estimator(lggr logger.Logger, config Config, client optimismRPCClient) Estimator {
-	return &optimism2Estimator{
+// NewL2SuggestedEstimator returns a new optimism 2.0 estimator
+func NewL2SuggestedEstimator(lggr logger.Logger, config Config, client rpcClient) Estimator {
+	return &l2SuggestedEstimator{
 		utils.StartStopOnce{},
 		config,
 		client,
 		10 * time.Second,
-		lggr.Named("Optimism2Estimator"),
+		lggr.Named("L2SuggestedEstimator"),
 		sync.RWMutex{},
 		nil,
 		make(chan (chan struct{})),
@@ -244,22 +244,22 @@ func NewOptimism2Estimator(lggr logger.Logger, config Config, client optimismRPC
 	}
 }
 
-func (o *optimism2Estimator) Start(context.Context) error {
-	return o.StartOnce("Optimism2Estimator", func() error {
+func (o *l2SuggestedEstimator) Start(context.Context) error {
+	return o.StartOnce("L2SuggestedEstimator", func() error {
 		go o.run()
 		<-o.chInitialised
 		return nil
 	})
 }
-func (o *optimism2Estimator) Close() error {
-	return o.StopOnce("Optimism2Estimator", func() error {
+func (o *l2SuggestedEstimator) Close() error {
+	return o.StopOnce("L2SuggestedEstimator", func() error {
 		close(o.chStop)
 		<-o.chDone
 		return nil
 	})
 }
 
-func (o *optimism2Estimator) run() {
+func (o *l2SuggestedEstimator) run() {
 	defer close(o.chDone)
 
 	t := o.refreshPrice()
@@ -279,17 +279,17 @@ func (o *optimism2Estimator) run() {
 	}
 }
 
-func (o *optimism2Estimator) refreshPrice() (t *time.Timer) {
+func (o *l2SuggestedEstimator) refreshPrice() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	var res hexutil.Big
 	if err := o.client.Call(&res, "eth_gasPrice"); err != nil {
-		o.logger.Warnf("Optimism2Estimator: Failed to refresh prices, got error: %s", err)
+		o.logger.Warnf("Failed to refresh prices, got error: %s", err)
 		return
 	}
 	bi := (*big.Int)(&res)
 
-	o.logger.Debugw("Optimism2Estimator#refreshPrice", "l2GasPrice", bi)
+	o.logger.Debugw("refreshPrice", "l2GasPrice", bi)
 
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
@@ -297,19 +297,19 @@ func (o *optimism2Estimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *optimism2Estimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
+func (o *l2SuggestedEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (*optimism2Estimator) GetDynamicFee(_ uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
-	err = errors.New("dynamic fees are not implemented for Optimism")
+func (*l2SuggestedEstimator) GetDynamicFee(_ uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (*optimism2Estimator) BumpDynamicFee(_ DynamicFee, _ uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	err = errors.New("dynamic fees are not implemented for Optimism")
+func (*l2SuggestedEstimator) BumpDynamicFee(_ DynamicFee, _ uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (o *optimism2Estimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = l2GasLimit
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
@@ -329,10 +329,10 @@ func (o *optimism2Estimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...O
 			}
 		}
 		if gasPrice = o.getGasPrice(); gasPrice == nil {
-			err = errors.New("failed to estimate optimism gas; gas price not set")
+			err = errors.New("failed to estimate l2 gas; gas price not set")
 			return
 		}
-		o.logger.Debugw("Optimism2Estimator#EstimateGas", "l2GasPrice", gasPrice, "l2GasLimit", l2GasLimit)
+		o.logger.Debugw("EstimateGas", "l2GasPrice", gasPrice, "l2GasLimit", l2GasLimit)
 	})
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
@@ -340,11 +340,11 @@ func (o *optimism2Estimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...O
 	return
 }
 
-func (o *optimism2Estimator) BumpLegacyGas(_ *big.Int, _ uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	return nil, 0, errors.New("bump gas is not supported for optimism")
+func (o *l2SuggestedEstimator) BumpLegacyGas(_ *big.Int, _ uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+	return nil, 0, errors.New("bump gas is not supported for this l2")
 }
 
-func (o *optimism2Estimator) getGasPrice() (l2GasPrice *big.Int) {
+func (o *l2SuggestedEstimator) getGasPrice() (l2GasPrice *big.Int) {
 	o.gasPriceMu.RLock()
 	defer o.gasPriceMu.RUnlock()
 	return o.l2GasPrice

@@ -59,8 +59,8 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 		return NewFixedPriceEstimator(cfg, lggr)
 	case "Optimism":
 		return NewOptimismEstimator(lggr, cfg, ethClient)
-	case "Optimism2":
-		return NewOptimism2Estimator(lggr, cfg, ethClient)
+	case "Optimism2", "L2Suggested":
+		return NewL2SuggestedEstimator(lggr, cfg, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(cfg, lggr)

@@ -77,12 +77,12 @@ func Test_OptimismGasPriceResponse_UnmarshalJSON(t *testing.T) {
 	assert.Equal(t, gas.OptimismGasPricesResponse{L1GasPrice: big.NewInt(5500000000), L2GasPrice: big.NewInt(9)}, g)
 }
 
-func Test_Optimism2Estimator(t *testing.T) {
+func TestL2SuggestedEstimator(t *testing.T) {
 	t.Parallel()
 
 	config := new(mocks.Config)
 	client := new(mocks.OptimismRPCClient)
-	o := gas.NewOptimism2Estimator(logger.TestLogger(t), config, client)
+	o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	var gasLimit uint64 = 80000
@@ -108,13 +108,13 @@ func Test_Optimism2Estimator(t *testing.T) {
 
 	t.Run("calling BumpGas always returns error", func(t *testing.T) {
 		_, _, err := o.BumpLegacyGas(big.NewInt(42), gasLimit)
-		assert.EqualError(t, err, "bump gas is not supported for optimism")
+		assert.EqualError(t, err, "bump gas is not supported for this l2")
 	})
 
 	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.OptimismRPCClient)
-		o := gas.NewOptimism2Estimator(logger.TestLogger(t), config, client)
+		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
 		client.On("Call", mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 
@@ -122,6 +122,6 @@ func Test_Optimism2Estimator(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, o.Close()) })
 
 		_, _, err := o.GetLegacyGas(calldata, gasLimit)
-		assert.EqualError(t, err, "failed to estimate optimism gas; gas price not set")
+		assert.EqualError(t, err, "failed to estimate l2 gas; gas price not set")
 	})
 }

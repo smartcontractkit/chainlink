@@ -261,12 +261,12 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
-	optimismMainnet.gasEstimatorMode = "Optimism2"
+	optimismMainnet.gasEstimatorMode = "L2Suggested"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
-	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the Optimism2 estimator; we don't want to place any limits on the minimum gas price
+	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
@@ -325,6 +325,21 @@ func setChainSpecificConfigDefaultSets() {
 	okxMainnet := fallbackDefaultSet
 	okxTestnet := okxMainnet
 
+	// Metis is an L2 chain based on Optimism.
+	metisMainnet := fallbackDefaultSet
+	metisMainnet.balanceMonitorBlockDelay = 0
+	metisMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on metis
+	metisMainnet.chainType = config.ChainMetis
+	metisMainnet.finalityDepth = 1    // Sequencer offers absolute finality
+	metisMainnet.gasBumpThreshold = 0 // Never bump gas on metis
+	metisMainnet.gasEstimatorMode = "L2Suggested"
+	metisMainnet.linkContractAddress = ""
+	metisMainnet.minIncomingConfirmations = 1
+	metisMainnet.minGasPriceWei = *big.NewInt(0) // Metis uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
+	metisMainnet.ocrContractConfirmations = 1
+	metisRinkeby := metisMainnet
+	metisRinkeby.linkContractAddress = ""
+
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
 	chainSpecificConfigDefaultSets[3] = ropsten
@@ -350,6 +365,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
 	chainSpecificConfigDefaultSets[65] = okxTestnet
 	chainSpecificConfigDefaultSets[66] = okxMainnet
+	chainSpecificConfigDefaultSets[588] = metisRinkeby
+	chainSpecificConfigDefaultSets[1088] = metisMainnet
 
 	// sanity check
 	for id, c := range chainSpecificConfigDefaultSets {
