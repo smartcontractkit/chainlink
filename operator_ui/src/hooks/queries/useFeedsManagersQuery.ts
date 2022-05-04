@@ -9,10 +9,7 @@ export const FEEDS_MANAGERS_QUERY = gql`
         name
         uri
         publicKey
-        jobTypes
-        isBootstrapPeer
         isConnectionActive
-        bootstrapPeerMultiaddr
         createdAt
       }
     }
@@ -20,9 +17,7 @@ export const FEEDS_MANAGERS_QUERY = gql`
 `
 
 export const useFeedsManagersQuery = () => {
-  const response = useQuery<FetchFeedsManagers, FetchFeedsManagersVariables>(
+  return useQuery<FetchFeedsManagers, FetchFeedsManagersVariables>(
     FEEDS_MANAGERS_QUERY,
   )
-
-  return response
 }

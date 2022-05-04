@@ -12,12 +12,12 @@ import { waitForLoading } from 'support/test-helpers/wait'
 
 import {
   P2PKeys,
-  P2P_KEYS_QUERY,
   CREATE_P2P_KEY_MUTATION,
   DELETE_P2P_KEY_MUTATION,
 } from './P2PKeys'
 import { buildP2PKey, buildP2PKeys } from 'support/factories/gql/fetchP2PKeys'
 import Notifications from 'pages/Notifications'
+import { P2P_KEYS_QUERY } from 'src/hooks/queries/useP2PKeysQuery'
 
 const { findByText, getByRole, queryByText } = screen
 

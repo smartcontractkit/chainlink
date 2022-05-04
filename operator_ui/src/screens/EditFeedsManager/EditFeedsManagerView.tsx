@@ -18,12 +18,7 @@ export const EditFeedsManagerView: React.FC<Props> = ({ data, onSubmit }) => {
   const initialValues = {
     name: data.name,
     uri: data.uri,
-    jobTypes: [...data.jobTypes],
     publicKey: data.publicKey,
-    isBootstrapPeer: data.isBootstrapPeer,
-    bootstrapPeerMultiaddr: data.bootstrapPeerMultiaddr
-      ? data.bootstrapPeerMultiaddr
-      : undefined,
   }
 
   return (
