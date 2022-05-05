@@ -535,8 +535,8 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.New("cannot approved a rejected spec")
 	case SpecStatusCancelled:
 		// Allowed to approve a cancelled job if it is the latest job
-		latest, err := s.orm.GetLatestSpec(spec.JobProposalID)
-		if err != nil {
+		latest, serr := s.orm.GetLatestSpec(spec.JobProposalID)
+		if serr != nil {
 			return errors.New("cannot get latest spec")
 		}
 
