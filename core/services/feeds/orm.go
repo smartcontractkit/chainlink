@@ -553,7 +553,7 @@ AND job_proposal_id = $1
 	var spec JobProposalSpec
 	err := o.q.Get(&spec, stmt, jpID)
 
-	return &spec, errors.Wrap(err, "CreateJobProposalSpec failed")
+	return &spec, errors.Wrap(err, "GetLatestSpec failed")
 }
 
 // ListSpecsByJobProposalIDs lists the specs which belong to any of job proposal

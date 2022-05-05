@@ -530,21 +530,23 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	switch spec.Status {
 	case SpecStatusApproved:
-		return errors.New("cannot approved an approved spec")
+		return errors.New("cannot approve an approved spec")
 	case SpecStatusRejected:
-		return errors.New("cannot approved a rejected spec")
+		return errors.New("cannot approve a rejected spec")
 	case SpecStatusCancelled:
 		// Allowed to approve a cancelled job if it is the latest job
 		latest, serr := s.orm.GetLatestSpec(spec.JobProposalID)
 		if serr != nil {
-			return errors.New("cannot get latest spec")
+			return errors.Wrap(err, "failed to get latest spec")
 		}
 
 		if latest.ID != spec.ID {
-			return errors.New("cannot approved a cancelled spec")
+			return errors.New("cannot approve a cancelled spec")
 		}
 	case SpecStatusPending:
 		// NOOP - pending jobs are allowed to be approved
+	default:
+		return errors.New("invalid status")
 	}
 
 	proposal, err := s.orm.GetJobProposal(spec.JobProposalID, pctx)
