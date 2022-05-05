@@ -1,0 +1,135 @@
+name: Run E2E
+description: Base runner for e2e based test runs
+inputs:
+  test_command_to_run:
+    required: true
+    description: The make command to call
+  test_download_vendor_packages_command:
+    required: false
+    description: The command to download the go modules
+    default: make download
+  test_download_ginkgo_command:
+    required: false
+    description: The command to download Ginkgo
+    default: make install
+  cl_repo:
+    required: false
+    description: The chainlik ecr repository to use
+    default: public.ecr.aws/z0b1w9r9/chainlink
+  cl_image_tag:
+    required: false
+    description: The chainlink image to use
+    default: develop
+  build_guantlet_command:
+    required: false
+    description: How to build gauntlet if necessary
+    default: 'false'
+  download_artifacts_path:
+    required: false
+    description: Path to any artifacts needed for the test
+    default: 'none'
+  publish_report_paths:
+    required: false
+    description: The path of the output report
+    default: "./tests-smoke-report.xml"
+  publish_check_name:
+    required: false
+    description: The check name for publishing the reports
+    default: Smoke Test Results
+  QA_AWS_ACCESS_KEY_ID:
+    required: true
+    description: The AWS access key id to use
+  QA_AWS_SECRET_KEY:
+    required: true
+    description: The AWS secret key to use
+  QA_AWS_REGION:
+    required: true
+    description: The AWS region to use
+  QA_AWS_ROLE_TO_ASSUME:
+    required: true
+    description: The AWS role to assume
+  QA_KUBECONFIG:
+    required: true
+    description: The kubernetes configuation to use
+  GITHUB_TOKEN:
+    required: true
+    description: The github token for github repo priveledges
+  CGO_ENABLED:
+    required: false
+    description: Whether to have cgo enabled
+    default: "0"
+
+runs:
+  using: composite
+  steps:
+    - uses: smartcontractkit/tool-versions-to-env-action@v1.0.7
+      id: tool-versions
+    - name: Setup go ${{ steps.tool-versions.outputs.golang_version }}
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ steps.tool-versions.outputs.golang_version }}
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ inputs.QA_AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ inputs.QA_AWS_SECRET_KEY }}
+        aws-region: ${{ inputs.QA_AWS_REGION }}
+        role-to-assume: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
+        role-duration-seconds: 3600
+    - name: Set Kubernetes Context
+      uses: azure/k8s-set-context@v1
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ inputs.QA_KUBECONFIG }}
+    - name: Cache Vendor Packages
+      uses: actions/cache@v2
+      id: cache-packages
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/go/bin
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Download Go Vendor Packages
+      if: steps.cache-packages.outputs.cache-hit != 'true'
+      shell: bash
+      run: ${{ inputs.test_download_vendor_packages_command }}
+    - name: Install Ginkgo CLI
+      if: steps.cache-packages.outputs.cache-hit != 'true'
+      shell: bash
+      run: ${{ inputs.test_download_ginkgo_command }}
+    - name: Download Artifacts
+      if: inputs.download_artifacts_path != 'none'
+      uses: actions/download-artifact@v3
+      with:
+        name: artifacts
+        path: ${{ inputs.download_artifacts_path }}
+    - name: Generate gauntlet executable
+      if: inputs.build_guantlet_command != 'false'
+      shell: bash
+      run: ${{ inputs.build_guantlet_command }}
+    - name: Run Tests
+      shell: bash
+      env:
+        CHAINLINK_IMAGE: ${{ inputs.cl_repo }}
+        CHAINLINK_VERSION: ${{ inputs.cl_image_tag }}
+        CGO_ENABLED: ${{ inputs.CGO_ENABLED }}
+      run: |
+        PATH=$PATH:$(go env GOPATH)/bin
+        export PATH
+        ${{ inputs.test_command_to_run }}
+    - name: Publish Test Results
+      uses: mikepenz/action-junit-report@v2
+      if: always()
+      with:
+        report_paths: ${{ inputs.publish_report_paths }}
+        github_token: ${{ inputs.GITHUB_TOKEN }}
+        check_name: ${{ inputs.publish_check_name }}
+    - name: Publish Artifacts
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-logs
+        path: ./tests/e2e/logs
