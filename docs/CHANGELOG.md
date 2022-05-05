@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
+## [1.4.1] - ...
+
+### Fixed
+
+- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+
 ## [1.4.0] - 2022-05-02
 
 ### Added
