@@ -528,8 +528,23 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "orm: job proposal spec")
 	}
 
-	if spec.Status != SpecStatusPending && spec.Status != SpecStatusCancelled {
-		return errors.New("must be a pending or cancelled job proposal")
+	switch spec.Status {
+	case SpecStatusApproved:
+		return errors.New("cannot approved an approved spec")
+	case SpecStatusRejected:
+		return errors.New("cannot approved a rejected spec")
+	case SpecStatusCancelled:
+		// Allowed to approve a cancelled job if it is the latest job
+		latest, err := s.orm.GetLatestSpec(spec.JobProposalID)
+		if err != nil {
+			return errors.New("cannot get latest spec")
+		}
+
+		if latest.ID != spec.ID {
+			return errors.New("cannot approved a cancelled spec")
+		}
+	case SpecStatusPending:
+		// NOOP - pending jobs are allowed to be approved
 	}
 
 	proposal, err := s.orm.GetJobProposal(spec.JobProposalID, pctx)
@@ -559,36 +574,35 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
-
-		existingJobID, err2 := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
-		if err2 == nil {
+		existingJobID, txerr := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
+		if txerr == nil {
 			if force {
-				if err2 = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err2 != nil {
-					return errors.Wrap(err2, "DeleteJob failed")
+				if txerr = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); txerr != nil {
+					return errors.Wrap(txerr, "DeleteJob failed")
 				}
 			} else {
 				return ErrJobAlreadyExists
 			}
-		} else if !errors.Is(err2, sql.ErrNoRows) {
-			return errors.Wrap(err2, "FindJobIDByAddress failed")
+		} else if !errors.Is(txerr, sql.ErrNoRows) {
+			return errors.Wrap(txerr, "FindJobIDByAddress failed")
 		}
 
 		// Create the job
-		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
-			return err
+		if txerr = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); txerr != nil {
+			return txerr
 		}
 
 		// Approve the job proposal spec
-		if err = s.orm.ApproveSpec(id, j.ExternalJobID, pg.WithQueryer(tx)); err != nil {
-			return err
+		if txerr = s.orm.ApproveSpec(id, j.ExternalJobID, pg.WithQueryer(tx)); txerr != nil {
+			return txerr
 		}
 
 		// Send to FMS Client
-		if _, err = fmsClient.ApprovedJob(ctx, &pb.ApprovedJobRequest{
+		if _, txerr = fmsClient.ApprovedJob(ctx, &pb.ApprovedJobRequest{
 			Uuid:    proposal.RemoteUUID.String(),
 			Version: int64(spec.Version),
-		}); err != nil {
-			return err
+		}); txerr != nil {
+			return txerr
 		}
 
 		return nil

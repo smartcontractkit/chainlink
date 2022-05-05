@@ -143,6 +143,10 @@ export const SpecsView = withStyles(styles)(
             </Button>
           )
         case 'CANCELLED':
+          if (latestSpec.id !== specID) {
+            return null
+          }
+
           return (
             <Button
               variant="contained"
