@@ -22,8 +22,6 @@ export const BRIDGES_QUERY = gql`
 `
 
 export const BridgesScreen: React.FC = () => {
-  document.title = 'Bridges'
-
   const qp = useQueryParams()
   const page = parseInt(qp.get('page') || '1', 10)
   const pageSize = parseInt(qp.get('per') || '10', 10)
