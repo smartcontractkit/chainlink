@@ -213,3 +213,22 @@ func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EthTxAtt
 
 	return attempts, nil
 }
+
+func GetFeedsManagerChainConfigsByManagerID(ctx context.Context, mgrID int64) ([]feeds.ChainConfig, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.FeedsManagerChainConfigsByManagerIDLoader.Load(ctx,
+		dataloader.StringKey(stringutils.FromInt64(mgrID)),
+	)
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	cfgs, ok := result.([]feeds.ChainConfig)
+	if !ok {
+		return nil, ErrInvalidType
+	}
+
+	return cfgs, nil
+}
