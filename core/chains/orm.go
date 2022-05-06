@@ -14,13 +14,13 @@ import (
 
 // ORM manages chains and nodes.
 type ORM[I ID, C Config, N Node] interface {
-	Chain(I, ...pg.QOpt) (Chain[I, C], error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]Chain[I, C], int, error)
-	CreateChain(id I, config C, qopts ...pg.QOpt) (Chain[I, C], error)
-	UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (Chain[I, C], error)
+	Chain(I, ...pg.QOpt) (DBChain[I, C], error)
+	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain[I, C], int, error)
+	CreateChain(id I, config C, qopts ...pg.QOpt) (DBChain[I, C], error)
+	UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (DBChain[I, C], error)
 	DeleteChain(id I, qopts ...pg.QOpt) error
-	GetChainsByIDs(ids []I) (chains []Chain[I, C], err error)
-	EnabledChains(...pg.QOpt) ([]Chain[I, C], error)
+	GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error)
+	EnabledChains(...pg.QOpt) ([]DBChain[I, C], error)
 
 	CreateNode(N, ...pg.QOpt) (N, error)
 	DeleteNode(int32, ...pg.QOpt) error
@@ -68,13 +68,11 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 	})
 }
 
-// Chain is a generic DB chain for any configuration C and chain id I.
+// DBChain is a generic DB chain for an ID and Config.
 //
-// C normally implements sql.Scanner and driver.Valuer, but that is not enforced here.
-//
-// A Chain type alias can be used for convenience:
-// 	type Chain = chains.Chain[string, pkg.ChainCfg]
-type Chain[I ID, C Config] struct {
+// A DBChain type alias can be used for convenience:
+// 	type DBChain = chains.DBChain[string, pkg.ChainCfg]
+type DBChain[I ID, C Config] struct {
 	ID        I
 	Cfg       C
 	CreatedAt time.Time
@@ -93,14 +91,14 @@ func newChainsORM[I ID, C Config](q pg.Q, prefix string) *chainsORM[I, C] {
 	return &chainsORM[I, C]{q: q, prefix: prefix}
 }
 
-func (o *chainsORM[I, C]) Chain(id I, qopts ...pg.QOpt) (dbchain Chain[I, C], err error) {
+func (o *chainsORM[I, C]) Chain(id I, qopts ...pg.QOpt) (dbchain DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	chainSQL := fmt.Sprintf(`SELECT * FROM %s_chains WHERE id = $1;`, o.prefix)
 	err = q.Get(&dbchain, chainSQL, id)
 	return
 }
 
-func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []Chain[I, C], err error) {
+func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error) {
 	sql := fmt.Sprintf(`SELECT * FROM %s_chains WHERE id = ANY($1) ORDER BY created_at, id;`, o.prefix)
 
 	chainIDs := pq.Array(ids)
@@ -111,7 +109,7 @@ func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []Chain[I, C], err err
 	return chains, nil
 }
 
-func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain Chain[I, C], err error) {
+func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := fmt.Sprintf(`INSERT INTO %s_chains (id, cfg, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`, o.prefix)
 	err = q.Get(&chain, sql, id, config)
@@ -133,7 +131,7 @@ func (o *chainsORM[I, C]) ensureChains(ids []I, qopts ...pg.QOpt) (err error) {
 	return nil
 }
 
-func (o *chainsORM[I, C]) UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (chain Chain[I, C], err error) {
+func (o *chainsORM[I, C]) UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (chain DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := fmt.Sprintf(`UPDATE %s_chains SET enabled = $1, cfg = $2, updated_at = now() WHERE id = $3 RETURNING *`, o.prefix)
 	err = q.Get(&chain, sql, enabled, config, id)
@@ -191,7 +189,7 @@ func (o *chainsORM[I, C]) DeleteChain(id I, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []Chain[I, C], count int, err error) {
+func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []DBChain[I, C], count int, err error) {
 	err = o.q.WithOpts(qopts...).Transaction(func(q pg.Queryer) error {
 		if err = q.Get(&count, fmt.Sprintf("SELECT COUNT(*) FROM %s_chains", o.prefix)); err != nil {
 			return errors.Wrap(err, "failed to fetch chains count")
@@ -205,7 +203,7 @@ func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []
 	return
 }
 
-func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []Chain[I, C], err error) {
+func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	chainsSQL := fmt.Sprintf(`SELECT * FROM %s_chains WHERE enabled ORDER BY created_at, id;`, o.prefix)
 	if err = q.Select(&chains, chainsSQL); err != nil {
