@@ -1,7 +1,10 @@
 package utils_test
 
 import (
+	"context"
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 	"go.uber.org/multierr"
 )
 
@@ -565,4 +569,404 @@ func TestBoxOutput(t *testing.T) {
 		"↗↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↖\n" +
 		"\n"
 	assert.Equal(t, expected, output)
+}
+
+func TestUint256ToBytes(t *testing.T) {
+	t.Parallel()
+
+	v := big.NewInt(0).Sub(utils.MaxUint256, big.NewInt(1))
+	uint256, err := utils.Uint256ToBytes(v)
+	assert.NoError(t, err)
+
+	b32 := utils.Uint256ToBytes32(v)
+	assert.Equal(t, uint256, b32)
+
+	large := big.NewInt(0).Add(utils.MaxUint256, big.NewInt(1))
+	_, err = utils.Uint256ToBytes(large)
+	assert.Error(t, err, "too large to convert to uint256")
+
+	negative := big.NewInt(-1)
+	assert.Panics(t, func() {
+		_, _ = utils.Uint256ToBytes(negative)
+	}, "failed to round-trip uint256 back to source big.Int")
+}
+
+func TestISO8601UTC(t *testing.T) {
+	t.Parallel()
+
+	ts := time.Unix(1651818206, 0)
+	str := utils.ISO8601UTC(ts)
+	assert.Equal(t, "2022-05-06T06:23:26Z", str)
+}
+
+func TestFormatJSON(t *testing.T) {
+	t.Parallel()
+
+	json := `{"foo":123}`
+	formatted, err := utils.FormatJSON(json)
+	assert.NoError(t, err)
+	assert.Equal(t, "\"{\\\"foo\\\":123}\"", string(formatted))
+}
+
+func TestRetryWithBackoff(t *testing.T) {
+	t.Parallel()
+
+	var counter atomic.Int32
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+
+	utils.RetryWithBackoff(ctx, func() bool {
+		return false
+	})
+
+	retry := func() bool {
+		return counter.Inc() < 3
+	}
+
+	go utils.RetryWithBackoff(ctx, retry)
+
+	assert.Eventually(t, func() bool {
+		return counter.Load() == 3
+	}, testutils.WaitTimeout(t), testutils.TestInterval)
+
+	cancel()
+
+	utils.RetryWithBackoff(ctx, retry)
+	assert.Equal(t, int32(4), counter.Load())
+}
+
+func TestMustUnmarshalToMap(t *testing.T) {
+	t.Parallel()
+
+	json := `{"foo":123.45}`
+	expected := make(map[string]interface{})
+	expected["foo"] = 123.45
+	m := utils.MustUnmarshalToMap(json)
+	assert.Equal(t, expected, m)
+
+	assert.Panics(t, func() {
+		utils.MustUnmarshalToMap("")
+	})
+
+	assert.Panics(t, func() {
+		utils.MustUnmarshalToMap("123")
+	})
+}
+
+func TestSha256(t *testing.T) {
+	t.Parallel()
+
+	hexHash, err := utils.Sha256("test")
+	assert.NoError(t, err)
+
+	hash, err := hex.DecodeString(hexHash)
+	assert.NoError(t, err)
+	assert.Len(t, hash, 32)
+}
+
+func TestCheckUint256(t *testing.T) {
+	t.Parallel()
+
+	large := big.NewInt(0).Add(utils.MaxUint256, big.NewInt(1))
+	err := utils.CheckUint256(large)
+	assert.Error(t, err, "number out of range for uint256")
+
+	negative := big.NewInt(-123)
+	err = utils.CheckUint256(negative)
+	assert.Error(t, err, "number out of range for uint256")
+
+	err = utils.CheckUint256(big.NewInt(123))
+	assert.NoError(t, err)
+}
+
+func TestRandUint256(t *testing.T) {
+	t.Parallel()
+
+	for i := 0; i < 1000; i++ {
+		uint256 := utils.RandUint256()
+		assert.NoError(t, utils.CheckUint256(uint256))
+	}
+}
+
+func TestHexToUint256(t *testing.T) {
+	t.Parallel()
+
+	b, err := utils.HexToUint256("0x00")
+	assert.NoError(t, err)
+	assert.Zero(t, b.Cmp(big.NewInt(0)))
+
+	b, err = utils.HexToUint256("0xFFFFFFFF")
+	assert.NoError(t, err)
+	assert.Zero(t, b.Cmp(big.NewInt(4294967295)))
+}
+
+func TestWithCloseChan(t *testing.T) {
+	t.Parallel()
+
+	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
+		select {
+		case <-ctx.Done():
+		case <-time.After(testutils.WaitTimeout(t)):
+			assert.FailNow(t, "context was not cancelled")
+		}
+	}
+
+	t.Run("closing channel", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan struct{})
+		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
+		defer cancel()
+
+		close(ch)
+
+		assertCtxCancelled(ctx, t)
+	})
+
+	t.Run("cancelling ctx", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan struct{})
+		defer close(ch)
+		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
+		cancel()
+
+		assertCtxCancelled(ctx, t)
+	})
+
+	t.Run("cancelling parent ctx", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan struct{})
+		defer close(ch)
+		pctx, pcancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := utils.WithCloseChan(pctx, ch)
+		defer cancel()
+
+		pcancel()
+
+		assertCtxCancelled(ctx, t)
+	})
+}
+
+func TestContextFromChan(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan struct{})
+	ctx, cancel := utils.ContextFromChan(ch)
+	defer cancel()
+
+	close(ch)
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(testutils.WaitTimeout(t)):
+		assert.FailNow(t, "context was not cancelled")
+	}
+}
+
+func TestContextFromChanWithDeadline(t *testing.T) {
+	t.Parallel()
+
+	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
+		select {
+		case <-ctx.Done():
+		case <-time.After(testutils.WaitTimeout(t)):
+			assert.FailNow(t, "context was not cancelled")
+		}
+	}
+
+	t.Run("small deadline", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan struct{})
+		ctx, cancel := utils.ContextFromChanWithDeadline(ch, testutils.TestInterval)
+		defer cancel()
+
+		assertCtxCancelled(ctx, t)
+	})
+
+	t.Run("stopped", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan struct{})
+		ctx, cancel := utils.ContextFromChanWithDeadline(ch, testutils.WaitTimeout(t))
+		defer cancel()
+
+		ch <- struct{}{}
+
+		assertCtxCancelled(ctx, t)
+	})
+}
+
+func TestStartStopOnceState_String(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "Unstarted", utils.StartStopOnce_Unstarted.String())
+	assert.Equal(t, "Started", utils.StartStopOnce_Started.String())
+	assert.Equal(t, "Starting", utils.StartStopOnce_Starting.String())
+	assert.Equal(t, "Stopping", utils.StartStopOnce_Stopping.String())
+	assert.Equal(t, "Stopped", utils.StartStopOnce_Stopped.String())
+	assert.Equal(t, "unrecognized state: 123", utils.StartStopOnceState(123).String())
+}
+
+func TestStartStopOnce(t *testing.T) {
+	t.Parallel()
+
+	var callsCount atomic.Int32
+	incCount := func() {
+		callsCount.Inc()
+	}
+
+	var s utils.StartStopOnce
+	ok := s.IfStarted(incCount)
+	assert.False(t, ok)
+	ok = s.IfNotStopped(incCount)
+	assert.True(t, ok)
+	assert.Equal(t, int32(1), callsCount.Load())
+
+	err := s.StartOnce("foo", func() error { return nil })
+	assert.NoError(t, err)
+
+	assert.True(t, s.IfStarted(incCount))
+	assert.Equal(t, int32(2), callsCount.Load())
+
+	err = s.StopOnce("foo", func() error { return nil })
+	assert.NoError(t, err)
+	ok = s.IfNotStopped(incCount)
+	assert.False(t, ok)
+	assert.Equal(t, int32(2), callsCount.Load())
+}
+
+func TestStartStopOnce_Ready_Healthy(t *testing.T) {
+	t.Parallel()
+
+	var s utils.StartStopOnce
+	assert.Error(t, s.Ready())
+	assert.Error(t, s.Healthy())
+
+	err := s.StartOnce("foo", func() error { return nil })
+	assert.NoError(t, err)
+	assert.NoError(t, s.Ready())
+	assert.NoError(t, s.Healthy())
+}
+
+func TestLeftPadBitString(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		str      string
+		len      int
+		expected string
+	}{
+		{"abc", 10, "0000000abc"},
+		{"abc", 0, "abc"},
+		{"abc", 2, "abc"},
+		{"abc", 3, "abc"},
+		{"abc", -10, "abc"},
+	} {
+		s := utils.LeftPadBitString(test.str, test.len)
+		assert.Equal(t, test.expected, s)
+	}
+}
+
+func TestKeyedMutex(t *testing.T) {
+	t.Parallel()
+
+	var km utils.KeyedMutex
+	unlock1 := km.LockInt64(1)
+	unlock2 := km.LockInt64(2)
+
+	awaiter := cltest.NewAwaiter()
+	go func() {
+		km.LockInt64(1)()
+		km.LockInt64(2)()
+		awaiter.ItHappened()
+	}()
+
+	unlock2()
+	unlock1()
+	awaiter.AwaitOrFail(t)
+}
+
+func TestValidateCronSchedule(t *testing.T) {
+	t.Parallel()
+
+	err := utils.ValidateCronSchedule("")
+	assert.Error(t, err)
+
+	err = utils.ValidateCronSchedule("CRON_TZ=UTC 5 * * * *")
+	assert.NoError(t, err)
+
+	err = utils.ValidateCronSchedule("@every 1h30m")
+	assert.NoError(t, err)
+
+	err = utils.ValidateCronSchedule("@every xyz")
+	assert.Error(t, err)
+}
+
+func TestPausableTicker(t *testing.T) {
+	t.Parallel()
+
+	var counter atomic.Int32
+
+	pt := utils.NewPausableTicker(testutils.TestInterval)
+	assert.Nil(t, pt.Ticks())
+	defer pt.Destroy()
+
+	followNTicks := func(n int32, awaiter cltest.Awaiter) {
+		for range pt.Ticks() {
+			if counter.Inc() == n {
+				awaiter.ItHappened()
+			}
+		}
+	}
+
+	pt.Resume()
+
+	wait10 := cltest.NewAwaiter()
+	go followNTicks(10, wait10)
+
+	wait10.AwaitOrFail(t)
+
+	pt.Pause()
+	time.Sleep(10 * testutils.TestInterval)
+	assert.Less(t, counter.Load(), int32(20))
+	pt.Resume()
+
+	wait20 := cltest.NewAwaiter()
+	go followNTicks(20, wait20)
+
+	wait20.AwaitOrFail(t)
+}
+
+func TestCronTicker(t *testing.T) {
+	t.Parallel()
+
+	var counter atomic.Int32
+
+	ct, err := utils.NewCronTicker("@every 100ms")
+	assert.NoError(t, err)
+
+	awaiter := cltest.NewAwaiter()
+
+	go func() {
+		for range ct.Ticks() {
+			if counter.Inc() == 2 {
+				awaiter.ItHappened()
+			}
+		}
+	}()
+
+	assert.True(t, ct.Start())
+	assert.True(t, ct.Stop())
+	assert.Zero(t, counter.Load())
+
+	assert.True(t, ct.Start())
+
+	awaiter.AwaitOrFail(t)
+
+	assert.True(t, ct.Stop())
+	c := counter.Load()
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, c, counter.Load())
 }
