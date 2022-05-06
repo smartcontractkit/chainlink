@@ -16,11 +16,11 @@ var (
 	}, []string{"chainID"})
 	promSolTxmFailedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "solana_txm_tx_failed",
-		Help: "Number of transactions that are failed sending to chain or failed simulation. Note that txs that failed simulation could still be included onchain",
+		Help: "Number of transactions that failed sending to chain or simulated with an unrecognized error.",
 	}, []string{"chainID"})
 	promSolTxmTimedOutTxs = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "solana_txm_tx_timedout",
-		Help: "Number of transactions that timed out during tx retry (never included or never moved beyond 'processed'). Note processed txs may still be included onchain",
+		Help: "Number of transactions that timed out during tx retry and were not confirmed within the timeout. Note: processed txs may still be included onchain",
 	}, []string{"chainID"})
 	promSolTxmInflightTxs = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "solana_txm_tx_inflight",
