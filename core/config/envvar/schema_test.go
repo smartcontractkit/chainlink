@@ -154,7 +154,6 @@ func TestConfigSchema(t *testing.T) {
 		"RPID":                                           "MFA_RPID",
 		"RPOrigin":                                       "MFA_RPORIGIN",
 		"ReaperExpiration":                               "REAPER_EXPIRATION",
-		"ReplayFromBlock":                                "REPLAY_FROM_BLOCK",
 		"RootDir":                                        "ROOT",
 		"SecureCookies":                                  "SECURE_COOKIES",
 		"SessionTimeout":                                 "SESSION_TIMEOUT",
