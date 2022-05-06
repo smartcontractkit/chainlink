@@ -26,7 +26,7 @@ func NewTerraNodesController(app chainlink.Application) NodesController {
 			if err := c.ShouldBindJSON(&request); err != nil {
 				return db.Node{}, err
 			}
-			if _, err := app.GetChains().Terra.ORM().Chain(request.TerraChainID); err != nil {
+			if _, err := app.GetChains().Terra.Show(request.TerraChainID); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					err = fmt.Errorf("Terra chain %s must be added first", request.TerraChainID)
 				}

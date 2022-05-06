@@ -469,6 +469,9 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
 	sub, err := n.ws.rpc.EthSubscribe(ctx, channel, args...)
+	if err == nil {
+		n.registerSub(sub)
+	}
 	duration := time.Since(start)
 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "EthSubscribe",
@@ -477,9 +480,6 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 		"err", err,
 	)
 
-	if sub != nil {
-		n.registerSub(sub)
-	}
 	return sub, err
 }
 
@@ -904,6 +904,9 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
 	start := time.Now()
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
+	if err == nil {
+		n.registerSub(sub)
+	}
 	err = n.wrapWS(err)
 	duration := time.Since(start)
 
@@ -912,10 +915,6 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 		"rpcDomain", n.getRPCDomain(),
 		"err", err,
 	)
-
-	if sub != nil {
-		n.registerSub(sub)
-	}
 
 	return
 }
