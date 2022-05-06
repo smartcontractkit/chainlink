@@ -282,7 +282,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
 			app.Key = v
-		case evmtypes.Chain:
+		case evmtypes.DBChain:
 			chainID = v.ID
 		}
 	}
@@ -329,11 +329,11 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case evmtypes.Chain:
+		case evmtypes.DBChain:
 			if chainORM != nil {
 				panic("cannot set more than one chain")
 			}
-			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep}, nil)
+			chainORM = evmtest.NewMockORM([]evmtypes.DBChain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
@@ -360,7 +360,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.Chain) evmclient.Client {
+		GenEthClient: func(c evmtypes.DBChain) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}

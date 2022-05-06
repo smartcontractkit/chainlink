@@ -56,7 +56,7 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	chainSet := controller.app.GetChains().Solana
-	dbChain, err := chainSet.ORM().Chain(newChainId)
+	dbChain, err := chainSet.Show(newChainId)
 	require.NoError(t, err)
 
 	resource := presenters.SolanaChainResource{}
@@ -319,7 +319,7 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 	}
 	solanatest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 
-	_, countBefore, err := controller.app.Chains.Solana.ORM().Chains(0, 10)
+	_, countBefore, err := controller.app.Chains.Solana.Index(0, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, countBefore)
 
@@ -328,7 +328,7 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-		_, countAfter, err := controller.app.Chains.Solana.ORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Solana.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, countAfter)
 	})
@@ -340,11 +340,11 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-		_, countAfter, err := controller.app.Chains.Solana.ORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Solana.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, countAfter)
 
-		_, err = controller.app.Chains.Solana.ORM().Chain(chain.ID)
+		_, err = controller.app.Chains.Solana.Show(chain.ID)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, sql.ErrNoRows))
