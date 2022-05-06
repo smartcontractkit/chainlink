@@ -82,14 +82,14 @@ func (c *pendingTxContextWithProm) Success(sig solana.Signature) {
 	return
 }
 
-// Revert - tx included in block but failed execution
+// Revert - tx included in on chain but failed execution or simulation indicates will fail execution
 func (c *pendingTxContextWithProm) Revert(sig solana.Signature) {
 	promSolTxmRevertedTxs.WithLabelValues(c.chainID).Add(1)
 	c.pendingTx.Cancel(sig)
 	return
 }
 
-// Failed - tx failed sending to chain or failed simulation
+// Failed - tx failed sending to chain or failed simulation with unexpected reason
 func (c *pendingTxContextWithProm) Failed(sig solana.Signature) {
 	promSolTxmFailedTxs.WithLabelValues(c.chainID).Add(1)
 	c.pendingTx.Cancel(sig)

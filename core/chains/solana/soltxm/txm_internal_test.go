@@ -213,6 +213,106 @@ func TestTxm(t *testing.T) {
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
 	})
 
+	// tx fails simulation with an InstructionError (indicates reverted execution)
+	// manager should cancel sending retry immediately + increment reverted prom metric
+	t.Run("fail_simulation_instructionError", func(t *testing.T) {
+		tx := getTx()
+		sig := getSig()
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		// {"InstructionError":[0,{"Custom":6003}]}
+		tempErr := map[string][]interface{}{
+			"InstructionError": []interface{}{
+				0, map[string]int{"Custom": 6003},
+			},
+		}
+		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return(&rpc.SimulateTransactionResult{
+			Err: tempErr,
+		}, nil).Once()
+		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{nil}, nil).Maybe()
+
+		// tx should be able to queue
+		assert.NoError(t, txm.Enqueue(t.Name(), tx))
+		wg.Wait()      // wait to be picked up and processed
+		waitFor(empty) // txs cleared after timeout
+
+		// check prom metric
+		prom.revert++
+		prom.assertEqual(t)
+
+		// panic if sendTx called after context cancelled
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+	})
+
+	// tx fails simulation with BlockHashNotFound error
+	// txm should continue to confirm tx (in this case it will succeed)
+	t.Run("fail_simulation_blockhashNotFound", func(t *testing.T) {
+		tx := getTx()
+		sig := getSig()
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return(&rpc.SimulateTransactionResult{
+			Err: "BlockhashNotFound",
+		}, nil).Once()
+		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
+			ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
+		}}, nil).Once()
+		// tx should be able to queue
+		assert.NoError(t, txm.Enqueue(t.Name(), tx))
+		wg.Wait()      // wait to be picked up and processed
+		waitFor(empty) // txs cleared after timeout
+
+		// check prom metric
+		prom.success++
+		prom.assertEqual(t)
+
+		// panic if sendTx called after context cancelled
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+	})
+
+	// tx fails simulation with AlreadyProcessed error
+	// txm should continue to confirm tx (in this case it will revert)
+	t.Run("fail_simulation_alreadyProcessed", func(t *testing.T) {
+		tx := getTx()
+		sig := getSig()
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		mc.On("SendTx", mock.Anything, tx).Return(sig, nil)
+		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return(&rpc.SimulateTransactionResult{
+			Err: "AlreadyProcessed",
+		}, nil).Once()
+		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
+			wg.Done()
+		}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
+			Err:                "ERROR",
+			ConfirmationStatus: rpc.ConfirmationStatusConfirmed,
+		}}, nil).Once()
+		// tx should be able to queue
+		assert.NoError(t, txm.Enqueue(t.Name(), tx))
+		wg.Wait()      // wait to be picked up and processed
+		waitFor(empty) // txs cleared after timeout
+
+		// check prom metric
+		prom.revert++
+		prom.assertEqual(t)
+
+		// panic if sendTx called after context cancelled
+		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+	})
+
 	// tx passes sim, never passes processed (timeout should cleanup)
 	t.Run("fail_confirm_processed", func(t *testing.T) {
 		tx := getTx()

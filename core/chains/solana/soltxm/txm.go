@@ -335,10 +335,34 @@ func (txm *Txm) simulate(ctx context.Context) {
 				continue
 			}
 
-			// stop tx retrying if simulate returns error
-			if res.Err != nil {
+			// continue if simulation does not return error continue
+			if res.Err == nil {
+				continue
+			}
+
+			// handle various errors
+			// https://github.com/solana-labs/solana/blob/master/sdk/src/transaction/error.rs
+			// ---
+			errStr := fmt.Sprintf("%v", res.Err) // convert to string to handle various interfaces
+			switch {
+			// blockhash not found when simulating, occurs when network bank has not seen the given blockhash or tx is too old
+			// let simulation process/clean up
+			case strings.Contains(errStr, "BlockhashNotFound"):
+				txm.lggr.Warnw("simulate: BlockhashNotFound", "signature", msg.signature, "result", res)
+				continue
+			// transaction will encounter execution error/revert, mark as reverted to remove from confirmation + retry
+			case strings.Contains(errStr, "InstructionError"):
+				txm.txs.Revert(msg.signature) // cancel retry
+				txm.lggr.Warnw("simulate: InstructionError", "signature", msg.signature, "result", res)
+				continue
+			// transaction is already processed in the chain, letting txm confirmation handle
+			case strings.Contains(errStr, "AlreadyProcessed"):
+				txm.lggr.Debugw("simulate: AlreadyProcessed", "signature", msg.signature, "result", res)
+				continue
+			// unrecognized errors (indicates more concerning failures)
+			default:
 				txm.txs.Failed(msg.signature) // cancel retry
-				txm.lggr.Errorw("simulate error", "signature", msg.signature, "error", res)
+				txm.lggr.Errorw("simulate: unrecognized error", "signature", msg.signature, "result", res)
 				continue
 			}
 		}
