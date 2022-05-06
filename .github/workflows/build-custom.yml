@@ -64,7 +64,7 @@ on:
         required: true
         description: The kubernetes configuation to use
       QA_PRIVATE_GHA_PULL:
-        required: true
+        required: false
         description: Token to pull private repos
 jobs:
   build-chainlink:
