@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 
@@ -20,15 +19,8 @@ type NodesController interface {
 	Delete(*gin.Context)
 }
 
-type nodeSet[I chains.ID, N chains.Node] interface {
-	GetNodes(ctx context.Context, offset, limit int) (nodes []N, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID I, offset, limit int) (nodes []N, count int, err error)
-	CreateNode(context.Context, N) (N, error)
-	DeleteNode(context.Context, int32) error
-}
-
 type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
-	nodeSet[I, N]
+	nodeSet       chains.DBNodeSet[I, N]
 	parseChainID  func(string) (I, error)
 	errNotEnabled error
 	newResource   func(N) R
@@ -36,7 +28,7 @@ type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
 }
 
 func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
-	nodeSet nodeSet[I, N],
+	nodeSet chains.DBNodeSet[I, N],
 	errNotEnabled error,
 	parseChainID func(string) (I, error),
 	newResource func(N) R,

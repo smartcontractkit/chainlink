@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func mustInsertEVMChain(t *testing.T, orm types.ORM) types.Chain {
+func mustInsertEVMChain(t *testing.T, orm types.ORM) types.DBChain {
 	id := utils.NewBig(testutils.NewRandomEVMChainID())
 	config := types.ChainCfg{}
 	chain, err := orm.CreateChain(*id, config)

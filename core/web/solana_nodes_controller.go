@@ -24,7 +24,7 @@ func NewSolanaNodesController(app chainlink.Application) NodesController {
 			if err := c.ShouldBindJSON(&request); err != nil {
 				return db.Node{}, err
 			}
-			if _, err := app.GetChains().Solana.ORM().Chain(request.SolanaChainID); err != nil {
+			if _, err := app.GetChains().Solana.Show(request.SolanaChainID); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					err = errors.Errorf("Solana chain %s must be added first", request.SolanaChainID)
 				}

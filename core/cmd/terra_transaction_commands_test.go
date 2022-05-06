@@ -42,7 +42,8 @@ func TestClient_SendTerraCoins(t *testing.T) {
 	chain, err := chains.Terra.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Terra.ORM().CreateNode(terradb.Node{
+	ctx := testutils.Context(t)
+	_, err = chains.Terra.CreateNode(ctx, terradb.Node{
 		Name:          t.Name(),
 		TerraChainID:  chainID,
 		TendermintURL: tendermintURL,
