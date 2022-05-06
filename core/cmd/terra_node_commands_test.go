@@ -2,8 +2,6 @@ package cmd_test
 
 import (
 	"flag"
-	"fmt"
-	"math/rand"
 	"strconv"
 	"testing"
 
@@ -14,14 +12,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 )
 
-func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) types.Chain {
-	chain, err := orm.CreateChain(id, db.ChainCfg{})
+func mustInsertTerraChain(t *testing.T, ter terra.ChainSet, id string) types.DBChain {
+	chain, err := ter.Add(testutils.Context(t), id, db.ChainCfg{})
 	require.NoError(t, err)
 	return chain
 }
@@ -40,18 +41,19 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Terra.ORM()
-	_, initialCount, err := orm.Nodes(0, 25)
+	ter := app.Chains.Terra
+	_, initialCount, err := ter.Index(0, 25)
 	require.NoError(t, err)
-	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_ = mustInsertTerraChain(t, orm, chainID)
+	chainID := terratest.RandomChainID()
+	_ = mustInsertTerraChain(t, ter, chainID)
 
 	params := db.Node{
 		Name:          "second",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 	}
-	node, err := orm.CreateNode(params)
+	ctx := testutils.Context(t)
+	node, err := ter.CreateNode(ctx, params)
 	require.NoError(t, err)
 
 	require.Nil(t, cmd.NewTerraNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
@@ -72,13 +74,14 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Terra.ORM()
-	_, initialNodesCount, err := orm.Nodes(0, 25)
+	ter := app.Chains.Terra
+	ctx := testutils.Context(t)
+	_, initialNodesCount, err := ter.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
-	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_ = mustInsertTerraChain(t, orm, chainIDA)
-	_ = mustInsertTerraChain(t, orm, chainIDB)
+	chainIDA := terratest.RandomChainID()
+	chainIDB := terratest.RandomChainID()
+	_ = mustInsertTerraChain(t, ter, chainIDA)
+	_ = mustInsertTerraChain(t, ter, chainIDB)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.String("name", "first", "")
@@ -98,7 +101,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
-	nodes, _, err := orm.Nodes(0, 25)
+	nodes, _, err := ter.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
@@ -123,20 +126,21 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Terra.ORM()
-	_, initialCount, err := orm.Nodes(0, 25)
+	ter := app.Chains.Terra
+	ctx := testutils.Context(t)
+	_, initialCount, err := ter.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
-	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_ = mustInsertTerraChain(t, orm, chainID)
+	chainID := terratest.RandomChainID()
+	_ = mustInsertTerraChain(t, ter, chainID)
 
 	params := db.Node{
 		Name:          "first",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}
-	node, err := orm.CreateNode(params)
+	node, err := ter.CreateNode(ctx, params)
 	require.NoError(t, err)
-	chains, _, err := orm.Nodes(0, 25)
+	chains, _, err := ter.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 
@@ -147,7 +151,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	err = cmd.NewTerraNodeClient(client).RemoveNode(c)
 	require.NoError(t, err)
 
-	chains, _, err = orm.Nodes(0, 25)
+	chains, _, err = ter.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount)
 	assertTableRenders(t, r)

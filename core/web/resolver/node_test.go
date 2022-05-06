@@ -59,7 +59,7 @@ func TestResolver_Nodes(t *testing.T) {
 					},
 				}, 1, nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
+				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
 			},
 			query: query,
 			result: `
@@ -210,7 +210,7 @@ func Test_CreateNodeMutation(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(types.Chain{ID: *utils.NewBigI(1), Enabled: true})
+				f.Mocks.evmORM.PutChains(types.DBChain{ID: *utils.NewBigI(1), Enabled: true})
 			},
 			query:     mutation,
 			variables: input,

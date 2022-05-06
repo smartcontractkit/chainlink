@@ -1,31 +1,21 @@
-// TODO: Improve code reuse (mostly c/p of core/chains/terra/chain_set.go)
 package solana
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
+	"github.com/smartcontractkit/chainlink/core/chains"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
-)
-
-var (
-	// ErrChainIDEmpty is returned when chain is required but was empty.
-	ErrChainIDEmpty = errors.New("chain id empty")
-	// ErrChainIDInvalid is returned when a chain id does not match any configured chains.
-	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
 )
 
 // ChainSetOpts holds options for configuring a ChainSet.
@@ -38,7 +28,7 @@ type ChainSetOpts struct {
 	ORM              ORM
 }
 
-func (o ChainSetOpts) validate() (err error) {
+func (o *ChainSetOpts) Validate() (err error) {
 	required := func(s string) error {
 		return errors.Errorf("%s is required", s)
 	}
@@ -63,265 +53,35 @@ func (o ChainSetOpts) validate() (err error) {
 	return
 }
 
-func (o ChainSetOpts) newChain(dbchain Chain) (*chain, error) {
+func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, db.ChainCfg, db.Node], logger.Logger) {
+	return o.ORM, o.Logger
+}
+
+func (o *ChainSetOpts) NewChain(dbchain DBChain) (solana.Chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
 	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.ORM, o.Logger)
 }
 
-// ChainSet extends solana.ChainSet with mutability and exposes the underlying ORM.
+//go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
+
+// ChainSet extends solana.ChainSet with mutability.
 type ChainSet interface {
 	solana.ChainSet
 
-	Add(context.Context, string, db.ChainCfg) (Chain, error)
+	Add(context.Context, string, db.ChainCfg) (DBChain, error)
 	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (Chain, error)
-	Show(id string) (Chain, error)
-	Index(offset, limit int) ([]Chain, int, error)
+	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (DBChain, error)
+	Show(id string) (DBChain, error)
+	Index(offset, limit int) ([]DBChain, int, error)
 	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
 	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
 	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
 	DeleteNode(ctx context.Context, id int32) error
-
-	ORM() ORM
-}
-
-//go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
-var _ ChainSet = (*chainSet)(nil)
-
-type chainSet struct {
-	utils.StartStopOnce
-	opts     ChainSetOpts
-	chainsMu sync.RWMutex
-	chains   map[string]*chain
-	lggr     logger.Logger
 }
 
 // NewChainSet returns a new chain set for opts.
-func NewChainSet(opts ChainSetOpts) (*chainSet, error) {
-	if err := opts.validate(); err != nil {
-		return nil, err
-	}
-	dbchains, err := opts.ORM.EnabledChains()
-	if err != nil {
-		return nil, errors.Wrap(err, "error loading chains")
-	}
-	cs := chainSet{
-		opts:   opts,
-		chains: make(map[string]*chain),
-		lggr:   opts.Logger.Named("ChainSet"),
-	}
-	for _, dbc := range dbchains {
-		var err2 error
-		cs.chains[dbc.ID], err2 = opts.newChain(dbc)
-		if err2 != nil {
-			err = multierr.Combine(err, err2)
-			continue
-		}
-	}
-	return &cs, err
-}
-
-func (c *chainSet) ORM() ORM {
-	return c.opts.ORM
-}
-
-func (c *chainSet) Index(offset, limit int) ([]Chain, int, error) {
-	return c.opts.ORM.Chains(offset, limit)
-}
-
-func (c *chainSet) Show(id string) (Chain, error) {
-	return c.opts.ORM.Chain(id)
-}
-
-func (c *chainSet) Chain(ctx context.Context, id string) (solana.Chain, error) {
-	if id == "" {
-		return nil, ErrChainIDEmpty
-	}
-	if err := c.StartStopOnce.Ready(); err != nil {
-		return nil, err
-	}
-	c.chainsMu.RLock()
-	ch := c.chains[id]
-	c.chainsMu.RUnlock()
-	if ch != nil {
-		// Already known/started
-		return ch, nil
-	}
-
-	// Unknown/unstarted
-	c.chainsMu.Lock()
-	defer c.chainsMu.Unlock()
-
-	// Double check now that we have the lock, so we don't start an orphan.
-	if err := c.StartStopOnce.Ready(); err != nil {
-		return nil, err
-	}
-
-	ch = c.chains[id]
-	if ch != nil {
-		// Someone else beat us to it
-		return ch, nil
-	}
-
-	// Do we have nodes/config?
-	opts := c.opts
-	dbchain, err := opts.ORM.Chain(id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrChainIDInvalid
-		}
-		return nil, err
-	}
-
-	err = c.initializeChain(ctx, &dbchain)
-	if err != nil {
-		return nil, err
-	}
-	return c.chains[id], nil
-}
-
-func (c *chainSet) Add(ctx context.Context, id string, config db.ChainCfg) (Chain, error) {
-	c.chainsMu.Lock()
-	defer c.chainsMu.Unlock()
-
-	if _, exists := c.chains[id]; exists {
-		return Chain{}, errors.Errorf("chain already exists with id %s", id)
-	}
-
-	dbchain, err := c.opts.ORM.CreateChain(id, config)
-	if err != nil {
-		return Chain{}, err
-	}
-	return dbchain, c.initializeChain(ctx, &dbchain)
-}
-
-// Requires a lock on chainsMu
-func (c *chainSet) initializeChain(ctx context.Context, dbchain *Chain) error {
-	// Start it
-	cid := dbchain.ID
-	chain, err := c.opts.newChain(*dbchain)
-	if err != nil {
-		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID)
-	}
-	if err = chain.Start(ctx); err != nil {
-		return errors.Wrapf(err, "initializeChain: failed to start chain %s", dbchain.ID)
-	}
-	c.chains[cid] = chain
-	return nil
-}
-
-func (c *chainSet) Remove(id string) error {
-	c.chainsMu.Lock()
-	defer c.chainsMu.Unlock()
-
-	if err := c.opts.ORM.DeleteChain(id); err != nil {
-		return err
-	}
-
-	chain, exists := c.chains[id]
-	if !exists {
-		// If a chain was removed from the DB that wasn't loaded into the memory set we're done.
-		return nil
-	}
-	delete(c.chains, id)
-	return chain.Close()
-}
-
-func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (Chain, error) {
-	c.chainsMu.Lock()
-	defer c.chainsMu.Unlock()
-
-	// Update configuration stored in the database
-	dbchain, err := c.opts.ORM.UpdateChain(id, enabled, config)
-	if err != nil {
-		return Chain{}, err
-	}
-
-	chain, exists := c.chains[id]
-
-	switch {
-	case exists && !enabled:
-		// Chain was toggled to disabled
-		delete(c.chains, id)
-		return Chain{}, chain.Close()
-	case !exists && enabled:
-		// Chain was toggled to enabled
-		return dbchain, c.initializeChain(ctx, &dbchain)
-	case exists:
-		// Exists in memory, no toggling: Update in-memory chain
-		chain.UpdateConfig(config)
-	}
-
-	return dbchain, nil
-}
-
-func (c *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error) {
-	return c.opts.ORM.Nodes(offset, limit, pg.WithParentCtx(ctx))
-}
-
-func (c *chainSet) GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error) {
-	return c.opts.ORM.NodesForChain(chainID, offset, limit, pg.WithParentCtx(ctx))
-}
-
-func (c *chainSet) CreateNode(ctx context.Context, data db.Node) (db.Node, error) {
-	return c.opts.ORM.CreateNode(data, pg.WithParentCtx(ctx))
-}
-
-func (c *chainSet) DeleteNode(ctx context.Context, id int32) error {
-	return c.opts.ORM.DeleteNode(id, pg.WithParentCtx(ctx))
-}
-
-func (c *chainSet) Start(ctx context.Context) error {
-	//TODO if disabled, warn and return?
-	return c.StartOnce("ChainSet", func() error {
-		c.lggr.Debug("Starting")
-
-		c.chainsMu.Lock()
-		defer c.chainsMu.Unlock()
-		var started int
-		for _, ch := range c.chains {
-			if err := ch.Start(ctx); err != nil {
-				c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "err", err)
-				continue
-			}
-			started++
-		}
-		c.lggr.Info(fmt.Sprintf("Started %d/%d chains", started, len(c.chains)))
-		return nil
-	})
-}
-
-func (c *chainSet) Close() error {
-	return c.StopOnce("ChainSet", func() (err error) {
-		c.lggr.Debug("Stopping")
-
-		c.chainsMu.Lock()
-		defer c.chainsMu.Unlock()
-		for _, c := range c.chains {
-			err = multierr.Combine(err, c.Close())
-		}
-		return
-	})
-}
-
-func (c *chainSet) Ready() (err error) {
-	err = c.StartStopOnce.Ready()
-	c.chainsMu.RLock()
-	defer c.chainsMu.RUnlock()
-	for _, c := range c.chains {
-		err = multierr.Combine(err, c.Ready())
-	}
-	return
-}
-
-func (c *chainSet) Healthy() (err error) {
-	err = c.StartStopOnce.Healthy()
-	c.chainsMu.RLock()
-	defer c.chainsMu.RUnlock()
-	for _, c := range c.chains {
-		err = multierr.Combine(err, c.Healthy())
-	}
-	return
+func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
+	return chains.NewChainSet[string, db.ChainCfg, db.Node, solana.Chain](&opts, func(s string) string { return s })
 }

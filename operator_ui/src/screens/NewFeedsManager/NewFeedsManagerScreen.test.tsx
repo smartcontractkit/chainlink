@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 
 import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagers'
-import { FEEDS_MANAGERS_QUERY } from 'src/hooks/useFeedsManagersQuery'
+import { FEEDS_MANAGERS_QUERY } from 'src/hooks/queries/useFeedsManagersQuery'
 import {
   CREATE_FEEDS_MANAGER_MUTATION,
   NewFeedsManagerScreen,
@@ -105,9 +105,6 @@ describe('NewFeedsManagerScreen', () => {
               name: 'Chainlink Feeds Manager',
               uri: 'localhost:8080',
               publicKey: '1111',
-              jobTypes: ['FLUX_MONITOR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },
@@ -141,7 +138,6 @@ describe('NewFeedsManagerScreen', () => {
     // Note: The name input has a default value so we don't have to set it
     userEvent.type(getByRole('textbox', { name: 'URI *' }), 'localhost:8080')
     userEvent.type(getByRole('textbox', { name: 'Public Key *' }), '1111')
-    userEvent.click(getByRole('checkbox', { name: 'Flux Monitor' }))
 
     userEvent.click(getByRole('button', { name: /submit/i }))
 
@@ -171,9 +167,6 @@ describe('NewFeedsManagerScreen', () => {
               name: 'Chainlink Feeds Manager',
               uri: 'localhost:8080',
               publicKey: '1111',
-              jobTypes: ['FLUX_MONITOR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },
@@ -213,7 +206,6 @@ describe('NewFeedsManagerScreen', () => {
     // Note: The name input has a default value so we don't have to set it
     userEvent.type(getByRole('textbox', { name: 'URI *' }), 'localhost:8080')
     userEvent.type(getByRole('textbox', { name: 'Public Key *' }), '1111')
-    userEvent.click(getByRole('checkbox', { name: 'Flux Monitor' }))
 
     userEvent.click(getByRole('button', { name: /submit/i }))
 
@@ -262,9 +254,6 @@ describe('NewFeedsManagerScreen', () => {
               name: 'Chainlink Feeds Manager',
               uri: 'localhost:8080',
               publicKey: '1111',
-              jobTypes: ['FLUX_MONITOR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },
@@ -280,7 +269,6 @@ describe('NewFeedsManagerScreen', () => {
 
     userEvent.type(getByRole('textbox', { name: 'URI *' }), 'localhost:8080')
     userEvent.type(getByRole('textbox', { name: 'Public Key *' }), '1111')
-    userEvent.click(getByRole('checkbox', { name: 'Flux Monitor' }))
 
     userEvent.click(getByRole('button', { name: /submit/i }))
 

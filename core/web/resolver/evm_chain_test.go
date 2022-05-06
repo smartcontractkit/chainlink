@@ -73,7 +73,7 @@ func TestResolver_Chains(t *testing.T) {
 				require.NoError(t, err)
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(types.Chain{
+				f.Mocks.evmORM.PutChains(types.DBChain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -194,7 +194,7 @@ func TestResolver_Chain(t *testing.T) {
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.evmORM.PutChains(types.Chain{
+				f.Mocks.evmORM.PutChains(types.DBChain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -383,7 +383,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), cfg).Return(types.DBChain{
 					ID:        *utils.NewBigI(1233),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -458,7 +458,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), cfg).Return(types.DBChain{
 					ID:        *utils.NewBigI(1233),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -512,7 +512,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
+				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
 				f.Mocks.chainSet.On("Remove", chainID).Return(nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
@@ -548,7 +548,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 			name:          "generic error on delete",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
+				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
 				f.Mocks.chainSet.On("Remove", chainID).Return(gError)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
@@ -686,7 +686,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.DBChain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -761,7 +761,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.Chain{}, sql.ErrNoRows)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.DBChain{}, sql.ErrNoRows)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -794,7 +794,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.Chain{}, gError)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.DBChain{}, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,

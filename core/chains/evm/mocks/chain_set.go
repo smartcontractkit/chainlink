@@ -20,14 +20,14 @@ type ChainSet struct {
 }
 
 // Add provides a mock function with given fields: ctx, id, config
-func (_m *ChainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error) {
+func (_m *ChainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.DBChain, error) {
 	ret := _m.Called(ctx, id, config)
 
-	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, types.ChainCfg) types.Chain); ok {
+	var r0 types.DBChain
+	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, types.ChainCfg) types.DBChain); ok {
 		r0 = rf(ctx, id, config)
 	} else {
-		r0 = ret.Get(0).(types.Chain)
+		r0 = ret.Get(0).(types.DBChain)
 	}
 
 	var r1 error
@@ -85,14 +85,14 @@ func (_m *ChainSet) Close() error {
 }
 
 // Configure provides a mock function with given fields: ctx, id, enabled, config
-func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.DBChain, error) {
 	ret := _m.Called(ctx, id, enabled, config)
 
-	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, types.ChainCfg) types.Chain); ok {
+	var r0 types.DBChain
+	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, types.ChainCfg) types.DBChain); ok {
 		r0 = rf(ctx, id, enabled, config)
 	} else {
-		r0 = ret.Get(0).(types.Chain)
+		r0 = ret.Get(0).(types.DBChain)
 	}
 
 	var r1 error
@@ -356,10 +356,10 @@ func (_m *ChainSet) DeleteNode(ctx context.Context, id int32) error {
 	panic("implement me")
 }
 
-func (_m *ChainSet) Show(id utils.Big) (types.Chain, error) {
+func (_m *ChainSet) Show(id utils.Big) (types.DBChain, error) {
 	panic("implement me")
 }
 
-func (_m *ChainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+func (_m *ChainSet) Index(offset, limit int) ([]types.DBChain, int, error) {
 	panic("implement me")
 }

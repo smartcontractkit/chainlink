@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { gql } from '@apollo/client'
-
 import Button from '@material-ui/core/Button'
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
@@ -17,15 +15,6 @@ import { ErrorRow } from 'src/components/TableRow/ErrorRow'
 import { LoadingRow } from 'src/components/TableRow/LoadingRow'
 import { NoContentRow } from 'src/components/TableRow/NoContentRow'
 import { OCRKeyBundleRow } from './OCRKeyBundleRow'
-
-export const OCR_KEY_BUNDLES_PAYLOAD__RESULTS_FIELDS = gql`
-  fragment OCRKeyBundlesPayload_ResultsFields on OCRKeyBundle {
-    id
-    configPublicKey
-    offChainPublicKey
-    onChainSigningAddress
-  }
-`
 
 export interface Props {
   loading: boolean
