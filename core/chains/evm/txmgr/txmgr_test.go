@@ -633,6 +633,6 @@ func TestTxm_SignTx(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
 		require.NotEqual(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex(), "expected okex chain hash to be different from non-okex-chain hash")
-		require.Equal(t, "0x1458742e3ba53316481eb18237ced517a536c1cdef61e7b7fb2a9569d84e41a6", hash.Hex())
+		assert.Equal(t, "0x831342d7c79fffe51a5e519b50b8df8afa6e65519def8485418e920132101b65", hash.Hex())
 	})
 }
