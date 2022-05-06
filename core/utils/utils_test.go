@@ -702,7 +702,7 @@ func TestHexToUint256(t *testing.T) {
 func TestWithCloseChan(t *testing.T) {
 	t.Parallel()
 
-	assertCtxCancelled := func(ctx context.Context) {
+	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
 		select {
 		case <-ctx.Done():
 		case <-time.After(testutils.WaitTimeout(t)):
@@ -719,7 +719,7 @@ func TestWithCloseChan(t *testing.T) {
 
 		close(ch)
 
-		assertCtxCancelled(ctx)
+		assertCtxCancelled(ctx, t)
 	})
 
 	t.Run("cancelling ctx", func(t *testing.T) {
@@ -730,7 +730,7 @@ func TestWithCloseChan(t *testing.T) {
 		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
 		cancel()
 
-		assertCtxCancelled(ctx)
+		assertCtxCancelled(ctx, t)
 	})
 
 	t.Run("cancelling parent ctx", func(t *testing.T) {
@@ -744,7 +744,7 @@ func TestWithCloseChan(t *testing.T) {
 
 		pcancel()
 
-		assertCtxCancelled(ctx)
+		assertCtxCancelled(ctx, t)
 	})
 }
 
@@ -767,7 +767,7 @@ func TestContextFromChan(t *testing.T) {
 func TestContextFromChanWithDeadline(t *testing.T) {
 	t.Parallel()
 
-	assertCtxCancelled := func(ctx context.Context) {
+	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
 		select {
 		case <-ctx.Done():
 		case <-time.After(testutils.WaitTimeout(t)):
@@ -782,7 +782,7 @@ func TestContextFromChanWithDeadline(t *testing.T) {
 		ctx, cancel := utils.ContextFromChanWithDeadline(ch, testutils.TestInterval)
 		defer cancel()
 
-		assertCtxCancelled(ctx)
+		assertCtxCancelled(ctx, t)
 	})
 
 	t.Run("stopped", func(t *testing.T) {
@@ -794,7 +794,7 @@ func TestContextFromChanWithDeadline(t *testing.T) {
 
 		ch <- struct{}{}
 
-		assertCtxCancelled(ctx)
+		assertCtxCancelled(ctx, t)
 	})
 }
 
