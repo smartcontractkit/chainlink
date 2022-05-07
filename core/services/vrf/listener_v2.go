@@ -18,6 +18,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -426,7 +427,14 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 		return false
 	}
 
-	vrfRequest := reqs[0].req
+	// Sort requests in ascending order by CallbackGasLimit.
+	sortedReqs := make([]pendingRequest, len(reqs))
+	copy(sortedReqs, reqs)
+	slices.SortFunc(sortedReqs, func(a, b pendingRequest) bool {
+		return a.req.CallbackGasLimit < b.req.CallbackGasLimit
+	})
+
+	vrfRequest := sortedReqs[0].req
 	l := lsn.l.With(
 		"subID", subID,
 		"balance", sub.Balance,
@@ -445,7 +453,7 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 
 	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
-	estimatedFee, err := lsn.estimateFeeJuels(reqs[0].req, gasPriceWei)
+	estimatedFee, err := lsn.estimateFeeJuels(vrfRequest, gasPriceWei)
 	if err != nil {
 		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
 		return true

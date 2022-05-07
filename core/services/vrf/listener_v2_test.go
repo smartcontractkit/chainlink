@@ -315,6 +315,84 @@ func TestListener_ShouldProcessSub_NotEnoughBalance(t *testing.T) {
 	assert.False(t, shouldProcess) // estimated fee: 24435754189944131 juels, 100 GJuels not enough
 }
 
+func TestListener_ShouldProcessSub_NotEnoughBalanceOnSome(t *testing.T) {
+	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
+	mockAggregator.On("LatestRoundData", mock.Anything).Return(
+		aggregator_v3_interface.LatestRoundData{
+			Answer: decimal.RequireFromString("9821673525377230000").BigInt(),
+		},
+		nil,
+	)
+	defer mockAggregator.AssertExpectations(t)
+
+	cfg := &vrf_mocks.Config{}
+	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
+		assets.GWei(200),
+	)
+	defer cfg.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{
+					ethkey.EIP55Address("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
+				},
+			},
+		},
+		aggregator: mockAggregator,
+		l:          logger.TestLogger(t),
+		chainID:    big.NewInt(1337),
+		cfg:        cfg,
+	}
+	subID := uint64(1)
+	sub := vrf_coordinator_v2.GetSubscription{
+		Balance: assets.GWei(5e6), // job needs 4072627 GWei
+	}
+	shouldProcess := lsn.shouldProcessSub(subID, sub, []pendingRequest{
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 2e6, // too much gas, request will be rejected
+				RequestId:        big.NewInt(1),
+			},
+		},
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 100, // 100 GWei
+				RequestId:        big.NewInt(2),
+			},
+		},
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 2e6, // too much gas, request will be rejected
+				RequestId:        big.NewInt(3),
+			},
+		},
+	})
+	assert.True(t, shouldProcess)
+
+	shouldProcess = lsn.shouldProcessSub(subID, sub, []pendingRequest{
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 2e6, // too much gas, request will be rejected
+				RequestId:        big.NewInt(1),
+			},
+		},
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 2e6, // too much gas, request will be rejected
+				RequestId:        big.NewInt(2),
+			},
+		},
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 2e6, // too much gas, request will be rejected
+				RequestId:        big.NewInt(3),
+			},
+		},
+	})
+	assert.False(t, shouldProcess)
+}
+
 func TestListener_ShouldProcessSub_EnoughBalance(t *testing.T) {
 	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
 	mockAggregator.On("LatestRoundData", mock.Anything).Return(
