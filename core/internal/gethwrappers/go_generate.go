@@ -40,6 +40,7 @@ package gethwrappers
 //go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
 //go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
 //go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface --name AggregatorV3InterfaceInterface --output ../../services/vrf/mocks/ --case=underscore --structname AggregatorV3Interface --filename aggregator_v3_interface.go
+//go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2 --name VRFCoordinatorV2Interface --output ../../services/vrf/mocks/ --case=underscore --structname VRFCoordinatorV2Interface --filename vrf_coordinator_v2.go
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 
