@@ -401,16 +401,17 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			Context: ctx,
 		}, subID)
 
-		if err != nil && strings.Contains(err.Error(), "execution reverted") {
-			lsn.l.Warnw("Subscription not found", "subID", subID, "err", err)
-			for _, req := range reqs {
-				processed[req.req.RequestId.String()] = struct{}{}
-			}
-			continue
-		}
-
 		if err != nil {
-			lsn.l.Errorw("Unable to read subscription balance", "subID", subID, "err", err)
+			if strings.Contains(err.Error(), "execution reverted") {
+				lsn.l.Warnw("Subscription not found", "subID", subID, "err", err)
+				for _, req := range reqs {
+					lsn.markLogAsConsumed(req.lb)
+					lsn.l.Infow("Skipping requests without valid subscription", "subID", subID, "reqID", req.req.RequestId)
+					processed[req.req.RequestId.String()] = struct{}{}
+				}
+			} else {
+				lsn.l.Errorw("Unable to read subscription balance", "subID", subID, "err", err)
+			}
 			continue
 		}
 
