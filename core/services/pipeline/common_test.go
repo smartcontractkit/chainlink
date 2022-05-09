@@ -7,14 +7,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestTimeoutAttribute(t *testing.T) {
