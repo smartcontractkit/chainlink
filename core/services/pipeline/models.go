@@ -51,8 +51,8 @@ type Run struct {
 	State            RunStatus        `json:"state"`
 
 	Pending bool
-	// FailEarlySilently implies an error has happened and a task has been marked to failEarly
-	FailEarlySilently bool
+	// FailSilently implies an error has happened and a task has been marked to failEarly
+	FailSilently bool
 }
 
 func (r Run) GetID() string {

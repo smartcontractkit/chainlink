@@ -307,7 +307,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	// if the run is suspended, awaiting resumption
 	run.Pending = scheduler.pending
 	// scheduler.exiting = we had an error and the task was marked to failEarly
-	run.FailEarlySilently = scheduler.exiting
+	run.FailSilently = scheduler.exiting
 	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
@@ -457,7 +457,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
-	if run.FailEarlySilently {
+	if run.FailSilently {
 		return 0, finalResult, nil
 	}
 
@@ -515,7 +515,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 		if preinsert {
 			// if run failed and it's failEarly, skip StoreRun and instead delete all trace of it
-			if run.FailEarlySilently {
+			if run.FailSilently {
 				if err = r.orm.DeleteRun(run.ID); err != nil {
 					return false, errors.Wrap(err, "Run")
 				}
@@ -538,7 +538,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				return false, errors.Wrapf(err, "a run without async returned as pending")
 			}
 			// don't insert if we exited early
-			if run.FailEarlySilently {
+			if run.FailSilently {
 				return false, nil
 			}
 

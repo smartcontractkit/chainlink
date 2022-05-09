@@ -33,8 +33,7 @@ decode_check_upkeep_tx   [type=ethabidecode
 encode_perform_upkeep_tx [type=ethabiencode
                           abi="performUpkeep(uint256 id, bytes calldata performData)"
                           data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
-check_perform_upkeep_tx  [type=ethcall
-                          failEarly=true
+simulate_perform_upkeep_tx  [type=ethcall
                           extractRevertReason=true
                           evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
@@ -43,7 +42,7 @@ check_perform_upkeep_tx  [type=ethcall
                           data="$(encode_perform_upkeep_tx)"]
 decode_check_perform_tx  [type=ethabidecode
                           abi="bool success"]
-conditional_tx           [type=conditional
+check_success            [type=conditional
                           failEarly=true
                           data="$(decode_check_perform_tx.success)"]
 perform_upkeep_tx        [type=ethtx
@@ -54,7 +53,7 @@ perform_upkeep_tx        [type=ethtx
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\"jobID\":$(jobSpec.jobID),\"upkeepID\":$(jobSpec.prettyID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> check_perform_upkeep_tx -> decode_check_perform_tx -> conditional_tx -> perform_upkeep_tx`
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx`
 )
 
 // expectedPipeline it is basically parsed ExpectedObservationSource value
