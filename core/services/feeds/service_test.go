@@ -200,8 +200,7 @@ func Test_Service_ListManagers(t *testing.T) {
 	)
 	svc := setupTestService(t)
 
-	svc.orm.On("ListManagers").
-		Return(mgrs, nil)
+	svc.orm.On("ListManagers").Return(mgrs, nil)
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 
 	actual, err := svc.ListManagers()
@@ -1006,9 +1005,16 @@ answer1 [type=median index=0];
 			Version:       1,
 			Definition:    defn,
 		}
+		rejectedSpec = &feeds.JobProposalSpec{
+			ID:            20,
+			Status:        feeds.SpecStatusRejected,
+			JobProposalID: jp.ID,
+			Version:       1,
+			Definition:    defn,
+		}
 		cancelledSpec = &feeds.JobProposalSpec{
 			ID:            20,
-			Status:        feeds.SpecStatusPending,
+			Status:        feeds.SpecStatusCancelled,
 			JobProposalID: jp.ID,
 			Version:       1,
 			Definition:    defn,
@@ -1063,13 +1069,14 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
-			name: "cancelled job success",
+			name: "cancelled spec success when it is the latest spec",
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
 
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
 
 				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -1097,6 +1104,31 @@ answer1 [type=median index=0];
 			},
 			id:    cancelledSpec.ID,
 			force: false,
+		},
+		{
+			name: "cancelled spec failed not latest spec",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetLatestSpec", cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusPending,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    defn,
+				}, nil)
+			},
+			id:      cancelledSpec.ID,
+			force:   false,
+			wantErr: "cannot approve a cancelled spec",
+		},
+		{
+			name: "rejected spec failed cannot be approved",
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+			},
+			id:      rejectedSpec.ID,
+			force:   false,
+			wantErr: "cannot approve a rejected spec",
 		},
 		{
 			name: "already existing job replacement error",
@@ -1160,7 +1192,7 @@ answer1 [type=median index=0];
 			wantErr: "orm: job proposal spec: Not Found",
 		},
 		{
-			name: "job proposal already approved",
+			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
 				spec := &feeds.JobProposalSpec{
 					ID:     spec.ID,
@@ -1170,7 +1202,20 @@ answer1 [type=median index=0];
 			},
 			id:      spec.ID,
 			force:   false,
-			wantErr: "must be a pending or cancelled job proposal",
+			wantErr: "cannot approve an approved spec",
+		},
+		{
+			name: "cannot approved an rejected spec",
+			before: func(svc *TestService) {
+				spec := &feeds.JobProposalSpec{
+					ID:     spec.ID,
+					Status: feeds.SpecStatusRejected,
+				}
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "cannot approve a rejected spec",
 		},
 		{
 			name: "job proposal does not exist",
