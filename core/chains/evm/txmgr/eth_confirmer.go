@@ -678,7 +678,7 @@ func (ec *EthConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error
 
 	rows, err := ec.q.Query(`
 UPDATE eth_txes
-SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL
+SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL, initial_broadcast_at=NULL
 FROM (
 	SELECT e1.id, e1.nonce, e1.from_address FROM eth_txes AS e1 WHERE id IN (
 		SELECT e2.id FROM eth_txes AS e2
