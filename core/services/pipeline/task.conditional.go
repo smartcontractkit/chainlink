@@ -29,15 +29,15 @@ func (t *ConditionalTask) Run(_ context.Context, _ logger.Logger, vars Vars, inp
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 	var (
-		varData BoolParam
+		boolParam BoolParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&varData, From(VarExpr(t.Data, vars), Input(inputs, 0), nil)), "data"),
+		errors.Wrap(ResolveParam(&boolParam, From(VarExpr(t.Data, vars), Input(inputs, 0), nil)), "data"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	if varData == false {
+	if !boolParam {
 		return Result{Error: errors.New("conditional was not satisfied")}, runInfo
 	}
 	return Result{Value: true}, runInfo
