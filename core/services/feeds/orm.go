@@ -44,6 +44,7 @@ type ORM interface {
 	CancelSpec(id int64, qopts ...pg.QOpt) error
 	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
 	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
+	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
@@ -533,6 +534,26 @@ WHERE id = $1;
 	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
 
 	return &spec, errors.Wrap(err, "CreateJobProposalSpec failed")
+}
+
+// GetLatestSpec gets the latest spec for a job proposal.
+func (o *orm) GetLatestSpec(jpID int64) (*JobProposalSpec, error) {
+	stmt := `
+	SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
+FROM job_proposal_specs
+WHERE (job_proposal_id, version) IN
+(
+	SELECT job_proposal_id, MAX(version)
+	FROM job_proposal_specs
+	GROUP BY job_proposal_id
+)
+AND job_proposal_id = $1
+`
+
+	var spec JobProposalSpec
+	err := o.q.Get(&spec, stmt, jpID)
+
+	return &spec, errors.Wrap(err, "GetLatestSpec failed")
 }
 
 // ListSpecsByJobProposalIDs lists the specs which belong to any of job proposal
