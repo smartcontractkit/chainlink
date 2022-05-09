@@ -19,7 +19,7 @@ import (
 var ErrInvalidType = errors.New("invalid type")
 
 // GetChainByID fetches the chain by it's id.
-func GetChainByID(ctx context.Context, id string) (*types.Chain, error) {
+func GetChainByID(ctx context.Context, id string) (*types.DBChain, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -28,7 +28,7 @@ func GetChainByID(ctx context.Context, id string) (*types.Chain, error) {
 		return nil, err
 	}
 
-	chain, ok := result.(types.Chain)
+	chain, ok := result.(types.DBChain)
 	if !ok {
 		return nil, ErrInvalidType
 	}
@@ -212,4 +212,23 @@ func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EthTxAtt
 	}
 
 	return attempts, nil
+}
+
+func GetFeedsManagerChainConfigsByManagerID(ctx context.Context, mgrID int64) ([]feeds.ChainConfig, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.FeedsManagerChainConfigsByManagerIDLoader.Load(ctx,
+		dataloader.StringKey(stringutils.FromInt64(mgrID)),
+	)
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	cfgs, ok := result.([]feeds.ChainConfig)
+	if !ok {
+		return nil, ErrInvalidType
+	}
+
+	return cfgs, nil
 }

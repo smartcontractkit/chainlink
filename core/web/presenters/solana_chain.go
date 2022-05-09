@@ -19,7 +19,7 @@ func (r SolanaChainResource) GetName() string {
 }
 
 // NewSolanaChainResource returns a new SolanaChainResource for chain.
-func NewSolanaChainResource(chain solana.Chain) SolanaChainResource {
+func NewSolanaChainResource(chain solana.DBChain) SolanaChainResource {
 	return SolanaChainResource{chainResource[db.ChainCfg]{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,

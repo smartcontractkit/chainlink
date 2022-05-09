@@ -59,7 +59,7 @@ type chain struct {
 	keyStore        keystore.Eth
 }
 
-func newChain(dbchain types.Chain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
+func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !dbchain.Enabled {
@@ -288,7 +288,7 @@ func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 
-func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain, nodes []types.Node) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.DBChain, nodes []types.Node) (evmclient.Client, error) {
 	chainID := big.Int(chain.ID)
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode

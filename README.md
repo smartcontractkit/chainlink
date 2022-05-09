@@ -185,6 +185,22 @@ go test ./...
 - The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
 
+#### Race Detector
+
+As of Go 1.1, the runtime includes a data race detector, enabled with the `-race` flag. This is used in CI via the 
+`tools/bin/go_core_race_tests` script. If the action detects a race, the artifact on the summary page will include 
+`race.*` files with detailed stack traces. 
+
+> _**It will not issue false positives, so take its warnings seriously.**_
+
+For local, targeted race detection, you can run:
+```bash
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 10
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 100 -run TestFooBar/sub_test 
+```
+
+https://go.dev/doc/articles/race_detector
+
 #### Fuzz tests
 
 As of Go 1.18, fuzz tests `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.

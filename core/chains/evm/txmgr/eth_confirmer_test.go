@@ -82,6 +82,7 @@ func mustInsertConfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromAdd
 	etx.Nonce = &nonce
 	now := time.Now()
 	etx.BroadcastAt = &now
+	etx.InitialBroadcastAt = &now
 	require.NoError(t, borm.InsertEthTx(&etx))
 
 	return etx
@@ -1203,7 +1204,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	t.Run("does not return confirmed or fatally errored eth_txes", func(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx1.ID)
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL WHERE id = $1`, etx2.ID)
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL, initial_broadcast_at=NULL WHERE id = $1`, etx2.ID)
 
 		etxs, err := txmgr.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, cltest.FixtureChainID)
 		require.NoError(t, err)
@@ -1304,6 +1305,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	}
 	now := time.Now()
 	etxWithoutAttempts.BroadcastAt = &now
+	etxWithoutAttempts.InitialBroadcastAt = &now
 	etxWithoutAttempts.State = txmgr.EthTxUnconfirmed
 	require.NoError(t, borm.InsertEthTx(&etxWithoutAttempts))
 	nonce++
@@ -1611,6 +1613,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// broadcast_at did not change
 		require.Equal(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
 
 		kst.AssertExpectations(t)
 		ethClient.AssertExpectations(t)

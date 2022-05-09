@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
+	"unicode"
 
 	"go.uber.org/multierr"
 )
@@ -23,24 +25,39 @@ var (
 	lowercase = regexp.MustCompile("[a-z]")
 	uppercase = regexp.MustCompile("[A-Z]")
 	numbers   = regexp.MustCompile("[0-9]")
-	symbols   = regexp.MustCompile(`[!@#$%^&*()-=_+\[\]\\|;:'",<.>/?~` + "`]")
+
+	ErrPasswordMinLength     = errors.New("must be longer than 12 characters")
+	ErrPasswordMinLowercase  = errors.New("must contain at least 3 lowercase characters")
+	ErrPasswordMinUppercase  = errors.New("must contain at least 3 uppercase characters")
+	ErrPasswordMinNumbers    = errors.New("must contain at least 3 numbers")
+	ErrPasswordMinSymbols    = errors.New("must contain at least 3 symbols")
+	ErrPasswordRepeatedChars = errors.New("must not contain more than 3 identical consecutive characters")
 )
+
+func countSymbols(password string) (count int) {
+	for _, r := range password {
+		if unicode.IsPunct(r) || unicode.IsSymbol(r) {
+			count++
+		}
+	}
+	return
+}
 
 func VerifyPasswordComplexity(password string) (merr error) {
 	if len(password) <= 12 {
-		merr = multierr.Append(merr, fmt.Errorf("must be longer than 12 characters"))
+		merr = multierr.Append(merr, ErrPasswordMinLength)
 	}
 	if len(lowercase.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 lowercase characters"))
+		merr = multierr.Append(merr, ErrPasswordMinLowercase)
 	}
 	if len(uppercase.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 uppercase characters"))
+		merr = multierr.Append(merr, ErrPasswordMinUppercase)
 	}
 	if len(numbers.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 numbers"))
+		merr = multierr.Append(merr, ErrPasswordMinNumbers)
 	}
-	if len(symbols.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 symbols"))
+	if countSymbols(password) < 3 {
+		merr = multierr.Append(merr, ErrPasswordMinSymbols)
 	}
 	var c byte
 	var instances int
@@ -51,7 +68,7 @@ func VerifyPasswordComplexity(password string) (merr error) {
 			instances = 1
 		}
 		if instances > 3 {
-			merr = multierr.Append(merr, fmt.Errorf("must not contain more than 3 identical consecutive characters"))
+			merr = multierr.Append(merr, ErrPasswordRepeatedChars)
 			break
 		}
 		c = password[i]

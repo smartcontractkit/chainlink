@@ -1,38 +1,20 @@
 import React from 'react'
 
-import { gql, useQuery } from '@apollo/client'
-
-import { ChainsView, CHAINS_PAYLOAD__RESULTS_FIELDS } from './ChainsView'
+import { ChainsView } from './ChainsView'
 import { GraphqlErrorHandler } from 'src/components/ErrorHandler/GraphqlErrorHandler'
 import { Loading } from 'src/components/Feedback/Loading'
 import { useQueryParams } from 'src/hooks/useQueryParams'
-
-export const CHAINS_QUERY = gql`
-  ${CHAINS_PAYLOAD__RESULTS_FIELDS}
-  query FetchChains($offset: Int, $limit: Int) {
-    chains(offset: $offset, limit: $limit) {
-      results {
-        ...ChainsPayload_ResultsFields
-      }
-      metadata {
-        total
-      }
-    }
-  }
-`
+import { useChainsQuery } from 'src/hooks/queries/useChainsQuery'
 
 export const ChainsScreen = () => {
   const qp = useQueryParams()
   const page = parseInt(qp.get('page') || '1', 10)
   const pageSize = parseInt(qp.get('per') || '50', 10)
 
-  const { data, loading, error } = useQuery<FetchChains, FetchChainsVariables>(
-    CHAINS_QUERY,
-    {
-      variables: { offset: (page - 1) * pageSize, limit: pageSize },
-      fetchPolicy: 'network-only',
-    },
-  )
+  const { data, loading, error } = useChainsQuery({
+    variables: { offset: (page - 1) * pageSize, limit: pageSize },
+    fetchPolicy: 'network-only',
+  })
 
   if (loading) {
     return <Loading />

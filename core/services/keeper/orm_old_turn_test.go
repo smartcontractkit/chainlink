@@ -180,34 +180,6 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	assert.Equal(t, 1, len(list2))
 }
 
-func TestKeeperDB_NextUpkeepID(t *testing.T) {
-	t.Parallel()
-	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
-
-	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
-
-	nextID, err := orm.LowestUnsyncedID(registry.ID)
-	require.NoError(t, err)
-	require.Equal(t, utils.NewBigI(0), nextID)
-
-	upkeep := newUpkeep(registry, 0)
-	err = orm.UpsertUpkeep(&upkeep)
-	require.NoError(t, err)
-
-	nextID, err = orm.LowestUnsyncedID(registry.ID)
-	require.NoError(t, err)
-	require.Equal(t, utils.NewBigI(1), nextID)
-
-	upkeep = newUpkeep(registry, 3)
-	err = orm.UpsertUpkeep(&upkeep)
-	require.NoError(t, err)
-
-	nextID, err = orm.LowestUnsyncedID(registry.ID)
-	require.NoError(t, err)
-	require.Equal(t, utils.NewBigI(4), nextID)
-}
-
 func TestKeeperDB_SetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)

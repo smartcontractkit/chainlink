@@ -37,14 +37,14 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
-	Show(id utils.Big) (types.Chain, error)
-	Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error)
+	Show(id utils.Big) (types.DBChain, error)
+	Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.DBChain, error)
 	Remove(id utils.Big) error
 	Default() (Chain, error)
-	Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error)
+	Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.DBChain, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
-	Index(offset, limit int) ([]types.Chain, int, error)
+	Index(offset, limit int) ([]types.DBChain, int, error)
 	ChainCount() int
 	ORM() types.ORM
 	// GetNode et al retrieves Nodes from the ORM and adds additional state info
@@ -122,11 +122,11 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	return nil, errors.Errorf("chain not found with id %v", id.String())
 }
 
-func (cll *chainSet) Show(id utils.Big) (types.Chain, error) {
+func (cll *chainSet) Show(id utils.Big) (types.DBChain, error) {
 	return cll.orm.Chain(id)
 }
 
-func (cll *chainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+func (cll *chainSet) Index(offset, limit int) ([]types.DBChain, int, error) {
 	return cll.orm.Chains(offset, limit)
 }
 
@@ -147,7 +147,7 @@ func (cll *chainSet) Default() (Chain, error) {
 }
 
 // Requires a lock on chainsMu
-func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) error {
+func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.DBChain) error {
 	// preload nodes
 	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt)
 	if err != nil {
@@ -166,18 +166,18 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) 
 	return nil
 }
 
-func (cll *chainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.DBChain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
 	cid := id.String()
 	if _, exists := cll.chains[cid]; exists {
-		return types.Chain{}, errors.Errorf("chain already exists with id %s", id.String())
+		return types.DBChain{}, errors.Errorf("chain already exists with id %s", id.String())
 	}
 
 	dbchain, err := cll.orm.CreateChain(id, config)
 	if err != nil {
-		return types.Chain{}, err
+		return types.DBChain{}, err
 	}
 	return dbchain, cll.initializeChain(ctx, &dbchain)
 }
@@ -200,14 +200,14 @@ func (cll *chainSet) Remove(id utils.Big) error {
 	return chain.Close()
 }
 
-func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.DBChain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
 	// Update configuration stored in the database
 	dbchain, err := cll.orm.UpdateChain(id, enabled, config)
 	if err != nil {
-		return types.Chain{}, err
+		return types.DBChain{}, err
 	}
 
 	cid := id.String()
@@ -218,7 +218,7 @@ func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, 
 	case exists && !enabled:
 		// Chain was toggled to disabled
 		delete(cll.chains, cid)
-		return types.Chain{}, chain.Close()
+		return types.DBChain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
 		return dbchain, cll.initializeChain(ctx, &dbchain)
@@ -369,10 +369,10 @@ type ChainSetOpts struct {
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func(types.Chain) evmclient.Client
-	GenLogBroadcaster func(types.Chain) log.Broadcaster
-	GenHeadTracker    func(types.Chain, httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func(types.Chain) txmgr.TxManager
+	GenEthClient      func(types.DBChain) evmclient.Client
+	GenLogBroadcaster func(types.DBChain) log.Broadcaster
+	GenHeadTracker    func(types.DBChain, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenTxManager      func(types.DBChain) txmgr.TxManager
 }
 
 func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
@@ -395,7 +395,7 @@ func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	return NewChainSet(opts, chains, nodes)
 }
 
-func NewChainSet(opts ChainSetOpts, dbchains []types.Chain, nodes map[string][]types.Node) (ChainSet, error) {
+func NewChainSet(opts ChainSetOpts, dbchains []types.DBChain, nodes map[string][]types.Node) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
