@@ -35,6 +35,7 @@ $SCRIPTPATH/native_solc7_compile KeeperRegistry1_1.sol
 $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
+$SCRIPTPATH/native_solc7_compile tests/UpkeepCounterPerformOnlyOdd.sol
 $SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
 $SCRIPTPATH/native_solc8_13_compile KeeperRegistry.sol
 

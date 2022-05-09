@@ -38,6 +38,7 @@ type Config struct {
 	KeepersCount                    int    `mapstructure:"KEEPERS_COUNT"`
 	UpkeepTestRange                 int64  `mapstructure:"UPKEEP_TEST_RANGE"`
 	UpkeepAverageEligibilityCadence int64  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
+	UpkeepPerformOnlyOdd            bool   `mapstructure:"UPKEEP_PERFORM_ONLY_ODD"`
 	UpkeepInterval                  int64  `mapstructure:"UPKEEP_INTERVAL"`
 	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
 	UpkeepGasLimit                  uint32 `mapstructure:"UPKEEP_GAS_LIMIT"`

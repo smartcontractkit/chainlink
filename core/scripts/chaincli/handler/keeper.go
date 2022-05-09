@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_perform_only_odd"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -165,7 +166,13 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
 func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistry, existingCount int64) {
 	fmt.Println()
-	log.Println("Deploying upkeeps...")
+	upkeepType := "UpkeepCounter"
+	if k.cfg.UpkeepAverageEligibilityCadence > 0 {
+		upkeepType = "UpkeepAverageEligibilityCadence"
+	} else if k.cfg.UpkeepPerformOnlyOdd {
+		upkeepType = "UpkeepPerformOnlyOdd"
+	}
+	log.Printf("Deploying (%s) upkeeps...\n", upkeepType)
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
 		fmt.Println()
 		// Deploy
@@ -175,6 +182,10 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		if k.cfg.UpkeepAverageEligibilityCadence > 0 {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+			)
+		} else if k.cfg.UpkeepPerformOnlyOdd {
+			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_perform_only_odd.DeployUpkeepCounterPerformOnlyOdd(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
 			)
 		} else {
 			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
