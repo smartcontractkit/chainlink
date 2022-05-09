@@ -100,8 +100,8 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 	}
 	return &FluxMonitorSpec{
 		ContractAddress:     spec.ContractAddress,
-		Threshold:           spec.Threshold,
-		AbsoluteThreshold:   spec.AbsoluteThreshold,
+		Threshold:           float32(spec.Threshold),
+		AbsoluteThreshold:   float32(spec.AbsoluteThreshold),
 		PollTimerPeriod:     spec.PollTimerPeriod.String(),
 		PollTimerDisabled:   spec.PollTimerDisabled,
 		IdleTimerPeriod:     spec.IdleTimerPeriod.String(),
