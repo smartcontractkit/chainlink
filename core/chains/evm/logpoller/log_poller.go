@@ -469,5 +469,5 @@ func (lp *LogPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.
 func EvmWord(i uint64) common.Hash {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
-	return common.BigToHash(big.NewInt(0).SetBytes(b))
+	return common.BytesToHash(b)
 }
