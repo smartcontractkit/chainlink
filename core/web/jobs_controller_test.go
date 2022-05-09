@@ -16,10 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -301,8 +303,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
-				assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
-				assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
+				assert.Equal(t, tomlutils.Float32(0.5), jb.FluxMonitorSpec.Threshold)
+				assert.Equal(t, tomlutils.Float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 			},
 		},
 		{
@@ -538,7 +540,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
 
-	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.tomlutils")))
 	require.NoError(t, err)
 	err = app.AddJobV2(context.Background(), &erejb)
 	require.NoError(t, err)

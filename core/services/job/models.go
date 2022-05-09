@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
 )
 
 const (
@@ -375,11 +376,11 @@ func (s *CronSpec) SetID(value string) error {
 type FluxMonitorSpec struct {
 	ID              int32               `toml:"-"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
-	Threshold       utils.TomlFloat32   `toml:"threshold,float"`
+	Threshold       tomlutils.Float32   `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   utils.TomlFloat32 `toml:"absoluteThreshold,float"`
+	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"`
 	PollTimerPeriod     time.Duration
 	PollTimerDisabled   bool
 	IdleTimerPeriod     time.Duration
@@ -415,7 +416,7 @@ type VRFSpec struct {
 	BatchFulfillmentEnabled bool `toml:"batchFulfillmentEnabled"`
 	// BatchFulfillmentGasMultiplier is used to determine the final gas estimate for the batch
 	// fulfillment.
-	BatchFulfillmentGasMultiplier utils.TomlFloat64 `toml:"batchFulfillmentGasMultiplier"`
+	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
 
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
