@@ -165,7 +165,6 @@ export const ChainConfigurationForm = withStyles(styles)(
                     id="accountAddr"
                     name="accountAddr"
                     label="Account Address"
-                    accounts={chainAccounts}
                     inputProps={{ 'data-testid': 'accountAddr-input' }}
                     required
                     fullWidth
@@ -334,21 +333,22 @@ export const ChainConfigurationForm = withStyles(styles)(
 
 // A custom account address field which clears the input based on the chain id
 // value changoing
-const AccountAddrField = ({ accounts, ...props }: FieldAttributes<any>) => {
+const AccountAddrField = (props: FieldAttributes<any>) => {
   const {
     values: { chainID, accountAddr },
     setFieldValue,
   } = useFormikContext<FormValues>()
 
+  const prevChainID = React.useRef<string>()
   React.useEffect(() => {
-    if (
-      accounts.some(
-        (acc: EthKeysPayload_ResultsFields) => acc.address !== accountAddr,
-      )
-    ) {
+    prevChainID.current = chainID
+  }, [chainID])
+
+  React.useEffect(() => {
+    if (chainID !== prevChainID.current) {
       setFieldValue(props.name, '')
     }
-  }, [chainID, accountAddr, accounts, setFieldValue, props.name])
+  }, [chainID, setFieldValue, accountAddr, props.name])
 
   return <Field {...props} />
 }
