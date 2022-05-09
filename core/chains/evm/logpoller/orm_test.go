@@ -194,16 +194,16 @@ func TestORM(t *testing.T) {
 	require.Equal(t, 4, len(lgs))
 }
 
-func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, eventSig []byte, start, stop int) {
+func insertLogsTopicValueRange(t *testing.T, o *ORM, addr common.Address, blockNumber int, eventSig []byte, start, stop int) {
 	var lgs []Log
 	for i := start; i <= stop; i++ {
 		lgs = append(lgs, Log{
 			EvmChainId:  utils.NewBig(o.chainID),
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(1),
+			BlockNumber: int64(blockNumber),
 			EventSig:    eventSig[:],
-			Topics:      [][]byte{eventSig[:], EvmWord(1).Bytes()},
+			Topics:      [][]byte{eventSig[:], EvmWord(uint64(i)).Bytes()},
 			Address:     addr,
 			TxHash:      common.HexToHash("0x1888"),
 			Data:        []byte("hello"),
@@ -218,7 +218,8 @@ func TestORM_IndexedLogs(t *testing.T) {
 	addr := common.HexToAddress("0x1234")
 	bh := common.HexToHash("0x1234")
 	require.NoError(t, o1.InsertBlock(bh, 1))
-	insertLogsTopicValueRange(t, o1, addr, eventSig.Bytes(), 1, 3)
+	insertLogsTopicValueRange(t, o1, addr, 1, eventSig.Bytes(), 1, 3)
+	insertLogsTopicValueRange(t, o1, addr, 2, eventSig.Bytes(), 4, 4) // unconfirmed
 
 	lgs, err := o1.SelectIndexedLogs(addr, eventSig[:], 1, []common.Hash{EvmWord(1)}, 0)
 	require.NoError(t, err)
@@ -241,8 +242,77 @@ func TestORM_IndexedLogs(t *testing.T) {
 	lgs, err = o1.SelectIndexLogsTopicRange(addr, eventSig[:], 1, EvmWord(1), EvmWord(3), 0)
 	require.NoError(t, err)
 	assert.Equal(t, 3, len(lgs))
+
+	// Check confirmations work as expected.
+	require.NoError(t, o1.InsertBlock(bh, 2))
+	lgs, err = o1.SelectIndexLogsTopicRange(addr, eventSig[:], 1, EvmWord(4), EvmWord(4), 1)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(lgs))
+	require.NoError(t, o1.InsertBlock(bh, 3))
+	lgs, err = o1.SelectIndexLogsTopicRange(addr, eventSig[:], 1, EvmWord(4), EvmWord(4), 1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
 }
 
 func TestORM_DataWords(t *testing.T) {
+	o1, _ := setup(t)
+	eventSig := common.HexToHash("0x1599")
+	addr := common.HexToAddress("0x1234")
+	bh := common.HexToHash("0x1234")
+	require.NoError(t, o1.InsertBlock(bh, 1))
+	require.NoError(t, o1.InsertLogs([]Log{
+		{
+			EvmChainId:  utils.NewBig(o1.chainID),
+			LogIndex:    int64(0),
+			BlockHash:   bh,
+			BlockNumber: int64(1),
+			EventSig:    eventSig[:],
+			Topics:      [][]byte{eventSig[:]},
+			Address:     addr,
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        EvmWord(1).Bytes(),
+		},
+		{
+			// In block 2, unconfirmed to start
+			EvmChainId:  utils.NewBig(o1.chainID),
+			LogIndex:    int64(1),
+			BlockHash:   bh,
+			BlockNumber: int64(2),
+			EventSig:    eventSig[:],
+			Topics:      [][]byte{eventSig[:]},
+			Address:     addr,
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        append(EvmWord(2).Bytes(), EvmWord(3).Bytes()...),
+		},
+	}))
+	// Outside range should fail.
+	lgs, err := o1.SelectDataWordRange(addr, eventSig[:], 0, EvmWord(2), EvmWord(2), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(lgs))
 
+	// Range including log should succeed
+	lgs, err = o1.SelectDataWordRange(addr, eventSig[:], 0, EvmWord(1), EvmWord(2), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	// Range only covering log should succeed
+	lgs, err = o1.SelectDataWordRange(addr, eventSig[:], 0, EvmWord(1), EvmWord(1), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	// Cannot query for unconfirmed second log.
+	lgs, err = o1.SelectDataWordRange(addr, eventSig[:], 1, EvmWord(3), EvmWord(3), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(lgs))
+	// Confirm it, then can query.
+	require.NoError(t, o1.InsertBlock(bh, 2))
+	lgs, err = o1.SelectDataWordRange(addr, eventSig[:], 1, EvmWord(3), EvmWord(3), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+	assert.Equal(t, lgs[0].Data, append(EvmWord(2).Bytes(), EvmWord(3).Bytes()...))
+
+	// Check greater than 1 yields both logs.
+	lgs, err = o1.SelectDataWordGreaterThan(addr, eventSig[:], 0, EvmWord(1), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(lgs))
 }

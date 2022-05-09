@@ -232,16 +232,16 @@ func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig []byte,
 func (o *ORM) SelectIndexedLogs(address common.Address, eventSig []byte, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
-	topicValuesList := fmt.Sprintf("'\\x%s'", topicValues[0].String()[2:])
+	topicValuesList := fmt.Sprintf("'%s'", topicValues[0].String()[2:])
 	for _, topicValue := range topicValues[1:] {
-		topicValuesList += fmt.Sprintf(",'\\x%s'", topicValue.String()[2:])
+		topicValuesList += fmt.Sprintf(",'%s'", topicValue.String()[2:])
 	}
 	// Add 1 since arrays are 1-indexed.
 	err := q.Select(&logs, fmt.Sprintf(`
 		SELECT * FROM logs 
 			WHERE logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
-			AND topics[$4] IN (%s) 
+			AND encode(topics[$4], 'hex') IN (%s) 
 			AND (block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
 			ORDER BY (logs.block_number, logs.log_index)`, topicValuesList), utils.NewBig(o.chainID), address, eventSig, topicIndex+1, confs)
 	if err != nil {
