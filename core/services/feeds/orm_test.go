@@ -760,6 +760,34 @@ func Test_ORM_GetSpec(t *testing.T) {
 	assert.Equal(t, jpID, actual.JobProposalID)
 }
 
+func Test_ORM_GetLatestSpec(t *testing.T) {
+	t.Parallel()
+
+	var (
+		orm  = setupORM(t)
+		fmID = createFeedsManager(t, orm)
+		jpID = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	)
+
+	_ = createJobSpec(t, orm, int64(jpID))
+	spec2ID, err := orm.CreateSpec(feeds.JobProposalSpec{
+		Definition:    "spec data",
+		Version:       2,
+		Status:        feeds.SpecStatusPending,
+		JobProposalID: jpID,
+	})
+	require.NoError(t, err)
+
+	actual, err := orm.GetSpec(spec2ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, spec2ID, actual.ID)
+	assert.Equal(t, "spec data", actual.Definition)
+	assert.Equal(t, int32(2), actual.Version)
+	assert.Equal(t, feeds.SpecStatusPending, actual.Status)
+	assert.Equal(t, jpID, actual.JobProposalID)
+}
+
 func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
 
