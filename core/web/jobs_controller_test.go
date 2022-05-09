@@ -540,7 +540,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
 
-	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.tomlutils")))
+	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
 	err = app.AddJobV2(context.Background(), &erejb)
 	require.NoError(t, err)
