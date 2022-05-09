@@ -66,7 +66,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -74,7 +74,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	require.NoError(t, err)
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges2"),
+		Name:          bridges.MustParseBridgeName("testingbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -102,7 +102,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -161,7 +161,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}

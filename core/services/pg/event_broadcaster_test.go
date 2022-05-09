@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/onsi/gomega"
@@ -15,10 +16,10 @@ import (
 )
 
 func TestEventBroadcaster(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "event_broadcaster", true, false)
+	config, _ := heavyweight.FullTestDBNoFixtures(t, "event_broadcaster")
 
 	eventBroadcaster := cltest.NewEventBroadcaster(t, config.DatabaseURL())
-	require.NoError(t, eventBroadcaster.Start())
+	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
 	t.Run("doesn't broadcast unrelated events (no payload filter)", func(t *testing.T) {

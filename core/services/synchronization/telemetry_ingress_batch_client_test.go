@@ -1,7 +1,6 @@
 package synchronization_test
 
 import (
-	"context"
 	"net/url"
 	"testing"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -36,22 +36,22 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
 	sendInterval := time.Millisecond * 5
-	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval)
-	require.NoError(t, telemIngressClient.Start())
+	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval, false)
+	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
 
 	// Create telemetry payloads for different contracts
 	telemPayload1 := synchronization.TelemPayload{
-		Ctx:        context.Background(),
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 1"),
 		ContractID: "0x1",
 	}
 	telemPayload2 := synchronization.TelemPayload{
-		Ctx:        context.Background(),
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 2"),
 		ContractID: "0x2",
 	}
 	telemPayload3 := synchronization.TelemPayload{
-		Ctx:        context.Background(),
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 3"),
 		ContractID: "0x3",
 	}
@@ -93,9 +93,9 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	telemIngressClient.Send(telemPayload2)
 
 	// Wait for the telemetry to be handled
-	g.Eventually(contractCounter1.Load, "5s").Should(gomega.Equal(uint32(3)))
-	g.Eventually(contractCounter2.Load, "5s").Should(gomega.Equal(uint32(2)))
-	g.Eventually(contractCounter3.Load, "5s").Should(gomega.Equal(uint32(1)))
+	g.Eventually(func() []uint32 {
+		return []uint32{contractCounter1.Load(), contractCounter2.Load(), contractCounter3.Load()}
+	}).Should(gomega.Equal([]uint32{3, 2, 1}))
 
 	// Client should shut down
 	telemIngressClient.Close()

@@ -40,7 +40,6 @@ const styles = (theme) => ({
 })
 
 export const SignIn = (props) => {
-  document.title = 'Sign In'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const handleChange = (name) => (event) => {

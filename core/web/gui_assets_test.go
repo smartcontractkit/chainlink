@@ -6,16 +6,16 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/gin-gonic/gin"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 //go:embed fixtures/operator_ui/assets
@@ -25,9 +25,9 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := &http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make sure the test cases don't exceed the rate limit
 	testCases := []struct {
@@ -55,9 +55,9 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := &http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make sure the test cases don't exceed the rate limit
 	testCases := []struct {
@@ -88,9 +88,9 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.Dev = null.BoolFrom(false)
 	app := cltest.NewApplicationWithConfig(t, config)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := &http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make calls equal to the rate limit
 	rateLimit := 20

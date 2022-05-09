@@ -11,13 +11,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 )
+
+const queryTimeout = 10 * time.Second
 
 //go:generate mockery --name Client --output ../mocks/ --case=underscore
 //go:generate mockery --name Subscription --output ../mocks/ --case=underscore
@@ -27,6 +29,9 @@ type Client interface {
 	Dial(ctx context.Context) error
 	Close()
 	ChainID() *big.Int
+	// NodeStates returns a map of node ID->node state
+	// It might be nil or empty, e.g. for mock clients etc
+	NodeStates() map[int32]string
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -36,10 +41,15 @@ type Client interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	// BatchCallContextAll calls BatchCallContext for every single node including
+	// sendonlys.
+	// CAUTION: This should only be used for mass re-transmitting transactions, it
+	// might have unexpected effects to use it for anything else.
+	BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 
 	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
 	// difference in how block header hashes are calculated by Parity nodes
-	// running on Kovan.  We have to return our own wrapper type to capture the
+	// running on Kovan. We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
@@ -51,6 +61,7 @@ type Client interface {
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
@@ -81,7 +92,7 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 	} else {
 		ctx = context.Background()
 	}
-	return context.WithTimeout(ctx, 15*time.Second)
+	return context.WithTimeout(ctx, queryTimeout)
 }
 
 // client represents an abstract client that manages connections to
@@ -114,6 +125,14 @@ func (client *client) Dial(ctx context.Context) error {
 
 func (client *client) Close() {
 	client.pool.Close()
+}
+
+func (client *client) NodeStates() (states map[int32]string) {
+	states = make(map[int32]string)
+	for _, n := range client.pool.nodes {
+		states[n.ID()] = n.State().String()
+	}
+	return
 }
 
 // CallArgs represents the data used to call the balance method of a contract.
@@ -199,6 +218,12 @@ func (client *client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (g
 	return client.pool.EstimateGas(ctx, call)
 }
 
+// SuggestGasPrice calls the RPC node to get a suggested gas price.
+// WARNING: It is not recommended to ever use this result for anything
+// important. There are a number of issues with asking the RPC node to provide a
+// gas estimate; it is not reliable. Unless you really have a good reason to
+// use this, you should probably use core node's internal gas estimator
+// instead.
 func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	return client.pool.SuggestGasPrice(ctx)
 }
@@ -213,6 +238,10 @@ func (client *client) CodeAt(ctx context.Context, account common.Address, blockN
 
 func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return client.pool.BlockByNumber(ctx, number)
+}
+
+func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return client.pool.BlockByHash(ctx, hash)
 }
 
 func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
@@ -260,7 +289,7 @@ func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 	return csf, nil
 }
 
-func (client *client) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
 	return client.pool.EthSubscribe(ctx, channel, args...)
 }
 
@@ -278,6 +307,16 @@ func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 	return client.pool.BatchCallContext(ctx, b)
 }
 
+func (client *client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	return client.pool.BatchCallContextAll(ctx, b)
+}
+
+// SuggestGasTipCap calls the RPC node to get a suggested gas tip cap.
+// WARNING: It is not recommended to ever use this result for anything
+// important. There are a number of issues with asking the RPC node to provide a
+// gas estimate; it is not reliable. Unless you really have a good reason to
+// use this, you should probably use core node's internal gas estimator
+// instead.
 func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return client.pool.SuggestGasTipCap(ctx)
 }

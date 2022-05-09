@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -17,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -35,19 +38,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type broadcasterHelper struct {
 	t            *testing.T
 	lb           log.BroadcasterInTest
 	db           *sqlx.DB
-	mockEth      *mockEth
+	mockEth      *evmtest.MockEth
 	globalConfig *configtest.TestGeneralConfig
 	config       evmconfig.ChainScopedConfig
 
 	// each received channel corresponds to one eth subscription
-	chchRawLogs    chan chan<- types.Log
+	chchRawLogs    chan evmtest.RawSub[types.Log]
 	toUnsubscribe  []func()
 	pipelineHelper cltest.JobPipelineV2TestHelper
 }
@@ -69,9 +71,9 @@ func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscrib
 		FilterLogsResult:    filterLogsResult,
 	}
 
-	chchRawLogs := make(chan chan<- types.Log, timesSubscribe)
+	chchRawLogs := make(chan evmtest.RawSub[types.Log], timesSubscribe)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := c.newWithEthClient(t, mockEth.ethClient)
+	helper := c.newWithEthClient(t, mockEth.EthClient)
 	helper.chchRawLogs = chchRawLogs
 	helper.mockEth = mockEth
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(10)
@@ -83,9 +85,6 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 }
 
 func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client) *broadcasterHelper {
-	if testing.Short() {
-		t.Skip("skipping due to broadcasterHelper")
-	}
 	if c.db == nil {
 		c.db = pgtest.NewSqlxDB(t)
 	}
@@ -105,7 +104,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 		LogBroadcaster: &log.NullBroadcaster{},
 	})
 	kst := cltest.NewKeyStore(t, c.db, globalConfig)
-	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst)
+	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst, nil, nil)
 
 	return &broadcasterHelper{
 		t:              t,
@@ -119,7 +118,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 }
 
 func (helper *broadcasterHelper) start() {
-	err := helper.lb.Start()
+	err := helper.lb.Start(testutils.Context(helper.t))
 	require.NoError(helper.t, err)
 }
 
@@ -167,7 +166,7 @@ func (helper *broadcasterHelper) requireBroadcastCount(expectedCount int) {
 		return count.Count, err
 	}
 
-	g.Eventually(comparisonFunc, cltest.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
+	g.Eventually(comparisonFunc, testutils.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
 	g.Consistently(comparisonFunc, 1*time.Second, 200*time.Millisecond).Should(gomega.Equal(expectedCount))
 }
 
@@ -284,7 +283,7 @@ func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	cfg := cltest.NewTestGeneralConfig(listener.t)
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	lggr.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
@@ -360,27 +359,6 @@ type mockListener struct {
 func (l *mockListener) JobID() int32            { return l.jobID }
 func (l *mockListener) HandleLog(log.Broadcast) {}
 
-type mockEth struct {
-	ethClient        *evmmocks.Client
-	sub              *evmmocks.Subscription
-	subscribeCalls   atomic.Int32
-	unsubscribeCalls atomic.Int32
-	checkFilterLogs  func(int64, int64)
-}
-
-func (mock *mockEth) assertExpectations(t *testing.T) {
-	mock.ethClient.AssertExpectations(t)
-	mock.sub.AssertExpectations(t)
-}
-
-func (mock *mockEth) subscribeCallCount() int32 {
-	return mock.subscribeCalls.Load()
-}
-
-func (mock *mockEth) unsubscribeCallCount() int32 {
-	return mock.unsubscribeCalls.Load()
-}
-
 type mockEthClientExpectedCalls struct {
 	SubscribeFilterLogs int
 	HeaderByNumber      int
@@ -389,45 +367,41 @@ type mockEthClientExpectedCalls struct {
 	FilterLogsResult []types.Log
 }
 
-func newMockEthClient(t *testing.T, chchRawLogs chan<- chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
-	ethClient, sub := cltest.NewEthClientAndSubMock(t)
-	mockEth := &mockEth{
-		ethClient:       ethClient,
-		sub:             sub,
-		checkFilterLogs: nil,
-	}
-	mockEth.ethClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
-	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			mockEth.subscribeCalls.Inc()
-			chchRawLogs <- args.Get(2).(chan<- types.Log)
-		}).
-		Return(mockEth.sub, nil).
+func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtest.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtest.MockEth {
+	ethClient := new(evmmocks.Client)
+	ethClient.Test(t)
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	mockEth.EthClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
+	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
+				return nil
+			},
+		).
 		Times(expectedCalls.SubscribeFilterLogs)
 
-	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
+	mockEth.EthClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
 		Return(&evmtypes.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
 	if expectedCalls.FilterLogs > 0 {
-		mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+		mockEth.EthClient.On("FilterLogs", mock.Anything, mock.Anything).
 			Run(func(args mock.Arguments) {
 				filterQuery := args.Get(1).(ethereum.FilterQuery)
 				fromBlock := filterQuery.FromBlock.Int64()
 				toBlock := filterQuery.ToBlock.Int64()
-				if mockEth.checkFilterLogs != nil {
-					mockEth.checkFilterLogs(fromBlock, toBlock)
+				if mockEth.CheckFilterLogs != nil {
+					mockEth.CheckFilterLogs(fromBlock, toBlock)
 				}
 			}).
 			Return(expectedCalls.FilterLogsResult, nil).
 			Times(expectedCalls.FilterLogs)
 	}
 
-	mockEth.sub.On("Err").
-		Return(nil)
-
-	mockEth.sub.On("Unsubscribe").
-		Return().
-		Run(func(mock.Arguments) { mockEth.unsubscribeCalls.Inc() })
 	return mockEth
 }

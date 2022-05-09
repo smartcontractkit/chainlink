@@ -25,20 +25,19 @@ func ValidateBridgeTypeNotExist(bt *bridges.BridgeTypeRequest, orm bridges.ORM) 
 	if err == nil {
 		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
 	}
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		fe.Add(fmt.Sprintf("Error determining if bridge type %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
 }
 
-// ValidateBridgeType checks that the bridge type doesn't have a duplicate
-// or invalid name or invalid url
-func ValidateBridgeType(bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
+// ValidateBridgeType checks that the bridge type has the required field with valid values.
+func ValidateBridgeType(bt *bridges.BridgeTypeRequest) error {
 	fe := models.NewJSONAPIErrors()
 	if len(bt.Name.String()) < 1 {
 		fe.Add("No name specified")
 	}
-	if _, err := bridges.NewTaskType(bt.Name.String()); err != nil {
+	if _, err := bridges.ParseBridgeName(bt.Name.String()); err != nil {
 		fe.Merge(err)
 	}
 	u := bt.URL.String()
@@ -70,11 +69,11 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	orm := btc.App.BridgeORM()
-	if e := ValidateBridgeType(btr, orm); e != nil {
+	if e := ValidateBridgeType(btr); e != nil {
 		jsonAPIError(c, http.StatusBadRequest, e)
 		return
 	}
+	orm := btc.App.BridgeORM()
 	if e := ValidateBridgeTypeNotExist(btr, orm); e != nil {
 		jsonAPIError(c, http.StatusBadRequest, e)
 		return
@@ -117,7 +116,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 
-	taskType, err := bridges.NewTaskType(name)
+	taskType, err := bridges.ParseBridgeName(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -141,7 +140,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	name := c.Param("BridgeName")
 	btr := &bridges.BridgeTypeRequest{}
 
-	taskType, err := bridges.NewTaskType(name)
+	taskType, err := bridges.ParseBridgeName(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -162,7 +161,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if err := ValidateBridgeType(btr, orm); err != nil {
+	if err := ValidateBridgeType(btr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
@@ -178,7 +177,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
 
-	taskType, err := bridges.NewTaskType(name)
+	taskType, err := bridges.ParseBridgeName(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return

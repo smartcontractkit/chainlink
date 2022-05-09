@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -25,7 +26,7 @@ import (
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	services.Service
+	services.ServiceCtx
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
@@ -38,6 +39,7 @@ type Runner interface {
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
+	InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
 
 	// ExecuteAndInsertFinishedRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
@@ -48,13 +50,15 @@ type Runner interface {
 }
 
 type runner struct {
-	orm             ORM
-	config          Config
-	chainSet        evm.ChainSet
-	ethKeyStore     ETHKeyStore
-	vrfKeyStore     VRFKeyStore
-	runReaperWorker utils.SleeperTask
-	lggr            logger.Logger
+	orm                    ORM
+	config                 Config
+	chainSet               evm.ChainSet
+	ethKeyStore            ETHKeyStore
+	vrfKeyStore            VRFKeyStore
+	runReaperWorker        utils.SleeperTask
+	lggr                   logger.Logger
+	httpClient             *http.Client
+	unrestrictedHTTPClient *http.Client
 
 	// test helper
 	runFinished func(*Run)
@@ -94,17 +98,19 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger) *runner {
+func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
-		orm:         orm,
-		config:      config,
-		chainSet:    chainSet,
-		ethKeyStore: ethks,
-		vrfKeyStore: vrfks,
-		chStop:      make(chan struct{}),
-		wgDone:      sync.WaitGroup{},
-		runFinished: func(*Run) {},
-		lggr:        lggr.Named("PipelineRunner"),
+		orm:                    orm,
+		config:                 config,
+		chainSet:               chainSet,
+		ethKeyStore:            ethks,
+		vrfKeyStore:            vrfks,
+		chStop:                 make(chan struct{}),
+		wgDone:                 sync.WaitGroup{},
+		runFinished:            func(*Run) {},
+		lggr:                   lggr.Named("PipelineRunner"),
+		httpClient:             httpClient,
+		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
@@ -112,7 +118,8 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 	return r
 }
 
-func (r *runner) Start() error {
+// Start starts Runner.
+func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
 		r.wgDone.Add(2)
 		go r.scheduleUnfinishedRuns()
@@ -143,7 +150,7 @@ func (r *runner) runReaperLoop() {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
+	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -151,6 +158,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
+			runReaperTicker.Reset(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 		}
 	}
 }
@@ -227,9 +235,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		switch task.Type() {
 		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
+			task.(*HTTPTask).httpClient = r.httpClient
+			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).queryer = r.orm.GetQ()
+			// URL is "safe" because it comes from the node's own database. We
+			// must use the unrestrictedHTTPClient because some node operators
+			// may run external adapters on their own hardware
+			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config
@@ -262,7 +276,8 @@ func (r *runner) run(
 	vars Vars,
 	l logger.Logger,
 ) (TaskRunResults, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
+	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
+	l.Debug("Initiating tasks for pipeline run of spec")
 
 	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
@@ -387,7 +402,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// below. It has already been changed several times trying to "fix" a bug,
 	// but actually introducing new ones. Please leave it as-is unless you have
 	// an extremely good reason to change it.
-	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
+	ctx, cancel := utils.WithCloseChan(ctx, r.chStop)
 	defer cancel()
 	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
@@ -575,14 +590,16 @@ func (r *runner) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts 
 	return r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, qopts...)
 }
 
+func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
+	return r.orm.InsertFinishedRuns(runs, saveSuccessfulTaskRuns, qopts...)
+}
+
 func (r *runner) runReaper() {
-	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
-	if ctx.Err() != nil {
-		return
-	} else if err != nil {
+	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
@@ -598,7 +615,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// immediately run reaper so we don't consider runs that are too old
 	r.runReaper()
 
-	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {

@@ -1,11 +1,13 @@
 package log
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
@@ -33,9 +35,17 @@ import (
 // The registrations' methods are NOT thread-safe.
 type (
 	registrations struct {
-		// jobID is not unique since one job can have multiple subscribers
-		registeredSubs  map[*subscriber]struct{}
-		handlersByConfs map[uint32]*handlers
+		// Map only used for invariant checking:
+		// registeredSubs is used to sanity check adding/removing the exact same subscriber twice
+		registeredSubs map[*subscriber]struct{}
+		// Map only used for invariant checking:
+		// jobIDAddr enforces that no two listeners can share the same jobID and contract address
+		// This is because log_broadcasts table can only be consumed once and
+		// assumes one listener per job per log event
+		jobIDAddrs map[int32]map[common.Address]struct{}
+
+		// handlersByConfs maps numConfirmations => *handler
+		handlersByConfs map[uint32]*handler
 		logger          logger.Logger
 		evmChainID      big.Int
 
@@ -44,9 +54,10 @@ type (
 		highestNumConfirmations uint32
 	}
 
-	handlers struct {
-		handlersByAddr map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
-		evmChainID     big.Int
+	handler struct {
+		lookupSubs map[common.Address]map[common.Hash]subscribers // contractAddress => logTopic => *subscriber => topicValueFilters
+		evmChainID big.Int
+		logger     logger.Logger
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -60,30 +71,35 @@ type (
 		opts    ListenerOpts
 		filters [][]Topic
 	}
+
+	// subscribers type for convenience and readability
+	subscribers map[*subscriber][][]Topic
 )
 
 func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
 		registeredSubs:  make(map[*subscriber]struct{}),
-		handlersByConfs: make(map[uint32]*handlers),
+		jobIDAddrs:      make(map[int32]map[common.Address]struct{}),
+		handlersByConfs: make(map[uint32]*handler),
 		evmChainID:      evmChainID,
 		logger:          logger.Named("Registrations"),
 	}
 }
 
 func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
-	jobID := sub.listener.JobID()
-	if _, exists := r.registeredSubs[sub]; exists {
-		r.logger.Panicf("Cannot add subscriber: subscription %p with job ID %v already added", sub, jobID)
-	}
-	r.registeredSubs[sub] = struct{}{}
-	r.logger.Tracef("Removed subscription %p with job ID %v", sub, jobID)
-
-	if _, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]; !exists {
-		r.handlersByConfs[sub.opts.MinIncomingConfirmations] = newHandlers(r.evmChainID)
+	if err := r.checkAddSubscriber(sub); err != nil {
+		r.logger.Panicw(err.Error(), "err", err, "addr", sub.opts.Contract.Hex(), "jobID", sub.listener.JobID())
 	}
 
-	needsResubscribe = r.handlersByConfs[sub.opts.MinIncomingConfirmations].addSubscriber(sub)
+	r.logger.Tracef("Added subscription %p with job ID %v", sub, sub.listener.JobID())
+
+	handler, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]
+	if !exists {
+		handler = newHandler(r.logger, r.evmChainID)
+		r.handlersByConfs[sub.opts.MinIncomingConfirmations] = handler
+	}
+
+	needsResubscribe = handler.addSubscriber(sub, r.handlersWithGreaterConfs(sub.opts.MinIncomingConfirmations))
 
 	// increase the variable for highest number of confirmations among all subscribers,
 	// if the new subscriber has a higher value
@@ -93,27 +109,84 @@ func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 	return
 }
 
-func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
-	jobID := sub.listener.JobID()
-	if _, exists := r.registeredSubs[sub]; !exists {
-		r.logger.Panicf("Cannot remove subscriber: subscription %p with job ID %v is not registered", sub, jobID)
+// handlersWithGreaterConfs allows for an optimisation - in the case that we
+// are already listening on this topic for a handler with a GREATER
+// MinIncomingConfirmations, it is not necessary to subscribe again
+func (r *registrations) handlersWithGreaterConfs(confs uint32) (handlersWithGreaterConfs []*handler) {
+	for hConfs, handler := range r.handlersByConfs {
+		if hConfs > confs {
+			handlersWithGreaterConfs = append(handlersWithGreaterConfs, handler)
+		}
 	}
-	delete(r.registeredSubs, sub)
-	r.logger.Tracef("Added subscription %p with job ID %v", sub, jobID)
+	return
+}
+
+// checkAddSubscriber registers the subsciber and makes sure we aren't violating any assumptions
+// maps modified are only used for checks
+func (r *registrations) checkAddSubscriber(sub *subscriber) error {
+	if sub.opts.MinIncomingConfirmations <= 0 {
+		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined.", sub.opts.MinIncomingConfirmations)
+	}
+
+	jobID := sub.listener.JobID()
+	if _, exists := r.registeredSubs[sub]; exists {
+		return errors.Errorf("Cannot add subscriber %p for job ID %v: already added", sub, jobID)
+	}
+	r.registeredSubs[sub] = struct{}{}
+	addrs, exists := r.jobIDAddrs[jobID]
+	if !exists {
+		r.jobIDAddrs[jobID] = make(map[common.Address]struct{})
+	}
+	if _, exists := addrs[sub.opts.Contract]; exists {
+		return errors.Errorf("Cannot add subscriber %p: only one subscription is allowed per jobID/contract address. There is already a subscription with job ID %v listening on %s", sub, jobID, sub.opts.Contract.Hex())
+	}
+	r.jobIDAddrs[jobID][sub.opts.Contract] = struct{}{}
+	return nil
+}
+
+func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
+	if err := r.checkRemoveSubscriber(sub); err != nil {
+		r.logger.Panicw(err.Error(), "err", err, "addr", sub.opts.Contract.Hex(), "jobID", sub.listener.JobID())
+	}
+	r.logger.Tracef("Removed subscription %p with job ID %v", sub, sub.listener.JobID())
 
 	handlers, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]
 	if !exists {
 		return
 	}
 
-	needsResubscribe = handlers.removeSubscriber(sub)
+	needsResubscribe = handlers.removeSubscriber(sub, r.handlersByConfs)
 
-	if len(r.handlersByConfs[sub.opts.MinIncomingConfirmations].handlersByAddr) == 0 {
+	if len(r.handlersByConfs[sub.opts.MinIncomingConfirmations].lookupSubs) == 0 {
 		delete(r.handlersByConfs, sub.opts.MinIncomingConfirmations)
 		r.resetHighestNumConfirmationsValue()
 	}
 
 	return
+}
+
+// checkRemoveSubscriber deregisters the subscriber and validates we aren't
+// violating any assumptions
+// maps modified are only used for checks
+func (r *registrations) checkRemoveSubscriber(sub *subscriber) error {
+	jobID := sub.listener.JobID()
+	if _, exists := r.registeredSubs[sub]; !exists {
+		return errors.Errorf("Cannot remove subscriber %p for job ID %v: not registered", sub, jobID)
+	}
+	delete(r.registeredSubs, sub)
+	addrs, exists := r.jobIDAddrs[jobID]
+	if !exists {
+		return errors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing job ID %v", sub, jobID)
+	}
+	_, exists = addrs[sub.opts.Contract]
+	if !exists {
+		return errors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing address %s", sub, sub.opts.Contract.Hex())
+	}
+	delete(r.jobIDAddrs[jobID], sub.opts.Contract)
+	if len(r.jobIDAddrs[jobID]) == 0 {
+		delete(r.jobIDAddrs, jobID)
+	}
+	return nil
 }
 
 // reset the number tracking highest num confirmations among all subscribers
@@ -196,80 +269,119 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func newHandlers(evmChainID big.Int) *handlers {
-	return &handlers{
-		handlersByAddr: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
-		evmChainID:     evmChainID,
+func newHandler(lggr logger.Logger, evmChainID big.Int) *handler {
+	return &handler{
+		lookupSubs: make(map[common.Address]map[common.Hash]subscribers),
+		evmChainID: evmChainID,
+		logger:     lggr,
 	}
 }
 
-func (r *handlers) addSubscriber(sub *subscriber) (needsResubscribe bool) {
+func (r *handler) addSubscriber(sub *subscriber, handlersWithGreaterConfs []*handler) (needsResubscribe bool) {
 	addr := sub.opts.Contract
 
 	if sub.opts.MinIncomingConfirmations <= 0 {
-		sub.opts.MinIncomingConfirmations = 1
+		r.logger.Panicw(fmt.Sprintf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined.", sub.opts.MinIncomingConfirmations), "addr", sub.opts.Contract.Hex(), "jobID", sub.listener.JobID())
 	}
 
-	if _, exists := r.handlersByAddr[addr]; !exists {
-		r.handlersByAddr[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
+	if _, exists := r.lookupSubs[addr]; !exists {
+		r.lookupSubs[addr] = make(map[common.Hash]subscribers)
 	}
 
 	for topic, topicValueFilters := range sub.opts.LogsWithTopics {
-		if _, exists := r.handlersByAddr[addr][topic]; !exists {
-			r.handlersByAddr[addr][topic] = make(map[Listener]*listenerMetadata)
-			needsResubscribe = true
-		}
+		if _, exists := r.lookupSubs[addr][topic]; !exists {
+			r.logger.Tracef("No existing sub for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+			r.lookupSubs[addr][topic] = make(subscribers)
 
-		r.handlersByAddr[addr][topic][sub.listener] = &listenerMetadata{
-			opts:    sub.opts,
-			filters: topicValueFilters,
+			func() {
+				if !needsResubscribe {
+					// NOTE: This is an optimization; if we already have a
+					// subscription to this addr/topic at a higher
+					// MinIncomingConfirmations then we don't need to resubscribe
+					// again since even the worst case lookback is already covered
+					for _, existingHandler := range handlersWithGreaterConfs {
+						if _, exists := existingHandler.lookupSubs[addr][topic]; exists {
+							r.logger.Tracef("Sub already exists for addr %s and topic %s at greater than this MinIncomingConfirmations of %v. Resubscribe is not required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+							return
+						}
+					}
+					r.logger.Tracef("No sub exists for addr %s and topic %s at this or greater MinIncomingConfirmations of %v. Resubscribe is required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+					needsResubscribe = true
+				}
+			}()
 		}
+		r.lookupSubs[addr][topic][sub] = topicValueFilters
 	}
 	return
 }
 
-func (r *handlers) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
+func (r *handler) removeSubscriber(sub *subscriber, allHandlers map[uint32]*handler) (needsResubscribe bool) {
 	addr := sub.opts.Contract
 
-	// FIXME: What about the case where you remove/add a job with the same contract address?
-	// addr is not good enough to be a unique key
-	// MARK MARK MARK
-	if _, exists := r.handlersByAddr[addr]; !exists {
-		return
-	}
 	for topic := range sub.opts.LogsWithTopics {
-		topicMap, exists := r.handlersByAddr[addr][topic]
+		// OK to panic on missing addr/topic here, since that would be an invariant violation:
+		// Both addr and topic will always have been added on addSubscriber
+		// LogsWithTopics should never be mutated
+		// Only removeSubscriber should ever remove anything from this map
+		addrTopics, exists := r.lookupSubs[addr]
 		if !exists {
-			continue
+			r.logger.Panicf("AssumptionViolation: expected lookupSubs to contain addr %s for subscriber %p with job ID %v", addr.Hex(), sub, sub.listener.JobID())
 		}
+		topicMap, exists := addrTopics[topic]
+		if !exists {
+			r.logger.Panicf("AssumptionViolation: expected addrTopics to contain topic %v for subscriber %p with job ID %v", topic, sub, sub.listener.JobID())
+		}
+		if _, exists = topicMap[sub]; !exists {
+			r.logger.Panicf("AssumptionViolation: expected topicMap to contain subscriber %p with job ID %v", sub, sub.listener.JobID())
+		}
+		delete(topicMap, sub)
 
-		delete(topicMap, sub.listener)
-
+		// cleanup and resubscribe if necessary
 		if len(topicMap) == 0 {
-			needsResubscribe = true
-			delete(r.handlersByAddr[addr], topic)
+			r.logger.Tracef("No subs left for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+
+			func() {
+				if !needsResubscribe {
+					// NOTE: This is an optimization. Resub not necessary if there
+					// are still any other handlers listening on this addr/topic.
+					for confs, otherHandler := range allHandlers {
+						if confs == sub.opts.MinIncomingConfirmations {
+							// no need to check ourself, already did this above
+							continue
+						}
+						if _, exists := otherHandler.lookupSubs[addr][topic]; exists {
+							r.logger.Tracef("Sub still exists for addr %s and topic %s. Resubscribe will not be performed", addr.Hex(), topic.Hex())
+							return
+						}
+					}
+
+					r.logger.Tracef("No sub exists for addr %s and topic %s. Resubscribe will be performed", addr.Hex(), topic.Hex())
+					needsResubscribe = true
+				}
+			}()
+			delete(r.lookupSubs[addr], topic)
 		}
-		if len(r.handlersByAddr[addr]) == 0 {
-			delete(r.handlersByAddr, addr)
+		if len(r.lookupSubs[addr]) == 0 {
+			delete(r.lookupSubs, addr)
 		}
 	}
 	return
 }
 
-func (r *handlers) addressesAndTopics() ([]common.Address, []common.Hash) {
+func (r *handler) addressesAndTopics() ([]common.Address, []common.Hash) {
 	var addresses []common.Address
 	var topics []common.Hash
-	for addr := range r.handlersByAddr {
+	for addr := range r.lookupSubs {
 		addresses = append(addresses, addr)
-		for topic := range r.handlersByAddr[addr] {
+		for topic := range r.lookupSubs[addr] {
 			topics = append(topics, topic)
 		}
 	}
 	return addresses, topics
 }
 
-func (r *handlers) isAddressRegistered(address common.Address) bool {
-	_, exists := r.handlersByAddr[address]
+func (r *handler) isAddressRegistered(addr common.Address) bool {
+	_, exists := r.lookupSubs[addr]
 	return exists
 }
 
@@ -279,25 +391,25 @@ type broadcastCreator interface {
 	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
 }
 
-func (r *handlers) sendLog(log types.Log, latestHead evmtypes.Head,
+func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 	broadcasts map[LogBroadcastAsKey]bool,
 	bc broadcastCreator,
 	logger logger.Logger) {
 
+	topic := log.Topics[0]
+
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
-	for listener, metadata := range r.handlersByAddr[log.Address][log.Topics[0]] {
-		listener := listener
-
-		currentBroadcast := NewLogBroadcastAsKey(log, listener)
+	for sub, filters := range r.lookupSubs[log.Address][topic] {
+		currentBroadcast := NewLogBroadcastAsKey(log, sub.listener)
 		consumed, exists := broadcasts[currentBroadcast]
 		if exists && consumed {
 			continue
 		}
 
-		if len(metadata.filters) > 0 && len(log.Topics) > 1 {
+		if len(filters) > 0 && len(log.Topics) > 1 {
 			topicValues := log.Topics[1:]
-			if !filtersContainValues(topicValues, metadata.filters) {
+			if !filtersContainValues(topicValues, filters) {
 				continue
 			}
 		}
@@ -306,13 +418,13 @@ func (r *handlers) sendLog(log types.Log, latestHead evmtypes.Head,
 
 		var decodedLog generated.AbigenLog
 		var err error
-		decodedLog, err = metadata.opts.ParseLog(logCopy)
+		decodedLog, err = sub.opts.ParseLog(logCopy)
 		if err != nil {
 			logger.Errorw("Could not parse contract log", "err", err)
 			continue
 		}
 
-		jobID := listener.JobID()
+		jobID := sub.listener.JobID()
 		if !exists {
 			// Create unconsumed broadcast
 			if err := bc.CreateBroadcast(log.BlockHash, log.BlockNumber, log.Index, jobID); err != nil {
@@ -326,10 +438,13 @@ func (r *handlers) sendLog(log types.Log, latestHead evmtypes.Head,
 			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
 			"address", log.Address, "latestBlockNumber", latestBlockNumber, "jobID", jobID)
 
+		// must copy function pointer here since range pointer (sub) may not be
+		// used in goroutine below
+		handleLog := sub.listener.HandleLog
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			listener.HandleLog(&broadcast{
+			handleLog(&broadcast{
 				latestBlockNumber,
 				latestHead.Hash,
 				decodedLog,

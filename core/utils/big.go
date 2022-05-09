@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sort"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const base10 = 10
@@ -145,42 +145,42 @@ func (b *Big) String() string {
 	return b.ToInt().String()
 }
 
-// Hex returns the hex encoding of b.
+// Bytes returns the absolute value of b as a big-endian byte slice.
 func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
 }
 
+// Bytes returns the
+func (b *Big) Bytes() []byte {
+	return b.ToInt().Bytes()
+}
+
+// Cmp compares b and c as big.Ints.
 func (b *Big) Cmp(c *Big) int {
 	return b.ToInt().Cmp(c.ToInt())
 }
 
+// Equal returns true if c is equal according to Cmp.
 func (b *Big) Equal(c *Big) bool {
 	return b.Cmp(c) == 0
 }
 
-// BigIntSlice attaches the methods of sort.Interface to []*big.Int, sorting in increasing order.
-type BigIntSlice []*big.Int
-
-func (s BigIntSlice) Len() int           { return len(s) }
-func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
-func (s BigIntSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-// Sort destructively sorts the slice
-func (s BigIntSlice) Sort() {
-	sort.Sort(s)
+// Int64 casts b as an int64 type
+func (b *Big) Int64() int64 {
+	return b.ToInt().Int64()
 }
 
-// Max returns the largest element
-func (s BigIntSlice) Max() *big.Int {
-	tmp := make(BigIntSlice, len(s))
-	copy(tmp, s)
-	tmp.Sort()
-	return tmp[len(tmp)-1]
+// Add returns the sum of b and c
+func (b *Big) Add(c interface{}) *Big {
+	return NewBig(bigmath.Add(b, c))
 }
 
-func (s BigIntSlice) Min() *big.Int {
-	tmp := make(BigIntSlice, len(s))
-	copy(tmp, s)
-	tmp.Sort()
-	return tmp[0]
+// Sub returns the differencs between b and c
+func (b *Big) Sub(c interface{}) *Big {
+	return NewBig(bigmath.Sub(b, c))
+}
+
+// Sub returns b % c
+func (b *Big) Mod(c interface{}) *Big {
+	return NewBig(bigmath.Mod(b, c))
 }

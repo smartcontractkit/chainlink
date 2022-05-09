@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -13,7 +12,9 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v2v3_interface"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -36,9 +37,10 @@ type Delegate struct {
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
 
 type GethKeyStore interface {
-	GetRoundRobinAddress(addresses ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
+//go:generate mockery --name Config --output mocks/ --case=underscore
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EvmGasLimitDefault() uint64
@@ -71,7 +73,8 @@ func (d *Delegate) JobType() job.Type {
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+// ServicesForSpec satisfies the job.Delegate interface.
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -91,6 +94,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// If the batch coordinator address is not provided, we will fall back to non-batched
+	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
+	if jb.VRFSpec.BatchCoordinatorAddress != nil {
+		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
+			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "create batch coordinator wrapper")
+		}
+	}
+
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -105,33 +119,33 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			if err != nil {
 				return nil, err
 			}
-			aggregator, err := aggregator_v2v3_interface.NewAggregatorV2V3Interface(linkEthFeedAddress, chain.Client())
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
 				return nil, err
 			}
-			return []job.Service{&listenerV2{
-				cfg:                chain.Config(),
-				l:                  lV2,
-				ethClient:          chain.Client(),
-				logBroadcaster:     chain.LogBroadcaster(),
-				q:                  d.q,
-				coordinator:        coordinatorV2,
-				aggregator:         aggregator,
-				txm:                chain.TxManager(),
-				pipelineRunner:     d.pr,
-				gethks:             d.ks.Eth(),
-				job:                jb,
-				reqLogs:            utils.NewHighCapacityMailbox(),
-				chStop:             make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
-				blockNumberToReqID: pairing.New(),
-				reqAdded:           func() {},
-				headBroadcaster:    chain.HeadBroadcaster(),
-				wg:                 &sync.WaitGroup{},
-			}}, nil
+
+			return []job.ServiceCtx{newListenerV2(
+				chain.Config(),
+				lV2,
+				chain.Client(),
+				chain.ID(),
+				chain.LogBroadcaster(),
+				d.q,
+				coordinatorV2,
+				batchCoordinatorV2,
+				aggregator,
+				chain.TxManager(),
+				d.pr,
+				d.ks.Eth(),
+				jb,
+				utils.NewHighCapacityMailbox[log.Broadcast](),
+				func() {},
+				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				chain.HeadBroadcaster(),
+				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.Service{&listenerV1{
+			return []job.ServiceCtx{&listenerV1{
 				cfg:             chain.Config(),
 				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),
@@ -144,13 +158,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				job:             jb,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewHighCapacityMailbox(),
+				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
 				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
+				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
 			}}, nil
 		}
 	}

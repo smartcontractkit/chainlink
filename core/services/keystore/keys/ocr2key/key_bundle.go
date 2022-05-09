@@ -16,8 +16,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
+//nolint
 type KeyBundle interface {
+	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
+	// OffchainKeyring is used for signing observations
 	ocrtypes.OffchainKeyring
 	ID() string
 	ChainType() chaintype.ChainType
@@ -29,6 +32,7 @@ type KeyBundle interface {
 
 var curve = secp256k1.S256()
 
+// New returns key bundle based on the chain type
 func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:
@@ -41,6 +45,7 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
 
+// MustNewInsecure returns key bundle based on the chain type or panics
 func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle {
 	switch chainType {
 	case chaintype.EVM:
@@ -53,6 +58,7 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
 
+// NewKeyBundleFromOCR1Key gets the key bundle from an OCR1 key
 func NewKeyBundleFromOCR1Key(v1key ocrkey.KeyV2) (evmKeyBundle, error) {
 	onChainKeyRing := evmKeyring{
 		privateKey: ecdsa.PrivateKey(*v1key.OnChainSigning),
@@ -88,6 +94,7 @@ func (kb keyBundleBase) ID() string {
 	return hex.EncodeToString(kb.id[:])
 }
 
+// ChainType gets the chain type from the key bundle
 func (kb keyBundleBase) ChainType() chaintype.ChainType {
 	return kb.chainType
 }
@@ -102,6 +109,7 @@ func (kb keyBundleBase) GoString() string {
 	return kb.String()
 }
 
+//nolint
 type Raw []byte
 
 func (raw Raw) Key() KeyBundle {

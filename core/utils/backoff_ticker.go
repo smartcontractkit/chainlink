@@ -7,18 +7,12 @@ import (
 	"github.com/jpillora/backoff"
 )
 
-type BackoffTicker struct {
-	b         backoff.Backoff
-	timer     *time.Timer
-	C         chan time.Time
-	chStop    chan struct{}
-	isRunning bool
-	sync.Mutex
-}
+type timerFactory func(d time.Duration) *time.Timer
 
-func NewBackoffTicker(min, max time.Duration) BackoffTicker {
+func newBackoffTicker(tf timerFactory, min, max time.Duration) BackoffTicker {
 	c := make(chan time.Time, 1)
 	return BackoffTicker{
+		createTimer: tf,
 		b: backoff.Backoff{
 			Min: min,
 			Max: max,
@@ -26,6 +20,22 @@ func NewBackoffTicker(min, max time.Duration) BackoffTicker {
 		C:      c,
 		chStop: make(chan struct{}),
 	}
+}
+
+// BackoffTicker sends ticks with periods that increase over time, over a configured range.
+type BackoffTicker struct {
+	createTimer timerFactory
+	b           backoff.Backoff
+	timer       *time.Timer
+	C           chan time.Time
+	chStop      chan struct{}
+	isRunning   bool
+	sync.Mutex
+}
+
+// NewBackoffTicker returns a new BackoffTicker for the given range.
+func NewBackoffTicker(min, max time.Duration) BackoffTicker {
+	return newBackoffTicker(time.NewTimer, min, max)
 }
 
 // Start - Starts the ticker
@@ -68,7 +78,7 @@ func (t *BackoffTicker) run() {
 	for {
 		// Set up initial tick
 		if t.timer == nil {
-			t.timer = time.NewTimer(d)
+			t.timer = t.createTimer(d)
 		}
 
 		select {
@@ -83,6 +93,7 @@ func (t *BackoffTicker) run() {
 	}
 }
 
+// Ticks returns the underlying channel.
 func (t *BackoffTicker) Ticks() <-chan time.Time {
 	return t.C
 }

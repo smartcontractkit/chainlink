@@ -4,7 +4,9 @@ import (
 	"context"
 	"math/big"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -17,13 +19,9 @@ type erroringNode struct {
 	errMsg string
 }
 
-func (e *erroringNode) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	return nil, errors.New(e.errMsg)
-}
+func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
-func (e *erroringNode) Dial(ctx context.Context) error {
-	return errors.New(e.errMsg)
-}
+func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.errMsg) }
 
 func (e *erroringNode) Close() {}
 
@@ -63,6 +61,10 @@ func (e *erroringNode) BlockByNumber(ctx context.Context, number *big.Int) (*typ
 	return nil, errors.New(e.errMsg)
 }
 
+func (e *erroringNode) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }
@@ -99,7 +101,7 @@ func (e *erroringNode) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }
 
-func (e *erroringNode) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+func (e *erroringNode) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
 	return nil, errors.New(e.errMsg)
 }
 
@@ -108,5 +110,11 @@ func (e *erroringNode) String() string {
 }
 
 func (e *erroringNode) State() NodeState {
-	return NodeStateDead
+	return NodeStateUnreachable
 }
+
+func (e *erroringNode) DeclareOutOfSync()            {}
+func (e *erroringNode) DeclareInSync()               {}
+func (e *erroringNode) DeclareUnreachable()          {}
+func (e *erroringNode) ID() int32                    { return 0 }
+func (e *erroringNode) NodeStates() map[int32]string { return nil }

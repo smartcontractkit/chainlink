@@ -11,7 +11,6 @@ import userEvent from '@testing-library/user-event'
 
 import {
   OCRKeys,
-  OCR_KEY_BUNDLES_QUERY,
   CREATE_OCR_KEY_BUNDLE_MUTATION,
   DELETE_OCR_KEY_BUNDLE_MUTATION,
 } from './OCRKeys'
@@ -20,6 +19,7 @@ import {
   buildOCRKeyBundles,
 } from 'support/factories/gql/fetchOCRKeyBundles'
 import Notifications from 'pages/Notifications'
+import { OCR_KEY_BUNDLES_QUERY } from 'src/hooks/queries/useOCRKeysQuery'
 import { waitForLoading } from 'support/test-helpers/wait'
 
 const { findByText, getByRole, queryByText } = screen

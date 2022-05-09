@@ -8,11 +8,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 // Keeper is the keepers commands handler
@@ -24,7 +29,6 @@ type Keeper struct {
 
 // NewKeeper is the constructor of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
-
 	addFundsAmount := big.NewInt(0)
 	addFundsAmount.SetString(cfg.AddFundsAmount, 10)
 
@@ -36,6 +40,11 @@ func NewKeeper(cfg *config.Config) *Keeper {
 
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
+	keepers, owners := k.keepers()
+	k.deployKeepers(ctx, keepers, owners)
+}
+
+func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
 	var registry *keeper.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
@@ -58,6 +67,24 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 		upkeepCount = 0
 	}
 
+	// Create Keeper Jobs on Nodes for Registry
+	for i, keeperAddr := range k.cfg.Keepers {
+		url := k.cfg.KeeperURLs[i]
+		email := k.cfg.KeeperEmails[i]
+		if len(email) == 0 {
+			email = defaultChainlinkNodeLogin
+		}
+		pwd := k.cfg.KeeperPasswords[i]
+		if len(pwd) == 0 {
+			pwd = defaultChainlinkNodePassword
+		}
+		err := k.createKeeperJobOnExistingNode(url, email, pwd, registryAddr.Hex(), keeperAddr)
+		if err != nil {
+			log.Printf("Keeper Job not created for keeper %d: %s %s\n", i, url, keeperAddr)
+			log.Println("Please create it manually")
+		}
+	}
+
 	// Approve keeper registry
 	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
 	if err != nil {
@@ -71,13 +98,14 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 
 	// Set Keepers
 	log.Println("Set keepers...")
-	keepers, owners := k.keepers()
 	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
 	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
 	}
 	k.waitTx(ctx, setKeepersTx)
 	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+
+	return registryAddr
 }
 
 func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
@@ -141,11 +169,20 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
 		fmt.Println()
 		// Deploy
-		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
-			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
-		)
+		var upkeepAddr common.Address
+		var deployUpkeepTx *types.Transaction
+		var err error
+		if k.cfg.UpkeepAverageEligibilityCadence > 0 {
+			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+			)
+		} else {
+			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
+			)
+		}
 		if err != nil {
-			log.Fatal(i, ": DeployAbi failed - ", err)
+			log.Fatal(i, ": Deploy Upkeep failed - ", err)
 		}
 		k.waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
@@ -187,4 +224,25 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 		fromAddrs = append(fromAddrs, k.fromAddr)
 	}
 	return addrs, fromAddrs
+}
+
+// createKeeperJobOnExistingNode connect to existing node to create keeper job
+func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAddr, nodeAddr string) error {
+	c := cfg{nodeURL: url}
+	sr := sessions.SessionRequest{Email: email, Password: password}
+	store := &cmd.MemoryCookieStore{}
+	lggr, close := logger.NewLogger()
+	defer close()
+	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
+	if _, err := tca.Authenticate(sr); err != nil {
+		log.Println("failed to authenticate: ", err)
+		return err
+	}
+	cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
+
+	if err := k.createKeeperJob(cl, registryAddr, nodeAddr); err != nil {
+		log.Println("Failed to create keeper job: ", err)
+		return err
+	}
+	return nil
 }

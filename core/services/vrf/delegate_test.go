@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	eth_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -48,7 +48,7 @@ type vrfUniverse struct {
 	ks        keystore.Master
 	vrfkey    vrfkey.KeyV2
 	submitter common.Address
-	txm       *bptxmmocks.TxManager
+	txm       *txmmocks.TxManager
 	hb        httypes.HeadBroadcaster
 	cc        evm.ChainSet
 	cid       big.Int
@@ -67,16 +67,16 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg)
-	txm := new(bptxmmocks.TxManager)
+	txm := new(txmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
+	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err := ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)
-	submitter, err := ks.Eth().GetRoundRobinAddress()
+	submitter, err := ks.Eth().GetRoundRobinAddress(nil)
 	require.NoError(t, err)
 	vrfkey, err := ks.VRF().Create()
 	require.NoError(t, err)
@@ -320,6 +320,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 				TxHash:      txHash,
 				BlockNumber: 10,
 				BlockHash:   bh,
+				Index:       1,
 			},
 		},
 		{
@@ -340,6 +341,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 				TxHash:      txHash,
 				BlockNumber: 10,
 				BlockHash:   bh,
+				Index:       2,
 			},
 		},
 	}
@@ -362,16 +364,16 @@ func TestDelegate_ValidLog(t *testing.T) {
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
 		// Ensure we queue up a valid eth transaction
-		// Linked to  requestID
+		// Linked to requestID
 		vuni.txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
+			mock.MatchedBy(func(newTx txmgr.NewTx) bool {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
 					newTx.GasLimit == uint64(500000) &&
 					(meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(bulletprooftxmanager.EthTx{}, nil)
+		).Once().Return(txmgr.EthTx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -406,6 +408,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 			),
 			BlockNumber: 10,
 			TxHash:      txHash,
+			Index:       uint(i),
 		}, vuni.cid, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
 		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
 		// Should record that we've responded to this request
@@ -470,7 +473,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}
 
 	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []bulletprooftxmanager.EthTx
+	var ethTxes []txmgr.EthTx
 	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)

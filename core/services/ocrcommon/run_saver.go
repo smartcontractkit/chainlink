@@ -1,6 +1,8 @@
 package ocrcommon
 
 import (
+	"context"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -26,7 +28,8 @@ func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.R
 	}
 }
 
-func (r *RunResultSaver) Start() error {
+// Start starts RunResultSaver.
+func (r *RunResultSaver) Start(context.Context) error {
 	return r.StartOnce("RunResultSaver", func() error {
 		go func() {
 			for {

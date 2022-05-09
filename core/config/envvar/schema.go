@@ -9,9 +9,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -19,6 +20,20 @@ import (
 )
 
 // ConfigSchema records the schema of configuration at the type level
+//
+// A note on Feature Flags
+//
+// Feature flags should be used during development of large features that might
+// span more than one release cycle. Most changes that are not considered "complete"
+// when a PR is merged and might affect node operation should be put behind a
+// feature flag.
+//
+// This also allows to disable large parts of the code that may not be needed
+// for all deployments that could introduce attack surface area if it is not
+// needed.
+//
+// Good example usage is for alternative blockchain support, new services like
+// Feeds Manager, external initiators and so on.
 type ConfigSchema struct {
 	// ESSENTIAL
 	DatabaseURL string `env:"DATABASE_URL"`
@@ -33,12 +48,14 @@ type ConfigSchema struct {
 	InsecureFastScrypt           bool            `env:"INSECURE_FAST_SCRYPT" default:"false"` //nodoc
 	ReaperExpiration             models.Duration `env:"REAPER_EXPIRATION" default:"240h"`     //nodoc
 	RootDir                      string          `env:"ROOT" default:"~/.chainlink"`
+	TelemetryIngressUniConn      bool            `env:"TELEMETRY_INGRESS_UNICONN" default:"true"`
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
 	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
 	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
 	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressSendTimeout  time.Duration   `env:"TELEMETRY_INGRESS_SEND_TIMEOUT" default:"10s"`
 	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
@@ -52,7 +69,7 @@ type ConfigSchema struct {
 	// Database Global Lock
 	AdvisoryLockCheckInterval time.Duration `env:"ADVISORY_LOCK_CHECK_INTERVAL" default:"1s"`
 	AdvisoryLockID            int64         `env:"ADVISORY_LOCK_ID" default:"1027321974924625846"`
-	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"advisorylock"`
+	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"dual"`
 	LeaseLockDuration         time.Duration `env:"LEASE_LOCK_DURATION" default:"10s"`
 	LeaseLockRefreshInterval  time.Duration `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
 	// Database Autobackups
@@ -63,12 +80,14 @@ type ConfigSchema struct {
 	DatabaseBackupURL              *url.URL      `env:"DATABASE_BACKUP_URL"`
 
 	// Logging
-	JSONConsole bool          `env:"JSON_CONSOLE" default:"false"`
-	LogFileDir  string        `env:"LOG_FILE_DIR"`
-	LogLevel    zapcore.Level `env:"LOG_LEVEL"`
-	LogSQL      bool          `env:"LOG_SQL" default:"false"`
-	LogToDisk   bool          `env:"LOG_TO_DISK" default:"false"`
-	LogUnixTS   bool          `env:"LOG_UNIX_TS" default:"false"`
+	JSONConsole       bool           `env:"JSON_CONSOLE" default:"false"`
+	LogFileDir        string         `env:"LOG_FILE_DIR"`
+	LogLevel          zapcore.Level  `env:"LOG_LEVEL"`
+	LogSQL            bool           `env:"LOG_SQL" default:"false"`
+	LogFileMaxSize    utils.FileSize `env:"LOG_FILE_MAX_SIZE" default:"5120mb"` // 5120mb was determined based on previously collected logs, in which a daily log would be ~2.5GB and compressed would be ~210MB
+	LogFileMaxAge     int64          `env:"LOG_FILE_MAX_AGE" default:"0"`
+	LogFileMaxBackups int64          `env:"LOG_FILE_MAX_BACKUPS" default:"1"`
+	LogUnixTS         bool           `env:"LOG_UNIX_TS" default:"false"`
 
 	// Web Server
 	AllowOrigins                   string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
@@ -97,15 +116,21 @@ type ConfigSchema struct {
 	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
 	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
+	// LogPoller
+	FeatureLogPoller bool `env:"FEATURE_LOG_POLLER" default:"false"` //nodoc
+
 	// General chains/RPC
-	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
-	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
-	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
-	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
+	EVMEnabled    bool   `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled bool   `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled bool   `env:"SOLANA_ENABLED" default:"false"`
+	SolanaNodes   string `env:"SOLANA_NODES"`
+	TerraEnabled  bool   `env:"TERRA_ENABLED" default:"false"`
+	TerraNodes    string `env:"TERRA_NODES"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
 	EthereumHTTPURL       string `env:"ETH_HTTP_URL"`
+	EthereumNodes         string `env:"EVM_NODES"`
 	EthereumSecondaryURL  string `env:"ETH_SECONDARY_URL"` //nodoc
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
@@ -124,29 +149,31 @@ type ConfigSchema struct {
 	EvmHeadTrackerMaxBufferSize       uint          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
 	EvmHeadTrackerSamplingInterval    time.Duration `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`
 	EvmLogBackfillBatchSize           uint32        `env:"ETH_LOG_BACKFILL_BATCH_SIZE"`
+	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
+	// Node liveness checking
+	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
+	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
+	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
+
 	// EVM Gas Controls
-	EvmEIP1559DynamicFees      bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
-	EvmGasBumpPercent          uint16   `env:"ETH_GAS_BUMP_PERCENT"`
-	EvmGasBumpThreshold        uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
-	EvmGasBumpTxDepth          uint16   `env:"ETH_GAS_BUMP_TX_DEPTH"`
-	EvmGasBumpWei              *big.Int `env:"ETH_GAS_BUMP_WEI"`
-	EvmGasFeeCapDefault        *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
-	EvmGasLimitDefault         uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
-	EvmGasLimitMultiplier      float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
-	EvmGasLimitTransfer        uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
-	EvmGasPriceDefault         *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
-	EvmGasTipCapDefault        *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
-	EvmGasTipCapMinimum        *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
-	EvmMaxGasPriceWei          *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EvmMaxInFlightTransactions uint32   `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
-	EvmMaxQueuedTransactions   uint64   `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
-	EvmMinGasPriceWei          *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
-	EvmNonceAutoSync           bool     `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
+	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
+	EvmGasBumpThreshold   uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
+	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
+	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
+	EvmGasLimitDefault    uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
+	EvmGasLimitTransfer   uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
+	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
+	EvmGasTipCapDefault   *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
+	EvmGasTipCapMinimum   *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
+	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
+	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	// Gas Estimation
 	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
 	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
@@ -154,16 +181,21 @@ type ConfigSchema struct {
 	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
 	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	// Txm
+	EvmGasBumpTxDepth          uint16 `env:"ETH_GAS_BUMP_TX_DEPTH"`
+	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
+	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
+	EvmNonceAutoSync           bool   `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmUseForwarders           bool   `env:"ETH_USE_FORWARDERS"`
 
 	// Job Pipeline and tasks
-	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
-	DefaultHTTPLimit                          int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
-	DefaultHTTPTimeout                        models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
-	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	JobPipelineMaxRunDuration                 time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
-	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
-	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"24h"`
-	JobPipelineResultWriteQueueDepth          uint64          `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
+	DefaultHTTPLimit                 int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
+	DefaultHTTPTimeout               models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
+	FeatureExternalInitiators        bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
+	JobPipelineMaxRunDuration        time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
+	JobPipelineReaperInterval        time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
+	JobPipelineReaperThreshold       time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"24h"`
+	JobPipelineResultWriteQueueDepth uint64          `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
 
 	// Flux Monitor
 	FMDefaultTransactionQueueDepth uint32 `env:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"` //nodoc
@@ -236,11 +268,14 @@ type ConfigSchema struct {
 	KeeperDefaultTransactionQueueDepth      uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`            //nodoc
 	KeeperGasPriceBufferPercent             uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
 	KeeperGasTipCapBufferPercent            uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
+	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
+	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
+	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
 
 	// CLI client
 	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
@@ -272,6 +307,7 @@ func Name(field string) string {
 	return item.Tag.Get("env")
 }
 
+// TryName gracefully tries to get the environment variable Name for a config schema field
 func TryName(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
@@ -281,6 +317,7 @@ func TryName(field string) string {
 	return item.Tag.Get("env")
 }
 
+// DefaultValue looks up the default value
 func DefaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
@@ -288,16 +325,4 @@ func DefaultValue(name string) (string, bool) {
 	}
 	log.Panicf("Invariant violated, no field of name %s found for DefaultValue", name)
 	return "", false
-}
-
-func ZeroValue(name string) interface{} {
-	schemaT := reflect.TypeOf(ConfigSchema{})
-	if item, ok := schemaT.FieldByName(name); ok {
-		if item.Type.Kind() == reflect.Ptr {
-			return nil
-		}
-		return reflect.New(item.Type).Interface()
-	}
-	log.Panicf("Invariant violated, no field of name %s found for ZeroValue", name)
-	return nil
 }

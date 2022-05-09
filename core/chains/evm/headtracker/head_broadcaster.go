@@ -30,7 +30,7 @@ func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
 		logger:        lggr.Named(logger.HeadBroadcaster),
 		callbacks:     make(callbackSet),
-		mailbox:       utils.NewMailbox(1),
+		mailbox:       utils.NewMailbox[*evmtypes.Head](1),
 		mutex:         &sync.Mutex{},
 		chClose:       make(chan struct{}),
 		wgDone:        sync.WaitGroup{},
@@ -41,7 +41,7 @@ func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 type headBroadcaster struct {
 	logger    logger.Logger
 	callbacks callbackSet
-	mailbox   *utils.Mailbox
+	mailbox   *utils.Mailbox[*evmtypes.Head]
 	mutex     *sync.Mutex
 	chClose   chan struct{}
 	wgDone    sync.WaitGroup
@@ -50,7 +50,7 @@ type headBroadcaster struct {
 	lastCallbackID int
 }
 
-func (hb *headBroadcaster) Start() error {
+func (hb *headBroadcaster) Start(context.Context) error {
 	return hb.StartOnce("HeadBroadcaster", func() error {
 		hb.wgDone.Add(1)
 		go hb.run()
@@ -112,12 +112,11 @@ func (hb *headBroadcaster) run() {
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
 func (hb *headBroadcaster) executeCallbacks() {
-	item, exists := hb.mailbox.Retrieve()
+	head, exists := hb.mailbox.Retrieve()
 	if !exists {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
 		return
 	}
-	head := evmtypes.AsHead(item)
 
 	hb.mutex.Lock()
 	callbacks := hb.callbacks.values()
@@ -132,13 +131,16 @@ func (hb *headBroadcaster) executeCallbacks() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(callbacks))
 
+	ctx, cancel := utils.ContextFromChan(hb.chClose)
+	defer cancel()
+
 	for _, callback := range callbacks {
 		go func(trackable httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
-			ctx, cancel := context.WithTimeout(context.Background(), TrackableCallbackTimeout)
+			cctx, cancel := context.WithTimeout(ctx, TrackableCallbackTimeout)
 			defer cancel()
-			trackable.OnNewLongestChain(ctx, head)
+			trackable.OnNewLongestChain(cctx, head)
 			elapsed := time.Since(start)
 			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
 				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.Number, "time", elapsed)

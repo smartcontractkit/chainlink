@@ -14,10 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-var (
-	ErrNoSuchBridge = errors.New("no such bridge exists")
-)
-
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
@@ -28,6 +24,11 @@ type ORM interface {
 	StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+
+	// InsertFinishedRuns inserts all the given runs into the database.
+	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
+	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+
 	DeleteRunsOlderThan(context.Context, time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
@@ -225,10 +226,56 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 	return run, start, err
 }
 
-// If saveSuccessfulTaskRuns = false, we only save errored runs.
-// That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
-// which do not provide much value.
-func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error) {
+// InsertFinishedRuns inserts all the given runs into the database.
+func (o *orm) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	err := q.Transaction(func(tx pg.Queryer) error {
+		pipelineRunsQuery := `
+INSERT INTO pipeline_runs 
+	(pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+VALUES 
+	(:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+RETURNING id
+	`
+		rows, errQ := tx.NamedQuery(pipelineRunsQuery, runs)
+		if errQ != nil {
+			return errors.Wrap(errQ, "inserting finished pipeline runs")
+		}
+
+		var runIDs []int64
+		for rows.Next() {
+			var runID int64
+			if errS := rows.Scan(&runID); errS != nil {
+				return errors.Wrap(errS, "scanning pipeline runs id row")
+			}
+			runIDs = append(runIDs, runID)
+		}
+
+		for i, run := range runs {
+			for j := range run.PipelineTaskRuns {
+				run.PipelineTaskRuns[j].PipelineRunID = runIDs[i]
+			}
+		}
+
+		pipelineTaskRunsQuery := `
+INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);
+	`
+		var pipelineTaskRuns []TaskRun
+		for _, run := range runs {
+			if !saveSuccessfulTaskRuns && !run.HasErrors() {
+				continue
+			}
+			pipelineTaskRuns = append(pipelineTaskRuns, run.PipelineTaskRuns...)
+		}
+
+		_, errE := tx.NamedExec(pipelineTaskRunsQuery, pipelineTaskRuns)
+		return errors.Wrap(errE, "insert pipeline task runs")
+	})
+	return errors.Wrap(err, "InsertFinishedRuns failed")
+}
+
+func (o *orm) checkFinishedRun(run *Run, saveSuccessfulTaskRuns bool) error {
 	if run.CreatedAt.IsZero() {
 		return errors.New("run.CreatedAt must be set")
 	}
@@ -240,6 +287,17 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	}
 	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return errors.New("must provide task run results")
+	}
+	return nil
+}
+
+// InsertFinishedRun inserts the given run into the database.
+// If saveSuccessfulTaskRuns = false, we only save errored runs.
+// That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
+// which do not provide much value.
+func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error) {
+	if err = o.checkFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
+		return err
 	}
 
 	q := o.q.WithOpts(qopts...)
@@ -275,10 +333,42 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	return errors.Wrap(err, "InsertFinishedRun failed")
 }
 
+// DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	q := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err := q.ExecQ(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
-	return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	// Addede 1 minute timeout to account for big databases
+	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+		result, cancel, err := q.ExecQIter(`
+WITH batched_pipeline_runs AS (
+	SELECT * FROM pipeline_runs
+	WHERE finished_at < ($1)
+	ORDER BY finished_at ASC
+	LIMIT $2
+)
+DELETE FROM pipeline_runs
+USING batched_pipeline_runs
+WHERE pipeline_runs.id = batched_pipeline_runs.id`,
+			time.Now().Add(-threshold),
+			limit,
+		)
+		defer cancel()
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to delete old pipeline_runs")
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to get rows affected")
+		}
+
+		return uint(rowsAffected), err
+	})
+	if err != nil {
+		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	return nil
 }
 
 func (o *orm) FindRun(id int64) (r Run, err error) {

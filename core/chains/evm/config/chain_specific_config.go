@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/config"
 )
 
 var (
@@ -14,7 +14,7 @@ var (
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
-	DefaultGasTip                        = assets.GWei(0)
+	DefaultGasTip                        = big.NewInt(1)                           // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10000000000000) // 0.00001 LINK
 )
 
@@ -29,7 +29,7 @@ type (
 		blockHistoryEstimatorBlockHistorySize          uint16
 		blockHistoryEstimatorEIP1559FeeCapBufferBlocks *uint16
 		blockHistoryEstimatorTransactionPercentile     uint16
-		chainType                                      chains.ChainType
+		chainType                                      config.ChainType
 		eip1559DynamicFees                             bool
 		ethTxReaperInterval                            time.Duration
 		ethTxReaperThreshold                           time.Duration
@@ -53,6 +53,7 @@ type (
 		headTrackerSamplingInterval                    time.Duration
 		linkContractAddress                            string
 		logBackfillBatchSize                           uint32
+		logPollInterval                                time.Duration
 		maxGasPriceWei                                 big.Int
 		maxInFlightTransactions                        uint32
 		maxQueuedTransactions                          uint64
@@ -60,8 +61,13 @@ type (
 		minIncomingConfirmations                       uint32
 		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
-		nonceAutoSync                                  bool
-		rpcDefaultBatchSize                            uint32
+		nodeDeadAfterNoNewHeadersThreshold             time.Duration
+		nodePollFailureThreshold                       uint32
+		nodePollInterval                               time.Duration
+
+		nonceAutoSync       bool
+		useForwarders       bool
+		rpcDefaultBatchSize uint32
 		// set true if fully configured
 		complete bool
 
@@ -99,7 +105,7 @@ func setChainSpecificConfigDefaultSets() {
 		blockEmissionIdleWarningThreshold:          1 * time.Minute,
 		blockHistoryEstimatorBatchSize:             4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		blockHistoryEstimatorBlockDelay:            1,
-		blockHistoryEstimatorBlockHistorySize:      16,
+		blockHistoryEstimatorBlockHistorySize:      8,
 		blockHistoryEstimatorTransactionPercentile: 60,
 		chainType:                             "",
 		eip1559DynamicFees:                    false,
@@ -118,12 +124,13 @@ func setChainSpecificConfigDefaultSets() {
 		gasLimitTransfer:                      21000,
 		gasPriceDefault:                       *DefaultGasPrice,
 		gasTipCapDefault:                      *DefaultGasTip,
-		gasTipCapMinimum:                      *big.NewInt(0),
+		gasTipCapMinimum:                      *big.NewInt(1),
 		headTrackerHistoryDepth:               100,
 		headTrackerMaxBufferSize:              3,
 		headTrackerSamplingInterval:           1 * time.Second,
 		linkContractAddress:                   "",
 		logBackfillBatchSize:                  100,
+		logPollInterval:                       15 * time.Second,
 		maxGasPriceWei:                        *assets.GWei(5000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
@@ -131,7 +138,11 @@ func setChainSpecificConfigDefaultSets() {
 		minIncomingConfirmations:              3,
 		minRequiredOutgoingConfirmations:      12,
 		minimumContractPayment:                DefaultMinimumContractPayment,
+		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
+		nodePollFailureThreshold:              5,
+		nodePollInterval:                      10 * time.Second,
 		nonceAutoSync:                         true,
+		useForwarders:                         false,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
@@ -141,9 +152,11 @@ func setChainSpecificConfigDefaultSets() {
 	}
 
 	mainnet := fallbackDefaultSet
+	mainnet.blockHistoryEstimatorBlockHistorySize = 4 // EIP-1559 does well on a smaller block history size
+	mainnet.blockHistoryEstimatorTransactionPercentile = 50
+	mainnet.eip1559DynamicFees = true // enable EIP-1559 on Eth Mainnet and all testnets
 	mainnet.linkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	mainnet.minimumContractPayment = assets.NewLinkFromJuels(100000000000000000) // 0.1 LINK
-	mainnet.blockHistoryEstimatorBlockHistorySize = 12                           // mainnet has longer block times than everything else, so ideally this is kept small to keep it responsive
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but the defaults have been working fine and if it ain't
 	// broke, don't fix it.
@@ -151,10 +164,13 @@ func setChainSpecificConfigDefaultSets() {
 	ropsten.linkContractAddress = "0x20fe562d797a42dcb3399062ae9546cd06f63280"
 	kovan := mainnet
 	kovan.linkContractAddress = "0xa36085F69e2889c224210F603D836748e7dC0088"
+	kovan.eip1559DynamicFees = false // FIXME: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	goerli := mainnet
 	goerli.linkContractAddress = "0x326c977e6efc84e512bb9c30f76e30c160ed06fb"
+	goerli.eip1559DynamicFees = false // TODO: EIP1559 on goerli has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	rinkeby := mainnet
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
+	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -164,12 +180,13 @@ func setChainSpecificConfigDefaultSets() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := fallbackDefaultSet
-	xDaiMainnet.chainType = chains.XDai
+	xDaiMainnet.chainType = config.ChainXDai
 	xDaiMainnet.gasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.gasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
 	xDaiMainnet.maxGasPriceWei = *assets.GWei(500)
 	xDaiMainnet.linkContractAddress = "0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2"
+	xDaiMainnet.logPollInterval = 5 * time.Second
 
 	// BSC uses Clique consensus with ~3s block times
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
@@ -193,35 +210,40 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
 	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
+	bscMainnet.logPollInterval = 3 * time.Second
 
 	hecoMainnet := bscMainnet
 
-	// Polygon has a 1s block time and looser finality guarantees than ereum.
+	// Polygon has a 1s block time and looser finality guarantees than ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
 	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
-	polygonMainnet.finalityDepth = 200           // A sprint is 64 blocks long and doesn't guarantee finality. To be safe we take three sprints (192 blocks) plus a safety margin
+	polygonMainnet.finalityDepth = 500           // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 	polygonMainnet.gasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
 	polygonMainnet.gasPriceDefault = *assets.GWei(1)
-	polygonMainnet.headTrackerHistoryDepth = 250 // FinalityDepth + safety margin
+	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	polygonMainnet.maxQueuedTransactions = 2000        // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-	polygonMainnet.maxGasPriceWei = *assets.UEther(50) // 50,000 GWei
-	polygonMainnet.minGasPriceWei = *assets.GWei(1)
-	polygonMainnet.ethTxResendAfterThreshold = 5 * time.Minute // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+	polygonMainnet.maxQueuedTransactions = 5000                // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxGasPriceWei = *assets.UEther(200)        // 200,000 GWei
+	polygonMainnet.gasPriceDefault = *assets.GWei(30)          // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
+	polygonMainnet.minGasPriceWei = *assets.GWei(30)           // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
+	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.minIncomingConfirmations = 5
 	polygonMainnet.minRequiredOutgoingConfirmations = 12
+	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
+	polygonMumbai.gasPriceDefault = *assets.GWei(1)
+	polygonMumbai.minGasPriceWei = *assets.GWei(1)
 	polygonMumbai.linkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	arbitrumMainnet := fallbackDefaultSet
-	arbitrumMainnet.chainType = chains.Arbitrum
+	arbitrumMainnet.chainType = config.ChainArbitrum
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasLimitDefault = 7000000
 	arbitrumMainnet.gasLimitTransfer = 800000            // estimating gas returns 695,344 so 800,000 should be safe with some buffer
@@ -239,7 +261,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet := fallbackDefaultSet
 	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
-	optimismMainnet.chainType = chains.Optimism
+	optimismMainnet.chainType = config.ChainOptimism
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
@@ -261,6 +283,7 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.minRequiredOutgoingConfirmations = 2
+	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 
@@ -273,6 +296,7 @@ func setChainSpecificConfigDefaultSets() {
 	rskMainnet.gasFeeCapDefault = *big.NewInt(100000000) // rsk does not yet support EIP-1559 but this allows validation to pass
 	rskMainnet.minGasPriceWei = *big.NewInt(0)
 	rskMainnet.minimumContractPayment = assets.NewLinkFromJuels(1000000000000000)
+	rskMainnet.logPollInterval = 30 * time.Second
 	rskTestnet := rskMainnet
 	rskTestnet.linkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
@@ -289,6 +313,7 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheMainnet.minIncomingConfirmations = 1
 	avalancheMainnet.minRequiredOutgoingConfirmations = 1
 	avalancheMainnet.ocrContractConfirmations = 1
+	avalancheMainnet.logPollInterval = 3 * time.Second
 
 	avalancheFuji := avalancheMainnet
 	avalancheFuji.linkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
@@ -299,13 +324,14 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
 	harmonyMainnet.minRequiredOutgoingConfirmations = 2
+	harmonyMainnet.logPollInterval = 2 * time.Second
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
 	// OKExChain
 	// (stubbed so that the ChainType is autoset for known IDs)
 	okxMainnet := fallbackDefaultSet
-	okxMainnet.chainType = chains.ExChain
+	okxMainnet.chainType = config.ChainExChain
 
 	okxTestnet := okxMainnet
 

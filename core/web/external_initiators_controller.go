@@ -33,7 +33,7 @@ func ValidateExternalInitiator(
 		fe.Add("Name must be alphanumeric and may contain '_' or '-'")
 	} else if _, err := orm.FindExternalInitiatorByName(exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
-	} else if err != sql.ErrNoRows {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return errors.Wrap(err, "validating external initiator")
 	}
 	return fe.CoerceEmptyToNil()

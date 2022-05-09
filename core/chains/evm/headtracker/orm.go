@@ -86,7 +86,7 @@ func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtype
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	head = new(evmtypes.Head)
 	err = q.Get(head, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return head, err

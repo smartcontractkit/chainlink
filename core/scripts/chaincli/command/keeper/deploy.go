@@ -15,19 +15,6 @@ var deployCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
-
 		hdlr.DeployKeepers(cmd.Context())
-	},
-}
-
-var updateRegistryCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update keeper registry",
-	Long:  `This command updates existing keeper registry.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cfg := config.New()
-		hdlr := handler.NewKeeper(cfg)
-
-		hdlr.GetRegistry(cmd.Context())
 	},
 }

@@ -3,22 +3,27 @@ package ocrcommon_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"gopkg.in/guregu/null.v4"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
 
-	cfg := configtest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
+		P2PEnabled: null.BoolFrom(true),
+	})
 	db := pgtest.NewSqlxDB(t)
 
 	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
@@ -26,11 +31,10 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
-	t.Run("with no p2p keys returns nil", func(t *testing.T) {
+	t.Run("with no p2p keys returns error", func(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db, cfg)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
-
-		require.NoError(t, pw.Start())
+		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 	})
 
 	var k p2pkey.KeyV2
@@ -46,7 +50,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start(), "foo")
+		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k.PeerID(), pw.PeerID)
 	})
 
@@ -57,7 +61,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), "unable to find P2P key with id")
+		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
 
 	var k2 p2pkey.KeyV2
@@ -73,7 +77,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start(), "foo")
+		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k2.PeerID(), pw.PeerID)
 	})
 
@@ -84,6 +88,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), "unable to find P2P key with id")
+		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
 }

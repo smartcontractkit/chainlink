@@ -826,15 +826,12 @@ contract VRFCoordinatorV2 is
     emit SubscriptionCanceled(subId, to, balance);
   }
 
-  /*
-   * @noticeCheck to see if there exists a request commitment consumers
-   * for all consumers and keyhashes for a given sub.
-   * @param subId where to send the funds
-   * @return exits true if outstanding requests
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
    * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
-  function pendingRequestExists(uint64 subId) public view returns (bool) {
+  function pendingRequestExists(uint64 subId) public view override returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {

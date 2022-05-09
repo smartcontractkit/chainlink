@@ -1,14 +1,13 @@
 package pipeline
 
 import (
+	"net/http"
+
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/sqlx"
-)
 
-var (
-	NewKeypathFromString = newKeypathFromString
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
 
 const (
@@ -31,14 +30,17 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetDependencies(config Config, db *sqlx.DB, id uuid.UUID) {
+func (t *BridgeTask) HelperSetDependencies(config Config, db *sqlx.DB, id uuid.UUID, httpClient *http.Client) {
 	t.config = config
 	t.queryer = db
 	t.uuid = id
+	t.httpClient = httpClient
 }
 
-func (t *HTTPTask) HelperSetDependencies(config Config) {
+func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {
 	t.config = config
+	t.httpClient = restrictedHTTPClient
+	t.unrestrictedHTTPClient = unrestrictedHTTPClient
 }
 
 func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config) {

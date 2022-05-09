@@ -14,22 +14,24 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/require"
 )
 
 func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
@@ -39,7 +41,8 @@ func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pi
 
 	orm.On("GetQ").Return(q)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
 }
 
@@ -122,10 +125,15 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, errorResults, 3)
 }
 
-func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
-	t.Parallel()
+type taskRunWithVars struct {
+	bridgeName        string
+	ds2URL, ds4URL    string
+	submitBridgeName  string
+	includeInputAtKey string
+}
 
-	specTemplate := `
+func (t taskRunWithVars) String() string {
+	return fmt.Sprintf(`
         ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": $(foo)}>]
         ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
         ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
@@ -155,7 +163,11 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
         median -> submit;
         ds4 -> submit;
-    `
+    `, t.bridgeName, t.ds2URL, t.ds4URL, t.submitBridgeName, t.includeInputAtKey)
+}
+
+func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name              string
@@ -245,7 +257,13 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer submit.Close()
 
 			runner, _ := newRunner(t, db, cfg)
-			specStr := fmt.Sprintf(specTemplate, bridgeName, ds2.URL, ds4.URL, submitBridgeName, test.includeInputAtKey)
+			specStr := taskRunWithVars{
+				bridgeName:        bridgeName,
+				ds2URL:            ds2.URL,
+				ds4URL:            ds4.URL,
+				submitBridgeName:  submitBridgeName,
+				includeInputAtKey: test.includeInputAtKey,
+			}.String()
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
@@ -288,13 +306,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	}
 }
 
-func Test_PipelineRunner_CBORParse(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
-
-	t.Run("diet mode, empty CBOR", func(t *testing.T) {
-		s := `
+const (
+	CBORDietEmpty = `
 decode_log  [type="ethabidecodelog"
              data="$(jobRun.logData)"
              topics="$(jobRun.logTopics)"
@@ -306,6 +319,27 @@ decode_cbor [type="cborparse"
 
 decode_log -> decode_cbor;
 `
+	CBORStdString = `
+decode_log  [type="ethabidecodelog"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"
+             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
+
+decode_cbor [type="cborparse"
+             data="$(decode_log.cborPayload)"
+			 mode=standard]
+
+decode_log -> decode_cbor;
+`
+)
+
+func Test_PipelineRunner_CBORParse(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+
+	t.Run("diet mode, empty CBOR", func(t *testing.T) {
+		s := CBORDietEmpty
 		d, err := pipeline.Parse(s)
 		require.NoError(t, err)
 
@@ -333,18 +367,7 @@ decode_log -> decode_cbor;
 	})
 
 	t.Run("standard mode, string value", func(t *testing.T) {
-		s := `
-decode_log  [type="ethabidecodelog"
-             data="$(jobRun.logData)"
-             topics="$(jobRun.logTopics)"
-             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
-
-decode_cbor [type="cborparse"
-             data="$(decode_log.cborPayload)"
-			 mode=standard]
-
-decode_log -> decode_cbor;
-`
+		s := CBORStdString
 		d, err := pipeline.Parse(s)
 		require.NoError(t, err)
 
@@ -438,7 +461,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr)
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]

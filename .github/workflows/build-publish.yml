@@ -7,8 +7,6 @@ on:
       - 'v*'
     branches:
       - master
-      - develop
-      - 'release/*'
 
 jobs:
   build-sign-publish-chainlink:
@@ -22,12 +20,15 @@ jobs:
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
           publish: true
-          image-name: test-chainlink
+          image-name: chainlink
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: true
+          sign-method: 'keypair'
           cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
           cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          verify-signature: true

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// OCR1Config is a subset of global config relevant to OCR v1.
 type OCR1Config interface {
 	// OCR1 config, can override in jobs, only ethereum.
 	GlobalOCRContractConfirmations() (uint16, bool)
@@ -35,35 +36,19 @@ func (c *generalConfig) getDuration(field string) time.Duration {
 }
 
 func (c *generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("OCRContractConfirmations"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("OCRContractConfirmations"), parse.Uint16)
 }
 
 func (c *generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("OCRObservationGracePeriod"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("OCRObservationGracePeriod"), time.ParseDuration)
 }
 
 func (c *generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("OCRContractTransmitterTransmitTimeout"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("OCRContractTransmitterTransmitTimeout"), time.ParseDuration)
 }
 
 func (c *generalConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("OCRDatabaseTimeout"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("OCRDatabaseTimeout"), time.ParseDuration)
 }
 
 func (c *generalConfig) OCRContractPollInterval() time.Duration {

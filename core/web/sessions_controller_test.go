@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -22,10 +24,10 @@ func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	config := app.GetConfig()
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
 		name        string
 		email       string
@@ -82,7 +84,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
@@ -112,14 +114,14 @@ func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	correctSession := sessions.NewSession()
 	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 	mustInsertSession(t, q, &correctSession)
 
 	config := app.GetConfig()
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
 		name, sessionID string
 		success         bool
@@ -152,10 +154,10 @@ func TestSessionsController_Destroy(t *testing.T) {
 func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	app := cltest.NewApplicationEVMDisabled(t)
 	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	correctSession := sessions.NewSession()
 	mustInsertSession(t, q, &correctSession)
