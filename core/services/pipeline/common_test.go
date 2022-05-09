@@ -7,8 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -162,6 +163,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeMerge, &pipeline.MergeTask{}},
 		{pipeline.TaskTypeLowercase, &pipeline.LowercaseTask{}},
 		{pipeline.TaskTypeUppercase, &pipeline.UppercaseTask{}},
+		{pipeline.TaskTypeConditional, &pipeline.ConditionalTask{}},
 	}
 
 	for _, test := range tests {

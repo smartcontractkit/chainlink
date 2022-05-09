@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //
@@ -23,6 +24,7 @@ import (
 type ETHCallTask struct {
 	BaseTask            `mapstructure:",squash"`
 	Contract            string `json:"contract"`
+	From                string `json:"from"`
 	Data                string `json:"data"`
 	Gas                 string `json:"gas"`
 	GasPrice            string `json:"gasPrice"`
@@ -58,6 +60,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 
 	var (
 		contractAddr AddressParam
+		from         AddressParam
 		data         BytesParam
 		gas          Uint64Param
 		gasPrice     MaybeBigIntParam
@@ -65,9 +68,9 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasFeeCap    MaybeBigIntParam
 		chainID      StringParam
 	)
-
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
+		errors.Wrap(ResolveParam(&from, From(VarExpr(t.From, vars), NonemptyString(t.From), utils.ZeroAddress)), "from"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false))), "data"),
 		errors.Wrap(ResolveParam(&gas, From(VarExpr(t.Gas, vars), NonemptyString(t.Gas), 0)), "gas"),
 		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
@@ -83,6 +86,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 
 	call := ethereum.CallMsg{
 		To:        (*common.Address)(&contractAddr),
+		From:      (common.Address)(from),
 		Data:      []byte(data),
 		Gas:       uint64(gas),
 		GasPrice:  gasPrice.BigInt(),

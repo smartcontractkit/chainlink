@@ -210,10 +210,7 @@ func (r *runner) ExecuteRun(
 		return run, nil, err
 	}
 
-	taskRunResults, err := r.run(ctx, pipeline, &run, vars, l)
-	if err != nil {
-		return run, nil, err
-	}
+	taskRunResults := r.run(ctx, pipeline, &run, vars, l)
 
 	if run.Pending {
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
@@ -269,13 +266,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 	return pipeline, nil
 }
 
-func (r *runner) run(
-	ctx context.Context,
-	pipeline *Pipeline,
-	run *Run,
-	vars Vars,
-	l logger.Logger,
-) (TaskRunResults, error) {
+func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars, l logger.Logger) TaskRunResults {
 	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
 	l.Debug("Initiating tasks for pipeline run of spec")
 
@@ -315,7 +306,8 @@ func (r *runner) run(
 
 	// if the run is suspended, awaiting resumption
 	run.Pending = scheduler.pending
-	run.FailEarly = scheduler.exiting
+	// scheduler.exiting = we had an error and the task was marked to failEarly
+	run.FailEarlySilently = scheduler.exiting
 	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
@@ -383,7 +375,7 @@ func (r *runner) run(
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	return taskRunResults, nil
+	return taskRunResults
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
@@ -465,7 +457,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
-	if run.FailEarly {
+	if run.FailEarlySilently {
 		return 0, finalResult, nil
 	}
 
@@ -519,13 +511,11 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 
 	for {
-		if _, err = r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l); err != nil {
-			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
-		}
+		r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 
 		if preinsert {
 			// if run failed and it's failEarly, skip StoreRun and instead delete all trace of it
-			if run.FailEarly {
+			if run.FailEarlySilently {
 				if err = r.orm.DeleteRun(run.ID); err != nil {
 					return false, errors.Wrap(err, "Run")
 				}
@@ -548,7 +538,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				return false, errors.Wrapf(err, "a run without async returned as pending")
 			}
 			// don't insert if we exited early
-			if run.FailEarly {
+			if run.FailEarlySilently {
 				return false, nil
 			}
 

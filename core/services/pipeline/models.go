@@ -50,8 +50,9 @@ type Run struct {
 	PipelineTaskRuns []TaskRun        `json:"taskRuns"`
 	State            RunStatus        `json:"state"`
 
-	Pending   bool
-	FailEarly bool
+	Pending bool
+	// FailEarlySilently implies an error has happened and a task has been marked to failEarly
+	FailEarlySilently bool
 }
 
 func (r Run) GetID() string {
