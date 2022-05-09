@@ -20,11 +20,14 @@ Must comprise at least 3 of:
 Must not comprise:
 	A user's API email
 	More than three identical consecutive characters
-This will prevent application boot in a future version of Chainlink.
 ```
+This will prevent application boot in a future version of Chainlink.
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+
+### Fixed
+- Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
 
 ## [1.4.0] - 2022-05-02
 
