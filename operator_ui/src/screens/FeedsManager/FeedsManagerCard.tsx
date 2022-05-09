@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { gql } from '@apollo/client'
-
 import CancelIcon from '@material-ui/icons/Cancel'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import EditIcon from '@material-ui/icons/Edit'
@@ -24,19 +22,6 @@ import {
 } from 'src/components/Cards/DetailsCard'
 import { shortenHex } from 'src/utils/shortenHex'
 import { MenuItemLink } from 'src/components/MenuItemLink'
-
-export const FEEDS_MANAGER_FIELDS = gql`
-  fragment FeedsManagerFields on FeedsManager {
-    id
-    name
-    uri
-    publicKey
-    jobTypes
-    isBootstrapPeer
-    isConnectionActive
-    bootstrapPeerMultiaddr
-  }
-`
 
 const connectionStatusStyles = () => {
   return createStyles({
@@ -93,19 +78,6 @@ export const FeedsManagerCard = ({ manager }: Props) => {
     setAnchorEl(null)
   }
 
-  const jobTypes = React.useMemo(() => {
-    return manager.jobTypes
-      .map((type) => {
-        switch (type) {
-          case 'FLUX_MONITOR':
-            return 'Flux Monitor'
-          case 'OCR':
-            return 'OCR'
-        }
-      })
-      .join(', ')
-  }, [manager.jobTypes])
-
   return (
     <DetailsCard
       actions={
@@ -136,19 +108,6 @@ export const FeedsManagerCard = ({ manager }: Props) => {
         <Grid item xs={12} sm={6} md={3}>
           <DetailsCardItemTitle title="Name" />
           <DetailsCardItemValue value={manager.name} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <DetailsCardItemTitle title="Job Types" />
-          <DetailsCardItemValue value={jobTypes} />
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          {manager.isBootstrapPeer && (
-            <>
-              <DetailsCardItemTitle title="Bootstrap Multiaddress" />
-              <DetailsCardItemValue value={manager.bootstrapPeerMultiaddr} />
-            </>
-          )}
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>

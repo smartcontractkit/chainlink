@@ -1,21 +1,21 @@
 package relay
 
 import (
+	"context"
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	solanaGo "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 var (
@@ -24,13 +24,13 @@ var (
 		types.Solana: {},
 		types.Terra:  {},
 	}
-	_ types.Relayer = &evm.Relayer{}
-	_ types.Relayer = &solana.Relayer{}
-	_ types.Relayer = &terra.Relayer{}
+	_ types.RelayerCtx = &evm.Relayer{}
+	_ types.RelayerCtx = &solana.Relayer{}
+	_ types.RelayerCtx = &terra.Relayer{}
 )
 
 type delegate struct {
-	relayers map[types.Network]types.Relayer
+	relayers map[types.Network]types.RelayerCtx
 	ks       keystore.Master
 }
 
@@ -39,22 +39,22 @@ type delegate struct {
 func NewDelegate(ks keystore.Master) *delegate {
 	d := &delegate{
 		ks:       ks,
-		relayers: map[types.Network]types.Relayer{},
+		relayers: map[types.Network]types.RelayerCtx{},
 	}
 	return d
 }
 
 // AddRelayer registers the relayer r, or a disabled placeholder if nil.
 // NOT THREAD SAFE
-func (d delegate) AddRelayer(n types.Network, r types.Relayer) {
+func (d delegate) AddRelayer(n types.Network, r types.RelayerCtx) {
 	d.relayers[n] = r
 }
 
-// A delegate relayer on start will start all relayers it manages.
-func (d delegate) Start() error {
+// Start starts all relayers it manages.
+func (d delegate) Start(ctx context.Context) error {
 	var err error
 	for _, r := range d.relayers {
-		err = multierr.Combine(err, r.Start())
+		err = multierr.Combine(err, r.Start(ctx))
 	}
 	return err
 }
@@ -86,9 +86,21 @@ func (d delegate) Healthy() error {
 	return err
 }
 
-func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
+// OCR2ProviderArgs contains the minimal parameters to create a OCR2 Provider.
+type OCR2ProviderArgs struct {
+	ID              int32
+	ContractID      string
+	TransmitterID   null.String
+	Relay           types.Network
+	RelayConfig     job.JSONConfig
+	IsBootstrapPeer bool
+	Plugin          job.OCR2PluginType
+}
+
+// NewOCR2Provider creates a new OCR2 provider instance.
+func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2ProviderCtx, error) {
 	// We expect trusted input
-	spec := s.(*job.OffchainReporting2OracleSpec)
+	spec := s.(*OCR2ProviderArgs)
 	choice := spec.Relay
 	switch choice {
 	case types.EVM:
@@ -109,6 +121,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ContractID:    spec.ContractID,
 			TransmitterID: spec.TransmitterID,
 			ChainID:       config.ChainID.ToInt(),
+			Plugin:        spec.Plugin,
 		})
 	case types.Solana:
 		r, exists := d.relayers[types.Solana]
@@ -157,17 +170,12 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		return r.NewOCR2Provider(externalJobID, solana.OCR2Spec{
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
-			NodeEndpointHTTP:   config.NodeEndpointHTTP,
+			ChainID:            config.ChainID,
 			ProgramID:          programID,
 			StateID:            stateID,
 			StoreProgramID:     storeProgramID,
 			TransmissionsID:    transmissionsID,
 			TransmissionSigner: transmissionSigner,
-			UsePreflight:       config.UsePreflight,
-			Commitment:         config.Commitment,
-			PollingInterval:    config.PollingInterval,
-			PollingCtxTimeout:  config.PollingCtxTimeout,
-			StaleTimeout:       config.StaleTimeout,
 		})
 	case types.Terra:
 		r, exists := d.relayers[types.Terra]

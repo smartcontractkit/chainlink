@@ -23,8 +23,9 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/pkg/errors"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -75,7 +76,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
-	metricRoutes(app, api)
+	unauthenticatedDevOnlyMetricRoutes(app, api)
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
@@ -167,26 +168,30 @@ func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 
 	return secureFunc
 }
-func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
+func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetConfig().Dev() {
 		// No authentication because `go tool pprof` doesn't support it
-		pprofGroup := r.Group("/debug/pprof")
-		pprofGroup.GET("/", pprofHandler(pprof.Index))
-		pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
-		pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
-		pprofGroup.POST("/symbol", pprofHandler(pprof.Symbol))
-		pprofGroup.GET("/symbol", pprofHandler(pprof.Symbol))
-		pprofGroup.GET("/trace", pprofHandler(pprof.Trace))
-		pprofGroup.GET("/allocs", pprofHandler(pprof.Handler("allocs").ServeHTTP))
-		pprofGroup.GET("/block", pprofHandler(pprof.Handler("block").ServeHTTP))
-		pprofGroup.GET("/goroutine", pprofHandler(pprof.Handler("goroutine").ServeHTTP))
-		pprofGroup.GET("/heap", pprofHandler(pprof.Handler("heap").ServeHTTP))
-		pprofGroup.GET("/mutex", pprofHandler(pprof.Handler("mutex").ServeHTTP))
-		pprofGroup.GET("/threadcreate", pprofHandler(pprof.Handler("threadcreate").ServeHTTP))
+		metricRoutes(r)
 	}
+}
+
+func metricRoutes(r *gin.RouterGroup) {
+	pprofGroup := r.Group("/debug/pprof")
+	pprofGroup.GET("/", pprofHandler(pprof.Index))
+	pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
+	pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
+	pprofGroup.POST("/symbol", pprofHandler(pprof.Symbol))
+	pprofGroup.GET("/symbol", pprofHandler(pprof.Symbol))
+	pprofGroup.GET("/trace", pprofHandler(pprof.Trace))
+	pprofGroup.GET("/allocs", pprofHandler(pprof.Handler("allocs").ServeHTTP))
+	pprofGroup.GET("/block", pprofHandler(pprof.Handler("block").ServeHTTP))
+	pprofGroup.GET("/goroutine", pprofHandler(pprof.Handler("goroutine").ServeHTTP))
+	pprofGroup.GET("/heap", pprofHandler(pprof.Handler("heap").ServeHTTP))
+	pprofGroup.GET("/mutex", pprofHandler(pprof.Handler("mutex").ServeHTTP))
+	pprofGroup.GET("/threadcreate", pprofHandler(pprof.Handler("threadcreate").ServeHTTP))
 }
 
 func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
@@ -247,23 +252,25 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
-		ts := TransfersController{app}
-		authv2.POST("/transfers", ts.Create)
+		ets := EVMTransfersController{app}
+		authv2.POST("/transfers", ets.Create)
+		authv2.POST("/transfers/evm", ets.Create)
+		tts := TerraTransfersController{app}
+		authv2.POST("/transfers/terra", tts.Create)
+		sts := SolanaTransfersController{app}
+		authv2.POST("/transfers/solana", sts.Create)
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", cc.Patch)
 
-		feedsMgrCtlr := FeedsManagerController{app}
-		authv2.GET("/feeds_managers", feedsMgrCtlr.List)
-		authv2.POST("/feeds_managers", feedsMgrCtlr.Create)
-		authv2.GET("/feeds_managers/:id", feedsMgrCtlr.Show)
-		authv2.PATCH("/feeds_managers/:id", feedsMgrCtlr.Update)
-
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
+		authv2.GET("/tx_attempts/evm", paginatedRequest(tas.Index))
 
 		txs := TransactionsController{app}
+		authv2.GET("/transactions/evm", paginatedRequest(txs.Index))
+		authv2.GET("/transactions/evm/:TxHash", txs.Show)
 		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)
 
@@ -348,36 +355,53 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		echc := EVMChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
-		authv2.POST("/chains/evm", echc.Create)
-		authv2.GET("/chains/evm/:ID", echc.Show)
-		authv2.PATCH("/chains/evm/:ID", echc.Update)
-		authv2.DELETE("/chains/evm/:ID", echc.Delete)
+		chains := authv2.Group("chains")
+		for _, chain := range []struct {
+			path string
+			cc   ChainsController
+		}{
+			{"evm", NewEVMChainsController(app)},
+			{"solana", NewSolanaChainsController(app)},
+			{"terra", NewTerraChainsController(app)},
+		} {
+			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
+			chains.POST(chain.path, chain.cc.Create)
+			chains.GET(chain.path+"/:ID", chain.cc.Show)
+			chains.PATCH(chain.path+"/:ID", chain.cc.Update)
+			chains.DELETE(chain.path+"/:ID", chain.cc.Delete)
+		}
 
-		tchc := TerraChainsController{app}
-		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
-		authv2.POST("/chains/terra", tchc.Create)
-		authv2.GET("/chains/terra/:ID", tchc.Show)
-		authv2.PATCH("/chains/terra/:ID", tchc.Update)
-		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
+		nodes := authv2.Group("nodes")
+		for _, chain := range []struct {
+			path string
+			nc   NodesController
+		}{
+			{"evm", NewEVMNodesController(app)},
+			{"solana", NewSolanaNodesController(app)},
+			{"terra", NewTerraNodesController(app)},
+		} {
+			if chain.path == "evm" {
+				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
+				nodes.GET("", paginatedRequest(chain.nc.Index))
+				nodes.POST("", chain.nc.Create)
+				nodes.DELETE("/:ID", chain.nc.Delete)
+			}
+			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
+			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
+			nodes.POST(chain.path, chain.nc.Create)
+			nodes.DELETE(chain.path+"/:ID", chain.nc.Delete)
+		}
 
-		enc := EVMNodesController{app}
-		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
-		authv2.GET("/nodes", paginatedRequest(enc.Index))
-		authv2.POST("/nodes", enc.Create)
-		authv2.DELETE("/nodes/:ID", enc.Delete)
+		efc := EVMForwardersController{app}
+		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
+		authv2.POST("/nodes/evm/forwarders", efc.Create)
+		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
 
-		authv2.GET("/nodes/evm", paginatedRequest(enc.Index))
-		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(enc.Index))
-		authv2.POST("/nodes/evm", enc.Create)
-		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
+		build_info := BuildInfoController{app}
+		authv2.GET("/build_info", build_info.Show)
 
-		tnc := TerraNodesController{app}
-		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
-		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
-		authv2.POST("/nodes/terra", tnc.Create)
-		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
+		// Debug routes accessible via authentication
+		metricRoutes(authv2)
 	}
 
 	ping := PingController{app}
@@ -448,7 +472,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 		// Render the React index page for any other unknown requests
 		file, err := assetFs.Open("index.html")
 		if err != nil {
-			if err == fs.ErrNotExist {
+			if errors.Is(err, fs.ErrNotExist) {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)

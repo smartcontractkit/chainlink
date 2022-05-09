@@ -16,6 +16,7 @@ export function buildNodePayloadFields(
     chain: {
       id: '42',
     },
+    state: '',
     ...overrides,
   }
 }

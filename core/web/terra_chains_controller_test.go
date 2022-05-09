@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -33,16 +34,15 @@ func Test_TerraChainsController_Create(t *testing.T) {
 	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
 	minute := models.MustMakeDuration(time.Minute)
-	body, err := json.Marshal(web.CreateTerraChainRequest{
-		ID: newChainId,
-		Config: db.ChainCfg{
+	body, err := json.Marshal(web.NewCreateChainRequest(
+		newChainId,
+		db.ChainCfg{
 			BlocksUntilTxTimeout:  null.IntFrom(1),
 			ConfirmPollPeriod:     &minute,
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 			MaxMsgsPerBatch:       null.IntFrom(10),
-		},
-	})
+		}))
 	require.NoError(t, err)
 
 	resp, cleanup := controller.client.Post("/v2/chains/terra", bytes.NewReader(body))
@@ -50,7 +50,7 @@ func Test_TerraChainsController_Create(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	chainSet := controller.app.GetChains().Terra
-	dbChain, err := chainSet.ORM().Chain(newChainId)
+	dbChain, err := chainSet.Show(newChainId)
 	require.NoError(t, err)
 
 	resource := presenters.TerraChainResource{}
@@ -139,7 +139,7 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	controller := setupTerraChainsControllerTest(t)
 
-	newChains := []web.CreateTerraChainRequest{
+	newChains := []web.CreateChainRequest[string, db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
 			Config: db.ChainCfg{
@@ -209,7 +209,7 @@ func Test_TerraChainsController_Index(t *testing.T) {
 func Test_TerraChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateTerraChainRequest{
+	chainUpdate := web.UpdateChainRequest[db.ChainCfg]{
 		Enabled: true,
 		Config: db.ChainCfg{
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
@@ -307,7 +307,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 	}
 	terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 
-	_, countBefore, err := controller.app.TerraORM().Chains(0, 10)
+	_, countBefore, err := controller.app.Chains.Terra.Index(0, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, countBefore)
 
@@ -316,7 +316,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-		_, countAfter, err := controller.app.TerraORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Terra.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, countAfter)
 	})
@@ -328,11 +328,11 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-		_, countAfter, err := controller.app.TerraORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Terra.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, countAfter)
 
-		_, err = controller.app.TerraORM().Chain(chain.ID)
+		_, err = controller.app.Chains.Terra.Show(chain.ID)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, sql.ErrNoRows))
@@ -345,10 +345,12 @@ type TestTerraChainsController struct {
 }
 
 func setupTerraChainsControllerTest(t *testing.T) *TestTerraChainsController {
-	// Using this instead of `NewApplicationTerraDisabled` since we need the chain set to be loaded in the app
-	// for the sake of the API endpoints to work properly
-	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.TerraEnabled = null.BoolFrom(true)
+	cfg.Overrides.EVMEnabled = null.BoolFrom(false)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	app := cltest.NewApplicationWithConfig(t, cfg)
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 

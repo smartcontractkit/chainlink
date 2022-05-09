@@ -19,7 +19,6 @@
 pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../ConfirmedOwner.sol";
@@ -40,16 +39,19 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
 
   event CronJobExecuted(uint256 indexed id, uint256 timestamp);
   event CronJobCreated(uint256 indexed id, address target, bytes handler);
+  event CronJobUpdated(uint256 indexed id, address target, bytes handler);
   event CronJobDeleted(uint256 indexed id);
 
   error CallFailed(uint256 id, string reason);
   error CronJobIDNotFound(uint256 id);
+  error ExceedsMaxJobs();
   error InvalidHandler();
   error TickInFuture();
   error TickTooOld();
   error TickDoesntMatchSpec();
 
   address immutable s_delegate;
+  uint256 public immutable s_maxJobs;
   uint256 private s_nextCronJobID = 1;
   EnumerableSet.UintSet private s_activeCronJobIDs;
 
@@ -62,9 +64,21 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
   /**
    * @param owner the initial owner of the contract
    * @param delegate the contract to delegate checkUpkeep calls to
+   * @param maxJobs the max number of cron jobs this contract will support
+   * @param firstJob an optional encoding of the first cron job
    */
-  constructor(address owner, address delegate) ConfirmedOwner(owner) {
+  constructor(
+    address owner,
+    address delegate,
+    uint256 maxJobs,
+    bytes memory firstJob
+  ) ConfirmedOwner(owner) {
     s_delegate = delegate;
+    s_maxJobs = maxJobs;
+    if (firstJob.length > 0) {
+      (address target, bytes memory handler, Spec memory spec) = abi.decode(firstJob, (address, bytes, Spec));
+      createCronJobFromSpec(target, handler, spec);
+    }
   }
 
   /**
@@ -95,9 +109,33 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     address target,
     bytes memory handler,
     bytes memory encodedCronSpec
-  ) external {
+  ) external onlyOwner {
+    if (s_activeCronJobIDs.length() >= s_maxJobs) {
+      revert ExceedsMaxJobs();
+    }
     Spec memory spec = abi.decode(encodedCronSpec, (Spec));
     createCronJobFromSpec(target, handler, spec);
+  }
+
+  /**
+   * @notice Updates a cron job from the given encoded spec
+   * @param id the id of the cron job to update
+   * @param newTarget the destination contract of a cron job
+   * @param newHandler the function signature on the target contract to call
+   * @param newEncodedCronSpec abi encoding of a cron spec
+   */
+  function updateCronJob(
+    uint256 id,
+    address newTarget,
+    bytes memory newHandler,
+    bytes memory newEncodedCronSpec
+  ) external onlyOwner onlyValidCronID(id) {
+    Spec memory newSpec = abi.decode(newEncodedCronSpec, (Spec));
+    s_targets[id] = newTarget;
+    s_handlers[id] = newHandler;
+    s_specs[id] = newSpec;
+    s_handlerSignatures[id] = handlerSig(newTarget, newHandler);
+    emit CronJobUpdated(id, newTarget, newHandler);
   }
 
   /**
@@ -175,16 +213,6 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
   }
 
   /**
-   * @notice Converts a cron string to a Spec, validates the spec, and encodes the spec.
-   * This should only be called off-chain, as it is gas expensive!
-   * @param cronString the cron string to convert and encode
-   * @return the abi encoding of the Spec struct representing the cron string
-   */
-  function cronStringToEncodedSpec(string memory cronString) external pure returns (bytes memory) {
-    return CronExternal.toEncodedSpec(cronString);
-  }
-
-  /**
    * @notice Adds a cron spec to storage and the ID to the list of jobs
    * @param target the destination contract of a cron job
    * @param handler the function signature on the target contract to call
@@ -194,7 +222,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     address target,
     bytes memory handler,
     Spec memory spec
-  ) internal onlyOwner {
+  ) internal {
     uint256 newID = s_nextCronJobID;
     s_activeCronJobIDs.add(newID);
     s_targets[newID] = target;
@@ -223,6 +251,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     address target,
     bytes memory handler
   ) private {
+    tickTime = tickTime - (tickTime % 60); // remove seconds from tick time
     if (block.timestamp < tickTime) {
       revert TickInFuture();
     }

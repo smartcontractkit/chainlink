@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -15,6 +13,7 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -113,7 +112,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 									evmChainID
 									minIncomingConfirmations
 									minIncomingConfirmationsEnv
-									minContractPayment
+									minContractPaymentLinkJuels
 									requesters
 								}
 							}
@@ -131,7 +130,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 							"evmChainID": "42",
 							"minIncomingConfirmations": 1,
 							"minIncomingConfirmationsEnv": true,
-							"minContractPayment": "1000",
+							"minContractPaymentLinkJuels": "1000",
 							"requesters": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"]
 						}
 					}
@@ -372,7 +371,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.OffchainReporting,
-					OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
+					OCROracleSpec: &job.OCROracleSpec{
 						BlockchainTimeout:                         models.Interval(1 * time.Minute),
 						BlockchainTimeoutEnv:                      false,
 						ContractAddress:                           contractAddress,
@@ -488,6 +487,9 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	relayConfig := map[string]interface{}{
 		"chainID": 1337,
 	}
+	pluginConfig := map[string]interface{}{
+		"juelsPerFeeCoinSource": 100000000,
+	}
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -498,20 +500,20 @@ func TestResolver_OCR2Spec(t *testing.T) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.OffchainReporting2,
-					Offchainreporting2OracleSpec: &job.OffchainReporting2OracleSpec{
+					OCR2OracleSpec: &job.OCR2OracleSpec{
 						BlockchainTimeout:                 models.Interval(1 * time.Minute),
 						ContractID:                        contractAddress.String(),
 						ContractConfigConfirmations:       1,
 						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
 						CreatedAt:                         f.Timestamp(),
-						IsBootstrapPeer:                   false,
-						JuelsPerFeeCoinPipeline:           "100000000",
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
 						P2PBootstrapPeers:                 pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						Relay:                             types.EVM,
 						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
+						PluginType:                        job.Median,
+						PluginConfig:                      pluginConfig,
 					},
 				}, nil)
 			},
@@ -527,14 +529,14 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
 									createdAt
-									isBootstrapPeer
-									juelsPerFeeCoinSource
 									ocrKeyBundleID
 									monitoringEndpoint
 									p2pBootstrapPeers
 									relay
 									relayConfig
 									transmitterID
+									pluginType
+									pluginConfig
 								}
 							}
 						}
@@ -551,8 +553,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
 							"createdAt": "2021-01-01T00:00:00Z",
-							"isBootstrapPeer": false,
-							"juelsPerFeeCoinSource": "100000000",
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
 							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
@@ -560,7 +560,11 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"relayConfig": {
 								"chainID": 1337
 							},
-							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+							"pluginType": "median",
+							"pluginConfig": {
+								"juelsPerFeeCoinSource": 100000000
+							}
 						}
 					}
 				}
@@ -578,7 +582,13 @@ func TestResolver_VRFSpec(t *testing.T) {
 	coordinatorAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
-	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	batchCoordinatorAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	require.NoError(t, err)
+
+	fromAddress1, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	require.NoError(t, err)
+
+	fromAddress2, err := ethkey.NewEIP55Address("0x2301958F1BFbC9A068C2aC9c6166Bf483b95864C")
 	require.NoError(t, err)
 
 	pubKey, err := secp256k1.NewPublicKeyFromHex("0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01")
@@ -593,15 +603,21 @@ func TestResolver_VRFSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
-						MinIncomingConfirmations: 1,
-						CoordinatorAddress:       coordinatorAddress,
-						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
-						FromAddress:              &fromAddress,
-						PollPeriod:               1 * time.Minute,
-						PublicKey:                pubKey,
-						RequestedConfsDelay:      10,
-						RequestTimeout:           24 * time.Hour,
+						BatchCoordinatorAddress:       &batchCoordinatorAddress,
+						BatchFulfillmentEnabled:       true,
+						MinIncomingConfirmations:      1,
+						CoordinatorAddress:            coordinatorAddress,
+						CreatedAt:                     f.Timestamp(),
+						EVMChainID:                    utils.NewBigI(42),
+						FromAddresses:                 []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						PollPeriod:                    1 * time.Minute,
+						PublicKey:                     pubKey,
+						RequestedConfsDelay:           10,
+						RequestTimeout:                24 * time.Hour,
+						ChunkSize:                     25,
+						BatchFulfillmentGasMultiplier: 1,
+						BackoffInitialDelay:           time.Minute,
+						BackoffMaxDelay:               time.Hour,
 					},
 				}, nil)
 			},
@@ -615,12 +631,18 @@ func TestResolver_VRFSpec(t *testing.T) {
 									coordinatorAddress
 									createdAt
 									evmChainID
-									fromAddress
+									fromAddresses
 									minIncomingConfirmations
 									pollPeriod
 									publicKey
 									requestedConfsDelay
 									requestTimeout
+									batchCoordinatorAddress
+									batchFulfillmentEnabled
+									batchFulfillmentGasMultiplier
+									chunkSize
+									backoffInitialDelay
+									backoffMaxDelay
 								}
 							}
 						}
@@ -635,12 +657,18 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"coordinatorAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
-							"fromAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", "0x2301958F1BFbC9A068C2aC9c6166Bf483b95864C"],
 							"minIncomingConfirmations": 1,
 							"pollPeriod": "1m0s",
 							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01",
 							"requestedConfsDelay": 10,
-							"requestTimeout": "24h0m0s"
+							"requestTimeout": "24h0m0s",
+							"batchCoordinatorAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
+							"batchFulfillmentEnabled": true,
+							"batchFulfillmentGasMultiplier": 1,
+							"chunkSize": 25,
+							"backoffInitialDelay": "1m0s",
+							"backoffMaxDelay": "1h0m0s" 
 						}
 					}
 				}

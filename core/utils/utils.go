@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -22,7 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
-	"github.com/shopspring/decimal"
 	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
@@ -43,11 +41,9 @@ var ZeroAddress = common.Address{}
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
 
-var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
-
 // Uint256ToBytes is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
-	if x.Cmp(maxUint256) > 0 {
+	if x.Cmp(MaxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
 	}
 	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
@@ -128,6 +124,7 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
+// IsEmpty returns true if bytes contains only zero values, or has len 0.
 func IsEmpty(bytes []byte) bool {
 	for _, b := range bytes {
 		if b != 0 {
@@ -355,7 +352,7 @@ var zero = big.NewInt(0)
 
 // CheckUint256 returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
-	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
+	if n.Cmp(zero) < 0 || n.Cmp(MaxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
 	}
 	return nil
@@ -375,6 +372,7 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+// HexToBig parses the given hex string or panics if it is invalid.
 func HexToBig(s string) *big.Int {
 	n, ok := new(big.Int).SetString(s, 16)
 	if !ok {
@@ -391,48 +389,6 @@ func Uint256ToBytes32(n *big.Int) []byte {
 	return common.LeftPadBytes(n.Bytes(), 32)
 }
 
-// ToDecimal converts an input to a decimal
-func ToDecimal(input interface{}) (decimal.Decimal, error) {
-	switch v := input.(type) {
-	case string:
-		return decimal.NewFromString(v)
-	case int:
-		return decimal.New(int64(v), 0), nil
-	case int8:
-		return decimal.New(int64(v), 0), nil
-	case int16:
-		return decimal.New(int64(v), 0), nil
-	case int32:
-		return decimal.New(int64(v), 0), nil
-	case int64:
-		return decimal.New(v, 0), nil
-	case uint:
-		return decimal.New(int64(v), 0), nil
-	case uint8:
-		return decimal.New(int64(v), 0), nil
-	case uint16:
-		return decimal.New(int64(v), 0), nil
-	case uint32:
-		return decimal.New(int64(v), 0), nil
-	case uint64:
-		return decimal.New(int64(v), 0), nil
-	case float64:
-		return decimal.NewFromFloat(v), nil
-	case float32:
-		return decimal.NewFromFloat32(v), nil
-	case big.Int:
-		return decimal.NewFromBigInt(&v, 0), nil
-	case *big.Int:
-		return decimal.NewFromBigInt(v, 0), nil
-	case decimal.Decimal:
-		return v, nil
-	case *decimal.Decimal:
-		return *v, nil
-	default:
-		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
-	}
-}
-
 // WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
 func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	chAwait := make(chan struct{})
@@ -443,8 +399,29 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
+// WithCloseChan wraps a context so that it is canceled if the passed in
+// channel is closed.
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
+func WithCloseChan(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
+	ctx, cancel = context.WithCancel(parentCtx)
+
+	go func() {
+		select {
+		case <-chStop:
+		case <-ctx.Done():
+		}
+		cancel()
+	}()
+
+	return ctx, cancel
+}
+
 // ContextFromChan creates a context that finishes when the provided channel
 // receives or is closed.
+// When channel closes, the ctx.Err() will always be context.Canceled
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -459,6 +436,8 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 
 // ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
 // receives or is closed.
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	go func() {
@@ -468,49 +447,6 @@ func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) 
 		case <-ctx.Done():
 		}
 	}()
-	return ctx, cancel
-}
-
-// CombinedContext creates a context that finishes when any of the provided
-// signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
-// a `time.Duration` (which is transformed into a `context.WithTimeout`).
-func CombinedContext(signals ...interface{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	if len(signals) == 0 {
-		return ctx, cancel
-	}
-	signals = append(signals, ctx)
-
-	var cases []reflect.SelectCase
-	var cancel2 context.CancelFunc
-	for _, signal := range signals {
-		var ch reflect.Value
-
-		switch sig := signal.(type) {
-		case context.Context:
-			ch = reflect.ValueOf(sig.Done())
-		case <-chan struct{}:
-			ch = reflect.ValueOf(sig)
-		case chan struct{}:
-			ch = reflect.ValueOf(sig)
-		case time.Duration:
-			var ctxTimeout context.Context
-			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
-			ch = reflect.ValueOf(ctxTimeout.Done())
-		default:
-			panic(fmt.Sprintf("utils.CombinedContext cannot accept a value of type %T, skipping", sig))
-		}
-		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
-	}
-
-	go func() {
-		defer cancel()
-		if cancel2 != nil {
-			defer cancel2()
-		}
-		_, _, _ = reflect.Select(cases)
-	}()
-
 	return ctx, cancel
 }
 
@@ -549,85 +485,84 @@ func (da *dependentAwaiter) DependentReady() {
 }
 
 // BoundedQueue is a FIFO queue that discards older items when it reaches its capacity.
-type BoundedQueue struct {
-	capacity uint
-	items    []interface{}
-	mu       *sync.RWMutex
+type BoundedQueue[T any] struct {
+	capacity int
+	items    []T
+	mu       sync.RWMutex
 }
 
 // NewBoundedQueue creates a new BoundedQueue instance
-func NewBoundedQueue(capacity uint) *BoundedQueue {
-	return &BoundedQueue{
-		capacity: capacity,
-		mu:       &sync.RWMutex{},
-	}
+func NewBoundedQueue[T any](capacity int) *BoundedQueue[T] {
+	var bq BoundedQueue[T]
+	bq.capacity = capacity
+	return &bq
 }
 
 // Add appends items to a BoundedQueue
-func (q *BoundedQueue) Add(x interface{}) {
+func (q *BoundedQueue[T]) Add(x T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.items = append(q.items, x)
-	if uint(len(q.items)) > q.capacity {
-		excess := uint(len(q.items)) - q.capacity
+	if len(q.items) > q.capacity {
+		excess := len(q.items) - q.capacity
 		q.items = q.items[excess:]
 	}
 }
 
 // Take pulls the first item from the array and removes it
-func (q *BoundedQueue) Take() interface{} {
+func (q *BoundedQueue[T]) Take() (t T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.items) == 0 {
-		return nil
+		return
 	}
-	x := q.items[0]
+	t = q.items[0]
 	q.items = q.items[1:]
-	return x
+	return
 }
 
 // Empty check is a BoundedQueue is empty
-func (q *BoundedQueue) Empty() bool {
+func (q *BoundedQueue[T]) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return len(q.items) == 0
 }
 
 // Full checks if a BoundedQueue is over capacity.
-func (q *BoundedQueue) Full() bool {
+func (q *BoundedQueue[T]) Full() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
-	return uint(len(q.items)) >= q.capacity
+	return len(q.items) >= q.capacity
 }
 
 // BoundedPriorityQueue stores a series of BoundedQueues
 // with associated priorities and capacities
-type BoundedPriorityQueue struct {
-	queues     map[uint]*BoundedQueue
+type BoundedPriorityQueue[T any] struct {
+	queues     map[uint]*BoundedQueue[T]
 	priorities []uint
-	capacities map[uint]uint
-	mu         *sync.RWMutex
+	capacities map[uint]int
+	mu         sync.RWMutex
 }
 
 // NewBoundedPriorityQueue creates a new BoundedPriorityQueue
-func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
-	queues := make(map[uint]*BoundedQueue)
+func NewBoundedPriorityQueue[T any](capacities map[uint]int) *BoundedPriorityQueue[T] {
+	queues := make(map[uint]*BoundedQueue[T])
 	var priorities []uint
 	for priority, capacity := range capacities {
 		priorities = append(priorities, priority)
-		queues[priority] = NewBoundedQueue(capacity)
+		queues[priority] = NewBoundedQueue[T](capacity)
 	}
 	sort.Slice(priorities, func(i, j int) bool { return priorities[i] < priorities[j] })
-	return &BoundedPriorityQueue{
+	bpq := BoundedPriorityQueue[T]{
 		queues:     queues,
 		priorities: priorities,
 		capacities: capacities,
-		mu:         &sync.RWMutex{},
 	}
+	return &bpq
 }
 
 // Add pushes an item into a subque within a BoundedPriorityQueue
-func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
+func (q *BoundedPriorityQueue[T]) Add(priority uint, x T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -640,7 +575,7 @@ func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 }
 
 // Take takes from the BoundedPriorityQueue's subque
-func (q *BoundedPriorityQueue) Take() interface{} {
+func (q *BoundedPriorityQueue[T]) Take() (t T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -651,12 +586,12 @@ func (q *BoundedPriorityQueue) Take() interface{} {
 		}
 		return queue.Take()
 	}
-	return nil
+	return
 }
 
 // Empty checks the BoundedPriorityQueue
 // if all subqueues are empty
-func (q *BoundedPriorityQueue) Empty() bool {
+func (q *BoundedPriorityQueue[T]) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
@@ -683,6 +618,7 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+// TickerBase is an interface for pausable tickers.
 type TickerBase interface {
 	Resume()
 	Pause()
@@ -740,12 +676,14 @@ func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+// CronTicker is like a time.Ticker but for a cron schedule.
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
 	beenRun *atomic.Bool
 }
 
+// NewCronTicker returns a new CrontTicker for the given schedule.
 func NewCronTicker(schedule string) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
@@ -783,10 +721,12 @@ func (t *CronTicker) Stop() bool {
 	return false
 }
 
+// Ticks returns the underlying chanel.
 func (t *CronTicker) Ticks() <-chan time.Time {
 	return t.ch
 }
 
+// ValidateCronSchedule returns an error if the given schedule is invalid.
 func ValidateCronSchedule(schedule string) error {
 	if !(strings.HasPrefix(schedule, "CRON_TZ=") || strings.HasPrefix(schedule, "@every ")) {
 		return errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@every 1h30m'")
@@ -850,9 +790,13 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
-var (
-	ErrNotStarted = errors.New("Not started")
-)
+type errNotStarted struct {
+	state StartStopOnceState
+}
+
+func (e *errNotStarted) Error() string {
+	return fmt.Sprintf("service is %q, not started", e.state)
+}
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
@@ -863,6 +807,7 @@ type StartStopOnce struct {
 // StartStopOnceState holds the state for StartStopOnce
 type StartStopOnceState int32
 
+//nolint
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
@@ -870,6 +815,23 @@ const (
 	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
+
+func (s StartStopOnceState) String() string {
+	switch s {
+	case StartStopOnce_Unstarted:
+		return "Unstarted"
+	case StartStopOnce_Started:
+		return "Started"
+	case StartStopOnce_Starting:
+		return "Starting"
+	case StartStopOnce_Stopping:
+		return "Stopping"
+	case StartStopOnce_Stopped:
+		return "Stopped"
+	default:
+		return fmt.Sprintf("unrecognized state: %d", s)
+	}
+}
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
@@ -908,7 +870,7 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
-		return errors.Errorf("%v has already stopped once", name)
+		return errors.Errorf("%v is unstarted or has already stopped once", name)
 	}
 
 	err := fn()
@@ -958,27 +920,45 @@ func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 	return true
 }
 
+// Ready returns ErrNotStarted if the state is not started.
 func (once *StartStopOnce) Ready() error {
-	if once.State() == StartStopOnce_Started {
+	state := once.State()
+	if state == StartStopOnce_Started {
 		return nil
 	}
-	return ErrNotStarted
+	return &errNotStarted{state: state}
 }
 
-// Override this per-service with more specific implementations
+// Healthy returns ErrNotStarted if the state is not started.
+// Override this per-service with more specific implementations.
 func (once *StartStopOnce) Healthy() error {
-	if once.State() == StartStopOnce_Started {
+	state := once.State()
+	if state == StartStopOnce_Started {
 		return nil
 	}
-	return ErrNotStarted
+	return &errNotStarted{state: state}
 }
 
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
 	// #nosec
+	if d == 0 {
+		return 0
+	}
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
+}
+
+// NewRedialBackoff is a standard backoff to use for redialling or reconnecting to
+// unreachable network endpoints
+func NewRedialBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
+
 }
 
 // KeyedMutex allows to lock based on particular values
@@ -1021,4 +1001,30 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
+}
+
+// AllEqual returns true iff all the provided elements are equal to each other.
+func AllEqual[T comparable](elems ...T) bool {
+	for i := 1; i < len(elems); i++ {
+		if elems[i] != elems[0] {
+			return false
+		}
+	}
+	return true
+}
+
+// RandUint256 generates a random bigNum up to 2 ** 256 - 1
+func RandUint256() *big.Int {
+	n, err := rand.Int(rand.Reader, MaxUint256)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
+func LeftPadBitString(input string, length int) string {
+	if len(input) >= length {
+		return input
+	}
+	return strings.Repeat("0", length-len(input)) + input
 }

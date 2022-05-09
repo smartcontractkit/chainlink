@@ -286,6 +286,7 @@ func (d Duration) Value() (driver.Value, error) {
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
+// NewInterval creates Interval for specified duration
 func NewInterval(d time.Duration) *Interval {
 	i := new(Interval)
 	*i = Interval(d)
@@ -454,14 +455,9 @@ func (s Sha256Hash) String() string {
 	return hex.EncodeToString(s[:])
 }
 
-func (s *Sha256Hash) UnmarshalText(bs []byte) error {
-	x, err := hex.DecodeString(string(bs))
-	if err != nil {
-		return err
-	}
-	*s = Sha256Hash{}
-	copy((*s)[:], x)
-	return nil
+func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
+	*s, err = Sha256HashFromHex(string(bs))
+	return
 }
 
 func (s *Sha256Hash) Scan(value interface{}) error {

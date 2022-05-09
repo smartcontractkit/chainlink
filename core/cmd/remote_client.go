@@ -4,16 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -22,7 +26,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -121,15 +127,20 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 
 // ReplayFromBlock replays chain data from the given block number until the most recent
 func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
-
 	blockNumber := c.Int64("block-number")
 	if blockNumber <= 0 {
 		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
 	}
 
-	buf := bytes.NewBufferString("{}")
+	forceBroadcast := c.Bool("force")
 
-	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/replay_from_block/%v", blockNumber), buf)
+	buf := bytes.NewBufferString("{}")
+	resp, err := cli.HTTP.Post(
+		fmt.Sprintf(
+			"/v2/replay_from_block/%v?force=%s",
+			blockNumber,
+			strconv.FormatBool(forceBroadcast),
+		), buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -154,12 +165,21 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
+	lggr := cli.Logger.Named("RemoteLogin")
 	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	_, err = cli.CookieAuthenticator.Authenticate(sessionRequest)
-	return cli.errorOut(err)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = cli.checkRemoteBuildCompatibility(lggr, c.Bool("bypass-version-check"), static.Version, static.Sha)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	fmt.Println("Successfully Logged In.")
+	return nil
 }
 
 // ChangePassword prompts the user for the old password and a new one, then
@@ -197,6 +217,73 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	return nil
 }
 
+// Profile will collect pprof metrics and store them in a folder.
+func (cli *Client) Profile(c *clipkg.Context) error {
+	seconds := c.Uint("seconds")
+	baseDir := c.String("output_dir")
+	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
+		return cli.errorOut(errors.New("profile duration should be less than server write timeout."))
+	}
+
+	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
+
+	err := os.Mkdir(genDir, 0755)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	cli.Logger.Infof("writing pprof to %s", genDir)
+	var wgPprof sync.WaitGroup
+	vitals := []string{
+		"allocs",       // A sampling of all past memory allocations
+		"block",        // Stack traces that led to blocking on synchronization primitives
+		"cmdline",      // The command line invocation of the current program
+		"goroutine",    // Stack traces of all current goroutines
+		"heap",         // A sampling of memory allocations of live objects.
+		"mutex",        // Stack traces of holders of contended mutexes
+		"profile",      // CPU profile.
+		"threadcreate", // Stack traces that led to the creation of new OS threads
+		"trace",        // A trace of execution of the current program.
+	}
+	wgPprof.Add(len(vitals))
+	errs := make(chan error)
+	for _, vt := range vitals {
+		go func(vt string) {
+			defer wgPprof.Done()
+			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
+			cli.Logger.Infof("Collecting %s ", uri)
+			resp, err := cli.HTTP.Get(uri)
+			if err != nil {
+				cli.Logger.Errorf("error collecting vt %s: %s", vt, err.Error())
+				errs <- err
+				return
+			}
+			defer resp.Body.Close()
+
+			// write to file
+			f, err := os.Create(filepath.Join(genDir, vt))
+			if err != nil {
+				cli.Logger.Errorf("error creating file for %s: %s", vt, err.Error())
+				errs <- err
+				return
+			}
+			defer f.Close()
+
+			_, err = io.Copy(f, resp.Body)
+			if err != nil {
+				cli.Logger.Errorf("error writing to file for %s: %s", vt, err.Error())
+				errs <- err
+				return
+			}
+			cli.Logger.Infof("Collected %s", vt)
+		}(vt)
+	}
+	wgPprof.Wait()
+	if len(errs) > 0 {
+		return cli.errorOut(errors.New("One or more profile collections failed %s"))
+	}
+	return nil
+}
+
 func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
@@ -222,7 +309,7 @@ func getTOMLString(s string) (string, error) {
 
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
-	if err == errUnauthorized {
+	if errors.Is(err, errUnauthorized) {
 		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 	if err != nil {
@@ -470,4 +557,49 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errors.New("Error")
 	}
 	return b, err
+}
+
+func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
+	resp, err := cli.HTTP.Get("/v2/build_info")
+	if err != nil {
+		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
+		return nil
+	}
+	b, err := parseResponse(resp)
+	if err != nil {
+		lggr.Warnw("Got error parsing http response for remote version. Remote node version is unknown and CLI may behave in unexpected ways.", "resp", resp, "err", err)
+		return nil
+	}
+
+	var remoteBuildInfo map[string]string
+	if err := json.Unmarshal(b, &remoteBuildInfo); err != nil {
+		lggr.Warnw("Got error json parsing bytes from remote version response. Remote node version is unknown and CLI may behave in unexpected ways.", "bytes", b, "err", err)
+		return nil
+	}
+	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
+
+	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
+	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
+
+	if remoteSemverUnset || cliRemoteSemverMismatch {
+		// Show a warning but allow mismatch
+		if onlyWarn {
+			lggr.Warnf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remoteVersion, remoteSha, cliVersion, cliSha)
+			return nil
+		}
+		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
+		cli.CookieAuthenticator.Logout()
+		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
+	}
+	return nil
+}
+
+// ErrIncompatible is returned when the cli and remote versions are not compatible.
+type ErrIncompatible struct {
+	CLIVersion, CLISha       string
+	RemoteVersion, RemoteSha string
+}
+
+func (e ErrIncompatible) Error() string {
+	return fmt.Sprintf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", e.CLIVersion, e.CLISha, e.RemoteVersion, e.RemoteSha)
 }

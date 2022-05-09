@@ -23,29 +23,20 @@ function renderComponent(manager: FeedsManagerFields) {
 
 describe('FeedsManagerCard', () => {
   it('renders a disconnected Feeds Manager', () => {
-    const mgr = buildFeedsManagerFields({
-      isBootstrapPeer: false,
-      bootstrapPeerMultiaddr: '/dns4/blah',
-    })
+    const mgr = buildFeedsManagerFields()
 
     renderComponent(mgr)
 
     expect(queryByText(mgr.name)).toBeInTheDocument()
     expect(queryByText(mgr.uri)).toBeInTheDocument()
     expect(queryByText(shortenHex(mgr.publicKey))).toBeInTheDocument()
-    expect(queryByText('Flux Monitor')).toBeInTheDocument()
     expect(queryByText('Disconnected')).toBeInTheDocument()
-    // We should not see the multiaddr because isBootstrapPeer is false
-    expect(queryByText('/dns4/blah')).toBeNull()
   })
 
   it('renders a connected boostrapper Feeds Manager', () => {
     // Create a new manager with connected bootstrap values
     const mgr = buildFeedsManagerFields({
-      jobTypes: [],
       isConnectionActive: true,
-      isBootstrapPeer: true,
-      bootstrapPeerMultiaddr: '/dns4/blah',
     })
 
     renderComponent(mgr)
@@ -55,7 +46,6 @@ describe('FeedsManagerCard', () => {
     expect(queryByText(shortenHex(mgr.publicKey))).toBeInTheDocument()
     expect(queryByText('Flux Monitor')).toBeNull()
     expect(queryByText('Connected')).toBeInTheDocument()
-    expect(queryByText('/dns4/blah')).toBeInTheDocument()
   })
 
   it('navigates to edit', () => {

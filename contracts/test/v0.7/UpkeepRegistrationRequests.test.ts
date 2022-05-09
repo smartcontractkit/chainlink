@@ -4,11 +4,11 @@ import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { BigNumber, Signer } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
-import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { KeeperRegistry11__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry11__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepRegistrationRequests__factory as UpkeepRegistrationRequestsFactory } from '../../typechain/factories/UpkeepRegistrationRequests__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { KeeperRegistry11 as KeeperRegistry } from '../../typechain/KeeperRegistry11'
 import { UpkeepRegistrationRequests } from '../../typechain/UpkeepRegistrationRequests'
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
@@ -29,7 +29,8 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_1')
   upkeepRegistrationRequestsFactory = await ethers.getContractFactory(
     'UpkeepRegistrationRequests',
   )
@@ -119,6 +120,13 @@ describe('UpkeepRegistrationRequests', () => {
       .deploy(linkToken.address, minLINKJuels)
 
     await registry.setRegistrar(registrar.address)
+  })
+
+  describe('#typeAndVersion', () => {
+    it('uses the correct type and version', async () => {
+      const typeAndVersion = await registrar.typeAndVersion()
+      assert.equal(typeAndVersion, 'UpkeepRegistrationRequests 1.0.0')
+    })
   })
 
   describe('#register', () => {

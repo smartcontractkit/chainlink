@@ -21,7 +21,7 @@ type DirectRequestSpec {
     evmChainID: String
     minIncomingConfirmations: Int!
     minIncomingConfirmationsEnv: Boolean!
-    minContractPayment: String!
+    minContractPaymentLinkJuels: String!
     requesters: [String!]
 }
 
@@ -80,27 +80,33 @@ type OCR2Spec {
     contractConfigConfirmations: Int
     contractConfigTrackerPollInterval: String
     createdAt: Time!
-    isBootstrapPeer: Boolean!
-    juelsPerFeeCoinSource: String
     ocrKeyBundleID: String
     monitoringEndpoint: String
     p2pBootstrapPeers: [String!]
     relay: String!
     relayConfig: Map!
     transmitterID: String
+    pluginType: String!
+    pluginConfig: Map!
 }
 
 type VRFSpec {
     coordinatorAddress: String!
     createdAt: Time!
     evmChainID: String
-    fromAddress: String
+    fromAddresses: [String!]
     minIncomingConfirmations: Int!
     minIncomingConfirmationsEnv: Boolean!
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!
     requestTimeout: String!
+    batchCoordinatorAddress: String
+    batchFulfillmentEnabled: Boolean!
+    batchFulfillmentGasMultiplier: Float!
+    chunkSize: Int!
+    backoffInitialDelay: String!
+    backoffMaxDelay: String!
 }
 
 type WebhookSpec {

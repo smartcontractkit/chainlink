@@ -5,11 +5,16 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 10
+    ignore:
+      # Old versions are pinned for libocr.
+      - dependency-name: github.com/libp2p/go-libp2p-core
+      - dependency-name: github.com/libp2p/go-libp2p-peerstore
+      - dependency-name: github.com/multiformats/go-multiaddr
   - package-ecosystem: npm
     directory: '/'
     schedule:
       interval: monthly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: webpack
         versions:

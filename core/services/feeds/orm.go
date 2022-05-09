@@ -2,6 +2,8 @@ package feeds
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -16,11 +18,18 @@ import (
 
 type ORM interface {
 	CountManagers() (int64, error)
-	CreateManager(ms *FeedsManager) (int64, error)
+	CreateManager(ms *FeedsManager, qopts ...pg.QOpt) (int64, error)
 	GetManager(id int64) (*FeedsManager, error)
 	ListManagers() (mgrs []FeedsManager, err error)
 	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
 	UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) error
+
+	CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (int64, error)
+	CreateBatchChainConfig(cfgs []ChainConfig, qopts ...pg.QOpt) ([]int64, error)
+	DeleteChainConfig(id int64) (int64, error)
+	GetChainConfig(id int64) (*ChainConfig, error)
+	UpdateChainConfig(cfg ChainConfig) (int64, error)
+	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
 
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CountJobProposals() (int64, error)
@@ -35,6 +44,7 @@ type ORM interface {
 	CancelSpec(id int64, qopts ...pg.QOpt) error
 	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
 	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
+	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
 	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
 	RejectSpec(id int64, qopts ...pg.QOpt) error
@@ -67,25 +77,166 @@ FROM feeds_managers
 }
 
 // CreateManager creates a feeds manager.
-func (o *orm) CreateManager(ms *FeedsManager) (id int64, err error) {
+func (o *orm) CreateManager(ms *FeedsManager, qopts ...pg.QOpt) (id int64, err error) {
 	stmt := `
-INSERT INTO feeds_managers (name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())
+INSERT INTO feeds_managers (name, uri, public_key, created_at, updated_at)
+VALUES ($1,$2,$3,NOW(),NOW())
 RETURNING id;
 `
-	err = o.q.Get(&id, stmt,
-		ms.Name, ms.URI, ms.PublicKey, ms.JobTypes, ms.IsOCRBootstrapPeer, ms.OCRBootstrapPeerMultiaddr,
+	err = o.q.WithOpts(qopts...).Get(&id, stmt, ms.Name, ms.URI, ms.PublicKey)
+
+	return id, errors.Wrap(err, "CreateManager failed")
+}
+
+// CreateChainConfig creates a new chain config.
+func (o *orm) CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (id int64, err error) {
+	stmt := `
+INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+RETURNING id;
+`
+
+	err = o.q.WithOpts(qopts...).Get(&id,
+		stmt,
+		cfg.FeedsManagerID,
+		cfg.ChainID,
+		cfg.ChainType,
+		cfg.AccountAddress,
+		cfg.AdminAddress,
+		cfg.FluxMonitorConfig,
+		cfg.OCR1Config,
+		cfg.OCR2Config,
 	)
-	if err != nil {
-		return id, errors.Wrap(err, "CreateManager failed")
+
+	return id, errors.Wrap(err, "CreateChainConfig failed")
+}
+
+// CreateBatchChainConfig creates multiple chain configs.
+func (o *orm) CreateBatchChainConfig(cfgs []ChainConfig, qopts ...pg.QOpt) (ids []int64, err error) {
+	if len(cfgs) == 0 {
+		return
 	}
-	return id, err
+
+	stmt := `
+INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
+VALUES %s
+RETURNING id;
+	`
+
+	var (
+		vStrs = make([]string, 0, len(cfgs))
+		vArgs = make([]interface{}, 0)
+	)
+
+	for i, cfg := range cfgs {
+		// Generate the placeholders
+		pnumidx := i * 8
+
+		lo, hi := pnumidx+1, pnumidx+8
+		pnums := make([]any, hi-lo+1)
+		for i := range pnums {
+			pnums[i] = i + lo
+		}
+
+		vStrs = append(vStrs, fmt.Sprintf(
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, NOW(), NOW())", pnums...,
+		))
+
+		// Append the values
+		vArgs = append(vArgs,
+			cfg.FeedsManagerID,
+			cfg.ChainID,
+			cfg.ChainType,
+			cfg.AccountAddress,
+			cfg.AdminAddress,
+			cfg.FluxMonitorConfig,
+			cfg.OCR1Config,
+			cfg.OCR2Config,
+		)
+	}
+
+	err = o.q.WithOpts(qopts...).Select(&ids,
+		fmt.Sprintf(stmt, strings.Join(vStrs, ",")),
+		vArgs...,
+	)
+
+	return ids, errors.Wrap(err, "CreateBatchChainConfig failed")
+}
+
+// DeleteChainConfig deletes a chain config.
+func (o *orm) DeleteChainConfig(id int64) (int64, error) {
+	stmt := `
+DELETE FROM feeds_manager_chain_configs
+WHERE id = $1
+RETURNING id;
+`
+
+	var ccid int64
+	err := o.q.Get(&ccid, stmt, id)
+
+	return ccid, errors.Wrap(err, "DeleteChainConfig failed")
+}
+
+// GetChainConfig fetches a chain config.
+func (o *orm) GetChainConfig(id int64) (*ChainConfig, error) {
+	stmt := `
+SELECT id, feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
+FROM feeds_manager_chain_configs
+WHERE id = $1;
+`
+
+	var cfg ChainConfig
+	err := o.q.Get(&cfg, stmt, id)
+
+	return &cfg, errors.Wrap(err, "GetChainConfig failed")
+}
+
+// ListChainConfigsByManagerIDs fetches the chain configs matching all manager
+// ids.
+func (o *orm) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error) {
+	stmt := `
+SELECT id, feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
+FROM feeds_manager_chain_configs
+WHERE feeds_manager_id = ANY($1)
+	`
+
+	var cfgs []ChainConfig
+	err := o.q.Select(&cfgs, stmt, mgrIDs)
+
+	return cfgs, errors.Wrap(err, "ListJobProposalsByManagersIDs failed")
+}
+
+// UpdateChainConfig updates a chain config.
+func (o *orm) UpdateChainConfig(cfg ChainConfig) (int64, error) {
+	stmt := `
+UPDATE feeds_manager_chain_configs
+SET account_address = $1,
+	admin_address = $2,
+	flux_monitor_config = $3,
+	ocr1_config = $4,
+	ocr2_config = $5,
+	updated_at = NOW()
+WHERE id = $6
+RETURNING id;
+`
+
+	var cfgID int64
+	err := o.q.Get(&cfgID, stmt,
+		cfg.AccountAddress,
+		cfg.AdminAddress,
+		cfg.FluxMonitorConfig,
+		cfg.OCR1Config,
+		cfg.OCR2Config,
+		cfg.ID,
+	)
+
+	return cfgID, errors.Wrap(err, "UpdateChainConfig failed")
 }
 
 // GetManager gets a feeds manager by id.
 func (o *orm) GetManager(id int64) (mgr *FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at
 FROM feeds_managers
 WHERE id = $1
 `
@@ -98,7 +249,7 @@ WHERE id = $1
 // ListManager lists all feeds managers.
 func (o *orm) ListManagers() (mgrs []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at
 FROM feeds_managers;
 `
 
@@ -109,7 +260,7 @@ FROM feeds_managers;
 // ListManagersByIDs gets feeds managers by ids.
 func (o *orm) ListManagersByIDs(ids []int64) (managers []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at
 FROM feeds_managers
 WHERE id = ANY($1)
 ORDER BY created_at, id;`
@@ -124,11 +275,11 @@ ORDER BY created_at, id;`
 func (o *orm) UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) (err error) {
 	stmt := `
 UPDATE feeds_managers
-SET name = $1, uri = $2, public_key = $3, job_types = $4, is_ocr_bootstrap_peer = $5, ocr_bootstrap_peer_multiaddr = $6, updated_at = NOW()
-WHERE id = $7;
+SET name = $1, uri = $2, public_key = $3, updated_at = NOW()
+WHERE id = $4;
 `
 
-	res, err := o.q.WithOpts(qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, mgr.ID)
+	res, err := o.q.WithOpts(qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.ID)
 	if err != nil {
 		return errors.Wrap(err, "UpdateManager failed to update feeds_managers")
 	}
@@ -383,6 +534,26 @@ WHERE id = $1;
 	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
 
 	return &spec, errors.Wrap(err, "CreateJobProposalSpec failed")
+}
+
+// GetLatestSpec gets the latest spec for a job proposal.
+func (o *orm) GetLatestSpec(jpID int64) (*JobProposalSpec, error) {
+	stmt := `
+	SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
+FROM job_proposal_specs
+WHERE (job_proposal_id, version) IN
+(
+	SELECT job_proposal_id, MAX(version)
+	FROM job_proposal_specs
+	GROUP BY job_proposal_id
+)
+AND job_proposal_id = $1
+`
+
+	var spec JobProposalSpec
+	err := o.q.Get(&spec, stmt, jpID)
+
+	return &spec, errors.Wrap(err, "GetLatestSpec failed")
 }
 
 // ListSpecsByJobProposalIDs lists the specs which belong to any of job proposal

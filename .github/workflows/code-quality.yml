@@ -3,8 +3,8 @@ name: Code Quality
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
   pull_request:
 

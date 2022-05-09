@@ -5,12 +5,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
-	"github.com/smartcontractkit/chainlink/core/config/parse"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 )
 
+// P2PNetworking is a subset of global config relevant to p2p networking.
 type P2PNetworking interface {
 	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
 	P2PNetworkingStackRaw() string
@@ -44,7 +45,7 @@ func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
 	}
 	var pid p2pkey.PeerID
 	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
-		c.lggr.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
+		c.lggr.Critical(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
 		return ""
 	}
 	return pid
@@ -59,14 +60,14 @@ func (c *generalConfig) P2PIncomingMessageBufferSize() int {
 	if c.OCRIncomingMessageBufferSize() != 0 {
 		return c.OCRIncomingMessageBufferSize()
 	}
-	return int(c.getWithFallback("P2PIncomingMessageBufferSize", parse.Uint16).(uint16))
+	return int(getEnvWithFallback(c, envvar.NewUint16("P2PIncomingMessageBufferSize")))
 }
 
 func (c *generalConfig) P2POutgoingMessageBufferSize() int {
 	if c.OCROutgoingMessageBufferSize() != 0 {
 		return c.OCRIncomingMessageBufferSize()
 	}
-	return int(c.getWithFallback("P2PIncomingMessageBufferSize", parse.Uint16).(uint16))
+	return int(getEnvWithFallback(c, envvar.NewUint16("P2PIncomingMessageBufferSize")))
 }
 
 type P2PDeprecated interface {

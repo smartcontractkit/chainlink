@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"go.uber.org/multierr"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
 //
@@ -23,7 +25,9 @@ type HTTPTask struct {
 	RequestData                    string `json:"requestData"`
 	AllowUnrestrictedNetworkAccess string
 
-	config Config
+	config                 Config
+	httpClient             *http.Client
+	unrestrictedHTTPClient *http.Client
 }
 
 var _ Task = (*HTTPTask)(nil)
@@ -63,6 +67,9 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
 		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+		// Any hardcoded strings used for URL uses the unrestricted HTTP adapter
+		// Interpolated variable URLs use restricted HTTP adapter by default
+		// You must set allowUnrestrictedNetworkAccess=true on the task to enable variable-interpolated URLs to make restricted network requests
 		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
 	)
 	if err != nil {
@@ -83,9 +90,15 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
-	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, requestData, allowUnrestrictedNetworkAccess, t.config.DefaultHTTPLimit())
+	var client *http.Client
+	if allowUnrestrictedNetworkAccess {
+		client = t.unrestrictedHTTPClient
+	} else {
+		client = t.httpClient
+	}
+	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, requestData, client, t.config.DefaultHTTPLimit())
 	if err != nil {
-		if errors.Cause(err) == ErrDisallowedIP {
+		if errors.Is(errors.Cause(err), clhttp.ErrDisallowedIP) {
 			err = errors.Wrap(err, "connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess=true in the pipeline task spec")
 		}
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}

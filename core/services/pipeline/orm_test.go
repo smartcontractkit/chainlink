@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -108,6 +109,60 @@ answer2 [type=bridge name=election_winner index=1];
 	err = orm.CreateRun(run)
 	require.NoError(t, err)
 	return run
+}
+
+func TestInsertFinishedRuns(t *testing.T) {
+	db, orm := setupORM(t)
+
+	_, err := db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
+	require.NoError(t, err)
+
+	var runs []*pipeline.Run
+	for i := 0; i < 3; i++ {
+		now := time.Now()
+		r := pipeline.Run{
+			State:       pipeline.RunStatusRunning,
+			AllErrors:   pipeline.RunErrors{},
+			FatalErrors: pipeline.RunErrors{},
+			CreatedAt:   now,
+			FinishedAt:  null.Time{},
+			Outputs:     pipeline.JSONSerializable{},
+		}
+
+		require.NoError(t, orm.InsertRun(&r))
+
+		r.PipelineTaskRuns = []pipeline.TaskRun{
+			{
+				ID:            uuid.NewV4(),
+				PipelineRunID: r.ID,
+				Type:          "bridge",
+				DotID:         "ds1",
+				CreatedAt:     now,
+				FinishedAt:    null.TimeFrom(now.Add(100 * time.Millisecond)),
+			},
+			{
+				ID:            uuid.NewV4(),
+				PipelineRunID: r.ID,
+				Type:          "median",
+				DotID:         "answer2",
+				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+				CreatedAt:     now,
+				FinishedAt:    null.TimeFrom(now.Add(200 * time.Millisecond)),
+			},
+		}
+		r.FinishedAt = null.TimeFrom(now.Add(300 * time.Millisecond))
+		r.Outputs = pipeline.JSONSerializable{
+			Val:   "stuff",
+			Valid: true,
+		}
+		r.FatalErrors = append(r.AllErrors, null.NewString("", false))
+		r.State = pipeline.RunStatusCompleted
+		runs = append(runs, &r)
+	}
+
+	err = orm.InsertFinishedRuns(runs, true)
+	require.NoError(t, err)
+
 }
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
@@ -348,4 +403,48 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 
 	_, err = orm.FindRun(run.ID)
 	require.Error(t, err, "not found")
+}
+
+func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
+	_, orm := setupORM(t)
+
+	var runsIds []int64
+
+	for i := 1; i <= 2000; i++ {
+		run := mustInsertAsyncRun(t, orm)
+
+		now := time.Now()
+
+		run.PipelineTaskRuns = []pipeline.TaskRun{
+			// finished task
+			{
+				ID:            uuid.NewV4(),
+				PipelineRunID: run.ID,
+				Type:          "median",
+				DotID:         "answer2",
+				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+				CreatedAt:     now,
+				FinishedAt:    null.TimeFrom(now.Add(-1 * time.Second)),
+			},
+		}
+		run.State = pipeline.RunStatusCompleted
+		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
+		run.Outputs = pipeline.JSONSerializable{Val: 1, Valid: true}
+		run.FatalErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
+
+		restart, err := orm.StoreRun(run)
+		assert.NoError(t, err)
+		// no new data, so we don't need a restart
+		assert.Equal(t, false, restart)
+
+		runsIds = append(runsIds, run.ID)
+	}
+
+	err := orm.DeleteRunsOlderThan(context.Background(), 1*time.Second)
+	assert.NoError(t, err)
+
+	for _, runId := range runsIds {
+		_, err := orm.FindRun(runId)
+		require.Error(t, err, "not found")
+	}
 }

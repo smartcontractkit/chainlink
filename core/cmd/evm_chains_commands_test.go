@@ -12,9 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+func newRandChainID() *utils.Big {
+	return utils.NewBig(testutils.NewRandomEVMChainID())
+}
 
 func TestClient_IndexEVMChains(t *testing.T) {
 	t.Parallel()
@@ -32,11 +37,11 @@ func TestClient_IndexEVMChains(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	id := utils.NewBigI(99)
+	id := newRandChainID()
 	chain, err := orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexEVMChains(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.EVMChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.EVMChainPresenters)
 	require.Len(t, chains, initialCount+1)
 	c := chains[initialCount]
@@ -61,18 +66,19 @@ func TestClient_CreateEVMChain(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.Int64("id", 99, "")
+	id := newRandChainID()
+	set.Int64("id", id.ToInt().Int64(), "")
 	set.Parse([]string{`{}`})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.CreateEVMChain(c)
+	err = cmd.EVMChainClient(client).CreateChain(c)
 	require.NoError(t, err)
 
 	chains, _, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 	ch := chains[initialCount]
-	assert.Equal(t, int64(99), ch.ID.ToInt().Int64())
+	assert.Equal(t, id.ToInt().Int64(), ch.ID.ToInt().Int64())
 	assertTableRenders(t, r)
 }
 
@@ -92,7 +98,7 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	id := utils.NewBigI(99)
+	id := newRandChainID()
 	_, err = orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
@@ -100,10 +106,10 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.Parse([]string{"99"})
+	set.Parse([]string{id.String()})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveEVMChain(c)
+	err = cmd.EVMChainClient(client).RemoveChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
@@ -129,7 +135,7 @@ func TestClient_ConfigureEVMChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	id := utils.NewBigI(99)
+	id := newRandChainID()
 	_, err = orm.CreateChain(*id, types.ChainCfg{
 		BlockHistoryEstimatorBlockDelay: null.IntFrom(5),
 		EvmFinalityDepth:                null.IntFrom(5),
@@ -141,11 +147,11 @@ func TestClient_ConfigureEVMChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
-	set.Int64("id", 99, "param")
+	set.Int64("id", id.ToInt().Int64(), "param")
 	set.Parse([]string{"BlockHistoryEstimatorBlockDelay=9", "EvmGasBumpPercent=null"})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.ConfigureEVMChain(c)
+	err = cmd.EVMChainClient(client).ConfigureChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)

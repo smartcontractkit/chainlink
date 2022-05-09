@@ -1,0 +1,29 @@
+##
+# This workflow needs to be ran because `lint` is a required check and
+# we conditionally only run the `golangci-lint` workflow when certain paths 
+# change.
+# If the workflow does not run, the required check will never pass. This is
+# GitHub's workaround:
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/troubleshooting-required-status-checks#example
+##
+
+name: golangci-lint
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+      - rollup
+    paths-ignore:
+      - '**.go'
+  pull_request:
+    paths-ignore:
+      - '**.go'
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No job required" '

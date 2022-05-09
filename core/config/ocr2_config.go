@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// OCR2Config is a subset of global config relevant to OCR v2.
 type OCR2Config interface {
 	// OCR2 config, can override in jobs, all chains
 	OCR2ContractConfirmations() uint16
@@ -25,7 +26,7 @@ type OCR2Config interface {
 }
 
 func (c *generalConfig) OCR2ContractConfirmations() uint16 {
-	return c.getWithFallback("OCR2ContractConfirmations", parse.Uint16).(uint16)
+	return getEnvWithFallback(c, envvar.NewUint16("OCR2ContractConfirmations"))
 }
 
 func (c *generalConfig) OCR2ContractPollInterval() time.Duration {

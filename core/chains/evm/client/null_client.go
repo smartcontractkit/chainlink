@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -145,6 +145,11 @@ func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*type
 	return nil, nil
 }
 
+func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	nc.lggr.Debug("BlockByHash")
+	return nil, nil
+}
+
 func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	nc.lggr.Debug("BalanceAt")
 	return big.NewInt(0), nil
@@ -179,6 +184,14 @@ func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 	return nil
 }
 
+// BatchCallContextAll implements evmclient.Client interface
+func (nc *NullClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	return nil
+}
+
 func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return nil, nil
 }
+
+// NodeStates implements evmclient.Client
+func (nc *NullClient) NodeStates() map[int32]string { return nil }

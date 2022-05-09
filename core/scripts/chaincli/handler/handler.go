@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"log"
 	"math/big"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	link "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -20,6 +22,7 @@ import (
 type baseHandler struct {
 	cfg *config.Config
 
+	rpcClient     *rpc.Client
 	client        *ethclient.Client
 	privateKey    *ecdsa.PrivateKey
 	linkToken     *link.LinkToken
@@ -30,10 +33,11 @@ type baseHandler struct {
 // NewBaseHandler is the constructor of baseHandler
 func NewBaseHandler(cfg *config.Config) *baseHandler {
 	// Created a client by the given node address
-	nodeClient, err := ethclient.Dial(cfg.NodeURL)
+	rpcClient, err := rpc.Dial(cfg.NodeURL)
 	if err != nil {
 		log.Fatal("failed to deal with ETH node", err)
 	}
+	nodeClient := ethclient.NewClient(rpcClient)
 
 	// Parse private key
 	d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
@@ -67,6 +71,7 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	return &baseHandler{
 		cfg:           cfg,
 		client:        nodeClient,
+		rpcClient:     rpcClient,
 		privateKey:    privateKey,
 		linkToken:     linkToken,
 		fromAddr:      fromAddr,
@@ -96,6 +101,33 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	auth.GasPrice = gasPrice
 
 	return auth
+}
+
+// Send eth from prefunded account.
+// Amount is number of wei.
+func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int) error {
+	txOpts := k.buildTxOpts(ctx)
+
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    txOpts.Nonce.Uint64(),
+		To:       &to,
+		Value:    amount,
+		Gas:      txOpts.GasLimit,
+		GasPrice: txOpts.GasPrice,
+		Data:     nil,
+	})
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(k.cfg.ChainID)), k.privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to sign tx: %s", err)
+	}
+
+	if err = k.client.SendTransaction(ctx, signedTx); err != nil {
+		return fmt.Errorf("failed to send tx: %s", err)
+	}
+
+	k.waitTx(ctx, signedTx)
+
+	return nil
 }
 
 func (h *baseHandler) waitDeployment(ctx context.Context, tx *types.Transaction) {

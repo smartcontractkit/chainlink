@@ -5,8 +5,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -49,7 +48,8 @@ func (Delegate) AfterJobCreated(spec job.Job) {}
 
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
+// ServicesForSpec satisfies the job.Delegate interface.
+func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
 	// TODO: we need to fill these out manually, find a better fix
 	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
 	spec.PipelineSpec.JobID = spec.ID
@@ -61,23 +61,20 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	if err != nil {
 		return nil, err
 	}
+	registryAddress := spec.KeeperSpec.ContractAddress
 
-	contractAddress := spec.KeeperSpec.ContractAddress
-	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
-		contractAddress.Address(),
-		chain.Client(),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
-	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
-
+	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
 	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
-
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
-		"registryAddress", contractAddress.Hex(),
+		"registryAddress", registryAddress.Hex(),
 	)
+
+	registryWrapper, err := NewRegistryWrapper(registryAddress, chain.Client())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create keeper registry wrapper")
+	}
+	svcLogger.Info("Registry version is: ", registryWrapper.Version)
 
 	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
@@ -86,7 +83,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
-		Contract:                 contract,
+		RegistryWrapper:          *registryWrapper,
 		ORM:                      orm,
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),
@@ -94,6 +91,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
@@ -106,7 +104,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.Config(),
 	)
 
-	return []job.Service{
+	return []job.ServiceCtx{
 		registrySynchronizer,
 		upkeepExecuter,
 	}, nil

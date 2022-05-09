@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -50,7 +51,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	tests := []struct {
 		name, email, pwd string
@@ -141,7 +142,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
-			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
+			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			// Remove fixture user
@@ -174,7 +175,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	initialUser := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initialUser))
 
-	mock := &cltest.MockCountingPrompter{}
+	mock := &cltest.MockCountingPrompter{T: t}
 	tai := cmd.NewPromptingAPIInitializer(mock)
 
 	user, err := tai.Initialize(orm)
@@ -254,7 +255,7 @@ func TestPromptingSessionRequestBuilder(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.email, func(t *testing.T) {
 			enteredStrings := []string{test.email, test.pwd}
-			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			builder := cmd.NewPromptingSessionRequestBuilder(prompter)
 
 			sr, err := builder.Build("")

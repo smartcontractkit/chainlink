@@ -23,12 +23,13 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -40,18 +41,21 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
+
+// PristineDBName is a clean copy of test DB with migrations.
+// Used by heavyweight.FullTestDB* functions.
+const PristineDBName = "chainlink_test_pristine"
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := cli.runNode(c); err != nil {
 		err = errors.Wrap(err, "Cannot boot Chainlink")
 		cli.Logger.Errorw(err.Error(), "err", err)
-		if serr := cli.Logger.Sync(); serr != nil {
+		if serr := cli.CloseLogger(); serr != nil {
 			err = multierr.Combine(serr, err)
 		}
 		return cli.errorOut(err)
@@ -83,10 +87,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	var shutdownStartTime time.Time
 	defer func() {
 		close(cleanExit)
-		log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		if !shutdownStartTime.IsZero() {
+			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		}
 	}()
 
-	go shutdown.HandleShutdown(func() {
+	go shutdown.HandleShutdown(func(sig string) {
+		lggr.Infof("Shutting down due to %s signal received...", sig)
+
 		shutdownStartTime = time.Now()
 		cancelRootCtx()
 
@@ -102,8 +110,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		if err = ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
-		if err = lggr.Sync(); err != nil {
-			log.Printf("Failed to sync Logger: %v", err)
+		if err = cli.CloseLogger(); err != nil {
+			log.Printf("Failed to close Logger: %v", err)
 		}
 
 		os.Exit(-1)
@@ -209,11 +217,11 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && !errors.Is(err, ErrNoCredentialFile) {
 		return errors.Wrap(err, "error creating api initializer")
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
-		if err == ErrorNoAPICredentialsAvailable {
+		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 			return errors.WithStack(err)
 		}
 		return errors.Wrap(err, "error creating fallback initializer")
@@ -221,11 +229,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Info("API exposed for user ", user.Email)
 
-	grp, grpCtx := errgroup.WithContext(rootCtx)
-
-	if err = app.Start(); err != nil {
+	if err = app.Start(rootCtx); err != nil {
+		// We do not try stopping any sub-services that might be started,
+		// because the app will exit immediately upon return.
+		// But LockedDB will be released by defer in above.
 		return errors.Wrap(err, "error starting app")
 	}
+
+	grp, grpCtx := errgroup.WithContext(rootCtx)
 
 	grp.Go(func() error {
 		<-grpCtx.Done()
@@ -241,7 +252,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		errInternal := cli.Runner.Run(grpCtx, app)
-		if errInternal == http.ErrServerClosed {
+		if errors.Is(errInternal, http.ErrServerClosed) {
 			errInternal = nil
 		}
 		// In tests we have custom runners that stop the app gracefully,
@@ -389,7 +400,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	ec := txmgr.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -495,6 +506,19 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
+
+	// Creating pristine DB copy to speed up FullTestDB
+	dbUrl := cfg.DatabaseURL()
+	db, err := sql.Open(string(dialects.Postgres), dbUrl.String())
+	defer db.Close()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	templateDB := strings.Trim(dbUrl.Path, "/")
+	if err = dropAndCreatePristineDB(db, templateDB); err != nil {
+		return cli.errorOut(err)
+	}
+
 	userOnly := c.Bool("user-only")
 	var fixturePath = "../store/fixtures/fixtures.sql"
 	if userOnly {
@@ -503,6 +527,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := insertFixtures(cfg, fixturePath); err != nil {
 		return cli.errorOut(err)
 	}
+
 	return nil
 }
 
@@ -642,6 +667,18 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
 	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
+	if err != nil {
+		return fmt.Errorf("unable to create postgres database: %v", err)
+	}
+	return nil
+}
+
+func dropAndCreatePristineDB(db *sql.DB, template string) (err error) {
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres database: %v", err)
+	}
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, PristineDBName, template))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}

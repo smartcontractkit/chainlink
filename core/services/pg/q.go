@@ -4,15 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
@@ -68,6 +68,14 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
+// WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
+// Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
+func WithLongQueryTimeout() func(q *Q) {
+	return func(q *Q) {
+		q.QueryTimeout = LongQueryTimeout
+	}
+}
+
 // MergeCtx allows callers to combine a ctx with a previously set parent context
 // Responsibility for cancelling the passed context lies with caller
 func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
@@ -77,18 +85,6 @@ func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
 }
 
 var _ Queryer = Q{}
-var slowSqlThreshold = time.Second
-
-func init() {
-	slowSqlThresholdStr := os.Getenv("SLOW_SQL_THRESHOLD")
-	if len(slowSqlThresholdStr) > 0 {
-		d, err := time.ParseDuration(slowSqlThresholdStr)
-		if err != nil {
-			log.Fatalf("failed to parse SLOW_SQL_THRESHOLD: %s", err)
-		}
-		slowSqlThreshold = d
-	}
-}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -105,10 +101,11 @@ func init() {
 // can do.
 type Q struct {
 	Queryer
-	ParentCtx context.Context
-	db        *sqlx.DB
-	logger    logger.Logger
-	config    LogConfig
+	ParentCtx    context.Context
+	db           *sqlx.DB
+	logger       logger.Logger
+	config       LogConfig
+	QueryTimeout time.Duration
 }
 
 func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
@@ -141,6 +138,14 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
+	if q.QueryTimeout > 0 {
+		ctx := q.ParentCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		return context.WithTimeout(ctx, q.QueryTimeout)
+	}
+
 	if q.ParentCtx == nil {
 		return DefaultQueryCtx()
 	}
@@ -173,23 +178,23 @@ func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
 func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
 	ctx, cancel := q.Context()
 
-	q.logSqlQuery(query, args...)
-	begin := time.Now()
-	defer q.postSqlLog(ctx, begin)
+	ql := q.newQueryLogger(query, args)
+	ql.logSqlQuery()
+	defer ql.postSqlLog(ctx, time.Now())
 
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
-	return res, cancel, q.withLogError(err)
+	return res, cancel, ql.withLogError(err)
 }
 func (q Q) ExecQ(query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
-	q.logSqlQuery(query, args...)
-	begin := time.Now()
-	defer q.postSqlLog(ctx, begin)
+	ql := q.newQueryLogger(query, args)
+	ql.logSqlQuery()
+	defer ql.postSqlLog(ctx, time.Now())
 
 	_, err := q.Queryer.ExecContext(ctx, query, args...)
-	return q.withLogError(err)
+	return ql.withLogError(err)
 }
 func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 	query, args, err := q.BindNamed(query, arg)
@@ -199,12 +204,12 @@ func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 	ctx, cancel := q.Context()
 	defer cancel()
 
-	q.logSqlQuery(query, args...)
-	begin := time.Now()
-	defer q.postSqlLog(ctx, begin)
+	ql := q.newQueryLogger(query, args)
+	ql.logSqlQuery()
+	defer ql.postSqlLog(ctx, time.Now())
 
 	_, err = q.Queryer.ExecContext(ctx, query, args...)
-	return q.withLogError(err)
+	return ql.withLogError(err)
 }
 
 // Select and Get are safe to wrap the context cancellation because the rows
@@ -213,21 +218,21 @@ func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
-	q.logSqlQuery(query, args...)
-	begin := time.Now()
-	defer q.postSqlLog(ctx, begin)
+	ql := q.newQueryLogger(query, args)
+	ql.logSqlQuery()
+	defer ql.postSqlLog(ctx, time.Now())
 
-	return q.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
+	return ql.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
 }
 func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
-	q.logSqlQuery(query, args...)
-	begin := time.Now()
-	defer q.postSqlLog(ctx, begin)
+	ql := q.newQueryLogger(query, args)
+	ql.logSqlQuery()
+	defer ql.postSqlLog(ctx, time.Now())
 
-	return q.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
+	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
@@ -237,49 +242,73 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 
-	q.logSqlQuery(query, args...)
-	begin := time.Now()
-	defer q.postSqlLog(ctx, begin)
+	ql := q.newQueryLogger(query, args)
+	ql.logSqlQuery()
+	defer ql.postSqlLog(ctx, time.Now())
 
-	return q.withLogError(errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query"))
+	return ql.withLogError(errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query"))
 }
 
-type queryFmt struct {
-	query string
-	args  []interface{}
+func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
+	return &queryLogger{Q: q, query: query, args: args}
 }
 
-func (q queryFmt) String() string {
-	if q.args == nil {
-		return q.query
+// sprintQ formats the query with the given args and returns the resulting string.
+func sprintQ(query string, args []interface{}) string {
+	if args == nil {
+		return query
 	}
 	var pairs []string
-	for i, arg := range q.args {
+	for i, arg := range args {
 		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
 	}
 	replacer := strings.NewReplacer(pairs...)
-	return replacer.Replace(q.query)
+	return replacer.Replace(query)
 }
 
-func (q Q) logSqlQuery(query string, args ...interface{}) {
+// queryLogger extends Q with logging helpers for a particular query w/ args.
+type queryLogger struct {
+	Q
+
+	query string
+	args  []interface{}
+
+	str     string
+	strOnce sync.Once
+}
+
+func (q *queryLogger) String() string {
+	q.strOnce.Do(func() {
+		q.str = sprintQ(q.query, q.args)
+	})
+	return q.str
+}
+
+func (q *queryLogger) logSqlQuery() {
 	if q.config != nil && q.config.LogSQL() {
-		q.logger.Debugf("SQL: %s", queryFmt{query, args})
+		q.logger.Debugw("SQL QUERY", "sql", q)
 	}
 }
 
-func (q Q) withLogError(err error) error {
-	if err != nil && err != sql.ErrNoRows && q.config != nil && q.config.LogSQL() {
-		q.logger.Errorf("SQL ERROR: %v", err)
+func (q *queryLogger) withLogError(err error) error {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) && q.config != nil && q.config.LogSQL() {
+		q.logger.Errorw("SQL ERROR", "err", err, "sql", q)
 	}
 	return err
 }
 
-func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
+func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {
-		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
+		q.logger.Debugw("SQL CONTEXT CANCELLED", "ms", elapsed.Milliseconds(), "err", ctx.Err(), "sql", q)
 	}
-	if slowSqlThreshold > 0 && elapsed > slowSqlThreshold {
-		q.logger.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
+
+	timeout := q.QueryTimeout
+	if timeout <= 0 {
+		timeout = DefaultQueryTimeout
+	}
+	slowThreshold := timeout / 10
+	if slowThreshold > 0 && elapsed > slowThreshold {
+		q.logger.Warnw("SLOW SQL QUERY", "ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "sql", q)
 	}
 }

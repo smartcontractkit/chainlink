@@ -16,10 +16,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
 // ethUSDPairing has the ETH/USD parameters needed when POSTing to the price
@@ -39,7 +41,8 @@ func TestHTTPTask_Happy(t *testing.T) {
 		URL:         s1.URL,
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(config, c, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -164,9 +167,12 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        bridge.Name.String(),
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(cfg, db, uuid.UUID{})
+			c := clhttptest.NewTestLocalOnlyHTTPClient()
+			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-			test.vars.Set("meta", test.meta)
+			err = test.vars.Set("meta", test.meta)
+			require.NoError(t, err)
+
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
@@ -210,7 +216,10 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	// Use real clients here to actually test the local connection blocking
+	r := clhttp.NewRestrictedHTTPClient(config, logger.TestLogger(t))
+	u := clhttp.NewUnrestrictedHTTPClient()
+	task.HelperSetDependencies(config, r, u)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -251,12 +260,13 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task := pipeline.HTTPTask{
 		Method:      "POST",
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	task.HelperSetDependencies(config, c, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -286,7 +296,8 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(config, c, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)

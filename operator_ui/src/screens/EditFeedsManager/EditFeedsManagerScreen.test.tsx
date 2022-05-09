@@ -14,7 +14,7 @@ import {
   UPDATE_FEEDS_MANAGER_MUTATION,
   EditFeedsManagerScreen,
 } from './EditFeedsManagerScreen'
-import { FEEDS_MANAGERS_QUERY } from 'src/hooks/useFeedsManagersQuery'
+import { FEEDS_MANAGERS_QUERY } from 'src/hooks/queries/useFeedsManagersQuery'
 import Notifications from 'pages/Notifications'
 import { GraphQLError } from 'graphql'
 
@@ -113,9 +113,6 @@ describe('EditFeedsManagerScreen', () => {
               name: 'updated',
               uri: 'localhost:80812',
               publicKey: '22222',
-              jobTypes: ['FLUX_MONITOR', 'OCR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },
@@ -127,7 +124,6 @@ describe('EditFeedsManagerScreen', () => {
                 name: 'updated',
                 uri: 'localhost:80812',
                 publicKey: '22222',
-                jobTypes: ['FLUX_MONITOR', 'OCR'],
               }),
             },
           },
@@ -145,7 +141,6 @@ describe('EditFeedsManagerScreen', () => {
                   name: 'updated',
                   uri: 'localhost:80812',
                   publicKey: '22222',
-                  jobTypes: ['FLUX_MONITOR', 'OCR'],
                 }),
               ],
             },
@@ -169,8 +164,6 @@ describe('EditFeedsManagerScreen', () => {
     const publicKeyInput = getByRole('textbox', { name: 'Public Key *' })
     userEvent.clear(publicKeyInput)
     userEvent.type(publicKeyInput, '22222')
-
-    userEvent.click(getByRole('checkbox', { name: /ocr/i }))
 
     userEvent.click(getByRole('button', { name: /submit/i }))
 
@@ -203,9 +196,6 @@ describe('EditFeedsManagerScreen', () => {
               name: mgr.name,
               uri: mgr.uri,
               publicKey: mgr.publicKey,
-              jobTypes: ['FLUX_MONITOR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },
@@ -255,9 +245,6 @@ describe('EditFeedsManagerScreen', () => {
               name: mgr.name,
               uri: mgr.uri,
               publicKey: mgr.publicKey,
-              jobTypes: ['FLUX_MONITOR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },
@@ -344,9 +331,6 @@ describe('EditFeedsManagerScreen', () => {
               name: mgr.name,
               uri: mgr.uri,
               publicKey: mgr.publicKey,
-              jobTypes: ['FLUX_MONITOR'],
-              isBootstrapPeer: false,
-              bootstrapPeerMultiaddr: undefined,
             },
           },
         },

@@ -2,9 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/gqlscalar"
 )
 
@@ -53,7 +53,7 @@ func (r *SpecResolver) ToOCRSpec() (*OCRSpecResolver, bool) {
 		return nil, false
 	}
 
-	return &OCRSpecResolver{spec: *r.j.OffchainreportingOracleSpec}, true
+	return &OCRSpecResolver{spec: *r.j.OCROracleSpec}, true
 }
 
 func (r *SpecResolver) ToOCR2Spec() (*OCR2SpecResolver, bool) {
@@ -61,7 +61,7 @@ func (r *SpecResolver) ToOCR2Spec() (*OCR2SpecResolver, bool) {
 		return nil, false
 	}
 
-	return &OCR2SpecResolver{spec: *r.j.Offchainreporting2OracleSpec}, true
+	return &OCR2SpecResolver{spec: *r.j.OCR2OracleSpec}, true
 }
 
 func (r *SpecResolver) ToVRFSpec() (*VRFSpecResolver, bool) {
@@ -151,8 +151,8 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
 	return r.spec.MinIncomingConfirmationsEnv
 }
 
-// MinContractPayment resolves the spec's evm chain id.
-func (r *DirectRequestSpecResolver) MinContractPayment() string {
+// MinContractPaymentLinkJuels resolves the spec's evm chain id.
+func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
 }
 
@@ -296,7 +296,7 @@ func (r *KeeperSpecResolver) FromAddress() *string {
 }
 
 type OCRSpecResolver struct {
-	spec job.OffchainReportingOracleSpec
+	spec job.OCROracleSpec
 }
 
 // BlockchainTimeout resolves the spec's blockchain timeout.
@@ -478,7 +478,7 @@ func (r *OCRSpecResolver) TransmitterAddress() *string {
 }
 
 type OCR2SpecResolver struct {
-	spec job.OffchainReporting2OracleSpec
+	spec job.OCR2OracleSpec
 }
 
 // BlockchainTimeout resolves the spec's blockchain timeout.
@@ -525,20 +525,6 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// IsBootstrapPeer resolves whether spec is a bootstrap peer.
-func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
-	return r.spec.IsBootstrapPeer
-}
-
-// JuelsPerFeeCoinSource resolves the spec's juels per fee coin source
-func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() *string {
-	if r.spec.JuelsPerFeeCoinPipeline == "" {
-		return nil
-	}
-
-	return &r.spec.JuelsPerFeeCoinPipeline
-}
-
 // KeyBundleID resolves the spec's key bundle id.
 func (r *OCR2SpecResolver) OcrKeyBundleID() *string {
 	if !r.spec.OCRKeyBundleID.Valid {
@@ -578,7 +564,17 @@ func (r *OCR2SpecResolver) RelayConfig() gqlscalar.Map {
 	return gqlscalar.Map(r.spec.RelayConfig)
 }
 
-// TransmitterAddress resolves the spec's transmitter id
+// PluginType resolves the spec's plugin type
+func (r *OCR2SpecResolver) PluginType() string {
+	return string(r.spec.PluginType)
+}
+
+// PluginConfig resolves the spec's plugin config
+func (r *OCR2SpecResolver) PluginConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.PluginConfig)
+}
+
+// TransmitterID resolves the spec's transmitter id
 func (r *OCR2SpecResolver) TransmitterID() *string {
 	if !r.spec.TransmitterID.Valid {
 		return nil
@@ -623,14 +619,17 @@ func (r *VRFSpecResolver) EVMChainID() *string {
 	return &chainID
 }
 
-// FromAddress resolves the spec's from address.
-func (r *VRFSpecResolver) FromAddress() *string {
-	if r.spec.FromAddress == nil {
+// FromAddresses resolves the spec's from addresses.
+func (r *VRFSpecResolver) FromAddresses() *[]string {
+	if len(r.spec.FromAddresses) == 0 {
 		return nil
 	}
 
-	addr := r.spec.FromAddress.String()
-	return &addr
+	var addresses []string
+	for _, a := range r.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
 }
 
 // PollPeriod resolves the spec's poll period.
@@ -652,6 +651,40 @@ func (r *VRFSpecResolver) RequestedConfsDelay() int32 {
 // RequestTimeout resolves the spec's request timeout.
 func (r *VRFSpecResolver) RequestTimeout() string {
 	return r.spec.RequestTimeout.String()
+}
+
+// BatchCoordinatorAddress resolves the spec's batch coordinator address.
+func (r *VRFSpecResolver) BatchCoordinatorAddress() *string {
+	if r.spec.BatchCoordinatorAddress == nil {
+		return nil
+	}
+	addr := r.spec.BatchCoordinatorAddress.String()
+	return &addr
+}
+
+// BatchFulfillmentEnabled resolves the spec's batch fulfillment enabled flag.
+func (r *VRFSpecResolver) BatchFulfillmentEnabled() bool {
+	return r.spec.BatchFulfillmentEnabled
+}
+
+// BatchFulfillmentGasMultiplier resolves the spec's batch fulfillment gas multiplier.
+func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
+	return r.spec.BatchFulfillmentGasMultiplier
+}
+
+// ChunkSize resolves the spec's chunk size.
+func (r *VRFSpecResolver) ChunkSize() int32 {
+	return int32(r.spec.ChunkSize)
+}
+
+// BackoffInitialDelay resolves the spec's backoff initial delay.
+func (r *VRFSpecResolver) BackoffInitialDelay() string {
+	return r.spec.BackoffInitialDelay.String()
+}
+
+// BackoffMaxDelay resolves the spec's backoff max delay.
+func (r *VRFSpecResolver) BackoffMaxDelay() string {
+	return r.spec.BackoffMaxDelay.String()
 }
 
 type WebhookSpecResolver struct {

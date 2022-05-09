@@ -13,9 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -24,13 +21,22 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -41,10 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
-	"gopkg.in/guregu/null.v4"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -101,9 +103,7 @@ func WithMinMaxSubmission(min, max *big.Int) func(cfg *fluxAggregatorUniverseCon
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAggregatorUniverseConfig)) fluxAggregatorUniverse {
-	if testing.Short() {
-		t.Skip("skipping due to VRFCoordinatorV2Universe")
-	}
+	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	cfg := &fluxAggregatorUniverseConfig{
 		MinSubmission: big.NewInt(0),
 		MaxSubmission: big.NewInt(100000000000),
@@ -215,10 +215,10 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
+	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()))
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	return app
 }
 
@@ -464,7 +464,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 			type v struct {
 				count     int
-				updatedAt string
+				updatedAt int64
 			}
 			expectedMeta := map[string]v{}
 			var expMetaMu sync.Mutex
@@ -481,7 +481,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 						k := m.Meta.LatestAnswer.String()
 						expMetaMu.Lock()
 						curr := expectedMeta[k]
-						expectedMeta[k] = v{curr.count + 1, m.Meta.UpdatedAt.String()}
+						assert.True(t, m.Meta.UpdatedAt.IsInt64()) // sanity check unix ts
+						expectedMeta[k] = v{curr.count + 1, m.Meta.UpdatedAt.Int64()}
 						expMetaMu.Unlock()
 					}
 				},

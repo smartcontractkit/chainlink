@@ -62,7 +62,7 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
@@ -93,22 +93,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		pipelineRunner:           d.pipelineRunner,
 		pipelineORM:              d.pipelineORM,
 		job:                      jb,
-		mbOracleRequests:         utils.NewHighCapacityMailbox(),
-		mbOracleCancelRequests:   utils.NewHighCapacityMailbox(),
+		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
 		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
 		chStop:                   make(chan struct{}),
 	}
-	var services []job.Service
+	var services []job.ServiceCtx
 	services = append(services, logListener)
 
 	return services, nil
 }
 
 var (
-	_ log.Listener = &listener{}
-	_ job.Service  = &listener{}
+	_ log.Listener   = &listener{}
+	_ job.ServiceCtx = &listener{}
 )
 
 type listener struct {
@@ -121,8 +121,8 @@ type listener struct {
 	job                      job.Job
 	runs                     sync.Map
 	shutdownWaitGroup        sync.WaitGroup
-	mbOracleRequests         *utils.Mailbox
-	mbOracleCancelRequests   *utils.Mailbox
+	mbOracleRequests         *utils.Mailbox[log.Broadcast]
+	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
@@ -131,7 +131,7 @@ type listener struct {
 }
 
 // Start complies with job.Service
-func (l *listener) Start() error {
+func (l *listener) Start(context.Context) error {
 	return l.StartOnce("DirectRequestListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle.Address(),
@@ -220,15 +220,11 @@ func (l *listener) processCancelOracleRequests() {
 	}
 }
 
-func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
+func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 	for {
-		i, exists := mailbox.Retrieve()
+		lb, exists := mailbox.Retrieve()
 		if !exists {
 			return
-		}
-		lb, ok := i.(log.Broadcast)
-		if !ok {
-			panic(errors.Errorf("DirectRequest: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
@@ -324,7 +320,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	if loaded {
 		runCloserChannel, _ = runCloserChannelIf.(chan struct{})
 	}
-	ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
+	ctx, cancel := utils.ContextFromChan(runCloserChannel)
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

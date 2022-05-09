@@ -16,9 +16,7 @@ import (
 	"testing"
 	"time"
 
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +27,18 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -41,13 +51,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -55,14 +66,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
@@ -70,15 +73,14 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
 		eiName    = "substrate-ei"
@@ -163,7 +165,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
 		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType("substrate-adapter1"),
+			Name: bridges.BridgeName("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
 		require.NoError(t, err)
@@ -246,10 +248,10 @@ observationSource   = """
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+
 	app := cltest.NewApplication(t, ethClient)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// set up user
 	mockUser := cltest.MustRandomUser(t)
@@ -351,7 +353,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b := operatorContracts.sim
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 
-			sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+			sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
 			require.NoError(t, err)
 			authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
 			tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
@@ -369,7 +371,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			require.NoError(t, err)
 			b.Commit()
 
-			err = app.Start()
+			err = app.Start(testutils.Context(t))
 			require.NoError(t, err)
 
 			mockServerUSD := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
@@ -493,10 +495,11 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
+	config.Overrides.P2PEnabled = null.BoolFrom(true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -529,7 +532,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 		config.Overrides.P2PV2ListenAddresses = []string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 	}
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address.Address()
 
@@ -550,9 +553,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	testutils.SkipShort(t, "long test")
 	tests := []struct {
 		id        int
 		portStart int // Test need to run in parallel, all need distinct port ranges.
@@ -640,10 +641,10 @@ func TestIntegration_OCR(t *testing.T) {
 			require.NoError(t, err)
 			b.Commit()
 
-			err = appBootstrap.Start()
+			err = appBootstrap.Start(testutils.Context(t))
 			require.NoError(t, err)
 
-			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -676,7 +677,7 @@ isBootstrapPeer    = true
 				"0": {}, "10": {}, "20": {}, "30": {},
 			}
 			for i := 0; i < numOracles; i++ {
-				err = apps[i].Start()
+				err = apps[i].Start(testutils.Context(t))
 				require.NoError(t, err)
 
 				// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
@@ -702,14 +703,14 @@ isBootstrapPeer    = true
 				defer servers[i].Close()
 				u, _ := url.Parse(servers[i].URL)
 				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-					Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
+					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				})
 				require.NoError(t, err)
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				jb, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
+				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -795,9 +796,8 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
-	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
-	defer assertMocksCalled()
-	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
+	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
@@ -832,12 +832,16 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil).Maybe()
-
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *evmtypes.Head) }).
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchNewHeads <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 
@@ -845,20 +849,20 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
-			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
-			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a"
+			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
+			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29"
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &b41
-		elems[1].Result = &b42
+		elems[0].Result = &b42
+		elems[1].Result = &b41
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	require.NoError(t, cc.Start())
-	var newHeads chan<- *evmtypes.Head
+	require.NoError(t, cc.Start(testutils.Context(t)))
+	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):
@@ -886,7 +890,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
 
 	// Simulate one new head and check the gas price got updated
-	newHeads <- cltest.Head(43)
+	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
@@ -896,7 +900,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	keys, err := app.KeyStore.Eth().SendingKeys()
+	keys, err := app.KeyStore.Eth().SendingKeys(nil)
 	require.NoError(t, err)
 	// FIXME: This is a hack. Remove after https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
 	for _, chain := range app.GetChains().EVM.Chains() {

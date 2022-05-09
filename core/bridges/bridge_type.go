@@ -17,7 +17,7 @@ import (
 
 // BridgeTypeRequest is the incoming record used to create a BridgeType
 type BridgeTypeRequest struct {
-	Name                   TaskType      `json:"name"`
+	Name                   BridgeName    `json:"name"`
 	URL                    models.WebURL `json:"url"`
 	Confirmations          uint32        `json:"confirmations"`
 	MinimumContractPayment *assets.Link  `json:"minimumContractPayment"`
@@ -35,14 +35,14 @@ func (bt BridgeTypeRequest) GetName() string {
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
 func (bt *BridgeTypeRequest) SetID(value string) error {
-	name, err := NewTaskType(value)
+	name, err := ParseBridgeName(value)
 	bt.Name = name
 	return err
 }
 
 // BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
 type BridgeTypeAuthentication struct {
-	Name                   TaskType
+	Name                   BridgeName
 	URL                    models.WebURL
 	Confirmations          uint32
 	IncomingToken          string
@@ -53,7 +53,7 @@ type BridgeTypeAuthentication struct {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType
+	Name                   BridgeName
 	URL                    models.WebURL
 	Confirmations          uint32
 	IncomingTokenHash      string
@@ -140,61 +140,62 @@ func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[strin
 	return mp, nil
 }
 
-// TaskType defines what Adapter a TaskSpec will use.
-type TaskType string
+// BridgeName defines what Adapter a TaskSpec will use.
+type BridgeName string
 
-// NewTaskType returns a formatted Task type.
-func NewTaskType(val string) (TaskType, error) {
-	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
-	if !re.MatchString(val) {
-		return TaskType(""), fmt.Errorf("task type validation: name %v contains invalid characters", val)
+var bridgeNameRegex = regexp.MustCompile("^[a-zA-Z0-9-_]*$")
+
+// ParseBridgeName returns a formatted Task type.
+func ParseBridgeName(val string) (BridgeName, error) {
+	if !bridgeNameRegex.MatchString(val) {
+		return "", fmt.Errorf("task type validation: name %v contains invalid characters", val)
 	}
 
-	return TaskType(strings.ToLower(val)), nil
+	return BridgeName(strings.ToLower(val)), nil
 }
 
-// MustNewTaskType instantiates a new TaskType, and panics if a bad input is provided.
-func MustNewTaskType(val string) TaskType {
-	tt, err := NewTaskType(val)
+// MustParseBridgeName instantiates a new BridgeName, and panics if a bad input is provided.
+func MustParseBridgeName(val string) BridgeName {
+	tt, err := ParseBridgeName(val)
 	if err != nil {
-		panic(fmt.Sprintf("%v is not a valid TaskType", val))
+		panic(fmt.Sprintf("%v is not a valid BridgeName", val))
 	}
 	return tt
 }
 
-// UnmarshalJSON converts a bytes slice of JSON to a TaskType.
-func (t *TaskType) UnmarshalJSON(input []byte) error {
+// UnmarshalJSON converts a bytes slice of JSON to a BridgeName.
+func (t *BridgeName) UnmarshalJSON(input []byte) error {
 	var aux string
 	if err := json.Unmarshal(input, &aux); err != nil {
 		return err
 	}
-	tt, err := NewTaskType(aux)
+	tt, err := ParseBridgeName(aux)
 	*t = tt
 	return err
 }
 
-// MarshalJSON converts a TaskType to a JSON byte slice.
-func (t TaskType) MarshalJSON() ([]byte, error) {
+// MarshalJSON converts a BridgeName to a JSON byte slice.
+func (t BridgeName) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
-// String returns this TaskType as a string.
-func (t TaskType) String() string {
+// String returns this BridgeName as a string.
+func (t BridgeName) String() string {
 	return string(t)
 }
 
 // Value returns this instance serialized for database storage.
-func (t TaskType) Value() (driver.Value, error) {
+func (t BridgeName) Value() (driver.Value, error) {
 	return string(t), nil
 }
 
 // Scan reads the database value and returns an instance.
-func (t *TaskType) Scan(value interface{}) error {
+func (t *BridgeName) Scan(value interface{}) error {
 	temp, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("unable to convert %v of %T to TaskType", value, value)
+		return fmt.Errorf("unable to convert %v of %T to BridgeName", value, value)
 	}
 
-	*t = TaskType(temp)
+	*t = BridgeName(temp)
 	return nil
 }

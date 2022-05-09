@@ -1,19 +1,22 @@
 package synchronization
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
+	"go.uber.org/atomic"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 )
 
 //go:generate mockery --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
@@ -21,7 +24,7 @@ import (
 // TelemetryIngressBatchClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressBatchClient interface {
-	services.Service
+	services.ServiceCtx
 	Send(TelemPayload)
 }
 
@@ -29,7 +32,7 @@ type TelemetryIngressBatchClient interface {
 type NoopTelemetryIngressBatchClient struct{}
 
 // Start is a no-op
-func (NoopTelemetryIngressBatchClient) Start() error { return nil }
+func (NoopTelemetryIngressBatchClient) Start(context.Context) error { return nil }
 
 // Close is a no-op
 func (NoopTelemetryIngressBatchClient) Close() error { return nil }
@@ -49,7 +52,10 @@ type telemetryIngressBatchClient struct {
 	ks              keystore.CSA
 	serverPubKeyHex string
 
-	telemClient  telemPb.TelemClient
+	connected   *atomic.Bool
+	telemClient telemPb.TelemClient
+	close       func() error
+
 	globalLogger logger.Logger
 	logging      bool
 	lggr         logger.Logger
@@ -60,18 +66,22 @@ type telemetryIngressBatchClient struct {
 	telemBufferSize   uint
 	telemMaxBatchSize uint
 	telemSendInterval time.Duration
+	telemSendTimeout  time.Duration
 
 	workers      map[string]*telemetryIngressBatchWorker
 	workersMutex sync.Mutex
+
+	useUniConn bool
 }
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration) TelemetryIngressBatchClient {
+func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryIngressBatchClient {
 	return &telemetryIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
 		telemSendInterval: telemSendInterval,
+		telemSendTimeout:  telemSendTimeout,
 		url:               url,
 		ks:                ks,
 		serverPubKeyHex:   serverPubKeyHex,
@@ -79,7 +89,9 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 		logging:           logging,
 		lggr:              lggr.Named("TelemetryIngressBatchClient"),
 		chDone:            make(chan struct{}),
+		connected:         atomic.NewBool(false),
 		workers:           make(map[string]*telemetryIngressBatchWorker),
+		useUniConn:        useUniconn,
 	}
 }
 
@@ -89,7 +101,7 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 // an error and wsrpc will continue to retry the connection. Eventually when the ingress
 // server does come back up, wsrpc will establish the connection without any interaction
 // on behalf of the node operator.
-func (tc *telemetryIngressBatchClient) Start() error {
+func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 	return tc.StartOnce("TelemetryIngressBatchClient", func() error {
 		clientPrivKey, err := tc.getCSAPrivateKey()
 		if err != nil {
@@ -98,24 +110,36 @@ func (tc *telemetryIngressBatchClient) Start() error {
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
-		if err != nil {
-			return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
-		}
-
 		// Initialize a new wsrpc client caller
 		// This is used to call RPC methods on the server
 		if tc.telemClient == nil { // only preset for tests
-			tc.telemClient = telemPb.NewTelemClient(conn)
+			if tc.useUniConn {
+				go func() {
+					// Use background context to retry forever to connect
+					// Blocks until we connect
+					conn, err := wsrpc.DialUniWithContext(ctx, tc.lggr, tc.url.String(), clientPrivKey, serverPubKey)
+					if err != nil {
+						if ctx.Err() != nil {
+							tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
+						} else {
+							tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+						}
+					} else {
+						tc.telemClient = telemPb.NewTelemClient(conn)
+						tc.close = conn.Close
+						tc.connected.Store(true)
+					}
+				}()
+			} else {
+				// Spawns a goroutine that will eventually connect
+				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+				if err != nil {
+					return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
+				}
+				tc.telemClient = telemPb.NewTelemClient(conn)
+				tc.close = func() error { conn.Close(); return nil }
+			}
 		}
-
-		tc.wgDone.Add(1)
-		go func() {
-			// Wait for close
-			<-tc.chDone
-			conn.Close()
-			tc.wgDone.Done()
-		}()
 
 		return nil
 	})
@@ -126,6 +150,9 @@ func (tc *telemetryIngressBatchClient) Close() error {
 	return tc.StopOnce("TelemetryIngressBatchClient", func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
+		if (tc.useUniConn && tc.connected.Load()) || !tc.useUniConn {
+			return tc.close()
+		}
 		return nil
 	})
 }
@@ -147,6 +174,10 @@ func (tc *telemetryIngressBatchClient) getCSAPrivateKey() (privkey []byte, err e
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
 func (tc *telemetryIngressBatchClient) Send(payload TelemPayload) {
+	if tc.useUniConn && !tc.connected.Load() {
+		tc.lggr.Warnw("not connected to telemetry endpoint", "endpoint", tc.url.String())
+		return
+	}
 	worker := tc.findOrCreateWorker(payload)
 	select {
 	case worker.chTelemetry <- payload:
@@ -169,6 +200,7 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 		worker = NewTelemetryIngressBatchWorker(
 			tc.telemMaxBatchSize,
 			tc.telemSendInterval,
+			tc.telemSendTimeout,
 			tc.telemClient,
 			&tc.wgDone,
 			tc.chDone,

@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/atomic"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -23,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/atomic"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -372,6 +373,10 @@ func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
 
 func (m MockCookieAuthenticator) Authenticate(sessions.SessionRequest) (*http.Cookie, error) {
 	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
+}
+
+func (m MockCookieAuthenticator) Logout() error {
+	return nil
 }
 
 type MockSessionRequestBuilder struct {

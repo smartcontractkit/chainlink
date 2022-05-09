@@ -24,7 +24,7 @@ import (
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).
 type EventBroadcaster interface {
-	services.Service
+	services.ServiceCtx
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
 }
@@ -69,7 +69,8 @@ func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxRec
 	}
 }
 
-func (b *eventBroadcaster) Start() error {
+// Start starts EventBroadcaster.
+func (b *eventBroadcaster) Start(context.Context) error {
 	return b.StartOnce("Postgres event broadcaster", func() (err error) {
 		// Explicitly using the lib/pq for notifications so we use the postgres driverName
 		// and NOT pgx.
@@ -160,10 +161,10 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 		channel:          channel,
 		payloadFilter:    payloadFilter,
 		eventBroadcaster: b,
-		queue:            utils.NewBoundedQueue(1000),
+		queue:            utils.NewBoundedQueue[Event](1000),
 		chEvents:         make(chan Event),
 		chDone:           make(chan struct{}),
-		lggr:             b.lggr,
+		lggr:             logger.Sugared(b.lggr),
 	}
 	sub.processQueueWorker = utils.NewSleeperTask(
 		utils.SleeperFuncTask(sub.processQueue, "SubscriptionQueueProcessor"),
@@ -232,11 +233,11 @@ type subscription struct {
 	channel            string
 	payloadFilter      string
 	eventBroadcaster   *eventBroadcaster
-	queue              *utils.BoundedQueue
+	queue              *utils.BoundedQueue[Event]
 	processQueueWorker utils.SleeperTask
 	chEvents           chan Event
 	chDone             chan struct{}
-	lggr               logger.Logger
+	lggr               logger.SugaredLogger
 }
 
 var _ Subscription = (*subscription)(nil)
@@ -257,11 +258,7 @@ func (sub *subscription) processQueue() {
 	defer cancel()
 
 	for !sub.queue.Empty() {
-		event, ok := sub.queue.Take().(Event)
-		if !ok {
-			sub.lggr.Errorf("Postgres event broadcaster subscription expected an Event, got %T", event)
-			continue
-		}
+		event := sub.queue.Take()
 		select {
 		case sub.chEvents <- event:
 		case <-ctx.Done():
@@ -300,9 +297,16 @@ func NewNullEventBroadcaster() *NullEventBroadcaster {
 
 var _ EventBroadcaster = &NullEventBroadcaster{}
 
-func (*NullEventBroadcaster) Start() error   { return nil }
-func (*NullEventBroadcaster) Close() error   { return nil }
-func (*NullEventBroadcaster) Ready() error   { return nil }
+// Start does no-op.
+func (*NullEventBroadcaster) Start(context.Context) error { return nil }
+
+// Close does no-op.
+func (*NullEventBroadcaster) Close() error { return nil }
+
+// Ready does no-op.
+func (*NullEventBroadcaster) Ready() error { return nil }
+
+// Healthy does no-op.
 func (*NullEventBroadcaster) Healthy() error { return nil }
 
 func (ne *NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {

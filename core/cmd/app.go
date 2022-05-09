@@ -57,6 +57,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "file, f",
 							Usage: "text file holding the API email and password needed to create a session cookie",
 						},
+						cli.BoolFlag{
+							Name:  "bypass-version-check",
+							Usage: "Bypass versioning check for compatibility of remote node",
+						},
 					},
 				},
 			},
@@ -92,8 +96,13 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ReplayFromBlock,
 					Flags: []cli.Flag{
 						cli.IntFlag{
-							Name:  "block-number",
-							Usage: "Block number to replay from",
+							Name:     "block-number",
+							Usage:    "Block number to replay from",
+							Required: true,
+						},
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "Whether to force broadcasting logs which were already consumed and that would otherwise be skipped",
 						},
 					},
 				},
@@ -803,6 +812,23 @@ func NewApp(client *Client) *cli.App {
 					Flags:  []cli.Flag{},
 				},
 				{
+					Name:   "profile",
+					Usage:  "Collects profile metrics from the node.",
+					Action: client.Profile,
+					Flags: []cli.Flag{
+						cli.Uint64Flag{
+							Name:  "seconds, s",
+							Usage: "duration of profile capture",
+							Value: 8,
+						},
+						cli.StringFlag{
+							Name:  "output_dir, o",
+							Usage: "output directory of the captured profile",
+							Value: "/tmp/",
+						},
+					},
+				},
+				{
 					Name:        "db",
 					Usage:       "Commands for managing the database.",
 					Description: "Potentially destructive commands for managing the database.",
@@ -871,7 +897,6 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
-
 		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
@@ -897,42 +922,94 @@ func NewApp(client *Client) *cli.App {
 
 		{
 			Name:  "txs",
-			Usage: "Commands for handling Ethereum transactions",
+			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
 				{
-					Name:   "create",
-					Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
-					Action: client.SendEther,
-					Flags: []cli.Flag{
-						cli.BoolFlag{
-							Name:  "force",
-							Usage: "allows to send a higher amount than the account's balance",
+					Name:  "evm",
+					Usage: "Commands for handling EVM transactions",
+					Subcommands: []cli.Command{
+						{
+							Name:   "create",
+							Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
+							Action: client.SendEther,
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "force",
+									Usage: "allows to send a higher amount than the account's balance",
+								},
+								cli.BoolFlag{
+									Name:  "eth",
+									Usage: "allows to send ETH amounts (Default behavior)",
+								},
+								cli.BoolFlag{
+									Name:  "wei",
+									Usage: "allows to send WEI amounts",
+								},
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
 						},
-						cli.BoolFlag{
-							Name:  "eth",
-							Usage: "allows to send ETH amounts (Default behavior)",
+						{
+							Name:   "list",
+							Usage:  "List the Ethereum Transactions in descending order",
+							Action: client.IndexTransactions,
+							Flags: []cli.Flag{
+								cli.IntFlag{
+									Name:  "page",
+									Usage: "page of results to display",
+								},
+							},
 						},
-						cli.BoolFlag{
-							Name:  "wei",
-							Usage: "allows to send WEI amounts",
+						{
+							Name:   "show",
+							Usage:  "get information on a specific Ethereum Transaction",
+							Action: client.ShowTransaction,
 						},
 					},
 				},
 				{
-					Name:   "list",
-					Usage:  "List the Ethereum Transactions in descending order",
-					Action: client.IndexTransactions,
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "page",
-							Usage: "page of results to display",
+					Name:  "solana",
+					Usage: "Commands for handling Solana transactions",
+					Subcommands: []cli.Command{
+						{
+							Name:   "create",
+							Usage:  "Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.",
+							Action: client.SolanaSendSol,
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "force",
+									Usage: "allows to send a higher amount than the account's balance",
+								},
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+								},
+							},
 						},
 					},
 				},
 				{
-					Name:   "show",
-					Usage:  "get information on a specific Ethereum Transaction",
-					Action: client.ShowTransaction,
+					Name:  "terra",
+					Usage: "Commands for handling Terra transactions",
+					Subcommands: []cli.Command{
+						{
+							Name:   "create",
+							Usage:  "Send <amount> Luna from node Terra account <fromAddress> to destination <toAddress>.",
+							Action: client.TerraSendLuna,
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "force",
+									Usage: "allows to send a higher amount than the account's balance",
+								},
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -940,165 +1017,81 @@ func NewApp(client *Client) *cli.App {
 			Name:  "chains",
 			Usage: "Commands for handling chain configuration",
 			Subcommands: cli.Commands{
-				{
-					Name:  "evm",
-					Usage: "Commands for handling EVM chains",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new EVM chain",
-							Action: client.CreateEVMChain,
-							Flags: []cli.Flag{
-								cli.Int64Flag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete an EVM chain",
-							Action: client.RemoveEVMChain,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all EVM chains",
-							Action: client.IndexEVMChains,
-						},
-						{
-							Name:   "configure",
-							Usage:  "Configure an EVM chain",
-							Action: client.ConfigureEVMChain,
-							Flags: []cli.Flag{
-								cli.Int64Flag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-					},
-				},
-				{
-					Name:  "terra",
-					Usage: "Commands for handling Terra chains",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Terra chain",
-							Action: client.CreateTerraChain,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Terra chain",
-							Action: client.RemoveTerraChain,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Terra chains",
-							Action: client.IndexTerraChains,
-						},
-						{
-							Name:   "configure",
-							Usage:  "Configure a Terra chain",
-							Action: client.ConfigureTerraChain,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "id",
-									Usage: "chain ID",
-								},
-							},
-						},
-					},
-				},
+				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Solana", SolanaChainClient(client),
+					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
+				chainCommand("Terra", TerraChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
 		{
 			Name:  "nodes",
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
+				nodeCommand("EVM", NewEVMNodeClient(client),
+					cli.StringFlag{
+						Name:  "ws-url",
+						Usage: "Websocket URL",
+					},
+					cli.StringFlag{
+						Name:  "http-url",
+						Usage: "HTTP URL, optional",
+					},
+					cli.Int64Flag{
+						Name:  "chain-id",
+						Usage: "chain ID",
+					},
+					cli.StringFlag{
+						Name:  "type",
+						Usage: "primary|secondary",
+					}),
+				nodeCommand("Solana", NewSolanaNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+					},
+					cli.StringFlag{
+						Name:  "url",
+						Usage: "URL",
+					}),
+				nodeCommand("Terra", NewTerraNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID",
+					},
+					cli.StringFlag{
+						Name:  "tendermint-url",
+						Usage: "Tendermint URL",
+					}),
+			},
+		},
+		{
+			Name:  "forwarders",
+			Usage: "Commands for managing forwarder addresses.",
+			Subcommands: []cli.Command{
 				{
-					Name:  "evm",
-					Usage: "Commands for handling EVM node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new EVM node",
-							Action: client.CreateEVMNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "ws-url",
-									Usage: "Websocket URL",
-								},
-								cli.StringFlag{
-									Name:  "http-url",
-									Usage: "HTTP URL, optional",
-								},
-								cli.Int64Flag{
-									Name:  "chain-id",
-									Usage: "chain ID",
-								},
-								cli.StringFlag{
-									Name:  "type",
-									Usage: "primary|secondary",
-								},
-							},
+					Name:   "list",
+					Usage:  "List all stored forwarders addresses",
+					Action: client.ListForwarders,
+				},
+				{
+					Name:   "create",
+					Usage:  "Create a new forwarder",
+					Action: client.CreateForwarder,
+					Flags: []cli.Flag{
+						cli.Int64Flag{
+							Name:  "evmChainID, c",
+							Usage: "chain ID, if left empty, ETH_CHAIN_ID will be used",
 						},
-						{
-							Name:   "delete",
-							Usage:  "Delete an EVM node",
-							Action: client.RemoveEVMNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all EVM nodes",
-							Action: client.IndexEVMNodes,
+						cli.StringFlag{
+							Name:  "address, a",
+							Usage: "The forwarding address (in hex format)",
 						},
 					},
 				},
 				{
-					Name:  "terra",
-					Usage: "Commands for handling Terra node configuration",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new Terra node",
-							Action: client.CreateTerraNode,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "name",
-									Usage: "node name",
-								},
-								cli.StringFlag{
-									Name:  "chain-id",
-									Usage: "chain ID",
-								},
-								cli.StringFlag{
-									Name:  "tendermint-url",
-									Usage: "Tendermint URL",
-								},
-							},
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete a Terra node",
-							Action: client.RemoveTerraNode,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all Terra nodes",
-							Action: client.IndexTerraNodes,
-						},
-					},
+					Name:   "delete",
+					Usage:  "Delete a forwarder address",
+					Action: client.DeleteForwarder,
 				},
 			},
 		},

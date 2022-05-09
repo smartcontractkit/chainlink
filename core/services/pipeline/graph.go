@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -36,6 +37,11 @@ func (g *Graph) UnmarshalText(bs []byte) (err error) {
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
 	}
+	defer func() {
+		if rerr := recover(); rerr != nil {
+			err = fmt.Errorf("could not unmarshal DOT into a pipeline.Graph: %v", rerr)
+		}
+	}()
 	bs = append([]byte("digraph {\n"), bs...)
 	bs = append(bs, []byte("\n}")...)
 	err = dot.Unmarshal(bs, g)
