@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -82,6 +84,12 @@ type config struct{}
 
 func (c *config) LogSQL() bool {
 	return false
+}
+
+type executionRevertedError struct{}
+
+func (executionRevertedError) Error() string {
+	return "execution reverted"
 }
 
 func TestMaybeSubtractReservedLink(t *testing.T) {
@@ -432,4 +440,36 @@ func TestListener_ShouldProcessSub_NoFromAddresses(t *testing.T) {
 		},
 	})
 	assert.True(t, shouldProcess) // no addresses, but try to process it.
+}
+
+func TestListener_ProcessPendingVRFRequests_SubscriptionNotFound(t *testing.T) {
+	// given
+	reqs := []pendingRequest{
+		{
+			confirmedAtBlock: 100,
+			req:              &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{},
+		},
+	}
+	coordinatorMock := vrf_mocks.NewVRFCoordinatorV2Interface()
+	coordinatorMock.On("GetSubscription", mock.Anything, mock.Anything).Return(vrf_coordinator_v2.GetSubscription{}, executionRevertedError{})
+	defer coordinatorMock.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		coordinator: coordinatorMock,
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{},
+			},
+		},
+		l:                  logger.NullLogger,
+		blockNumberToReqID: pairing.New(),
+		reqs:               reqs,
+		latestHeadNumber:   100,
+	}
+
+	// when
+	lsn.processPendingVRFRequests(context.Background())
+
+	// then
+	assert.Empty(t, lsn.reqs)
 }
