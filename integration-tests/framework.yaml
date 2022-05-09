@@ -11,6 +11,7 @@ logging:
 chainlink_image:
 chainlink_version:
 chainlink_env_values:
+  LOG_LEVEL: 'debug'
 
 # Setting an environment file allows for persistent, not ephemeral environments on test execution
 #
