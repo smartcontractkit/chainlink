@@ -929,7 +929,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
 	// Create a subscription and fund with 5 LINK.
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(3e18), uni)
 
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -949,9 +949,9 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	// Make some randomness requests, each one block apart, which contain a single low-gas request sandwiched between two high-gas requests.
 	numWords := uint32(2)
 	reqIDs := []*big.Int{}
-	fees := []uint32{2_500_000, 75_000, 2_500_000}
-	for i := 0; i < len(fees); i++ {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, fees[i], uni)
+	callbackGasLimits := []uint32{2_500_000, 50_000, 1_500_000}
+	for _, limit := range callbackGasLimits {
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
 		reqIDs = append(reqIDs, requestID)
 		uni.backend.Commit()
 	}
@@ -967,37 +967,33 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
-		return len(runs) == 3
+		return len(runs) == 1
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	// Mine the fulfillments that were queued.
-	for _, requestID := range reqIDs {
-		mine(t, requestID, subID, uni, db)
-	}
+	// After the first successful request, no more will be enqueued.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 1
+	}, 3*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
-	for i, requestID := range reqIDs {
-		// Assert correct state of RandomWordsFulfilled event.
-		// The last request will be the successful one because of the way the example
-		// contract is written.
-		if i == (len(reqIDs) - 1) {
-			assertRandomWordsFulfilled(t, requestID, true, uni)
-		} else {
-			assertRandomWordsFulfilled(t, requestID, false, uni)
-		}
-	}
+	// Mine the fulfillment that was queued.
+	mine(t, reqIDs[1], subID, uni, db)
 
-	// Assert correct number of random words sent by coordinator.
-	assertNumRandomWords(t, consumerContract, numWords)
+	// Assert the random word was fulfilled
+	assertRandomWordsFulfilled(t, reqIDs[1], false, uni)
 
-	// Assert that we've still only completed 3 runs before adding new requests.
+	// Assert that we've still only completed 1 run before adding new requests.
 	runs, err = app.PipelineORM().GetAllRuns()
-	assert.Equal(t, 3, len(runs))
+	assert.Equal(t, 1, len(runs))
 
 	// Make some randomness requests, each one block apart, this time without a low-gas request present in the fee slice.
 	reqIDs = []*big.Int{}
-	fees = []uint32{2_500_000, 2_500_000, 2_500_000}
-	for i := 0; i < len(fees); i++ {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, fees[i], uni)
+	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
+	for _, limit := range callbackGasLimits {
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
 		reqIDs = append(reqIDs, requestID)
 		uni.backend.Commit()
 	}
@@ -1007,8 +1003,8 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
-		t.Log("assert 3", "runs", len(runs))
-		return len(runs) == 3
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 1
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	t.Log("Done!")
