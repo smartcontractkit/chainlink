@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 	"net/http"
 
@@ -11,14 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 )
-
-type ChainSet[I chains.ID, C chains.Config] interface {
-	Add(ctx context.Context, id I, cfg C) (chains.Chain[I, C], error)
-	Show(id I) (chains.Chain[I, C], error)
-	Configure(ctx context.Context, id I, enabled bool, cfg C) (chains.Chain[I, C], error)
-	Remove(id I) error
-	Index(offset, limit int) ([]chains.Chain[I, C], int, error)
-}
 
 type ChainsController interface {
 	// Index lists chains.
@@ -35,14 +26,14 @@ type ChainsController interface {
 
 type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struct {
 	resourceName  string
-	chainSet      ChainSet[I, C]
+	chainSet      chains.DBChainSet[I, C]
 	errNotEnabled error
 	parseChainID  func(string) (I, error)
-	newResource   func(chains.Chain[I, C]) R
+	newResource   func(chains.DBChain[I, C]) R
 }
 
-func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet ChainSet[I, C], errNotEnabled error,
-	parseChainID func(string) (I, error), newResource func(chains.Chain[I, C]) R) *chainsController[I, C, R] {
+func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.DBChainSet[I, C], errNotEnabled error,
+	parseChainID func(string) (I, error), newResource func(chains.DBChain[I, C]) R) *chainsController[I, C, R] {
 	return &chainsController[I, C, R]{
 		resourceName:  prefix + "_chain",
 		chainSet:      chainSet,

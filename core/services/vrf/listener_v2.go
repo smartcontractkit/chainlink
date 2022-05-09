@@ -191,8 +191,22 @@ type listenerV2 struct {
 }
 
 // Start starts listenerV2.
-func (lsn *listenerV2) Start(context.Context) error {
+func (lsn *listenerV2) Start(ctx context.Context) error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
+		// Check gas limit configuration
+		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
+		if err != nil {
+			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
+		} else if conf.MaxGasLimit+(GasProofVerification*2) > uint32(lsn.cfg.EvmGasLimitDefault()) {
+			lsn.l.Criticalw("Node gas limit setting may not be high enough to fulfill all requests; it should be increased. Starting anyway.",
+				"currentGasLimit", lsn.cfg.EvmGasLimitDefault(),
+				"neededGasLimit", conf.MaxGasLimit+(GasProofVerification*2),
+				"callbackGasLimit", conf.MaxGasLimit,
+				"proofVerificationGas", GasProofVerification)
+		}
+
 		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
 
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
