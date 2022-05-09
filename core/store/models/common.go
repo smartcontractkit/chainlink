@@ -245,6 +245,21 @@ func (d Duration) String() string {
 	return d.Duration().String()
 }
 
+// MarshalText implements the text.Marshaler interface.
+func (d Duration) MarshalText() ([]byte, error) {
+	return []byte(d.d.String()), nil
+}
+
+// UnmarshalText implements the text.Unmarshaler interface.
+func (d *Duration) UnmarshalText(input []byte) error {
+	v, err := time.ParseDuration(string(input))
+	if err != nil {
+		return err
+	}
+	*d = Duration{d: v}
+	return nil
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())

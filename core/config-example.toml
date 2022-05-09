@@ -1,0 +1,29 @@
+[Global]
+FeatureFeedsManager = true
+FeatureOffchainReporting2 = true
+LogLevel = "warn"
+
+[EVM.1]
+OCRObservationTimeout = "1h"
+
+# Comment
+[EVM.1.Nodes.primary-foo]
+WSURL = "wss://example.com/ws"
+HTTPURL = "https://example.com"
+
+[EVM.1.Nodes.sendonly-mirror]
+HTTPURL = "https://broadcast-mirror.internet"
+
+[Terra.Columbus-5]
+BlocksUntilTxTimeout = 10
+FCDURL = "http://fcd.url.com"
+
+[Terra.Columbus-5.Nodes.primary]
+TendermintURL = "http://terra.url"
+
+[Solana.mainnet]
+BalancePollPeriod = "1m"
+SkipPreflight = true
+
+[Solana.mainnet.Nodes.node-name]
+URL = "http://foo.bar"
