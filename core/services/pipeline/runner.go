@@ -514,7 +514,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 		r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 
 		if preinsert {
-			// if run failed and it's failEarly, skip StoreRun and instead delete all trace of it
+			// FailSilently = run failed and task was marked failEarly. skip StoreRun and instead delete all trace of it
 			if run.FailSilently {
 				if err = r.orm.DeleteRun(run.ID); err != nil {
 					return false, errors.Wrap(err, "Run")

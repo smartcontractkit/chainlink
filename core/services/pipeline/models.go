@@ -51,7 +51,7 @@ type Run struct {
 	State            RunStatus        `json:"state"`
 
 	Pending bool
-	// FailSilently implies an error has happened and a task has been marked to failEarly
+	// FailSilently is used to signal that a task with the failEarly flag has failed, and we want to not put this in the db
 	FailSilently bool
 }
 
