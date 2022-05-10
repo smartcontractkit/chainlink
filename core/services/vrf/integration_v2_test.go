@@ -928,8 +928,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
-	// Create a subscription and fund with 5 LINK.
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(3e18), uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, assets.Ether(3), uni)
 
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -961,7 +960,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	assert.Equal(t, 0, len(runs))
 	assert.Equal(t, 3, len(reqIDs))
 
-	// Wait for fulfillment to be queued.
+	// Wait for the 50_000 gas randomness request to be enqueued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns()
@@ -989,7 +988,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	runs, err = app.PipelineORM().GetAllRuns()
 	assert.Equal(t, 1, len(runs))
 
-	// Make some randomness requests, each one block apart, this time without a low-gas request present in the fee slice.
+	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
 	reqIDs = []*big.Int{}
 	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
 	for _, limit := range callbackGasLimits {
