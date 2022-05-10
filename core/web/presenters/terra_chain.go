@@ -10,7 +10,7 @@ import (
 
 // TerraChainResource is an Terra chain JSONAPI resource.
 type TerraChainResource struct {
-	chainResource[db.ChainCfg]
+	chainResource[*db.ChainCfg]
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -20,7 +20,7 @@ func (r TerraChainResource) GetName() string {
 
 // NewTerraChainResource returns a new TerraChainResource for chain.
 func NewTerraChainResource(chain types.DBChain) TerraChainResource {
-	return TerraChainResource{chainResource[db.ChainCfg]{
+	return TerraChainResource{chainResource[*db.ChainCfg]{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,
 		Enabled:   chain.Enabled,

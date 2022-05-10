@@ -14,5 +14,5 @@ import (
 // NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
-	return chains.NewORM[string, terradb.ChainCfg, terradb.Node](q, "terra", "tendermint_url")
+	return chains.NewORM[string, *terradb.ChainCfg, terradb.Node](q, "terra", "tendermint_url")
 }

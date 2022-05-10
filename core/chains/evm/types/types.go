@@ -35,8 +35,8 @@ type ChainConfigORM interface {
 type ORM interface {
 	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id utils.Big, config ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id utils.Big, enabled bool, config ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	CreateChain(id utils.Big, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	UpdateChain(id utils.Big, enabled bool, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
 	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
 	EnabledChains(...pg.QOpt) ([]DBChain, error)
@@ -100,11 +100,11 @@ func (c *ChainCfg) Scan(value interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-func (c ChainCfg) Value() (driver.Value, error) {
+func (c *ChainCfg) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-type DBChain = chains.DBChain[utils.Big, ChainCfg]
+type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
 type Node struct {
 	ID         int32

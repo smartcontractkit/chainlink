@@ -10,14 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-type DBChain = chains.DBChain[string, soldb.ChainCfg]
+type DBChain = chains.DBChain[string, *soldb.ChainCfg]
 
 // ORM manages solana chains and nodes.
 type ORM interface {
 	Chain(string, ...pg.QOpt) (DBChain, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id string, config soldb.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id string, enabled bool, config soldb.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	CreateChain(id string, config *soldb.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	UpdateChain(id string, enabled bool, config *soldb.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
 	DeleteChain(id string, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []string) (chains []DBChain, err error)
 	EnabledChains(...pg.QOpt) ([]DBChain, error)
@@ -36,10 +36,10 @@ type ORM interface {
 	Clear(chainID string, key string) error
 }
 
-var _ chains.ORM[string, soldb.ChainCfg, soldb.Node] = (ORM)(nil)
+var _ chains.ORM[string, *soldb.ChainCfg, soldb.Node] = (ORM)(nil)
 
 // NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
-	return chains.NewORM[string, soldb.ChainCfg, soldb.Node](q, "solana", "solana_url")
+	return chains.NewORM[string, *soldb.ChainCfg, soldb.Node](q, "solana", "solana_url")
 }

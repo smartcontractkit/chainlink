@@ -66,7 +66,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	simulatedBackendChain := evmtypes.DBChain{
 		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
-		Cfg: evmtypes.ChainCfg{
+		Cfg: &evmtypes.ChainCfg{
 			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
 			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
 			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
