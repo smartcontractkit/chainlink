@@ -79,7 +79,7 @@ jobs:
         with:
           repository: ${{ inputs.cl_repo }}
           ref: ${{ github.event.inputs.cl_ref }}
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
           go-version: ^1.18
       - name: Replace GHA URL
