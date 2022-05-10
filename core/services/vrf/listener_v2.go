@@ -18,6 +18,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -389,7 +390,6 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		lsn.reqsMu.Unlock() // unlock here since len(lsn.reqs) is a read, to avoid a data race.
 	}()
 
-	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
@@ -404,6 +404,11 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			lsn.l.Errorw("Unable to read subscription balance", "err", err)
 			continue
 		}
+
+		// Sort requests in ascending order by CallbackGasLimit.
+		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
+			return a.req.CallbackGasLimit < b.req.CallbackGasLimit
+		})
 
 		if !lsn.shouldProcessSub(subID, sub, reqs) {
 			lsn.l.Infow("Not processing sub", "subID", subID, "balance", sub.Balance)
@@ -445,7 +450,7 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 
 	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
-	estimatedFee, err := lsn.estimateFeeJuels(reqs[0].req, gasPriceWei)
+	estimatedFee, err := lsn.estimateFeeJuels(vrfRequest, gasPriceWei)
 	if err != nil {
 		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
 		return true
