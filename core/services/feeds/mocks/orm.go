@@ -360,6 +360,29 @@ func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, er
 	return r0, r1
 }
 
+// GetLatestSpec provides a mock function with given fields: jpID
+func (_m *ORM) GetLatestSpec(jpID int64) (*feeds.JobProposalSpec, error) {
+	ret := _m.Called(jpID)
+
+	var r0 *feeds.JobProposalSpec
+	if rf, ok := ret.Get(0).(func(int64) *feeds.JobProposalSpec); ok {
+		r0 = rf(jpID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposalSpec)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(jpID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetManager provides a mock function with given fields: id
 func (_m *ORM) GetManager(id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(id)

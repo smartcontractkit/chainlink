@@ -17,7 +17,6 @@ type ChainType string
 
 const (
 	ChainTypeArbitrum ChainType = "ARBITRUM"
-	ChainTypeExChain  ChainType = "EXCHAIN"
 	ChainTypeOptimism ChainType = "OPTIMISM"
 	ChainTypeXDAI     ChainType = "XDAI"
 )
@@ -26,8 +25,6 @@ func ToChainType(s string) (ChainType, error) {
 	switch s {
 	case "arbitrum":
 		return ChainTypeArbitrum, nil
-	case "exchain":
-		return ChainTypeExChain, nil
 	case "optimism":
 		return ChainTypeOptimism, nil
 	case "xdai":
@@ -41,8 +38,6 @@ func FromChainType(ct ChainType) string {
 	switch ct {
 	case ChainTypeArbitrum:
 		return "arbitrum"
-	case ChainTypeExChain:
-		return "exchain"
 	case ChainTypeOptimism:
 		return "optimism"
 	case ChainTypeXDAI:
