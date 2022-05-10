@@ -90,6 +90,10 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
+.PHONY: test_install_ginkgo
+test_install_ginkgo: ## Install ginkgo executable to run tests
+	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
+
 .PHONY: test_smoke
 test_smoke: # Run integration smoke tests.
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
