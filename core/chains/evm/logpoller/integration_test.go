@@ -23,14 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func logRuntime(t *testing.T, f func()) {
+func logRuntime(t *testing.T) func() {
 	s := time.Now()
-	f()
-	t.Log("runtime", time.Since(s))
+	return func() { t.Log("runtime", time.Since(s)) }
 }
 
 func TestPopulateLoadedDB(t *testing.T) {
-	t.Skip("only for local load testing and query analysis")
+	//t.Skip("only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDB(t, "logs_scale")
 	chainID := big.NewInt(137)
@@ -64,36 +63,40 @@ func TestPopulateLoadedDB(t *testing.T) {
 		}
 		require.NoError(t, o.InsertLogs(logs))
 	}
-	//s := time.Now()
-	logRuntime(t, func() {
+	func() {
+		defer logRuntime(t)
 		_, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1[:])
 		require.NoError(t, err)
-	})
-	logRuntime(t, func() {
+	}()
+	func() {
+		defer logRuntime(t)
 		_, err = o.LatestLogEventSigsAddrs(0, []common.Address{address1}, []common.Hash{event1})
 		require.NoError(t, err)
-	})
+	}()
 
 	// Confirm all the logs.
 	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000))
-	logRuntime(t, func() {
+	func() {
+		defer logRuntime(t)
 		lgs, err := o.SelectDataWordRange(address1, event1[:], 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err)
 		// 10 since every other log is for address1
 		assert.Equal(t, 10, len(lgs))
-	})
+	}()
 
-	logRuntime(t, func() {
+	func() {
+		defer logRuntime(t)
 		lgs, err := o.SelectIndexedLogs(address2, event1[:], 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
 		require.NoError(t, err)
 		assert.Equal(t, 2, len(lgs))
-	})
+	}()
 
-	logRuntime(t, func() {
+	func() {
+		defer logRuntime(t)
 		lgs, err := o.SelectIndexLogsTopicRange(address1, event1[:], 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err)
 		assert.Equal(t, 10, len(lgs))
-	})
+	}()
 }
 
 func TestLogPoller_Integration(t *testing.T) {
