@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +59,18 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 )
+
+type errPossiblyInsufficientFunds struct{}
+
+func (errPossiblyInsufficientFunds) Error() string {
+	return "Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available"
+}
+
+type errBlockhashNotInStore struct{}
+
+func (errBlockhashNotInStore) Error() string {
+	return "Blockhash not in store"
+}
 
 func newListenerV2(
 	cfg Config,
@@ -178,8 +191,22 @@ type listenerV2 struct {
 }
 
 // Start starts listenerV2.
-func (lsn *listenerV2) Start(context.Context) error {
+func (lsn *listenerV2) Start(ctx context.Context) error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
+		// Check gas limit configuration
+		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
+		if err != nil {
+			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
+		} else if conf.MaxGasLimit+(GasProofVerification*2) > uint32(lsn.cfg.EvmGasLimitDefault()) {
+			lsn.l.Criticalw("Node gas limit setting may not be high enough to fulfill all requests; it should be increased. Starting anyway.",
+				"currentGasLimit", lsn.cfg.EvmGasLimitDefault(),
+				"neededGasLimit", conf.MaxGasLimit+(GasProofVerification*2),
+				"callbackGasLimit", conf.MaxGasLimit,
+				"proofVerificationGas", GasProofVerification)
+		}
+
 		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
 
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
@@ -379,7 +406,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 
 		if !lsn.shouldProcessSub(subID, sub, reqs) {
-			lsn.l.Warnw("Not processing sub", "subID", subID, "balance", sub.Balance)
+			lsn.l.Infow("Not processing sub", "subID", subID, "balance", sub.Balance)
 			continue
 		}
 
@@ -438,7 +465,7 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
+func MaybeSubtractReservedLink(q pg.Q, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
 	var reservedLink string
 	err := q.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 				   FROM eth_txes
@@ -448,15 +475,13 @@ func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, startBalance *big.Int, c
 				   AND state IN ('unconfirmed', 'unstarted', 'in_progress')
 				   GROUP BY meta->>'SubId'`, chainID, subID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		l.Errorw("Could not get reserved link", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "getting reserved LINK")
 	}
 
 	if reservedLink != "" {
 		reservedLinkInt, success := big.NewInt(0).SetString(reservedLink, 10)
 		if !success {
-			l.Errorw("Error converting reserved link", "reservedLink", reservedLink)
-			return nil, errors.New("unable to convert returned link")
+			return nil, fmt.Errorf("converting reserved LINK %s", reservedLink)
 		}
 
 		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
@@ -492,9 +517,9 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	start := time.Now()
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.l, lsn.q, startBalance, lsn.chainID.Uint64(), subID)
+		lsn.q, startBalance, lsn.chainID.Uint64(), subID)
 	if err != nil {
-		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
+		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed
 	}
 
@@ -551,7 +576,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		var unfulfilled []pendingRequest
 		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
 		if errors.Is(err, context.Canceled) {
-			l.Errorw("Context canceled, stopping request processing", "err", err)
+			l.Infow("Context canceled, stopping request processing", "err", err)
 			return processed
 		} else if err != nil {
 			l.Errorw("Error checking for already fulfilled requests, proceeding anyway", "err", err)
@@ -585,12 +610,18 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
-				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
 					return processed
 				}
 
-				ll.Errorw("Pipeline error", "err", p.err)
+				if errors.Is(p.err, errBlockhashNotInStore{}) {
+					// Running the blockhash store feeder in backwards mode will be required to
+					// resolve this.
+					ll.Criticalw("Pipeline error", "err", p.err)
+				} else {
+					ll.Errorw("Pipeline error", "err", p.err)
+				}
 				continue
 			}
 
@@ -635,9 +666,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 	start := time.Now()
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.l, lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
 	if err != nil {
-		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
+		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId, "err", err)
 		return processed
 	}
 
@@ -675,7 +706,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		var unfulfilled []pendingRequest
 		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
 		if errors.Is(err, context.Canceled) {
-			l.Errorw("Context canceled, stopping request processing", "err", err)
+			l.Infow("Context canceled, stopping request processing", "err", err)
 			return processed
 		} else if err != nil {
 			l.Errorw("Error checking for already fulfilled requests, proceeding anyway", "err", err)
@@ -708,12 +739,18 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
-				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
 					return processed
 				}
 
-				ll.Errorw("Pipeline error", "err", p.err)
+				if errors.Is(p.err, errBlockhashNotInStore{}) {
+					// Running the blockhash store feeder in backwards mode will be required to
+					// resolve this.
+					ll.Criticalw("Pipeline error", "err", p.err)
+				} else {
+					ll.Errorw("Pipeline error", "err", p.err)
+				}
 				continue
 			}
 
@@ -919,8 +956,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		// not critical, just log and continue
 		lg.Warnw("unable to estimate juels needed for request, continuing anyway",
 			"reqID", req.req.RequestId,
-			"err", err,
-		)
+			"err", err)
 		res.juelsNeeded = big.NewInt(0)
 	}
 
@@ -948,7 +984,14 @@ func (lsn *listenerV2) simulateFulfillment(
 	}
 	// The call task will fail if there are insufficient funds
 	if res.run.AllErrors.HasError() {
-		res.err = errors.Wrap(res.run.AllErrors.ToError(), "Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available")
+		res.err = errors.WithStack(res.run.AllErrors.ToError())
+
+		if strings.Contains(res.err.Error(), "blockhash not found in store") {
+			res.err = multierr.Combine(res.err, errBlockhashNotInStore{})
+		} else if strings.Contains(res.err.Error(), "execution reverted") {
+			res.err = multierr.Combine(res.err, errPossiblyInsufficientFunds{})
+		}
+
 		return res
 	}
 	if len(trrs.FinalResult(lg).Values) != 1 {
@@ -1050,7 +1093,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled); ok {
-		lsn.l.Infow("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
+		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
 			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)

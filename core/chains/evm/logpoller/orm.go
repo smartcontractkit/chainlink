@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -126,6 +127,37 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 			ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSig)
 	if err != nil {
 		return nil, err
+	}
+	return logs, nil
+}
+
+// LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events
+func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+
+	sigs := [][]byte{}
+	for _, sig := range eventSigs {
+		sigs = append(sigs, sig.Bytes())
+	}
+	addrs := [][]byte{}
+	for _, addr := range addresses {
+		addrs = append(addrs, addr.Bytes())
+	}
+
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs, `
+		SELECT * FROM logs WHERE (block_number, address, event_sig) IN (
+			SELECT MAX(block_number), address, event_sig FROM logs 
+				WHERE evm_chain_id = $1 AND
+				    event_sig = ANY($2) AND
+					address = ANY($3) AND
+		   			block_number > $4
+			GROUP BY event_sig, address
+		)
+		ORDER BY block_number ASC
+	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
 }

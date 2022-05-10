@@ -32,6 +32,8 @@ func init() {
 	}
 }
 
+//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
 //
@@ -168,6 +170,7 @@ func verShaName(ver, sha string) string {
 func NewLogger() (Logger, func() error) {
 	var c Config
 	var parseErrs []string
+	var warnings []string
 
 	var invalid string
 	c.LogLevel, invalid = envvar.LogLevel.Parse()
@@ -194,12 +197,11 @@ func NewLogger() (Logger, func() error) {
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
-	if fileMaxSize == 0 || invalid != "" {
-		c.FileMaxSizeMB = 5120 * utils.MB // our default (env var) is 5120mb
-		parseErrs = append(parseErrs, "LogFileMaxSize will default to 5120mb")
+	if fileMaxSize <= 0 {
+		c.FileMaxSizeMB = 0 // disabled
 	} else if fileMaxSize < utils.MB {
 		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
-		parseErrs = append(parseErrs, "LogFileMaxSize will default to 1Mb")
+		warnings = append(warnings, fmt.Sprintf("LogFileMaxSize %s is too small: using default %s", fileMaxSize, utils.FileSize(utils.MB)))
 	} else {
 		c.FileMaxSizeMB = int(fileMaxSize / utils.MB)
 	}
@@ -231,6 +233,9 @@ func NewLogger() (Logger, func() error) {
 	l, close := c.New()
 	for _, msg := range parseErrs {
 		l.Error(msg)
+	}
+	for _, msg := range warnings {
+		l.Warn(msg)
 	}
 	return l.Named(verShaNameStatic()), close
 }

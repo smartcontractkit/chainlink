@@ -12,6 +12,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -157,10 +158,15 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		dial(t, n)
 		defer n.Close()
 
+		_, err := n.EthSubscribe(testutils.Context(t), make(chan *evmtypes.Head))
+		assert.Error(t, err)
+
 		n.wg.Add(1)
 		n.aliveLoop()
 
 		assert.Equal(t, NodeStateUnreachable, n.State())
+		// sc-39341: ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+		assert.Len(t, n.subs, 0)
 	})
 
 	t.Run("if remote RPC connection is closed transitions to unreachable", func(t *testing.T) {

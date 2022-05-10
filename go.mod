@@ -42,13 +42,13 @@ require (
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.3.3
-	github.com/okex/exchain-ethereum-compatible v1.1.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.19.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.12.1
+	github.com/prometheus/client_model v0.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
@@ -265,7 +265,6 @@ require (
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.33.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/tsdb v0.10.0 // indirect

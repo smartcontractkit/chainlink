@@ -14,39 +14,44 @@ type loadersKey struct{}
 type Dataloader struct {
 	app chainlink.Application
 
-	ChainsByIDLoader                *dataloader.Loader
-	EthTxAttemptsByEthTxIDLoader    *dataloader.Loader
-	FeedsManagersByIDLoader         *dataloader.Loader
-	JobProposalsByManagerIDLoader   *dataloader.Loader
-	JobProposalSpecsByJobProposalID *dataloader.Loader
-	JobRunsByIDLoader               *dataloader.Loader
-	JobsByExternalJobIDs            *dataloader.Loader
-	JobsByPipelineSpecIDLoader      *dataloader.Loader
-	NodesByChainIDLoader            *dataloader.Loader
+	ChainsByIDLoader                          *dataloader.Loader
+	EthTxAttemptsByEthTxIDLoader              *dataloader.Loader
+	FeedsManagersByIDLoader                   *dataloader.Loader
+	FeedsManagerChainConfigsByManagerIDLoader *dataloader.Loader
+	JobProposalsByManagerIDLoader             *dataloader.Loader
+	JobProposalSpecsByJobProposalID           *dataloader.Loader
+	JobRunsByIDLoader                         *dataloader.Loader
+	JobsByExternalJobIDs                      *dataloader.Loader
+	JobsByPipelineSpecIDLoader                *dataloader.Loader
+	NodesByChainIDLoader                      *dataloader.Loader
 }
 
 func New(app chainlink.Application) *Dataloader {
-	nodes := &nodeBatcher{app: app}
-	chains := &chainBatcher{app: app}
-	mgrs := &feedsBatcher{app: app}
-	jobRuns := &jobRunBatcher{app: app}
-	jps := &jobProposalBatcher{app: app}
-	jpSpecs := &jobProposalSpecBatcher{app: app}
-	jbs := &jobBatcher{app: app}
-	attmpts := &ethTransactionAttemptBatcher{app: app}
+	var (
+		nodes   = &nodeBatcher{app: app}
+		chains  = &chainBatcher{app: app}
+		mgrs    = &feedsBatcher{app: app}
+		ccfgs   = &feedsManagerChainConfigBatcher{app: app}
+		jobRuns = &jobRunBatcher{app: app}
+		jps     = &jobProposalBatcher{app: app}
+		jpSpecs = &jobProposalSpecBatcher{app: app}
+		jbs     = &jobBatcher{app: app}
+		attmpts = &ethTransactionAttemptBatcher{app: app}
+	)
 
 	return &Dataloader{
 		app: app,
 
-		ChainsByIDLoader:                dataloader.NewBatchedLoader(chains.loadByIDs),
-		EthTxAttemptsByEthTxIDLoader:    dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
-		FeedsManagersByIDLoader:         dataloader.NewBatchedLoader(mgrs.loadByIDs),
-		JobProposalsByManagerIDLoader:   dataloader.NewBatchedLoader(jps.loadByManagersIDs),
-		JobProposalSpecsByJobProposalID: dataloader.NewBatchedLoader(jpSpecs.loadByJobProposalsIDs),
-		JobRunsByIDLoader:               dataloader.NewBatchedLoader(jobRuns.loadByIDs),
-		JobsByExternalJobIDs:            dataloader.NewBatchedLoader(jbs.loadByExternalJobIDs),
-		JobsByPipelineSpecIDLoader:      dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
-		NodesByChainIDLoader:            dataloader.NewBatchedLoader(nodes.loadByChainIDs),
+		ChainsByIDLoader:                          dataloader.NewBatchedLoader(chains.loadByIDs),
+		EthTxAttemptsByEthTxIDLoader:              dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
+		FeedsManagersByIDLoader:                   dataloader.NewBatchedLoader(mgrs.loadByIDs),
+		FeedsManagerChainConfigsByManagerIDLoader: dataloader.NewBatchedLoader(ccfgs.loadByManagerIDs),
+		JobProposalsByManagerIDLoader:             dataloader.NewBatchedLoader(jps.loadByManagersIDs),
+		JobProposalSpecsByJobProposalID:           dataloader.NewBatchedLoader(jpSpecs.loadByJobProposalsIDs),
+		JobRunsByIDLoader:                         dataloader.NewBatchedLoader(jobRuns.loadByIDs),
+		JobsByExternalJobIDs:                      dataloader.NewBatchedLoader(jbs.loadByExternalJobIDs),
+		JobsByPipelineSpecIDLoader:                dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
+		NodesByChainIDLoader:                      dataloader.NewBatchedLoader(nodes.loadByChainIDs),
 	}
 }
 

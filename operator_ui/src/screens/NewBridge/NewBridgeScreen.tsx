@@ -45,10 +45,6 @@ export const NewBridgeScreen = () => {
     CREATE_BRIDGE_MUTATION,
   )
 
-  React.useEffect(() => {
-    document.title = 'New Bridge'
-  }, [])
-
   const handleSubmit = async (values: FormValues) => {
     try {
       const result = await createBridge({

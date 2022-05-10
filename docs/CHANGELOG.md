@@ -7,15 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+```
+Must be longer than 12 characters
+Must comprise at least 3 of:
+	lowercase characters
+	uppercase characters
+	numbers
+	symbols
+Must not comprise:
+	A user's API email
+	More than three identical consecutive characters
+```
+This will prevent application boot in a future version of Chainlink.
+
+### Added 
+- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+
+### Fixed
+- Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
+
+## [1.4.0] - 2022-05-02
+
 ### Added
 
 - JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
-- Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+- Log slow SQL queries
+- Fantom and avalanche block explorer urls
+- Display `requestTimeout` in job UI
+- Keeper upkeep order is shuffled
+
+### Fixed
+
+- `LOG_FILE_MAX_SIZE` handling
+- Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
+- VRFv2 fixes and enhancements
+- UI support for `minContractPaymentLinkJuels`
 
 ## [1.3.0] - 2022-04-18
 
 ### Added
 
+- Added support for Keeper registry v1.2 in keeper jobs
 - Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
   - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
   - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.

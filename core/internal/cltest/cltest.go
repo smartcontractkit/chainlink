@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -170,11 +171,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
-	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr)
+	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -281,7 +282,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
 			app.Key = v
-		case evmtypes.Chain:
+		case evmtypes.DBChain:
 			chainID = v.ID
 		}
 	}
@@ -328,17 +329,17 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case evmtypes.Chain:
+		case evmtypes.DBChain:
 			if chainORM != nil {
 				panic("cannot set more than one chain")
 			}
-			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep}, nil)
+			chainORM = evmtest.NewMockORM([]evmtypes.DBChain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg)
 			}
 
 		}
@@ -359,7 +360,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.Chain) evmclient.Client {
+		GenEthClient: func(c evmtypes.DBChain) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
@@ -398,6 +399,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
@@ -407,6 +409,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		Logger:                   lggr,
 		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
+		RestrictedHTTPClient:     c,
+		UnrestrictedHTTPClient:   c,
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
@@ -1055,7 +1059,7 @@ func AssertError(t testing.TB, want bool, err error) {
 func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	request, err := http.NewRequest("POST", url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
@@ -1070,7 +1074,7 @@ func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[s
 func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	request, err := http.NewRequest("PATCH", url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
