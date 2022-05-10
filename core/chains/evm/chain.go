@@ -111,6 +111,9 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	}
 
 	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	if opts.GenLogPoller != nil {
+		logPoller = opts.GenLogPoller(dbchain)
+	}
 
 	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
