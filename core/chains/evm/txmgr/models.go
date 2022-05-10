@@ -29,11 +29,11 @@ type EthTxMeta struct {
 	JobID int32 `json:"JobID"`
 
 	// VRF-only fields
-	RequestID     common.Hash `json:"RequestID"`
-	RequestTxHash common.Hash `json:"RequestTxHash"`
+	RequestID     common.Hash `json:"RequestID,omitempty"`
+	RequestTxHash common.Hash `json:"RequestTxHash,omitempty"`
 	// Batch variants of the above
-	RequestIDs      []common.Hash `json:"RequestIDs"`
-	RequestTxHashes []common.Hash `json:"RequestTxHashes"`
+	RequestIDs      []common.Hash `json:"RequestIDs,omitempty"`
+	RequestTxHashes []common.Hash `json:"RequestTxHashes,omitempty"`
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink *string `json:"MaxLink,omitempty"`
@@ -49,15 +49,15 @@ type EthTxMeta struct {
 // on chain.
 type TransmitCheckerSpec struct {
 	// CheckerType is the type of check that should be performed. Empty indicates no check.
-	CheckerType TransmitCheckerType
+	CheckerType TransmitCheckerType `json:",omitempty"`
 
 	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
 	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFCoordinatorAddress common.Address
+	VRFCoordinatorAddress common.Address `json:",omitempty"`
 
 	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
 	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFRequestBlockNumber *big.Int
+	VRFRequestBlockNumber *big.Int `json:",omitempty"`
 }
 
 type EthTxState string
@@ -160,10 +160,12 @@ type EthTx struct {
 	Error    null.String
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
-	BroadcastAt   *time.Time
-	CreatedAt     time.Time
-	State         EthTxState
-	EthTxAttempts []EthTxAttempt `json:"-"`
+	BroadcastAt *time.Time
+	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
+	InitialBroadcastAt *time.Time
+	CreatedAt          time.Time
+	State              EthTxState
+	EthTxAttempts      []EthTxAttempt `json:"-"`
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.

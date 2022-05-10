@@ -14,7 +14,7 @@
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
 /core/services/health @archseer @samsondav
 /core/services/job @spooktheducks @connorwstein @archseer
-/core/services/keeper @RyanRHall @samsondav
+/core/services/keeper @smartcontractkit/keepers
 /core/services/keystore @RyanRHall
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
@@ -36,6 +36,7 @@
 
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
+/contracts/**/Keeper* @smartcontractkit/keepers
 
 # Tests
 /integration-tests/ @kalverra
