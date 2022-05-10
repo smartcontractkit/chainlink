@@ -315,7 +315,7 @@ func TestResolver_CreateChain(t *testing.T) {
 		"config": map[string]interface{}{
 			"blockHistoryEstimatorBlockDelay": 0,
 			"ethTxReaperThreshold":            "1m0s",
-			"chainType":                       "EXCHAIN",
+			"chainType":                       "XDAI",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
 		},
 	})
@@ -378,7 +378,7 @@ func TestResolver_CreateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
@@ -412,7 +412,7 @@ func TestResolver_CreateChain(t *testing.T) {
 										"config": {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
-											"chainType": "EXCHAIN",
+											"chainType": "XDAI",
 											"gasEstimatorMode": "BLOCK_HISTORY"
 										}
 									}
@@ -453,7 +453,7 @@ func TestResolver_CreateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
@@ -618,7 +618,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 		"config": map[string]interface{}{
 			"blockHistoryEstimatorBlockDelay": 0,
 			"ethTxReaperThreshold":            "1m0s",
-			"chainType":                       "EXCHAIN",
+			"chainType":                       "XDAI",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
 		},
 	})
@@ -681,7 +681,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
@@ -715,7 +715,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 										"config": {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
-											"chainType": "EXCHAIN",
+											"chainType": "XDAI",
 											"gasEstimatorMode": "BLOCK_HISTORY"
 										}
 									}
@@ -756,7 +756,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
@@ -789,7 +789,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
