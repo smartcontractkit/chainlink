@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -130,16 +131,18 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	} else if !peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
 	}
-	var bootstrapPeers []string
+
+	var v1BootstrapPeers []string
 	if concreteSpec.P2PBootstrapPeers != nil {
-		bootstrapPeers = concreteSpec.P2PBootstrapPeers
+		v1BootstrapPeers = concreteSpec.P2PBootstrapPeers
 	} else {
-		bootstrapPeers, err = chain.Config().P2PBootstrapPeers()
+		v1BootstrapPeers, err = chain.Config().P2PBootstrapPeers()
 		if err != nil {
 			return nil, err
 		}
 	}
-	// TODO: May want to follow up with spec override support for v2 bootstrappers?
+
+	// v1 job format does not support overriding v2 bootstrap nodes, they must be set in env var
 	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
@@ -156,7 +159,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		var bootstrapper *ocr.BootstrapNode
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
-			V1Bootstrappers:       bootstrapPeers,
+			V1Bootstrappers:       v1BootstrapPeers,
 			V2Bootstrappers:       v2BootstrapPeers,
 			ContractConfigTracker: tracker,
 			Database:              ocrDB,
@@ -169,8 +172,14 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		bootstrapperCtx := job.NewServiceAdapter(bootstrapper)
 		services = append(services, bootstrapperCtx)
 	} else {
-		if len(bootstrapPeers) < 1 {
-			return nil, errors.New("need at least one bootstrap peer")
+		if peerWrapper.Config().P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 {
+			if len(v1BootstrapPeers) < 1 {
+				return nil, errors.New("Need at least one v1 bootstrap peer defined")
+			}
+		} else {
+			if len(v2BootstrapPeers) < 1 {
+				return nil, errors.New("Need at least one v2 bootstrap peer defined")
+			}
 		}
 
 		ocrkey, err := d.keyStore.OCR().Get(concreteSpec.EncryptedOCRKeyBundleID.String())
@@ -241,7 +250,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			PrivateKeys:                  ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
-			V1Bootstrappers:              bootstrapPeers,
+			V1Bootstrappers:              v1BootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String()),
 			ConfigOverrider:              configOverrider,

@@ -83,6 +83,11 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 		if len(config.P2PV2ListenAddresses()) == 0 {
 			return errors.New("networking stack v1v2 selected but no P2PV2_LISTEN_ADDRESSES specified")
 		}
+		// Because there is no way to specify v2 bootstrappers in OCR jobs, we require they be set
+		//  in the environment. v1 bootstrap peers can be specified either here or in the OCR jobspec
+		if len(config.P2PV2Bootstrappers()) == 0 {
+			return errors.New("networking stack v1v2 selected but no P2PV2Bootstrappers specified")
+		}
 	default:
 		return errors.New("unknown networking stack")
 	}
