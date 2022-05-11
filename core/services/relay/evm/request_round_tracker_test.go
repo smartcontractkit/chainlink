@@ -2,12 +2,10 @@ package evm_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -50,7 +48,7 @@ type contractTrackerUni struct {
 	hb                  *htmocks.HeadBroadcaster
 	ec                  *evmmocks.Client
 	requestRoundTracker *evm.RequestRoundTracker
-	configTracker       *evm.ConfigTracker
+	//configTracker       *evm.ConfigPoller
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
@@ -96,9 +94,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.db,
 		chain,
 	)
-	contractABI, err := abi.JSON(strings.NewReader(offchain_aggregator_wrapper.OffchainAggregatorABI))
-	require.NoError(t, err)
-	uni.configTracker = evm.NewConfigTracker(lggr, contractABI, uni.ec, contract.Address(), chain.ChainType(), uni.hb)
+	//uni.configTracker = evm.NewConfigPoller(lggr, uni.contract.Address())
 
 	t.Cleanup(func() {
 		uni.db.AssertExpectations(t)

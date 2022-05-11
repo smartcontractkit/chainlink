@@ -232,6 +232,11 @@ func Bytes4FromString(s string) [4]byte {
 	return b4
 }
 
+func MustAbiType(ts string, components []abi.ArgumentMarshaling) abi.Type {
+	ty, _ := abi.NewType(ts, "", components)
+	return ty
+}
+
 // "Constants" used by EVM words
 var (
 	maxUint257 = &big.Int{}

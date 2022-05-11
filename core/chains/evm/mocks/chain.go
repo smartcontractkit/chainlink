@@ -171,15 +171,15 @@ func (_m *Chain) LogBroadcaster() log.Broadcaster {
 }
 
 // LogPoller provides a mock function with given fields:
-func (_m *Chain) LogPoller() *logpoller.LogPoller {
+func (_m *Chain) LogPoller() logpoller.LogPoller {
 	ret := _m.Called()
 
-	var r0 *logpoller.LogPoller
-	if rf, ok := ret.Get(0).(func() *logpoller.LogPoller); ok {
+	var r0 logpoller.LogPoller
+	if rf, ok := ret.Get(0).(func() logpoller.LogPoller); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logpoller.LogPoller)
+			r0 = ret.Get(0).(logpoller.LogPoller)
 		}
 	}
 
