@@ -210,7 +210,7 @@ observationSource   = """
 		headers[static.ExternalInitiatorAccessKeyHeader] = eiaWrong.AccessKey
 		headers[static.ExternalInitiatorSecretHeader] = eiaWrong.Secret
 
-		url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobUUID.String() + "/runs"
+		url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
 		bodyBuf := bytes.NewBufferString(body)
 		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
 		defer cleanup()
@@ -260,7 +260,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
-	url := app.Config.ClientNodeURL() + "/v2/config"
+	url := app.Server.URL + "/v2/config"
 	headers := make(map[string]string)
 	headers[webauth.APIKey] = cltest.APIKey
 	headers[webauth.APISecret] = cltest.APISecret

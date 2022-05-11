@@ -23,6 +23,7 @@ func init() {
 func run(args ...string) {
 	t := &testing.T{}
 	tc := cltest.NewTestGeneralConfig(t)
+	tc.SetRootDir("/foo")
 	tc.Overrides.Dev = null.BoolFrom(false)
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
@@ -33,7 +34,7 @@ func run(args ...string) {
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc, "session"),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(lggr, cmd.ClientOpts{}, "session"),
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 	args = append([]string{""}, args...)
@@ -69,9 +70,12 @@ func ExampleRun() {
 	//    help, h         Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
-	//    --json, -j     json output as opposed to table
-	//    --help, -h     show help
-	//    --version, -v  print the version
+	//    --json, -j                     json output as opposed to table
+	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored (default: "/foo/apicredentials")
+	//    --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
+	//    --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
+	//    --help, -h                     show help
+	//    --version, -v                  print the version
 	// core.test version 0.0.0@exampleSHA
 }
 

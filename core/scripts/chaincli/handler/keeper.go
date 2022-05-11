@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net/url"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -227,8 +228,12 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 }
 
 // createKeeperJobOnExistingNode connect to existing node to create keeper job
-func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAddr, nodeAddr string) error {
-	c := cfg{nodeURL: url}
+func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registryAddr, nodeAddr string) error {
+	remoteNodeURL, err := url.Parse(urlStr)
+	if err != nil {
+		return err
+	}
+	c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
 	sr := sessions.SessionRequest{Email: email, Password: password}
 	store := &cmd.MemoryCookieStore{}
 	lggr, close := logger.NewLogger()
@@ -238,7 +243,7 @@ func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAdd
 		log.Println("failed to authenticate: ", err)
 		return err
 	}
-	cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
+	cl := cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr)
 
 	if err := k.createKeeperJob(cl, registryAddr, nodeAddr); err != nil {
 		log.Println("Failed to create keeper job: ", err)

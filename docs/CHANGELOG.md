@@ -22,6 +22,7 @@ Must not comprise:
 	More than three identical consecutive characters
 ```
 This will prevent application boot in a future version of Chainlink.
+- The following ENV variables have been removed: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
