@@ -110,7 +110,7 @@ func Context(t *testing.T) (ctx context.Context) {
 }
 
 // MustParseURL parses the URL or fails the test
-func MustParseURL(t *testing.T, input string) *url.URL {
+func MustParseURL(t testing.TB, input string) *url.URL {
 	u, err := url.Parse(input)
 	require.NoError(t, err)
 	return u

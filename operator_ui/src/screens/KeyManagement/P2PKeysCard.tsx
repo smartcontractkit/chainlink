@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { gql } from '@apollo/client'
-
 import Button from '@material-ui/core/Button'
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
@@ -17,14 +15,6 @@ import { ErrorRow } from 'src/components/TableRow/ErrorRow'
 import { LoadingRow } from 'src/components/TableRow/LoadingRow'
 import { NoContentRow } from 'src/components/TableRow/NoContentRow'
 import { P2PKeyRow } from './P2PKeyRow'
-
-export const P2P_KEYS_PAYLOAD__RESULTS_FIELDS = gql`
-  fragment P2PKeysPayload_ResultsFields on P2PKey {
-    id
-    peerID
-    publicKey
-  }
-`
 
 export interface Props {
   loading: boolean

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/require"
@@ -50,14 +51,14 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	err = app.BridgeORM().CreateExternalInitiator(ei)
 	require.NoError(t, err)
 
-	url := app.Config.ClientNodeURL() + "/v2/ping"
+	url := app.Server.URL + "/v2/ping"
 	request, err := http.NewRequest("GET", url, nil)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
 	request.Header.Set("X-Chainlink-EA-Secret", eia.Secret)
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -73,8 +74,8 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := http.Client{}
-	url := app.Config.ClientNodeURL() + "/v2/ping"
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
+	url := app.Server.URL + "/v2/ping"
 	resp, err := client.Get(url)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)

@@ -23,6 +23,7 @@ func init() {
 func run(args ...string) {
 	t := &testing.T{}
 	tc := cltest.NewTestGeneralConfig(t)
+	tc.SetRootDir("/foo")
 	tc.Overrides.Dev = null.BoolFrom(false)
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
@@ -33,7 +34,7 @@ func run(args ...string) {
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc, "session"),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(lggr, cmd.ClientOpts{}, "session"),
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 	args = append([]string{""}, args...)
@@ -69,9 +70,12 @@ func ExampleRun() {
 	//    help, h         Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
-	//    --json, -j     json output as opposed to table
-	//    --help, -h     show help
-	//    --version, -v  print the version
+	//    --json, -j                     json output as opposed to table
+	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored (default: "/foo/apicredentials")
+	//    --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
+	//    --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
+	//    --help, -h                     show help
+	//    --version, -v                  print the version
 	// core.test version 0.0.0@exampleSHA
 }
 
@@ -533,9 +537,9 @@ func ExampleRun_chains_evm() {
 	//
 	// COMMANDS:
 	//    create     Create a new EVM chain
-	//    delete     Delete an EVM chain
-	//    list       List all EVM chains
-	//    configure  Configure an EVM chain
+	//    delete     Delete an existing EVM chain
+	//    list       List all existing EVM chains
+	//    configure  Configure an existing EVM chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -552,9 +556,9 @@ func ExampleRun_chains_solana() {
 	//
 	// COMMANDS:
 	//    create     Create a new Solana chain
-	//    delete     Delete a Solana chain
-	//    list       List all Solana chains
-	//    configure  Configure a Solana chain
+	//    delete     Delete an existing Solana chain
+	//    list       List all existing Solana chains
+	//    configure  Configure an existing Solana chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -571,9 +575,9 @@ func ExampleRun_chains_terra() {
 	//
 	// COMMANDS:
 	//    create     Create a new Terra chain
-	//    delete     Delete a Terra chain
-	//    list       List all Terra chains
-	//    configure  Configure a Terra chain
+	//    delete     Delete an existing Terra chain
+	//    list       List all existing Terra chains
+	//    configure  Configure an existing Terra chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -608,8 +612,8 @@ func ExampleRun_nodes_evm() {
 	//
 	// COMMANDS:
 	//    create  Create a new EVM node
-	//    delete  Delete an EVM node
-	//    list    List all EVM nodes
+	//    delete  Delete an existing EVM node
+	//    list    List all existing EVM nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -626,8 +630,8 @@ func ExampleRun_nodes_solana() {
 	//
 	// COMMANDS:
 	//    create  Create a new Solana node
-	//    delete  Delete a Solana node
-	//    list    List all Solana nodes
+	//    delete  Delete an existing Solana node
+	//    list    List all existing Solana nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -644,8 +648,8 @@ func ExampleRun_nodes_terra() {
 	//
 	// COMMANDS:
 	//    create  Create a new Terra node
-	//    delete  Delete a Terra node
-	//    list    List all Terra nodes
+	//    delete  Delete an existing Terra node
+	//    list    List all existing Terra nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

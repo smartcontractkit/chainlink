@@ -18,8 +18,6 @@ describe('EditFeedsManagerView', () => {
       name: 'Chainlink Feeds Manager',
       uri: manager.uri,
       publicKey: manager.publicKey,
-      jobTypes: manager.jobTypes,
-      isBootstrapPeer: manager.isBootstrapPeer,
     })
   })
 })

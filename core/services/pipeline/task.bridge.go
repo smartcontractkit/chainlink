@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"path"
 
@@ -26,8 +27,9 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 
-	queryer pg.Queryer
-	config  Config
+	queryer    pg.Queryer
+	config     Config
+	httpClient *http.Client
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -92,10 +94,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		requestData["responseURL"] = responseURL.String()
 	}
 
-	// URL is "safe" because it comes from the node's own database
-	// Some node operators may run external adapters on their own hardware
-	allowUnrestrictedNetworkAccess := BoolParam(true)
-
 	requestDataJSON, err := json.Marshal(requestData)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -108,7 +106,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 	}

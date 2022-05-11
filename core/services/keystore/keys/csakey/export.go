@@ -37,14 +37,14 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 		scryptParams.P,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Eth key")
+		return nil, errors.Wrapf(err, "could not encrypt CSA key")
 	}
-	encryptedOCRKExport := EncryptedCSAKeyExport{
+	encryptedCSAKeyExport := EncryptedCSAKeyExport{
 		KeyType:   keyTypeIdentifier,
 		PublicKey: key.PublicKeyString(),
 		Crypto:    cryptoJSON,
 	}
-	return json.Marshal(encryptedOCRKExport)
+	return json.Marshal(encryptedCSAKeyExport)
 }
 
 func adulteratedPassword(password string) string {

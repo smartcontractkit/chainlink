@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -144,7 +143,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	registry, err := ex.orm.RegistryByContractAddress(ex.job.KeeperSpec.ContractAddress)
 	if err != nil {
-		ex.logger.With("error", err).Error("unable to load registry")
+		ex.logger.Error(errors.Wrap(err, "unable to load registry"))
 		return
 	}
 
@@ -152,7 +151,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	if ex.config.KeeperTurnFlagEnabled() {
 		turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
 		if err2 != nil {
-			ex.logger.With("error", err2).Error("unable to get turn block number hash")
+			ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
 			return
 		}
 		activeUpkeeps, err2 = ex.orm.NewEligibleUpkeepsForRegistry(
@@ -161,7 +160,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 			ex.config.KeeperMaximumGracePeriod(),
 			turnBinary)
 		if err2 != nil {
-			ex.logger.With("error", err2).Error("unable to load active registrations")
+			ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
 			return
 		}
 	} else {
@@ -171,7 +170,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 			ex.config.KeeperMaximumGracePeriod(),
 		)
 		if err != nil {
-			ex.logger.With("error", err).Error("unable to load active registrations")
+			ex.logger.Error(errors.Wrap(err, "unable to load active registrations"))
 			return
 		}
 	}
@@ -196,7 +195,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	start := time.Now()
 	svcLogger := ex.logger.With("jobID", ex.job.ID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
-	svcLogger.Debug("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
+	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
@@ -210,7 +209,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
 		price, fee, err := ex.estimateGasPrice(upkeep)
 		if err != nil {
-			svcLogger.With("error", err).Error("estimating gas price")
+			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
 			return
 		}
 		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
@@ -232,6 +231,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 			"fromAddress":           upkeep.Registry.FromAddress.String(),
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID,
+			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
@@ -244,7 +244,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
-		svcLogger.With("error", err).Error("failed executing run")
+		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return
 	}
 
@@ -252,22 +252,22 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
 		if err != nil {
-			svcLogger.With("error", err).Error("failed to set last run height for upkeep")
+			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
 		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.
-			WithLabelValues(strconv.Itoa(int(upkeep.UpkeepID))).
+			WithLabelValues(upkeep.PrettyID()).
 			Set(float64(elapsed))
 	}
 }
 
 func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
 	var performTxData []byte
-	performTxData, err = RegistryABI.Pack(
-		"performUpkeep",
-		big.NewInt(upkeep.UpkeepID),
+	performTxData, err = Registry1_1ABI.Pack(
+		"performUpkeep", // performUpkeep is same across registry ABI versions
+		upkeep.UpkeepID.ToInt(),
 		common.Hex2Bytes("1234"), // placeholder
 	)
 	if err != nil {

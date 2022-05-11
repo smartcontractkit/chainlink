@@ -5,7 +5,6 @@ import { connect } from 'react-redux'
 
 export const SignOut = ({ receiveSignoutSuccess }) => {
   useEffect(() => {
-    document.title = 'Sign Out'
     receiveSignoutSuccess()
   }, [receiveSignoutSuccess])
   return <React.Fragment />

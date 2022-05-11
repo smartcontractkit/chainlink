@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { gql } from '@apollo/client'
-
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
 import Table from '@material-ui/core/Table'
@@ -14,19 +12,6 @@ import { ErrorRow } from 'src/components/TableRow/ErrorRow'
 import { LoadingRow } from 'src/components/TableRow/LoadingRow'
 import { NoContentRow } from 'src/components/TableRow/NoContentRow'
 import { EVMAccountRow } from './EVMAccountRow'
-
-export const ETH_KEYS_PAYLOAD__RESULTS_FIELDS = gql`
-  fragment ETHKeysPayload_ResultsFields on EthKey {
-    address
-    chain {
-      id
-    }
-    createdAt
-    ethBalance
-    isFunding
-    linkBalance
-  }
-`
 
 export interface Props {
   loading: boolean

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
@@ -70,7 +71,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
 	request.Header.Set("X-Chainlink-EA-Secret", eia.Secret)
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
@@ -102,7 +103,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
 	request.Header.Set("X-Chainlink-EA-Secret", "every unpleasant commercial color from aquamarine to beige")
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
 
@@ -117,7 +118,7 @@ func TestSessions_RateLimited(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	input := `{"email":"brute@force.com", "password": "wrongpassword"}`
 
 	for i := 0; i < 5; i++ {
@@ -145,7 +146,7 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	body := string(make([]byte, 70000))
 	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(body))

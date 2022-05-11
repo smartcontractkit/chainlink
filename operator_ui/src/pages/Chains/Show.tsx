@@ -31,10 +31,6 @@ export const ChainsShow = () => {
   }, [])
 
   React.useEffect(() => {
-    document.title = `Chain ${chainId}`
-  }, [chainId])
-
-  React.useEffect(() => {
     Promise.all([v2.chains.getChains()])
       .then(([v2Chains]) =>
         v2Chains.data.find((chain: ChainResource) => chain.id === chainId),

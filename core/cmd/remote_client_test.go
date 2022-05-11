@@ -251,9 +251,7 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.AdminCredentialsFile = null.StringFrom("")
-	}))
+	app := startNewApplication(t)
 
 	tests := []struct {
 		name, file string
@@ -275,6 +273,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
 			set.String("file", test.file, "")
 			set.Bool("bypass-version-check", true, "")
+			set.String("admin-credentials-file", "", "")
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.RemoteLogin(c)
@@ -651,8 +650,8 @@ func TestClient_AutoLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{}, logger.TestLogger(t))
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.NewClientOpts(), &cmd.MemoryCookieStore{}, logger.TestLogger(t))
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
@@ -678,7 +677,7 @@ func TestClient_AutoLogin_AuthFails(t *testing.T) {
 	}
 	client, _ := app.NewClientAndRenderer()
 	client.CookieAuthenticator = FailingAuthenticator{}
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))

@@ -30,15 +30,13 @@ func Test_EVMChainsController_Create(t *testing.T) {
 
 	newChainId := *utils.NewBigI(42)
 
-	body, err := json.Marshal(web.CreateEVMChainRequest{
-		ID: newChainId,
-		Config: types.ChainCfg{
+	body, err := json.Marshal(web.NewCreateChainRequest(newChainId,
+		types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(1),
 			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(12),
 			EvmEIP1559DynamicFees:                 null.BoolFrom(false),
 			MinIncomingConfirmations:              null.IntFrom(10),
-		},
-	})
+		}))
 	require.NoError(t, err)
 
 	resp, cleanup := controller.client.Post("/v2/chains/evm", bytes.NewReader(body))
@@ -69,12 +67,12 @@ func Test_EVMChainsController_Show(t *testing.T) {
 		name           string
 		inputId        string
 		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *types.Chain
+		want           func(t *testing.T, app *cltest.TestApplication) *types.DBChain
 	}{
 		{
 			inputId: validId.String(),
 			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			want: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
 				newChainConfig := types.ChainCfg{
 					BlockHistoryEstimatorBlockDelay:       null.IntFrom(23),
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
@@ -83,7 +81,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 					LinkContractAddress:                   null.StringFrom(testutils.NewAddress().String()),
 				}
 
-				chain := types.Chain{
+				chain := types.DBChain{
 					ID:      *validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
@@ -97,7 +95,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 		{
 			inputId: "invalidid",
 			name:    "invalid id",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			want: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
 				return nil
 			},
 			wantStatusCode: http.StatusUnprocessableEntity,
@@ -105,7 +103,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 		{
 			inputId: "234",
 			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			want: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
 				return nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -148,7 +146,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	controller := setupEVMChainsControllerTest(t)
 
-	newChains := []web.CreateEVMChainRequest{
+	newChains := []web.CreateChainRequest[utils.Big, types.ChainCfg]{
 		{
 			ID: *utils.NewBigI(24),
 			Config: types.ChainCfg{
@@ -171,7 +169,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	for _, newChain := range newChains {
 		ch := newChain
-		evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &types.Chain{
+		evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &types.DBChain{
 			ID:      ch.ID,
 			Enabled: true,
 			Cfg:     ch.Config,
@@ -229,7 +227,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 func Test_EVMChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateEVMChainRequest{
+	chainUpdate := web.UpdateChainRequest[types.ChainCfg]{
 		Enabled: true,
 		Config: types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(55),
@@ -246,12 +244,12 @@ func Test_EVMChainsController_Update(t *testing.T) {
 		name              string
 		inputId           string
 		wantStatusCode    int
-		chainBeforeUpdate func(t *testing.T, app *cltest.TestApplication) *types.Chain
+		chainBeforeUpdate func(t *testing.T, app *cltest.TestApplication) *types.DBChain
 	}{
 		{
 			inputId: validId.String(),
 			name:    "success",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
 				newChainConfig := types.ChainCfg{
 					BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
@@ -259,7 +257,7 @@ func Test_EVMChainsController_Update(t *testing.T) {
 					MinIncomingConfirmations:              null.IntFrom(30),
 				}
 
-				chain := types.Chain{
+				chain := types.DBChain{
 					ID:      *validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
@@ -273,7 +271,7 @@ func Test_EVMChainsController_Update(t *testing.T) {
 		{
 			inputId: "invalidid",
 			name:    "invalid id",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
 				return nil
 			},
 			wantStatusCode: http.StatusUnprocessableEntity,
@@ -281,7 +279,7 @@ func Test_EVMChainsController_Update(t *testing.T) {
 		{
 			inputId: "341212",
 			name:    "not found",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
 				return nil
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -338,7 +336,7 @@ func Test_EVMChainsController_Delete(t *testing.T) {
 	}
 
 	chainId := *utils.NewBigI(50)
-	chain := types.Chain{
+	chain := types.DBChain{
 		ID:      chainId,
 		Enabled: true,
 		Cfg:     newChainConfig,
