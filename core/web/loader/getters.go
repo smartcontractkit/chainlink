@@ -2,6 +2,7 @@ package loader
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
@@ -231,4 +232,25 @@ func GetFeedsManagerChainConfigsByManagerID(ctx context.Context, mgrID int64) ([
 	}
 
 	return cfgs, nil
+}
+
+// GetJobSpecErrorsByJobID fetches the Spec Errors for a Job.
+func GetJobSpecErrorsByJobID(ctx context.Context, jobID int32) ([]job.SpecError, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.SpecErrorsByJobIDLoader.Load(ctx,
+		dataloader.StringKey(stringutils.FromInt32(jobID)),
+	)
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("%v\n", result)
+	specErrs, ok := result.([]job.SpecError)
+	if !ok {
+		return nil, ErrInvalidType
+	}
+
+	return specErrs, nil
 }

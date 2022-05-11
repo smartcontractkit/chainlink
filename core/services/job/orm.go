@@ -66,6 +66,9 @@ type ORM interface {
 
 	FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error)
 	FindPipelineRunByID(id int64) (pipeline.Run, error)
+
+	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
+	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 }
 
 type orm struct {
@@ -696,6 +699,41 @@ func (o *orm) FindJobTx(id int32) (Job, error) {
 func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	err = o.findJob(&jb, "id", id, pg.WithParentCtx(ctx))
 	return
+}
+
+// FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
+func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
+	ctx, cancel := pg.DefaultQueryCtx()
+	defer cancel()
+
+	q := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
+		stmt := "SELECT * FROM jobs WHERE id = $1 LIMIT 1"
+		err := tx.Get(jb, stmt, id)
+		if err != nil {
+			return errors.Wrap(err, "failed to load job")
+		}
+
+		if err = LoadAllJobTypes(tx, &jb); err != nil {
+			return errors.Wrap(err, "failed to load job types")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
+	}
+
+	return jb, o.LoadEnvConfigVars(&jb)
+}
+
+func (o *orm) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error) {
+	stmt := `SELECT * FROM job_spec_errors WHERE job_id = ANY($1);`
+
+	var specErrs []SpecError
+	err := o.q.WithOpts(qopts...).Select(&specErrs, stmt, ids)
+
+	return specErrs, errors.Wrap(err, "FindSpecErrorsByJobIDs failed")
 }
 
 func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) (jb Job, err error) {

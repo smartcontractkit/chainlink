@@ -30,13 +30,15 @@ func TestResolver_JobErrors(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
-					JobSpecErrors: []job.SpecError{
-						{
-							ID:          errorID,
-							Description: "no contract code at given address",
-							Occurrences: 1,
-							CreatedAt:   f.Timestamp(),
-						},
+					ID: int32(1),
+				}, nil)
+				f.Mocks.jobORM.On("FindSpecErrorsByJobIDs", []int32{1}).Return([]job.SpecError{
+					{
+						ID:          errorID,
+						Description: "no contract code at given address",
+						Occurrences: 1,
+						CreatedAt:   f.Timestamp(),
+						JobID:       int32(1),
 					},
 				}, nil)
 			},

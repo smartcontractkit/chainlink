@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/graph-gophers/graphql-go"
 
@@ -40,11 +41,15 @@ func (r *JobResolver) CreatedAt() graphql.Time {
 }
 
 // Errors resolves the job's top level errors.
-//
-// This could potentially be moved into a dataloader if only resolver code uses
-// it.
-func (r *JobResolver) Errors() []*JobErrorResolver {
-	return NewJobErrors(r.j.JobSpecErrors)
+func (r *JobResolver) Errors(ctx context.Context) ([]*JobErrorResolver, error) {
+	specErrs, err := loader.GetJobSpecErrorsByJobID(ctx, r.j.ID)
+	if err != nil {
+		fmt.Printf("GOT ERROR: %s", err.Error())
+		return nil, err
+	}
+	fmt.Printf("NO ERROR, len %d\n", len(specErrs))
+
+	return NewJobErrors(specErrs), nil
 }
 
 // ExternalJobID resolves the job's external job id.
