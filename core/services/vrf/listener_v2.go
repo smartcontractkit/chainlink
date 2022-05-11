@@ -400,8 +400,18 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
 			Context: ctx,
 		}, subID)
+
 		if err != nil {
-			lsn.l.Errorw("Unable to read subscription balance", "err", err)
+			if strings.Contains(err.Error(), "execution reverted") {
+				lsn.l.Warnw("Subscription not found", "subID", subID, "err", err)
+				for _, req := range reqs {
+					lsn.markLogAsConsumed(req.lb)
+					lsn.l.Infow("Skipping requests without valid subscription", "subID", subID, "reqID", req.req.RequestId)
+					processed[req.req.RequestId.String()] = struct{}{}
+				}
+			} else {
+				lsn.l.Errorw("Unable to read subscription balance", "subID", subID, "err", err)
+			}
 			continue
 		}
 
