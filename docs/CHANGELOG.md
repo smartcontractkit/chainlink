@@ -30,6 +30,13 @@ This will prevent application boot in a future version of Chainlink.
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
 
+## [1.4.1] - 2022-05-11
+
+### Fixed
+
+- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+- Fixes parsing of float values on job specs
+
 ## [1.4.0] - 2022-05-02
 
 ### Added
