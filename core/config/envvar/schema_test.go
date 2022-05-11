@@ -11,7 +11,6 @@ import (
 
 func TestConfigSchema(t *testing.T) {
 	items := map[string]string{
-		"AdminCredentialsFile":                           "ADMIN_CREDENTIALS_FILE",
 		"AdvisoryLockCheckInterval":                      "ADVISORY_LOCK_CHECK_INTERVAL",
 		"AdvisoryLockID":                                 "ADVISORY_LOCK_ID",
 		"AllowOrigins":                                   "ALLOW_ORIGINS",
@@ -40,7 +39,6 @@ func TestConfigSchema(t *testing.T) {
 		"BlockHistoryEstimatorTransactionPercentile":     "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                              "BRIDGE_RESPONSE_URL",
 		"ChainType":                                      "CHAIN_TYPE",
-		"ClientNodeURL":                                  "CLIENT_NODE_URL",
 		"DatabaseBackupDir":                              "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                        "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                             "DATABASE_BACKUP_MODE",
@@ -109,7 +107,6 @@ func TestConfigSchema(t *testing.T) {
 		"GasUpdaterTransactionPercentile":                "GAS_UPDATER_TRANSACTION_PERCENTILE",
 		"HTTPServerWriteTimeout":                         "HTTP_SERVER_WRITE_TIMEOUT",
 		"InsecureFastScrypt":                             "INSECURE_FAST_SCRYPT",
-		"InsecureSkipVerify":                             "INSECURE_SKIP_VERIFY",
 		"JSONConsole":                                    "JSON_CONSOLE",
 		"JobPipelineMaxRunDuration":                      "JOB_PIPELINE_MAX_RUN_DURATION",
 		"JobPipelineReaperInterval":                      "JOB_PIPELINE_REAPER_INTERVAL",
