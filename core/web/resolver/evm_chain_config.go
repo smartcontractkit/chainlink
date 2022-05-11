@@ -57,7 +57,6 @@ type GasEstimatorMode string
 const (
 	GasEstimatorModeBlockHistory GasEstimatorMode = "BLOCK_HISTORY"
 	GasEstimatorModeFixedPrice   GasEstimatorMode = "FIXED_PRICE"
-	GasEstimatorModeOptimism     GasEstimatorMode = "OPTIMISM"
 	GasEstimatorModeOptimism2    GasEstimatorMode = "OPTIMISM2"
 	GasEstimatorModeL2Suggested  GasEstimatorMode = "L2_SUGGESTED"
 )
@@ -68,8 +67,6 @@ func ToGasEstimatorMode(s string) (GasEstimatorMode, error) {
 		return GasEstimatorModeBlockHistory, nil
 	case "FixedPrice":
 		return GasEstimatorModeFixedPrice, nil
-	case "Optimism":
-		return GasEstimatorModeOptimism, nil
 	case "Optimism2":
 		return GasEstimatorModeOptimism2, nil
 	case "L2Suggested":
@@ -85,8 +82,6 @@ func FromGasEstimatorMode(gsm GasEstimatorMode) string {
 		return "BlockHistory"
 	case GasEstimatorModeFixedPrice:
 		return "FixedPrice"
-	case GasEstimatorModeOptimism:
-		return "Optimism"
 	case GasEstimatorModeOptimism2:
 		return "Optimism2"
 	case GasEstimatorModeL2Suggested:

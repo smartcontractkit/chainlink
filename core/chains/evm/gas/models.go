@@ -57,8 +57,6 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
 	case "FixedPrice":
 		return NewFixedPriceEstimator(cfg, lggr)
-	case "Optimism":
-		return NewOptimismEstimator(lggr, cfg, ethClient)
 	case "Optimism2", "L2Suggested":
 		return NewL2SuggestedEstimator(lggr, cfg, ethClient)
 	default:
