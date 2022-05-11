@@ -411,7 +411,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			})
 			defer stopBlocks()
 
-			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
+			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, 100*time.Millisecond)
 			pipelineRun := pipelineRuns[0]
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
@@ -438,7 +438,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b.Commit()
 			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), 5*time.Second, 100*time.Millisecond)
+			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
 			pipelineRun = pipelineRuns[0]
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
