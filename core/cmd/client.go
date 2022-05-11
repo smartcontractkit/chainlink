@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -36,13 +37,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -198,7 +199,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
+	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)
+	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		SqlxDB:                   db,
@@ -209,6 +212,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		CloseLogger:              closeLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
+		RestrictedHTTPClient:     restrictedClient,
+		UnrestrictedHTTPClient:   unrestrictedClient,
 	})
 }
 
@@ -356,36 +361,32 @@ type HTTPClient interface {
 	Delete(string) (*http.Response, error)
 }
 
-type HTTPClientConfig interface {
-	SessionCookieAuthenticatorConfig
-}
-
 type authenticatedHTTPClient struct {
-	config         HTTPClientConfig
 	client         *http.Client
 	cookieAuth     CookieAuthenticator
 	sessionRequest sessions.SessionRequest
+	remoteNodeURL  url.URL
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(config HTTPClientConfig, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
+func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
-		config:         config,
-		client:         newHttpClient(config),
+		client:         newHttpClient(lggr, clientOpts.InsecureSkipVerify),
 		cookieAuth:     cookieAuth,
 		sessionRequest: sessionRequest,
+		remoteNodeURL:  clientOpts.RemoteNodeURL,
 	}
 }
 
-func newHttpClient(config SessionCookieAuthenticatorConfig) *http.Client {
+func newHttpClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
 	tr := &http.Transport{
 		// User enables this at their own risk!
 		// #nosec G402
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify()},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 	}
-	if config.InsecureSkipVerify() {
-		fmt.Println("WARNING: INSECURE_SKIP_VERIFY is set to true, skipping SSL certificate verification.")
+	if insecureSkipVerify {
+		lggr.Warn("InsecureSkipVerify is on, skipping SSL certificate verification.")
 	}
 	return &http.Client{Transport: tr}
 }
@@ -423,7 +424,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		headers = map[string]string{}
 	}
 
-	request, err := http.NewRequest(verb, h.config.ClientNodeURL()+path, body)
+	request, err := http.NewRequest(verb, h.remoteNodeURL.String()+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -467,22 +468,22 @@ type CookieAuthenticator interface {
 	Logout() error
 }
 
-type SessionCookieAuthenticatorConfig interface {
-	ClientNodeURL() string
-	InsecureSkipVerify() bool
+type ClientOpts struct {
+	RemoteNodeURL      url.URL
+	InsecureSkipVerify bool
 }
 
 // SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
 // that retrieves a session id for the user with credentials from the session request.
 type SessionCookieAuthenticator struct {
-	config SessionCookieAuthenticatorConfig
+	config ClientOpts
 	store  CookieStore
 	lggr   logger.Logger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore, lggr logger.Logger) CookieAuthenticator {
+func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
 	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
 }
 
@@ -498,14 +499,14 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	url := t.config.ClientNodeURL() + "/sessions"
+	url := t.config.RemoteNodeURL.String() + "/sessions"
 	req, err := http.NewRequest("POST", url, b)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := newHttpClient(t.config)
+	client := newHttpClient(t.lggr, t.config.InsecureSkipVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

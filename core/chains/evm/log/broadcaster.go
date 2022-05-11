@@ -142,6 +142,9 @@ type (
 
 		// Minimum number of block confirmations before the log is received
 		MinIncomingConfirmations uint32
+
+		// ReplayStartedCallback is called by the log broadcaster once a replay request is received.
+		ReplayStartedCallback func()
 	}
 
 	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
@@ -463,6 +466,13 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 // onReplayRequest clears the pool and sets the block backfill number.
 func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
+	// notify subscribers that we are about to replay.
+	for subscriber := range b.registrations.registeredSubs {
+		if subscriber.opts.ReplayStartedCallback != nil {
+			subscriber.opts.ReplayStartedCallback()
+		}
+	}
+
 	_ = b.invalidatePool()
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and

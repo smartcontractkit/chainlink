@@ -11,14 +11,14 @@ import (
 
 // ChainResolver resolves the Chain type.
 type ChainResolver struct {
-	chain types.Chain
+	chain types.DBChain
 }
 
-func NewChain(chain types.Chain) *ChainResolver {
+func NewChain(chain types.DBChain) *ChainResolver {
 	return &ChainResolver{chain: chain}
 }
 
-func NewChains(chains []types.Chain) []*ChainResolver {
+func NewChains(chains []types.DBChain) []*ChainResolver {
 	var resolvers []*ChainResolver
 	for _, c := range chains {
 		resolvers = append(resolvers, NewChain(c))
@@ -62,11 +62,11 @@ func (r *ChainResolver) Nodes(ctx context.Context) ([]*NodeResolver, error) {
 }
 
 type ChainPayloadResolver struct {
-	chain types.Chain
+	chain types.DBChain
 	NotFoundErrorUnionType
 }
 
-func NewChainPayload(chain types.Chain, err error) *ChainPayloadResolver {
+func NewChainPayload(chain types.DBChain, err error) *ChainPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
 
 	return &ChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
@@ -81,11 +81,11 @@ func (r *ChainPayloadResolver) ToChain() (*ChainResolver, bool) {
 }
 
 type ChainsPayloadResolver struct {
-	chains []types.Chain
+	chains []types.DBChain
 	total  int32
 }
 
-func NewChainsPayload(chains []types.Chain, total int32) *ChainsPayloadResolver {
+func NewChainsPayload(chains []types.DBChain, total int32) *ChainsPayloadResolver {
 	return &ChainsPayloadResolver{chains: chains, total: total}
 }
 
@@ -100,11 +100,11 @@ func (r *ChainsPayloadResolver) Metadata() *PaginationMetadataResolver {
 // -- CreateChain Mutation --
 
 type CreateChainPayloadResolver struct {
-	chain     *types.Chain
+	chain     *types.DBChain
 	inputErrs map[string]string
 }
 
-func NewCreateChainPayload(chain *types.Chain, inputErrs map[string]string) *CreateChainPayloadResolver {
+func NewCreateChainPayload(chain *types.DBChain, inputErrs map[string]string) *CreateChainPayloadResolver {
 	return &CreateChainPayloadResolver{chain: chain, inputErrs: inputErrs}
 }
 
@@ -131,10 +131,10 @@ func (r *CreateChainPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool
 }
 
 type CreateChainSuccessResolver struct {
-	chain *types.Chain
+	chain *types.DBChain
 }
 
-func NewCreateChainSuccess(chain *types.Chain) *CreateChainSuccessResolver {
+func NewCreateChainSuccess(chain *types.DBChain) *CreateChainSuccessResolver {
 	return &CreateChainSuccessResolver{chain: chain}
 }
 
@@ -143,12 +143,12 @@ func (r *CreateChainSuccessResolver) Chain() *ChainResolver {
 }
 
 type UpdateChainPayloadResolver struct {
-	chain     *types.Chain
+	chain     *types.DBChain
 	inputErrs map[string]string
 	NotFoundErrorUnionType
 }
 
-func NewUpdateChainPayload(chain *types.Chain, inputErrs map[string]string, err error) *UpdateChainPayloadResolver {
+func NewUpdateChainPayload(chain *types.DBChain, inputErrs map[string]string, err error) *UpdateChainPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
 
 	return &UpdateChainPayloadResolver{chain: chain, inputErrs: inputErrs, NotFoundErrorUnionType: e}
@@ -177,10 +177,10 @@ func (r *UpdateChainPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool
 }
 
 type UpdateChainSuccessResolver struct {
-	chain types.Chain
+	chain types.DBChain
 }
 
-func NewUpdateChainSuccess(chain types.Chain) *UpdateChainSuccessResolver {
+func NewUpdateChainSuccess(chain types.DBChain) *UpdateChainSuccessResolver {
 	return &UpdateChainSuccessResolver{chain: chain}
 }
 
@@ -189,11 +189,11 @@ func (r *UpdateChainSuccessResolver) Chain() *ChainResolver {
 }
 
 type DeleteChainPayloadResolver struct {
-	chain *types.Chain
+	chain *types.DBChain
 	NotFoundErrorUnionType
 }
 
-func NewDeleteChainPayload(chain *types.Chain, err error) *DeleteChainPayloadResolver {
+func NewDeleteChainPayload(chain *types.DBChain, err error) *DeleteChainPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
 
 	return &DeleteChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
@@ -208,10 +208,10 @@ func (r *DeleteChainPayloadResolver) ToDeleteChainSuccess() (*DeleteChainSuccess
 }
 
 type DeleteChainSuccessResolver struct {
-	chain types.Chain
+	chain types.DBChain
 }
 
-func NewDeleteChainSuccess(chain types.Chain) *DeleteChainSuccessResolver {
+func NewDeleteChainSuccess(chain types.DBChain) *DeleteChainSuccessResolver {
 	return &DeleteChainSuccessResolver{chain: chain}
 }
 

@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -41,7 +43,7 @@ func setupKeeperDB(t *testing.T) (
 
 func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistration {
 	return keeper.UpkeepRegistration{
-		UpkeepID:   upkeepID,
+		UpkeepID:   utils.NewBigI(upkeepID),
 		ExecuteGas: executeGas,
 		Registry:   registry,
 		RegistryID: registry.ID,
@@ -99,7 +101,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := keeper.UpkeepRegistration{
-		UpkeepID:            0,
+		UpkeepID:            utils.NewBigI(0),
 		ExecuteGas:          executeGas,
 		Registry:            registry,
 		RegistryID:          registry.ID,
@@ -134,20 +136,23 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
-	for i := int64(0); i < 3; i++ {
-		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+	expectedUpkeepID := cltest.MustInsertUpkeepForRegistry(t, db, config, registry).UpkeepID
+	var upkeepIDs []utils.Big
+	for i := 0; i < 2; i++ {
+		upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+		upkeepIDs = append(upkeepIDs, *upkeep.UpkeepID)
 	}
 
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)
 
-	_, err := orm.BatchDeleteUpkeepsForJob(job.ID, []int64{0, 2})
+	_, err := orm.BatchDeleteUpkeepsForJob(job.ID, upkeepIDs)
 	require.NoError(t, err)
 	cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
 	var remainingUpkeep keeper.UpkeepRegistration
 	err = db.Get(&remainingUpkeep, `SELECT * FROM upkeep_registrations ORDER BY id LIMIT 1`)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), remainingUpkeep.UpkeepID)
+	require.Equal(t, expectedUpkeepID, remainingUpkeep.UpkeepID)
 }
 
 func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
@@ -173,7 +178,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, eligibleUpkeeps, 100)
-	shuffled := [100]int64{}
+	shuffled := [100]*utils.Big{}
 	for i := 0; i < 100; i++ {
 		shuffled[i] = eligibleUpkeeps[i].UpkeepID
 	}
@@ -233,16 +238,16 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 
 	// sort before compare
 	sort.Slice(list1, func(i, j int) bool {
-		return list1[i].UpkeepID < list1[j].UpkeepID
+		return list1[i].UpkeepID.Cmp(list1[j].UpkeepID) == -1
 	})
 	sort.Slice(list2, func(i, j int) bool {
-		return list2[i].UpkeepID < list2[j].UpkeepID
+		return list2[i].UpkeepID.Cmp(list2[j].UpkeepID) == -1
 	})
 	sort.Slice(list3, func(i, j int) bool {
-		return list3[i].UpkeepID < list3[j].UpkeepID
+		return list3[i].UpkeepID.Cmp(list3[j].UpkeepID) == -1
 	})
 	sort.Slice(list4, func(i, j int) bool {
-		return list4[i].UpkeepID < list4[j].UpkeepID
+		return list4[i].UpkeepID.Cmp(list4[j].UpkeepID) == -1
 	})
 
 	assert.NotEqual(t, list1, list2, "list1 vs list2")
@@ -341,6 +346,48 @@ func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	assert.Equal(t, 1, len(list2))
 }
 
+func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+
+	upkeepIDs, err := orm.AllUpkeepIDsForRegistry(registry.ID)
+	require.NoError(t, err)
+	// No upkeeps returned
+	require.Len(t, upkeepIDs, 0)
+
+	upkeep := newUpkeep(registry, 3)
+	err = orm.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	upkeep = newUpkeep(registry, 8)
+	err = orm.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	// We should get two upkeeps IDs, 3 & 8
+	upkeepIDs, err = orm.AllUpkeepIDsForRegistry(registry.ID)
+	require.NoError(t, err)
+	// No upkeeps returned
+	require.Len(t, upkeepIDs, 2)
+	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(3)))
+	require.Contains(t, upkeepIDs, *utils.NewBig(big.NewInt(8)))
+}
+
+func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+	registry, j := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+
+	require.NoError(t, orm.UpdateUpkeepLastKeeperIndex(j.ID, upkeep.UpkeepID, registry.FromAddress))
+
+	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, upkeep.UpkeepID)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), upkeep.LastKeeperIndex.Int64)
+}
+
 func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
@@ -358,4 +405,96 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	// update to higher block allowed
 	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 101, 0)
+}
+
+func TestKeeperDB_LeastSignificant(t *testing.T) {
+	t.Parallel()
+	db, _, _ := setupKeeperDB(t)
+	sql := `SELECT least_significant($1, $2)`
+	inputBytes := "10001000101010101101"
+	for _, test := range []struct {
+		name           string
+		inputLength    int
+		expectedOutput string
+		expectedError  bool
+	}{
+		{
+			name:           "half slice",
+			inputLength:    10,
+			expectedOutput: "1010101101",
+		},
+		{
+			name:           "full slice",
+			inputLength:    20,
+			expectedOutput: "10001000101010101101",
+		},
+		{
+			name:           "no slice",
+			inputLength:    0,
+			expectedOutput: "",
+		},
+		{
+			name:          "slice too large",
+			inputLength:   21,
+			expectedError: true,
+		},
+	} {
+		t.Run(test.name, func(tt *testing.T) {
+			var test = test
+			var result string
+			err := db.Get(&result, sql, inputBytes, test.inputLength)
+			if test.expectedError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedOutput, result)
+		})
+	}
+}
+
+func TestKeeperDB_Uint256ToBit(t *testing.T) {
+	t.Parallel()
+	db, _, _ := setupKeeperDB(t)
+	sql := `SELECT uint256_to_bit($1)`
+	for _, test := range []struct {
+		name          string
+		input         *big.Int
+		errorExpected bool
+	}{
+		{
+			name:  "min",
+			input: big.NewInt(0),
+		},
+		{
+			name:  "max",
+			input: utils.MaxUint256,
+		},
+		{
+			name:  "rand",
+			input: utils.RandUint256(),
+		},
+		{
+			name:  "needs pading",
+			input: big.NewInt(1),
+		},
+		{
+			name:          "overflow",
+			input:         bigmath.Add(utils.MaxUint256, 1),
+			errorExpected: true,
+		},
+	} {
+		t.Run(test.name, func(tt *testing.T) {
+			var test = test
+			var result string
+			err := db.Get(&result, sql, test.input.String())
+			if test.errorExpected {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			expected := utils.LeftPadBitString(fmt.Sprintf("%b", test.input), 256)
+			require.Equal(t, expected, result)
+		})
+	}
 }

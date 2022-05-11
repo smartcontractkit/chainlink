@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -64,7 +64,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
-	simulatedBackendChain := evmtypes.Chain{
+	simulatedBackendChain := evmtypes.DBChain{
 		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
 		Cfg: evmtypes.ChainCfg{
 			GasEstimatorMode:                 null.StringFrom("FixedPrice"),

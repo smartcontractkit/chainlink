@@ -147,7 +147,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
-		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
+		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr, nil, nil)
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore, cfg)
 
