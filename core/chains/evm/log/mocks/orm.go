@@ -61,36 +61,6 @@ func (_m *ORM) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]log.LogBr
 	return r0, r1
 }
 
-// FindConsumedLogs provides a mock function with given fields: fromBlockNum, toBlockNum, qopts
-func (_m *ORM) FindConsumedLogs(fromBlockNum int64, toBlockNum int64, qopts ...pg.QOpt) ([]log.LogBroadcast, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, fromBlockNum, toBlockNum)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 []log.LogBroadcast
-	if rf, ok := ret.Get(0).(func(int64, int64, ...pg.QOpt) []log.LogBroadcast); ok {
-		r0 = rf(fromBlockNum, toBlockNum, qopts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]log.LogBroadcast)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(int64, int64, ...pg.QOpt) error); ok {
-		r1 = rf(fromBlockNum, toBlockNum, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetPendingMinBlock provides a mock function with given fields: qopts
 func (_m *ORM) GetPendingMinBlock(qopts ...pg.QOpt) (*int64, error) {
 	_va := make([]interface{}, len(qopts))

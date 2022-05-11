@@ -48,7 +48,6 @@ type contractTrackerUni struct {
 	hb                  *htmocks.HeadBroadcaster
 	ec                  *evmmocks.Client
 	requestRoundTracker *evm.RequestRoundTracker
-	//configTracker       *evm.ConfigPoller
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
@@ -94,7 +93,6 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.db,
 		chain,
 	)
-	//uni.configTracker = evm.NewConfigPoller(lggr, uni.contract.Address())
 
 	t.Cleanup(func() {
 		uni.db.AssertExpectations(t)
