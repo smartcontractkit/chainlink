@@ -29,7 +29,7 @@ func TestResolver_JobErrors(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					ID: int32(1),
 				}, nil)
 				f.Mocks.jobORM.On("FindSpecErrorsByJobIDs", []int32{1}).Return([]job.SpecError{
