@@ -120,7 +120,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
 	reason, err := evmclient.ExtractRevertReasonFromRPCError(baseErr)
 	if err != nil {
-		lggr.Debugw("failed to extract revert reason", "baseErr", baseErr, "error", err)
+		lggr.Warnw("failed to extract revert reason", "baseErr", baseErr, "error", err)
 		return baseErr
 	}
 
