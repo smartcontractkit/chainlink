@@ -1,9 +1,11 @@
 package sessions_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -192,6 +194,54 @@ func TestORM_WebAuthn(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "MFA Error")
+
+	ss := sessions.NewWebAuthnSessionStore()
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+		WebAuthnConfig: sessions.WebAuthnConfiguration{
+			RPID:     "test-rpid",
+			RPOrigin: "test-rporigin",
+		},
+		SessionStore: ss,
+	})
+	require.Error(t, err)
+	var ca protocol.CredentialAssertion
+	require.NoError(t, json.Unmarshal([]byte(err.Error()), &ca))
+	require.Equal(t, "test-rpid", ca.Response.RelyingPartyID)
+
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+		WebAuthnConfig: sessions.WebAuthnConfiguration{
+			RPID:     "test-rpid",
+			RPOrigin: "test-rporigin",
+		},
+		SessionStore: ss,
+		WebAuthnData: "invalid-format",
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "MFA Error")
+
+	challengeResp, err := json.Marshal(protocol.CredentialAssertionResponse{
+		PublicKeyCredential: protocol.PublicKeyCredential{
+			Credential: protocol.Credential{
+				ID:   "test-id",
+				Type: "test-type",
+			},
+		},
+	})
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+		WebAuthnConfig: sessions.WebAuthnConfiguration{
+			RPID:     "test-rpid",
+			RPOrigin: "test-rporigin",
+		},
+		WebAuthnData: string(challengeResp),
+		SessionStore: ss,
+	})
+	require.Error(t, err)
 }
 
 func TestOrm_GenerateAuthToken(t *testing.T) {
