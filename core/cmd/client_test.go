@@ -15,11 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type cfg struct{}
-
-func (c cfg) ClientNodeURL() string    { return "" }
-func (c cfg) InsecureSkipVerify() bool { return false }
-
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
@@ -35,7 +30,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
-			tca := cmd.NewSessionCookieAuthenticator(cfg{}, store, logger.TestLogger(t))
+			tca := cmd.NewSessionCookieAuthenticator(cmd.ClientOpts{}, store, logger.TestLogger(t))
 			cookie, err := tca.Authenticate(sr)
 
 			assert.Error(t, err)
@@ -66,7 +61,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
-			tca := cmd.NewSessionCookieAuthenticator(app.GetConfig(), store, logger.TestLogger(t))
+			tca := cmd.NewSessionCookieAuthenticator(app.NewClientOpts(), store, logger.TestLogger(t))
 			cookie, err := tca.Authenticate(sr)
 
 			if test.wantError {
