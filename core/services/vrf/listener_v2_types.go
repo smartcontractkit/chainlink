@@ -119,7 +119,7 @@ func (lsn *listenerV2) processBatch(
 	totalGasLimitBumped := batchFulfillmentGasEstimate(
 		uint64(len(batch.proofs)),
 		maxCallbackGasLimit,
-		lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
+		float64(lsn.job.VRFSpec.BatchFulfillmentGasMultiplier),
 	)
 	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
