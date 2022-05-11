@@ -149,10 +149,10 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 					retrySig, err := client.SendTx(ctx, tx)
 					// this could occur if endpoint goes down or if ctx cancelled
 					if err != nil {
-						if strings.Contains(err.Error(), "context canceled") {
-							txm.lggr.Debugw("ctx cancelled on send retry transaction", "error", err, "signature", retrySig)
+						if strings.Contains(err.Error(), "context canceled") || strings.Contains(err.Error(), "context deadline exceeded") {
+							txm.lggr.Debugw("ctx error on send retry transaction", "error", err, "signature", sig)
 						} else {
-							txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", retrySig)
+							txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", sig)
 						}
 						return
 					}
