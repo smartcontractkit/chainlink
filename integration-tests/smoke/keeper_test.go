@@ -70,7 +70,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 				1,
 				linkToken,
 				contractDeployer,
-				chainlinkNodes,
 				networks,
 			)
 			consumer = consumers[0]
