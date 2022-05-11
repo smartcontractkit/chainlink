@@ -38,12 +38,10 @@ var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval               *time.Duration
-	AdminCredentialsFile                    null.String
 	AdvisoryLockID                          null.Int
 	AllowOrigins                            null.String
 	BlockBackfillDepth                      null.Int
 	BlockBackfillSkip                       null.Bool
-	ClientNodeURL                           null.String
 	DatabaseURL                             null.String
 	DatabaseLockingMode                     null.String
 	DefaultChainID                          *big.Int
@@ -258,12 +256,12 @@ func (c *TestGeneralConfig) SetRootDir(dir string) {
 	c.rootdir = dir
 }
 
-func (c *TestGeneralConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(2 * time.Minute)
-}
-
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
+}
+
+func (c *TestGeneralConfig) SessionTimeout() models.Duration {
+	return models.MustMakeDuration(2 * time.Minute)
 }
 
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
@@ -320,13 +318,6 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	// Always return txdb for tests, if you want a non-transactional database
 	// you must set an override explicitly
 	return "txdb"
-}
-
-func (c *TestGeneralConfig) ClientNodeURL() string {
-	if c.Overrides.ClientNodeURL.Valid {
-		return c.Overrides.ClientNodeURL.String
-	}
-	return c.GeneralConfig.ClientNodeURL()
 }
 
 func (c *TestGeneralConfig) DatabaseURL() url.URL {
@@ -410,13 +401,6 @@ func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
 		return c.Overrides.LogFileMaxBackups.Int64
 	}
 	return int64(c.GeneralConfig.LogFileMaxBackups())
-}
-
-func (c *TestGeneralConfig) AdminCredentialsFile() string {
-	if c.Overrides.AdminCredentialsFile.Valid {
-		return c.Overrides.AdminCredentialsFile.String
-	}
-	return c.GeneralConfig.AdminCredentialsFile()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
