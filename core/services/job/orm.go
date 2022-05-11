@@ -727,6 +727,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 	return jb, o.LoadEnvConfigVars(&jb)
 }
 
+// FindSpecErrorsByJobIDs returns all jobs spec errors by jobs IDs
 func (o *orm) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error) {
 	stmt := `SELECT * FROM job_spec_errors WHERE job_id = ANY($1);`
 
