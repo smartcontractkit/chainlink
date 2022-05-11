@@ -17,8 +17,6 @@ describe('NewFeedsManagerView', () => {
       name: 'Chainlink Feeds Manager',
       uri: '',
       publicKey: '',
-      jobTypes: [],
-      isBootstrapPeer: false,
     })
   })
 })

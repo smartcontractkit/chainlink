@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -49,13 +50,15 @@ type Runner interface {
 }
 
 type runner struct {
-	orm             ORM
-	config          Config
-	chainSet        evm.ChainSet
-	ethKeyStore     ETHKeyStore
-	vrfKeyStore     VRFKeyStore
-	runReaperWorker utils.SleeperTask
-	lggr            logger.Logger
+	orm                    ORM
+	config                 Config
+	chainSet               evm.ChainSet
+	ethKeyStore            ETHKeyStore
+	vrfKeyStore            VRFKeyStore
+	runReaperWorker        utils.SleeperTask
+	lggr                   logger.Logger
+	httpClient             *http.Client
+	unrestrictedHTTPClient *http.Client
 
 	// test helper
 	runFinished func(*Run)
@@ -95,17 +98,19 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger) *runner {
+func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
-		orm:         orm,
-		config:      config,
-		chainSet:    chainSet,
-		ethKeyStore: ethks,
-		vrfKeyStore: vrfks,
-		chStop:      make(chan struct{}),
-		wgDone:      sync.WaitGroup{},
-		runFinished: func(*Run) {},
-		lggr:        lggr.Named("PipelineRunner"),
+		orm:                    orm,
+		config:                 config,
+		chainSet:               chainSet,
+		ethKeyStore:            ethks,
+		vrfKeyStore:            vrfks,
+		chStop:                 make(chan struct{}),
+		wgDone:                 sync.WaitGroup{},
+		runFinished:            func(*Run) {},
+		lggr:                   lggr.Named("PipelineRunner"),
+		httpClient:             httpClient,
+		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
@@ -230,9 +235,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		switch task.Type() {
 		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
+			task.(*HTTPTask).httpClient = r.httpClient
+			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).queryer = r.orm.GetQ()
+			// URL is "safe" because it comes from the node's own database. We
+			// must use the unrestrictedHTTPClient because some node operators
+			// may run external adapters on their own hardware
+			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config

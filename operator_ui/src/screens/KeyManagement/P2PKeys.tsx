@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { gql, useMutation, useQuery } from '@apollo/client'
+import { gql, useMutation } from '@apollo/client'
 import { useDispatch } from 'react-redux'
 
 import { useMutationErrorHandler } from 'src/hooks/useMutationErrorHandler'
@@ -8,18 +8,11 @@ import {
   createSuccessNotification,
   deleteSuccessNotification,
 } from './notifications'
-import { P2PKeysCard, P2P_KEYS_PAYLOAD__RESULTS_FIELDS } from './P2PKeysCard'
-
-export const P2P_KEYS_QUERY = gql`
-  ${P2P_KEYS_PAYLOAD__RESULTS_FIELDS}
-  query FetchP2PKeys {
-    p2pKeys {
-      results {
-        ...P2PKeysPayload_ResultsFields
-      }
-    }
-  }
-`
+import { P2PKeysCard } from './P2PKeysCard'
+import {
+  useP2PKeysQuery,
+  P2P_KEYS_PAYLOAD__RESULTS_FIELDS,
+} from 'src/hooks/queries/useP2PKeysQuery'
 
 export const CREATE_P2P_KEY_MUTATION = gql`
   ${P2P_KEYS_PAYLOAD__RESULTS_FIELDS}
@@ -50,10 +43,7 @@ export const DELETE_P2P_KEY_MUTATION = gql`
 export const P2PKeys = () => {
   const dispatch = useDispatch()
   const { handleMutationError } = useMutationErrorHandler()
-  const { data, loading, error, refetch } = useQuery<
-    FetchP2PKeys,
-    FetchP2PKeysVariables
-  >(P2P_KEYS_QUERY)
+  const { data, loading, error, refetch } = useP2PKeysQuery()
   const [createP2PKey] = useMutation<CreateP2PKey, CreateP2PKeyVariables>(
     CREATE_P2P_KEY_MUTATION,
   )

@@ -6,8 +6,9 @@ import { Route } from 'react-router-dom'
 import { renderWithRouter, screen } from 'test-utils'
 import userEvent from '@testing-library/user-event'
 
-import { ChainsScreen, CHAINS_QUERY } from './ChainsScreen'
+import { ChainsScreen } from './ChainsScreen'
 import { buildChain, buildChains } from 'support/factories/gql/fetchChains'
+import { CHAINS_QUERY } from 'hooks/queries/useChainsQuery'
 import { waitForLoading } from 'support/test-helpers/wait'
 
 const { findAllByRole, findByText, getByRole, queryByText } = screen

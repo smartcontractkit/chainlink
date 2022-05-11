@@ -22,10 +22,6 @@ export const JOBS_QUERY = gql`
 `
 
 export const JobsScreen = () => {
-  React.useEffect(() => {
-    document.title = 'Jobs'
-  }, [])
-
   const qp = useQueryParams()
   const page = parseInt(qp.get('page') || '1', 10)
   // Default set to 1000 until we can implement a server side search

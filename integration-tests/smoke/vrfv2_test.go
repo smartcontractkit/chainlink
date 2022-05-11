@@ -11,19 +11,21 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/helmenv/environment"
 	"github.com/smartcontractkit/helmenv/tools"
-	"github.com/smartcontractkit/integrations-framework/actions"
-	"github.com/smartcontractkit/integrations-framework/client"
-	"github.com/smartcontractkit/integrations-framework/contracts"
-	"github.com/smartcontractkit/integrations-framework/contracts/ethereum"
-	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		err                error
-		nets               *client.Networks
+		nets               *blockchain.Networks
 		cd                 contracts.ContractDeployer
 		consumer           contracts.VRFConsumerV2
 		coordinator        contracts.VRFCoordinatorV2
@@ -41,9 +43,8 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		By("Deploying the environment", func() {
 			e, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
-					nil,
-					"",
-					// works only on perf Geth
+					config.ChainlinkVals(),
+					"chainlink-vrfv2-core-ci",
 					environment.PerformanceGeth,
 				),
 				tools.ChartsRoot,
@@ -54,7 +55,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := client.NewDefaultNetworkRegistry()
+			networkRegistry := blockchain.NewDefaultNetworkRegistry()
 			nets, err = networkRegistry.GetNetworks(e)
 			Expect(err).ShouldNot(HaveOccurred())
 			cd, err = contracts.NewContractDeployer(nets.Default)

@@ -25,7 +25,7 @@ func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	return db, orm
 }
 
-func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
+func mustInsertChain(t *testing.T, orm types.ORM) types.DBChain {
 	t.Helper()
 
 	id := utils.NewBigI(99)

@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -29,7 +30,7 @@ var (
 )
 
 func init() {
-	checkUpkeepArguments = keeper.RegistryABI.Methods["checkUpkeep"].Outputs
+	checkUpkeepArguments = keeper.Registry1_1ABI.Methods["checkUpkeep"].Outputs
 }
 
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
@@ -42,7 +43,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 	registryAddr, registryClient := k.GetRegistry(ctx)
 
 	// Get positioning constant of the current registry
-	positioningConstant, err := keeper.CalcPositioningConstant(upkeepId, ethkey.EIP55AddressFromAddress(registryAddr))
+	positioningConstant, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
 	if err != nil {
 		log.Fatal("failed to get positioning constant: ", err)
 	}
@@ -71,7 +72,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 		}
 
 		keeperIndex := (uint64(positioningConstant) + ((block - (block % blockCountPerTurn)) / blockCountPerTurn)) % uint64(len(keepersList))
-		payload, err := keeper.RegistryABI.Pack("checkUpkeep", big.NewInt(upkeepId), keepersList[keeperIndex])
+		payload, err := keeper.Registry1_1ABI.Pack("checkUpkeep", big.NewInt(upkeepId), keepersList[keeperIndex])
 		if err != nil {
 			log.Fatal("failed to pack checkUpkeep: ", err)
 		}

@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 )
 
 func TestClient_TerraInit(t *testing.T) {
@@ -28,7 +29,7 @@ func TestClient_TerraInit(t *testing.T) {
 
 	// Try to add node
 	c := cli.NewContext(nil, set, nil)
-	err := client.CreateTerraNode(c)
+	err := cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.Error(t, err)
 
 	// Chain first
@@ -36,12 +37,12 @@ func TestClient_TerraInit(t *testing.T) {
 	setCh.String("id", newNode.TerraChainID, "")
 	setCh.Parse([]string{`{}`})
 	cCh := cli.NewContext(nil, setCh, nil)
-	err = client.CreateTerraChain(cCh)
+	err = cmd.TerraChainClient(client).CreateChain(cCh)
 	require.NoError(t, err)
 
 	// Then node
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateTerraNode(c)
+	err = cmd.NewTerraNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	assertTableRenders(t, r)

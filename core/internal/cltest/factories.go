@@ -156,6 +156,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromA
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &broadcastAt
+	etx.InitialBroadcastAt = &broadcastAt
 	n := nonce
 	etx.Nonce = &n
 	etx.State = txmgr.EthTxUnconfirmed
@@ -228,6 +229,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm txm
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &timeNow
+	etx.InitialBroadcastAt = &timeNow
 	n := nonce
 	etx.Nonce = &n
 	etx.State = txmgr.EthTxUnconfirmed
@@ -252,6 +254,7 @@ func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &broadcastAt
+	etx.InitialBroadcastAt = &broadcastAt
 	etx.Nonce = &nonce
 	etx.State = txmgr.EthTxConfirmedMissingReceipt
 	require.NoError(t, borm.InsertEthTx(&etx))
@@ -268,6 +271,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm txmgr.ORM, non
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &timeNow
+	etx.InitialBroadcastAt = &timeNow
 	etx.Nonce = &nonce
 	etx.State = txmgr.EthTxConfirmed
 	require.NoError(t, borm.InsertEthTx(&etx))
@@ -282,7 +286,6 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm txmgr.ORM, non
 func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address) txmgr.EthTx {
 	etx := NewEthTx(t, fromAddress)
 
-	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
 	etx.State = txmgr.EthTxInProgress
 	require.NoError(t, borm.InsertEthTx(&etx))
@@ -579,8 +582,8 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
 	korm := keeper.NewORM(db, logger.TestLogger(t), cfg, txmgr.SendEveryStrategy{})
-	upkeepID, err := korm.LowestUnsyncedID(registry.ID)
-	require.NoError(t, err)
+	mathrand.Seed(time.Now().UnixNano())
+	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
 		ExecuteGas: uint64(150_000),

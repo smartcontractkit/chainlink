@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { gql } from '@apollo/client'
-
 import Badge from '@material-ui/core/Badge'
 import Card from '@material-ui/core/Card'
 import {
@@ -18,20 +16,6 @@ import { InactiveTable } from './InactiveTable'
 import { PendingTable } from './PendingTable'
 import { UpdatesTable } from './UpdatesTable'
 import { SearchTextField } from 'src/components/Search/SearchTextField'
-
-export const FEEDS_MANAGER__JOB_PROPOSAL_FIELDS = gql`
-  fragment FeedsManager_JobProposalsFields on JobProposal {
-    id
-    externalJobID
-    remoteUUID
-    status
-    pendingUpdate
-    latestSpec {
-      createdAt
-      version
-    }
-  }
-`
 
 const tabToStatus: { [key: number]: string } = {
   0: 'PENDING',
