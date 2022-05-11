@@ -103,9 +103,12 @@ func TestTxm(t *testing.T) {
 		wg.Add(3)
 
 		sendCount := 0
+		var countRW sync.RWMutex
 		mc.On("SendTx", mock.Anything, tx).Run(func(mock.Arguments) {
+			countRW.Lock()
 			sendCount++
-		}).Return(sig, nil)
+			countRW.Unlock()
+		}).After(500*time.Millisecond).Return(sig, nil)
 		mc.On("SimulateTx", mock.Anything, tx, mock.Anything).Return(&rpc.SimulateTransactionResult{}, nil).Once()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Run(func(mock.Arguments) {
 			wg.Done()
@@ -128,8 +131,10 @@ func TestTxm(t *testing.T) {
 		// no transactions stored inflight txs list
 		waitFor(empty)
 		// transaction should be sent more than twice
+		countRW.RLock()
 		t.Logf("sendTx received %d calls", sendCount)
 		assert.Greater(t, sendCount, 2)
+		countRW.RUnlock()
 
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")

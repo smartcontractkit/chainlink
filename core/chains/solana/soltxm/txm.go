@@ -145,21 +145,22 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)
 				return
 			case <-tick:
-				retrySig, err := client.SendTx(ctx, tx)
-				// this could occur if endpoint goes down or if ctx cancelled
-				if err != nil {
-					if strings.Contains(err.Error(), "context canceled") {
-						txm.lggr.Debugw("ctx cancelled on send retry transaction", "error", err, "signature", retrySig)
-					} else {
-						txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", retrySig)
+				go func() {
+					retrySig, err := client.SendTx(ctx, tx)
+					// this could occur if endpoint goes down or if ctx cancelled
+					if err != nil {
+						if strings.Contains(err.Error(), "context canceled") {
+							txm.lggr.Debugw("ctx cancelled on send retry transaction", "error", err, "signature", retrySig)
+						} else {
+							txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", retrySig)
+						}
+						return
 					}
-
-					break // exit switch
-				}
-				// this should never happen
-				if retrySig != sig {
-					txm.lggr.Criticalw("original signature does not match retry signature", "expectedSignature", sig, "receivedSignature", retrySig)
-				}
+					// this should never happen
+					if retrySig != sig {
+						txm.lggr.Criticalw("original signature does not match retry signature", "expectedSignature", sig, "receivedSignature", retrySig)
+					}
+				}()
 			}
 
 			// exponential increase in wait time, capped at 500ms
