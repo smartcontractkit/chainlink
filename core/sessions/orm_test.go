@@ -4,8 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -13,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
@@ -159,6 +161,37 @@ func TestORM_CreateSession(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestORM_WebAuthn(t *testing.T) {
+	t.Parallel()
+
+	_, orm := setupORM(t)
+
+	initial := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&initial))
+
+	was, err := orm.GetUserWebAuthn(initial.Email)
+	require.NoError(t, err)
+	assert.Len(t, was, 0)
+
+	cred := webauthn.Credential{
+		ID:              []byte("test-id"),
+		PublicKey:       []byte("test-key"),
+		AttestationType: "test-attestation",
+	}
+	require.NoError(t, sessions.AddCredentialToUser(orm, initial.Email, &cred))
+
+	was, err = orm.GetUserWebAuthn(initial.Email)
+	require.NoError(t, err)
+	require.NotEmpty(t, was)
+
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "MFA Error")
 }
 
 func TestOrm_GenerateAuthToken(t *testing.T) {

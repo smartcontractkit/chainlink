@@ -278,3 +278,16 @@ func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn
 	err = json.Unmarshal([]byte(assertion), &data)
 	return
 }
+
+func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) error {
+	credj, err := json.Marshal(credential)
+	if err != nil {
+		return err
+	}
+
+	token := WebAuthn{
+		Email:         email,
+		PublicKeyData: sqlxTypes.JSONText(credj),
+	}
+	return o.SaveWebAuthn(&token)
+}
