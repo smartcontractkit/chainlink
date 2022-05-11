@@ -54,7 +54,7 @@ type cachedClient struct {
 }
 
 // NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain Chain, orm ORM, lggr logger.Logger) (*chain, error) {
+func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain DBChain, orm ORM, lggr logger.Logger) (*chain, error) {
 	cfg := config.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("chainID", dbchain.ID, "chainSet", "solana")
 	var ch = chain{

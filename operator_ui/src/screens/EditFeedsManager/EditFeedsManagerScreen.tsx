@@ -14,7 +14,7 @@ import { Loading } from 'components/Feedback/Loading'
 import {
   useFeedsManagersQuery,
   FEEDS_MANAGERS_QUERY,
-} from 'src/hooks/useFeedsManagersQuery'
+} from 'src/hooks/queries/useFeedsManagersQuery'
 import { useMutationErrorHandler } from 'src/hooks/useMutationErrorHandler'
 
 export const UPDATE_FEEDS_MANAGER_MUTATION = gql`
@@ -26,10 +26,7 @@ export const UPDATE_FEEDS_MANAGER_MUTATION = gql`
           name
           uri
           publicKey
-          jobTypes
-          isBootstrapPeer
           isConnectionActive
-          bootstrapPeerMultiaddr
           createdAt
         }
       }

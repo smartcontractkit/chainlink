@@ -13,24 +13,14 @@ import (
 )
 
 // ORM manages chains and nodes.
-//
-// I: Chain ID
-//
-// C: Chain Config
-//
-// N: Node including these default fields:
-//  ID        int32
-//  Name      string
-//  CreatedAt time.Time
-//  UpdatedAt time.Time
-type ORM[I, C, N any] interface {
-	Chain(I, ...pg.QOpt) (Chain[I, C], error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]Chain[I, C], int, error)
-	CreateChain(id I, config C, qopts ...pg.QOpt) (Chain[I, C], error)
-	UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (Chain[I, C], error)
+type ORM[I ID, C Config, N Node] interface {
+	Chain(I, ...pg.QOpt) (DBChain[I, C], error)
+	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain[I, C], int, error)
+	CreateChain(id I, config C, qopts ...pg.QOpt) (DBChain[I, C], error)
+	UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (DBChain[I, C], error)
 	DeleteChain(id I, qopts ...pg.QOpt) error
-	GetChainsByIDs(ids []I) (chains []Chain[I, C], err error)
-	EnabledChains(...pg.QOpt) ([]Chain[I, C], error)
+	GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error)
+	EnabledChains(...pg.QOpt) ([]DBChain[I, C], error)
 
 	CreateNode(N, ...pg.QOpt) (N, error)
 	DeleteNode(int32, ...pg.QOpt) error
@@ -49,14 +39,14 @@ type ORM[I, C, N any] interface {
 	SetupNodes(nodes []N, chainIDs []I) error
 }
 
-type orm[I, C, N any] struct {
+type orm[I ID, C Config, N Node] struct {
 	*chainsORM[I, C]
 	*nodesORM[I, N]
 }
 
 // NewORM returns an ORM backed by q, for the tables <prefix>_chains and <prefix>_nodes with column <prefix>_chain_id.
 // Additional Node fields should be included in nodeCols.
-func NewORM[I, C, N any](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N] {
+func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N] {
 	return orm[I, C, N]{
 		newChainsORM[I, C](q, prefix),
 		newNodesORM[I, N](q, prefix, nodeCols...),
@@ -78,13 +68,11 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 	})
 }
 
-// Chain is a generic DB chain for any configuration C and chain id I.
+// DBChain is a generic DB chain for an ID and Config.
 //
-// C normally implements sql.Scanner and driver.Valuer, but that is not enforced here.
-//
-// A Chain type alias can be used for convenience:
-// 	type Chain = chains.Chain[string, pkg.ChainCfg]
-type Chain[I, C any] struct {
+// A DBChain type alias can be used for convenience:
+// 	type DBChain = chains.DBChain[string, pkg.ChainCfg]
+type DBChain[I ID, C Config] struct {
 	ID        I
 	Cfg       C
 	CreatedAt time.Time
@@ -93,24 +81,24 @@ type Chain[I, C any] struct {
 }
 
 // chainsORM is a generic ORM for chains.
-type chainsORM[I, C any] struct {
+type chainsORM[I ID, C Config] struct {
 	q      pg.Q
 	prefix string
 }
 
 // newChainsORM returns an chainsORM backed by q, for the table <prefix>_chains.
-func newChainsORM[I, C any](q pg.Q, prefix string) *chainsORM[I, C] {
+func newChainsORM[I ID, C Config](q pg.Q, prefix string) *chainsORM[I, C] {
 	return &chainsORM[I, C]{q: q, prefix: prefix}
 }
 
-func (o *chainsORM[I, C]) Chain(id I, qopts ...pg.QOpt) (dbchain Chain[I, C], err error) {
+func (o *chainsORM[I, C]) Chain(id I, qopts ...pg.QOpt) (dbchain DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	chainSQL := fmt.Sprintf(`SELECT * FROM %s_chains WHERE id = $1;`, o.prefix)
 	err = q.Get(&dbchain, chainSQL, id)
 	return
 }
 
-func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []Chain[I, C], err error) {
+func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error) {
 	sql := fmt.Sprintf(`SELECT * FROM %s_chains WHERE id = ANY($1) ORDER BY created_at, id;`, o.prefix)
 
 	chainIDs := pq.Array(ids)
@@ -121,7 +109,7 @@ func (o *chainsORM[I, C]) GetChainsByIDs(ids []I) (chains []Chain[I, C], err err
 	return chains, nil
 }
 
-func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain Chain[I, C], err error) {
+func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := fmt.Sprintf(`INSERT INTO %s_chains (id, cfg, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`, o.prefix)
 	err = q.Get(&chain, sql, id, config)
@@ -143,7 +131,7 @@ func (o *chainsORM[I, C]) ensureChains(ids []I, qopts ...pg.QOpt) (err error) {
 	return nil
 }
 
-func (o *chainsORM[I, C]) UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (chain Chain[I, C], err error) {
+func (o *chainsORM[I, C]) UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (chain DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := fmt.Sprintf(`UPDATE %s_chains SET enabled = $1, cfg = $2, updated_at = now() WHERE id = $3 RETURNING *`, o.prefix)
 	err = q.Get(&chain, sql, enabled, config, id)
@@ -201,7 +189,7 @@ func (o *chainsORM[I, C]) DeleteChain(id I, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []Chain[I, C], count int, err error) {
+func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []DBChain[I, C], count int, err error) {
 	err = o.q.WithOpts(qopts...).Transaction(func(q pg.Queryer) error {
 		if err = q.Get(&count, fmt.Sprintf("SELECT COUNT(*) FROM %s_chains", o.prefix)); err != nil {
 			return errors.Wrap(err, "failed to fetch chains count")
@@ -215,7 +203,7 @@ func (o *chainsORM[I, C]) Chains(offset, limit int, qopts ...pg.QOpt) (chains []
 	return
 }
 
-func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []Chain[I, C], err error) {
+func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []DBChain[I, C], err error) {
 	q := o.q.WithOpts(qopts...)
 	chainsSQL := fmt.Sprintf(`SELECT * FROM %s_chains WHERE enabled ORDER BY created_at, id;`, o.prefix)
 	if err = q.Select(&chains, chainsSQL); err != nil {
@@ -225,14 +213,14 @@ func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []Chain[I, C],
 }
 
 // nodesORM is a generic ORM for nodes.
-type nodesORM[I, N any] struct {
+type nodesORM[I ID, N Node] struct {
 	q           pg.Q
 	prefix      string
 	createNodeQ string
 	ensureNodeQ string
 }
 
-func newNodesORM[I, N any](q pg.Q, prefix string, nodeCols ...string) *nodesORM[I, N] {
+func newNodesORM[I ID, N Node](q pg.Q, prefix string, nodeCols ...string) *nodesORM[I, N] {
 	// pre-compute query for CreateNode
 	var withColon []string
 	for _, c := range nodeCols {

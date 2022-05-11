@@ -13,10 +13,7 @@ import {
 const initialValues = {
   name: 'Chainlink Feeds Manager',
   uri: '',
-  jobTypes: [],
   publicKey: '',
-  isBootstrapPeer: false,
-  bootstrapPeerMultiaddr: undefined,
 }
 
 type Props = Pick<FormProps, 'onSubmit'>

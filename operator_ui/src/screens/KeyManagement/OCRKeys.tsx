@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { gql, useMutation, useQuery } from '@apollo/client'
+import { gql, useMutation } from '@apollo/client'
 import { useDispatch } from 'react-redux'
 
 import { useMutationErrorHandler } from 'src/hooks/useMutationErrorHandler'
@@ -8,21 +8,8 @@ import {
   createSuccessNotification,
   deleteSuccessNotification,
 } from './notifications'
-import {
-  OCRKeysCard,
-  OCR_KEY_BUNDLES_PAYLOAD__RESULTS_FIELDS,
-} from './OCRKeysCard'
-
-export const OCR_KEY_BUNDLES_QUERY = gql`
-  ${OCR_KEY_BUNDLES_PAYLOAD__RESULTS_FIELDS}
-  query FetchOCRKeyBundles {
-    ocrKeyBundles {
-      results {
-        ...OCRKeyBundlesPayload_ResultsFields
-      }
-    }
-  }
-`
+import { OCRKeysCard } from './OCRKeysCard'
+import { useOCRKeysQuery } from 'src/hooks/queries/useOCRKeysQuery'
 
 export const CREATE_OCR_KEY_BUNDLE_MUTATION = gql`
   mutation CreateOCRKeyBundle {
@@ -51,10 +38,7 @@ export const DELETE_OCR_KEY_BUNDLE_MUTATION = gql`
 export const OCRKeys = () => {
   const dispatch = useDispatch()
   const { handleMutationError } = useMutationErrorHandler()
-  const { data, loading, error, refetch } = useQuery<
-    FetchOcrKeyBundles,
-    FetchOcrKeyBundlesVariables
-  >(OCR_KEY_BUNDLES_QUERY, {
+  const { data, loading, error, refetch } = useOCRKeysQuery({
     fetchPolicy: 'network-only',
   })
   const [createOCRKeyBundle] = useMutation<
