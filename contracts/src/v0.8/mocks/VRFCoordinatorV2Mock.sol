@@ -9,10 +9,13 @@ import "../VRFConsumerBaseV2.sol";
 contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   uint96 public immutable BASE_FEE;
   uint96 public immutable GAS_PRICE_LINK;
+  uint16 public immutable MAX_CONSUMERS = 100;
 
   error InvalidSubscription();
   error InsufficientBalance();
   error MustBeSubOwner(address owner);
+  error TooManyConsumers();
+  error InvalidConsumer();
 
   event RandomWordsRequested(
     bytes32 indexed keyHash,
@@ -28,6 +31,8 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   event SubscriptionCreated(uint64 indexed subId, address owner);
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amount);
+  event ConsumerAdded(uint64 indexed subId, address consumer);
+  event ConsumerRemoved(uint64 indexed subId, address consumer);
 
   uint64 s_currentSubId;
   uint256 s_nextRequestId = 1;
@@ -37,6 +42,8 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     uint96 balance;
   }
   mapping(uint64 => Subscription) s_subscriptions; /* subId */ /* subscription */
+  mapping(address => mapping(uint64 => bool)) s_consumer_added; /* consumer */ /* subId */ /* added */
+  mapping(uint64 => address[]) s_consumers; /* subId */ /* consumers */
 
   struct Request {
     uint64 subId;
@@ -151,7 +158,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     if (s_subscriptions[_subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    return (s_subscriptions[_subId].balance, 0, s_subscriptions[_subId].owner, new address[](0));
+    return (s_subscriptions[_subId].balance, 0, s_subscriptions[_subId].owner, s_consumers[_subId]);
   }
 
   function cancelSubscription(uint64 _subId, address _to) external override onlySubOwner(_subId) {
@@ -183,12 +190,37 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     return (3, 2000000, new bytes32[](0));
   }
 
-  function addConsumer(uint64 _subId, address _consumer) external pure override {
-    revert("not implemented");
+  function addConsumer(uint64 _subId, address _consumer) external override onlySubOwner(_subId) {
+    if (s_consumers[_subId].length == MAX_CONSUMERS) {
+      revert TooManyConsumers();
+    }
+
+    if (s_consumer_added[_consumer][_subId]) {
+      return;
+    }
+
+    s_consumer_added[_consumer][_subId] = true;
+    s_consumers[_subId].push(_consumer);
+    emit ConsumerAdded(_subId, _consumer);
   }
 
-  function removeConsumer(uint64 _subId, address _consumer) external pure override {
-    revert("not implemented");
+  function removeConsumer(uint64 _subId, address _consumer) external override onlySubOwner(_subId) {
+    if (!s_consumer_added[_consumer][_subId]) {
+      revert InvalidConsumer();
+    }
+
+    s_consumer_added[_consumer][_subId] = false;
+    address[] storage consumers = s_consumers[_subId];
+    for (uint256 i = 0; i < consumers.length; i++) {
+      if (consumers[i] == _consumer) {
+        address last = consumers[consumers.length - 1];
+        consumers[i] = last;
+        consumers.pop();
+        break;
+      }
+    }
+
+    emit ConsumerRemoved(_subId, _consumer);
   }
 
   function requestSubscriptionOwnerTransfer(uint64 _subId, address _newOwner) external pure override {

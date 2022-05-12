@@ -13,6 +13,8 @@ describe('VRFCoordinatorV2Mock', () => {
   let oneLink = BigNumber.from('1000000000000000000')
   let keyhash =
     '0xe90b7bceb6e7df5418fb78d8ee546e97c83a08bbccc01a0644d599ccd2a7c2e0'
+  let testConsumerAddress = '0x1111000000000000000000000000000000001111'
+  let testConsumerAddress2 = '0x1111000000000000000000000000000000001110'
 
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
@@ -67,6 +69,101 @@ describe('VRFCoordinatorV2Mock', () => {
       await expect(vrfCoordinatorV2Mock.connect(subOwner).createSubscription())
         .to.emit(vrfCoordinatorV2Mock, 'SubscriptionCreated')
         .withArgs(2, subOwnerAddress)
+    })
+  })
+  describe('#addConsumer', async function () {
+    it('can add a consumer to a subscription', async function () {
+      let subId = await createSubscription()
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .addConsumer(subId, testConsumerAddress),
+      )
+        .to.emit(vrfCoordinatorV2Mock, 'ConsumerAdded')
+        .withArgs(subId, testConsumerAddress)
+      let sub = await vrfCoordinatorV2Mock
+        .connect(subOwner)
+        .getSubscription(subId)
+      expect(sub.consumers).to.eql([testConsumerAddress])
+    })
+    it('cannot add a consumer to a nonexistent subscription', async function () {
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .addConsumer(4, testConsumerAddress),
+      ).to.be.revertedWith('InvalidSubscription')
+    })
+    it('cannot add more than the consumer maximum', async function () {
+      let subId = await createSubscription()
+      for (let i = 0; i < 100; i++) {
+        const testIncrementingAddress = BigNumber.from(i)
+          .add('0x1000000000000000000000000000000000000000')
+          .toHexString()
+        await expect(
+          vrfCoordinatorV2Mock
+            .connect(subOwner)
+            .addConsumer(subId, testIncrementingAddress),
+        ).to.emit(vrfCoordinatorV2Mock, 'ConsumerAdded')
+      }
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .addConsumer(subId, testConsumerAddress),
+      ).to.be.revertedWith('TooManyConsumers')
+    })
+  })
+  describe('#removeConsumer', async function () {
+    it('can remove a consumer from a subscription', async function () {
+      let subId = await createSubscription()
+      for (const addr of [testConsumerAddress, testConsumerAddress2]) {
+        await expect(
+          vrfCoordinatorV2Mock.connect(subOwner).addConsumer(subId, addr),
+        ).to.emit(vrfCoordinatorV2Mock, 'ConsumerAdded')
+      }
+
+      let sub = await vrfCoordinatorV2Mock
+        .connect(subOwner)
+        .getSubscription(subId)
+      expect(sub.consumers).to.eql([testConsumerAddress, testConsumerAddress2])
+
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .removeConsumer(subId, testConsumerAddress),
+      )
+        .to.emit(vrfCoordinatorV2Mock, 'ConsumerRemoved')
+        .withArgs(subId, testConsumerAddress)
+
+      sub = await vrfCoordinatorV2Mock.connect(subOwner).getSubscription(subId)
+      expect(sub.consumers).to.eql([testConsumerAddress2])
+    })
+    it('cannot remove a consumer from a nonexistent subscription', async function () {
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .removeConsumer(4, testConsumerAddress),
+      ).to.be.revertedWith('InvalidSubscription')
+    })
+    it('cannot remove a consumer after it is already removed', async function () {
+      let subId = await createSubscription()
+
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .addConsumer(subId, testConsumerAddress),
+      ).to.emit(vrfCoordinatorV2Mock, 'ConsumerAdded')
+
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .removeConsumer(subId, testConsumerAddress),
+      ).to.emit(vrfCoordinatorV2Mock, 'ConsumerRemoved')
+
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .removeConsumer(subId, testConsumerAddress),
+      ).to.be.revertedWith('InvalidConsumer')
     })
   })
   describe('#fundSubscription', async function () {
