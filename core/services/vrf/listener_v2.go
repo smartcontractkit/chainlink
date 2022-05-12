@@ -375,6 +375,8 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 								lsn.job.VRFSpec.BackoffMaxDelay,
 								req.lastTry))
 					}
+				} else {
+					lsn.markLogAsConsumed(req.lb)
 				}
 			}
 		}
@@ -405,7 +407,6 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			if strings.Contains(err.Error(), "execution reverted") {
 				lsn.l.Warnw("Subscription not found", "subID", subID, "err", err)
 				for _, req := range reqs {
-					lsn.markLogAsConsumed(req.lb)
 					lsn.l.Infow("Skipping requests without valid subscription", "subID", subID, "reqID", req.req.RequestId)
 					processed[req.req.RequestId.String()] = struct{}{}
 				}
@@ -598,7 +599,6 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		}
 		for i, a := range alreadyFulfilled {
 			if a {
-				lsn.markLogAsConsumed(chunk[i].lb)
 				processed[chunk[i].req.RequestId.String()] = struct{}{}
 			} else {
 				unfulfilled = append(unfulfilled, chunk[i])
@@ -728,7 +728,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		for i, a := range alreadyFulfilled {
 			if a {
-				lsn.markLogAsConsumed(chunk[i].lb)
 				processed[chunk[i].req.RequestId.String()] = struct{}{}
 			} else {
 				unfulfilled = append(unfulfilled, chunk[i])
