@@ -264,6 +264,19 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func (r *Receipt) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, r)
+}
+
+func (r *Receipt) Value() (driver.Value, error) {
+	return json.Marshal(r)
+}
+
 // Log represents a contract log event.
 //
 // Copied from go-ethereum: https://github.com/ethereum/go-ethereum/blob/ce9a289fa48e0d2593c4aaa7e207c8a5dd3eaa8a/core/types/log.go

@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
@@ -25,12 +26,13 @@ import (
 )
 
 // EthTxMeta contains fields of the transaction metadata
+// Not all fields are guaranteed to be present
 type EthTxMeta struct {
-	JobID int32 `json:"JobID"`
+	JobID *int32 `json:"JobID"`
 
 	// VRF-only fields
-	RequestID     common.Hash `json:"RequestID,omitempty"`
-	RequestTxHash common.Hash `json:"RequestTxHash,omitempty"`
+	RequestID     *common.Hash `json:"RequestID,omitempty"`
+	RequestTxHash *common.Hash `json:"RequestTxHash,omitempty"`
 	// Batch variants of the above
 	RequestIDs      []common.Hash `json:"RequestIDs,omitempty"`
 	RequestTxHashes []common.Hash `json:"RequestTxHashes,omitempty"`
@@ -53,7 +55,7 @@ type TransmitCheckerSpec struct {
 
 	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
 	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
-	VRFCoordinatorAddress common.Address `json:",omitempty"`
+	VRFCoordinatorAddress *common.Address `json:",omitempty"`
 
 	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
 	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
@@ -224,11 +226,11 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 	if meta != nil {
 		lgr = lgr.With("jobID", meta.JobID)
 
-		if meta.RequestTxHash != utils.EmptyHash {
-			lgr = lgr.With("requestTxHash", meta.RequestTxHash)
+		if meta.RequestTxHash != nil {
+			lgr = lgr.With("requestTxHash", *meta.RequestTxHash)
 		}
 
-		if meta.RequestID != utils.EmptyHash {
+		if meta.RequestID != nil {
 			lgr = lgr.With("requestID", new(big.Int).SetBytes(meta.RequestID[:]).String())
 		}
 
@@ -309,6 +311,6 @@ type EthReceipt struct {
 	BlockHash        common.Hash
 	BlockNumber      int64
 	TransactionIndex uint
-	Receipt          []byte
+	Receipt          evmtypes.Receipt
 	CreatedAt        time.Time
 }

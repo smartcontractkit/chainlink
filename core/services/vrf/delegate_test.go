@@ -371,7 +371,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 				return newTx.FromAddress == vuni.submitter &&
 					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
 					newTx.GasLimit == uint64(500000) &&
-					(meta.JobID > 0 && meta.RequestID == tc.reqID && meta.RequestTxHash == txHash)
+					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
+					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
 		).Once().Return(txmgr.EthTx{}, nil)
 

@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -276,6 +277,7 @@ type OperatorContracts struct {
 	multiWordConsumerAddress  common.Address
 	singleWordConsumerAddress common.Address
 	operatorAddress           common.Address
+	linkTokenAddress          common.Address
 	linkToken                 *link_token_interface.LinkToken
 	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
 	singleWord                *consumer_wrapper.Consumer
@@ -321,6 +323,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 		multiWordConsumerAddress:  multiWordConsumerAddress,
 		singleWordConsumerAddress: singleConsumerAddress,
 		linkToken:                 linkContract,
+		linkTokenAddress:          linkTokenAddress,
 		multiWord:                 multiWordConsumerContract,
 		singleWord:                singleConsumerContract,
 		operator:                  operatorContract,
@@ -446,6 +449,83 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			assert.Equal(t, big.NewInt(61464), v)
 		})
 	}
+}
+
+func TestIntegration_AsyncEthTxRevertingTransaction(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
+	operatorContracts := setupOperatorContracts(t)
+	b := operatorContracts.sim
+
+	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
+	b.Commit()
+
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+	require.NoError(t, err)
+
+	// Fund node account with ETH.
+	n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+	require.NoError(t, err)
+	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	err = app.Start(testutils.Context(t))
+	require.NoError(t, err)
+
+	// b.Commit()
+	fmt.Println("BALLS 1")
+	time.Sleep(5 * time.Second)
+	for _, msg := range o.All() {
+		fmt.Println(msg)
+	}
+	testutils.WaitForLogMessage(t, o, "Subscribing to new heads on chain 1337")
+
+	tomlSpec := `
+type            = "webhook"
+schemaVersion   = 1
+observationSource   = """
+	submit_tx  [type=ethtx to="%s"
+            data="%s"
+            minConfirmations="2"
+            from="[\\"%s\\"]"
+			]
+"""
+`
+	// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
+	revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
+	tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingKeys[0].Address.Address())
+	j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+	cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
+
+	fmt.Println("BALLS 3")
+
+	run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+	assert.Equal(t, []*string([]*string(nil)), run.Outputs)
+	assert.Equal(t, []*string([]*string(nil)), run.Errors)
+
+	fmt.Println("BALLS 4")
+
+	testutils.WaitForLogMessage(t, o, "Sent transaction")
+	b.Commit() // Needs at least two confirmations
+	b.Commit() // Needs at least two confirmations
+	b.Commit() // Needs at least two confirmations
+	// testutils.WaitForLogMessage(t, o, "Resume run success")
+	time.Sleep(5 * time.Second)
+	// fmt.Println("BALLS", o.All())
+
+	fmt.Println("BALLS 5")
+
+	// pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+	pipelineRuns := cltest.WaitForPipelineError(t, 0, j.ID, 1, 1, app.JobORM(), 5*time.Second, 100*time.Millisecond)
+
+	// The run should have failed as a revert
+	pipelineRun := pipelineRuns[0]
+	cltest.AssertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {

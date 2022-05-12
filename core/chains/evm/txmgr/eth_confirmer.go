@@ -227,7 +227,9 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 
 	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 
+	fmt.Println("BALLS eth_confirmer 1")
 	if ec.resumeCallback != nil {
+		fmt.Println("BALLS eth_confirmer 2")
 		mark = time.Now()
 		if err := ec.ResumePendingTaskRuns(ctx, head); err != nil {
 			return errors.Wrap(err, "ResumePendingTaskRuns failed")
@@ -235,6 +237,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 
 		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	}
+	fmt.Println("BALLS eth_confirmer 3")
 
 	return nil
 }
@@ -1497,7 +1500,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes.Head) error {
 	type x struct {
 		ID      uuid.UUID
-		Receipt []byte
+		Receipt evmtypes.Receipt
 	}
 	var receipts []x
 	// NOTE: we don't filter on eth_txes.state = 'confirmed', because a transaction with an attached receipt
@@ -1513,8 +1516,19 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 		return err
 	}
 
+	ec.lggr.Debugf("Resuming %d task runs pending receipt", len(receipts))
 	for _, data := range receipts {
-		if err := ec.resumeCallback(data.ID, data.Receipt, nil); err != nil {
+		var err error
+		var output interface{}
+		if data.Receipt.Status == 0 {
+			err = errors.Errorf("transaction %s reverted on-chain", data.Receipt.TxHash)
+		} else {
+			output = data.Receipt
+		}
+
+		ec.lggr.Tracew("Callback: resuming ethtx with receipt", "output", output, "err", err, "pipelineTaskRunID", data.ID)
+		fmt.Println("BALLS 1")
+		if err := ec.resumeCallback(data.ID, output, err); err != nil {
 			return err
 		}
 	}

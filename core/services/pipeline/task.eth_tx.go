@@ -100,6 +100,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: err}, runInfo
 	}
 
+	setJobIDOnMeta(lggr, vars, txMeta)
+
 	transmitChecker, err := decodeTransmitChecker(transmitCheckerMap)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -198,4 +200,20 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
 	}
 	return transmitChecker, nil
+}
+
+// txMeta is really only used for logging, so this is best-effort
+func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EthTxMeta) {
+	jobID, err := vars.Get("jobSpec.databaseID")
+	if err != nil {
+		logger.Sugared(lggr).AssumptionViolationf("expected vars to contain jobSpec.databaseID, but it didn't. Got: %v", vars)
+		return
+	}
+	jobIDF, is := jobID.(float64) // JSON decoder default numeric type
+	if is {
+		jobIDInt := int32(jobIDF)
+		meta.JobID = &jobIDInt
+	} else {
+		logger.Sugared(lggr).AssumptionViolationf("expected type int32 for vars.jobSpec.databaseID; got: %T (value: %v)", jobID, jobID)
+	}
 }

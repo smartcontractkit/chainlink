@@ -785,13 +785,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 				}
 
 				maxLinkString := p.maxLink.String()
+				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
+				coordinatorAddress := lsn.coordinator.Address()
 				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
-						RequestID: common.BytesToHash(p.req.req.RequestId.Bytes()),
+						RequestID: &requestID,
 						MaxLink:   &maxLinkString,
 						SubID:     &p.req.req.SubId,
 					},
@@ -799,7 +801,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 					Strategy:         txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-						VRFCoordinatorAddress: lsn.coordinator.Address(),
+						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
 					},
 				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))

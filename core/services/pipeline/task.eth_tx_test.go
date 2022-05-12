@@ -24,6 +24,10 @@ import (
 )
 
 func TestETHTxTask(t *testing.T) {
+	jid := int32(321)
+	reqID := common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2")
+	reqTxHash := common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")
+
 	tests := []struct {
 		name                  string
 		from                  string
@@ -60,7 +64,13 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				txMeta := &txmgr.EthTxMeta{JobID: 321, RequestID: common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"), RequestTxHash: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")}
+				jid := int32(321)
+				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
@@ -71,7 +81,7 @@ func TestETHTxTask(t *testing.T) {
 					Strategy:       txmgr.SendEveryStrategy{},
 					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-						VRFCoordinatorAddress: common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"),
+						VRFCoordinatorAddress: &addr,
 					},
 				}).Return(txmgr.EthTx{}, nil)
 			},
@@ -103,7 +113,11 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				txMeta := &txmgr.EthTxMeta{JobID: 321, RequestID: common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"), RequestTxHash: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")}
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
@@ -144,7 +158,11 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				txMeta := &txmgr.EthTxMeta{JobID: 321, RequestID: common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"), RequestTxHash: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")}
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
@@ -185,7 +203,11 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				txMeta := &txmgr.EthTxMeta{JobID: 321, RequestID: common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"), RequestTxHash: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")}
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
@@ -247,7 +269,11 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(999)
-				txMeta := &txmgr.EthTxMeta{JobID: 321, RequestID: common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"), RequestTxHash: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")}
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
@@ -306,7 +332,11 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				txMeta := &txmgr.EthTxMeta{JobID: 321, RequestID: common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"), RequestTxHash: common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")}
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
