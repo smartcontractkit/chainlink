@@ -206,8 +206,7 @@ contract OptimismSequencerUptimeFeed is
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
     if (
-      msg.sender != address(s_l2CrossDomainMessenger) ||
-      s_l2CrossDomainMessenger.xDomainMessageSender() != s_l1Sender
+      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != s_l1Sender
     ) {
       revert InvalidSender();
     }
