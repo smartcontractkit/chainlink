@@ -87,7 +87,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 	chains := []evmtypes.DBChain{
 		{
 			ID:      *utils.NewBigI(0),
-			Cfg:     testopts.ChainCfg,
+			Cfg:     &testopts.ChainCfg,
 			Enabled: true,
 		},
 	}
@@ -173,11 +173,11 @@ func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.DBChain, erro
 	return c, nil
 }
 
-func (mo *MockORM) CreateChain(id utils.Big, config evmtypes.ChainCfg, qopts ...pg.QOpt) (evmtypes.DBChain, error) {
+func (mo *MockORM) CreateChain(id utils.Big, config *evmtypes.ChainCfg, qopts ...pg.QOpt) (evmtypes.DBChain, error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) UpdateChain(id utils.Big, enabled bool, config evmtypes.ChainCfg, qopts ...pg.QOpt) (evmtypes.DBChain, error) {
+func (mo *MockORM) UpdateChain(id utils.Big, enabled bool, config *evmtypes.ChainCfg, qopts ...pg.QOpt) (evmtypes.DBChain, error) {
 	return evmtypes.DBChain{}, nil
 }
 

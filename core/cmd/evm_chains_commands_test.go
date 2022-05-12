@@ -38,7 +38,7 @@ func TestClient_IndexEVMChains(t *testing.T) {
 	require.NoError(t, err)
 
 	id := newRandChainID()
-	chain, err := orm.CreateChain(*id, types.ChainCfg{})
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 
 	require.Nil(t, cmd.EVMChainClient(client).IndexChains(cltest.EmptyCLIContext()))
@@ -99,7 +99,7 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 	require.NoError(t, err)
 
 	id := newRandChainID()
-	_, err = orm.CreateChain(*id, types.ChainCfg{})
+	_, err = orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
 	require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestClient_ConfigureEVMChain(t *testing.T) {
 	require.NoError(t, err)
 
 	id := newRandChainID()
-	_, err = orm.CreateChain(*id, types.ChainCfg{
+	_, err = orm.CreateChain(*id, &types.ChainCfg{
 		BlockHistoryEstimatorBlockDelay: null.IntFrom(5),
 		EvmFinalityDepth:                null.IntFrom(5),
 		EvmGasBumpPercent:               null.IntFrom(3),

@@ -31,7 +31,7 @@ func Test_EVMChainsController_Create(t *testing.T) {
 	newChainId := *utils.NewBigI(42)
 
 	body, err := json.Marshal(web.NewCreateChainRequest(newChainId,
-		types.ChainCfg{
+		&types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(1),
 			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(12),
 			EvmEIP1559DynamicFees:                 null.BoolFrom(false),
@@ -84,7 +84,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 				chain := types.DBChain{
 					ID:      *validId,
 					Enabled: true,
-					Cfg:     newChainConfig,
+					Cfg:     &newChainConfig,
 				}
 				evmtest.MustInsertChain(t, app.GetSqlxDB(), &chain)
 
@@ -146,10 +146,10 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	controller := setupEVMChainsControllerTest(t)
 
-	newChains := []web.CreateChainRequest[utils.Big, types.ChainCfg]{
+	newChains := []web.CreateChainRequest[utils.Big, *types.ChainCfg]{
 		{
 			ID: *utils.NewBigI(24),
-			Config: types.ChainCfg{
+			Config: &types.ChainCfg{
 				BlockHistoryEstimatorBlockDelay:       null.IntFrom(13),
 				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(1),
 				EvmEIP1559DynamicFees:                 null.BoolFrom(true),
@@ -158,7 +158,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		},
 		{
 			ID: *utils.NewBigI(30),
-			Config: types.ChainCfg{
+			Config: &types.ChainCfg{
 				BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
 				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
 				EvmEIP1559DynamicFees:                 null.BoolFrom(false),
@@ -227,9 +227,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 func Test_EVMChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateChainRequest[types.ChainCfg]{
+	chainUpdate := web.UpdateChainRequest[*types.ChainCfg]{
 		Enabled: true,
-		Config: types.ChainCfg{
+		Config: &types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(55),
 			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(33),
 			EvmEIP1559DynamicFees:                 null.BoolFrom(true),
@@ -260,7 +260,7 @@ func Test_EVMChainsController_Update(t *testing.T) {
 				chain := types.DBChain{
 					ID:      *validId,
 					Enabled: true,
-					Cfg:     newChainConfig,
+					Cfg:     &newChainConfig,
 				}
 				evmtest.MustInsertChain(t, app.GetSqlxDB(), &chain)
 
@@ -339,7 +339,7 @@ func Test_EVMChainsController_Delete(t *testing.T) {
 	chain := types.DBChain{
 		ID:      chainId,
 		Enabled: true,
-		Cfg:     newChainConfig,
+		Cfg:     &newChainConfig,
 	}
 	evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 

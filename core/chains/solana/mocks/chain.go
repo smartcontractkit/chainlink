@@ -8,6 +8,8 @@ import (
 
 	context "context"
 
+	db "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	mock "github.com/stretchr/testify/mock"
 
 	solana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -143,6 +145,11 @@ func (_m *Chain) TxManager() solana.TxManager {
 	}
 
 	return r0
+}
+
+// UpdateConfig provides a mock function with given fields: _a0
+func (_m *Chain) UpdateConfig(_a0 *db.ChainCfg) {
+	_m.Called(_a0)
 }
 
 // NewChain creates a new instance of Chain. It also registers the testing.TB interface on the mock and a cleanup function to assert the mocks expectations.
