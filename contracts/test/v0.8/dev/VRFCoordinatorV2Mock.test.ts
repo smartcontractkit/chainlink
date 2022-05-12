@@ -204,8 +204,20 @@ describe('VRFCoordinatorV2Mock', () => {
     })
   })
   describe('#fulfillRandomWords', async function () {
+    it('fails to fulfill without being a valid consumer', async function () {
+      let subId = await createSubscription()
+
+      await expect(
+        vrfCoordinatorV2Mock
+          .connect(subOwner)
+          .requestRandomWords(keyhash, subId, 3, 500_000, 2),
+      ).to.be.revertedWith('InvalidConsumer')
+    })
     it('fails to fulfill with insufficient funds', async function () {
       let subId = await createSubscription()
+      await vrfCoordinatorV2Mock
+        .connect(subOwner)
+        .addConsumer(subId, await subOwner.getAddress())
 
       await expect(
         vrfCoordinatorV2Mock
@@ -223,6 +235,9 @@ describe('VRFCoordinatorV2Mock', () => {
     })
     it('can request and fulfill [ @skip-coverage ]', async function () {
       let subId = await createSubscription()
+      await vrfCoordinatorV2Mock
+        .connect(subOwner)
+        .addConsumer(subId, vrfConsumerV2.address)
       await expect(
         vrfCoordinatorV2Mock.connect(subOwner).fundSubscription(subId, oneLink),
       ).to.not.be.reverted

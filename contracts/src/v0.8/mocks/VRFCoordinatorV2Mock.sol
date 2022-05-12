@@ -42,7 +42,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     uint96 balance;
   }
   mapping(uint64 => Subscription) s_subscriptions; /* subId */ /* subscription */
-  mapping(address => mapping(uint64 => bool)) s_consumer_added; /* consumer */ /* subId */ /* added */
+  mapping(address => mapping(uint64 => bool)) s_consumerAdded; /* consumer */ /* subId */ /* added */
   mapping(uint64 => address[]) s_consumers; /* subId */ /* consumers */
 
   struct Request {
@@ -55,6 +55,13 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   constructor(uint96 _baseFee, uint96 _gasPriceLink) {
     BASE_FEE = _baseFee;
     GAS_PRICE_LINK = _gasPriceLink;
+  }
+
+  modifier onlyValidConsumer(uint64 _subId, address _consumer) {
+    if (!s_consumerAdded[_consumer][_subId]) {
+      revert InvalidConsumer();
+    }
+    _;
   }
 
   /**
@@ -114,7 +121,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     uint16 _minimumRequestConfirmations,
     uint32 _callbackGasLimit,
     uint32 _numWords
-  ) external override returns (uint256) {
+  ) external override onlyValidConsumer(_subId, msg.sender) returns (uint256) {
     if (s_subscriptions[_subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -195,21 +202,22 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
       revert TooManyConsumers();
     }
 
-    if (s_consumer_added[_consumer][_subId]) {
+    if (s_consumerAdded[_consumer][_subId]) {
       return;
     }
 
-    s_consumer_added[_consumer][_subId] = true;
+    s_consumerAdded[_consumer][_subId] = true;
     s_consumers[_subId].push(_consumer);
     emit ConsumerAdded(_subId, _consumer);
   }
 
-  function removeConsumer(uint64 _subId, address _consumer) external override onlySubOwner(_subId) {
-    if (!s_consumer_added[_consumer][_subId]) {
-      revert InvalidConsumer();
-    }
-
-    s_consumer_added[_consumer][_subId] = false;
+  function removeConsumer(uint64 _subId, address _consumer)
+    external
+    override
+    onlySubOwner(_subId)
+    onlyValidConsumer(_subId, _consumer)
+  {
+    s_consumerAdded[_consumer][_subId] = false;
     address[] storage consumers = s_consumers[_subId];
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == _consumer) {
