@@ -52,10 +52,9 @@ type ChainSet[I ID, C Config, N Node, S ChainService[C]] interface {
 }
 
 // ChainService is a live, runtime chain instance, with supporting services.
-type ChainService[D Config] interface {
+type ChainService[C Config] interface {
 	services.ServiceCtx
-	// Optionally, may support runtime reconfiguration by implementing
-	//  UpdateConfig(D)
+	UpdateConfig(C)
 }
 
 // ChainSetOpts holds options for configuring a ChainSet via NewChainSet.
@@ -213,11 +212,7 @@ func (c *chainSet[I, C, N, S]) Configure(ctx context.Context, id I, enabled bool
 		return dbchain, c.initializeChain(ctx, dbchain)
 	case exists:
 		// Exists in memory, no toggling: Update in-memory chain
-		if updatable, ok := any(chain).(interface{ UpdateConfig(C) }); ok {
-			updatable.UpdateConfig(config)
-		} else {
-			c.lggr.Warnw("Unable to reconfigure chain live. Node must be restarted to use new updated configuration.", "id", sid)
-		}
+		chain.UpdateConfig(config)
 	}
 
 	return dbchain, nil

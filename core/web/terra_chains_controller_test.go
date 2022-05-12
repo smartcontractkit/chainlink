@@ -36,7 +36,7 @@ func Test_TerraChainsController_Create(t *testing.T) {
 	minute := models.MustMakeDuration(time.Minute)
 	body, err := json.Marshal(web.NewCreateChainRequest(
 		newChainId,
-		db.ChainCfg{
+		&db.ChainCfg{
 			BlocksUntilTxTimeout:  null.IntFrom(1),
 			ConfirmPollPeriod:     &minute,
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
@@ -139,16 +139,16 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	controller := setupTerraChainsControllerTest(t)
 
-	newChains := []web.CreateChainRequest[string, db.ChainCfg]{
+	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				FallbackGasPriceULuna: null.StringFrom("9.999"),
 			},
 		},
 		{
 			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				GasLimitMultiplier: null.FloatFrom(1.55555),
 			},
 		},
@@ -159,7 +159,7 @@ func Test_TerraChainsController_Index(t *testing.T) {
 		terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
 			ID:      ch.ID,
 			Enabled: true,
-			Cfg:     ch.Config,
+			Cfg:     *ch.Config,
 		})
 	}
 
@@ -209,9 +209,9 @@ func Test_TerraChainsController_Index(t *testing.T) {
 func Test_TerraChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateChainRequest[db.ChainCfg]{
+	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
-		Config: db.ChainCfg{
+		Config: &db.ChainCfg{
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 		},

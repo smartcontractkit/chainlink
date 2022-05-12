@@ -22,7 +22,7 @@ import (
 )
 
 func mustInsertSolanaChain(t *testing.T, sol solana.ChainSet, id string) solana.DBChain {
-	chain, err := sol.Add(testutils.Context(t), id, db.ChainCfg{})
+	chain, err := sol.Add(testutils.Context(t), id, nil)
 	require.NoError(t, err)
 	return chain
 }

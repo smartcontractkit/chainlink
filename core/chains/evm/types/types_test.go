@@ -23,7 +23,7 @@ func Test_PersistsReadsChain(t *testing.T) {
 	ks[addr.Hex()] = types.ChainCfg{EvmMaxGasPriceWei: val}
 	chain := types.DBChain{
 		ID: *utils.NewBigI(rand.Int63()),
-		Cfg: types.ChainCfg{
+		Cfg: &types.ChainCfg{
 			KeySpecific: ks,
 		},
 	}
