@@ -42,7 +42,6 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     uint96 balance;
   }
   mapping(uint64 => Subscription) s_subscriptions; /* subId */ /* subscription */
-  mapping(address => mapping(uint64 => bool)) s_consumerAdded; /* consumer */ /* subId */ /* added */
   mapping(uint64 => address[]) s_consumers; /* subId */ /* consumers */
 
   struct Request {
@@ -57,8 +56,18 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     GAS_PRICE_LINK = _gasPriceLink;
   }
 
+  function consumerIsAdded(uint64 _subId, address _consumer) public view returns (bool) {
+    address[] memory consumers = s_consumers[_subId];
+    for (uint256 i = 0; i < consumers.length; i++) {
+      if (consumers[i] == _consumer) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   modifier onlyValidConsumer(uint64 _subId, address _consumer) {
-    if (!s_consumerAdded[_consumer][_subId]) {
+    if (!consumerIsAdded(_subId, _consumer)) {
       revert InvalidConsumer();
     }
     _;
@@ -202,11 +211,10 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
       revert TooManyConsumers();
     }
 
-    if (s_consumerAdded[_consumer][_subId]) {
+    if (consumerIsAdded(_subId, _consumer)) {
       return;
     }
 
-    s_consumerAdded[_consumer][_subId] = true;
     s_consumers[_subId].push(_consumer);
     emit ConsumerAdded(_subId, _consumer);
   }
@@ -217,7 +225,6 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     onlySubOwner(_subId)
     onlyValidConsumer(_subId, _consumer)
   {
-    s_consumerAdded[_consumer][_subId] = false;
     address[] storage consumers = s_consumers[_subId];
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == _consumer) {
