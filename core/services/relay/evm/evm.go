@@ -57,17 +57,49 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewMedianProvider(args types2.OCR2Args) (types2.MedianProvider, error) {
-	relayConfigBytes, err := json.Marshal(args.RelayConfig)
-	if err != nil {
-		return nil, err
-	}
+func (r *Relayer) NewConfigWatcher(args types2.ConfigWatcherArgs) (types2.ConfigWatcher, error) {
+	return newConfigWatcher(r.lggr, r.chainSet, args)
+}
+
+type configWatcher struct {
+	contractAddress  common.Address
+	contractABI      abi.ABI
+	offchainDigester types.OffchainConfigDigester
+	configTracker    *ConfigTracker
+	chain            evm.Chain
+}
+
+func (c configWatcher) Start(ctx context.Context) error {
+	return c.configTracker.Start()
+}
+
+func (c configWatcher) Close() error {
+	return c.configTracker.Close()
+}
+
+func (c configWatcher) Ready() error {
+	return nil
+}
+
+func (c configWatcher) Healthy() error {
+	return nil
+}
+
+func (c configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
+	return c.offchainDigester
+}
+
+func (c configWatcher) ContractConfigTracker() types.ContractConfigTracker {
+	return c.configTracker
+}
+
+func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args types2.ConfigWatcherArgs) (*configWatcher, error) {
 	var relayConfig RelayConfig
-	err = json.Unmarshal(relayConfigBytes, &relayConfig)
+	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err
 	}
-	chain, err := r.chainSet.Get(relayConfig.ChainID.ToInt())
+	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +111,7 @@ func (r *Relayer) NewMedianProvider(args types2.OCR2Args) (types2.MedianProvider
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configTracker := NewConfigTracker(r.lggr, contractABI,
+	configTracker := NewConfigTracker(lggr, contractABI,
 		chain.Client(),
 		contractAddress,
 		chain.Config().ChainType(),
@@ -89,42 +121,38 @@ func (r *Relayer) NewMedianProvider(args types2.OCR2Args) (types2.MedianProvider
 		ChainID:         chain.Config().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
+	return &configWatcher{
+		contractAddress:  contractAddress,
+		configTracker:    configTracker,
+		offchainDigester: offchainConfigDigester,
+		chain:            chain,
+	}, nil
+}
 
-	if args.IsBootstrap {
-		// Return early if bootstrap node (doesn't require the full OCR2 provider)
-		return &medianProvider{
-			tracker:                configTracker,
-			offchainConfigDigester: offchainConfigDigester,
-		}, nil
+func (r *Relayer) NewMedianProvider(args types2.PluginArgs) (types2.MedianProvider, error) {
+	configWatcher, err := newConfigWatcher(r.lggr, r.chainSet, args.ConfigWatcherArgs)
+	if err != nil {
+		return nil, err
 	}
-
-	if !args.TransmitterID.Valid {
-		return nil, errors.New("transmitterID is required for non-bootstrap jobs")
-	}
-	transmitterAddress := common.HexToAddress(args.TransmitterID.String)
-	strategy := txm.NewQueueingTxStrategy(args.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+	transmitterAddress := common.HexToAddress(args.TransmitterID)
+	strategy := txm.NewQueueingTxStrategy(args.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 
 	contractTransmitter := NewOCRContractTransmitter(
-		contractAddress,
-		chain.Client(),
-		contractABI,
-		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		configWatcher.contractABI,
+		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, configWatcher.chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
 		r.lggr,
 	)
-
-	medianContract, err := newMedianContract(contractAddress, chain, args.JobID, r.db, r.lggr)
+	medianContract, err := newMedianContract(configWatcher.contractAddress, configWatcher.chain, args.JobID, r.db, r.lggr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error during median contract setup")
 	}
-
-	reportCodec := evmreportcodec.ReportCodec{}
-
 	return &medianProvider{
-		tracker:                configTracker,
-		offchainConfigDigester: offchainConfigDigester,
-		reportCodec:            reportCodec,
-		contractTransmitter:    contractTransmitter,
-		medianContract:         medianContract,
+		configWatcher:       configWatcher,
+		reportCodec:         evmreportcodec.ReportCodec{},
+		contractTransmitter: contractTransmitter,
+		medianContract:      medianContract,
 	}, nil
 }
 
@@ -135,58 +163,14 @@ type RelayConfig struct {
 var _ types2.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
-	tracker                *ConfigTracker
-	offchainConfigDigester types.OffchainConfigDigester
-	contractTransmitter    *ContractTransmitter
-	reportCodec            median.ReportCodec
-	medianContract         *medianContract
-}
-
-// Start an ethereum ocr2 provider will start the contract tracker.
-func (p medianProvider) Start(context.Context) error {
-	err := p.tracker.Start()
-	if err != nil {
-		return err
-	}
-	// Bootstrap does not need a median contract.
-	if p.medianContract != nil {
-		return p.medianContract.Start()
-	}
-	return nil
-}
-
-// Close an ethereum ocr2 provider will close the contract tracker.
-func (p medianProvider) Close() error {
-	err := p.tracker.Close()
-	if err != nil {
-		return err
-	}
-	if p.medianContract != nil {
-		return p.medianContract.Close()
-	}
-	return nil
-}
-
-// Ready always returns ready.
-func (p medianProvider) Ready() error {
-	return nil
-}
-
-// Healthy always returns healthy.
-func (p medianProvider) Healthy() error {
-	return nil
+	*configWatcher
+	contractTransmitter *ContractTransmitter
+	reportCodec         median.ReportCodec
+	medianContract      *medianContract
 }
 
 func (p medianProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
-}
-
-func (p medianProvider) ContractConfigTracker() types.ContractConfigTracker {
-	return p.tracker
-}
-
-func (p medianProvider) OffchainConfigDigester() types.OffchainConfigDigester {
-	return p.offchainConfigDigester
 }
 
 func (p medianProvider) ReportCodec() median.ReportCodec {
