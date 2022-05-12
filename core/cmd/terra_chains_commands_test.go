@@ -30,7 +30,7 @@ func TestClient_IndexTerraChains(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := testutils.Context(t)
-	chain, err := ter.Add(ctx, terratest.RandomChainID(), db.ChainCfg{})
+	chain, err := ter.Add(ctx, terratest.RandomChainID(), nil)
 	require.NoError(t, err)
 
 	require.Nil(t, cmd.TerraChainClient(client).IndexChains(cltest.EmptyCLIContext()))
@@ -80,7 +80,7 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	terraChainID := terratest.RandomChainID()
-	_, err = ter.Add(ctx, terraChainID, db.ChainCfg{})
+	_, err = ter.Add(ctx, terraChainID, nil)
 	require.NoError(t, err)
 	chains, _, err := ter.Index(0, 25)
 	require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 		ConfirmPollPeriod:     &minute,
 	}
 	ctx := testutils.Context(t)
-	_, err = ter.Add(ctx, terraChainID, original)
+	_, err = ter.Add(ctx, terraChainID, &original)
 	require.NoError(t, err)
 	chains, _, err := ter.Index(0, 25)
 	require.NoError(t, err)

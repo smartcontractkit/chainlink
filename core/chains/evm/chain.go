@@ -33,6 +33,7 @@ type Chain interface {
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
+	UpdateConfig(*types.ChainCfg)
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
 	TxManager() txmgr.TxManager
@@ -65,7 +66,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID.String())
 	}
-	cfg := evmconfig.NewChainScopedConfig(chainID, dbchain.Cfg, opts.ORM, l, opts.Config)
+	cfg := evmconfig.NewChainScopedConfig(chainID, *dbchain.Cfg, opts.ORM, l, opts.Config)
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
@@ -283,6 +284,7 @@ func (c *chain) Healthy() (merr error) {
 func (c *chain) ID() *big.Int                             { return c.id }
 func (c *chain) Client() evmclient.Client                 { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
+func (c *chain) UpdateConfig(cfg *types.ChainCfg)         { c.cfg.Configure(*cfg) }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() *logpoller.LogPoller          { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
