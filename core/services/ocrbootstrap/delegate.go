@@ -5,7 +5,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -56,40 +55,21 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
+	if d.peerWrapper == nil {
+		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
+	} else if !d.peerWrapper.IsStarted() {
+		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+	}
 
-	// TODO: Add a generic constructor (bootstrap is plugin independent)
-	var ocr2Provider types.OCR2Provider
-	ocr2Provider, err = d.relayer.NewMedianProvider(spec.Relay, types.OCR2Args{
-		JobID:         spec.ID,
-		ContractID:    spec.ContractID,
-		TransmitterID: null.String{},
-		RelayConfig:   spec.RelayConfig,
-		IsBootstrap:   true,
+	configWatcher, err := d.relayer.NewConfigWatcher(spec.Relay, types.ConfigWatcherArgs{
+		JobID:       spec.ID,
+		ContractID:  spec.ContractID,
+		RelayConfig: spec.RelayConfig.Bytes(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
-	services = append(services, ocr2Provider)
-
-	configDB := NewDB(d.db.DB, spec.ID, d.lggr)
-	peerWrapper := d.peerWrapper
-	if peerWrapper == nil {
-		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
-	} else if !peerWrapper.IsStarted() {
-		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
-	}
-
-	loggerWith := d.lggr.Named("OCR").With(
-		"contractID", spec.ContractID,
-		"jobName", jobSpec.Name.ValueOrZero(),
-		"jobID", jobSpec.ID,
-	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, true, func(msg string) {
-		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
-	})
-
-	ocr2Spec := spec.AsOCR2Spec()
-	lc := validate.ToLocalConfig(d.cfg, ocr2Spec)
+	lc := validate.ToLocalConfig(d.cfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -100,26 +80,25 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 		"ContractTransmitterTransmitTimeout", lc.ContractTransmitterTransmitTimeout,
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
-	tracker := ocr2Provider.ContractConfigTracker()
-	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
-
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
-		BootstrapperFactory:    peerWrapper.Peer2,
-		ContractConfigTracker:  tracker,
-		Database:               configDB,
-		LocalConfig:            lc,
-		Logger:                 ocrLogger,
-		OffchainConfigDigester: offchainConfigDigester,
+		BootstrapperFactory:   d.peerWrapper.Peer2,
+		ContractConfigTracker: configWatcher.ContractConfigTracker(),
+		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
+		LocalConfig:           lc,
+		Logger: logger.NewOCRWrapper(d.lggr.Named("OCR").With(
+			"contractID", spec.ContractID,
+			"jobName", jobSpec.Name.ValueOrZero(),
+			"jobID", jobSpec.ID), true, func(msg string) {
+			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+		}),
+		OffchainConfigDigester: configWatcher.OffchainConfigDigester(),
 	}
-
 	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
-	services = append(services, job.NewServiceAdapter(bootstrapper))
-
-	return services, nil
+	return []job.ServiceCtx{configWatcher, job.NewServiceAdapter(bootstrapper)}, nil
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.

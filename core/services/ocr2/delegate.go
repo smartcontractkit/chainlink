@@ -130,20 +130,22 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
+	// TODO: Error no transmitter
 	var pluginOracle plugins.OraclePlugin
-	var ocr2Provider types.OCR2Provider
+	var ocr2Provider types.OCR2Base
 	switch spec.PluginType {
 	case job.Median:
-		medianProvider, err := d.relayer.NewMedianProvider(spec.Relay, types.OCR2Args{
-			ExternalJobID: jobSpec.ExternalJobID,
-			JobID:         spec.ID,
-			ContractID:    spec.ContractID,
-			TransmitterID: spec.TransmitterID,
-			RelayConfig:   spec.RelayConfig,
-			IsBootstrap:   false,
+		medianProvider, err2 := d.relayer.NewMedianProvider(spec.Relay, types.PluginArgs{
+			ConfigWatcherArgs: types.ConfigWatcherArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			},
+			TransmitterID: spec.TransmitterID.String,
 		})
-		if err != nil {
-			return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
+		if err2 != nil {
+			return nil, err
 		}
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)

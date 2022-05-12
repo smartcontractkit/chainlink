@@ -63,7 +63,8 @@ func (r *Relayer) NewMedianProvider(args types2.OCR2Args) (types2.MedianProvider
 		return nil, err
 	}
 	var relayConfig RelayConfig
-	if err := json.Unmarshal(relayConfigBytes, &relayConfig); err != nil {
+	err = json.Unmarshal(relayConfigBytes, &relayConfig)
+	if err != nil {
 		return nil, err
 	}
 	chain, err := r.chainSet.Get(relayConfig.ChainID.ToInt())

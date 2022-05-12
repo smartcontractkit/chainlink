@@ -19,13 +19,13 @@ var (
 		types.Solana: {},
 		types.Terra:  {},
 	}
-	_ types.RelayerCtx = &evm.Relayer{}
-	_ types.RelayerCtx = &solana.Relayer{}
-	_ types.RelayerCtx = &terra.Relayer{}
+	_ types.Relayer = &evm.Relayer{}
+	_ types.Relayer = &solana.Relayer{}
+	_ types.Relayer = &terra.Relayer{}
 )
 
 type Delegate struct {
-	relayers map[types.Network]types.RelayerCtx
+	relayers map[types.Network]types.Relayer
 	ks       keystore.Master
 }
 
@@ -34,14 +34,14 @@ type Delegate struct {
 func NewDelegate(ks keystore.Master) *Delegate {
 	d := &Delegate{
 		ks:       ks,
-		relayers: map[types.Network]types.RelayerCtx{},
+		relayers: map[types.Network]types.Relayer{},
 	}
 	return d
 }
 
 // AddRelayer registers the relayer r, or a disabled placeholder if nil.
 // NOT THREAD SAFE
-func (d Delegate) AddRelayer(n types.Network, r types.RelayerCtx) {
+func (d Delegate) AddRelayer(n types.Network, r types.Relayer) {
 	d.relayers[n] = r
 }
 
@@ -81,7 +81,32 @@ func (d Delegate) Healthy() error {
 	return err
 }
 
-func (d Delegate) NewMedianProvider(relay types.Network, args types.OCR2Args) (types.MedianProvider, error) {
+func (d Delegate) NewConfigWatcher(relay types.Network, args types.ConfigWatcherArgs) (types.ConfigWatcher, error) {
+	switch relay {
+	case types.EVM:
+		r, exists := d.relayers[types.EVM]
+		if !exists {
+			return nil, errors.New("no EVM relay found; is EVM enabled?")
+		}
+		return r.NewConfigWatcher(args)
+	case types.Solana:
+		r, exists := d.relayers[types.Solana]
+		if !exists {
+			return nil, errors.New("no Solana relay found; is Solana enabled?")
+		}
+		return r.NewConfigWatcher(args)
+	case types.Terra:
+		r, exists := d.relayers[types.Terra]
+		if !exists {
+			return nil, errors.New("no Terra relay found; is Terra enabled?")
+		}
+		return r.NewConfigWatcher(args)
+	default:
+		return nil, errors.Errorf("unknown relayer network type: %s", relay)
+	}
+}
+
+func (d Delegate) NewMedianProvider(relay types.Network, args types.PluginArgs) (types.MedianProvider, error) {
 	switch relay {
 	case types.EVM:
 		r, exists := d.relayers[types.EVM]
