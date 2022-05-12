@@ -22,7 +22,7 @@ import (
 
 const (
 	MaxQueueLen      = 1000
-	MaxRetryTimeMs   = 500 // max tx retry time (exponential retry will taper to retry every 0.5s)
+	MaxRetryTimeMs   = 250 // max tx retry time (exponential retry will taper to retry every 0.25s)
 	MaxSigsToConfirm = 256 // max number of signatures in GetSignatureStatus call
 )
 
@@ -143,6 +143,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 			select {
 			case <-ctx.Done():
 				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)
+				txm.lggr.Debugw("stopped tx retry", "signature", sig)
 				return
 			case <-tick:
 				go func() {
