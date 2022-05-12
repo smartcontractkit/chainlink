@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -13,11 +14,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -82,6 +86,12 @@ type config struct{}
 
 func (c *config) LogSQL() bool {
 	return false
+}
+
+type executionRevertedError struct{}
+
+func (executionRevertedError) Error() string {
+	return "execution reverted"
 }
 
 func TestMaybeSubtractReservedLink(t *testing.T) {
@@ -432,4 +442,43 @@ func TestListener_ShouldProcessSub_NoFromAddresses(t *testing.T) {
 		},
 	})
 	assert.True(t, shouldProcess) // no addresses, but try to process it.
+}
+
+func TestListener_ProcessPendingVRFRequests_SubscriptionNotFound(t *testing.T) {
+	// given
+	reqs := []pendingRequest{
+		{
+			confirmedAtBlock: 100,
+			req:              &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{},
+			lb:               log.NewLogBroadcast(types.Log{}, *big.NewInt(1), nil),
+		},
+	}
+	coordinatorMock := &vrf_mocks.VRFCoordinatorV2Interface{}
+
+	coordinatorMock.On("GetSubscription", mock.Anything, mock.Anything).Return(vrf_coordinator_v2.GetSubscription{}, executionRevertedError{})
+	defer coordinatorMock.AssertExpectations(t)
+
+	broadcasterMock := &mocks.Broadcaster{}
+	broadcasterMock.On("MarkConsumed", mock.Anything).Return(nil)
+	defer broadcasterMock.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		coordinator:    coordinatorMock,
+		logBroadcaster: broadcasterMock,
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{},
+			},
+		},
+		l:                  logger.NullLogger,
+		blockNumberToReqID: pairing.New(),
+		reqs:               reqs,
+		latestHeadNumber:   100,
+	}
+
+	// when
+	lsn.processPendingVRFRequests(context.Background())
+
+	// then
+	assert.Empty(t, lsn.reqs)
 }

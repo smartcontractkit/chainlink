@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -42,9 +43,8 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		By("Deploying the environment", func() {
 			e, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
-					nil,
-					"",
-					// works only on perf Geth
+					config.ChainlinkVals(),
+					"chainlink-vrfv2-core-ci",
 					environment.PerformanceGeth,
 				),
 				tools.ChartsRoot,

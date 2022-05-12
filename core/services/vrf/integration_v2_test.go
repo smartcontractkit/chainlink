@@ -917,6 +917,98 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	assertNumRandomWords(t, consumerContract, numWords)
 }
 
+func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_bigcallback_sandwich")
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(5e6, true)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, assets.Ether(3), uni)
+
+	// Create gas lane.
+	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	configureSimChain(t, app, map[string]types.ChainCfg{
+		key1.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(100)),
+		},
+	}, assets.GWei(100))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, false)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make some randomness requests, each one block apart, which contain a single low-gas request sandwiched between two high-gas requests.
+	numWords := uint32(2)
+	reqIDs := []*big.Int{}
+	callbackGasLimits := []uint32{2_500_000, 50_000, 1_500_000}
+	for _, limit := range callbackGasLimits {
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
+		reqIDs = append(reqIDs, requestID)
+		uni.backend.Commit()
+	}
+
+	// Assert that we've completed 0 runs before adding 3 new requests.
+	runs, err := app.PipelineORM().GetAllRuns()
+	assert.Equal(t, 0, len(runs))
+	assert.Equal(t, 3, len(reqIDs))
+
+	// Wait for the 50_000 gas randomness request to be enqueued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// After the first successful request, no more will be enqueued.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 1
+	}, 3*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	mine(t, reqIDs[1], subID, uni, db)
+
+	// Assert the random word was fulfilled
+	assertRandomWordsFulfilled(t, reqIDs[1], false, uni)
+
+	// Assert that we've still only completed 1 run before adding new requests.
+	runs, err = app.PipelineORM().GetAllRuns()
+	assert.Equal(t, 1, len(runs))
+
+	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
+	reqIDs = []*big.Int{}
+	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
+	for _, limit := range callbackGasLimits {
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
+		reqIDs = append(reqIDs, requestID)
+		uni.backend.Commit()
+	}
+
+	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK for any of the requests.
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 1
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	t.Log("Done!")
+}
+
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes")
 	ownerKey := cltest.MustGenerateRandomKey(t)

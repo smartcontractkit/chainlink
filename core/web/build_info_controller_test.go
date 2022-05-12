@@ -36,7 +36,7 @@ func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	url := app.Config.ClientNodeURL() + "/v2/build_info"
+	url := app.Server.URL + "/v2/build_info"
 	resp, err := client.Get(url)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
