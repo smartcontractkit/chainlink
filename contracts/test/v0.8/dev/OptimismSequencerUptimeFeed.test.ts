@@ -37,7 +37,7 @@ describe('OptimismSequencerUptimeFeed', () => {
     // Credit the L2 messenger with some ETH
     await dummy.sendTransaction({
       to: l2Messenger.address,
-      value: (await dummy.getBalance()).sub(ethers.utils.parseEther('0.1')),
+      value: ethers.utils.parseEther('10'),
     })
   })
 
@@ -296,7 +296,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert no update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        28300,
+        33180,
         gasUsedDeviation,
       )
 
@@ -309,7 +309,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        93015,
+        97889,
         gasUsedDeviation,
       )
     })

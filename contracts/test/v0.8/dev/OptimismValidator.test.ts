@@ -121,7 +121,7 @@ describe('OptimismValidator', () => {
     it('post sequencer offline', async () => {
       await optimismValidator.addAccess(eoaValidator.address)
 
-      const now = Math.ceil(Date.now() / 1000) + 1000
+      const now = Math.ceil(Date.now() / 1000) + 5000
       await ethers.provider.send('evm_setNextBlockTimestamp', [now])
       const sequencerStatusRecorderCallData =
         optimismUptimeFeedFactory.interface.encodeFunctionData('updateStatus', [
