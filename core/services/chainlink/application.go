@@ -345,7 +345,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.EVM, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, keyStore.Solana())
 			solanaRelayerCtx := solanaRelayer
 			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
 		}

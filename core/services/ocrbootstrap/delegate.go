@@ -23,7 +23,7 @@ type Delegate struct {
 	peerWrapper   *ocrcommon.SingletonPeerWrapper
 	cfg           validate.Config
 	lggr          logger.Logger
-	relayer       types.RelayerCtx
+	relayer       *relay.Delegate
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -33,7 +33,7 @@ func NewDelegateBootstrap(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 	cfg validate.Config,
-	relayer types.RelayerCtx,
+	relayer *relay.Delegate,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -57,13 +57,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
 
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
-		ID:              spec.ID,
-		ContractID:      spec.ContractID,
-		TransmitterID:   null.String{},
-		Relay:           spec.Relay,
-		RelayConfig:     spec.RelayConfig,
-		IsBootstrapPeer: true,
+	// TODO: Add a generic constructor (bootstrap is plugin independent)
+	var ocr2Provider types.OCR2Provider
+	ocr2Provider, err = d.relayer.NewMedianProvider(spec.Relay, types.OCR2Args{
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		TransmitterID: null.String{},
+		RelayConfig:   spec.RelayConfig,
+		IsBootstrap:   true,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")

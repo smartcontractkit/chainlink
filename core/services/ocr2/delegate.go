@@ -29,7 +29,7 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	relayer               types.RelayerCtx
+	relayer               *relay.Delegate
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -44,7 +44,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
-	relayer types.RelayerCtx,
+	relayer *relay.Delegate,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -77,19 +77,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
 	}
 
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
-		ID:              spec.ID,
-		ContractID:      spec.ContractID,
-		TransmitterID:   spec.TransmitterID,
-		Relay:           spec.Relay,
-		RelayConfig:     spec.RelayConfig,
-		Plugin:          spec.PluginType,
-		IsBootstrapPeer: false,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
-	}
-
 	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
@@ -108,7 +95,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	})
 
 	lc := validate.ToLocalConfig(d.cfg, *spec)
-	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
+	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	d.lggr.Infow("OCR2 job using local config",
@@ -118,9 +105,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		"ContractTransmitterTransmitTimeout", lc.ContractTransmitterTransmitTimeout,
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
-
-	tracker := ocr2Provider.ContractConfigTracker()
-	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
 
 	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PBootstrapPeers, peerWrapper.Config().P2PV2Bootstrappers())
 	if err != nil {
@@ -147,9 +131,22 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
 	var pluginOracle plugins.OraclePlugin
+	var ocr2Provider types.OCR2Provider
 	switch spec.PluginType {
 	case job.Median:
-		pluginOracle, err = median.NewMedian(jobSpec, ocr2Provider, d.pipelineRunner, runResults, lggr, ocrLogger)
+		medianProvider, err := d.relayer.NewMedianProvider(spec.Relay, types.OCR2Args{
+			ExternalJobID: jobSpec.ExternalJobID,
+			JobID:         spec.ID,
+			ContractID:    spec.ContractID,
+			TransmitterID: spec.TransmitterID,
+			RelayConfig:   spec.RelayConfig,
+			IsBootstrap:   false,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
+		}
+		ocr2Provider = medianProvider
+		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -169,12 +166,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          ocr2Provider.ContractTransmitter(),
-		ContractConfigTracker:        tracker,
+		ContractConfigTracker:        ocr2Provider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-		OffchainConfigDigester:       offchainConfigDigester,
+		OffchainConfigDigester:       ocr2Provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       pluginFactory,

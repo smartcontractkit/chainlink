@@ -15,7 +15,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.4.0
-	github.com/gagliardetto/solana-go v1.4.1-0.20220413001530-3e39c80b7211
+	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27
 	github.com/getsentry/sentry-go v0.12.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
@@ -54,8 +54,8 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220420200429-3da7f865d367
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220510145600-e520ea1fab70
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220512162810-0b7808c27b60
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220512162831-a1ad6679f984
 	github.com/smartcontractkit/libocr v0.0.0-20220414173908-cdfa6bef133a
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -86,6 +86,8 @@ require (
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
+
+require github.com/morikuni/aec v1.0.0 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
