@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
 
-	proxy "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/permissioned_forward_proxy_wrapper"
+	forwarder "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_forwarder"
 )
 
 var inputFile string
@@ -37,12 +37,12 @@ var MigrateCronCmd = &cobra.Command{
 		if fetchIds {
 			hdlr.FetchUpkeepIds(cmd.Context(), inputFile)
 		} else {
-			proxyAbi, err := abi.JSON(strings.NewReader(proxy.PermissionedForwardProxyABI))
+			forwarderAbi, err := abi.JSON(strings.NewReader(forwarder.AuthorizedForwarderABI))
 			if err != nil {
-				log.Fatalln("Error generating proxy ABI", err)
+				log.Fatalln("Error generating forwarder ABI", err)
 			}
 
-			hdlr.MigrateCron(cmd.Context(), inputFile, proxyAbi)
+			hdlr.MigrateCron(cmd.Context(), inputFile, forwarderAbi)
 		}
 	},
 }

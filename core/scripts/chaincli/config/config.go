@@ -57,7 +57,7 @@ type Config struct {
 	// Migrate Cron config
 	CronFactoryAddr string `mapstructure:"CRON_FACTORY_ADDR"`
 	RegistrarAddr   string `mapstructure:"REGISTRAR_ADDR"`
-	ProxyAddr       string `mapstructure:"PROXY_ADDR"`
+	ForwarderAddr   string `mapstructure:"FORWARDER_ADDR"`
 }
 
 // New is the constructor of Config

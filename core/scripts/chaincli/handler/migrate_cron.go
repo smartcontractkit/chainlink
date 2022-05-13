@@ -17,13 +17,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	forwarder "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_forwarder"
 	cron_factory "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/cron_upkeep_factory_wrapper"
-	proxy "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/permissioned_forward_proxy_wrapper"
 	registrar "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_registration_requests_wrapper"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-func (k *Keeper) MigrateCron(ctx context.Context, inputFilePath string, proxyAbi abi.ABI) {
+func (k *Keeper) MigrateCron(ctx context.Context, inputFilePath string, forwarderAbi abi.ABI) {
 	outputFile := "migrate_cron_output_" + time.Now().String() + ".csv"
 	o, err := os.Create(outputFile)
 	if err != nil {
@@ -59,15 +59,15 @@ func (k *Keeper) MigrateCron(ctx context.Context, inputFilePath string, proxyAbi
 		}
 
 		fmt.Println("Processing:", targetContractAddr, targetFunction, cronSchedule)
-		targetHandler := getTargetHandler(targetFunction)                                   // Encoding of function call on target
-		cronByteHandler, err := proxyAbi.Pack("forward", targetContractAddr, targetHandler) // function call on target through proxy
+		targetHandler := getTargetHandler(targetFunction)                                       // Encoding of function call on target
+		cronByteHandler, err := forwarderAbi.Pack("forward", targetContractAddr, targetHandler) // function call on target through forwarder
 		if err != nil {
 			log.Fatalln("Error generating cron byte handler", err)
 		}
 
-		proxyAddr := common.HexToAddress(k.cfg.ProxyAddr)
-		cronUpkeepAddr := k.deployNewCronUpkeep(ctx, proxyAddr, cronByteHandler, cronSchedule)
-		k.setProxyPermission(ctx, cronUpkeepAddr, targetContractAddr)
+		forwarderAddr := common.HexToAddress(k.cfg.ForwarderAddr)
+		cronUpkeepAddr := k.deployNewCronUpkeep(ctx, forwarderAddr, cronByteHandler, cronSchedule)
+		k.setForwarderPermission(ctx, cronUpkeepAddr)
 		registrationHash, blockNum := k.registerUpkeep(ctx, upkeepName, encryptedEmail, cronUpkeepAddr, upkeepAdminAddr, uint32(gasLimit), fundingAmountLink)
 
 		row := []string{
@@ -129,31 +129,41 @@ func (k *Keeper) deployNewCronUpkeep(ctx context.Context, targetAddr common.Addr
 	return cronUpkeepCreatedLog.Upkeep
 }
 
-func (k *Keeper) setProxyPermission(ctx context.Context, from, to common.Address) {
-	log.Println("Setting permission on proxy")
+func (k *Keeper) setForwarderPermission(ctx context.Context, sender common.Address) {
+	log.Println("Setting permission on forwarder")
 
-	proxyAddr := common.HexToAddress(k.cfg.ProxyAddr)
-	proxyInstance, err := proxy.NewPermissionedForwardProxy(
-		proxyAddr,
+	forwarderAddr := common.HexToAddress(k.cfg.ForwarderAddr)
+	forwarderInstance, err := forwarder.NewAuthorizedForwarder(
+		forwarderAddr,
 		k.client,
 	)
 	if err != nil {
-		log.Fatalln("Error while instantiating "+proxyAddr.String()+" to permissioned forward proxy", err)
+		log.Fatalln("Error while instantiating "+forwarderAddr.String()+" to authorized forwarder proxy", err)
 	}
 
-	proxyTx, err := proxyInstance.SetPermission(k.buildTxOpts(ctx), from, to)
-	if err != nil {
-		log.Fatalln("Error setting proxy permission", err)
+	callOpts := bind.CallOpts{
+		Context: ctx,
 	}
-	txReceipt, err := bind.WaitMined(ctx, k.client, proxyTx)
+	existingAuthorizedSenders, err := forwarderInstance.GetAuthorizedSenders(&callOpts)
 	if err != nil {
-		log.Fatalln("Error getting receipt for proxy tx", err)
+		log.Fatalln("Error getting existing authorized senders", err)
+	}
+	log.Println("Got existing authorized senders:", existingAuthorizedSenders, "appending new address:", sender, "to authorized list")
+
+	sendersToSet := append(existingAuthorizedSenders, sender)
+	forwarderTx, err := forwarderInstance.SetAuthorizedSenders(k.buildTxOpts(ctx), sendersToSet)
+	if err != nil {
+		log.Fatalln("Error setting forwarder permission tx", err)
+	}
+	txReceipt, err := bind.WaitMined(ctx, k.client, forwarderTx)
+	if err != nil {
+		log.Fatalln("Error getting receipt for forwarder tx", err)
 	}
 	if txReceipt.Status != 1 {
-		log.Fatalln("tx", proxyTx.Hash(), "failed")
+		log.Fatalln("tx", forwarderTx.Hash(), "failed")
 	}
 
-	log.Println("Proxy permission from", from, "to", to, "set:", helpers.ExplorerLink(k.cfg.ChainID, proxyTx.Hash()))
+	log.Println("Added sender", sender, "to forwarder authorized senders:", helpers.ExplorerLink(k.cfg.ChainID, forwarderTx.Hash()))
 }
 
 func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail []byte, target, admin common.Address, gasLimit uint32, amount *big.Int) (string, *big.Int) {
