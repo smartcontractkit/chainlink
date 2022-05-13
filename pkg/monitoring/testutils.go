@@ -18,10 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/linkedin/goavro"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/pb"
 )
 
 // Sources
@@ -623,26 +625,9 @@ func (f *fakePoller) Updates() <-chan interface{} {
 	return f.ch
 }
 
-// Logger
-
-type nullLogger struct{}
-
 func newNullLogger() Logger {
-	return &nullLogger{}
+	return logger.Nop()
 }
-
-func (n *nullLogger) With(args ...interface{}) Logger {
-	return n
-}
-
-func (n *nullLogger) Tracew(format string, values ...interface{})    {}
-func (n *nullLogger) Debugw(format string, values ...interface{})    {}
-func (n *nullLogger) Infow(format string, values ...interface{})     {}
-func (n *nullLogger) Warnw(format string, values ...interface{})     {}
-func (n *nullLogger) Errorw(format string, values ...interface{})    {}
-func (n *nullLogger) Criticalw(format string, values ...interface{}) {}
-func (n *nullLogger) Panicw(format string, values ...interface{})    {}
-func (n *nullLogger) Fatalw(format string, values ...interface{})    {}
 
 // This utilities are used primarely in tests but are present in the monitoring package because they are not inside a file ending in _test.go.
 // This is done in order to expose NewRandomDataReader for use in cmd/monitoring.
