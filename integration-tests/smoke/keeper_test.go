@@ -85,27 +85,28 @@ var _ = Describe("Keeper suite @keeper", func() {
 	})
 
 	Describe("with Keeper job", func() {
-		It("performs upkeep of a target contract", func() {
+		It("performs upkeep of a target contract, stops upon cancel", func() {
+			// Hardocded upkeep id '0' for now, only works in registry v1.1
+			upkeepID := big.NewInt(int64(0))
+
+			// Let upkeep be performed atleast once
 			Eventually(func(g Gomega) {
 				cnt, err := consumer.Counter(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)), "Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
 				log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 			}, "2m", "1s").Should(Succeed())
-		})
 
-		It("can get cancelled and stop performing", func() {
-			// Hardocded upkeep id '0' for now, only works in registry v1.1
-			upkeepID := big.NewInt(int64(0))
+			// Now cancel the upkeep
 			err := registry.CancelUpkeep(upkeepID)
 			Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
 
-			// Get performed count
+			// Get existing performed count
 			existingCnt, err := consumer.Counter(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-			log.Info().Int64("Upkeep counter before cancelling", existingCnt.Int64())
+			log.Info().Int64("Upkeep counter after cancel", existingCnt.Int64())
 
-			// Expect count to be consistently same
+			// Expect count to be remain consistently
 			Consistently(func(g Gomega) {
 				cnt, err := consumer.Counter(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
