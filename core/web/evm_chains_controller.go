@@ -16,6 +16,6 @@ func NewEVMChainsController(app chainlink.Application) ChainsController {
 		err = id.UnmarshalText([]byte(s))
 		return
 	}
-	return newChainsController[utils.Big, types.ChainCfg, presenters.EVMChainResource](
+	return newChainsController[utils.Big, *types.ChainCfg, presenters.EVMChainResource](
 		"evm", app.GetChains().EVM, ErrEVMNotEnabled, parse, presenters.NewEVMChainResource)
 }

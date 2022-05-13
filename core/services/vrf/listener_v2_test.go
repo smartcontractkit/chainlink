@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	eth_client_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -92,6 +93,12 @@ type executionRevertedError struct{}
 
 func (executionRevertedError) Error() string {
 	return "execution reverted"
+}
+
+type networkError struct{}
+
+func (networkError) Error() string {
+	return "network Error"
 }
 
 func TestMaybeSubtractReservedLink(t *testing.T) {
@@ -481,4 +488,92 @@ func TestListener_ProcessPendingVRFRequests_SubscriptionNotFound(t *testing.T) {
 
 	// then
 	assert.Empty(t, lsn.reqs)
+}
+
+func TestListener_ProcessPendingVRFRequests_ProcessedLogsMarkedAsConsumed(t *testing.T) {
+	// given
+	reqs := []pendingRequest{
+		{
+			confirmedAtBlock: 100,
+			req:              &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{},
+			lb:               log.NewLogBroadcast(types.Log{}, *big.NewInt(1), nil),
+		},
+	}
+	coordinatorMock := &vrf_mocks.VRFCoordinatorV2Interface{}
+
+	coordinatorMock.On("GetSubscription", mock.Anything, mock.Anything).Return(vrf_coordinator_v2.GetSubscription{Balance: big.NewInt(1)}, nil)
+	defer coordinatorMock.AssertExpectations(t)
+
+	broadcasterMock := &mocks.Broadcaster{}
+	broadcasterMock.On("MarkConsumed", mock.Anything).Return(nil)
+	defer broadcasterMock.AssertExpectations(t)
+
+	ethClientMock := &eth_client_mocks.Client{}
+	ethClientMock.On("ChainID").Return(big.NewInt(1))
+	defer ethClientMock.AssertExpectations(t)
+
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	q := pg.NewQ(db, lggr, &config{})
+
+	lsn := &listenerV2{
+		coordinator:    coordinatorMock,
+		logBroadcaster: broadcasterMock,
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{},
+			},
+		},
+		l:                  logger.NullLogger,
+		blockNumberToReqID: pairing.New(),
+		reqs:               reqs,
+		q:                  q,
+		latestHeadNumber:   100,
+		ethClient:          ethClientMock,
+	}
+
+	// when
+	lsn.processPendingVRFRequests(context.Background())
+
+	// then
+	assert.Empty(t, lsn.reqs)
+}
+
+func TestListener_ProcessPendingVRFRequests_LogNotMarkedAsConsumed_WhenNetworkError(t *testing.T) {
+	// given
+	reqs := []pendingRequest{
+		{
+			confirmedAtBlock: 100,
+			req:              &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{},
+			lb:               log.NewLogBroadcast(types.Log{}, *big.NewInt(1), nil),
+		},
+	}
+	coordinatorMock := &vrf_mocks.VRFCoordinatorV2Interface{}
+
+	coordinatorMock.On("GetSubscription", mock.Anything, mock.Anything).Return(vrf_coordinator_v2.GetSubscription{}, networkError{})
+	defer coordinatorMock.AssertExpectations(t)
+
+	broadcasterMock := &mocks.Broadcaster{}
+	broadcasterMock.AssertNotCalled(t, "MarkConsumed", mock.Anything)
+	defer broadcasterMock.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		coordinator:    coordinatorMock,
+		logBroadcaster: broadcasterMock,
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{},
+			},
+		},
+		l:                  logger.NullLogger,
+		blockNumberToReqID: pairing.New(),
+		reqs:               reqs,
+		latestHeadNumber:   100,
+	}
+
+	// when
+	lsn.processPendingVRFRequests(context.Background())
+
+	// then
+	assert.True(t, len(lsn.reqs) == 1)
 }
