@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// KeysClient is a generic client interface for any type of key.
 type KeysClient interface {
 	CreateKey(*cli.Context) error
 	ImportKey(*cli.Context) error
@@ -24,6 +25,7 @@ type KeysClient interface {
 	ListKeys(*cli.Context) error
 }
 
+// keysCommand returns a cli.Command with subcommands for the given KeysClient.
 func keysCommand(typ string, c KeysClient) cli.Command {
 	lower := strings.ToLower(typ)
 	return cli.Command{
@@ -90,6 +92,8 @@ type keysClient[K keystore.Key, P TableRenderer, P2 ~[]P] struct {
 	path string
 }
 
+// newKeysClient returns a new KeysClient for a particular type of keystore.Key.
+// P is a TableRenderer corresponding to K, and P2 is the slice variant.
 func newKeysClient[K keystore.Key, P TableRenderer, P2 ~[]P](typ string, c *Client) KeysClient {
 	lower := strings.ToLower(typ)
 	return &keysClient[K, P, P2]{
