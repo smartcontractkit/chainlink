@@ -25,12 +25,11 @@ func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	return db, orm
 }
 
-func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
+func mustInsertChain(t *testing.T, orm types.ORM) types.DBChain {
 	t.Helper()
 
 	id := utils.NewBigI(99)
-	config := types.ChainCfg{}
-	chain, err := orm.CreateChain(*id, config)
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 	return chain
 }
@@ -58,8 +57,7 @@ func Test_EVMORM_CreateChain(t *testing.T) {
 	require.NoError(t, err)
 
 	id := utils.NewBigI(99)
-	config := types.ChainCfg{}
-	chain, err := orm.CreateChain(*id, config)
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 	require.Equal(t, chain.ID.ToInt().Int64(), id.ToInt().Int64())
 

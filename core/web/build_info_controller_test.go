@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -34,8 +35,8 @@ func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := http.Client{}
-	url := app.Config.ClientNodeURL() + "/v2/build_info"
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
+	url := app.Server.URL + "/v2/build_info"
 	resp, err := client.Get(url)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)

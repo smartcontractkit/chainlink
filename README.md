@@ -48,6 +48,26 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
+### Mac M1/ARM64 [EXPERIMENTAL]
+
+Chainlink can be experimentally compiled with ARM64 as the target arch. You may run into errors with cosmwasm:
+
+```
+# github.com/CosmWasm/wasmvm/api
+ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
+Undefined symbols for architecture arm64:# github.com/CosmWasm/wasmvm/api
+ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
+Undefined symbols for architecture arm64:
+```
+
+In this case, try the following steps:
+
+1. `git clone git@github.com:mandrean/terra-core.git`
+2. `cd terra-core; git checkout feat/multiarch`
+3. `make install; cd ..`
+4. `go work init /path/to/chainlink`
+5. `go work use /path/to/terra-core`
+
 ### Ethereum Node Requirements
 
 In order to run the Chainlink node you must have access to a running Ethereum node with an open websocket connection.
@@ -164,6 +184,22 @@ go test ./...
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
 - The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
+
+#### Race Detector
+
+As of Go 1.1, the runtime includes a data race detector, enabled with the `-race` flag. This is used in CI via the 
+`tools/bin/go_core_race_tests` script. If the action detects a race, the artifact on the summary page will include 
+`race.*` files with detailed stack traces. 
+
+> _**It will not issue false positives, so take its warnings seriously.**_
+
+For local, targeted race detection, you can run:
+```bash
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 10
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 100 -run TestFooBar/sub_test 
+```
+
+https://go.dev/doc/articles/race_detector
 
 #### Fuzz tests
 

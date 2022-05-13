@@ -12,6 +12,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -32,7 +33,7 @@ func newTestNodeWithCallback(t *testing.T, cfg NodeConfig, callback testutils.JS
 	return n
 }
 
-// dial setups up the node and puts it into the live state, bypassing the
+// dial sets up the node and puts it into the live state, bypassing the
 // normal Start() method which would fire off unwanted goroutines
 func dial(t *testing.T, n *node) {
 	ctx := testutils.TestCtx(t)
@@ -65,12 +66,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		dial(t, n)
 
 		ch := make(chan struct{})
+		n.wg.Add(1)
 		go func() {
-			n.IfStarted(func() {
-				n.wg.Add(1)
-				n.aliveLoop()
-			})
-			close(ch)
+			defer close(ch)
+			n.aliveLoop()
 		}()
 		n.Close()
 		testutils.WaitWithTimeout(t, ch, "expected aliveLoop to exit")
@@ -159,10 +158,15 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		dial(t, n)
 		defer n.Close()
 
+		_, err := n.EthSubscribe(testutils.Context(t), make(chan *evmtypes.Head))
+		assert.Error(t, err)
+
 		n.wg.Add(1)
 		n.aliveLoop()
 
 		assert.Equal(t, NodeStateUnreachable, n.State())
+		// sc-39341: ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+		assert.Len(t, n.subs, 0)
 	})
 
 	t.Run("if remote RPC connection is closed transitions to unreachable", func(t *testing.T) {
@@ -297,12 +301,11 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.setState(NodeStateOutOfSync)
 
 		ch := make(chan struct{})
+
+		n.wg.Add(1)
 		go func() {
-			n.IfStarted(func() {
-				n.wg.Add(1)
-				n.aliveLoop()
-			})
-			close(ch)
+			defer close(ch)
+			n.aliveLoop()
 		}()
 		n.Close()
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
@@ -534,8 +537,8 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		n.setState(NodeStateInvalidChainID)
 
 		ch := make(chan struct{})
+		n.wg.Add(1)
 		go func() {
-			n.wg.Add(1)
 			n.invalidChainIDLoop()
 			close(ch)
 		}()

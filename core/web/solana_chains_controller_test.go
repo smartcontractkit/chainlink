@@ -37,9 +37,9 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	second := models.MustMakeDuration(time.Second)
 	minute := models.MustMakeDuration(time.Minute)
 	hour := models.MustMakeDuration(time.Hour)
-	body, err := json.Marshal(web.CreateSolanaChainRequest{
-		ID: newChainId,
-		Config: db.ChainCfg{
+	body, err := json.Marshal(web.NewCreateChainRequest(
+		newChainId,
+		&db.ChainCfg{
 			BalancePollPeriod:   &second,
 			ConfirmPollPeriod:   &minute,
 			OCR2CachePollPeriod: &minute,
@@ -47,8 +47,8 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 			TxTimeout:           &hour,
 			SkipPreflight:       null.BoolFrom(false),
 			Commitment:          null.StringFrom(string(rpc.CommitmentRecent)),
-		},
-	})
+		}))
+
 	require.NoError(t, err)
 
 	resp, cleanup := controller.client.Post("/v2/chains/solana", bytes.NewReader(body))
@@ -56,7 +56,7 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	chainSet := controller.app.GetChains().Solana
-	dbChain, err := chainSet.ORM().Chain(newChainId)
+	dbChain, err := chainSet.Show(newChainId)
 	require.NoError(t, err)
 
 	resource := presenters.SolanaChainResource{}
@@ -149,16 +149,16 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	controller := setupSolanaChainsControllerTest(t)
 
 	hour := models.MustMakeDuration(time.Hour)
-	newChains := []web.CreateSolanaChainRequest{
+	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				TxTimeout: &hour,
 			},
 		},
 		{
 			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				SkipPreflight: null.BoolFrom(false),
 			},
 		},
@@ -169,7 +169,7 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 		solanatest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
 			ID:      ch.ID,
 			Enabled: true,
-			Cfg:     ch.Config,
+			Cfg:     *ch.Config,
 		})
 	}
 
@@ -220,9 +220,9 @@ func Test_SolanaChainsController_Update(t *testing.T) {
 	t.Parallel()
 
 	hour := models.MustMakeDuration(time.Hour)
-	chainUpdate := web.UpdateSolanaChainRequest{
+	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
-		Config: db.ChainCfg{
+		Config: &db.ChainCfg{
 			SkipPreflight: null.BoolFrom(false),
 			TxTimeout:     &hour,
 		},
@@ -319,7 +319,7 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 	}
 	solanatest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 
-	_, countBefore, err := controller.app.Chains.Solana.ORM().Chains(0, 10)
+	_, countBefore, err := controller.app.Chains.Solana.Index(0, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, countBefore)
 
@@ -328,7 +328,7 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-		_, countAfter, err := controller.app.Chains.Solana.ORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Solana.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, countAfter)
 	})
@@ -340,11 +340,11 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-		_, countAfter, err := controller.app.Chains.Solana.ORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Solana.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, countAfter)
 
-		_, err = controller.app.Chains.Solana.ORM().Chain(chain.ID)
+		_, err = controller.app.Chains.Solana.Show(chain.ID)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, sql.ErrNoRows))

@@ -5,10 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -22,15 +20,16 @@ var (
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
 type MailRoom struct {
-	mbUpkeepCanceled   *utils.Mailbox[log.Broadcast]
-	mbSyncRegistry     *utils.Mailbox[log.Broadcast]
-	mbUpkeepPerformed  *utils.Mailbox[log.Broadcast]
-	mbUpkeepRegistered *utils.Mailbox[log.Broadcast]
+	mbUpkeepCanceled    *utils.Mailbox[log.Broadcast]
+	mbSyncRegistry      *utils.Mailbox[log.Broadcast]
+	mbUpkeepPerformed   *utils.Mailbox[log.Broadcast]
+	mbUpkeepRegistered  *utils.Mailbox[log.Broadcast]
+	mbUpkeepGasLimitSet *utils.Mailbox[log.Broadcast]
 }
 
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
-	Contract                 *keeper_registry_wrapper.KeeperRegistry
+	RegistryWrapper          RegistryWrapper
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
@@ -38,11 +37,13 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
+	newTurnEnabled           bool
 }
 
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
-	contract                 *keeper_registry_wrapper.KeeperRegistry
+	newTurnEnabled           bool
+	registryWrapper          RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM
@@ -59,14 +60,15 @@ type RegistrySynchronizer struct {
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
 func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
 	mailRoom := MailRoom{
-		mbUpkeepCanceled:   utils.NewMailbox[log.Broadcast](50),
-		mbSyncRegistry:     utils.NewMailbox[log.Broadcast](1),
-		mbUpkeepPerformed:  utils.NewMailbox[log.Broadcast](300),
-		mbUpkeepRegistered: utils.NewMailbox[log.Broadcast](50),
+		mbUpkeepCanceled:    utils.NewMailbox[log.Broadcast](500),
+		mbSyncRegistry:      utils.NewMailbox[log.Broadcast](1),
+		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](3000),
+		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](500),
 	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),
-		contract:                 opts.Contract,
+		registryWrapper:          opts.RegistryWrapper,
 		interval:                 opts.SyncInterval,
 		job:                      opts.Job,
 		jrm:                      opts.JRM,
@@ -76,6 +78,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		orm:                      opts.ORM,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
+		newTurnEnabled:           opts.newTurnEnabled,
 	}
 }
 
@@ -85,19 +88,23 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		rs.wgDone.Add(2)
 		go rs.run()
 
-		logListenerOpts := log.ListenerOpts{
-			Contract: rs.contract.Address(),
-			ParseLog: rs.contract.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
-			},
-			MinIncomingConfirmations: rs.minIncomingConfirmations,
+		var upkeepPerformedFilter [][]log.Topic
+		upkeepPerformedFilter = nil
+		if !rs.newTurnEnabled {
+			upkeepPerformedFilter = [][]log.Topic{
+				{},
+				{},
+				{
+					log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
+				},
+			}
 		}
-		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
+
+		logListenerOpts, err := rs.registryWrapper.GetLogListenerOpts(rs.minIncomingConfirmations, upkeepPerformedFilter)
+		if err != nil {
+			return errors.Wrap(err, "Unable to fetch log listener opts from wrapper")
+		}
+		lbUnsubscribe := rs.logBroadcaster.Register(rs, *logListenerOpts)
 
 		go func() {
 			defer lbUnsubscribe()

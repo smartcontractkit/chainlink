@@ -11,7 +11,6 @@ import (
 
 func TestConfigSchema(t *testing.T) {
 	items := map[string]string{
-		"AdminCredentialsFile":                           "ADMIN_CREDENTIALS_FILE",
 		"AdvisoryLockCheckInterval":                      "ADVISORY_LOCK_CHECK_INTERVAL",
 		"AdvisoryLockID":                                 "ADVISORY_LOCK_ID",
 		"AllowOrigins":                                   "ALLOW_ORIGINS",
@@ -40,7 +39,6 @@ func TestConfigSchema(t *testing.T) {
 		"BlockHistoryEstimatorTransactionPercentile":     "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                              "BRIDGE_RESPONSE_URL",
 		"ChainType":                                      "CHAIN_TYPE",
-		"ClientNodeURL":                                  "CLIENT_NODE_URL",
 		"DatabaseBackupDir":                              "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                        "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                             "DATABASE_BACKUP_MODE",
@@ -51,7 +49,6 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseLockingMode":                            "DATABASE_LOCKING_MODE",
 		"DatabaseURL":                                    "DATABASE_URL",
 		"DefaultChainID":                                 "ETH_CHAIN_ID",
-		"DefaultHTTPAllowUnrestrictedNetworkAccess":      "DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS",
 		"DefaultHTTPLimit":                               "DEFAULT_HTTP_LIMIT",
 		"DefaultHTTPTimeout":                             "DEFAULT_HTTP_TIMEOUT",
 		"Dev":                                            "CHAINLINK_DEV",
@@ -110,7 +107,6 @@ func TestConfigSchema(t *testing.T) {
 		"GasUpdaterTransactionPercentile":                "GAS_UPDATER_TRANSACTION_PERCENTILE",
 		"HTTPServerWriteTimeout":                         "HTTP_SERVER_WRITE_TIMEOUT",
 		"InsecureFastScrypt":                             "INSECURE_FAST_SCRYPT",
-		"InsecureSkipVerify":                             "INSECURE_SKIP_VERIFY",
 		"JSONConsole":                                    "JSON_CONSOLE",
 		"JobPipelineMaxRunDuration":                      "JOB_PIPELINE_MAX_RUN_DURATION",
 		"JobPipelineReaperInterval":                      "JOB_PIPELINE_REAPER_INTERVAL",
@@ -127,6 +123,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperRegistrySyncInterval":                     "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"KeeperRegistrySyncUpkeepQueueSize":              "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
 		"KeeperTurnLookBack":                             "KEEPER_TURN_LOOK_BACK",
+		"KeeperTurnFlagEnabled":                          "KEEPER_TURN_FLAG_ENABLED",
 		"LeaseLockDuration":                              "LEASE_LOCK_DURATION",
 		"LeaseLockRefreshInterval":                       "LEASE_LOCK_REFRESH_INTERVAL",
 		"LinkContractAddress":                            "LINK_CONTRACT_ADDRESS",
@@ -154,7 +151,6 @@ func TestConfigSchema(t *testing.T) {
 		"RPID":                                           "MFA_RPID",
 		"RPOrigin":                                       "MFA_RPORIGIN",
 		"ReaperExpiration":                               "REAPER_EXPIRATION",
-		"ReplayFromBlock":                                "REPLAY_FROM_BLOCK",
 		"RootDir":                                        "ROOT",
 		"SecureCookies":                                  "SECURE_COOKIES",
 		"SessionTimeout":                                 "SESSION_TIMEOUT",

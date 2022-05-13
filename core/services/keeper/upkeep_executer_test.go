@@ -59,6 +59,7 @@ func setup(t *testing.T) (
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	cfg.Overrides.KeeperTurnLookBack = null.IntFrom(0)
+	cfg.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -78,7 +79,7 @@ func setup(t *testing.T) (
 		TipCap: assets.GWei(60),
 	}, uint64(60), nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
@@ -131,7 +132,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
@@ -174,7 +175,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 			registryMock.MockMatchedResponse(
 				"checkUpkeep",
 				func(callArgs ethereum.CallMsg) bool {
@@ -224,7 +225,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
@@ -276,7 +277,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Return(txmgr.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
@@ -324,7 +325,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t)
 
 	wasCalled := atomic.NewBool(false)
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)
 	})

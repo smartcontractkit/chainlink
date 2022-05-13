@@ -11,11 +11,7 @@ import (
 
 // EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {
-	JAID
-	Enabled   bool              `json:"enabled"`
-	Config    evmtypes.ChainCfg `json:"config"`
-	CreatedAt time.Time         `json:"createdAt"`
-	UpdatedAt time.Time         `json:"updatedAt"`
+	chainResource[*evmtypes.ChainCfg]
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -24,14 +20,14 @@ func (r EVMChainResource) GetName() string {
 }
 
 // NewEVMChainResource returns a new EVMChainResource for chain.
-func NewEVMChainResource(chain evmtypes.Chain) EVMChainResource {
-	return EVMChainResource{
+func NewEVMChainResource(chain evmtypes.DBChain) EVMChainResource {
+	return EVMChainResource{chainResource[*evmtypes.ChainCfg]{
 		JAID:      NewJAIDInt64(chain.ID.ToInt().Int64()),
 		Config:    chain.Cfg,
 		Enabled:   chain.Enabled,
 		CreatedAt: chain.CreatedAt,
 		UpdatedAt: chain.UpdatedAt,
-	}
+	}}
 }
 
 // EVMNodeResource is an EVM node JSONAPI resource.

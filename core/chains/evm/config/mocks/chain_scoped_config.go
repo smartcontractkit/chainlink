@@ -516,17 +516,8 @@ func (_m *ChainScopedConfig) ClientNodeURL() string {
 }
 
 // Configure provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) error {
-	ret := _m.Called(_a0)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(types.ChainCfg) error); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) {
+	_m.Called(_a0)
 }
 
 // DatabaseBackupDir provides a mock function with given fields:
@@ -668,20 +659,6 @@ func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
-	}
-
-	return r0
-}
-
-// DefaultHTTPAllowUnrestrictedNetworkAccess provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2746,6 +2723,20 @@ func (_m *ChainScopedConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return r0
 }
 
+// KeeperTurnFlagEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperTurnFlagEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // KeeperTurnLookBack provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperTurnLookBack() int64 {
 	ret := _m.Called()
@@ -4052,20 +4043,6 @@ func (_m *ChainScopedConfig) SolanaNodes() string {
 	return r0
 }
 
-// TerraNodes provides a mock function with given fields:
-func (_m *ChainScopedConfig) TerraNodes() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // TLSCertPath provides a mock function with given fields:
 func (_m *ChainScopedConfig) TLSCertPath() string {
 	ret := _m.Called()
@@ -4287,6 +4264,20 @@ func (_m *ChainScopedConfig) TerraEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TerraNodes provides a mock function with given fields:
+func (_m *ChainScopedConfig) TerraNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

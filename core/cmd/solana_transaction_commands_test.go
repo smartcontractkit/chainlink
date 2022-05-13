@@ -32,12 +32,13 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	solanaClient.FundTestAccounts(t, []solana.PublicKey{from.PublicKey()}, url)
 
 	chains := app.GetChains()
-	_, err = chains.Solana.Add(testutils.Context(t), chainID, solanadb.ChainCfg{})
+	_, err = chains.Solana.Add(testutils.Context(t), chainID, nil)
 	require.NoError(t, err)
 	chain, err := chains.Solana.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Solana.ORM().CreateNode(solanadb.Node{
+	ctx := testutils.Context(t)
+	_, err = chains.Solana.CreateNode(ctx, solanadb.Node{
 		Name:          t.Name(),
 		SolanaChainID: chainID,
 		SolanaURL:     url,

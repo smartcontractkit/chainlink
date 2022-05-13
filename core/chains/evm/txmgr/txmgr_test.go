@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -43,11 +44,13 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
 
 	_, err := txm.SendEther(big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
@@ -211,7 +214,9 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -422,7 +427,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
-
+	cfg.On("EvmUseForwarders").Return(false).Maybe()
 	cfg.On("LogSQL").Maybe().Return(false)
 
 	return cfg
@@ -449,7 +454,9 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, &testCheckerFactory{})
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, &testCheckerFactory{}, lp)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -547,7 +554,10 @@ func TestTxm_Lifecycle(t *testing.T) {
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
-	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory)
+
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
+		ethClient, lggr, 100*time.Millisecond, 2, 3)
+	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory, lp)
 
 	head := cltest.Head(42)
 	// It should not hang or panic
@@ -610,11 +620,11 @@ func TestTxm_SignTx(t *testing.T) {
 		require.NotNil(t, rawBytes)
 		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
 	})
+	// okex used to have a custom hash but now this just verifies that is it the same
 	t.Run("returns correct hash for okex chains", func(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := new(txmmocks.Config)
 		cfg.Test(t)
-		cfg.On("ChainType").Return(config.ChainExChain)
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
@@ -622,7 +632,6 @@ func TestTxm_SignTx(t *testing.T) {
 		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
-		require.NotEqual(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex(), "expected okex chain hash to be different from non-okex-chain hash")
-		require.Equal(t, "0x1458742e3ba53316481eb18237ced517a536c1cdef61e7b7fb2a9569d84e41a6", hash.Hex())
+		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
 	})
 }

@@ -151,8 +151,8 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
 	return r.spec.MinIncomingConfirmationsEnv
 }
 
-// MinContractPayment resolves the spec's evm chain id.
-func (r *DirectRequestSpecResolver) MinContractPayment() string {
+// MinContractPaymentLinkJuels resolves the spec's evm chain id.
+func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
 }
 
@@ -669,7 +669,7 @@ func (r *VRFSpecResolver) BatchFulfillmentEnabled() bool {
 
 // BatchFulfillmentGasMultiplier resolves the spec's batch fulfillment gas multiplier.
 func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
-	return r.spec.BatchFulfillmentGasMultiplier
+	return float64(r.spec.BatchFulfillmentGasMultiplier)
 }
 
 // ChunkSize resolves the spec's chunk size.

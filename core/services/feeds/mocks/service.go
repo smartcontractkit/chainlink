@@ -77,6 +77,71 @@ func (_m *Service) CountManagers() (int64, error) {
 	return r0, r1
 }
 
+// CreateChainConfig provides a mock function with given fields: cfg
+func (_m *Service) CreateChainConfig(cfg feeds.ChainConfig) (int64, error) {
+	ret := _m.Called(cfg)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(feeds.ChainConfig) int64); ok {
+		r0 = rf(cfg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(feeds.ChainConfig) error); ok {
+		r1 = rf(cfg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DeleteChainConfig provides a mock function with given fields: id
+func (_m *Service) DeleteChainConfig(id int64) (int64, error) {
+	ret := _m.Called(id)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(int64) int64); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetChainConfig provides a mock function with given fields: id
+func (_m *Service) GetChainConfig(id int64) (*feeds.ChainConfig, error) {
+	ret := _m.Called(id)
+
+	var r0 *feeds.ChainConfig
+	if rf, ok := ret.Get(0).(func(int64) *feeds.ChainConfig); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.ChainConfig)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetJobProposal provides a mock function with given fields: id
 func (_m *Service) GetJobProposal(id int64) (*feeds.JobProposal, error) {
 	ret := _m.Called(id)
@@ -160,6 +225,29 @@ func (_m *Service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
 		r1 = rf(ctx, jobID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListChainConfigsByManagerIDs provides a mock function with given fields: mgrIDs
+func (_m *Service) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]feeds.ChainConfig, error) {
+	ret := _m.Called(mgrIDs)
+
+	var r0 []feeds.ChainConfig
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.ChainConfig); ok {
+		r0 = rf(mgrIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.ChainConfig)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(mgrIDs)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -303,20 +391,20 @@ func (_m *Service) ProposeJob(ctx context.Context, args *feeds.ProposeJobArgs) (
 	return r0, r1
 }
 
-// RegisterManager provides a mock function with given fields: ms
-func (_m *Service) RegisterManager(ms *feeds.FeedsManager) (int64, error) {
-	ret := _m.Called(ms)
+// RegisterManager provides a mock function with given fields: params
+func (_m *Service) RegisterManager(params feeds.RegisterManagerParams) (int64, error) {
+	ret := _m.Called(params)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(*feeds.FeedsManager) int64); ok {
-		r0 = rf(ms)
+	if rf, ok := ret.Get(0).(func(feeds.RegisterManagerParams) int64); ok {
+		r0 = rf(params)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*feeds.FeedsManager) error); ok {
-		r1 = rf(ms)
+	if rf, ok := ret.Get(1).(func(feeds.RegisterManagerParams) error); ok {
+		r1 = rf(params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -369,6 +457,27 @@ func (_m *Service) SyncNodeInfo(id int64) error {
 // Unsafe_SetConnectionsManager provides a mock function with given fields: _a0
 func (_m *Service) Unsafe_SetConnectionsManager(_a0 feeds.ConnectionsManager) {
 	_m.Called(_a0)
+}
+
+// UpdateChainConfig provides a mock function with given fields: cfg
+func (_m *Service) UpdateChainConfig(cfg feeds.ChainConfig) (int64, error) {
+	ret := _m.Called(cfg)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(feeds.ChainConfig) int64); ok {
+		r0 = rf(cfg)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(feeds.ChainConfig) error); ok {
+		r1 = rf(cfg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // UpdateManager provides a mock function with given fields: ctx, mgr

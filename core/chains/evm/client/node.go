@@ -135,6 +135,10 @@ type node struct {
 	state   NodeState
 	stateMu sync.RWMutex
 
+	// Need to track subscriptions because closing the RPC does not (always?)
+	// close the underlying subscription
+	subs []ethereum.Subscription
+
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as node Close.
@@ -345,12 +349,40 @@ func (n *node) Close() {
 	}
 }
 
+// registerSub adds the sub to the node list
+func (n *node) registerSub(sub ethereum.Subscription) {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	n.subs = append(n.subs, sub)
+}
+
+// disconnectAll disconnects all clients connected to the node
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the n.stateMu lock
+func (n *node) disconnectAll() {
+	if n.ws.rpc != nil {
+		n.ws.rpc.Close()
+	}
+	n.cancelInflightRequests()
+	n.unsubscribeAll()
+}
+
 // cancelInflightRequests closes and replaces the chStopInFlight
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the n.stateMu lock
 func (n *node) cancelInflightRequests() {
 	close(n.chStopInFlight)
 	n.chStopInFlight = make(chan struct{})
+}
+
+// unsubscribeAll unsubscribes all subscriptions
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the n.stateMu lock
+func (n *node) unsubscribeAll() {
+	for _, sub := range n.subs {
+		sub.Unsubscribe()
+	}
+	n.subs = nil
 }
 
 // getChStopInflight provides a convenience helper that mutex wraps a
@@ -437,6 +469,9 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
 	sub, err := n.ws.rpc.EthSubscribe(ctx, channel, args...)
+	if err == nil {
+		n.registerSub(sub)
+	}
 	duration := time.Since(start)
 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "EthSubscribe",
@@ -869,6 +904,9 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
 	start := time.Now()
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
+	if err == nil {
+		n.registerSub(sub)
+	}
 	err = n.wrapWS(err)
 	duration := time.Since(start)
 

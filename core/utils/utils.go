@@ -41,11 +41,9 @@ var ZeroAddress = common.Address{}
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
 
-var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
-
 // Uint256ToBytes is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
-	if x.Cmp(maxUint256) > 0 {
+	if x.Cmp(MaxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
 	}
 	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
@@ -354,7 +352,7 @@ var zero = big.NewInt(0)
 
 // CheckUint256 returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
-	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
+	if n.Cmp(zero) < 0 || n.Cmp(MaxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
 	}
 	return nil
@@ -1013,4 +1011,20 @@ func AllEqual[T comparable](elems ...T) bool {
 		}
 	}
 	return true
+}
+
+// RandUint256 generates a random bigNum up to 2 ** 256 - 1
+func RandUint256() *big.Int {
+	n, err := rand.Int(rand.Reader, MaxUint256)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
+func LeftPadBitString(input string, length int) string {
+	if len(input) >= length {
+		return input
+	}
+	return strings.Repeat("0", length-len(input)) + input
 }

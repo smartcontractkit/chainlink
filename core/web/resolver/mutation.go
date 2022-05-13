@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/graph-gophers/graphql-go"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
@@ -135,13 +134,215 @@ func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 	return NewDeleteCSAKeyPayload(key, nil), nil
 }
 
+type createFeedsManagerChainConfigInput struct {
+	FeedsManagerID     string
+	ChainID            string
+	ChainType          string
+	AccountAddr        string
+	AdminAddr          string
+	FluxMonitorEnabled bool
+	OCR1Enabled        bool
+	OCR1IsBootstrap    *bool
+	OCR1Multiaddr      *string
+	OCR1P2PPeerID      *string
+	OCR1KeyBundleID    *string
+	OCR2Enabled        bool
+	OCR2IsBootstrap    *bool
+	OCR2Multiaddr      *string
+	OCR2P2PPeerID      *string
+	OCR2KeyBundleID    *string
+}
+
+func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
+	Input *createFeedsManagerChainConfigInput
+}) (*CreateFeedsManagerChainConfigPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	fsvc := r.App.GetFeedsService()
+
+	fmID, err := stringutils.ToInt64(args.Input.FeedsManagerID)
+	if err != nil {
+		return nil, err
+	}
+
+	ctype, err := feeds.NewChainType(args.Input.ChainType)
+	if err != nil {
+		return nil, err
+	}
+
+	params := feeds.ChainConfig{
+		FeedsManagerID: fmID,
+		ChainID:        args.Input.ChainID,
+		ChainType:      ctype,
+		AccountAddress: args.Input.AccountAddr,
+		AdminAddress:   args.Input.AdminAddr,
+		FluxMonitorConfig: feeds.FluxMonitorConfig{
+			Enabled: args.Input.FluxMonitorEnabled,
+		},
+	}
+
+	if args.Input.OCR1Enabled {
+		params.OCR1Config = feeds.OCR1Config{
+			Enabled:     args.Input.OCR1Enabled,
+			IsBootstrap: *args.Input.OCR1IsBootstrap,
+			Multiaddr:   null.StringFromPtr(args.Input.OCR1Multiaddr),
+			P2PPeerID:   null.StringFromPtr(args.Input.OCR1P2PPeerID),
+			KeyBundleID: null.StringFromPtr(args.Input.OCR1KeyBundleID),
+		}
+	}
+
+	if args.Input.OCR2Enabled {
+		params.OCR2Config = feeds.OCR2Config{
+			Enabled:     args.Input.OCR2Enabled,
+			IsBootstrap: *args.Input.OCR2IsBootstrap,
+			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
+			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
+			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+		}
+	}
+
+	id, err := fsvc.CreateChainConfig(params)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCreateFeedsManagerChainConfigPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	ccfg, err := fsvc.GetChainConfig(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCreateFeedsManagerChainConfigPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCreateFeedsManagerChainConfigPayload(ccfg, nil, nil), nil
+}
+
+func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struct {
+	ID string
+}) (*DeleteFeedsManagerChainConfigPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(args.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	fsvc := r.App.GetFeedsService()
+
+	ccfg, err := fsvc.GetChainConfig(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteFeedsManagerChainConfigPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	if _, err := fsvc.DeleteChainConfig(id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteFeedsManagerChainConfigPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteFeedsManagerChainConfigPayload(ccfg, nil), nil
+}
+
+type updateFeedsManagerChainConfigInput struct {
+	AccountAddr        string
+	AdminAddr          string
+	FluxMonitorEnabled bool
+	OCR1Enabled        bool
+	OCR1IsBootstrap    *bool
+	OCR1Multiaddr      *string
+	OCR1P2PPeerID      *string
+	OCR1KeyBundleID    *string
+	OCR2Enabled        bool
+	OCR2IsBootstrap    *bool
+	OCR2Multiaddr      *string
+	OCR2P2PPeerID      *string
+	OCR2KeyBundleID    *string
+}
+
+func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struct {
+	ID    string
+	Input *updateFeedsManagerChainConfigInput
+}) (*UpdateFeedsManagerChainConfigPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	fsvc := r.App.GetFeedsService()
+
+	id, err := stringutils.ToInt64(args.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	params := feeds.ChainConfig{
+		ID:             id,
+		AccountAddress: args.Input.AccountAddr,
+		AdminAddress:   args.Input.AdminAddr,
+		FluxMonitorConfig: feeds.FluxMonitorConfig{
+			Enabled: args.Input.FluxMonitorEnabled,
+		},
+	}
+
+	if args.Input.OCR1Enabled {
+		params.OCR1Config = feeds.OCR1Config{
+			Enabled:     args.Input.OCR1Enabled,
+			IsBootstrap: *args.Input.OCR1IsBootstrap,
+			Multiaddr:   null.StringFromPtr(args.Input.OCR1Multiaddr),
+			P2PPeerID:   null.StringFromPtr(args.Input.OCR1P2PPeerID),
+			KeyBundleID: null.StringFromPtr(args.Input.OCR1KeyBundleID),
+		}
+	}
+
+	if args.Input.OCR2Enabled {
+		params.OCR2Config = feeds.OCR2Config{
+			Enabled:     args.Input.OCR2Enabled,
+			IsBootstrap: *args.Input.OCR2IsBootstrap,
+			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
+			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
+			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
+		}
+	}
+
+	id, err = fsvc.UpdateChainConfig(params)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateFeedsManagerChainConfigPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	ccfg, err := fsvc.GetChainConfig(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateFeedsManagerChainConfigPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateFeedsManagerChainConfigPayload(ccfg, nil, nil), nil
+}
+
 type createFeedsManagerInput struct {
-	Name                   string
-	URI                    string
-	PublicKey              string
-	JobTypes               []JobType
-	IsBootstrapPeer        bool
-	BootstrapPeerMultiaddr *string
+	Name      string
+	URI       string
+	PublicKey string
 }
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
@@ -158,32 +359,23 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 		}), nil
 	}
 
-	// convert enum job types
-	jobTypes := pq.StringArray{}
-	for _, jt := range args.Input.JobTypes {
-		jobTypes = append(jobTypes, FromJobTypeInput(jt))
-	}
-
-	mgr := &feeds.FeedsManager{
-		Name:                      args.Input.Name,
-		URI:                       args.Input.URI,
-		PublicKey:                 *publicKey,
-		JobTypes:                  jobTypes,
-		IsOCRBootstrapPeer:        args.Input.IsBootstrapPeer,
-		OCRBootstrapPeerMultiaddr: null.StringFromPtr(args.Input.BootstrapPeerMultiaddr),
+	params := feeds.RegisterManagerParams{
+		Name:      args.Input.Name,
+		URI:       args.Input.URI,
+		PublicKey: *publicKey,
 	}
 
 	feedsService := r.App.GetFeedsService()
 
-	id, err := feedsService.RegisterManager(mgr)
+	id, err := feedsService.RegisterManager(params)
 	if err != nil {
-		if errors.Is(err, feeds.ErrSingleFeedsManager) || errors.Is(err, feeds.ErrBootstrapXorJobs) {
+		if errors.Is(err, feeds.ErrSingleFeedsManager) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil
 		}
 		return nil, err
 	}
 
-	mgr, err = feedsService.GetManager(id)
+	mgr, err := feedsService.GetManager(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil
@@ -258,12 +450,9 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 }
 
 type updateFeedsManagerInput struct {
-	Name                   string
-	URI                    string
-	PublicKey              string
-	JobTypes               []JobType
-	IsBootstrapPeer        bool
-	BootstrapPeerMultiaddr *string
+	Name      string
+	URI       string
+	PublicKey string
 }
 
 func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
@@ -286,29 +475,16 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 		}), nil
 	}
 
-	// convert enum job types
-	jobTypes := pq.StringArray{}
-	for _, jt := range args.Input.JobTypes {
-		jobTypes = append(jobTypes, FromJobTypeInput(jt))
-	}
-
 	mgr := &feeds.FeedsManager{
-		ID:                        id,
-		URI:                       args.Input.URI,
-		Name:                      args.Input.Name,
-		PublicKey:                 *publicKey,
-		JobTypes:                  jobTypes,
-		IsOCRBootstrapPeer:        args.Input.IsBootstrapPeer,
-		OCRBootstrapPeerMultiaddr: null.StringFromPtr(args.Input.BootstrapPeerMultiaddr),
+		ID:        id,
+		URI:       args.Input.URI,
+		Name:      args.Input.Name,
+		PublicKey: *publicKey,
 	}
 
 	feedsService := r.App.GetFeedsService()
 
-	err = feedsService.UpdateManager(ctx, *mgr)
-	if err != nil {
-		if errors.Is(err, feeds.ErrBootstrapXorJobs) {
-			return NewUpdateFeedsManagerPayload(nil, err, nil), nil
-		}
+	if err = feedsService.UpdateManager(ctx, *mgr); err != nil {
 		return nil, err
 	}
 
@@ -850,7 +1026,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChains().EVM.Add(ctx, id.ToInt(), *chainCfg)
+	chain, err := r.App.GetChains().EVM.Add(ctx, id, chainCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +1074,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChains().EVM.Configure(ctx, id.ToInt(), args.Input.Enabled, *chainCfg)
+	chain, err := r.App.GetChains().EVM.Configure(ctx, id, args.Input.Enabled, chainCfg)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateChainPayload(nil, nil, err), nil
@@ -932,7 +1108,7 @@ func (r *Resolver) DeleteChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	err = r.App.GetChains().EVM.Remove(id.ToInt())
+	err = r.App.GetChains().EVM.Remove(id)
 	if err != nil {
 		return nil, err
 	}

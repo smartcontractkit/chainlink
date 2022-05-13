@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"reflect"
 	"sync"
 
@@ -143,6 +144,8 @@ type ApplicationOpts struct {
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+	RestrictedHTTPClient     *http.Client
+	UnrestrictedHTTPClient   *http.Client
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -179,6 +182,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	globalLogger := opts.Logger
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
+	restrictedHTTPClient := opts.RestrictedHTTPClient
+	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
 	var nurse *services.Nurse
 	if cfg.AutoPprofEnabled() {
@@ -244,7 +249,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
 	)
