@@ -14,10 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -40,6 +43,7 @@ import (
 
 var (
 	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
+	coordinatorV2ABI      = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 )
 
 type logconfig struct{}
@@ -69,6 +73,9 @@ func main() {
 		os.Exit(1)
 	}
 	ec, err := ethclient.Dial(ethURL)
+	helpers.PanicErr(err)
+
+	jrpc, err := rpc.Dial(ethURL)
 	helpers.PanicErr(err)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
@@ -437,6 +444,71 @@ func main() {
 
 		fmt.Printf("config: %+v\n", cfg)
 		fmt.Printf("fee config: %+v\n", feeConfig)
+	case "get-commitments":
+		cmd := flag.NewFlagSet("get-commitments", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
+		requestIDs := cmd.String("request-ids", "", "comma separated list of request ids")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-ids")
+
+		blockNumber, err := ec.BlockNumber(context.Background())
+		helpers.PanicErr(err)
+
+		reqIDs := parseIntSlice(*requestIDs)
+		calls := make([]rpc.BatchElem, len(reqIDs))
+		for i, reqID := range reqIDs {
+			payload, err2 := coordinatorV2ABI.Pack("getCommitment", reqID)
+			helpers.PanicErr(err2)
+
+			var result string
+			calls[i] = rpc.BatchElem{
+				Method: "eth_call",
+				Args: []interface{}{
+					map[string]interface{}{
+						"to":   common.HexToAddress(*coordinatorAddress),
+						"data": hexutil.Bytes(payload),
+					},
+					// The block at which we want to make the call
+					hexutil.EncodeBig(big.NewInt(int64(blockNumber))),
+				},
+				Result: &result,
+			}
+		}
+
+		err = jrpc.BatchCall(calls)
+		helpers.PanicErr(err)
+
+		var errs error
+		for i, call := range calls {
+			if call.Error != nil {
+				errs = multierr.Append(errs, fmt.Errorf("checking request %s: %w",
+					reqIDs[i].String(), call.Error))
+				continue
+			}
+
+			rString, ok := call.Result.(*string)
+			if !ok {
+				errs = multierr.Append(errs,
+					fmt.Errorf("unexpected result %+v on request %s",
+						call.Result, reqIDs[i].String()))
+				continue
+			}
+			result, err := hexutil.Decode(*rString)
+			if err != nil {
+				errs = multierr.Append(errs,
+					fmt.Errorf("decoding batch call result %+v %s request %s: %w",
+						call.Result, *rString, reqIDs[i].String(), err))
+				continue
+			}
+
+			if utils.IsEmpty(result) {
+				fmt.Println("Request already fulfilled",
+					"reqID", reqIDs[i].String())
+			} else {
+				fmt.Println("Request not fulfilled", "reqID", reqIDs[i].String())
+			}
+		}
+
+		helpers.PanicErr(errs)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
