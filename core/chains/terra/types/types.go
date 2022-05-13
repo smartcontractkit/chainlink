@@ -11,8 +11,8 @@ import (
 type ORM interface {
 	Chain(string, ...pg.QOpt) (DBChain, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id string, config db.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id string, enabled bool, config db.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	CreateChain(id string, config *db.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	UpdateChain(id string, enabled bool, config *db.ChainCfg, qopts ...pg.QOpt) (DBChain, error)
 	DeleteChain(id string, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []string) (chains []DBChain, err error)
 	EnabledChains(...pg.QOpt) ([]DBChain, error)
@@ -31,7 +31,7 @@ type ORM interface {
 	Clear(chainID string, key string) error
 }
 
-type DBChain = chains.DBChain[string, db.ChainCfg]
+type DBChain = chains.DBChain[string, *db.ChainCfg]
 
 // NewNode defines a new node to create.
 type NewNode struct {

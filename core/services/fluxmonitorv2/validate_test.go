@@ -8,6 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,8 +69,8 @@ answer1 [type=median index=0];
 				assert.Equal(t, "fluxmonitor", j.Type.String())
 				assert.Equal(t, uint32(1), j.SchemaVersion)
 				assert.Equal(t, "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", j.FluxMonitorSpec.ContractAddress.String())
-				assert.Equal(t, float32(0.5), spec.Threshold)
-				assert.Equal(t, float32(0), spec.AbsoluteThreshold)
+				assert.Equal(t, tomlutils.Float32(0.5), spec.Threshold)
+				assert.Equal(t, tomlutils.Float32(0), spec.AbsoluteThreshold)
 				assert.Equal(t, true, spec.IdleTimerDisabled)
 				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
 				assert.Equal(t, false, spec.PollTimerDisabled)
