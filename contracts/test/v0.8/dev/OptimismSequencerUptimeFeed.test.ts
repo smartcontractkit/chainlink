@@ -19,7 +19,7 @@ describe('OptimismSequencerUptimeFeed', () => {
     const accounts = await ethers.getSigners()
     deployer = accounts[0]
     l1Owner = accounts[1]
-    dummy = accounts[2]
+    dummy = accounts[3]
 
     const l2CrossDomainMessengerFactory = await ethers.getContractFactory(
       'src/v0.8/tests/MockOptimismL2CrossDomainMessenger.sol:MockOptimismL2CrossDomainMessenger',
