@@ -39,7 +39,7 @@ func (r *ChainResolver) Enabled() bool {
 
 // Config resolves the chain's configuration field
 func (r *ChainResolver) Config() *ChainConfigResolver {
-	return NewChainConfig(r.chain.Cfg)
+	return NewChainConfig(*r.chain.Cfg)
 }
 
 // CreatedAt resolves the chain's created at field.

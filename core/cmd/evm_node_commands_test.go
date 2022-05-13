@@ -20,8 +20,7 @@ import (
 
 func mustInsertEVMChain(t *testing.T, orm types.ORM) types.DBChain {
 	id := utils.NewBig(testutils.NewRandomEVMChainID())
-	config := types.ChainCfg{}
-	chain, err := orm.CreateChain(*id, config)
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 	return chain
 }
