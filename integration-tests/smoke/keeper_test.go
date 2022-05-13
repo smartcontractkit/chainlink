@@ -3,6 +3,7 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
+	"math/big"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,6 +92,28 @@ var _ = Describe("Keeper suite @keeper", func() {
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)), "Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
 				log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 			}, "2m", "1s").Should(Succeed())
+		})
+
+		It("can get cancelled and stop performing", func() {
+			// Hardocded upkeep id '0' for now, only works in registry v1.1
+			upkeepID := big.NewInt(int64(0))
+			err := registry.CancelUpkeep(upkeepID)
+			Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+
+			// Get performed count
+			existingCnt, err := consumer.Counter(context.Background())
+			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+			log.Info().Int64("Upkeep counter before cancelling", existingCnt.Int64())
+
+			// Expect count to be consistently same
+			Consistently(func(g Gomega) {
+				cnt, err := consumer.Counter(context.Background())
+				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+				g.Expect(cnt.Int64()).Should(
+					Equal(existingCnt.Int64()),
+					"Expected consumer counter to to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+				)
+			}, "1m", "1s").Should(Succeed())
 		})
 	})
 
