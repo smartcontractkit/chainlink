@@ -59,15 +59,16 @@ func TestWebAuthnSessionStore(t *testing.T) {
 		PublicKeyData: sqlxTypes.JSONText(credj),
 	}
 	uwas := []WebAuthn{token}
-	cc, err := s.BeginWebAuthnRegistration(user, uwas, WebAuthnConfiguration{
-		RPID:     "test-rpid",
-		RPOrigin: "test-rporigin",
-	})
+	wcfg := WebAuthnConfiguration{RPID: "test-rpid", RPOrigin: "test-rporigin"}
+	cc, err := s.BeginWebAuthnRegistration(user, uwas, wcfg)
 	require.NoError(t, err)
 	require.Equal(t, "Chainlink Operator", cc.Response.RelyingParty.CredentialEntity.Name)
 	require.Equal(t, "test-rpid", cc.Response.RelyingParty.ID)
 	require.Equal(t, user.Email, cc.Response.User.Name)
 	require.Equal(t, user.Email, cc.Response.User.DisplayName)
+
+	_, err = s.FinishWebAuthnRegistration(user, uwas, nil, wcfg)
+	require.Error(t, err)
 }
 
 func mustRandomUser(t testing.TB) User {

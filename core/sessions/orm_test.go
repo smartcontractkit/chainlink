@@ -266,4 +266,11 @@ func TestOrm_GenerateAuthToken(t *testing.T) {
 	assert.NotEmpty(t, token.AccessKey)
 	assert.Equal(t, dbUser.TokenKey.String, token.AccessKey)
 	assert.Equal(t, dbUser.TokenHashedSecret.String, hashedSecret)
+
+	require.NoError(t, orm.DeleteAuthToken(&initial))
+	dbUser, err = orm.FindUser()
+	require.NoError(t, err)
+	assert.Empty(t, dbUser.TokenKey.ValueOrZero())
+	assert.Empty(t, dbUser.TokenSalt.ValueOrZero())
+	assert.Empty(t, dbUser.TokenHashedSecret.ValueOrZero())
 }
