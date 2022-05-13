@@ -7,15 +7,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestTerraKeyPresenter_RenderTable(t *testing.T) {
@@ -71,7 +72,7 @@ func TestClient_TerraKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Terra().Create()
 		require.NoError(t, err)
 		requireTerraKeyCount(t, app, 1)
-		assert.Nil(t, client.ListTerraKeys(cltest.EmptyCLIContext()))
+		assert.Nil(t, cmd.NewTerraKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.TerraKeyPresenters)
 		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
@@ -81,7 +82,7 @@ func TestClient_TerraKeys(t *testing.T) {
 	t.Run("CreateTerraKey", func(tt *testing.T) {
 		defer cleanup()
 		client, _ := app.NewClientAndRenderer()
-		require.NoError(t, client.CreateTerraKey(nilContext))
+		require.NoError(t, cmd.NewTerraKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().Terra().GetAll()
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
@@ -98,7 +99,7 @@ func TestClient_TerraKeys(t *testing.T) {
 		strID := key.ID()
 		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
-		err = client.DeleteTerraKey(c)
+		err = cmd.NewTerraKeysClient(client).DeleteKey(c)
 		require.NoError(t, err)
 		requireTerraKeyCount(t, app, 0)
 	})
@@ -121,7 +122,8 @@ func TestClient_TerraKeys(t *testing.T) {
 		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
 		set.String("output", keyName, "")
 		c := cli.NewContext(nil, set, nil)
-		err = client.ExportTerraKey(c)
+		tclient := cmd.NewTerraKeysClient(client)
+		err = tclient.ExportKey(c)
 		require.Error(t, err, "Error exporting")
 		require.Error(t, utils.JustError(os.Stat(keyName)))
 
@@ -132,7 +134,7 @@ func TestClient_TerraKeys(t *testing.T) {
 		set.String("output", keyName, "")
 		c = cli.NewContext(nil, set, nil)
 
-		require.NoError(t, client.ExportTerraKey(c))
+		require.NoError(t, tclient.ExportKey(c))
 		require.NoError(t, utils.JustError(os.Stat(keyName)))
 
 		require.NoError(t, utils.JustError(app.GetKeyStore().Terra().Delete(key.ID())))
@@ -142,7 +144,7 @@ func TestClient_TerraKeys(t *testing.T) {
 		set.Parse([]string{keyName})
 		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
 		c = cli.NewContext(nil, set, nil)
-		require.NoError(t, client.ImportTerraKey(c))
+		require.NoError(t, tclient.ImportKey(c))
 
 		requireTerraKeyCount(t, app, 1)
 	})

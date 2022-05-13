@@ -7,15 +7,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
@@ -71,7 +72,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Solana().Create()
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 1)
-		assert.Nil(t, client.ListSolanaKeys(cltest.EmptyCLIContext()))
+		assert.Nil(t, cmd.NewSolanaKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.SolanaKeyPresenters)
 		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
@@ -81,7 +82,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 	t.Run("CreateSolanaKey", func(tt *testing.T) {
 		defer cleanup()
 		client, _ := app.NewClientAndRenderer()
-		require.NoError(t, client.CreateSolanaKey(nilContext))
+		require.NoError(t, cmd.NewSolanaKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().Solana().GetAll()
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
@@ -98,7 +99,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		strID := key.ID()
 		set.Parse([]string{strID})
 		c := cli.NewContext(nil, set, nil)
-		err = client.DeleteSolanaKey(c)
+		err = cmd.NewSolanaKeysClient(client).DeleteKey(c)
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 0)
 	})
@@ -121,7 +122,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
 		set.String("output", keyName, "")
 		c := cli.NewContext(nil, set, nil)
-		err = client.ExportSolanaKey(c)
+		err = cmd.NewSolanaKeysClient(client).ExportKey(c)
 		require.Error(t, err, "Error exporting")
 		require.Error(t, utils.JustError(os.Stat(keyName)))
 
@@ -132,7 +133,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		set.String("output", keyName, "")
 		c = cli.NewContext(nil, set, nil)
 
-		require.NoError(t, client.ExportSolanaKey(c))
+		require.NoError(t, cmd.NewSolanaKeysClient(client).ExportKey(c))
 		require.NoError(t, utils.JustError(os.Stat(keyName)))
 
 		require.NoError(t, utils.JustError(app.GetKeyStore().Solana().Delete(key.ID())))
@@ -142,7 +143,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		set.Parse([]string{keyName})
 		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
 		c = cli.NewContext(nil, set, nil)
-		require.NoError(t, client.ImportSolanaKey(c))
+		require.NoError(t, cmd.NewSolanaKeysClient(client).ImportKey(c))
 
 		requireSolanaKeyCount(t, app, 1)
 	})
