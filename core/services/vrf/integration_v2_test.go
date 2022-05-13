@@ -1158,7 +1158,7 @@ func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]
 		testutils.Context(t),
 		*utils.NewBigI(1337),
 		true,
-		types.ChainCfg{
+		&types.ChainCfg{
 			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
 			EvmGasPriceDefault:               utils.NewBig(defaultGasPrice),
 			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),

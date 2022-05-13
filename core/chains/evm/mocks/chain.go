@@ -10,6 +10,8 @@ import (
 
 	context "context"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
@@ -244,4 +246,9 @@ func (_m *Chain) TxManager() txmgr.TxManager {
 	}
 
 	return r0
+}
+
+// UpdateConfig provides a mock function with given fields: _a0
+func (_m *Chain) UpdateConfig(_a0 *evmtypes.ChainCfg) {
+	_m.Called(_a0)
 }

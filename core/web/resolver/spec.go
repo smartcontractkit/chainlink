@@ -669,7 +669,7 @@ func (r *VRFSpecResolver) BatchFulfillmentEnabled() bool {
 
 // BatchFulfillmentGasMultiplier resolves the spec's batch fulfillment gas multiplier.
 func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
-	return r.spec.BatchFulfillmentGasMultiplier
+	return float64(r.spec.BatchFulfillmentGasMultiplier)
 }
 
 // ChunkSize resolves the spec's chunk size.
