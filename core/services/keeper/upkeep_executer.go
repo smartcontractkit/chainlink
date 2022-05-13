@@ -72,6 +72,7 @@ func NewUpkeepExecuter(
 	config Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
+
 		chStop:          make(chan struct{}),
 		ethClient:       ethClient,
 		executionQueue:  make(chan struct{}, executionQueueSize),
