@@ -233,7 +233,10 @@ func Bytes4FromString(s string) [4]byte {
 }
 
 func MustAbiType(ts string, components []abi.ArgumentMarshaling) abi.Type {
-	ty, _ := abi.NewType(ts, "", components)
+	ty, err := abi.NewType(ts, "", components)
+	if err != nil {
+		panic(err)
+	}
 	return ty
 }
 

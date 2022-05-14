@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -138,9 +137,9 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		1, // faults
 		nil,
 	)
-	signerAddresses, err := ocrcommon.OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	transmitterAddresses, err := ocrcommon.AccountToAddress(transmitters)
+	transmitterAddresses, err := AccountToAddress(transmitters)
 	require.NoError(t, err)
 	_, err = ocrContract.SetConfig(user, signerAddresses, transmitterAddresses, threshold, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err)

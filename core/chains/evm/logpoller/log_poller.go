@@ -138,7 +138,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
-	return lp.StartOnce("logPoller", func() error {
+	return lp.StartOnce("LogPoller", func() error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
@@ -148,7 +148,7 @@ func (lp *logPoller) Start(parentCtx context.Context) error {
 }
 
 func (lp *logPoller) Close() error {
-	return lp.StopOnce("logPoller", func() error {
+	return lp.StopOnce("LogPoller", func() error {
 		lp.cancel()
 		<-lp.done
 		return nil
