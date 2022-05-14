@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"reflect"
 	"testing"
 
 	"go.uber.org/zap"
@@ -11,8 +12,6 @@ import (
 
 // Logger is a minimal subset of smartcontractkit/chainlink/core/logger.Logger implemented by go.uber.org/zap.SugaredLogger
 type Logger interface {
-	With(args ...interface{}) Logger
-
 	Debug(args ...interface{})
 	Info(args ...interface{})
 	Warn(args ...interface{})
@@ -80,6 +79,40 @@ type logger struct {
 	*zap.SugaredLogger
 }
 
-func (l *logger) With(args ...interface{}) Logger {
+func (l *logger) with(args ...interface{}) Logger {
 	return &logger{l.SugaredLogger.With(args...)}
+}
+
+var (
+	loggerVar    Logger
+	typeOfLogger = reflect.ValueOf(&loggerVar).Elem().Type()
+)
+
+// With returns a Logger with keyvals, if l has a method `With(...interface{}) L`, where L implements Logger, otherwise it returns l.
+func With(l Logger, keyvals ...interface{}) Logger {
+	switch t := l.(type) {
+	case *logger:
+		return t.with(keyvals...)
+	}
+	v := reflect.ValueOf(l)
+	m := v.MethodByName("With")
+	if m == (reflect.Value{}) {
+		// not available
+		return l
+	}
+
+	r := m.CallSlice([]reflect.Value{reflect.ValueOf(keyvals)})
+	if len(r) != 1 {
+		// unclear how to handle
+		return l
+	}
+	t := r[0].Type()
+	if !t.Implements(typeOfLogger) {
+		// unable to assign
+		return l
+	}
+
+	var w Logger
+	reflect.ValueOf(&w).Elem().Set(r[0])
+	return w
 }

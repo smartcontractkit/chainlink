@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 type MultiFeedMonitor interface {
@@ -47,7 +49,7 @@ func (m *multiFeedMonitor) Run(ctx context.Context, data RDDData) {
 
 FEED_LOOP:
 	for _, feedConfig := range data.Feeds {
-		feedLogger := m.log.With(
+		feedLogger := logger.With(m.log,
 			"feed_name", feedConfig.GetName(),
 			"feed_id", feedConfig.GetID(),
 			"network", m.chainConfig.GetNetworkName(),
@@ -62,7 +64,7 @@ FEED_LOOP:
 			}
 			poller := NewSourcePoller(
 				source,
-				feedLogger.With("component", "chain-poller", "source", sourceFactory.GetType()),
+				logger.With(m.log, "component", "chain-poller", "source", sourceFactory.GetType()),
 				m.chainConfig.GetPollInterval(),
 				m.chainConfig.GetReadTimeout(),
 				m.bufferCapacity,
@@ -101,7 +103,7 @@ FEED_LOOP:
 		}
 		// Run feed monitor.
 		feedMonitor := NewFeedMonitor(
-			feedLogger.With("component", "feed-monitor"),
+			logger.With(m.log, "component", "feed-monitor"),
 			pollers,
 			exporters,
 		)
