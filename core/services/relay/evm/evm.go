@@ -64,6 +64,7 @@ func (r *Relayer) NewConfigWatcher(args relaytypes.ConfigWatcherArgs) (relaytype
 }
 
 type configWatcher struct {
+	utils.StartStopOnce
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester types.OffchainConfigDigester
@@ -71,27 +72,23 @@ type configWatcher struct {
 	chain            evm.Chain
 }
 
-func (c configWatcher) Start(ctx context.Context) error {
-	return c.configTracker.Start()
+func (c *configWatcher) Start(ctx context.Context) error {
+	return c.StartOnce("EVMConfigWatcher", func() error {
+		return c.configTracker.Start()
+	})
 }
 
-func (c configWatcher) Close() error {
-	return c.configTracker.Close()
+func (c *configWatcher) Close() error {
+	return c.StopOnce("EVMConfigWatcher", func() error {
+		return c.configTracker.Close()
+	})
 }
 
-func (c configWatcher) Ready() error {
-	return nil
-}
-
-func (c configWatcher) Healthy() error {
-	return nil
-}
-
-func (c configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
+func (c *configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
 	return c.offchainDigester
 }
 
-func (c configWatcher) ContractConfigTracker() types.ContractConfigTracker {
+func (c *configWatcher) ContractConfigTracker() types.ContractConfigTracker {
 	return c.configTracker
 }
 
@@ -172,14 +169,14 @@ type medianProvider struct {
 	medianContract      *medianContract
 }
 
-func (p medianProvider) ContractTransmitter() types.ContractTransmitter {
+func (p *medianProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func (p medianProvider) ReportCodec() median.ReportCodec {
+func (p *medianProvider) ReportCodec() median.ReportCodec {
 	return p.reportCodec
 }
 
-func (p medianProvider) MedianContract() median.MedianContract {
+func (p *medianProvider) MedianContract() median.MedianContract {
 	return p.medianContract
 }
