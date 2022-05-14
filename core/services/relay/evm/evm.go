@@ -123,6 +123,7 @@ func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args types2.Con
 	}
 	return &configWatcher{
 		contractAddress:  contractAddress,
+		contractABI:      contractABI,
 		configTracker:    configTracker,
 		offchainDigester: offchainConfigDigester,
 		chain:            chain,

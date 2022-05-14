@@ -87,13 +87,14 @@ func TestNewOCR2Provider(t *testing.T) {
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			spec := makeOCR2JobSpecFromToml(t, s.spec)
-			_, err := d.NewOCR2Provider(uuid.UUID{}, &relay.OCR2ProviderArgs{
-				ID:              spec.ID,
-				ContractID:      spec.ContractID,
-				TransmitterID:   spec.TransmitterID,
-				Relay:           spec.Relay,
-				RelayConfig:     spec.RelayConfig,
-				IsBootstrapPeer: false,
+			_, err := d.NewMedianProvider(spec.Relay, relaytypes.PluginArgs{
+				ConfigWatcherArgs: relaytypes.ConfigWatcherArgs{
+					ExternalJobID: uuid.UUID{},
+					JobID:         spec.ID,
+					ContractID:    spec.ContractID,
+					RelayConfig:   spec.RelayConfig.Bytes(),
+				},
+				TransmitterID: spec.TransmitterID.String,
 			})
 			require.Error(t, err)
 			assert.Contains(t, strings.ToLower(err.Error()), fmt.Sprintf("no %s relay found", s.name))
@@ -101,19 +102,20 @@ func TestNewOCR2Provider(t *testing.T) {
 	}
 
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
-	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr, solChains))
+	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr, solChains, keystore.Solana()))
 	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			spec := makeOCR2JobSpecFromToml(t, s.spec)
-			_, err := d.NewOCR2Provider(uuid.UUID{}, &relay.OCR2ProviderArgs{
-				ID:              spec.ID,
-				ContractID:      spec.ContractID,
-				TransmitterID:   spec.TransmitterID,
-				Relay:           spec.Relay,
-				RelayConfig:     spec.RelayConfig,
-				IsBootstrapPeer: false,
+			_, err := d.NewMedianProvider(spec.Relay, relaytypes.PluginArgs{
+				ConfigWatcherArgs: relaytypes.ConfigWatcherArgs{
+					ExternalJobID: uuid.UUID{},
+					JobID:         spec.ID,
+					ContractID:    spec.ContractID,
+					RelayConfig:   spec.RelayConfig.Bytes(),
+				},
+				TransmitterID: spec.TransmitterID.String,
 			})
 			require.NoError(t, err)
 		})
