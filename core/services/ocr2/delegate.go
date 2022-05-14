@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 )
@@ -29,7 +28,7 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	relayer               *relay.Delegate
+	relayers              map[types.Network]types.Relayer
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -44,7 +43,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
-	relayer *relay.Delegate,
+	relayers map[types.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -56,7 +55,7 @@ func NewDelegate(
 		cfg,
 		lggr,
 		ks,
-		relayer,
+		relayers,
 	}
 }
 
@@ -75,6 +74,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
+	}
+	if !spec.TransmitterID.Valid {
+		return nil, errors.Errorf("expected a transmitterID to be specified")
+	}
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
 
 	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
@@ -130,12 +136,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
-	// TODO: Error no transmitter
 	var pluginOracle plugins.OraclePlugin
 	var ocr2Provider types.OCR2Base
 	switch spec.PluginType {
 	case job.Median:
-		medianProvider, err2 := d.relayer.NewMedianProvider(spec.Relay, types.PluginArgs{
+		medianProvider, err2 := relayer.NewMedianProvider(types.PluginArgs{
 			ConfigWatcherArgs: types.ConfigWatcherArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,

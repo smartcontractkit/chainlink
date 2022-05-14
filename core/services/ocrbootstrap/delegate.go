@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
@@ -22,7 +21,7 @@ type Delegate struct {
 	peerWrapper   *ocrcommon.SingletonPeerWrapper
 	cfg           validate.Config
 	lggr          logger.Logger
-	relayer       *relay.Delegate
+	relayers      map[types.Network]types.Relayer
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -32,7 +31,7 @@ func NewDelegateBootstrap(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 	cfg validate.Config,
-	relayer *relay.Delegate,
+	relayers map[types.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -40,7 +39,7 @@ func NewDelegateBootstrap(
 		peerWrapper: peerWrapper,
 		lggr:        lggr,
 		cfg:         cfg,
-		relayer:     relayer,
+		relayers:    relayers,
 	}
 }
 
@@ -60,8 +59,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
 	}
-
-	configWatcher, err := d.relayer.NewConfigWatcher(spec.Relay, types.ConfigWatcherArgs{
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	}
+	configWatcher, err := relayer.NewConfigWatcher(types.ConfigWatcherArgs{
 		JobID:       spec.ID,
 		ContractID:  spec.ContractID,
 		RelayConfig: spec.RelayConfig.Bytes(),

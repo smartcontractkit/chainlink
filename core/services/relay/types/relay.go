@@ -13,9 +13,14 @@ import (
 type Network string
 
 var (
-	EVM    Network = "evm"
-	Solana Network = "solana"
-	Terra  Network = "terra"
+	EVM             Network = "evm"
+	Solana          Network = "solana"
+	Terra           Network = "terra"
+	SupportedRelays         = map[Network]struct{}{
+		EVM:    {},
+		Solana: {},
+		Terra:  {},
+	}
 )
 
 // PluginArgs are the args required to create any OCR2 plugin components.

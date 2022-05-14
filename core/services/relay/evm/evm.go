@@ -19,9 +19,11 @@ import (
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	types2 "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+var _ relaytypes.Relayer = &Relayer{}
 
 type Relayer struct {
 	db       *sqlx.DB
@@ -57,7 +59,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewConfigWatcher(args types2.ConfigWatcherArgs) (types2.ConfigWatcher, error) {
+func (r *Relayer) NewConfigWatcher(args relaytypes.ConfigWatcherArgs) (relaytypes.ConfigWatcher, error) {
 	return newConfigWatcher(r.lggr, r.chainSet, args)
 }
 
@@ -93,7 +95,7 @@ func (c configWatcher) ContractConfigTracker() types.ContractConfigTracker {
 	return c.configTracker
 }
 
-func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args types2.ConfigWatcherArgs) (*configWatcher, error) {
+func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.ConfigWatcherArgs) (*configWatcher, error) {
 	var relayConfig RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
@@ -130,7 +132,7 @@ func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args types2.Con
 	}, nil
 }
 
-func (r *Relayer) NewMedianProvider(args types2.PluginArgs) (types2.MedianProvider, error) {
+func (r *Relayer) NewMedianProvider(args relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
 	configWatcher, err := newConfigWatcher(r.lggr, r.chainSet, args.ConfigWatcherArgs)
 	if err != nil {
 		return nil, err
@@ -161,7 +163,7 @@ type RelayConfig struct {
 	ChainID *utils.Big `json:"chainID"`
 }
 
-var _ types2.MedianProvider = (*medianProvider)(nil)
+var _ relaytypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
 	*configWatcher

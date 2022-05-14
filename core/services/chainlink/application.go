@@ -45,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -338,23 +337,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		// master/delegate relay is started once, on app start, as root subservice
-		relay := relay.NewDelegate(keyStore)
+		relayers := make(map[relaytypes.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
-			relay.AddRelayer(relaytypes.EVM, evmRelayer)
+			relayers[relaytypes.EVM] = evmRelayer
+			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, keyStore.Solana())
-			solanaRelayerCtx := solanaRelayer
-			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
+			relayers[relaytypes.Solana] = solanaRelayer
+			subservices = append(subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			terraRelayerCtx := terraRelayer
-			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
+			relayers[relaytypes.Terra] = terraRelayer
+			subservices = append(subservices, terraRelayer)
 		}
-		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -365,7 +363,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
-			relay,
+			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -373,7 +371,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
-			relay,
+			relayers,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
