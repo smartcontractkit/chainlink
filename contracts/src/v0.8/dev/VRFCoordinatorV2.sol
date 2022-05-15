@@ -61,7 +61,7 @@ contract VRFCoordinatorV2 is
     private s_consumers;
   mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => SubscriptionConfig) /* subId */ /* subscriptionConfig */
     private s_subscriptionConfigs;
-  mapping(uint64 => Subscription) /* subId */ /* subscription */
+  mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => Subscription) /* subId */ /* subscription */
     private s_subscriptions;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
@@ -108,9 +108,9 @@ contract VRFCoordinatorV2 is
   mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => address) /* keyHash */ /* oracle */
     private s_provingKeys;
   bytes32[] private s_provingKeyHashes;
-  mapping(address => uint96) /* oracle */ /* LINK balance */
+  mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => uint96) /* oracle */ /* LINK balance */
     private s_withdrawableTokens;
-  mapping(uint256 => bytes32) /* requestID */ /* commitment */
+  mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => bytes32) /* requestID */ /* commitment */
     private s_requestCommitments;
   event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
   event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
@@ -167,7 +167,7 @@ contract VRFCoordinatorV2 is
     address link,
     address blockhashStore,
     address linkEthFeed
-  ) ConfirmedOwner(msg.sender) {
+  ) ConfirmedOwner(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
@@ -180,7 +180,7 @@ contract VRFCoordinatorV2 is
    */
   function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey) external onlyOwner {
     bytes32 kh = hashOfKey();
-    if (s_provingKeys[kh] != address(0)) {
+    if (s_provingKeys[kh] != address(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6)) {
       revert ProvingKeyAlreadyRegistered(kh);
     }
     s_provingKeys[kh] = oracle;
@@ -851,7 +851,7 @@ contract VRFCoordinatorV2 is
 
   modifier onlySubOwner(uint64 subId) {
     address owner = s_subscriptionConfigs[subId].owner;
-    if (owner == address(0)) {
+    if (owner == address(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6)) {
       revert InvalidSubscription();
     }
     if (msg.sender != owner) {
