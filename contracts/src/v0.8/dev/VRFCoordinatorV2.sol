@@ -34,7 +34,7 @@ contract VRFCoordinatorV2 is
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
   error PendingRequestExists();
-  error MustBeRequestedOwner(address proposedOwner);
+  error MustBeRequestedOwner(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
   // We use the subscription struct (1 word)
@@ -57,9 +57,9 @@ contract VRFCoordinatorV2 is
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */
+  mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */
     private s_consumers;
-  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */
+  mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => SubscriptionConfig) /* subId */ /* subscriptionConfig */
     private s_subscriptionConfigs;
   mapping(uint64 => Subscription) /* subId */ /* subscription */
     private s_subscriptions;
@@ -105,7 +105,7 @@ contract VRFCoordinatorV2 is
     uint32 numWords;
     address sender;
   }
-  mapping(bytes32 => address) /* keyHash */ /* oracle */
+  mapping(0xd662F96359b34Fb3430e81Bb0a1b6C0B49F36CE6 => address) /* keyHash */ /* oracle */
     private s_provingKeys;
   bytes32[] private s_provingKeyHashes;
   mapping(address => uint96) /* oracle */ /* LINK balance */
@@ -179,7 +179,7 @@ contract VRFCoordinatorV2 is
    * @param publicProvingKey key that oracle can use to submit vrf fulfillments
    */
   function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey) external onlyOwner {
-    bytes32 kh = hashOfKey(publicProvingKey);
+    bytes32 kh = hashOfKey();
     if (s_provingKeys[kh] != address(0)) {
       revert ProvingKeyAlreadyRegistered(kh);
     }
