@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/linkedin/goavro"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -308,11 +307,20 @@ type fakeNodeConfig struct {
 func (f fakeNodeConfig) GetName() string           { return f.Name }
 func (f fakeNodeConfig) GetAccount() types.Account { return f.Account }
 
+// hexEncode encodes b as a hex string with 0x prefix.
+// Copied from github.com/ethereum/go-ethereum/common/hexutil.Encode
+func hexEncode(b []byte) string {
+	enc := make([]byte, len(b)*2+2)
+	copy(enc, "0x")
+	hex.Encode(enc[2:], b)
+	return string(enc)
+}
+
 func generateNodeConfig() NodeConfig {
 	id := uint8(rand.Intn(32))
 	return fakeNodeConfig{
 		fmt.Sprintf("noop-#%d", id),
-		types.Account(hexutil.Encode([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, id})),
+		types.Account(hexEncode([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, id})),
 	}
 }
 
@@ -412,7 +420,7 @@ func generateContractConfig(n int) (
 	for i := 0; i < n; i++ {
 		randArr := generate32ByteArr()
 		signers[i] = types.OnchainPublicKey(randArr[:])
-		transmitters[i] = types.Account(hexutil.Encode([]byte{
+		transmitters[i] = types.Account(hexEncode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(i),
 		}))
 	}
@@ -456,7 +464,7 @@ func generateEnvelope() (Envelope, error) {
 		ContractConfig: generated,
 
 		BlockNumber: rand.Uint64(),
-		Transmitter: types.Account(hexutil.Encode([]byte{
+		Transmitter: types.Account(hexEncode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
 		LinkBalance:             generateBigInt(150),
