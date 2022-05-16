@@ -110,7 +110,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller *logpoller.LogPoller) *Txm {
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm {
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
