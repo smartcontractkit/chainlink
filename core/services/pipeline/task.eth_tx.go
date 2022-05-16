@@ -98,7 +98,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
 	} else {
-		minOutgoingConfirmations = cfg.MinRequiredOutgoingConfirmations()
+		minOutgoingConfirmations = uint64(cfg.EvmFinalityDepth())
 	}
 
 	txMeta, err := decodeMeta(txMetaMap)
@@ -212,7 +212,6 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EthTxMeta) {
 	jobID, err := vars.Get("jobSpec.databaseID")
 	if err != nil {
-		logger.Sugared(lggr).AssumptionViolationf("expected vars to contain jobSpec.databaseID, but it didn't. Got: %v", vars)
 		return
 	}
 	jobIDF, is := jobID.(float64) // JSON decoder default numeric type

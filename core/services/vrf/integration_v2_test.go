@@ -1160,18 +1160,17 @@ func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]
 		*utils.NewBigI(1337),
 		true,
 		&types.ChainCfg{
-			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
-			EvmGasPriceDefault:               utils.NewBig(defaultGasPrice),
-			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:        &zero,
-			EvmFinalityDepth:                 null.IntFrom(15),
-			EthTxReaperThreshold:             &reaperThreshold,
-			MinIncomingConfirmations:         null.IntFrom(1),
-			MinRequiredOutgoingConfirmations: null.IntFrom(1),
-			MinimumContractPayment:           assets.NewLinkFromJuels(100),
-			EvmGasLimitDefault:               null.NewInt(2000000, true),
-			KeySpecific:                      ks,
+			GasEstimatorMode:               null.StringFrom("FixedPrice"),
+			EvmGasPriceDefault:             utils.NewBig(defaultGasPrice),
+			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
+			EthTxResendAfterThreshold:      &zero,
+			EvmFinalityDepth:               null.IntFrom(15),
+			EthTxReaperThreshold:           &reaperThreshold,
+			MinIncomingConfirmations:       null.IntFrom(1),
+			MinimumContractPayment:         assets.NewLinkFromJuels(100),
+			EvmGasLimitDefault:             null.NewInt(2000000, true),
+			KeySpecific:                    ks,
 		},
 	)
 }

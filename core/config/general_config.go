@@ -222,7 +222,6 @@ type GlobalConfig interface {
 	GlobalGasEstimatorMode() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
-	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
 	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
 	GlobalNodePollFailureThreshold() (uint32, bool)
@@ -408,6 +407,10 @@ EVM_ENABLED=false
 			// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
 			c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink.\n\n", err, utils.PasswordComplexityRequirements)
 		}
+	}
+
+	if str := c.viper.GetString("MIN_OUTGOING_CONFIRMATIONS"); str != "" {
+		c.lggr.Errorf("WARNING: MIN_OUTGOING_CONFIRMATIONS has been removed and no longer has any effect. EVM_FINALITY_DEPTH is now used as the default for ethtx confirmations instead. You may override this on a per-task basis by setting `minConfirmations` e.g. `foo [type=ethtx minConfirmations=%s ...]`", str)
 	}
 
 	return nil
@@ -1285,9 +1288,6 @@ func (c *generalConfig) GlobalLinkContractAddress() (string, bool) {
 }
 func (c *generalConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("MinIncomingConfirmations"), parse.Uint32)
-}
-func (c *generalConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("MinRequiredOutgoingConfirmations"), parse.Uint64)
 }
 func (c *generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 	return lookupEnv(c, envvar.Name("MinimumContractPayment"), parse.Link)

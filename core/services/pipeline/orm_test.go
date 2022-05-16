@@ -351,8 +351,8 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	r, start, err := orm.UpdateTaskRunResult(ds1_id, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
-	assert.Greater(t, run.ID, 0)
-	assert.Greater(t, run.PipelineSpec.ID, 0) // Make sure it actually loaded everything
+	assert.Greater(t, run.ID, int64(0))
+	assert.Greater(t, run.PipelineSpec.ID, int32(0)) // Make sure it actually loaded everything
 
 	require.Len(t, run.PipelineTaskRuns, 2)
 	// assert that run should be in "running" state

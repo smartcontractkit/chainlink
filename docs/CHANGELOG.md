@@ -23,6 +23,7 @@ Must not comprise:
 ```
 This will prevent application boot in a future version of Chainlink.
 - The following ENV variables have been removed: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
+- `MIN_OUTGOING_CONFIRMATIONS` has been removed and no longer has any effect. `EVM_FINALITY_DEPTH` is now used as the default for `ethtx` confirmations instead. You may override this on a per-task basis by setting `minConfirmations` in the task definition e.g. `foo [type=ethtx minConfirmations=42 ...]`.
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
@@ -34,7 +35,13 @@ This will prevent application boot in a future version of Chainlink.
 
 `foo [type=ethtx failOnRevert=true ...]`
 
-Note that `minConfirmations` must be > 0 for this to work. Generally it is safe to leave this variable at it's default, since most chains include a default value which is already greater than zero.
+So the `ethtx` task now works as follows:
+
+If minConfirmations == 0, task always succeeds and nil is passed as output
+If minConfirmations > 0, the receipt is passed through as output
+If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on revert
+
+If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.

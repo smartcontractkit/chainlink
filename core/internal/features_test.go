@@ -526,9 +526,9 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]interface{})
-		assert.Equal(t, "0xc", receipt["blockNumber"])
-		assert.Equal(t, "0x7a120", receipt["gasUsed"])
-		assert.Equal(t, "0x1", receipt["status"])
+		assert.Equal(t, "0x7", receipt["blockNumber"])
+		assert.Equal(t, "0x538f", receipt["gasUsed"])
+		assert.Equal(t, "0x0", receipt["status"]) // success
 	})
 
 	t.Run("with FailOnRevert enabled, run fails with transaction reverted error", func(t *testing.T) {
@@ -608,7 +608,7 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]interface{})
-		assert.Equal(t, "0xc", receipt["blockNumber"])
+		assert.Equal(t, "0x11", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
 	})

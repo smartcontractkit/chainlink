@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -221,11 +220,6 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 
 		return loadAssociations(tx, []*Run{&run})
 	})
-
-	if err == nil && run.PipelineSpec.JobID == 0 {
-		fmt.Printf("BALLS loaded run %#v\n", run)
-		panic("BALLS")
-	}
 
 	return run, start, err
 }

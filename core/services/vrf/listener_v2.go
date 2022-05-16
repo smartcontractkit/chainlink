@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -797,8 +796,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						MaxLink:   &maxLinkString,
 						SubID:     &p.req.req.SubId,
 					},
-					MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-					Strategy:         txmgr.NewSendEveryStrategy(),
+					Strategy: txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,

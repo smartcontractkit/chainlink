@@ -70,6 +70,7 @@ func TestETHTxTask(t *testing.T) {
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
@@ -117,6 +118,7 @@ func TestETHTxTask(t *testing.T) {
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
@@ -162,6 +164,7 @@ func TestETHTxTask(t *testing.T) {
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
@@ -207,6 +210,7 @@ func TestETHTxTask(t *testing.T) {
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
@@ -238,7 +242,7 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				txMeta := &txmgr.EthTxMeta{}
+				txMeta := &txmgr.EthTxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
 					FromAddress:    from,
@@ -273,6 +277,7 @@ func TestETHTxTask(t *testing.T) {
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
@@ -336,6 +341,7 @@ func TestETHTxTask(t *testing.T) {
 					JobID:         &jid,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
 				}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
