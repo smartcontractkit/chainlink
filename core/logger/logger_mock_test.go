@@ -171,29 +171,6 @@ func (_m *MockLogger) Named(name string) Logger {
 	return r0
 }
 
-// NewRootLogger provides a mock function with given fields: lvl
-func (_m *MockLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
-	ret := _m.Called(lvl)
-
-	var r0 Logger
-	if rf, ok := ret.Get(0).(func(zapcore.Level) Logger); ok {
-		r0 = rf(lvl)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(Logger)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(zapcore.Level) error); ok {
-		r1 = rf(lvl)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Panic provides a mock function with given fields: args
 func (_m *MockLogger) Panic(args ...interface{}) {
 	var _ca []interface{}
