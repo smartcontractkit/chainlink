@@ -253,7 +253,7 @@ func (c *chainScopedConfig) logEnvOverrideOnce(name string, envVal interface{}) 
 	if _, ok := c.onceMap[k]; ok {
 		return
 	}
-	c.logger.Warnf("Global ENV var set %s=%v, overriding all other values for %s", envvar.TryName(name), envVal, name)
+	c.logger.Warnf("Global ENV var set %s=%v, overriding all non key-specific values for %s", envvar.TryName(name), envVal, name)
 	c.onceMap[k] = struct{}{}
 }
 
@@ -704,15 +704,12 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 }
 
 func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int {
-	val, ok := c.GeneralConfig.GlobalEvmMaxGasPriceWei()
-	if ok {
-		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
-		return val
-	}
 	c.persistMu.RLock()
 	keySpecific := c.persistedCfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
 	c.persistMu.RUnlock()
-	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) {
+
+	chainSpecific := utils.NewBig(c.EvmMaxGasPriceWei())
+	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) && keySpecific.Cmp(chainSpecific) < 0 {
 		c.logKeySpecificOverrideOnce("EvmMaxGasPriceWei", addr, keySpecific)
 		return keySpecific.ToInt()
 	}

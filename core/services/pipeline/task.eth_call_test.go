@@ -29,6 +29,7 @@ func TestETHCallTask(t *testing.T) {
 	tests := []struct {
 		name                  string
 		contract              string
+		from                  string
 		data                  string
 		evmChainID            string
 		vars                  pipeline.Vars
@@ -39,8 +40,9 @@ func TestETHCallTask(t *testing.T) {
 		expectedErrorContains string
 	}{
 		{
-			"happy",
+			"happy with empty from",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
 			"$(foo)",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -56,8 +58,41 @@ func TestETHCallTask(t *testing.T) {
 			[]byte("baz quux"), nil, "",
 		},
 		{
+			"happy with from addr",
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"$(foo)",
+			"",
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": []byte("foo bar"),
+			}),
+			nil,
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
+				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				fromAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				ethClient.
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, From: fromAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
+					Return([]byte("baz quux"), nil)
+			},
+			[]byte("baz quux"), nil, "",
+		},
+		{
+			"bad from address",
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"0xThisAintGonnaWork",
+			"$(foo)",
+			"",
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": []byte("foo bar"),
+			}),
+			nil,
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {},
+			nil, pipeline.ErrBadInput, "from",
+		},
+		{
 			"bad contract address",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbee",
+			"",
 			"$(foo)",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -70,6 +105,7 @@ func TestETHCallTask(t *testing.T) {
 		{
 			"missing data var",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
 			"$(foo)",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -82,6 +118,7 @@ func TestETHCallTask(t *testing.T) {
 		{
 			"no data",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
 			"$(foo)",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -94,6 +131,7 @@ func TestETHCallTask(t *testing.T) {
 		{
 			"errored input",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
 			"$(foo)",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -106,6 +144,7 @@ func TestETHCallTask(t *testing.T) {
 		{
 			"missing chainID",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
 			"$(foo)",
 			"$(evmChainID)",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -129,6 +168,7 @@ func TestETHCallTask(t *testing.T) {
 			task := pipeline.ETHCallTask{
 				BaseTask:   pipeline.NewBaseTask(0, "ethcall", nil, nil, 0),
 				Contract:   test.contract,
+				From:       test.from,
 				Data:       test.data,
 				EVMChainID: test.evmChainID,
 			}
