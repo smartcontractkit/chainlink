@@ -202,8 +202,8 @@ func ExampleRun_keys() {
 	//    csa     Remote commands for administering the node's CSA keys
 	//    ocr     Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2    Remote commands for administering the node's off chain reporting keys
-	//    solana  Remote commands for administering the node's solana keys
-	//    terra   Remote commands for administering the node's terra keys
+	//    solana  Remote commands for administering the node's Solana keys
+	//    terra   Remote commands for administering the node's Terra keys
 	//    vrf     Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
@@ -314,7 +314,7 @@ func ExampleRun_keys_solana() {
 	run("keys", "solana", "--help")
 	// Output:
 	// NAME:
-	//    core.test keys solana - Remote commands for administering the node's solana keys
+	//    core.test keys solana - Remote commands for administering the node's Solana keys
 	//
 	// USAGE:
 	//    core.test keys solana command [command options] [arguments...]
@@ -334,7 +334,7 @@ func ExampleRun_keys_terra() {
 	run("keys", "terra", "--help")
 	// Output:
 	// NAME:
-	//    core.test keys terra - Remote commands for administering the node's terra keys
+	//    core.test keys terra - Remote commands for administering the node's Terra keys
 	//
 	// USAGE:
 	//    core.test keys terra command [command options] [arguments...]

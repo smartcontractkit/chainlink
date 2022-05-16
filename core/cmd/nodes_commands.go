@@ -7,21 +7,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 )
 
-type NodeResource interface {
-	jsonapi.EntityNamer
-}
-
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
 // A string cli.Flag for "name" is automatically included.
-// All four types can be inferred from the NodeClient - see newNodeClient for details.
-func nodeCommand[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P](typ string, client NodeClient[N, R, P, P2], flags ...cli.Flag) cli.Command {
+func nodeCommand(typ string, client NodeClient, flags ...cli.Flag) cli.Command {
 	lower := strings.ToLower(typ)
 	return cli.Command{
 		Name:  lower,
@@ -50,13 +44,13 @@ func nodeCommand[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P](typ st
 }
 
 // NodeClient is a generic client interface for any of node.
-type NodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P] interface {
+type NodeClient interface {
 	IndexNodes(c *cli.Context) error
 	CreateNode(c *cli.Context) error
 	RemoveNode(c *cli.Context) error
 }
 
-type nodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P] struct {
+type nodeClient[N chains.Node, P TableRenderer, P2 ~[]P] struct {
 	*Client
 	path       string
 	createNode func(c *cli.Context) (N, error)
@@ -64,8 +58,8 @@ type nodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P] struct 
 
 // newNodeClient returns a new NodeClient for a particular type of chains.Node.
 // P is a TableRenderer corresponding to R, and P2 is the slice variant (type P2 []P).
-func newNodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P](c *Client, name string, createNode func(*cli.Context) (N, error)) NodeClient[N, R, P, P2] {
-	return &nodeClient[N, R, P, P2]{
+func newNodeClient[N chains.Node, P TableRenderer, P2 ~[]P](c *Client, name string, createNode func(*cli.Context) (N, error)) NodeClient {
+	return &nodeClient[N, P, P2]{
 		Client:     c,
 		path:       "/v2/nodes/" + name,
 		createNode: createNode,
@@ -73,13 +67,13 @@ func newNodeClient[N chains.Node, R NodeResource, P TableRenderer, P2 ~[]P](c *C
 }
 
 // IndexNodes returns all nodes.
-func (cli *nodeClient[N, R, P, P2]) IndexNodes(c *cli.Context) (err error) {
+func (cli *nodeClient[N, P, P2]) IndexNodes(c *cli.Context) (err error) {
 	var p P2
 	return cli.getPage(cli.path, c.Int("page"), &p)
 }
 
 // CreateNode adds a new node to the chainlink node
-func (cli *nodeClient[N, R, P, P2]) CreateNode(c *cli.Context) (err error) {
+func (cli *nodeClient[N, P, P2]) CreateNode(c *cli.Context) (err error) {
 	name := c.String("name")
 	if name == "" {
 		return cli.errorOut(errors.New("missing --name"))
@@ -109,7 +103,7 @@ func (cli *nodeClient[N, R, P, P2]) CreateNode(c *cli.Context) (err error) {
 }
 
 // RemoveNode removes a specific Node by name.
-func (cli *nodeClient[N, R, P, P2]) RemoveNode(c *cli.Context) (err error) {
+func (cli *nodeClient[N, P, P2]) RemoveNode(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("must pass the id of the node to be removed"))
 	}
