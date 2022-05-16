@@ -719,7 +719,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 		}
 
 		return nil
-	})
+	}, pg.OptReadOnlyTx())
 	if err != nil {
 		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
 	}
