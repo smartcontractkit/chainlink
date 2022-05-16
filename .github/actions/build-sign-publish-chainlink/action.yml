@@ -113,7 +113,7 @@ runs:
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
     with:
       flavor: |
-        suffix=-root
+        suffix=-root,onlatest=true
       # list of Docker images to use as base name for tags
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
@@ -145,7 +145,7 @@ runs:
       flavor: |
         latest=auto
         prefix=
-        suffix=-nonroot,onlatest=true
+        suffix=
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
 
