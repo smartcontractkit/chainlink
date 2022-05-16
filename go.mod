@@ -91,9 +91,6 @@ require (
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.0.0-20220516114104-7bb76d12796b // indirect
-)
-
-require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/99designs/keyring v1.1.6 // indirect
