@@ -59,8 +59,13 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewConfigWatcher(args relaytypes.ConfigWatcherArgs) (relaytypes.ConfigWatcher, error) {
-	return newConfigWatcher(r.lggr, r.chainSet, args)
+func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
+	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args)
+	if err != nil {
+		// Never return (*configProvider)(nil)
+		return nil, err
+	}
+	return configProvider, err
 }
 
 type configWatcher struct {
@@ -88,7 +93,7 @@ func (c *configWatcher) ContractConfigTracker() types.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.ConfigWatcherArgs) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
@@ -124,13 +129,13 @@ func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes
 	}, nil
 }
 
-func (r *Relayer) NewMedianProvider(args relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigWatcher(r.lggr, r.chainSet, args.ConfigWatcherArgs)
+func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
 	if err != nil {
 		return nil, err
 	}
-	transmitterAddress := common.HexToAddress(args.TransmitterID)
-	strategy := txm.NewQueueingTxStrategy(args.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
+	transmitterAddress := common.HexToAddress(pargs.TransmitterID)
+	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
@@ -146,7 +151,7 @@ func (r *Relayer) NewMedianProvider(args relaytypes.PluginArgs) (relaytypes.Medi
 	if err != nil {
 		return nil, err
 	}
-	medianContract, err := newMedianContract(configWatcher.contractAddress, configWatcher.chain, args.JobID, r.db, r.lggr)
+	medianContract, err := newMedianContract(configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr)
 	if err != nil {
 		return nil, err
 	}

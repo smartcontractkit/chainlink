@@ -27,12 +27,11 @@ var (
 // Its possible that the plugin config might actually be different
 // per relay type, so we pass the config directly through.
 type PluginArgs struct {
-	ConfigWatcherArgs
 	TransmitterID string
 	PluginConfig  []byte
 }
 
-type ConfigWatcherArgs struct {
+type RelayArgs struct {
 	ExternalJobID uuid.UUID
 	JobID         int32
 	ContractID    string
@@ -41,27 +40,27 @@ type ConfigWatcherArgs struct {
 
 type Relayer interface {
 	services.ServiceCtx
-	NewConfigWatcher(args ConfigWatcherArgs) (ConfigWatcher, error)
-	NewMedianProvider(args PluginArgs) (MedianProvider, error)
+	NewConfigProvider(rargs RelayArgs) (ConfigProvider, error)
+	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
 }
 
 // The bootstrap jobs only watch config.
-type ConfigWatcher interface {
+type ConfigProvider interface {
 	services.ServiceCtx
 	OffchainConfigDigester() types.OffchainConfigDigester
 	ContractConfigTracker() types.ContractConfigTracker
 }
 
-// OCR2Base provides common components for any OCR2 plugin.
+// Plugin provides common components for any OCR2 plugin.
 // It watches config and is able to transmit.
-type OCR2Base interface {
-	ConfigWatcher
+type Plugin interface {
+	ConfigProvider
 	ContractTransmitter() types.ContractTransmitter
 }
 
 // MedianProvider provides all components needed for a median OCR2 plugin.
 type MedianProvider interface {
-	OCR2Base
+	Plugin
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
 }

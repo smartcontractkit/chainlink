@@ -137,18 +137,19 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
 	var pluginOracle plugins.OraclePlugin
-	var ocr2Provider types.OCR2Base
+	var ocr2Provider types.Plugin
 	switch spec.PluginType {
 	case job.Median:
-		medianProvider, err2 := relayer.NewMedianProvider(types.PluginArgs{
-			ConfigWatcherArgs: types.ConfigWatcherArgs{
+		medianProvider, err2 := relayer.NewMedianProvider(
+			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
-			},
-			TransmitterID: spec.TransmitterID.String,
-		})
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
 		if err2 != nil {
 			return nil, err
 		}

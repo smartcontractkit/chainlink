@@ -63,13 +63,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
-	configWatcher, err := relayer.NewConfigWatcher(types.ConfigWatcherArgs{
-		JobID:       spec.ID,
-		ContractID:  spec.ContractID,
-		RelayConfig: spec.RelayConfig.Bytes(),
+	configProvider, err := relayer.NewConfigProvider(types.RelayArgs{
+		ExternalJobID: jobSpec.ExternalJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
+		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
 	lc := validate.ToLocalConfig(d.cfg, spec.AsOCR2Spec())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
@@ -84,7 +85,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	)
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:   d.peerWrapper.Peer2,
-		ContractConfigTracker: configWatcher.ContractConfigTracker(),
+		ContractConfigTracker: configProvider.ContractConfigTracker(),
 		Database:              NewDB(d.db.DB, spec.ID, d.lggr),
 		LocalConfig:           lc,
 		Logger: logger.NewOCRWrapper(d.lggr.Named("OCR").With(
@@ -93,14 +94,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 			"jobID", jobSpec.ID), true, func(msg string) {
 			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 		}),
-		OffchainConfigDigester: configWatcher.OffchainConfigDigester(),
+		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}
 	d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
 	bootstrapper, err := ocr.NewBootstrapper(bootstrapNodeArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
-	return []job.ServiceCtx{configWatcher, job.NewServiceAdapter(bootstrapper)}, nil
+	return []job.ServiceCtx{configProvider, job.NewServiceAdapter(bootstrapper)}, nil
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.
