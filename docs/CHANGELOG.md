@@ -1471,7 +1471,7 @@ for OCR jobs.
 #### BREAKING CHANGES
 
 - Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accommodate additional types of jobs using the new pipeline.
-- If `P2P_NETWORKING_STACK=V1V2`, then `P2P_BOOTSTRAP_PEERS` must also be set
+- If `P2P_NETWORKING_STACK=V1V2`, then `P2PV2_BOOTSTRAPPERS` must also be set
 
 #### V1 jobs
 

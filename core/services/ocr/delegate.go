@@ -142,7 +142,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 	}
 
-	// v1 job format does not support overriding v2 bootstrap nodes, they must be set in env var
+	// OCR1 job spec does not support overriding v2 bootstrap nodes, they must be set in env var
 	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
