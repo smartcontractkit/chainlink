@@ -79,11 +79,10 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configTracker := NewConfigTracker(r.lggr, contractABI,
-		chain.Client(),
+	configTracker := NewConfigPoller(r.lggr,
+		chain.LogPoller(),
 		contractAddress,
-		chain.Config().ChainType(),
-		chain.HeadBroadcaster())
+	)
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
@@ -104,14 +103,22 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 	}
 	transmitterAddress := common.HexToAddress(spec.TransmitterID.String)
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+	var checker txm.TransmitCheckerSpec
+	if chain.Config().OCRSimulateTransactions() {
+		checker.CheckerType = txm.TransmitCheckerTypeSimulate
+	}
 
-	contractTransmitter := NewOCRContractTransmitter(
+	contractTransmitter, err := NewOCRContractTransmitter(
 		contractAddress,
 		chain.Client(),
 		contractABI,
-		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
+		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy, checker),
+		chain.LogPoller(),
 		r.lggr,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	medianContract, err := newMedianContract(contractAddress, chain, spec.ID, r.db, r.lggr)
 	if err != nil {
@@ -145,7 +152,7 @@ type OCR2Spec struct {
 var _ services.ServiceCtx = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
-	tracker                *ConfigTracker
+	tracker                *ConfigPoller
 	offchainConfigDigester types.OffchainConfigDigester
 	contractTransmitter    *ContractTransmitter
 	plugin                 job.OCR2PluginType
@@ -156,10 +163,6 @@ type ocr2Provider struct {
 
 // Start an ethereum ocr2 provider will start the contract tracker.
 func (p ocr2Provider) Start(context.Context) error {
-	err := p.tracker.Start()
-	if err != nil {
-		return err
-	}
 	// TODO (https://app.shortcut.com/chainlinklabs/story/32017/plugin-specific-relay-interfaces):
 	// We need to break up ocr2Provider into more granular components
 	// per plugin (would require changes in solana/terra relay repos)
@@ -171,10 +174,6 @@ func (p ocr2Provider) Start(context.Context) error {
 
 // Close an ethereum ocr2 provider will close the contract tracker.
 func (p ocr2Provider) Close() error {
-	err := p.tracker.Close()
-	if err != nil {
-		return err
-	}
 	if p.plugin == job.Median && p.medianContract != nil {
 		return p.medianContract.Close()
 	}

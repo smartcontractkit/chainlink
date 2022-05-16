@@ -2,18 +2,21 @@ package evm
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ ocrtypes.ContractTransmitter = &ContractTransmitter{}
@@ -24,11 +27,13 @@ type Transmitter interface {
 }
 
 type ContractTransmitter struct {
-	contractAddress gethcommon.Address
-	contractABI     abi.ABI
-	transmitter     Transmitter
-	contractReader  contractReader
-	lggr            logger.Logger
+	contractAddress     gethcommon.Address
+	contractABI         abi.ABI
+	transmitter         Transmitter
+	transmittedEventSig common.Hash
+	contractReader      contractReader
+	lp                  logpoller.LogPoller
+	lggr                logger.Logger
 }
 
 func NewOCRContractTransmitter(
@@ -36,15 +41,23 @@ func NewOCRContractTransmitter(
 	caller contractReader,
 	contractABI abi.ABI,
 	transmitter Transmitter,
+	lp logpoller.LogPoller,
 	lggr logger.Logger,
-) *ContractTransmitter {
-	return &ContractTransmitter{
-		contractAddress: address,
-		contractABI:     contractABI,
-		transmitter:     transmitter,
-		contractReader:  caller,
-		lggr:            lggr,
+) (*ContractTransmitter, error) {
+	transmitted, ok := contractABI.Events["Transmitted"]
+	if !ok {
+		return nil, errors.New("invalid ABI, missing transmitted")
 	}
+	lp.MergeFilter([]common.Hash{transmitted.ID}, address)
+	return &ContractTransmitter{
+		contractAddress:     address,
+		contractABI:         contractABI,
+		transmitter:         transmitter,
+		transmittedEventSig: transmitted.ID,
+		lp:                  lp,
+		contractReader:      caller,
+		lggr:                lggr,
+	}, nil
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
@@ -75,22 +88,17 @@ func (oc *ContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 
 type contractReader interface {
 	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
-	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 }
 
 func parseTransmitted(log []byte) ([32]byte, uint32, error) {
-	mustType := func(ts string) abi.Type {
-		ty, _ := abi.NewType(ts, "", nil)
-		return ty
-	}
 	var args abi.Arguments = []abi.Argument{
 		{
 			Name: "configDigest",
-			Type: mustType("bytes32"),
+			Type: utils.MustAbiType("bytes32", nil),
 		},
 		{
 			Name: "epoch",
-			Type: mustType("uint32"),
+			Type: utils.MustAbiType("uint32", nil),
 		},
 	}
 	transmitted, err := args.Unpack(log)
@@ -100,6 +108,18 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 	configDigest := *abi.ConvertType(transmitted[0], new([32]byte)).(*[32]byte)
 	epoch := *abi.ConvertType(transmitted[1], new(uint32)).(*uint32)
 	return configDigest, epoch, err
+}
+
+func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller contractReader) ([]interface{}, error) {
+	input, err := contractABI.Pack(method, args...)
+	if err != nil {
+		return nil, err
+	}
+	output, err := caller.CallContract(ctx, ethereum.CallMsg{To: &addr, Data: input}, nil)
+	if err != nil {
+		return nil, err
+	}
+	return contractABI.Unpack(method, output)
 }
 
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.
@@ -118,33 +138,19 @@ func (oc *ContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 		return configDigest, epoch, nil
 	}
 
-	// Otherwise, we have to scan for the logs. First get the latest config block as a log lower bound.
-	latestConfigDetails, err := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDetails", nil, oc.contractReader)
+	// Otherwise, we have to scan for the logs.
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	configBlock := *abi.ConvertType(latestConfigDetails[1], new(uint32)).(*uint32)
-	configDigest = *abi.ConvertType(latestConfigDetails[2], new([32]byte)).(*[32]byte)
-	topics, err := abi.MakeTopics([]interface{}{oc.contractABI.Events["Transmitted"].ID})
+	latest, err := oc.lp.LatestLogByEventSigWithConfs(oc.transmittedEventSig, oc.contractAddress, 1)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// No transmissions yet
+			return configDigest, 0, nil
+		}
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	query := ethereum.FilterQuery{
-		Addresses: []gethcommon.Address{oc.contractAddress},
-		Topics:    topics,
-		FromBlock: new(big.Int).SetUint64(uint64(configBlock)),
-	}
-	logs, err := oc.contractReader.FilterLogs(ctx, query)
-	if err != nil {
-		return ocrtypes.ConfigDigest{}, 0, err
-	}
-	// No transmissions yet
-	if len(logs) == 0 {
-		return configDigest, 0, nil
-	}
-	// Logs come back ordered https://github.com/ethereum/go-ethereum/blob/d78590560d0107e727a44d0eea088eeb4d280bab/eth/filters/filter.go#L215
-	// If there is a transmission, we take the latest one
-	return parseTransmitted(logs[len(logs)-1].Data)
+	return parseTransmitted(latest.Data)
 }
 
 // FromAccount returns the account from which the transmitter invokes the contract
