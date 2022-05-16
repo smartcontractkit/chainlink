@@ -139,3 +139,17 @@ func (rw *RegistryWrapper) GetUpkeepIdFromReceivedLog(broadcast log.Broadcast) (
 		return nil, newUnsupportedVersionError("GetUpkeepIdFromReceivedLog", rw.Version)
 	}
 }
+
+func (rw *RegistryWrapper) GetUpkeepIdFromMigratedLog(broadcast log.Broadcast) (*big.Int, error) {
+	// Only supported on 1.2
+	switch rw.Version {
+	case RegistryVersion_1_2:
+		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepMigrated)
+		if !ok {
+			return nil, errors.Errorf("expected UpkeepMigrated log but got %T", broadcastedLog)
+		}
+		return broadcastedLog.Id, nil
+	default:
+		return nil, newUnsupportedVersionError("GetUpkeepIdFromMigratedLog", rw.Version)
+	}
+}

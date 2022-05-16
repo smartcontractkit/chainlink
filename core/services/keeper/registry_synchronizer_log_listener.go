@@ -55,6 +55,9 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	case *registry1_2.KeeperRegistryUpkeepReceived:
 		wasOverCapacity = rs.mailRoom.mbUpkeepReceived.Deliver(broadcast)
 		mailboxName = "mbUpkeepReceived"
+	case *registry1_2.KeeperRegistryUpkeepMigrated:
+		wasOverCapacity = rs.mailRoom.mbUpkeepMigrated.Deliver(broadcast)
+		mailboxName = "mbUpkeepMigrated"
 	default:
 		svcLogger.Warn("unexpected log type")
 	}

@@ -13,11 +13,12 @@ import (
 
 func (rs *RegistrySynchronizer) processLogs() {
 	wg := sync.WaitGroup{}
-	wg.Add(6)
+	wg.Add(7)
 	go rs.handleSyncRegistryLog(wg.Done)
 	go rs.handleUpkeepCanceledLogs(wg.Done)
 	go rs.handleUpkeepRegisteredLogs(wg.Done)
 	go rs.handleUpkeepReceivedLogs(wg.Done)
+	go rs.handleUpkeepMigratedLogs(wg.Done)
 	go rs.handleUpkeepPerformedLogs(wg.Done)
 	go rs.handleUpkeepGasLimitSetLogs(wg.Done)
 	wg.Wait()
@@ -265,5 +266,46 @@ func (rs *RegistrySynchronizer) HandleUpkeepReceived(broadcast log.Broadcast, re
 	}
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.Error(errors.Wrapf(err, "unable to mark KeeperRegistryUpkeepReceived log as consumed, log: %v", broadcast.String()))
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepMigratedLogs(done func()) {
+	defer done()
+	for {
+		broadcast, exists := rs.mailRoom.mbUpkeepMigrated.Retrieve()
+		if !exists {
+			return
+		}
+		rs.handleUpkeepMigrated(broadcast)
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepMigrated(broadcast log.Broadcast) {
+	txHash := broadcast.RawLog().TxHash.Hex()
+	rs.logger.Debugw("processing UpkeepMigrated log", "txHash", txHash)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to check if log was consumed"))
+		return
+	}
+	if was {
+		return
+	}
+
+	migratedID, err := rs.registryWrapper.GetUpkeepIdFromMigratedLog(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "Unable to fetch migrated upkeep ID from log"))
+		return
+	}
+
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(migratedID)})
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to batch delete upkeeps"))
+		return
+	}
+	rs.logger.Debugw(fmt.Sprintf("deleted %v upkeep registrations", affected), "txHash", txHash)
+
+	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
+		rs.logger.Error(errors.Wrapf(err, "unable to mark KeeperRegistryUpkeepMigrated log as consumed,  log: %v", broadcast.String()))
 	}
 }
