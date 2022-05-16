@@ -209,7 +209,7 @@ func (s *scheduler) Run() {
 			s.logger.Panicf("Vars.Set error: %v", err)
 		}
 
-		// if the task was marked as fail early, and the result is a fail
+		// if the task was marked as failEarly, and the result is a fail
 		if result.Result.Error != nil && result.Task.Base().FailEarly {
 			// drain remaining jobs (continue the loop until waiting = 0) then exit
 			s.exiting = true

@@ -141,6 +141,9 @@ func TestORM(t *testing.T) {
 	require.Equal(t, 1, len(logs))
 	assert.Equal(t, []byte("hello"), logs[0].Data)
 
+	logs, err = o1.SelectLogsByBlockRangeFilter(1, 1, common.HexToAddress("0x1234"), topic[:])
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(logs))
 	logs, err = o1.SelectLogsByBlockRangeFilter(10, 10, common.HexToAddress("0x1234"), topic[:])
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))

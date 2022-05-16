@@ -105,7 +105,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	}
 }
 
-func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
+func getCurrentSessionID(ctx *gin.Context) (string, error) {
 	session := sessions.Default(ctx)
 	sessionID, ok := session.Get(webauth.SessionIDKey).(string)
 	if !ok {
@@ -114,19 +114,16 @@ func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 	return sessionID, nil
 }
 
-func (c *UserController) saveNewPassword(user *clsession.User, newPassword string) error {
-	return c.App.SessionORM().SetPassword(user, newPassword)
-}
-
 func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.User, newPassword string) error {
-	sessionID, err := c.getCurrentSessionID(ctx)
+	sessionID, err := getCurrentSessionID(ctx)
 	if err != nil {
 		return err
 	}
-	if err := c.App.SessionORM().ClearNonCurrentSessions(sessionID); err != nil {
+	orm := c.App.SessionORM()
+	if err := orm.ClearNonCurrentSessions(sessionID); err != nil {
 		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
 	}
-	if err := c.saveNewPassword(user, newPassword); err != nil {
+	if err := orm.SetPassword(user, newPassword); err != nil {
 		return fmt.Errorf("failed to update current user password: %+v", err)
 	}
 	return nil

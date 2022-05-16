@@ -73,7 +73,7 @@ check_upkeep_tx          [type=ethcall
                           gasTipCap="$(jobSpec.gasTipCap)"
                           gasFeeCap="$(jobSpec.gasFeeCap)"
                           extractRevertReason=true
-													evmChainID="$(jobSpec.evmChainID)"
+                          evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode
@@ -81,15 +81,27 @@ decode_check_upkeep_tx   [type=ethabidecode
 encode_perform_upkeep_tx [type=ethabiencode
                           abi="performUpkeep(uint256 id, bytes calldata performData)"
                           data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
+simulate_perform_upkeep_tx  [type=ethcall
+                          extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
+                          contract="$(jobSpec.contractAddress)"
+                          from="$(jobSpec.fromAddress)"
+                          gas="$(jobSpec.performUpkeepGasLimit)"
+                          data="$(encode_perform_upkeep_tx)"]
+decode_check_perform_tx  [type=ethabidecode
+                          abi="bool success"]
+check_success            [type=conditional
+                          failEarly=true
+                          data="$(decode_check_perform_tx.success)"]
 perform_upkeep_tx        [type=ethtx
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
                           from="[$(jobSpec.fromAddress)]"
                           evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.prettyID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx
 """
 `,
 			},

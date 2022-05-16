@@ -116,8 +116,7 @@ func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {
 	return logs, nil
 }
 
-// SelectLogsByBlockRangeFilter finds the latest logs by block.
-// Assumes that logs inserted later for a given block are "more" canonical.
+// SelectLogsByBlockRangeFilter finds the logs in a given block range.
 func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Address, eventSig []byte, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 	q := o.q.WithOpts(qopts...)

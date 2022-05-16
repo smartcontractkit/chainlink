@@ -149,31 +149,6 @@ func (l *zapLogger) Named(name string) Logger {
 	return &newLogger
 }
 
-func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
-	newLogger := *l
-	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
-	newCore, errWriter, err := newLogger.config.newCore()
-	if err != nil {
-		return nil, err
-	}
-	cores := []zapcore.Core{
-		// The console core is what we want to be unique per root, so we spin a new one here
-		newCore,
-	}
-	if newLogger.config.local.DebugLogsToDisk() {
-		diskCore, diskErr := newLogger.config.newDiskCore()
-		if diskErr != nil {
-			return nil, diskErr
-		}
-		cores = append(cores, diskCore)
-	}
-	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter), zap.AddCallerSkip(l.callerSkip))
-
-	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
-
-	return &newLogger, err
-}
-
 func (l *zapLogger) Helper(skip int) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.sugaredHelper(skip)

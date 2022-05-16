@@ -71,6 +71,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
 	GlobalEvmLogBackfillBatchSize           null.Int
+	GlobalEvmLogPollInterval                *time.Duration
 	GlobalEvmMaxGasPriceWei                 *big.Int
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
@@ -106,6 +107,7 @@ type GeneralConfigOverrides struct {
 	FeatureFeedsManager       null.Bool
 	FeatureOffchainReporting  null.Bool
 	FeatureOffchainReporting2 null.Bool
+	FeatureLogPoller          null.Bool
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
@@ -366,6 +368,13 @@ func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
 	return c.GeneralConfig.FeatureOffchainReporting2()
 }
 
+func (c *TestGeneralConfig) FeatureLogPoller() bool {
+	if c.Overrides.FeatureLogPoller.Valid {
+		return c.Overrides.FeatureLogPoller.Bool
+	}
+	return c.GeneralConfig.FeatureLogPoller()
+}
+
 // TriggerFallbackDBPollInterval returns the test configured value for TriggerFallbackDBPollInterval
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
@@ -600,6 +609,13 @@ func (c *TestGeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 		return uint32(c.Overrides.GlobalEvmLogBackfillBatchSize.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
+}
+
+func (c *TestGeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	if c.Overrides.GlobalEvmLogPollInterval != nil {
+		return *c.Overrides.GlobalEvmLogPollInterval, true
+	}
+	return c.GeneralConfig.GlobalEvmLogPollInterval()
 }
 
 func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
