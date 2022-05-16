@@ -68,20 +68,16 @@ type configWatcher struct {
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester types.OffchainConfigDigester
-	configTracker    *ConfigTracker
+	configPoller     *ConfigPoller
 	chain            evm.Chain
 }
 
 func (c *configWatcher) Start(ctx context.Context) error {
-	return c.StartOnce("EVMConfigWatcher", func() error {
-		return c.configTracker.Start()
-	})
+	return nil
 }
 
 func (c *configWatcher) Close() error {
-	return c.StopOnce("EVMConfigWatcher", func() error {
-		return c.configTracker.Close()
-	})
+	return nil
 }
 
 func (c *configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
@@ -89,7 +85,7 @@ func (c *configWatcher) OffchainConfigDigester() types.OffchainConfigDigester {
 }
 
 func (c *configWatcher) ContractConfigTracker() types.ContractConfigTracker {
-	return c.configTracker
+	return c.configPoller
 }
 
 func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.ConfigWatcherArgs) (*configWatcher, error) {
@@ -110,7 +106,7 @@ func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configTracker := NewConfigPoller(r.lggr,
+	configPoller := NewConfigPoller(lggr,
 		chain.LogPoller(),
 		contractAddress,
 	)
@@ -122,7 +118,7 @@ func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes
 	return &configWatcher{
 		contractAddress:  contractAddress,
 		contractABI:      contractABI,
-		configTracker:    configTracker,
+		configPoller:     configPoller,
 		offchainDigester: offchainConfigDigester,
 		chain:            chain,
 	}, nil
@@ -136,19 +132,23 @@ func (r *Relayer) NewMedianProvider(args relaytypes.PluginArgs) (relaytypes.Medi
 	transmitterAddress := common.HexToAddress(args.TransmitterID)
 	strategy := txm.NewQueueingTxStrategy(args.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
-	if chain.Config().OCRSimulateTransactions() {
+	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
-	contractTransmitter := NewOCRContractTransmitter(
+	contractTransmitter, err := NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
 		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, configWatcher.chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
+		configWatcher.chain.LogPoller(),
 		r.lggr,
 	)
+	if err != nil {
+		return nil, err
+	}
 	medianContract, err := newMedianContract(configWatcher.contractAddress, configWatcher.chain, args.JobID, r.db, r.lggr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error during median contract setup")
+		return nil, err
 	}
 	return &medianProvider{
 		configWatcher:       configWatcher,
