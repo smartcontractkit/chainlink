@@ -110,11 +110,10 @@ func newConfigWatcher(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configTracker := NewConfigTracker(lggr, contractABI,
-		chain.Client(),
+	configTracker := NewConfigPoller(r.lggr,
+		chain.LogPoller(),
 		contractAddress,
-		chain.Config().ChainType(),
-		chain.HeadBroadcaster())
+	)
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
@@ -136,7 +135,10 @@ func (r *Relayer) NewMedianProvider(args relaytypes.PluginArgs) (relaytypes.Medi
 	}
 	transmitterAddress := common.HexToAddress(args.TransmitterID)
 	strategy := txm.NewQueueingTxStrategy(args.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
-
+	var checker txm.TransmitCheckerSpec
+	if chain.Config().OCRSimulateTransactions() {
+		checker.CheckerType = txm.TransmitCheckerTypeSimulate
+	}
 	contractTransmitter := NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
