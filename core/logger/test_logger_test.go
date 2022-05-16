@@ -23,13 +23,6 @@ func TestTestLogger(t *testing.T) {
 			require.Contains(t, logs, c)
 		}
 	}
-	requireNotContains := func(ns ...string) {
-		t.Helper()
-		logs := MemoryLogTestingOnly().String()
-		for _, n := range ns {
-			require.NotContains(t, logs, n)
-		}
-	}
 
 	const (
 		testName    = "TestTestLogger"
@@ -45,14 +38,12 @@ func TestTestLogger(t *testing.T) {
 		key, value     = "key", "value"
 		omittedMessage = "Don't log me"
 	)
-	srvLgr, err := lgr.Named(serviceName).NewRootLogger(zapcore.DebugLevel)
-	require.NoError(t, err)
+	srvLgr := lgr.Named(serviceName)
+	srvLgr.SetLogLevel(zapcore.DebugLevel)
 	srvLgr.Debugw(serviceMessage, key, value)
 	// [DEBUG]  Service message		logger/test_logger_test.go:35    key=value logger=1.0.0@sHaValue.TestLogger.ServiceName
 	requireContains("[DEBUG]", serviceMessage, fmt.Sprintf("%s=%s", key, value),
 		fmt.Sprintf("logger=%s.%s.%s", verShaNameStatic(), testName, serviceName))
-	lgr.Debugw(omittedMessage) // omitted since still Info level
-	requireNotContains(omittedMessage)
 
 	const (
 		workerName           = "WorkerName"

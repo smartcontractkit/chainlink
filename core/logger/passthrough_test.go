@@ -37,7 +37,6 @@ func TestLogger_Passthrough(t *testing.T) {
 
 			l.With()
 			l.Named("xxx")
-			l.NewRootLogger(zapcore.DebugLevel)
 			l.SetLogLevel(zapcore.DebugLevel)
 
 			l.Trace()
@@ -96,7 +95,6 @@ func setupMockLogger() *MockLogger {
 	ml.On("Helper", 1).Return(ml).Once()
 	ml.On("With", mock.Anything, mock.Anything).Return(ml)
 	ml.On("Named", "xxx").Return(ml).Once()
-	ml.On("NewRootLogger", zapcore.DebugLevel).Return(ml, nil).Once()
 	ml.On("SetLogLevel", zapcore.DebugLevel).Once()
 
 	ml.On("Trace").Once()

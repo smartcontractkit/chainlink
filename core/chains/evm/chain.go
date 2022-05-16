@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -70,13 +69,6 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
-	headTrackerLL := opts.Config.LogLevel().String()
-	db := opts.DB
-	if db != nil {
-		if ll, ok := logger.NewORM(db, l).GetServiceLogLevel(logger.HeadTracker); ok {
-			headTrackerLL = ll
-		}
-	}
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
@@ -90,23 +82,16 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		client = opts.GenEthClient(dbchain)
 	}
 
+	db := opts.DB
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if !cfg.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		var ll zapcore.Level
-		if err2 := ll.UnmarshalText([]byte(headTrackerLL)); err2 != nil {
-			return nil, err2
-		}
-		headTrackerLogger, err2 := l.NewRootLogger(ll)
-		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
-		}
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
-		headSaver = headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, headBroadcaster, headSaver)
+		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
+		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver)
 	} else {
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
