@@ -33,13 +33,14 @@ type Chain interface {
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
+	UpdateConfig(*types.ChainCfg)
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
 	TxManager() txmgr.TxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
-	LogPoller() *logpoller.LogPoller
+	LogPoller() logpoller.LogPoller
 }
 
 var _ Chain = &chain{}
@@ -54,7 +55,7 @@ type chain struct {
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
 	logBroadcaster  log.Broadcaster
-	logPoller       *logpoller.LogPoller
+	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
 	keyStore        keystore.Eth
 }
@@ -65,7 +66,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID.String())
 	}
-	cfg := evmconfig.NewChainScopedConfig(chainID, dbchain.Cfg, opts.ORM, l, opts.Config)
+	cfg := evmconfig.NewChainScopedConfig(chainID, *dbchain.Cfg, opts.ORM, l, opts.Config)
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
@@ -110,7 +111,10 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
-	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	if opts.GenLogPoller != nil {
+		logPoller = opts.GenLogPoller(dbchain)
+	}
 
 	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
@@ -280,8 +284,9 @@ func (c *chain) Healthy() (merr error) {
 func (c *chain) ID() *big.Int                             { return c.id }
 func (c *chain) Client() evmclient.Client                 { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
+func (c *chain) UpdateConfig(cfg *types.ChainCfg)         { c.cfg.Configure(*cfg) }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
-func (c *chain) LogPoller() *logpoller.LogPoller          { return c.logPoller }
+func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
 func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }

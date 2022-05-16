@@ -207,9 +207,12 @@ export const SupportedChainsCard = withStyles(styles)(
               fluxMonitorEnabled: values.fluxMonitorEnabled,
               ocr1Enabled: values.ocr1Enabled,
               ocr1IsBootstrap: values.ocr1IsBootstrap,
-              ocr1Multiaddr: values.ocr1Multiaddr,
-              ocr1P2PPeerID: values.ocr1P2PPeerID,
-              ocr1KeyBundleID: values.ocr1KeyBundleID,
+              ocr1Multiaddr:
+                values.ocr1Multiaddr !== '' ? values.ocr1Multiaddr : null,
+              ocr1P2PPeerID:
+                values.ocr1P2PPeerID !== '' ? values.ocr1P2PPeerID : null,
+              ocr1KeyBundleID:
+                values.ocr1KeyBundleID != '' ? values.ocr1KeyBundleID : null,
               ocr2Enabled: false, // We don't want to support OCR2 in the UI yet.
             },
           },
@@ -254,7 +257,6 @@ export const SupportedChainsCard = withStyles(styles)(
     }
 
     const handleUpdateSubmit = async (values: FormValues) => {
-      console.log('handleUpdateSubmit')
       if (!editCfg) {
         return
       }
@@ -269,9 +271,12 @@ export const SupportedChainsCard = withStyles(styles)(
               fluxMonitorEnabled: values.fluxMonitorEnabled,
               ocr1Enabled: values.ocr1Enabled,
               ocr1IsBootstrap: values.ocr1IsBootstrap,
-              ocr1Multiaddr: values.ocr1Multiaddr,
-              ocr1P2PPeerID: values.ocr1P2PPeerID,
-              ocr1KeyBundleID: values.ocr1KeyBundleID,
+              ocr1Multiaddr:
+                values.ocr1Multiaddr !== '' ? values.ocr1Multiaddr : null,
+              ocr1P2PPeerID:
+                values.ocr1P2PPeerID !== '' ? values.ocr1P2PPeerID : null,
+              ocr1KeyBundleID:
+                values.ocr1KeyBundleID != '' ? values.ocr1KeyBundleID : null,
               ocr2Enabled: false, // We don't want to support OCR2 in the UI yet.
             },
           },

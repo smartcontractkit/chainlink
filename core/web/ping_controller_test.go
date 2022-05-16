@@ -51,7 +51,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	err = app.BridgeORM().CreateExternalInitiator(ei)
 	require.NoError(t, err)
 
-	url := app.Config.ClientNodeURL() + "/v2/ping"
+	url := app.Server.URL + "/v2/ping"
 	request, err := http.NewRequest("GET", url, nil)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
@@ -75,7 +75,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	url := app.Config.ClientNodeURL() + "/v2/ping"
+	url := app.Server.URL + "/v2/ping"
 	resp, err := client.Get(url)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)

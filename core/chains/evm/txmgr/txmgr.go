@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -112,7 +110,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller *logpoller.LogPoller) *Txm {
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm {
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
@@ -433,24 +431,7 @@ func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction
 	if err = signedTx.EncodeRLP(rlp); err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
-	var hash common.Hash
-	hash, err = signedTxHash(signedTx, c.config.ChainType())
-	if err != nil {
-		return hash, nil, err
-	}
-	return hash, rlp.Bytes(), nil
-}
-
-func signedTxHash(signedTx *gethTypes.Transaction, chainType config.ChainType) (hash common.Hash, err error) {
-	if chainType == config.ChainExChain {
-		hash, err = exchainutils.LegacyHash(signedTx)
-		if err != nil {
-			return hash, errors.Wrap(err, "error getting signed tx hash from exchain")
-		}
-	} else {
-		hash = signedTx.Hash()
-	}
-	return hash, nil
+	return signedTx.Hash(), rlp.Bytes(), nil
 }
 
 // send broadcasts the transaction to the ethereum network, writes any relevant

@@ -55,10 +55,10 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
 		})
 		t.Run("is not allowed to set gas price to above EvmMaxGasPriceWei", func(t *testing.T) {
-			assert.Equal(t, big.NewInt(5000000000000), cfg.EvmMaxGasPriceWei())
+			assert.Equal(t, big.NewInt(100000000000000), cfg.EvmMaxGasPriceWei())
 
 			err := cfg.SetEvmGasPriceDefault(big.NewInt(999999999999999))
-			assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 5000000000000")
+			assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 100000000000000")
 
 			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
 		})
@@ -73,7 +73,7 @@ func TestChainScopedConfig(t *testing.T) {
 		})
 
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, big.NewInt(5000000000000), cfg.KeySpecificMaxGasPriceWei(addr))
+			assert.Equal(t, big.NewInt(100000000000000), cfg.KeySpecificMaxGasPriceWei(addr))
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {

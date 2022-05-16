@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "../KeeperCompatible.sol";
-import "../VRFConsumerBaseV2.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
+import "./KeeperCompatible.sol";
+import "./VRFConsumerBaseV2.sol";
+import "./interfaces/VRFCoordinatorV2Interface.sol";
 
 /**
  * @title KeepersVRFConsumer

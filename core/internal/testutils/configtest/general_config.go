@@ -38,12 +38,10 @@ var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval               *time.Duration
-	AdminCredentialsFile                    null.String
 	AdvisoryLockID                          null.Int
 	AllowOrigins                            null.String
 	BlockBackfillDepth                      null.Int
 	BlockBackfillSkip                       null.Bool
-	ClientNodeURL                           null.String
 	DatabaseURL                             null.String
 	DatabaseLockingMode                     null.String
 	DefaultChainID                          *big.Int
@@ -73,6 +71,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
 	GlobalEvmLogBackfillBatchSize           null.Int
+	GlobalEvmLogPollInterval                *time.Duration
 	GlobalEvmMaxGasPriceWei                 *big.Int
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
@@ -108,6 +107,7 @@ type GeneralConfigOverrides struct {
 	FeatureFeedsManager       null.Bool
 	FeatureOffchainReporting  null.Bool
 	FeatureOffchainReporting2 null.Bool
+	FeatureLogPoller          null.Bool
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
@@ -258,12 +258,12 @@ func (c *TestGeneralConfig) SetRootDir(dir string) {
 	c.rootdir = dir
 }
 
-func (c *TestGeneralConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(2 * time.Minute)
-}
-
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
+}
+
+func (c *TestGeneralConfig) SessionTimeout() models.Duration {
+	return models.MustMakeDuration(2 * time.Minute)
 }
 
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
@@ -322,13 +322,6 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	return "txdb"
 }
 
-func (c *TestGeneralConfig) ClientNodeURL() string {
-	if c.Overrides.ClientNodeURL.Valid {
-		return c.Overrides.ClientNodeURL.String
-	}
-	return c.GeneralConfig.ClientNodeURL()
-}
-
 func (c *TestGeneralConfig) DatabaseURL() url.URL {
 	if c.Overrides.DatabaseURL.Valid {
 		uri, err := url.Parse(c.Overrides.DatabaseURL.String)
@@ -375,6 +368,13 @@ func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
 	return c.GeneralConfig.FeatureOffchainReporting2()
 }
 
+func (c *TestGeneralConfig) FeatureLogPoller() bool {
+	if c.Overrides.FeatureLogPoller.Valid {
+		return c.Overrides.FeatureLogPoller.Bool
+	}
+	return c.GeneralConfig.FeatureLogPoller()
+}
+
 // TriggerFallbackDBPollInterval returns the test configured value for TriggerFallbackDBPollInterval
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
@@ -410,13 +410,6 @@ func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
 		return c.Overrides.LogFileMaxBackups.Int64
 	}
 	return int64(c.GeneralConfig.LogFileMaxBackups())
-}
-
-func (c *TestGeneralConfig) AdminCredentialsFile() string {
-	if c.Overrides.AdminCredentialsFile.Valid {
-		return c.Overrides.AdminCredentialsFile.String
-	}
-	return c.GeneralConfig.AdminCredentialsFile()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
@@ -616,6 +609,13 @@ func (c *TestGeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 		return uint32(c.Overrides.GlobalEvmLogBackfillBatchSize.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
+}
+
+func (c *TestGeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	if c.Overrides.GlobalEvmLogPollInterval != nil {
+		return *c.Overrides.GlobalEvmLogPollInterval, true
+	}
+	return c.GeneralConfig.GlobalEvmLogPollInterval()
 }
 
 func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {

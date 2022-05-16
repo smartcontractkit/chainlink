@@ -29,6 +29,11 @@ import (
 	// anything from "github.com/smartcontractkit/chainlink/core"
 )
 
+const (
+	// Password just a password we use everywhere for testing
+	Password = "p4SsW0rD1!@#_"
+)
+
 // FixtureChainID matches the chain always added by fixtures.sql
 // It is set to 0 since no real chain ever has this ID and allows a virtual
 // "test" chain ID to be used without clashes
@@ -110,7 +115,7 @@ func Context(t *testing.T) (ctx context.Context) {
 }
 
 // MustParseURL parses the URL or fails the test
-func MustParseURL(t *testing.T, input string) *url.URL {
+func MustParseURL(t testing.TB, input string) *url.URL {
 	u, err := url.Parse(input)
 	require.NoError(t, err)
 	return u

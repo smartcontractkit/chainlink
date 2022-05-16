@@ -28,7 +28,7 @@ func TestClient_IndexSolanaChains(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := testutils.Context(t)
-	chain, err := sol.Add(ctx, solanatest.RandomChainID(), db.ChainCfg{})
+	chain, err := sol.Add(ctx, solanatest.RandomChainID(), nil)
 	require.NoError(t, err)
 
 	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))
@@ -78,7 +78,7 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	solanaChainID := solanatest.RandomChainID()
-	_, err = sol.Add(ctx, solanaChainID, db.ChainCfg{})
+	_, err = sol.Add(ctx, solanaChainID, nil)
 	require.NoError(t, err)
 	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 		TxTimeout:         &hour,
 	}
 	ctx := testutils.Context(t)
-	_, err = sol.Add(ctx, solanaChainID, original)
+	_, err = sol.Add(ctx, solanaChainID, &original)
 	require.NoError(t, err)
 	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)

@@ -131,7 +131,7 @@ func setChainSpecificConfigDefaultSets() {
 		linkContractAddress:                   "",
 		logBackfillBatchSize:                  100,
 		logPollInterval:                       15 * time.Second,
-		maxGasPriceWei:                        *assets.GWei(5000),
+		maxGasPriceWei:                        *assets.GWei(100000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
 		minGasPriceWei:                        *assets.GWei(1),
@@ -280,6 +280,7 @@ func setChainSpecificConfigDefaultSets() {
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
+	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.minRequiredOutgoingConfirmations = 2
@@ -329,10 +330,7 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
 	// OKExChain
-	// (stubbed so that the ChainType is autoset for known IDs)
 	okxMainnet := fallbackDefaultSet
-	okxMainnet.chainType = config.ChainExChain
-
 	okxTestnet := okxMainnet
 
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)

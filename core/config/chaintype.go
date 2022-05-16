@@ -6,7 +6,6 @@ type ChainType string
 //nolint
 const (
 	ChainArbitrum ChainType = "arbitrum"
-	ChainExChain  ChainType = "exchain"
 	ChainOptimism ChainType = "optimism"
 	ChainXDai     ChainType = "xdai"
 )
@@ -14,7 +13,7 @@ const (
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainExChain, ChainOptimism, ChainXDai:
+	case "", ChainArbitrum, ChainOptimism, ChainXDai:
 		return true
 	}
 	return false
@@ -27,7 +26,7 @@ func (c ChainType) IsL2() bool {
 	case ChainArbitrum, ChainOptimism:
 		return true
 
-	case ChainXDai, ChainExChain:
+	case ChainXDai:
 		fallthrough
 	default:
 		return false
