@@ -709,7 +709,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := "SELECT * FROM jobs WHERE id = $1 LIMIT 1"
-		err = tx.Get(jb, stmt, id)
+		err = tx.Get(&jb, stmt, id)
 		if err != nil {
 			return errors.Wrap(err, "failed to load job")
 		}
