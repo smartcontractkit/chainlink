@@ -21,7 +21,7 @@ import (
 // The Median struct holds parameters needed to run a Median plugin.
 type Median struct {
 	jb             job.Job
-	ocr2Provider   types.OCR2ProviderCtx
+	ocr2Provider   types.MedianProvider
 	pipelineRunner pipeline.Runner
 	runResults     chan pipeline.Run
 	lggr           logger.Logger
@@ -33,7 +33,7 @@ type Median struct {
 var _ plugins.OraclePlugin = &Median{}
 
 // NewMedian parses the arguments and returns a new Median struct.
-func NewMedian(jb job.Job, ocr2Provider types.OCR2ProviderCtx, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (*Median, error) {
+func NewMedian(jb job.Job, ocr2Provider types.MedianProvider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (*Median, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {

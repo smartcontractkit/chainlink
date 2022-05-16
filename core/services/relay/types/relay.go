@@ -13,32 +13,54 @@ import (
 type Network string
 
 var (
-	EVM    Network = "evm"
-	Solana Network = "solana"
-	Terra  Network = "terra"
+	EVM             Network = "evm"
+	Solana          Network = "solana"
+	Terra           Network = "terra"
+	SupportedRelays         = map[Network]struct{}{
+		EVM:    {},
+		Solana: {},
+		Terra:  {},
+	}
 )
 
-// RelayerCtx represents a relayer
-type RelayerCtx interface {
-	services.ServiceCtx
-	// NewOCR2Provider is generic for all OCR2 plugins on the given chain.
-	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error)
-	// TODO: Will need some CCIP plugin providers for chain specific implementations
-	// of request reading and tracking report status on dest chain.
-	// For now, the ocr2/plugins/ccip is EVM specific.
+// PluginArgs are the args required to create any OCR2 plugin components.
+// Its possible that the plugin config might actually be different
+// per relay type, so we pass the config directly through.
+type PluginArgs struct {
+	TransmitterID string
+	PluginConfig  []byte
 }
 
-// OCR2ProviderCtx contains methods needed for job.OCR2OracleSpec functionality
-type OCR2ProviderCtx interface {
+type RelayArgs struct {
+	ExternalJobID uuid.UUID
+	JobID         int32
+	ContractID    string
+	RelayConfig   []byte
+}
+
+type Relayer interface {
 	services.ServiceCtx
-	ContractTransmitter() types.ContractTransmitter
-	ContractConfigTracker() types.ContractConfigTracker
+	NewConfigProvider(rargs RelayArgs) (ConfigProvider, error)
+	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
+}
+
+// The bootstrap jobs only watch config.
+type ConfigProvider interface {
+	services.ServiceCtx
 	OffchainConfigDigester() types.OffchainConfigDigester
-	OCR2MedianProvider
+	ContractConfigTracker() types.ContractConfigTracker
 }
 
-// OCR2MedianProvider contains methods needed for the median.Median plugin
-type OCR2MedianProvider interface {
+// Plugin provides common components for any OCR2 plugin.
+// It watches config and is able to transmit.
+type Plugin interface {
+	ConfigProvider
+	ContractTransmitter() types.ContractTransmitter
+}
+
+// MedianProvider provides all components needed for a median OCR2 plugin.
+type MedianProvider interface {
+	Plugin
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
 }
