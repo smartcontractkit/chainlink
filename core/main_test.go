@@ -160,7 +160,6 @@ func ExampleRun_config() {
 	//    list         Show the node's environment variables
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
-	//    logpkg       Set package specific logging
 	//    logsql       Enable/disable sql statement logging
 	//
 	// OPTIONS:

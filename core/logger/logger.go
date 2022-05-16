@@ -63,10 +63,6 @@ type Logger interface {
 	//   b := a.Named("b") // logger=a.b
 	Named(name string) Logger
 
-	// NewRootLogger creates a new root Logger with an independent log level
-	// unaffected by upstream calls to SetLogLevel.
-	NewRootLogger(lvl zapcore.Level) (Logger, error)
-
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
 
@@ -128,14 +124,6 @@ const (
 	FluxMonitor     = "FluxMonitor"
 	Keeper          = "Keeper"
 )
-
-func GetLogServices() []string {
-	return []string{
-		HeadTracker,
-		FluxMonitor,
-		Keeper,
-	}
-}
 
 // newZapConfigProd returns a new production zap.Config.
 func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
