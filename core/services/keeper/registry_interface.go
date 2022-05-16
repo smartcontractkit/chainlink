@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -18,7 +19,8 @@ import (
 type RegistryVersion int32
 
 const (
-	RegistryVersion_1_0 RegistryVersion = iota
+	ActiveUpkeepIDBatchSize int64           = 10000
+	RegistryVersion_1_0     RegistryVersion = iota
 	RegistryVersion_1_1
 	RegistryVersion_1_2
 )
@@ -119,8 +121,21 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		}
 		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
-		// TODO (sc-37024): Get active upkeep IDs from contract in batches
-		return rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(0), big.NewInt(0))
+		activeUpkeepIDs := make([]*big.Int, 0)
+		for {
+			startIndex := int64(len(activeUpkeepIDs))
+			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(ActiveUpkeepIDBatchSize))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %v to %v", startIndex, ActiveUpkeepIDBatchSize)
+			}
+			activeUpkeepIDs = append(activeUpkeepIDs, activeUpkeepIDBatch...)
+
+			if int64(len(activeUpkeepIDBatch)) < ActiveUpkeepIDBatchSize {
+				break
+			}
+		}
+
+		return activeUpkeepIDs, nil
 	default:
 		return nil, newUnsupportedVersionError("GetActiveUpkeepIDs", rw.Version)
 	}
