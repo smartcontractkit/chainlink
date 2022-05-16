@@ -24,6 +24,8 @@ type MailRoom struct {
 	mbSyncRegistry      *utils.Mailbox[log.Broadcast]
 	mbUpkeepPerformed   *utils.Mailbox[log.Broadcast]
 	mbUpkeepRegistered  *utils.Mailbox[log.Broadcast]
+	mbUpkeepReceived    *utils.Mailbox[log.Broadcast]
+	mbUpkeepMigrated    *utils.Mailbox[log.Broadcast]
 	mbUpkeepGasLimitSet *utils.Mailbox[log.Broadcast]
 }
 
@@ -64,6 +66,8 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		mbSyncRegistry:      utils.NewMailbox[log.Broadcast](1),
 		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](3000),
 		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepReceived:    utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepMigrated:    utils.NewMailbox[log.Broadcast](500),
 		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](500),
 	}
 	return &RegistrySynchronizer{
