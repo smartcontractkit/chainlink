@@ -733,24 +733,3 @@ func TestClient_SetLogConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
 }
-
-func TestClient_SetPkgLogLevel(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	logPkg := logger.HeadTracker
-	logLevel := "warn"
-	set := flag.NewFlagSet("logpkg", 0)
-	set.String("pkg", logPkg, "")
-	set.String("level", logLevel, "")
-	c := cli.NewContext(nil, set, nil)
-
-	err := client.SetLogPkg(c)
-	require.NoError(t, err)
-
-	level, ok := logger.NewORM(app.GetSqlxDB(), logger.TestLogger(t)).GetServiceLogLevel(logPkg)
-	require.True(t, ok)
-	assert.Equal(t, logLevel, level)
-}

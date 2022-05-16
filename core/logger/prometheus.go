@@ -82,21 +82,6 @@ func (s *prometheusLogger) Named(name string) Logger {
 	}
 }
 
-func (s *prometheusLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
-	h, err := s.h.NewRootLogger(lvl)
-	if err != nil {
-		return nil, err
-	}
-	return &prometheusLogger{
-		h:           h,
-		warnCnt:     s.warnCnt,
-		errorCnt:    s.errorCnt,
-		criticalCnt: s.criticalCnt,
-		panicCnt:    s.panicCnt,
-		fatalCnt:    s.fatalCnt,
-	}, nil
-}
-
 func (s *prometheusLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }
