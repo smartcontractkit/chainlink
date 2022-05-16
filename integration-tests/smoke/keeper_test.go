@@ -108,7 +108,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
 
-			// Expect count to be remain consistently
+			// Expect count to be remain consistent
 			Consistently(func(g Gomega) {
 				cnt, err := consumer.Counter(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
