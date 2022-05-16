@@ -148,8 +148,10 @@ WHERE keeper_registries.contract_address = $1
 				keeper_registries.keeper_index = turn % keeper_registries.num_keepers
 				AND
 					(
+						-- last keeper != me
 						upkeep_registrations.last_keeper_index IS DISTINCT FROM keeper_registries.keeper_index
 						OR
+						-- last keeper == me AND its past the grace period
 						(upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM
 							keeper_registries.keeper_index AND
 							upkeep_registrations.last_run_block_height + $2 < $3)
@@ -161,8 +163,11 @@ WHERE keeper_registries.contract_address = $1
 				(keeper_registries.keeper_index + 1) % keeper_registries.num_keepers =
 					turn % keeper_registries.num_keepers
 				AND
+				-- last keeper == my buddy
 				upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM
 					(keeper_registries.keeper_index + 1) % keeper_registries.num_keepers
+				-- buddy system only active if we have multiple keeper nodes
+				AND keeper_registries.num_keepers > 1
 			)
 		)
 `
