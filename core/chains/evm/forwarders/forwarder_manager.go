@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
@@ -28,7 +29,7 @@ type FwdMgr struct {
 	ORM       ORM
 	evmClient evmclient.Client
 	logger    logger.SugaredLogger
-	logpoller *evmlogpoller.LogPoller
+	logpoller evmlogpoller.LogPoller
 
 	// TODO(samhassan): sendersCache should be an LRU capped cache
 	// https://app.shortcut.com/chainlinklabs/story/37884/forwarder-manager-uses-lru-for-caching-dest-addresses
@@ -46,7 +47,7 @@ type FwdMgr struct {
 	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller *evmlogpoller.LogPoller, l logger.Logger, cfg pg.LogConfig) *FwdMgr {
+func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg pg.LogConfig) *FwdMgr {
 	lggr := logger.Sugared(l.Named("EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,
