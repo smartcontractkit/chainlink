@@ -57,7 +57,7 @@ func (ps TerraNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewTerraNodeClient(c *Client) NodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters] {
+func NewTerraNodeClient(c *Client) NodeClient {
 	createNode := func(c *cli.Context) (node db.Node, err error) {
 		node.Name = c.String("name")
 		node.TerraChainID = c.String("chain-id")
@@ -78,5 +78,5 @@ func NewTerraNodeClient(c *Client) NodeClient[db.Node, presenters.TerraNodeResou
 		}
 		return
 	}
-	return newNodeClient[db.Node, presenters.TerraNodeResource, TerraNodePresenter, TerraNodePresenters](c, "terra", createNode)
+	return newNodeClient[db.Node, TerraNodePresenter, TerraNodePresenters](c, "terra", createNode)
 }
