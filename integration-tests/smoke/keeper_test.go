@@ -97,7 +97,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 			}, "2m", "1s").Should(Succeed())
 
-			// Now cancel the upkeep as registry owner
+			// Now cancel the upkeep as registry owner, it should get immediately cancelled
 			err := registry.CancelUpkeep(upkeepID)
 			Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
 			err = networks.Default.WaitForEvents()
