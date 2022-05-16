@@ -563,24 +563,17 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 		return err
 	}
 
-	fmt.Println("BALLS 1")
-
 	// TODO: Should probably replace this with a listener to update events
 	// which allows to pass in a transactionalised database to this function
 	if start {
-		fmt.Println("BALLS start 1")
 		// start the runner again
 		go func() {
-			fmt.Println("BALLS start 2")
 			if _, err := r.Run(context.Background(), &run, r.lggr, false, nil); err != nil {
-				fmt.Println("BALLS start 3")
 				r.lggr.Errorw("Resume run failure", "err", err)
 			}
-			fmt.Println("BALLS start 4")
 			r.lggr.Debug("Resume run success")
 		}()
 	}
-	fmt.Println("BALLS 2")
 	return nil
 }
 

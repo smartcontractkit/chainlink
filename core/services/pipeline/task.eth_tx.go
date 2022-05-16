@@ -10,11 +10,12 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 )
 
 //
@@ -29,8 +30,12 @@ type ETHTxTask struct {
 	GasLimit         string `json:"gasLimit"`
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
-	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
-	TransmitChecker  string `json:"transmitChecker"`
+	// FailOnRevert, if set, will error the task if the transaction reverted on-chain
+	// If unset, the receipt will be passed as output
+	// It has no effect if minConfirmations == 0
+	FailOnRevert    string `json:"failOnRevert"`
+	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
+	TransmitChecker string `json:"transmitChecker"`
 
 	keyStore ETHKeyStore
 	chainSet evm.ChainSet
@@ -74,6 +79,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		txMetaMap             MapParam
 		maybeMinConfirmations MaybeUint64Param
 		transmitCheckerMap    MapParam
+		failOnRevert          BoolParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
@@ -83,11 +89,11 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
 		errors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),
+		errors.Wrap(ResolveParam(&failOnRevert, From(NonemptyString(t.FailOnRevert), false)), "failOnRevert"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-
 	var minOutgoingConfirmations uint64
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
@@ -99,7 +105,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-
+	txMeta.FailOnRevert = null.BoolFrom(bool(failOnRevert))
 	setJobIDOnMeta(lggr, vars, txMeta)
 
 	transmitChecker, err := decodeTransmitChecker(transmitCheckerMap)
@@ -130,7 +136,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if minOutgoingConfirmations > 0 {
 		// Store the task run ID, so we can resume the pipeline when tx is confirmed
 		newTx.PipelineTaskRunID = &t.uuid
-		newTx.MinConfirmations = null.Uint32From(uint32(minOutgoingConfirmations))
+		newTx.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
 	_, err = txManager.CreateEthTransaction(newTx)

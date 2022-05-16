@@ -26,10 +26,15 @@ This will prevent application boot in a future version of Chainlink.
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
-- In job pipeline the three new block variables are exposed:
+- In job pipeline (direct request) the three new block variables are exposed:
   - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
   - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
   - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
+- `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
+
+`foo [type=ethtx failOnRevert=true ...]`
+
+Note that `minConfirmations` must be > 0 for this to work. Generally it is safe to leave this variable at it's default, since most chains include a default value which is already greater than zero.
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.

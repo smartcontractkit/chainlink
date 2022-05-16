@@ -28,7 +28,10 @@ import (
 // EthTxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present
 type EthTxMeta struct {
-	JobID *int32 `json:"JobID"`
+	JobID *int32 `json:"JobID,omitempty"`
+
+	// Pipeline fields
+	FailOnRevert null.Bool `json:"FailOnRevert,omitempty"`
 
 	// VRF-only fields
 	RequestID     *common.Hash `json:"RequestID,omitempty"`

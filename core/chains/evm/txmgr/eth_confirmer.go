@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -198,7 +198,7 @@ func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *evmtypes.Head) er
 func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) error {
 	mark := time.Now()
 
-	ec.lggr.Debugw("processHead", "headNum", head.Number, "id", "eth_confirmer")
+	ec.lggr.Debugw("processHead start", "headNum", head.Number, "id", "eth_confirmer")
 
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
@@ -211,33 +211,32 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
-	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Tracew("Finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
 	if err := ec.RebroadcastWhereNecessary(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "RebroadcastWhereNecessary failed")
 	}
 
-	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Tracew("Finished RebroadcastWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
 	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
 		return errors.Wrap(err, "EnsureConfirmedTransactionsInLongestChain failed")
 	}
 
-	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Tracew("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 
-	fmt.Println("BALLS eth_confirmer 1")
 	if ec.resumeCallback != nil {
-		fmt.Println("BALLS eth_confirmer 2")
 		mark = time.Now()
 		if err := ec.ResumePendingTaskRuns(ctx, head); err != nil {
 			return errors.Wrap(err, "ResumePendingTaskRuns failed")
 		}
 
-		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+		ec.lggr.Tracew("Finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	}
-	fmt.Println("BALLS eth_confirmer 3")
+
+	ec.lggr.Debugw("processHead finish", "headNum", head.Number, "id", "eth_confirmer")
 
 	return nil
 }
@@ -703,7 +702,7 @@ RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.c
 
 	for rows.Next() {
 		var ethTxID int64
-		var nonce null.Int64
+		var nonce clnull.Int64
 		var fromAddress gethCommon.Address
 		if err = rows.Scan(&ethTxID, &nonce, &fromAddress); err != nil {
 			return errors.Wrap(err, "error scanning row")
@@ -757,9 +756,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	bumpDepth := int64(ec.config.EvmGasBumpTxDepth())
 	maxInFlightTransactions := ec.config.EvmMaxInFlightTransactions()
 	etxs, err := FindEthTxsRequiringRebroadcast(ctx, ec.q, ec.lggr, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.chainID)
-	if ctx.Err() != nil {
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
 	for _, etx := range etxs {
@@ -853,9 +850,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
 	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx, q, lggr, address, chainID)
-	if ctx.Err() != nil {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -882,7 +877,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 				oldestBlocksBehind = blockNum - *oldestBlockNum
 			}
 		} else {
-			lggr.Warnw("Expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
+			logger.Sugared(lggr).AssumptionViolationf("Expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
 		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
@@ -1499,14 +1494,15 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes.Head) error {
 	type x struct {
-		ID      uuid.UUID
-		Receipt evmtypes.Receipt
+		ID           uuid.UUID        `db:"id"`
+		Receipt      evmtypes.Receipt `db:"receipt"`
+		FailOnRevert bool             `db:"FailOnRevert"`
 	}
 	var receipts []x
 	// NOTE: we don't filter on eth_txes.state = 'confirmed', because a transaction with an attached receipt
 	// is guaranteed to be confirmed. This results in a slightly better query plan.
 	if err := ec.q.Select(&receipts, `
-	SELECT pipeline_task_runs.id, eth_receipts.receipt FROM pipeline_task_runs
+	SELECT pipeline_task_runs.id, eth_receipts.receipt, COALESCE((eth_txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
 	INNER JOIN eth_txes ON eth_txes.pipeline_task_run_id = pipeline_task_runs.id
 	INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id
@@ -1516,18 +1512,21 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 		return err
 	}
 
-	ec.lggr.Debugf("Resuming %d task runs pending receipt", len(receipts))
+	if len(receipts) > 0 {
+		ec.lggr.Debugf("Resuming %d task runs pending receipt", len(receipts))
+	} else {
+		ec.lggr.Trace("No task runs to resume")
+	}
 	for _, data := range receipts {
 		var err error
 		var output interface{}
-		if data.Receipt.Status == 0 {
+		if data.FailOnRevert && data.Receipt.Status == 0 {
 			err = errors.Errorf("transaction %s reverted on-chain", data.Receipt.TxHash)
 		} else {
 			output = data.Receipt
 		}
 
 		ec.lggr.Tracew("Callback: resuming ethtx with receipt", "output", output, "err", err, "pipelineTaskRunID", data.ID)
-		fmt.Println("BALLS 1")
 		if err := ec.resumeCallback(data.ID, output, err); err != nil {
 			return err
 		}
