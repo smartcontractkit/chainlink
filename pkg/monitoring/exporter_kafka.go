@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 type Pipeline struct {
@@ -43,7 +45,7 @@ func (k *kafkaExporterFactory) NewExporter(
 		params.ChainConfig,
 		params.FeedConfig,
 
-		k.log.With("feed", params.FeedConfig.GetName()),
+		logger.With(k.log, "feed", params.FeedConfig.GetName()),
 		k.producer,
 
 		k.pipelines,

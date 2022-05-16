@@ -1,14 +1,6 @@
 package monitoring
 
-type Logger interface {
-	With(args ...interface{}) Logger
+import "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
-	Tracew(format string, values ...interface{})
-	Debugw(format string, values ...interface{})
-	Infow(format string, values ...interface{})
-	Warnw(format string, values ...interface{})
-	Errorw(format string, values ...interface{})
-	Criticalw(format string, values ...interface{})
-	Panicw(format string, values ...interface{})
-	Fatalw(format string, values ...interface{})
-}
+// Logger is a type alias for backwards compatability.
+type Logger = logger.Logger

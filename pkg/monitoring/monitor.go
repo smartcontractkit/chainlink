@@ -8,6 +8,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
 
@@ -48,12 +49,12 @@ func NewMonitor(
 		return nil, fmt.Errorf("failed to parse generic configuration: %w", err)
 	}
 
-	metrics := NewMetrics(log.With("component", "metrics"))
+	metrics := NewMetrics(logger.With(log, "component", "metrics"))
 	chainMetrics := NewChainMetrics(chainConfig)
 
 	sourceFactories := []SourceFactory{envelopeSourceFactory, txResultsSourceFactory}
 
-	producer, err := NewProducer(rootCtx, log.With("component", "producer"), cfg.Kafka)
+	producer, err := NewProducer(rootCtx, logger.With(log, "component", "producer"), cfg.Kafka)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
@@ -73,11 +74,11 @@ func NewMonitor(
 	}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
-		log.With("component", "prometheus-exporter"),
+		logger.With(log, "component", "prometheus-exporter"),
 		metrics,
 	)
 	kafkaExporterFactory, err := NewKafkaExporterFactory(
-		log.With("component", "kafka-exporter"),
+		logger.With(log, "component", "kafka-exporter"),
 		producer,
 		[]Pipeline{
 			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
@@ -93,24 +94,24 @@ func NewMonitor(
 	rddSource := NewRDDSource(
 		cfg.Feeds.URL, feedsParser, cfg.Feeds.IgnoreIDs,
 		cfg.Nodes.URL, nodesParser,
-		log.With("component", "rdd-source"),
+		logger.With(log, "component", "rdd-source"),
 	)
 
 	rddPoller := NewSourcePoller(
 		rddSource,
-		log.With("component", "rdd-poller"),
+		logger.With(log, "component", "rdd-poller"),
 		cfg.Feeds.RDDPollInterval,
 		cfg.Feeds.RDDReadTimeout,
 		0, // no buffering!
 	)
 
 	manager := NewManager(
-		log.With("component", "manager"),
+		logger.With(log, "component", "manager"),
 		rddPoller,
 	)
 
 	// Configure HTTP server
-	httpServer := NewHTTPServer(rootCtx, cfg.HTTP.Address, log.With("component", "http-server"))
+	httpServer := NewHTTPServer(rootCtx, cfg.HTTP.Address, logger.With(log, "component", "http-server"))
 	httpServer.Handle("/metrics", metrics.HTTPHandler())
 	httpServer.Handle("/debug", manager.HTTPHandler())
 
