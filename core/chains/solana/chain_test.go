@@ -237,11 +237,11 @@ func (m *mockORM) Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, e
 	panic("unimplemented")
 }
 
-func (m *mockORM) CreateChain(id string, config db.ChainCfg, qopts ...pg.QOpt) (DBChain, error) {
+func (m *mockORM) CreateChain(id string, config *db.ChainCfg, qopts ...pg.QOpt) (DBChain, error) {
 	panic("unimplemented")
 }
 
-func (m *mockORM) UpdateChain(id string, enabled bool, config db.ChainCfg, qopts ...pg.QOpt) (DBChain, error) {
+func (m *mockORM) UpdateChain(id string, enabled bool, config *db.ChainCfg, qopts ...pg.QOpt) (DBChain, error) {
 	panic("unimplemented")
 }
 

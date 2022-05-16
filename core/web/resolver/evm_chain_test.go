@@ -77,7 +77,7 @@ func TestResolver_Chains(t *testing.T) {
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
-					Cfg: types.ChainCfg{
+					Cfg: &types.ChainCfg{
 						BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
 						EthTxReaperThreshold:            &threshold,
 						EthTxResendAfterThreshold:       &threshold,
@@ -198,7 +198,7 @@ func TestResolver_Chain(t *testing.T) {
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
-					Cfg: types.ChainCfg{
+					Cfg: &types.ChainCfg{
 						BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
 						EthTxReaperThreshold:            &threshold,
 						EthTxResendAfterThreshold:       &threshold,
@@ -315,7 +315,7 @@ func TestResolver_CreateChain(t *testing.T) {
 		"config": map[string]interface{}{
 			"blockHistoryEstimatorBlockDelay": 0,
 			"ethTxReaperThreshold":            "1m0s",
-			"chainType":                       "EXCHAIN",
+			"chainType":                       "XDAI",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
 		},
 	})
@@ -378,16 +378,16 @@ func TestResolver_CreateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), cfg).Return(types.DBChain{
+				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), &cfg).Return(types.DBChain{
 					ID:        *utils.NewBigI(1233),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
-					Cfg:       cfg,
+					Cfg:       &cfg,
 				}, nil)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
@@ -412,7 +412,7 @@ func TestResolver_CreateChain(t *testing.T) {
 										"config": {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
-											"chainType": "EXCHAIN",
+											"chainType": "XDAI",
 											"gasEstimatorMode": "BLOCK_HISTORY"
 										}
 									}
@@ -453,16 +453,16 @@ func TestResolver_CreateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), cfg).Return(types.DBChain{
+				f.Mocks.chainSet.On("Add", mock.Anything, *utils.NewBigI(1233), &cfg).Return(types.DBChain{
 					ID:        *utils.NewBigI(1233),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
-					Cfg:       cfg,
+					Cfg:       &cfg,
 				}, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
@@ -618,7 +618,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 		"config": map[string]interface{}{
 			"blockHistoryEstimatorBlockDelay": 0,
 			"ethTxReaperThreshold":            "1m0s",
-			"chainType":                       "EXCHAIN",
+			"chainType":                       "XDAI",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
 		},
 	})
@@ -681,16 +681,16 @@ func TestResolver_UpdateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.DBChain{
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, &cfg).Return(types.DBChain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
-					Cfg:       cfg,
+					Cfg:       &cfg,
 				}, nil)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
@@ -715,7 +715,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 										"config": {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
-											"chainType": "EXCHAIN",
+											"chainType": "XDAI",
 											"gasEstimatorMode": "BLOCK_HISTORY"
 										}
 									}
@@ -756,12 +756,12 @@ func TestResolver_UpdateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.DBChain{}, sql.ErrNoRows)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, &cfg).Return(types.DBChain{}, sql.ErrNoRows)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -789,12 +789,12 @@ func TestResolver_UpdateChain(t *testing.T) {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("exchain"),
+							ChainType:                       null.StringFrom("xdai"),
 						},
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, cfg).Return(types.DBChain{}, gError)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID, true, &cfg).Return(types.DBChain{}, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,

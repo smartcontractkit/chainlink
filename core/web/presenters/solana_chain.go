@@ -10,7 +10,7 @@ import (
 
 // SolanaChainResource is an Solana chain JSONAPI resource.
 type SolanaChainResource struct {
-	chainResource[db.ChainCfg]
+	chainResource[*db.ChainCfg]
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -20,7 +20,7 @@ func (r SolanaChainResource) GetName() string {
 
 // NewSolanaChainResource returns a new SolanaChainResource for chain.
 func NewSolanaChainResource(chain solana.DBChain) SolanaChainResource {
-	return SolanaChainResource{chainResource[db.ChainCfg]{
+	return SolanaChainResource{chainResource[*db.ChainCfg]{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,
 		Enabled:   chain.Enabled,

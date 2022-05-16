@@ -277,11 +277,6 @@ type ConfigSchema struct {
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
 	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
 
-	// CLI client
-	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
-	ClientNodeURL        string `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	InsecureSkipVerify   bool   `env:"INSECURE_SKIP_VERIFY" default:"false"`
-
 	// Debugging
 	AutoPprofEnabled              bool            `env:"AUTO_PPROF_ENABLED" default:"false"`            //nodoc
 	AutoPprofProfileRoot          string          `env:"AUTO_PPROF_PROFILE_ROOT"`                       //nodoc (defaults to $CHAINLINK_ROOT)

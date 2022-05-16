@@ -12,16 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-// ORM manages chains and nodes.
-type ORM[I ID, C Config, N Node] interface {
-	Chain(I, ...pg.QOpt) (DBChain[I, C], error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain[I, C], int, error)
-	CreateChain(id I, config C, qopts ...pg.QOpt) (DBChain[I, C], error)
-	UpdateChain(id I, enabled bool, config C, qopts ...pg.QOpt) (DBChain[I, C], error)
+type ChainsORM[I ID, CFG Config, C DBChain[I, CFG]] interface {
+	Chain(I, ...pg.QOpt) (C, error)
+	Chains(offset, limit int, qopts ...pg.QOpt) ([]C, int, error)
+	CreateChain(id I, config CFG, qopts ...pg.QOpt) (C, error)
+	UpdateChain(id I, enabled bool, config CFG, qopts ...pg.QOpt) (C, error)
 	DeleteChain(id I, qopts ...pg.QOpt) error
-	GetChainsByIDs(ids []I) (chains []DBChain[I, C], err error)
-	EnabledChains(...pg.QOpt) ([]DBChain[I, C], error)
+	GetChainsByIDs(ids []I) (chains []C, err error)
+	EnabledChains(...pg.QOpt) ([]C, error)
+}
 
+type NodesORM[I ID, N Node] interface {
 	CreateNode(N, ...pg.QOpt) (N, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []I, qopts ...pg.QOpt) (nodes []N, err error)
@@ -29,6 +30,13 @@ type ORM[I ID, C Config, N Node] interface {
 	NodeNamed(string, ...pg.QOpt) (N, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
 	NodesForChain(chainID I, offset, limit int, qopts ...pg.QOpt) (nodes []N, count int, err error)
+}
+
+// ORM manages chains and nodes.
+type ORM[I ID, C Config, N Node] interface {
+	ChainsORM[I, C, DBChain[I, C]]
+
+	NodesORM[I, N]
 
 	StoreString(chainID I, key, val string) error
 	Clear(chainID I, key string) error

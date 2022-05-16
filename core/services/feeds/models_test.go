@@ -79,44 +79,126 @@ func Test_OCR1Config_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = OCR1Config{
-			Enabled:     true,
-			IsBootstrap: false,
-			Multiaddr:   null.StringFrom("multiaddr"),
-			P2PPeerID:   null.StringFrom("peerid"),
-			KeyBundleID: null.StringFrom("ocrkeyid"),
-		}
-		want = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`
+		multiaddr   = "multiaddr"
+		p2pPeerID   = "peerid"
+		keyBundleID = "ocrkeyid"
 	)
 
-	val, err := give.Value()
-	require.NoError(t, err)
+	tests := []struct {
+		name string
+		give OCR1Config
+		want string
+	}{
+		{
+			name: "all fields populated",
+			give: OCR1Config{
+				Enabled:     true,
+				IsBootstrap: false,
+				Multiaddr:   null.StringFrom(multiaddr),
+				P2PPeerID:   null.StringFrom(p2pPeerID),
+				KeyBundleID: null.StringFrom(keyBundleID),
+			},
+			want: `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`,
+		},
+		{
+			name: "bootstrap fields populated",
+			give: OCR1Config{
+				Enabled:     true,
+				IsBootstrap: true,
+				Multiaddr:   null.StringFrom(multiaddr),
+				P2PPeerID:   null.StringFromPtr(nil),
+				KeyBundleID: null.StringFromPtr(nil),
+			},
+			want: `{"enabled":true,"is_bootstrap":true,"multiaddr":"multiaddr","p2p_peer_id":null,"key_bundle_id":null}`,
+		},
+		{
+			name: "multiaddr field populated",
+			give: OCR1Config{
+				Enabled:     true,
+				IsBootstrap: false,
+				Multiaddr:   null.StringFromPtr(nil),
+				P2PPeerID:   null.StringFrom(p2pPeerID),
+				KeyBundleID: null.StringFrom(keyBundleID),
+			},
+			want: `{"enabled":true,"is_bootstrap":false,"multiaddr":null,"p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`,
+		},
+	}
 
-	actual, ok := val.([]byte)
-	require.True(t, ok)
+	for _, tt := range tests {
+		tt := tt
 
-	assert.Equal(t, want, string(actual))
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := tt.give.Value()
+			require.NoError(t, err)
+
+			actual, ok := val.([]byte)
+			require.True(t, ok)
+
+			assert.Equal(t, tt.want, string(actual))
+		})
+	}
 }
 
 func Test_OCR1Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`
-		want = OCR1Config{
-			Enabled:     true,
-			IsBootstrap: false,
-			Multiaddr:   null.StringFrom("multiaddr"),
-			P2PPeerID:   null.StringFrom("peerid"),
-			KeyBundleID: null.StringFrom("ocrkeyid"),
-		}
+		multiaddr   = "multiaddr"
+		p2pPeerID   = "peerid"
+		keyBundleID = "ocrkeyid"
 	)
 
-	var actual OCR1Config
-	err := actual.Scan([]byte(give))
-	require.NoError(t, err)
+	tests := []struct {
+		name string
+		give string
+		want OCR1Config
+	}{
+		{
+			name: "all fields populated",
+			give: `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`,
+			want: OCR1Config{
+				Enabled:     true,
+				IsBootstrap: false,
+				Multiaddr:   null.StringFrom(multiaddr),
+				P2PPeerID:   null.StringFrom(p2pPeerID),
+				KeyBundleID: null.StringFrom(keyBundleID),
+			},
+		},
+		{
+			name: "bootstrap fields populated",
+			give: `{"enabled":true,"is_bootstrap":true,"multiaddr":"multiaddr","p2p_peer_id":null,"key_bundle_id":null}`,
+			want: OCR1Config{
+				Enabled:     true,
+				IsBootstrap: true,
+				Multiaddr:   null.StringFrom(multiaddr),
+				P2PPeerID:   null.StringFromPtr(nil),
+				KeyBundleID: null.StringFromPtr(nil),
+			},
+		},
+		{
+			name: "multiaddr field populated",
+			give: `{"enabled":true,"is_bootstrap":false,"multiaddr":null,"p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid"}`,
+			want: OCR1Config{
+				Enabled:     true,
+				IsBootstrap: false,
+				Multiaddr:   null.StringFromPtr(nil),
+				P2PPeerID:   null.StringFrom(p2pPeerID),
+				KeyBundleID: null.StringFrom(keyBundleID),
+			},
+		},
+	}
 
-	assert.Equal(t, want, actual)
+	for _, tt := range tests {
+		tt := tt
+
+		t.Run(tt.name, func(t *testing.T) {
+			var actual OCR1Config
+			err := actual.Scan([]byte(tt.give))
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, actual)
+		})
+	}
 }
 
 func Test_OCR2Config_Value(t *testing.T) {

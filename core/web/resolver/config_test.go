@@ -33,12 +33,10 @@ func TestResolver_Config(t *testing.T) {
 				// Which means mocking each method here, which I'm not sure we would like to do
 				logLevel := zapcore.ErrorLevel
 				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
-					AdminCredentialsFile:                   null.StringFrom("test"),
 					AdvisoryLockID:                         null.IntFrom(1),
 					AllowOrigins:                           null.StringFrom("test"),
 					BlockBackfillDepth:                     null.IntFrom(1),
 					BlockBackfillSkip:                      null.BoolFrom(false),
-					ClientNodeURL:                          null.StringFrom("test"),
 					DatabaseURL:                            null.StringFrom("test"),
 					DefaultChainID:                         nil,
 					DefaultHTTPTimeout:                     nil,
@@ -142,10 +140,6 @@ func TestResolver_Config(t *testing.T) {
       {
         "key": "CHAIN_TYPE",
         "value": ""
-      },
-      {
-        "key": "CLIENT_NODE_URL",
-        "value": "test"
       },
       {
         "key": "DATABASE_BACKUP_FREQUENCY",

@@ -15,6 +15,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -38,10 +39,10 @@ type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
 	Show(id utils.Big) (types.DBChain, error)
-	Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.DBChain, error)
+	Add(ctx context.Context, id utils.Big, config *types.ChainCfg) (types.DBChain, error)
 	Remove(id utils.Big) error
 	Default() (Chain, error)
-	Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.DBChain, error)
+	Configure(ctx context.Context, id utils.Big, enabled bool, config *types.ChainCfg) (types.DBChain, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
 	Index(offset, limit int) ([]types.DBChain, int, error)
@@ -166,7 +167,7 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.DBChain
 	return nil
 }
 
-func (cll *chainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.DBChain, error) {
+func (cll *chainSet) Add(ctx context.Context, id utils.Big, config *types.ChainCfg) (types.DBChain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -200,7 +201,7 @@ func (cll *chainSet) Remove(id utils.Big) error {
 	return chain.Close()
 }
 
-func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.DBChain, error) {
+func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config *types.ChainCfg) (types.DBChain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -224,7 +225,7 @@ func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, 
 		return dbchain, cll.initializeChain(ctx, &dbchain)
 	case exists:
 		// Exists in memory, no toggling: Update in-memory chain
-		if err = chain.Config().Configure(config); err != nil {
+		if chain.Config().Configure(*config); err != nil {
 			return dbchain, err
 		}
 		// TODO: recreate ethClient etc if node set changed
@@ -256,9 +257,9 @@ func (cll *chainSet) UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) e
 		}
 	}
 
-	_, err = cll.orm.UpdateChain(*bid, dbchain.Enabled, updatedConfig)
+	_, err = cll.orm.UpdateChain(*bid, dbchain.Enabled, &updatedConfig)
 	if err == nil {
-		return chain.Config().Configure(updatedConfig)
+		chain.Config().Configure(updatedConfig)
 	}
 
 	return err
@@ -371,6 +372,7 @@ type ChainSetOpts struct {
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(types.DBChain) evmclient.Client
 	GenLogBroadcaster func(types.DBChain) log.Broadcaster
+	GenLogPoller      func(types.DBChain) *logpoller.LogPoller
 	GenHeadTracker    func(types.DBChain, httypes.HeadBroadcaster) httypes.HeadTracker
 	GenTxManager      func(types.DBChain) txmgr.TxManager
 }

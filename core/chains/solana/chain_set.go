@@ -53,7 +53,7 @@ func (o *ChainSetOpts) Validate() (err error) {
 	return
 }
 
-func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, db.ChainCfg, db.Node], logger.Logger) {
+func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node], logger.Logger) {
 	return o.ORM, o.Logger
 }
 
@@ -70,9 +70,9 @@ func (o *ChainSetOpts) NewChain(dbchain DBChain) (solana.Chain, error) {
 type ChainSet interface {
 	solana.ChainSet
 
-	Add(context.Context, string, db.ChainCfg) (DBChain, error)
+	Add(context.Context, string, *db.ChainCfg) (DBChain, error)
 	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (DBChain, error)
+	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (DBChain, error)
 	Show(id string) (DBChain, error)
 	Index(offset, limit int) ([]DBChain, int, error)
 	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
@@ -83,5 +83,5 @@ type ChainSet interface {
 
 // NewChainSet returns a new chain set for opts.
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, db.ChainCfg, db.Node, solana.Chain](&opts, func(s string) string { return s })
+	return chains.NewChainSet[string, *db.ChainCfg, db.Node, solana.Chain](&opts, func(s string) string { return s })
 }
