@@ -73,7 +73,7 @@ func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.FeedsManager, e
 	return &mgr, nil
 }
 
-// GetJobRunsByID fetches the job runs by their ID.
+// GetJobRunsByIDs fetches the job runs by their ID.
 func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	ldr := For(ctx)
 

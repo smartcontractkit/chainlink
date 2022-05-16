@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/graph-gophers/graphql-go"
 
@@ -44,10 +43,8 @@ func (r *JobResolver) CreatedAt() graphql.Time {
 func (r *JobResolver) Errors(ctx context.Context) ([]*JobErrorResolver, error) {
 	specErrs, err := loader.GetJobSpecErrorsByJobID(ctx, r.j.ID)
 	if err != nil {
-		fmt.Printf("GOT ERROR: %s", err.Error())
 		return nil, err
 	}
-	fmt.Printf("NO ERROR, len %d\n", len(specErrs))
 
 	return NewJobErrors(specErrs), nil
 }
