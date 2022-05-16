@@ -1,18 +1,15 @@
 package web
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 )
 
 // WebAuthnController manages registers new keys as well as authentication
@@ -82,28 +79,11 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	if c.addCredentialToUser(user, credential) != nil {
+	if sessions.AddCredentialToUser(c.App.SessionORM(), user.Email, credential) != nil {
 		c.App.GetLogger().Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
 	ctx.String(http.StatusOK, "{}")
-}
-
-func (c *WebAuthnController) addCredentialToUser(user sessions.User, credential *webauthn.Credential) error {
-	credj, err := json.Marshal(credential)
-	if err != nil {
-		return err
-	}
-
-	token := sessions.WebAuthn{
-		Email:         user.Email,
-		PublicKeyData: sqlxTypes.JSONText(credj),
-	}
-	err = c.App.SessionORM().SaveWebAuthn(&token)
-	if err != nil {
-		c.App.GetLogger().Errorf("Database error: %v", err)
-	}
-	return err
 }
