@@ -1,11 +1,16 @@
 package sessions_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/duo-labs/webauthn/protocol"
+	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -13,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
@@ -161,6 +165,85 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 }
 
+func TestORM_WebAuthn(t *testing.T) {
+	t.Parallel()
+
+	_, orm := setupORM(t)
+
+	initial := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&initial))
+
+	was, err := orm.GetUserWebAuthn(initial.Email)
+	require.NoError(t, err)
+	assert.Len(t, was, 0)
+
+	cred := webauthn.Credential{
+		ID:              []byte("test-id"),
+		PublicKey:       []byte("test-key"),
+		AttestationType: "test-attestation",
+	}
+	require.NoError(t, sessions.AddCredentialToUser(orm, initial.Email, &cred))
+
+	was, err = orm.GetUserWebAuthn(initial.Email)
+	require.NoError(t, err)
+	require.NotEmpty(t, was)
+
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "MFA Error")
+
+	ss := sessions.NewWebAuthnSessionStore()
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+		WebAuthnConfig: sessions.WebAuthnConfiguration{
+			RPID:     "test-rpid",
+			RPOrigin: "test-rporigin",
+		},
+		SessionStore: ss,
+	})
+	require.Error(t, err)
+	var ca protocol.CredentialAssertion
+	require.NoError(t, json.Unmarshal([]byte(err.Error()), &ca))
+	require.Equal(t, "test-rpid", ca.Response.RelyingPartyID)
+
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+		WebAuthnConfig: sessions.WebAuthnConfiguration{
+			RPID:     "test-rpid",
+			RPOrigin: "test-rporigin",
+		},
+		SessionStore: ss,
+		WebAuthnData: "invalid-format",
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "MFA Error")
+
+	challengeResp, err := json.Marshal(protocol.CredentialAssertionResponse{
+		PublicKeyCredential: protocol.PublicKeyCredential{
+			Credential: protocol.Credential{
+				ID:   "test-id",
+				Type: "test-type",
+			},
+		},
+	})
+	_, err = orm.CreateSession(sessions.SessionRequest{
+		Email:    initial.Email,
+		Password: cltest.Password,
+		WebAuthnConfig: sessions.WebAuthnConfiguration{
+			RPID:     "test-rpid",
+			RPOrigin: "test-rporigin",
+		},
+		WebAuthnData: string(challengeResp),
+		SessionStore: ss,
+	})
+	require.Error(t, err)
+}
+
 func TestOrm_GenerateAuthToken(t *testing.T) {
 	t.Parallel()
 
@@ -183,4 +266,11 @@ func TestOrm_GenerateAuthToken(t *testing.T) {
 	assert.NotEmpty(t, token.AccessKey)
 	assert.Equal(t, dbUser.TokenKey.String, token.AccessKey)
 	assert.Equal(t, dbUser.TokenHashedSecret.String, hashedSecret)
+
+	require.NoError(t, orm.DeleteAuthToken(&initial))
+	dbUser, err = orm.FindUser()
+	require.NoError(t, err)
+	assert.Empty(t, dbUser.TokenKey.ValueOrZero())
+	assert.Empty(t, dbUser.TokenSalt.ValueOrZero())
+	assert.Empty(t, dbUser.TokenHashedSecret.ValueOrZero())
 }
