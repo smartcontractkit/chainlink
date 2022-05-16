@@ -151,7 +151,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
-			return nil, err
+			return nil, err2
 		}
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
