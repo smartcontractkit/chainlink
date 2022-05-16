@@ -97,14 +97,16 @@ var _ = Describe("Keeper suite @keeper", func() {
 				log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 			}, "2m", "1s").Should(Succeed())
 
-			// Now cancel the upkeep
+			// Now cancel the upkeep as registry owner
 			err := registry.CancelUpkeep(upkeepID)
 			Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+			err = networks.Default.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
 
 			// Get existing performed count
 			existingCnt, err := consumer.Counter(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-			log.Info().Int64("Upkeep counter after cancel", existingCnt.Int64())
+			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
 
 			// Expect count to be remain consistently
 			Consistently(func(g Gomega) {
