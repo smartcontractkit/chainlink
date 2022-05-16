@@ -125,3 +125,17 @@ func (rw *RegistryWrapper) GetIDFromGasLimitSetLog(broadcast log.Broadcast) (*bi
 		return nil, newUnsupportedVersionError("GetIDFromGasLimitSetLog", rw.Version)
 	}
 }
+
+func (rw *RegistryWrapper) GetUpkeepIdFromReceivedLog(broadcast log.Broadcast) (*big.Int, error) {
+	// Only supported on 1.2
+	switch rw.Version {
+	case RegistryVersion_1_2:
+		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepReceived)
+		if !ok {
+			return nil, errors.Errorf("expected UpkeepReceived log but got %T", broadcastedLog)
+		}
+		return broadcastedLog.Id, nil
+	default:
+		return nil, newUnsupportedVersionError("GetUpkeepIdFromReceivedLog", rw.Version)
+	}
+}

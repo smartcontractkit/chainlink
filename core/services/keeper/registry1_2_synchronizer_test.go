@@ -473,3 +473,46 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
+
+func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
+	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
+
+	contractAddress := job.KeeperSpec.ContractAddress.Address()
+	fromAddress := job.KeeperSpec.FromAddress.Address()
+
+	mockRegistry1_2(
+		t,
+		ethMock,
+		contractAddress,
+		registryConfig1_2,
+		[]*big.Int{big.NewInt(3)}, // Upkeep IDs
+		[]common.Address{fromAddress},
+		upkeepConfig1_2,
+		1)
+
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
+	defer synchronizer.Close()
+	cltest.WaitForCount(t, db, "keeper_registries", 1)
+	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
+
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
+	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Once()
+
+	cfg := cltest.NewTestGeneralConfig(t)
+	head := cltest.MustInsertHead(t, db, cfg, 1)
+	rawLog := types.Log{BlockHash: head.Hash}
+	log := registry1_2.KeeperRegistryUpkeepReceived{Id: big.NewInt(420)}
+	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast.On("DecodedLog").Return(&log)
+	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
+	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+
+	// Do the thing
+	synchronizer.HandleLog(logBroadcast)
+
+	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
+	ethMock.AssertExpectations(t)
+	logBroadcast.AssertExpectations(t)
+}
