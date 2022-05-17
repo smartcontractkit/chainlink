@@ -1518,16 +1518,16 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 		ec.lggr.Trace("No task runs to resume")
 	}
 	for _, data := range receipts {
-		var err error
+		var taskErr error
 		var output interface{}
 		if data.FailOnRevert && data.Receipt.Status == 0 {
-			err = errors.Errorf("transaction %s reverted on-chain", data.Receipt.TxHash)
+			taskErr = errors.Errorf("transaction %s reverted on-chain", data.Receipt.TxHash)
 		} else {
 			output = data.Receipt
 		}
 
-		ec.lggr.Tracew("Callback: resuming ethtx with receipt", "output", output, "err", err, "pipelineTaskRunID", data.ID)
-		if err := ec.resumeCallback(data.ID, output, err); err != nil {
+		ec.lggr.Tracew("Callback: resuming ethtx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
+		if err := ec.resumeCallback(data.ID, output, taskErr); err != nil {
 			return err
 		}
 	}

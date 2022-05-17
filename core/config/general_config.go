@@ -410,7 +410,7 @@ EVM_ENABLED=false
 	}
 
 	if str := c.viper.GetString("MIN_OUTGOING_CONFIRMATIONS"); str != "" {
-		c.lggr.Errorf("WARNING: MIN_OUTGOING_CONFIRMATIONS has been removed and no longer has any effect. EVM_FINALITY_DEPTH is now used as the default for ethtx confirmations instead. You may override this on a per-task basis by setting `minConfirmations` e.g. `foo [type=ethtx minConfirmations=%s ...]`", str)
+		c.lggr.Errorf("MIN_OUTGOING_CONFIRMATIONS has been removed and no longer has any effect. EVM_FINALITY_DEPTH is now used as the default for ethtx confirmations instead. You may override this on a per-task basis by setting `minConfirmations` e.g. `foo [type=ethtx minConfirmations=%s ...]`", str)
 	}
 
 	return nil
