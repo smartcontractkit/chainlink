@@ -57,7 +57,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -129,7 +129,7 @@ DATABASE_LOCKING_MODE: dual
 ETH_CHAIN_ID: <nil>
 DEFAULT_HTTP_LIMIT: 32768
 DEFAULT_HTTP_TIMEOUT: 15s
-CHAINLINK_DEV: false
+CHAINLINK_DEV: true
 SHUTDOWN_GRACE_PERIOD: 5s
 EVM_RPC_ENABLED: true
 ETH_HTTP_URL: 
@@ -148,11 +148,11 @@ KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
 KEEPER_GAS_PRICE_BUFFER_PERCENT: 20
 KEEPER_GAS_TIP_CAP_BUFFER_PERCENT: 20
 KEEPER_BASE_FEE_BUFFER_PERCENT: 20
-KEEPER_MAXIMUM_GRACE_PERIOD: 0
-KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 0
-KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 0
-KEEPER_REGISTRY_SYNC_INTERVAL: 
-KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 0
+KEEPER_MAXIMUM_GRACE_PERIOD: 100
+KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 200000
+KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 150000
+KEEPER_REGISTRY_SYNC_INTERVAL: 30m0s
+KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 10
 KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
 KEEPER_TURN_LOOK_BACK: 1000
 KEEPER_TURN_FLAG_ENABLED: false
@@ -232,12 +232,12 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
-			ethClient := cltest.NewEthClientMock(t)
+			ethClient := evmtest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -284,12 +284,12 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 	app.On("Start", mock.Anything).Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := evmtest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
@@ -465,7 +465,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 

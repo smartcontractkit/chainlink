@@ -246,19 +246,23 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "KEEPER_MAXIMUM_GRACE_PERIOD",
-        "value": "0"
+        "value": "1"
       },
       {
         "key": "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
-        "value": "0"
+        "value": "200000"
       },
       {
         "key": "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
-        "value": "0"
+        "value": "150000"
       },
+	  {
+		"key":"KEEPER_REGISTRY_SYNC_INTERVAL",
+		"value":"30m0s"
+	  },
       {
         "key": "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
-        "value": "0"
+        "value": "1"
       },
       {
         "key": "KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED",
