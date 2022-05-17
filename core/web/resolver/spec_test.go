@@ -508,7 +508,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						CreatedAt:                         f.Timestamp(),
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
-						P2PBootstrapPeers:                 pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						Relay:                             types.EVM,
 						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
@@ -531,7 +530,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									createdAt
 									ocrKeyBundleID
 									monitoringEndpoint
-									p2pBootstrapPeers
 									relay
 									relayConfig
 									transmitterID
@@ -555,7 +553,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
-							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"relay": "evm",
 							"relayConfig": {
 								"chainID": 1337

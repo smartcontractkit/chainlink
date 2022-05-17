@@ -122,10 +122,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	tracker := ocr2Provider.ContractConfigTracker()
 	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PBootstrapPeers, peerWrapper.Config().P2PV2Bootstrappers())
-	if err != nil {
-		return nil, err
-	}
+	bootstrapPeers := peerWrapper.Config().P2PV2Bootstrappers()
 	d.lggr.Debugw("Using bootstrap peers", "peers", bootstrapPeers)
 	// Fetch the specified OCR2 key bundle
 	var kbID string

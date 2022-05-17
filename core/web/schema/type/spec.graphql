@@ -82,7 +82,6 @@ type OCR2Spec {
     createdAt: Time!
     ocrKeyBundleID: String
     monitoringEndpoint: String
-    p2pBootstrapPeers: [String!]
     relay: String!
     relayConfig: Map!
     transmitterID: String

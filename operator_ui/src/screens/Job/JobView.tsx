@@ -70,7 +70,6 @@ const JOB_PAYLOAD__SPEC = gql`
       contractConfigTrackerPollInterval
       ocrKeyBundleID
       monitoringEndpoint
-      p2pBootstrapPeers
       relay
       relayConfig
       transmitterID

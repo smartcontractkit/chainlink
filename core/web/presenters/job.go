@@ -180,7 +180,6 @@ type OffChainReporting2Spec struct {
 	ContractID                        string                 `json:"contractID"`
 	Relay                             types.Network          `json:"relay"`
 	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray         `json:"p2pBootstrapPeers"`
 	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
 	TransmitterID                     null.String            `json:"transmitterID"`
 	ObservationTimeout                models.Interval        `json:"observationTimeout"`
@@ -198,7 +197,6 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		ContractID:                        spec.ContractID,
 		Relay:                             spec.Relay,
 		RelayConfig:                       spec.RelayConfig,
-		P2PBootstrapPeers:                 spec.P2PBootstrapPeers,
 		OCRKeyBundleID:                    spec.OCRKeyBundleID,
 		TransmitterID:                     spec.TransmitterID,
 		BlockchainTimeout:                 spec.BlockchainTimeout,

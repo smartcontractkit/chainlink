@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
@@ -30,22 +29,12 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
 	jb.OCR2OracleSpec = &spec
-	if jb.OCR2OracleSpec.P2PBootstrapPeers == nil {
-		// Empty but non-null, field is non-nullable.
-		jb.OCR2OracleSpec.P2PBootstrapPeers = pq.StringArray{}
-	}
 
 	if jb.Type != job.OffchainReporting2 {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}
 	if _, ok := relay.SupportedRelayers[spec.Relay]; !ok {
 		return jb, errors.Errorf("no such relay %v supported", spec.Relay)
-	}
-	if len(spec.P2PBootstrapPeers) > 0 {
-		_, err := ocrcommon.ParseBootstrapPeers(spec.P2PBootstrapPeers)
-		if err != nil {
-			return jb, err
-		}
 	}
 
 	if err := validateSpec(tree, jb); err != nil {

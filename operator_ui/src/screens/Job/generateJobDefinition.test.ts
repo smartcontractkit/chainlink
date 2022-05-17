@@ -349,9 +349,6 @@ observationTimeout = "10s"
         ocrKeyBundleID:
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
         monitoringEndpoint: 'https://monitoring.endpoint',
-        p2pBootstrapPeers: [
-          '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
-        ],
         relay: 'evm',
         relayConfig: {
           chainID: 1337,
@@ -383,9 +380,6 @@ contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
 ocrKeyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
 monitoringEndpoint = "https://monitoring.endpoint"
-p2pBootstrapPeers = [
-  "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
-]
 relay = "evm"
 pluginType = "median"
 transmitterID = "0x01010CaB43e77116c95745D219af1069fE050d7A"

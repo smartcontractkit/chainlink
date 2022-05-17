@@ -543,17 +543,6 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 	return &r.spec.MonitoringEndpoint.String
 }
 
-// P2PBootstrapPeers resolves the spec's p2p bootstrap peers
-func (r *OCR2SpecResolver) P2PBootstrapPeers() *[]string {
-	if len(r.spec.P2PBootstrapPeers) == 0 {
-		return nil
-	}
-
-	peers := []string(r.spec.P2PBootstrapPeers)
-
-	return &peers
-}
-
 // Relay resolves the spec's relay
 func (r *OCR2SpecResolver) Relay() string {
 	return string(r.spec.Relay)

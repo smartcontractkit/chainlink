@@ -180,7 +180,6 @@ export const generateJobDefinition = (
           'contractConfigTrackerPollInterval',
           'ocrKeyBundleID',
           'monitoringEndpoint',
-          'p2pBootstrapPeers',
           'relay',
           'relayConfig',
           'pluginType',
