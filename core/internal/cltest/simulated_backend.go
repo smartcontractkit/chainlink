@@ -67,15 +67,14 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	simulatedBackendChain := evmtypes.DBChain{
 		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
 		Cfg: &evmtypes.ChainCfg{
-			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
-			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:        &zero,
-			EvmFinalityDepth:                 null.IntFrom(15),
-			EthTxReaperThreshold:             &reaperThreshold,
-			MinIncomingConfirmations:         null.IntFrom(1),
-			MinRequiredOutgoingConfirmations: null.IntFrom(1),
-			MinimumContractPayment:           assets.NewLinkFromJuels(100),
+			GasEstimatorMode:               null.StringFrom("FixedPrice"),
+			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
+			EthTxResendAfterThreshold:      &zero,
+			EvmFinalityDepth:               null.IntFrom(15),
+			EthTxReaperThreshold:           &reaperThreshold,
+			MinIncomingConfirmations:       null.IntFrom(1),
+			MinimumContractPayment:         assets.NewLinkFromJuels(100),
 		},
 		Enabled: true,
 	}
