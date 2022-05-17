@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
@@ -33,7 +33,7 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if jb.Type != job.OffchainReporting2 {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}
-	if _, ok := relay.SupportedRelayers[spec.Relay]; !ok {
+	if _, ok := relaytypes.SupportedRelays[spec.Relay]; !ok {
 		return jb, errors.Errorf("no such relay %v supported", spec.Relay)
 	}
 

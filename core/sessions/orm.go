@@ -9,12 +9,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -161,13 +162,13 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		lggr.Warnf("Attempted login to MFA user. Generating challenge for user.")
 		options, webauthnError := BeginWebAuthnLogin(user, uwas, sr)
 		if webauthnError != nil {
-			lggr.Errorf("Could not begin WebAuthn verification: %v", err)
+			lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
 			return "", errors.New("MFA Error")
 		}
 
 		j, jsonError := json.Marshal(options)
 		if jsonError != nil {
-			lggr.Errorf("Could not serialize WebAuthn challenge: %v", err)
+			lggr.Errorf("Could not serialize WebAuthn challenge: %v", jsonError)
 			return "", errors.New("MFA Error")
 		}
 

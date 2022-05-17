@@ -3,7 +3,6 @@ package chainlink
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math/big"
 	"net/http"
 	"reflect"
@@ -45,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -89,7 +87,6 @@ type Application interface {
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	SetServiceLogLevel(ctx context.Context, service string, level zapcore.Level) error
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -338,23 +335,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		// master/delegate relay is started once, on app start, as root subservice
-		relay := relay.NewDelegate(keyStore)
+		relayers := make(map[relaytypes.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
-			relay.AddRelayer(relaytypes.EVM, evmRelayer)
+			relayers[relaytypes.EVM] = evmRelayer
+			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
-			solanaRelayerCtx := solanaRelayer
-			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, keyStore.Solana())
+			relayers[relaytypes.Solana] = solanaRelayer
+			subservices = append(subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			terraRelayerCtx := terraRelayer
-			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
+			relayers[relaytypes.Terra] = terraRelayer
+			subservices = append(subservices, terraRelayer)
 		}
-		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -365,7 +361,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
-			relay,
+			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -373,7 +369,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
-			relay,
+			relayers,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
@@ -455,24 +451,6 @@ func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
 	}
 	app.logger.SetLogLevel(lvl)
 	return nil
-}
-
-// SetServiceLogLevel sets the Logger level for a given service and stores the setting in the db.
-func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error {
-	// TODO: Implement other service loggers
-	switch serviceName {
-	case logger.HeadTracker:
-		for _, c := range app.Chains.EVM.Chains() {
-			c.HeadTracker().SetLogLevel(level)
-		}
-	case logger.FluxMonitor:
-		// TODO: Set FMv2?
-	case logger.Keeper:
-	default:
-		return fmt.Errorf("no service found with name: %s", serviceName)
-	}
-
-	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
 // Start all necessary services. If successful, nil will be returned.

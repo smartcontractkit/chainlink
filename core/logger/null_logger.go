@@ -11,10 +11,9 @@ var NullLogger Logger = &nullLogger{}
 
 type nullLogger struct{}
 
-func (l *nullLogger) With(args ...interface{}) Logger                 { return l }
-func (l *nullLogger) Named(name string) Logger                        { return l }
-func (l *nullLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) { return l, nil }
-func (l *nullLogger) SetLogLevel(_ zapcore.Level)                     {}
+func (l *nullLogger) With(args ...interface{}) Logger { return l }
+func (l *nullLogger) Named(name string) Logger        { return l }
+func (l *nullLogger) SetLogLevel(_ zapcore.Level)     {}
 
 func (l *nullLogger) Trace(args ...interface{})    {}
 func (l *nullLogger) Debug(args ...interface{})    {}

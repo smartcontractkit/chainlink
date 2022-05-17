@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 )
@@ -29,7 +28,7 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	relayer               types.RelayerCtx
+	relayers              map[types.Network]types.Relayer
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -44,7 +43,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
-	relayer types.RelayerCtx,
+	relayers map[types.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -56,7 +55,7 @@ func NewDelegate(
 		cfg,
 		lggr,
 		ks,
-		relayer,
+		relayers,
 	}
 }
 
@@ -76,18 +75,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
 	}
-
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
-		ID:              spec.ID,
-		ContractID:      spec.ContractID,
-		TransmitterID:   spec.TransmitterID,
-		Relay:           spec.Relay,
-		RelayConfig:     spec.RelayConfig,
-		Plugin:          spec.PluginType,
-		IsBootstrapPeer: false,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
+	if !spec.TransmitterID.Valid {
+		return nil, errors.Errorf("expected a transmitterID to be specified")
+	}
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
 
 	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
@@ -108,7 +101,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	})
 
 	lc := validate.ToLocalConfig(d.cfg, *spec)
-	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
+	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	d.lggr.Infow("OCR2 job using local config",
@@ -119,13 +112,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	tracker := ocr2Provider.ContractConfigTracker()
-	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
-
 	bootstrapPeers := peerWrapper.Config().P2PV2Bootstrappers()
 	d.lggr.Debugw("Using bootstrap peers", "peers", bootstrapPeers)
 	// Fetch the specified OCR2 key bundle
 	var kbID string
+	var err error
 	if spec.OCRKeyBundleID.Valid {
 		kbID = spec.OCRKeyBundleID.String
 	} else if kbID, err = d.cfg.OCR2KeyBundleID(); err != nil {
@@ -144,9 +135,24 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
 	var pluginOracle plugins.OraclePlugin
+	var ocr2Provider types.Plugin
 	switch spec.PluginType {
 	case job.Median:
-		pluginOracle, err = median.NewMedian(jobSpec, ocr2Provider, d.pipelineRunner, runResults, lggr, ocrLogger)
+		medianProvider, err2 := relayer.NewMedianProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		ocr2Provider = medianProvider
+		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -166,12 +172,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          ocr2Provider.ContractTransmitter(),
-		ContractConfigTracker:        tracker,
+		ContractConfigTracker:        ocr2Provider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-		OffchainConfigDigester:       offchainConfigDigester,
+		OffchainConfigDigester:       ocr2Provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       pluginFactory,

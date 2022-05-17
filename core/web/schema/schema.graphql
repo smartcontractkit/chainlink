@@ -68,7 +68,6 @@ type Mutation {
     rejectJobProposalSpec(id: ID!): RejectJobProposalSpecPayload!
     runJob(id: ID!): RunJobPayload!
     setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
-    setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateChain(id: ID!, input: UpdateChainInput!): UpdateChainPayload!
