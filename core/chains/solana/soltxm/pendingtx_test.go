@@ -34,18 +34,18 @@ func TestPendingTxContext(t *testing.T) {
 	n := 5
 	for i := 0; i < n; i++ {
 		sig, cancel := newProcess(i)
-		err := txs.Insert(sig, cancel)
+		err := txs.Add(sig, cancel)
 		assert.NoError(t, err)
 	}
 
 	// return list of signatures
-	list := txs.FetchAndUpdateInflight()
+	list := txs.ListAll()
 	assert.Equal(t, n, len(list))
 
 	// stop all sub processes
 	for i := 0; i < len(list); i++ {
-		txs.Cancel(list[i])
-		assert.Equal(t, n-i-1, len(txs.FetchAndUpdateInflight()))
+		txs.Remove(list[i])
+		assert.Equal(t, n-i-1, len(txs.ListAll()))
 	}
 	wg.Wait()
 }

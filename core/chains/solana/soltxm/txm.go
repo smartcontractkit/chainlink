@@ -41,8 +41,8 @@ type Txm struct {
 	chStop  chan struct{}
 	done    sync.WaitGroup
 	cfg     config.Config
-	txs     *pendingTxContextWithProm
-	client  *LazyLoad[solanaClient.ReaderWriter]
+	txs     PendingTxContext
+	client  *utils.LazyLoad[solanaClient.ReaderWriter]
 }
 
 type pendingTx struct {
@@ -62,7 +62,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 		chStop:  make(chan struct{}),
 		cfg:     cfg,
 		txs:     newPendingTxContextWithProm(chainID),
-		client:  NewLazyLoad(tc),
+		client:  utils.NewLazyLoad(tc),
 	}
 }
 
@@ -123,13 +123,13 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 	// send initial tx (do not retry and exit early if fails)
 	sig, err := client.SendTx(ctx, tx)
 	if err != nil {
-		cancel()            // cancel context when exiting early
-		txm.txs.Failed(sig) // increment failed metric
+		cancel()                           // cancel context when exiting early
+		txm.txs.OnError(sig, TxFailReject) // increment failed metric
 		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
 	}
 
 	// store tx signature + cancel function
-	if err := txm.txs.Insert(sig, cancel); err != nil {
+	if err := txm.txs.Add(sig, cancel); err != nil {
 		cancel() // cancel context when exiting early
 		return solanaGo.Signature{}, errors.Wrapf(err, "failed to save tx signature (%s) to inflight txs", sig)
 	}
@@ -192,7 +192,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 		if !exists { // if new, add timestamp
 			timestamps[sig] = time.Now()
 		} else if time.Since(timestamp) > txm.cfg.TxConfirmTimeout() { // if timed out, drop tx sig (remove from txs + timestamps)
-			txm.txs.Cancel(sig)
+			txm.txs.OnError(sig, TxFailDrop)
 			txm.lggr.Warnw(warnStr, "signature", sig, "timeoutSeconds", txm.cfg.TxConfirmTimeout())
 			delete(timestamps, sig)
 		}
@@ -206,7 +206,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			return
 		case <-tick:
 			// get list of tx signatures to confirm
-			sigs := txm.txs.FetchAndUpdateInflight()
+			sigs := txm.txs.ListAll()
 
 			// exit switch if not txs to confirm
 			if len(sigs) == 0 {
@@ -221,7 +221,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			}
 
 			// batch sigs no more than MaxSigsToConfirm each
-			sigsBatch, err := BatchSplit(sigs, MaxSigsToConfirm)
+			sigsBatch, err := utils.BatchSplit(sigs, MaxSigsToConfirm)
 			if err != nil { // this should never happen
 				txm.lggr.Criticalw("failed to batch signatures", "error", err)
 				break // exit switch
@@ -249,7 +249,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"error", res[i].Err,
 							"status", res[i].ConfirmationStatus,
 						)
-						txm.txs.Revert(s[i])
+						txm.txs.OnError(s[i], TxFailRevert)
 
 						// clear timestamp
 						timestampsMu.Lock()
@@ -274,7 +274,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 						txm.lggr.Debugw(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
 							"signature", s[i],
 						)
-						txm.txs.Success(s[i])
+						txm.txs.OnSuccess(s[i])
 
 						// clear timestamp
 						timestampsMu.Lock()
@@ -354,7 +354,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 				continue
 			// transaction will encounter execution error/revert, mark as reverted to remove from confirmation + retry
 			case strings.Contains(errStr, "InstructionError"):
-				txm.txs.Revert(msg.signature) // cancel retry
+				txm.txs.OnError(msg.signature, TxFailSimRevert) // cancel retry
 				txm.lggr.Warnw("simulate: InstructionError", "signature", msg.signature, "result", res)
 				continue
 			// transaction is already processed in the chain, letting txm confirmation handle
@@ -363,7 +363,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 				continue
 			// unrecognized errors (indicates more concerning failures)
 			default:
-				txm.txs.Failed(msg.signature) // cancel retry
+				txm.txs.OnError(msg.signature, TxFailSimOther) // cancel retry
 				txm.lggr.Errorw("simulate: unrecognized error", "signature", msg.signature, "result", res)
 				continue
 			}
@@ -388,7 +388,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 }
 
 func (txm *Txm) InflightTxs() int {
-	return len(txm.txs.FetchAndUpdateInflight())
+	return len(txm.txs.ListAll())
 }
 
 // Close close service

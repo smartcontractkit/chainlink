@@ -23,19 +23,22 @@ import (
 )
 
 type soltxmProm struct {
-	id                              string
-	success, revert, fail, timedOut float64
+	id                                                        string
+	success, error, revert, reject, drop, simRevert, simOther float64
 }
 
 func (p soltxmProm) assertEqual(t *testing.T) {
-	assert.Equal(t, p.success, testutil.ToFloat64(promSolTxmSuccessfulTxs.WithLabelValues(p.id)), "mismatch: success")
-	assert.Equal(t, p.revert, testutil.ToFloat64(promSolTxmRevertedTxs.WithLabelValues(p.id)), "mismatch: revert")
-	assert.Equal(t, p.fail, testutil.ToFloat64(promSolTxmFailedTxs.WithLabelValues(p.id)), "mismatch: fail")
-	assert.Equal(t, p.timedOut, testutil.ToFloat64(promSolTxmTimedOutTxs.WithLabelValues(p.id)), "mismatch: timedOut")
+	assert.Equal(t, p.success, testutil.ToFloat64(promSolTxmSuccessTxs.WithLabelValues(p.id)), "mismatch: success")
+	assert.Equal(t, p.error, testutil.ToFloat64(promSolTxmErrorTxs.WithLabelValues(p.id)), "mismatch: error")
+	assert.Equal(t, p.revert, testutil.ToFloat64(promSolTxmRevertTxs.WithLabelValues(p.id)), "mismatch: revert")
+	assert.Equal(t, p.reject, testutil.ToFloat64(promSolTxmRejectTxs.WithLabelValues(p.id)), "mismatch: reject")
+	assert.Equal(t, p.drop, testutil.ToFloat64(promSolTxmDropTxs.WithLabelValues(p.id)), "mismatch: drop")
+	assert.Equal(t, p.simRevert, testutil.ToFloat64(promSolTxmSimRevertTxs.WithLabelValues(p.id)), "mismatch: simRevert")
+	assert.Equal(t, p.simOther, testutil.ToFloat64(promSolTxmSimOtherTxs.WithLabelValues(p.id)), "mismatch: simOther")
 }
 
 func (p soltxmProm) getInflight() float64 {
-	return testutil.ToFloat64(promSolTxmInflightTxs.WithLabelValues(p.id))
+	return testutil.ToFloat64(promSolTxmPendingTxs.WithLabelValues(p.id))
 }
 
 func TestTxm(t *testing.T) {
@@ -163,7 +166,8 @@ func TestTxm(t *testing.T) {
 		waitFor(empty)
 
 		// check prom metric
-		prom.fail++
+		prom.error++
+		prom.reject++
 		prom.assertEqual(t)
 	})
 
@@ -188,7 +192,8 @@ func TestTxm(t *testing.T) {
 		waitFor(empty) // txs cleared quickly
 
 		// check prom metric
-		prom.fail++
+		prom.error++
+		prom.simOther++
 		prom.assertEqual(t)
 	})
 
@@ -211,7 +216,8 @@ func TestTxm(t *testing.T) {
 		waitFor(empty) // txs cleared after timeout
 
 		// check prom metric
-		prom.timedOut++
+		prom.error++
+		prom.drop++
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
@@ -246,7 +252,8 @@ func TestTxm(t *testing.T) {
 		waitFor(empty) // txs cleared after timeout
 
 		// check prom metric
-		prom.revert++
+		prom.error++
+		prom.simRevert++
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
@@ -312,6 +319,7 @@ func TestTxm(t *testing.T) {
 
 		// check prom metric
 		prom.revert++
+		prom.error++
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
@@ -339,7 +347,8 @@ func TestTxm(t *testing.T) {
 		waitFor(empty) // inflight txs cleared after timeout
 
 		// check prom metric
-		prom.timedOut++
+		prom.error++
+		prom.drop++
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
@@ -368,7 +377,8 @@ func TestTxm(t *testing.T) {
 		waitFor(empty) // inflight txs cleared after timeout
 
 		// check prom metric
-		prom.timedOut++
+		prom.error++
+		prom.drop++
 		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
@@ -397,6 +407,7 @@ func TestTxm(t *testing.T) {
 		waitFor(empty) // inflight txs cleared after timeout
 
 		// check prom metric
+		prom.error++
 		prom.revert++
 		prom.assertEqual(t)
 
