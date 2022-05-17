@@ -187,6 +187,9 @@ func (o *orm) DeleteRun(id int64) error {
 }
 
 func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error) {
+	if result.OutputDB().Valid && result.ErrorDB().Valid {
+		panic("run result must specify either output or error, not both")
+	}
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
@@ -214,14 +217,9 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
 				return errors.Wrap(err, "UpdateTaskRunResult")
 			}
-
-			// NOTE: can't join and preload in a single query unless explicitly listing all the struct fields...
-			// https://snippets.aktagon.com/snippets/757-how-to-join-two-tables-with-jmoiron-sqlx
-			sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
-			return tx.Select(&run.PipelineTaskRuns, sql, run.ID)
 		}
 
-		return nil
+		return loadAssociations(tx, []*Run{&run})
 	})
 
 	return run, start, err
@@ -374,7 +372,7 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 }
 
 func (o *orm) FindRun(id int64) (r Run, err error) {
-	var runs []Run
+	var runs []*Run
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE id = $1 LIMIT 1`, id); err != nil {
 			return errors.Wrap(err, "failed to load runs")
@@ -384,25 +382,30 @@ func (o *orm) FindRun(id int64) (r Run, err error) {
 	if len(runs) == 0 {
 		return r, sql.ErrNoRows
 	}
-	return runs[0], err
+	return *runs[0], err
 }
 
 func (o *orm) GetAllRuns() (runs []Run, err error) {
+	var runsPtrs []*Run
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&runs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
+		err = tx.Select(&runsPtrs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
 		if err != nil {
 			return errors.Wrap(err, "failed to load runs")
 		}
 
-		return loadAssociations(tx, runs)
+		return loadAssociations(tx, runsPtrs)
 	})
+	runs = make([]Run, len(runsPtrs))
+	for i, runPtr := range runsPtrs {
+		runs[i] = *runPtr
+	}
 	return runs, err
 }
 
 func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run Run) error) error {
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 	return pg.Batch(func(offset, limit uint) (count uint, err error) {
-		var runs []Run
+		var runs []*Run
 
 		err = q.Transaction(func(tx pg.Queryer) error {
 			err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE state = $1 AND created_at < $2 ORDER BY created_at ASC, id ASC OFFSET $3 LIMIT $4`, RunStatusRunning, now, offset, limit)
@@ -416,7 +419,7 @@ func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run 
 			}
 
 			for _, run := range runs {
-				if err = fn(run); err != nil {
+				if err = fn(*run); err != nil {
 					return err
 				}
 			}
@@ -428,7 +431,7 @@ func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run 
 }
 
 // loads PipelineSpec and PipelineTaskRuns for Runs in exactly 2 queries
-func loadAssociations(q pg.Queryer, runs []Run) error {
+func loadAssociations(q pg.Queryer, runs []*Run) error {
 	if len(runs) == 0 {
 		return nil
 	}
@@ -443,7 +446,7 @@ func loadAssociations(q pg.Queryer, runs []Run) error {
 			pipelineSpecIDM[run.PipelineSpecID] = Spec{}
 		}
 	}
-	if err := q.Select(&specs, `SELECT * FROM pipeline_specs WHERE id = ANY($1)`, pipelineSpecIDs); err != nil {
+	if err := q.Select(&specs, `SELECT ps.id , ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
 	}
 	for _, spec := range specs {

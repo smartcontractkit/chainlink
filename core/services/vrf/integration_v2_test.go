@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
@@ -1159,18 +1160,17 @@ func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]
 		*utils.NewBigI(1337),
 		true,
 		&types.ChainCfg{
-			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
-			EvmGasPriceDefault:               utils.NewBig(defaultGasPrice),
-			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:        &zero,
-			EvmFinalityDepth:                 null.IntFrom(15),
-			EthTxReaperThreshold:             &reaperThreshold,
-			MinIncomingConfirmations:         null.IntFrom(1),
-			MinRequiredOutgoingConfirmations: null.IntFrom(1),
-			MinimumContractPayment:           assets.NewLinkFromJuels(100),
-			EvmGasLimitDefault:               null.NewInt(2000000, true),
-			KeySpecific:                      ks,
+			GasEstimatorMode:               null.StringFrom("FixedPrice"),
+			EvmGasPriceDefault:             utils.NewBig(defaultGasPrice),
+			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
+			EthTxResendAfterThreshold:      &zero,
+			EvmFinalityDepth:               null.IntFrom(15),
+			EthTxReaperThreshold:           &reaperThreshold,
+			MinIncomingConfirmations:       null.IntFrom(1),
+			MinimumContractPayment:         assets.NewLinkFromJuels(100),
+			EvmGasLimitDefault:             null.NewInt(2000000, true),
+			KeySpecific:                    ks,
 		},
 	)
 }
@@ -1730,14 +1730,16 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
+	reqID := utils.PadByteToHash(0x10)
 	m1 := txmgr.EthTxMeta{
-		RequestID: utils.PadByteToHash(0x10),
+		RequestID: &reqID,
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
 	md1_ := datatypes.JSON(md1)
+	reqID2 := utils.PadByteToHash(0x11)
 	m2 := txmgr.EthTxMeta{
-		RequestID: utils.PadByteToHash(0x11),
+		RequestID: &reqID2,
 	}
 	md2, err := json.Marshal(&m2)
 	md2_ := datatypes.JSON(md2)
@@ -1796,8 +1798,9 @@ func TestStartingCountsV1(t *testing.T) {
 	// add unconfirmed txes
 	unconfirmedTxes := []txmgr.EthTx{}
 	for i := int64(4); i < 6; i++ {
+		reqID3 := utils.PadByteToHash(0x12)
 		md, err := json.Marshal(&txmgr.EthTxMeta{
-			RequestID: utils.PadByteToHash(0x12),
+			RequestID: &reqID3,
 		})
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
@@ -1868,7 +1871,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,
-			Receipt:          []byte(`{}`),
+			Receipt:          evmtypes.Receipt{},
 			CreatedAt:        time.Now(),
 		})
 	}
