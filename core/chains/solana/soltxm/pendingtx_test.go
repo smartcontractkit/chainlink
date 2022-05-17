@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
@@ -48,4 +49,19 @@ func TestPendingTxContext(t *testing.T) {
 		assert.Equal(t, n-i-1, len(txs.ListAll()))
 	}
 	wg.Wait()
+}
+
+func TestPendingTxContext_expired(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	sig := solana.Signature{}
+	txs := newPendingTxContext()
+
+	err := txs.Add(sig, cancel)
+	assert.NoError(t, err)
+
+	assert.True(t, txs.Expired(sig, 0*time.Second))   // expired for 0s lifetime
+	assert.False(t, txs.Expired(sig, 60*time.Second)) // not expired for 60s lifetime
+
+	txs.Remove(sig)
+	assert.True(t, txs.Expired(sig, 60*time.Second)) // no longer exists, should be expired
 }

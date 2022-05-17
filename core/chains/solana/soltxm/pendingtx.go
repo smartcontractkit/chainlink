@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
@@ -13,6 +14,7 @@ type PendingTxContext interface {
 	Add(sig solana.Signature, cancel context.CancelFunc) error
 	Remove(sig solana.Signature)
 	ListAll() []solana.Signature
+	Expired(sig solana.Signature, lifespan time.Duration) bool
 	// state change hooks
 	OnSuccess(sig solana.Signature)
 	OnError(sig solana.Signature, errType int) // match err type using enum
@@ -21,13 +23,15 @@ type PendingTxContext interface {
 var _ PendingTxContext = &pendingTxContext{}
 
 type pendingTxContext struct {
-	cancelBy map[solana.Signature]context.CancelFunc
-	lock     sync.RWMutex
+	cancelBy  map[solana.Signature]context.CancelFunc
+	timestamp map[solana.Signature]time.Time
+	lock      sync.RWMutex
 }
 
 func newPendingTxContext() *pendingTxContext {
 	return &pendingTxContext{
-		cancelBy: map[solana.Signature]context.CancelFunc{},
+		cancelBy:  map[solana.Signature]context.CancelFunc{},
+		timestamp: map[solana.Signature]time.Time{},
 	}
 }
 
@@ -43,6 +47,7 @@ func (c *pendingTxContext) Add(sig solana.Signature, cancel context.CancelFunc) 
 	// save cancel func
 	c.lock.Lock()
 	c.cancelBy[sig] = cancel
+	c.timestamp[sig] = time.Now()
 	c.lock.Unlock()
 	return nil
 }
@@ -60,6 +65,7 @@ func (c *pendingTxContext) Remove(sig solana.Signature) {
 	c.lock.Lock()
 	c.cancelBy[sig]() // cancel context
 	delete(c.cancelBy, sig)
+	delete(c.timestamp, sig)
 	c.lock.Unlock()
 	return
 }
@@ -68,6 +74,19 @@ func (c *pendingTxContext) ListAll() []solana.Signature {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return maps.Keys(c.cancelBy)
+}
+
+// Expired returns if the timeout for trying to confirm a signature has been reached
+func (c *pendingTxContext) Expired(sig solana.Signature, lifespan time.Duration) bool {
+	c.lock.RLock()
+	timestamp, exists := c.timestamp[sig]
+	c.lock.RUnlock()
+
+	if !exists {
+		return true // return expired = true if timestamp doesn't exist
+	}
+
+	return time.Since(timestamp) > lifespan
 }
 
 func (c *pendingTxContext) OnSuccess(sig solana.Signature) {
@@ -115,6 +134,10 @@ func (c *pendingTxContextWithProm) ListAll() []solana.Signature {
 	sigs := c.pendingTx.ListAll()
 	promSolTxmPendingTxs.WithLabelValues(c.chainID).Set(float64(len(sigs)))
 	return sigs
+}
+
+func (c *pendingTxContextWithProm) Expired(sig solana.Signature, lifespan time.Duration) bool {
+	return c.pendingTx.Expired(sig, lifespan)
 }
 
 // Success - tx included in block and confirmed

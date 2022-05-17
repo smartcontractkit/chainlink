@@ -182,23 +182,6 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 func (txm *Txm) confirm(ctx context.Context) {
 	defer txm.done.Done()
 
-	timestamps := map[solanaGo.Signature]time.Time{}
-	timestampsMu := sync.Mutex{}
-
-	// if transaction is older than TxConfirmTimeout, trigger Cancel (removes from list of signatures to check)
-	checkTimestamp := func(sig solanaGo.Signature, warnStr string) {
-		timestampsMu.Lock()
-		timestamp, exists := timestamps[sig]
-		if !exists { // if new, add timestamp
-			timestamps[sig] = time.Now()
-		} else if time.Since(timestamp) > txm.cfg.TxConfirmTimeout() { // if timed out, drop tx sig (remove from txs + timestamps)
-			txm.txs.OnError(sig, TxFailDrop)
-			txm.lggr.Warnw(warnStr, "signature", sig, "timeoutSeconds", txm.cfg.TxConfirmTimeout())
-			delete(timestamps, sig)
-		}
-		timestampsMu.Unlock()
-	}
-
 	tick := time.After(0)
 	for {
 		select {
@@ -238,7 +221,10 @@ func (txm *Txm) confirm(ctx context.Context) {
 						)
 
 						// check confirm timeout exceeded
-						checkTimestamp(s[i], "failed to find transaction within confirm timeout")
+						if txm.txs.Expired(s[i], txm.cfg.TxConfirmTimeout()) {
+							txm.txs.OnError(s[i], TxFailDrop)
+							txm.lggr.Warnw("failed to find transaction within confirm timeout", "signature", s[i], "timeoutSeconds", txm.cfg.TxConfirmTimeout())
+						}
 						continue
 					}
 
@@ -250,11 +236,6 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"status", res[i].ConfirmationStatus,
 						)
 						txm.txs.OnError(s[i], TxFailRevert)
-
-						// clear timestamp
-						timestampsMu.Lock()
-						delete(timestamps, s[i])
-						timestampsMu.Unlock()
 						continue
 					}
 
@@ -265,7 +246,10 @@ func (txm *Txm) confirm(ctx context.Context) {
 						)
 
 						// check confirm timeout exceeded
-						checkTimestamp(s[i], "tx failed to move beyond 'processed' within confirm timeout")
+						if txm.txs.Expired(s[i], txm.cfg.TxConfirmTimeout()) {
+							txm.txs.OnError(s[i], TxFailDrop)
+							txm.lggr.Warnw("tx failed to move beyond 'processed' within confirm timeout", "signature", s[i], "timeoutSeconds", txm.cfg.TxConfirmTimeout())
+						}
 						continue
 					}
 
@@ -275,11 +259,6 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"signature", s[i],
 						)
 						txm.txs.OnSuccess(s[i])
-
-						// clear timestamp
-						timestampsMu.Lock()
-						delete(timestamps, s[i])
-						timestampsMu.Unlock()
 						continue
 					}
 				}
