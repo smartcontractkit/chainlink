@@ -23,9 +23,25 @@ Must not comprise:
 ```
 This will prevent application boot in a future version of Chainlink.
 - The following ENV variables have been removed: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
+- `MIN_OUTGOING_CONFIRMATIONS` has been removed and no longer has any effect. `EVM_FINALITY_DEPTH` is now used as the default for `ethtx` confirmations instead. You may override this on a per-task basis by setting `minConfirmations` in the task definition e.g. `foo [type=ethtx minConfirmations=42 ...]`. NOTE: This may have a minor impact on performance on very high throughput chains. If you don't care about reporting task status in the UI, it is recommended to set `minConfirmations=0` in your job specs. For more details, see the [relevant section of the performance tuning guide](https://www.notion.so/chainlink/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c#e9998c2f722540b597301a640f53cfd4).
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+- In job pipeline (direct request) the three new block variables are exposed:
+  - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
+  - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
+  - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
+- `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
+
+`foo [type=ethtx failOnRevert=true ...]`
+
+So the `ethtx` task now works as follows:
+
+If minConfirmations == 0, task always succeeds and nil is passed as output
+If minConfirmations > 0, the receipt is passed through as output
+If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on revert
+
+If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
@@ -1466,10 +1482,12 @@ for OCR jobs.
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
+- OCR jobs no longer require defining v1 bootstrap peers unless `P2P_NETWORKING_STACK=V1`
 
 #### BREAKING CHANGES
 
 - Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accommodate additional types of jobs using the new pipeline.
+- If `P2P_NETWORKING_STACK=V1V2`, then `P2PV2_BOOTSTRAPPERS` must also be set
 
 #### V1 jobs
 

@@ -305,7 +305,17 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	t.Helper()
 	testutils.SkipShortDB(t)
 
-	lggr := logger.TestLogger(t)
+	var lggr logger.Logger
+	for _, dep := range flagsAndDeps {
+		argLggr, is := dep.(logger.Logger)
+		if is {
+			lggr = argLggr
+			break
+		}
+	}
+	if lggr == nil {
+		lggr = logger.TestLogger(t)
+	}
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
@@ -817,6 +827,26 @@ func CreateJobRunViaExternalInitiatorV2(
 	require.NoError(t, err)
 
 	// assert.Equal(t, j.ID, pr.JobSpecID)
+	return pr
+}
+
+func CreateJobRunViaUser(
+	t testing.TB,
+	app *TestApplication,
+	jobID uuid.UUID,
+	body string,
+) webpresenters.PipelineRunResource {
+	t.Helper()
+
+	bodyBuf := bytes.NewBufferString(body)
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var pr webpresenters.PipelineRunResource
+	err := ParseJSONAPIResponse(t, resp, &pr)
+	require.NoError(t, err)
+
 	return pr
 }
 
@@ -1536,6 +1566,13 @@ func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 	t.Helper()
 	for i, run := range runs {
 		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
+}
+
+func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
 	}
 }
 
