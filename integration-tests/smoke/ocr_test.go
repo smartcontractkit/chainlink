@@ -33,7 +33,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 			env, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
 					environment.ChainlinkReplicas(6, config.ChainlinkVals()),
-					"chainlink-ocr-core-ci",
+					"chainlink-ocr",
 					config.GethNetworks()...,
 				),
 			)

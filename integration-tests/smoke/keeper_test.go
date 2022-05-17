@@ -34,7 +34,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			env, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
 					environment.ChainlinkReplicas(6, config.ChainlinkVals()),
-					"chainlink-keeper-core-ci",
+					"chainlink-keeper",
 					config.GethNetworks()...,
 				),
 			)
