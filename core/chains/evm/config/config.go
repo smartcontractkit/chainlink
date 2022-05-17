@@ -366,7 +366,7 @@ func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 func (c *chainScopedConfig) EvmMaxQueuedTransactions() uint64 {
 	val, ok := c.GeneralConfig.GlobalEvmMaxQueuedTransactions()
 	if ok {
-		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
+		c.logEnvOverrideOnce("EvmMaxQueuedTransactions", val)
 		return val
 	}
 	return c.defaultSet.maxQueuedTransactions
@@ -641,14 +641,14 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
 	val, ok := c.GeneralConfig.GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks()
 	if ok {
-		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockHistorySize", val)
+		c.logEnvOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", val)
 		return val
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockHistorySize", p.Int64)
+		c.logPersistedOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", p.Int64)
 		return uint16(p.Int64)
 	}
 	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
