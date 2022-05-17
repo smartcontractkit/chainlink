@@ -569,8 +569,9 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 		// start the runner again
 		go func() {
 			if _, err := r.Run(context.Background(), &run, r.lggr, false, nil); err != nil {
-				r.lggr.Errorw("Resume", "err", err)
+				r.lggr.Errorw("Resume run failure", "err", err)
 			}
+			r.lggr.Debug("Resume run success")
 		}()
 	}
 	return nil
