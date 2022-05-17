@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -305,4 +306,115 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
+}
+
+func TestHTTPTask_Headers(t *testing.T) {
+	allHeaders := func(headers http.Header) (s []string) {
+		var keys []string
+		for k, _ := range headers {
+			keys = append(keys, k)
+		}
+		// get it in a consistent order
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := headers.Get(k)
+			s = append(s, k, v)
+		}
+		return s
+	}
+
+	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
+
+	t.Run("sends headers", func(t *testing.T) {
+		config := cltest.NewTestGeneralConfig(t)
+		var headers http.Header
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			headers = r.Header
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"fooresponse": 1}`))
+			require.NoError(t, err)
+		})
+
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		task := pipeline.HTTPTask{
+			Method:      "POST",
+			URL:         server.URL,
+			RequestData: ethUSDPairing,
+			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar"]`,
+		}
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		task.HelperSetDependencies(config, c, c)
+
+		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
+	})
+
+	t.Run("ignores odd number of headers", func(t *testing.T) {
+		config := cltest.NewTestGeneralConfig(t)
+		var headers http.Header
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			headers = r.Header
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"fooresponse": 2}`))
+			require.NoError(t, err)
+		})
+
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		task := pipeline.HTTPTask{
+			Method:      "POST",
+			URL:         server.URL,
+			RequestData: ethUSDPairing,
+			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
+		}
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		task.HelperSetDependencies(config, c, c)
+
+		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 2}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
+	})
+
+	t.Run("allows to override content-type", func(t *testing.T) {
+		config := cltest.NewTestGeneralConfig(t)
+		var headers http.Header
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			headers = r.Header
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"fooresponse": 3}`))
+			require.NoError(t, err)
+		})
+
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		task := pipeline.HTTPTask{
+			Method:      "POST",
+			URL:         server.URL,
+			RequestData: ethUSDPairing,
+			Headers:     `["X-Header-1", "foo", "Content-Type", "footype", "X-Header-2", "bar"]`,
+		}
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		task.HelperSetDependencies(config, c, c)
+
+		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
+	})
 }
