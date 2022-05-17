@@ -2,7 +2,6 @@ package loader
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
@@ -246,7 +245,6 @@ func GetJobSpecErrorsByJobID(ctx context.Context, jobID int32) ([]job.SpecError,
 		return nil, err
 	}
 
-	fmt.Printf("%v\n", result)
 	specErrs, ok := result.([]job.SpecError)
 	if !ok {
 		return nil, ErrInvalidType

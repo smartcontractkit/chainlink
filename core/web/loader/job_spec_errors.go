@@ -33,7 +33,7 @@ func (b *jobSpecErrorsBatcher) loadByJobIDs(_ context.Context, keys dataloader.K
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 
-	// Generate a map of spec errors to jobIDs
+	// Generate a map of jobIDs to spec errors
 	specErrorsForJobs := map[string][]job.SpecError{}
 	for _, s := range specErrors {
 		jobID := stringutils.FromInt32(s.JobID)

@@ -703,11 +703,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 
 // FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
 func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
-	ctx, cancel := pg.DefaultQueryCtx()
-	defer cancel()
-
-	q := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		stmt := "SELECT * FROM jobs WHERE id = $1 LIMIT 1"
 		err = tx.Get(&jb, stmt, id)
 		if err != nil {
