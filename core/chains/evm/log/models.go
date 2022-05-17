@@ -20,6 +20,9 @@ type (
 		String() string
 		LatestBlockNumber() uint64
 		LatestBlockHash() common.Hash
+		ReceiptsRoot() common.Hash
+		TransactionsRoot() common.Hash
+		StateRoot() common.Hash
 		JobID() int32
 		EVMChainID() big.Int
 	}
@@ -27,6 +30,9 @@ type (
 	broadcast struct {
 		latestBlockNumber uint64
 		latestBlockHash   common.Hash
+		receiptsRoot      common.Hash
+		transactionsRoot  common.Hash
+		stateRoot         common.Hash
 		decodedLog        interface{}
 		rawLog            types.Log
 		jobID             int32
@@ -44,6 +50,18 @@ func (b *broadcast) LatestBlockNumber() uint64 {
 
 func (b *broadcast) LatestBlockHash() common.Hash {
 	return b.latestBlockHash
+}
+
+func (b *broadcast) ReceiptsRoot() common.Hash {
+	return b.receiptsRoot
+}
+
+func (b *broadcast) TransactionsRoot() common.Hash {
+	return b.transactionsRoot
+}
+
+func (b *broadcast) StateRoot() common.Hash {
+	return b.stateRoot
 }
 
 func (b *broadcast) RawLog() types.Log {
@@ -70,6 +88,9 @@ func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog interface{
 	return &broadcast{
 		latestBlockNumber: 0,
 		latestBlockHash:   common.Hash{},
+		receiptsRoot:      common.Hash{},
+		transactionsRoot:  common.Hash{},
+		stateRoot:         common.Hash{},
 		decodedLog:        decodedLog,
 		rawLog:            rawLog,
 		jobID:             0,

@@ -367,17 +367,6 @@ func (r *ChainConfigResolver) MinIncomingConfirmations() *int32 {
 	return nil
 }
 
-func (r *ChainConfigResolver) MinRequiredOutgoingConfirmations() *int32 {
-	if r.cfg.MinRequiredOutgoingConfirmations.Valid {
-		val := r.cfg.MinRequiredOutgoingConfirmations.Int64
-		intVal := int32(val)
-
-		return &intVal
-	}
-
-	return nil
-}
-
 func (r *ChainConfigResolver) MinimumContractPayment() *string {
 	if r.cfg.MinimumContractPayment != nil {
 		value := r.cfg.MinimumContractPayment.String()
@@ -453,7 +442,6 @@ type ChainConfigInput struct {
 	GasEstimatorMode                      *GasEstimatorMode
 	ChainType                             *ChainType
 	MinIncomingConfirmations              *int32
-	MinRequiredOutgoingConfirmations      *int32
 	MinimumContractPayment                *string
 	OCRObservationTimeout                 *string
 	LinkContractAddress                   *string
@@ -606,10 +594,6 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 
 	if input.MinIncomingConfirmations != nil {
 		cfg.MinIncomingConfirmations = null.IntFrom(int64(*input.MinIncomingConfirmations))
-	}
-
-	if input.MinRequiredOutgoingConfirmations != nil {
-		cfg.MinRequiredOutgoingConfirmations = null.IntFrom(int64(*input.MinRequiredOutgoingConfirmations))
 	}
 
 	if input.MinimumContractPayment != nil {

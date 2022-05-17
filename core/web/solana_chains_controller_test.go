@@ -39,7 +39,7 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	hour := models.MustMakeDuration(time.Hour)
 	body, err := json.Marshal(web.NewCreateChainRequest(
 		newChainId,
-		db.ChainCfg{
+		&db.ChainCfg{
 			BalancePollPeriod:   &second,
 			ConfirmPollPeriod:   &minute,
 			OCR2CachePollPeriod: &minute,
@@ -149,16 +149,16 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	controller := setupSolanaChainsControllerTest(t)
 
 	hour := models.MustMakeDuration(time.Hour)
-	newChains := []web.CreateChainRequest[string, db.ChainCfg]{
+	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				TxTimeout: &hour,
 			},
 		},
 		{
 			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				SkipPreflight: null.BoolFrom(false),
 			},
 		},
@@ -169,7 +169,7 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 		solanatest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
 			ID:      ch.ID,
 			Enabled: true,
-			Cfg:     ch.Config,
+			Cfg:     *ch.Config,
 		})
 	}
 
@@ -220,9 +220,9 @@ func Test_SolanaChainsController_Update(t *testing.T) {
 	t.Parallel()
 
 	hour := models.MustMakeDuration(time.Hour)
-	chainUpdate := web.UpdateChainRequest[db.ChainCfg]{
+	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
-		Config: db.ChainCfg{
+		Config: &db.ChainCfg{
 			SkipPreflight: null.BoolFrom(false),
 			TxTimeout:     &hour,
 		},

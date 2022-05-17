@@ -50,8 +50,9 @@ type Run struct {
 	PipelineTaskRuns []TaskRun        `json:"taskRuns"`
 	State            RunStatus        `json:"state"`
 
-	Pending   bool
-	FailEarly bool
+	Pending bool
+	// FailSilently is used to signal that a task with the failEarly flag has failed, and we want to not put this in the db
+	FailSilently bool
 }
 
 func (r Run) GetID() string {

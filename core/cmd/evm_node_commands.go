@@ -58,7 +58,7 @@ func (ps EVMNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func NewEVMNodeClient(c *Client) NodeClient[evmtypes.Node, presenters.EVMNodeResource, EVMNodePresenter, EVMNodePresenters] {
+func NewEVMNodeClient(c *Client) NodeClient {
 	createNode := func(c *cli.Context) (node evmtypes.Node, err error) {
 		name := c.String("name")
 		t := c.String("type")
@@ -101,5 +101,5 @@ func NewEVMNodeClient(c *Client) NodeClient[evmtypes.Node, presenters.EVMNodeRes
 		}
 		return
 	}
-	return newNodeClient[evmtypes.Node, presenters.EVMNodeResource, EVMNodePresenter, EVMNodePresenters](c, "evm", createNode)
+	return newNodeClient[evmtypes.Node, EVMNodePresenter, EVMNodePresenters](c, "evm", createNode)
 }

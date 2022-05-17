@@ -22,7 +22,7 @@ import (
 )
 
 func mustInsertTerraChain(t *testing.T, ter terra.ChainSet, id string) types.DBChain {
-	chain, err := ter.Add(testutils.Context(t), id, db.ChainCfg{})
+	chain, err := ter.Add(testutils.Context(t), id, nil)
 	require.NoError(t, err)
 	return chain
 }

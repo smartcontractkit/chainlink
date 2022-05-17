@@ -312,19 +312,19 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/p2p/import", p2pkc.Import)
 		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
 
-		solkc := SolanaKeysController{app}
-		authv2.GET("/keys/solana", solkc.Index)
-		authv2.POST("/keys/solana", solkc.Create)
-		authv2.DELETE("/keys/solana/:keyID", solkc.Delete)
-		authv2.POST("/keys/solana/import", solkc.Import)
-		authv2.POST("/keys/solana/export/:ID", solkc.Export)
-
-		terkc := TerraKeysController{app}
-		authv2.GET("/keys/terra", terkc.Index)
-		authv2.POST("/keys/terra", terkc.Create)
-		authv2.DELETE("/keys/terra/:keyID", terkc.Delete)
-		authv2.POST("/keys/terra/import", terkc.Import)
-		authv2.POST("/keys/terra/export/:ID", terkc.Export)
+		for _, keys := range []struct {
+			path string
+			kc   KeysController
+		}{
+			{"solana", NewSolanaKeysController(app)},
+			{"terra", NewTerraKeysController(app)},
+		} {
+			authv2.GET("/keys/"+keys.path, keys.kc.Index)
+			authv2.POST("/keys/"+keys.path, keys.kc.Create)
+			authv2.DELETE("/keys/"+keys.path+"/:keyID", keys.kc.Delete)
+			authv2.POST("/keys/"+keys.path+"/import", keys.kc.Import)
+			authv2.POST("/keys/"+keys.path+"/export/:ID", keys.kc.Export)
+		}
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
