@@ -76,18 +76,17 @@ var _ = Describe("Keeper suite @keeper", func() {
 				1,
 				linkToken,
 				contractDeployer,
-				chainlinkNodes,
 				networks,
 			)
 			consumer = consumers[0]
 			registry = r
 		})
 
-		By("Register Keeper Jobs", func() {
-			actions.CreateKeeperJobs(chainlinkNodes, registry)
-			err = networks.Default.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
-		})
+		// By("Register Keeper Jobs", func() {
+		// 	actions.CreateKeeperJobs(chainlinkNodes, registry)
+		// 	err = networks.Default.WaitForEvents()
+		// 	Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
+		// })
 
 		By("Setting up profiling", func() {
 			profileFunction := func(chainlinkNode client.Chainlink) {
@@ -97,18 +96,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 					return
 				}
 
-				linkToken, err = contractDeployer.DeployLinkTokenContract()
-				Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-
-				r, consumers := actions.DeployKeeperContracts(
-					1,
-					linkToken,
-					contractDeployer,
-					chainlinkNodes,
-					networks,
-				)
-				consumer = consumers[0]
-				registry = r
 				actions.CreateKeeperJobs(chainlinkNodes, registry)
 				err = networks.Default.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
@@ -123,7 +110,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 
 			profileTest = testsetups.NewChainlinkProfileTest(testsetups.ChainlinkProfileTestInputs{
 				ProfileFunction: profileFunction,
-				ProfileDuration: 2 * time.Minute,
+				ProfileDuration: 10 * time.Second,
 				ChainlinkNodes:  chainlinkNodes,
 			})
 			profileTest.Setup(env)
