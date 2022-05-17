@@ -129,6 +129,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		log := new(log_mocks.Broadcast)
 		defer log.AssertExpectations(t)
+		log.On("ReceiptsRoot").Return(common.Hash{})
+		log.On("TransactionsRoot").Return(common.Hash{})
+		log.On("StateRoot").Return(common.Hash{})
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -199,6 +202,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.listener.HandleLog(log)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+
+		log.On("ReceiptsRoot").Return(common.Hash{})
+		log.On("TransactionsRoot").Return(common.Hash{})
+		log.On("StateRoot").Return(common.Hash{})
 
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -277,6 +284,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer uni.Cleanup()
 
 		runLog := new(log_mocks.Broadcast)
+		runLog.On("ReceiptsRoot").Return(common.Hash{})
+		runLog.On("TransactionsRoot").Return(common.Hash{})
+		runLog.On("StateRoot").Return(common.Hash{})
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -345,6 +355,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		log := new(log_mocks.Broadcast)
 		defer log.AssertExpectations(t)
+		log.On("ReceiptsRoot").Return(common.Hash{})
+		log.On("TransactionsRoot").Return(common.Hash{})
+		log.On("StateRoot").Return(common.Hash{})
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -436,6 +449,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		log := new(log_mocks.Broadcast)
 		defer log.AssertExpectations(t)
+		log.On("ReceiptsRoot").Return(common.Hash{})
+		log.On("TransactionsRoot").Return(common.Hash{})
+		log.On("StateRoot").Return(common.Hash{})
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
