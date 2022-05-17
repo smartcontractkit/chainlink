@@ -26,6 +26,10 @@ This will prevent application boot in a future version of Chainlink.
 
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
+- In job pipeline the three new block variables are exposed:
+  - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
+  - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
+  - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
