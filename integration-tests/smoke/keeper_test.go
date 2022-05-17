@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/helmenv/environment"
-	"github.com/smartcontractkit/helmenv/tools"
 )
 
 var _ = Describe("Keeper suite @keeper", func() {
@@ -37,7 +36,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 					"chainlink-keeper-core-ci",
 					config.GethNetworks()...,
 				),
-				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 			err = env.ConnectAll()
