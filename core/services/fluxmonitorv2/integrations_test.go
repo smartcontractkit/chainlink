@@ -841,7 +841,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-		cfg.Overrides.GlobalMinRequiredOutgoingConfirmations = null.IntFrom(2)
+		cfg.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 		cfg.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	})
 

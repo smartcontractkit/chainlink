@@ -306,6 +306,8 @@ type NewTx struct {
 	GasLimit       uint64
 	Meta           *EthTxMeta
 
+	// Pipeline variables - if you aren't calling this from ethtx task within
+	// the pipeline, you don't need these variables
 	MinConfirmations  null.Uint32
 	PipelineTaskRunID *uuid.UUID
 

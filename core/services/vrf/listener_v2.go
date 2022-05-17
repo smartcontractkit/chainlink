@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -785,21 +784,22 @@ func (lsn *listenerV2) processRequestsPerSub(
 				}
 
 				maxLinkString := p.maxLink.String()
+				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
+				coordinatorAddress := lsn.coordinator.Address()
 				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
-						RequestID: common.BytesToHash(p.req.req.RequestId.Bytes()),
+						RequestID: &requestID,
 						MaxLink:   &maxLinkString,
 						SubID:     &p.req.req.SubId,
 					},
-					MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-					Strategy:         txmgr.NewSendEveryStrategy(),
+					Strategy: txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-						VRFCoordinatorAddress: lsn.coordinator.Address(),
+						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
 					},
 				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
