@@ -172,14 +172,6 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			JSONConsole:                    cfg.JSONConsole(),
 			JobPipelineReaperInterval:      cfg.JobPipelineReaperInterval(),
 			JobPipelineReaperThreshold:     cfg.JobPipelineReaperThreshold(),
-			LeaseLockDuration:              cfg.LeaseLockDuration(),
-			LeaseLockRefreshInterval:       cfg.LeaseLockRefreshInterval(),
-			LogFileDir:                     cfg.LogFileDir(),
-			LogFileMaxSize:                 cfg.LogFileMaxSize(),
-			LogFileMaxAge:                  cfg.LogFileMaxAge(),
-			LogFileMaxBackups:              cfg.LogFileMaxBackups(),
-			LogLevel:                       cfg.LogLevel(),
-			LogSQL:                         cfg.LogSQL(),
 
 			// Keeper
 			KeeperDefaultTransactionQueueDepth:      cfg.KeeperDefaultTransactionQueueDepth(),
@@ -194,6 +186,15 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperCheckUpkeepGasPriceFeatureEnabled: cfg.KeeperCheckUpkeepGasPriceFeatureEnabled(),
 			KeeperTurnLookBack:                      cfg.KeeperTurnLookBack(),
 			KeeperTurnFlagEnabled:                   cfg.KeeperTurnFlagEnabled(),
+
+			LeaseLockDuration:        cfg.LeaseLockDuration(),
+			LeaseLockRefreshInterval: cfg.LeaseLockRefreshInterval(),
+			LogFileDir:               cfg.LogFileDir(),
+			LogFileMaxSize:           cfg.LogFileMaxSize(),
+			LogFileMaxAge:            cfg.LogFileMaxAge(),
+			LogFileMaxBackups:        cfg.LogFileMaxBackups(),
+			LogLevel:                 cfg.LogLevel(),
+			LogSQL:                   cfg.LogSQL(),
 
 			// OCRV1
 			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,
