@@ -29,7 +29,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 			e, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
 					config.ChainlinkVals(),
-					"chainlink-cron",
+					"chainlink-cron-core-ci",
 					config.GethNetworks()...,
 				),
 			)

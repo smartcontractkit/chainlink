@@ -37,7 +37,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			e, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
 					environment.ChainlinkReplicas(3, config.ChainlinkVals()),
-					"chainlink-runlog",
+					"chainlink-runlog-core-ci",
 					config.GethNetworks()...,
 				),
 			)

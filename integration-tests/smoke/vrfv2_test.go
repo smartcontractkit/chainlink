@@ -43,7 +43,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			e, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
 					config.ChainlinkVals(),
-					"chainlink-vrfv2",
+					"chainlink-vrfv2-core-ci",
 					environment.PerformanceGeth,
 				),
 			)
