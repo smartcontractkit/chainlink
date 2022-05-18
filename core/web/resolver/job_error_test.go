@@ -32,7 +32,7 @@ func TestResolver_JobErrors(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					ID: int32(1),
 				}, nil)
-				f.Mocks.jobORM.On("FindSpecErrorsByJobIDs", []int32{1}).Return([]job.SpecError{
+				f.Mocks.jobORM.On("FindSpecErrorsByJobIDs", []int32{1}, mock.Anything).Return([]job.SpecError{
 					{
 						ID:          errorID,
 						Description: "no contract code at given address",
