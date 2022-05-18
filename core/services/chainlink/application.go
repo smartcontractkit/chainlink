@@ -19,6 +19,8 @@ import (
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -46,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -336,23 +337,30 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		// master/delegate relay is started once, on app start, as root subservice
-		relay := relay.NewDelegate(keyStore)
+		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
-			relay.AddRelayer(relaytypes.EVM, evmRelayer)
+			relayers[relay.EVM] = evmRelayer
+			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
-			solanaRelayerCtx := solanaRelayer
-			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
+			// TODO: Goes away with solana txm
+			getKey := func(id string) (pkgsolana.Signer, error) {
+				ts, err := keyStore.Solana().Get(id)
+				if err != nil {
+					return nil, err
+				}
+				return ts, nil
+			}
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, getKey)
+			relayers[relay.Solana] = solanaRelayer
+			subservices = append(subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			terraRelayerCtx := terraRelayer
-			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
+			relayers[relay.Terra] = terraRelayer
+			subservices = append(subservices, terraRelayer)
 		}
-		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -363,7 +371,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
-			relay,
+			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -371,7 +379,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			peerWrapper,
 			globalLogger,
 			cfg,
-			relay,
+			relayers,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

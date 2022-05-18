@@ -153,7 +153,6 @@ type ConfigSchema struct {
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
-	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	// Node liveness checking
 	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`

@@ -38,7 +38,7 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if jb.Type != job.OffchainReporting2 {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}
-	if _, ok := relay.SupportedRelayers[spec.Relay]; !ok {
+	if _, ok := relay.SupportedRelays[spec.Relay]; !ok {
 		return jb, errors.Errorf("no such relay %v supported", spec.Relay)
 	}
 	if len(spec.P2PBootstrapPeers) > 0 {

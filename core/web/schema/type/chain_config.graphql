@@ -38,7 +38,6 @@ interface GeneralChainConfig {
     gasEstimatorMode: GasEstimatorMode
     chainType: ChainType
     minIncomingConfirmations: Int
-    minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
     linkContractAddress: String
@@ -70,7 +69,6 @@ type ChainConfig implements GeneralChainConfig {
     gasEstimatorMode: GasEstimatorMode
     chainType: ChainType
     minIncomingConfirmations: Int
-    minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
     linkContractAddress: String
@@ -108,7 +106,6 @@ input ChainConfigInput {
     gasEstimatorMode: GasEstimatorMode
     chainType: ChainType
     minIncomingConfirmations: Int
-    minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
     linkContractAddress: String

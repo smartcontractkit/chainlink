@@ -57,6 +57,11 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
+func NewAddressPtr() *common.Address {
+	a := common.BytesToAddress(randomBytes(20))
+	return &a
+}
+
 // NewRandomInt64 returns a (non-cryptographically secure) random positive int64
 func NewRandomInt64() int64 {
 	id := mrand.Int63()
@@ -101,6 +106,12 @@ func WaitTimeout(t *testing.T) time.Duration {
 		return time.Until(d) * 9 / 10
 	}
 	return DefaultWaitTimeout
+}
+
+// AfterWaitTimeout returns a channel that will send a time value when the
+// WaitTimeout is reached
+func AfterWaitTimeout(t *testing.T) <-chan time.Time {
+	return time.After(WaitTimeout(t))
 }
 
 // Context returns a context with the test's deadline, if available.

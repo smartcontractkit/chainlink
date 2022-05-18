@@ -67,6 +67,7 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 		registryAddr, registry = k.deployRegistry(ctx)
 		upkeepCount = 0
 	}
+	log.Println("Upkeep Count: ", upkeepCount)
 
 	// Create Keeper Jobs on Nodes for Registry
 	for i, keeperAddr := range k.cfg.Keepers {
@@ -98,13 +99,17 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
 	// Set Keepers
-	log.Println("Set keepers...")
-	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
-	if err != nil {
-		log.Fatal("SetKeepers failed: ", err)
+	if len(keepers) > 0 {
+		log.Println("Set keepers...")
+		setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
+		if err != nil {
+			log.Fatal("SetKeepers failed: ", err)
+		}
+		k.waitTx(ctx, setKeepersTx)
+		log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+	} else {
+		log.Println("No Keepers to register")
 	}
-	k.waitTx(ctx, setKeepersTx)
-	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
 
 	return registryAddr
 }

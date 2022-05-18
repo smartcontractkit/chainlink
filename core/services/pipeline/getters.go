@@ -71,7 +71,7 @@ func Inputs(inputs []Result) GetterFunc {
 func VarExpr(expr string, vars Vars) GetterFunc {
 	return func() (interface{}, error) {
 		trimmed := strings.TrimSpace(expr)
-		if len(trimmed) == 0 {
+		if len(trimmed) < 3 {
 			return nil, ErrParameterEmpty
 		}
 		isVariableExpr := strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')'
