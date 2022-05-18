@@ -31,6 +31,10 @@ func TestGetters_VarExpr(t *testing.T) {
 		// errors
 		{"  ", nil, pipeline.ErrParameterEmpty},
 		{"$()", nil, pipeline.ErrParameterEmpty},
+		{"$", nil, pipeline.ErrParameterEmpty},
+		{"$(", nil, pipeline.ErrParameterEmpty},
+		{"$)", nil, pipeline.ErrParameterEmpty},
+		{"()", nil, pipeline.ErrParameterEmpty},
 		{"$(foo.bar", nil, pipeline.ErrParameterEmpty},
 		{"$foo.bar)", nil, pipeline.ErrParameterEmpty},
 		{"(foo.bar)", nil, pipeline.ErrParameterEmpty},
