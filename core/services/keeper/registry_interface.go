@@ -19,11 +19,12 @@ import (
 type RegistryVersion int32
 
 const (
-	ActiveUpkeepIDBatchSize int64           = 10000
-	RegistryVersion_1_0     RegistryVersion = iota
+	RegistryVersion_1_0 RegistryVersion = iota
 	RegistryVersion_1_1
 	RegistryVersion_1_2
 )
+
+const ActiveUpkeepIDBatchSize int64 = 10000
 
 // RegistryWrapper implements a layer on top of different versions of registry wrappers
 // to provide a unified layer to rest of the codebase
@@ -122,11 +123,15 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
 		activeUpkeepIDs := make([]*big.Int, 0)
-		for {
+		state, err := rw.contract1_2.GetState(opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get contract state")
+		}
+		for int64(len(activeUpkeepIDs)) < state.State.NumUpkeeps.Int64() {
 			startIndex := int64(len(activeUpkeepIDs))
 			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(ActiveUpkeepIDBatchSize))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %v to %v", startIndex, ActiveUpkeepIDBatchSize)
+				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %v to %v", startIndex, startIndex+ActiveUpkeepIDBatchSize)
 			}
 			activeUpkeepIDs = append(activeUpkeepIDs, activeUpkeepIDBatch...)
 
@@ -187,7 +192,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract config")
 		}
-		keeperAddresses, err := rw.contract1_1.GetKeeperList(nil)
+		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get keeper list")
 		}
@@ -197,7 +202,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			KeeperAddresses:   keeperAddresses,
 		}, nil
 	case RegistryVersion_1_2:
-		state, err := rw.contract1_2.GetState(nil)
+		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract state")
 		}

@@ -549,12 +549,7 @@ contract KeeperRegistry is
    */
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
-    if (startIndex == maxIdx) {
-      return new uint256[](0);
-    } else if (startIndex > maxIdx) {
-      revert IndexOutOfRange();
-    }
-
+    if (startIndex >= maxIdx) revert IndexOutOfRange();
     if (maxCount == 0) {
       maxCount = maxIdx - startIndex;
     }
