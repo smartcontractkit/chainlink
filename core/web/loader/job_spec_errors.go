@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
@@ -14,7 +15,7 @@ type jobSpecErrorsBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobSpecErrorsBatcher) loadByJobIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobSpecErrorsBatcher) loadByJobIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -28,7 +29,7 @@ func (b *jobSpecErrorsBatcher) loadByJobIDs(_ context.Context, keys dataloader.K
 		keyOrder[key.String()] = ix
 	}
 
-	specErrors, err := b.app.JobORM().FindSpecErrorsByJobIDs(jobIDs)
+	specErrors, err := b.app.JobORM().FindSpecErrorsByJobIDs(jobIDs, pg.WithParentCtx(ctx))
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

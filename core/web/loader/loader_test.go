@@ -386,7 +386,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 		specErr2 := job.SpecError{ID: int64(3), JobID: int32(2)}
 		specErr3 := job.SpecError{ID: int64(4), JobID: int32(3)}
 
-		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}).Return([]job.SpecError{
+		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{
 			specErr1, specErr2, specErr3,
 		}, nil)
 		app.On("JobORM").Return(jobsORM)
@@ -413,7 +413,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)
 		})
 
-		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}).Return([]job.SpecError{}, sql.ErrNoRows)
+		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
 
 		batcher := jobSpecErrorsBatcher{app}
