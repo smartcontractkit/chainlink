@@ -10,6 +10,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
+	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +51,8 @@ func TestTxm_Integration(t *testing.T) {
 
 	// set up txm
 	lggr := logger.TestLogger(t)
-	confirmDuration := models.MustMakeDuration(500 * time.Millisecond)
+	confirmDuration, err := relayutils.NewDuration(500 * time.Millisecond)
+	require.NoError(t, err)
 	cfg := config.NewConfig(db.ChainCfg{
 		ConfirmPollPeriod: &confirmDuration,
 	}, lggr)
