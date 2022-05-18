@@ -41,7 +41,6 @@ describe('OptimismSequencerUptimeFeed', () => {
   })
 
   beforeEach(async () => {
-
     const optimismSequencerStatusRecorderFactory =
       await ethers.getContractFactory(
         'src/v0.8/dev/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
@@ -50,7 +49,7 @@ describe('OptimismSequencerUptimeFeed', () => {
     optimismUptimeFeed = await optimismSequencerStatusRecorderFactory.deploy(
       l1Owner.address,
       l2CrossDomainMessenger.address,
-      initialStatus
+      initialStatus,
     )
 
     // Set mock sender in mock L2 messenger contract
@@ -66,11 +65,11 @@ describe('OptimismSequencerUptimeFeed', () => {
     )
   })
 
-  describe("constructor", () => {
-    it("should have been deployed with the correct initial state", async () => {
-      const l1Sender = await optimismUptimeFeed.l1Sender();
+  describe('constructor', () => {
+    it('should have been deployed with the correct initial state', async () => {
+      const l1Sender = await optimismUptimeFeed.l1Sender()
       expect(l1Sender).to.equal(l1Owner.address)
-      const { roundId, answer } = await optimismUptimeFeed.latestRoundData();
+      const { roundId, answer } = await optimismUptimeFeed.latestRoundData()
       expect(roundId).to.equal(1)
       expect(answer).to.equal(initialStatus)
     })
