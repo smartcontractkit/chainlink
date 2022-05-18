@@ -356,19 +356,8 @@ func TestHTTPTask_Headers(t *testing.T) {
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
 
-	t.Run("ignores odd number of headers", func(t *testing.T) {
+	t.Run("errors with odd number of headers", func(t *testing.T) {
 		config := cltest.NewTestGeneralConfig(t)
-		var headers http.Header
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			headers = r.Header
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, err := w.Write([]byte(`{"fooresponse": 2}`))
-			require.NoError(t, err)
-		})
-
-		server := httptest.NewServer(handler)
-		defer server.Close()
 
 		task := pipeline.HTTPTask{
 			Method:      "POST",
@@ -376,13 +365,11 @@ func TestHTTPTask_Headers(t *testing.T) {
 			RequestData: ethUSDPairing,
 			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
 		}
-		c := clhttptest.NewTestLocalOnlyHTTPClient()
-		task.HelperSetDependencies(config, c, c)
 
 		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.Equal(t, `{"fooresponse": 2}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.Equal(t, `{"fooresponse": 2}`, result.Error)
+		assert.Nil(t, result.Value)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})

@@ -79,6 +79,10 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 
+	if len(reqHeaders)%2 != 0 {
+		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
+	}
+
 	requestDataJSON, err := json.Marshal(requestData)
 	if err != nil {
 		return Result{Error: err}, runInfo

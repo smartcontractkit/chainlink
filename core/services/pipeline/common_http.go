@@ -40,8 +40,7 @@ func makeHTTPRequest(
 	}
 	request.Header.Set("Content-Type", "application/json")
 	if len(reqHeaders)%2 != 0 {
-		lggr.Warnw("Got odd number of headers, discarding last value", "reqHeaders", reqHeaders)
-		reqHeaders = reqHeaders[:len(reqHeaders)-1]
+		panic("headers must have an even number of elements")
 	}
 	for i := 0; i+1 < len(reqHeaders); i += 2 {
 		request.Header.Set(reqHeaders[i], reqHeaders[i+1])
