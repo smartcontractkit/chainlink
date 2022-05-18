@@ -24,19 +24,21 @@ type Dataloader struct {
 	JobsByExternalJobIDs                      *dataloader.Loader
 	JobsByPipelineSpecIDLoader                *dataloader.Loader
 	NodesByChainIDLoader                      *dataloader.Loader
+	SpecErrorsByJobIDLoader                   *dataloader.Loader
 }
 
 func New(app chainlink.Application) *Dataloader {
 	var (
-		nodes   = &nodeBatcher{app: app}
-		chains  = &chainBatcher{app: app}
-		mgrs    = &feedsBatcher{app: app}
-		ccfgs   = &feedsManagerChainConfigBatcher{app: app}
-		jobRuns = &jobRunBatcher{app: app}
-		jps     = &jobProposalBatcher{app: app}
-		jpSpecs = &jobProposalSpecBatcher{app: app}
-		jbs     = &jobBatcher{app: app}
-		attmpts = &ethTransactionAttemptBatcher{app: app}
+		nodes    = &nodeBatcher{app: app}
+		chains   = &chainBatcher{app: app}
+		mgrs     = &feedsBatcher{app: app}
+		ccfgs    = &feedsManagerChainConfigBatcher{app: app}
+		jobRuns  = &jobRunBatcher{app: app}
+		jps      = &jobProposalBatcher{app: app}
+		jpSpecs  = &jobProposalSpecBatcher{app: app}
+		jbs      = &jobBatcher{app: app}
+		attmpts  = &ethTransactionAttemptBatcher{app: app}
+		specErrs = &jobSpecErrorsBatcher{app: app}
 	)
 
 	return &Dataloader{
@@ -52,6 +54,7 @@ func New(app chainlink.Application) *Dataloader {
 		JobsByExternalJobIDs:                      dataloader.NewBatchedLoader(jbs.loadByExternalJobIDs),
 		JobsByPipelineSpecIDLoader:                dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
 		NodesByChainIDLoader:                      dataloader.NewBatchedLoader(nodes.loadByChainIDs),
+		SpecErrorsByJobIDLoader:                   dataloader.NewBatchedLoader(specErrs.loadByJobIDs),
 	}
 }
 

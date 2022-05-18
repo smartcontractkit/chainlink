@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/sqlx"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -881,6 +882,87 @@ func main() {
 		resp, err := coordinator.GetSubscription(nil, *subID)
 		helpers.PanicErr(err)
 		fmt.Println("sub id", *subID, "balance:", resp.Balance)
+	case "coordinator-withdrawable-tokens":
+		withdrawableTokensCmd := flag.NewFlagSet("coordinator-withdrawable-tokens", flag.ExitOnError)
+		coordinator := withdrawableTokensCmd.String("coordinator-address", "", "coordinator address")
+		oracle := withdrawableTokensCmd.String("oracle-address", "", "oracle address")
+		start := withdrawableTokensCmd.Int("start-link", 10_000, "the starting amount of LINK to check")
+		helpers.ParseArgs(withdrawableTokensCmd, os.Args[2:], "coordinator-address", "oracle-address")
+
+		coordinatorAddress := common.HexToAddress(*coordinator)
+		oracleAddress := common.HexToAddress(*oracle)
+		abi, err := vrf_coordinator_v2.VRFCoordinatorV2MetaData.GetAbi()
+		helpers.PanicErr(err)
+
+		isWithdrawable := func(amount *big.Int) bool {
+			data, err := abi.Pack("oracleWithdraw", oracleAddress /* this can be any address */, amount)
+			helpers.PanicErr(err)
+
+			_, err = ec.CallContract(context.Background(), ethereum.CallMsg{
+				From: oracleAddress,
+				To:   &coordinatorAddress,
+				Data: data,
+			}, nil)
+			if err == nil {
+				return true
+			} else if strings.Contains(err.Error(), "execution reverted") {
+				return false
+			} else {
+				panic(err)
+			}
+		}
+
+		result := binarySearch(assets.Ether(int64(*start*2)), big.NewInt(0), isWithdrawable)
+
+		fmt.Printf("Withdrawable amount for oracle %s is %s\n", oracleAddress.String(), result.String())
+
+	case "coordinator-reregister-proving-key":
+		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
+		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
+		uncompressedPubKey := coordinatorReregisterKey.String("pubkey", "", "uncompressed pubkey")
+		newOracleAddress := coordinatorReregisterKey.String("new-oracle-address", "", "oracle address")
+		skipDeregister := coordinatorReregisterKey.Bool("skip-deregister", false, "if true, key will not be deregistered")
+		helpers.ParseArgs(coordinatorReregisterKey, os.Args[2:], "coordinator-address", "pubkey", "new-oracle-address")
+
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
+		helpers.PanicErr(err)
+
+		// Put key in ECDSA format
+		if strings.HasPrefix(*uncompressedPubKey, "0x") {
+			*uncompressedPubKey = strings.Replace(*uncompressedPubKey, "0x", "04", 1)
+		}
+		pubBytes, err := hex.DecodeString(*uncompressedPubKey)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+
+		var deregisterTx *types.Transaction
+		if !*skipDeregister {
+			deregisterTx, err = coordinator.DeregisterProvingKey(owner, [2]*big.Int{pk.X, pk.Y})
+			helpers.PanicErr(err)
+			fmt.Println("Deregister transaction", helpers.ExplorerLink(chainID, deregisterTx.Hash()))
+		}
+
+		// Use a higher gas price for the register call
+		owner.GasPrice.Mul(owner.GasPrice, big.NewInt(2))
+		registerTx, err := coordinator.RegisterProvingKey(owner,
+			common.HexToAddress(*newOracleAddress),
+			[2]*big.Int{pk.X, pk.Y})
+		helpers.PanicErr(err)
+		fmt.Println("Register transaction", helpers.ExplorerLink(chainID, registerTx.Hash()))
+
+		if !*skipDeregister {
+			fmt.Println("Waiting for deregister transaction to be mined...")
+			var deregisterReceipt *types.Receipt
+			deregisterReceipt, err = bind.WaitMined(context.Background(), ec, deregisterTx)
+			helpers.PanicErr(err)
+			fmt.Printf("Deregister transaction included in block %s\n", deregisterReceipt.BlockNumber.String())
+		}
+
+		fmt.Println("Waiting for register transaction to be mined...")
+		registerReceipt, err := bind.WaitMined(context.Background(), ec, registerTx)
+		helpers.PanicErr(err)
+		fmt.Printf("Register transaction included in block %s\n", registerReceipt.BlockNumber.String())
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
@@ -963,4 +1045,31 @@ func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]b
 		headers = append(headers, rlpHeader)
 	}
 	return
+}
+
+// binarySearch finds the highest value within the range bottom-top at which the test function is
+// true.
+func binarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.Int {
+	var runs int
+	// While the difference between top and bottom is > 1
+	for new(big.Int).Sub(top, bottom).Cmp(big.NewInt(1)) > 0 {
+		// Calculate midpoint between top and bottom
+		midpoint := new(big.Int).Sub(top, bottom)
+		midpoint.Div(midpoint, big.NewInt(2))
+		midpoint.Add(midpoint, bottom)
+
+		// Check if the midpoint amount is withdrawable
+		if test(midpoint) {
+			bottom = midpoint
+		} else {
+			top = midpoint
+		}
+
+		runs++
+		if runs%10 == 0 {
+			fmt.Printf("Searching... current range %s-%s\n", bottom.String(), top.String())
+		}
+	}
+
+	return bottom
 }

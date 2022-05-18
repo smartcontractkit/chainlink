@@ -154,7 +154,7 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 		return nil, err
 	}
 
-	j, err := r.App.JobORM().FindJobTx(id)
+	j, err := r.App.JobORM().FindJobWithoutSpecErrors(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobPayload(r.App, nil, err), nil
