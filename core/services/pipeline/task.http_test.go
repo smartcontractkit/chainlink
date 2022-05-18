@@ -357,21 +357,18 @@ func TestHTTPTask_Headers(t *testing.T) {
 	})
 
 	t.Run("errors with odd number of headers", func(t *testing.T) {
-		config := cltest.NewTestGeneralConfig(t)
-
 		task := pipeline.HTTPTask{
 			Method:      "POST",
-			URL:         server.URL,
+			URL:         "http://example.com",
 			RequestData: ethUSDPairing,
 			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
 		}
 
 		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.Equal(t, `{"fooresponse": 2}`, result.Error)
+		assert.NotNil(t, result.Error)
+		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
-
-		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
 
 	t.Run("allows to override content-type", func(t *testing.T) {
