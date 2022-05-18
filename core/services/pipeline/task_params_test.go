@@ -52,6 +52,45 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
+func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+
+	expected := pipeline.StringSliceParam{"foo", "bar", "baz"}
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"json", `[ "foo", "bar", "baz" ]`, expected, nil},
+		{"[]string", []string{"foo", "bar", "baz"}, expected, nil},
+		{"[]interface{} with strings", []interface{}{"foo", "bar", "baz"}, expected, nil},
+		{"[]interface{} with []byte", []interface{}{[]byte("foo"), []byte("bar"), []byte("baz")}, expected, nil},
+		{"SliceParam", pipeline.SliceParam([]interface{}{"foo", "bar", "baz"}), expected, nil},
+
+		{"nil", nil, pipeline.StringSliceParam(nil), nil},
+
+		{"bad json", `[ "foo", 1, false ]`, nil, pipeline.ErrBadInput},
+		{"[]interface{} with bad types", []interface{}{123, true}, nil, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p pipeline.StringSliceParam
+			err := p.UnmarshalPipelineParam(test.input)
+			require.Equal(t, test.err, errors.Cause(err))
+			if test.expected != nil {
+				require.Equal(t, test.expected, p)
+			}
+		})
+	}
+
+}
+
 func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
@@ -147,7 +186,6 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		{"[]common.Address", []common.Address{addr1, addr2}, expected, nil},
 		{"[]interface{} with common.Address", []interface{}{addr1, addr2}, expected, nil},
 		{"[]interface{} with strings", []interface{}{addr1.String(), addr2.String()}, expected, nil},
-		{"[]interface{} with []byte", []interface{}{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
 		{"[]interface{} with []byte", []interface{}{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
 		{"nil", nil, pipeline.AddressSliceParam(nil), nil},
 

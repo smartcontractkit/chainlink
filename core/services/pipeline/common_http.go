@@ -19,6 +19,7 @@ func makeHTTPRequest(
 	lggr logger.Logger,
 	method StringParam,
 	url URLParam,
+	reqHeaders []string,
 	requestData MapParam,
 	client *http.Client,
 	httpLimit int64,
@@ -38,6 +39,12 @@ func makeHTTPRequest(
 		return nil, 0, nil, 0, errors.Wrap(err, "failed to create http.Request")
 	}
 	request.Header.Set("Content-Type", "application/json")
+	if len(reqHeaders)%2 != 0 {
+		panic("headers must have an even number of elements")
+	}
+	for i := 0; i+1 < len(reqHeaders); i += 2 {
+		request.Header.Set(reqHeaders[i], reqHeaders[i+1])
+	}
 
 	httpRequest := clhttp.HTTPRequest{
 		Client:  client,
@@ -47,7 +54,7 @@ func makeHTTPRequest(
 	}
 
 	start := time.Now()
-	responseBytes, statusCode, headers, err := httpRequest.SendRequest()
+	responseBytes, statusCode, respHeaders, err := httpRequest.SendRequest()
 	if ctx.Err() != nil {
 		return nil, 0, nil, 0, errors.New("http request timed out or interrupted")
 	}
@@ -58,9 +65,9 @@ func makeHTTPRequest(
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
-		return nil, statusCode, headers, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
+		return nil, statusCode, respHeaders, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
 	}
-	return responseBytes, statusCode, headers, elapsed, nil
+	return responseBytes, statusCode, respHeaders, elapsed, nil
 }
 
 type PossibleErrorResponses struct {
