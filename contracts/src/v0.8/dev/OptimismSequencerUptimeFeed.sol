@@ -37,30 +37,19 @@ contract OptimismSequencerUptimeFeed is
     uint64 latestTimestamp;
   }
 
-  /// @notice Contract is not yet initialized
-  error Uninitialized();
-  /// @notice Contract is already initialized
-  error AlreadyInitialized();
   /// @notice Sender is not the L2 messenger
   error InvalidSender();
   /// @notice Replacement for AggregatorV3Interface "No data present"
   error NoDataPresent();
 
-  event Initialized();
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
   event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
-
-  /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address public constant FLAG_L2_SEQ_OFFLINE =
-    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
 
   uint8 public constant override decimals = 0;
   string public constant override description = "L2 Sequencer Uptime Status Feed";
   uint256 public constant override version = 1;
 
-  /// @dev Flags contract to raise/lower flags on, during status transitions
-  FlagsInterface public immutable FLAGS;
   /// @dev L1 address
   address private s_l1Sender;
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
@@ -70,17 +59,21 @@ contract OptimismSequencerUptimeFeed is
   IL2CrossDomainMessenger private s_l2CrossDomainMessenger;
 
   /**
-   * @param flagsAddress Address of the Flags contract on L2
    * @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
+   * @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
+   * @param initialStatus The initial status of the feed
    */
   constructor(
-    address flagsAddress,
     address l1SenderAddress,
-    address l2CrossDomainMessengerAddr
+    address l2CrossDomainMessengerAddr,
+    bool initialStatus
   ) {
     setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
-    FLAGS = FlagsInterface(flagsAddress);
+    uint64 timestamp = uint64(block.timestamp);
+
+    // Initialise roundId == 1 as the first round
+    recordRound(1, initialStatus, timestamp);
   }
 
   /**
@@ -90,33 +83,6 @@ contract OptimismSequencerUptimeFeed is
    */
   function isValidRound(uint256 roundId) private view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
-  }
-
-  /// @notice Check that this contract is initialised, otherwise throw
-  function requireInitialized(uint80 latestRoundId) private pure {
-    if (latestRoundId == 0) {
-      revert Uninitialized();
-    }
-  }
-
-  /**
-   * @notice Initialise the first round. Can't be done in the constructor,
-   *    because this contract's address must be permissioned by the the Flags contract
-   *    (The Flags contract itself is a SimpleReadAccessController).
-   */
-  function initialize() external onlyOwner {
-    FeedState memory feedState = s_feedState;
-    if (feedState.latestRoundId != 0) {
-      revert AlreadyInitialized();
-    }
-
-    uint64 timestamp = uint64(block.timestamp);
-    bool currentStatus = FLAGS.getFlag(FLAG_L2_SEQ_OFFLINE);
-
-    // Initialise roundId == 1 as the first round
-    recordRound(1, currentStatus, timestamp);
-
-    emit Initialized();
   }
 
   /**
@@ -163,17 +129,6 @@ contract OptimismSequencerUptimeFeed is
   }
 
   /**
-   * @notice Raise or lower the flag on the stored Flags contract.
-   */
-  function forwardStatusToFlags(bool status) private {
-    if (status) {
-      FLAGS.raiseFlag(FLAG_L2_SEQ_OFFLINE);
-    } else {
-      FLAGS.lowerFlag(FLAG_L2_SEQ_OFFLINE);
-    }
-  }
-
-  /**
    * @notice Helper function to record a round and set the latest feed state.
    *
    * @param roundId The round ID to record
@@ -204,7 +159,6 @@ contract OptimismSequencerUptimeFeed is
    */
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
     if (
       msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != s_l1Sender
     ) {
@@ -220,34 +174,28 @@ contract OptimismSequencerUptimeFeed is
     // Prepare a new round with updated status
     feedState.latestRoundId += 1;
     recordRound(feedState.latestRoundId, status, timestamp);
-
-    forwardStatusToFlags(status);
   }
 
   /// @inheritdoc AggregatorInterface
   function latestAnswer() external view override checkAccess returns (int256) {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
     return getStatusAnswer(feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
   function latestTimestamp() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
     return feedState.latestTimestamp;
   }
 
   /// @inheritdoc AggregatorInterface
   function latestRound() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
     return feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
-    requireInitialized(s_feedState.latestRoundId);
     if (isValidRound(roundId)) {
       return getStatusAnswer(s_rounds[uint80(roundId)].status);
     }
@@ -257,7 +205,6 @@ contract OptimismSequencerUptimeFeed is
 
   /// @inheritdoc AggregatorInterface
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
-    requireInitialized(s_feedState.latestRoundId);
     if (isValidRound(roundId)) {
       return s_rounds[uint80(roundId)].timestamp;
     }
@@ -279,8 +226,6 @@ contract OptimismSequencerUptimeFeed is
       uint80 answeredInRound
     )
   {
-    requireInitialized(s_feedState.latestRoundId);
-
     if (isValidRound(_roundId)) {
       Round memory round = s_rounds[_roundId];
       answer = getStatusAnswer(round.status);
@@ -309,7 +254,6 @@ contract OptimismSequencerUptimeFeed is
     )
   {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
 
     roundId = feedState.latestRoundId;
     answer = getStatusAnswer(feedState.latestStatus);
