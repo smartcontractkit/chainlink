@@ -344,15 +344,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			// TODO: Goes away with solana txm
-			getKey := func(id string) (pkgsolana.Signer, error) {
-				ts, err := keyStore.Solana().Get(id)
-				if err != nil {
-					return nil, err
-				}
-				return ts, nil
-			}
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, getKey)
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
 			relayers[relay.Solana] = solanaRelayer
 			subservices = append(subservices, solanaRelayer)
 		}
