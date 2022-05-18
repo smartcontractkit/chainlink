@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/solanatest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestClient_IndexSolanaChains(t *testing.T) {
@@ -109,8 +109,10 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	require.NoError(t, err)
 
 	solanaChainID := solanatest.RandomChainID()
-	minute := models.MustMakeDuration(time.Minute)
-	hour := models.MustMakeDuration(time.Hour)
+	minute, err := utils.NewDuration(time.Minute)
+	require.NoError(t, err)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	original := db.ChainCfg{
 		ConfirmPollPeriod: &minute,
 		TxTimeout:         &hour,
