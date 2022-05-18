@@ -110,7 +110,7 @@ func (s *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
 			ssp = append(ssp, s.String())
 		}
 	default:
-		return errors.Wrapf(ErrBadInput, "expected slice, got %T", val)
+		return errors.Wrapf(ErrBadInput, "expected string slice, got %T", val)
 	}
 	*s = ssp
 	return nil
