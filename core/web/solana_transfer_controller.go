@@ -62,12 +62,6 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	fromKey, err := tc.App.GetKeyStore().Solana().Get(tr.From.String())
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("fail to get key: %v", err))
-		return
-	}
-
 	txm := chain.TxManager()
 	var reader client.Reader
 	reader, err = chain.Reader()
