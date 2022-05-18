@@ -5,6 +5,8 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -14,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 )
 
@@ -28,7 +30,7 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	relayers              map[types.Network]types.Relayer
+	relayers              map[relay.Network]types.Relayer
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -43,7 +45,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
-	relayers map[types.Network]types.Relayer,
+	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db,
