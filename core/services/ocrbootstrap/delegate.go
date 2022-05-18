@@ -6,11 +6,13 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 )
 
 // Delegate creates Bootstrap jobs
@@ -21,7 +23,7 @@ type Delegate struct {
 	peerWrapper   *ocrcommon.SingletonPeerWrapper
 	cfg           validate.Config
 	lggr          logger.Logger
-	relayers      map[types.Network]types.Relayer
+	relayers      map[relay.Network]types.Relayer
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -31,7 +33,7 @@ func NewDelegateBootstrap(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 	cfg validate.Config,
-	relayers map[types.Network]types.Relayer,
+	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db:          db,

@@ -13,6 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/solanatest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -34,9 +34,12 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 
 	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
-	second := models.MustMakeDuration(time.Second)
-	minute := models.MustMakeDuration(time.Minute)
-	hour := models.MustMakeDuration(time.Hour)
+	second, err := utils.NewDuration(time.Second)
+	require.NoError(t, err)
+	minute, err := utils.NewDuration(time.Minute)
+	require.NoError(t, err)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	body, err := json.Marshal(web.NewCreateChainRequest(
 		newChainId,
 		&db.ChainCfg{
@@ -78,7 +81,8 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 
 	const validId = "Chainlink-12"
 
-	hour := models.MustMakeDuration(time.Hour)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	testCases := []struct {
 		name           string
 		inputId        string
@@ -148,7 +152,8 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 
 	controller := setupSolanaChainsControllerTest(t)
 
-	hour := models.MustMakeDuration(time.Hour)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
@@ -219,7 +224,8 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 func Test_SolanaChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	hour := models.MustMakeDuration(time.Hour)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
 		Config: &db.ChainCfg{
@@ -305,7 +311,8 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 
 	controller := setupSolanaChainsControllerTest(t)
 
-	hour := models.MustMakeDuration(time.Hour)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	newChainConfig := db.ChainCfg{
 		SkipPreflight: null.BoolFrom(false),
 		TxTimeout:     &hour,

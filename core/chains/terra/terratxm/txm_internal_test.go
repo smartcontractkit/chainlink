@@ -20,6 +20,7 @@ import (
 	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
+	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
@@ -295,7 +295,8 @@ func TestTxm(t *testing.T) {
 
 	t.Run("expired msgs", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
-		timeout := models.MustMakeDuration(1 * time.Millisecond)
+		timeout, err := relayutils.NewDuration(1 * time.Millisecond)
+		require.NoError(t, err)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		cfgShortExpiry := terra.NewConfig(ChainCfg{
 			MaxMsgsPerBatch: null.IntFrom(2),
