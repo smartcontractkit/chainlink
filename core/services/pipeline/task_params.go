@@ -63,7 +63,7 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 			return nil
 		}
 	case *ObjectParam:
-		if v.Type == StringType {
+		if v != nil && v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
@@ -321,9 +321,14 @@ func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
 	if v, ok := val.(ObjectParam); ok && v.Type == DecimalType {
 		*d = v.DecimalValue
 		return nil
-	} else if v, ok := val.(*ObjectParam); ok && v.Type == DecimalType {
-		*d = v.DecimalValue
-		return nil
+	} else if v, ok := val.(*ObjectParam); ok {
+		if v == nil {
+			return errors.Wrap(ErrBadInput, "nil ObjectParam")
+		}
+		if v.Type == DecimalType {
+			*d = v.DecimalValue
+			return nil
+		}
 	}
 	x, err := utils.ToDecimal(val)
 	if err != nil {
@@ -415,7 +420,7 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 		}
 
 	case *ObjectParam:
-		if v.Type == MapType {
+		if v != nil && v.Type == MapType {
 			*m = v.MapValue
 			return nil
 		}
