@@ -59,7 +59,6 @@ type (
 		maxQueuedTransactions                          uint64
 		minGasPriceWei                                 big.Int
 		minIncomingConfirmations                       uint32
-		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
 		nodeDeadAfterNoNewHeadersThreshold             time.Duration
 		nodePollFailureThreshold                       uint32
@@ -131,12 +130,11 @@ func setChainSpecificConfigDefaultSets() {
 		linkContractAddress:                   "",
 		logBackfillBatchSize:                  100,
 		logPollInterval:                       15 * time.Second,
-		maxGasPriceWei:                        *assets.GWei(5000),
+		maxGasPriceWei:                        *assets.GWei(100000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
 		minGasPriceWei:                        *assets.GWei(1),
 		minIncomingConfirmations:              3,
-		minRequiredOutgoingConfirmations:      12,
 		minimumContractPayment:                DefaultMinimumContractPayment,
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
@@ -206,7 +204,6 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.linkContractAddress = "0x404460c6a5ede2d891e8297795264fde62adbb75"
 	bscMainnet.minGasPriceWei = *assets.GWei(1)
 	bscMainnet.minIncomingConfirmations = 3
-	bscMainnet.minRequiredOutgoingConfirmations = 12
 	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
 	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
@@ -214,7 +211,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	hecoMainnet := bscMainnet
 
-	// Polygon has a 1s block time and looser finality guarantees than ereum.
+	// Polygon has a 1s block time and looser finality guarantees than ethereum.
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
 	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
@@ -225,17 +222,19 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	polygonMainnet.maxQueuedTransactions = 5000         // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-	polygonMainnet.maxGasPriceWei = *assets.UEther(200) // 200,000 GWei
-	polygonMainnet.minGasPriceWei = *assets.GWei(1)
+	polygonMainnet.maxQueuedTransactions = 5000                // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxGasPriceWei = *assets.UEther(200)        // 200,000 GWei
+	polygonMainnet.gasPriceDefault = *assets.GWei(30)          // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
+	polygonMainnet.minGasPriceWei = *assets.GWei(30)           // Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
 	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.minIncomingConfirmations = 5
-	polygonMainnet.minRequiredOutgoingConfirmations = 12
 	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
+	polygonMumbai.gasPriceDefault = *assets.GWei(1)
+	polygonMumbai.minGasPriceWei = *assets.GWei(1)
 	polygonMumbai.linkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
@@ -268,7 +267,6 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the Optimism2 estimator; we don't want to place any limits on the minimum gas price
-	optimismMainnet.minRequiredOutgoingConfirmations = 0
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
@@ -277,9 +275,9 @@ func setChainSpecificConfigDefaultSets() {
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
+	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.minIncomingConfirmations = 3
-	fantomMainnet.minRequiredOutgoingConfirmations = 2
 	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
@@ -308,7 +306,6 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheMainnet.blockHistoryEstimatorBlockHistorySize = 24 // Average block time of 2s
 	avalancheMainnet.blockHistoryEstimatorBlockDelay = 2
 	avalancheMainnet.minIncomingConfirmations = 1
-	avalancheMainnet.minRequiredOutgoingConfirmations = 1
 	avalancheMainnet.ocrContractConfirmations = 1
 	avalancheMainnet.logPollInterval = 3 * time.Second
 
@@ -320,16 +317,12 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyMainnet.linkContractAddress = "0x218532a12a389a4a92fC0C5Fb22901D1c19198aA"
 	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
-	harmonyMainnet.minRequiredOutgoingConfirmations = 2
 	harmonyMainnet.logPollInterval = 2 * time.Second
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
 	// OKExChain
-	// (stubbed so that the ChainType is autoset for known IDs)
 	okxMainnet := fallbackDefaultSet
-	okxMainnet.chainType = config.ChainExChain
-
 	okxTestnet := okxMainnet
 
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)

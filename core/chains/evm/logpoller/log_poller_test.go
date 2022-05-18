@@ -40,7 +40,7 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 		Topics:      [][]byte{topic1},
 		Address:     address,
 		TxHash:      common.HexToHash("0x1234"),
-		Data:        []byte("hello"),
+		Data:        append([]byte("hello "), byte(blockNum)),
 	}
 }
 

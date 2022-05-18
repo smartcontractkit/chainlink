@@ -17,11 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
-func mustInsertSolanaChain(t *testing.T, orm solana.ORM, id string) solana.Chain {
-	chain, err := orm.CreateChain(id, db.ChainCfg{})
+func mustInsertSolanaChain(t *testing.T, sol solana.ChainSet, id string) solana.DBChain {
+	chain, err := sol.Add(testutils.Context(t), id, nil)
 	require.NoError(t, err)
 	return chain
 }
@@ -40,21 +41,23 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	app := solanaStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
-	_, initialCount, err := orm.Nodes(0, 25)
+	sol := app.Chains.Solana
+	ctx := testutils.Context(t)
+	_, initialCount, err := sol.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
+
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_ = mustInsertSolanaChain(t, orm, chainID)
+	_ = mustInsertSolanaChain(t, sol, chainID)
 
 	params := db.Node{
 		Name:          "second",
 		SolanaChainID: chainID,
 		SolanaURL:     "https://solana.example",
 	}
-	node, err := orm.CreateNode(params)
+	node, err := sol.CreateNode(ctx, params)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexSolanaNodes(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.NewSolanaNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.SolanaNodePresenters)
 	require.Len(t, nodes, initialCount+1)
@@ -72,20 +75,21 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	app := solanaStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
-	_, initialNodesCount, err := orm.Nodes(0, 25)
+	sol := app.Chains.Solana
+	ctx := testutils.Context(t)
+	_, initialNodesCount, err := sol.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
 	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_ = mustInsertSolanaChain(t, orm, chainIDA)
-	_ = mustInsertSolanaChain(t, orm, chainIDB)
+	_ = mustInsertSolanaChain(t, sol, chainIDA)
+	_ = mustInsertSolanaChain(t, sol, chainIDB)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.String("name", "first", "")
 	set.String("url", "http://tender.mint.test/columbus-5", "")
 	set.String("chain-id", chainIDA, "")
 	c := cli.NewContext(nil, set, nil)
-	err = client.CreateSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	set = flag.NewFlagSet("cli", 0)
@@ -93,10 +97,10 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	set.String("url", "http://tender.mint.test/bombay-12", "")
 	set.String("chain-id", chainIDB, "")
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
-	nodes, _, err := orm.Nodes(0, 25)
+	nodes, _, err := sol.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
@@ -121,33 +125,34 @@ func TestClient_RemoveSolanaNode(t *testing.T) {
 	app := solanaStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.Chains.Solana.ORM()
-	_, initialCount, err := orm.Nodes(0, 25)
+	sol := app.Chains.Solana
+	ctx := testutils.Context(t)
+	_, initialCount, err := sol.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_ = mustInsertSolanaChain(t, orm, chainID)
+	_ = mustInsertSolanaChain(t, sol, chainID)
 
 	params := db.Node{
 		Name:          "first",
 		SolanaChainID: chainID,
 		SolanaURL:     "http://tender.mint.test/columbus-5",
 	}
-	node, err := orm.CreateNode(params)
+	node, err := sol.CreateNode(ctx, params)
 	require.NoError(t, err)
-	chains, _, err := orm.Nodes(0, 25)
+	nodes, _, err := sol.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
-	require.Len(t, chains, initialCount+1)
+	require.Len(t, nodes, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveSolanaNode(c)
+	err = cmd.NewSolanaNodeClient(client).RemoveNode(c)
 	require.NoError(t, err)
 
-	chains, _, err = orm.Nodes(0, 25)
+	nodes, _, err = sol.GetNodes(ctx, 0, 25)
 	require.NoError(t, err)
-	require.Len(t, chains, initialCount)
+	require.Len(t, nodes, initialCount)
 	assertTableRenders(t, r)
 }
 

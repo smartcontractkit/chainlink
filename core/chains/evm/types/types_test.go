@@ -21,16 +21,16 @@ func Test_PersistsReadsChain(t *testing.T) {
 	addr := testutils.NewAddress()
 	ks := make(map[string]types.ChainCfg)
 	ks[addr.Hex()] = types.ChainCfg{EvmMaxGasPriceWei: val}
-	chain := types.Chain{
+	chain := types.DBChain{
 		ID: *utils.NewBigI(rand.Int63()),
-		Cfg: types.ChainCfg{
+		Cfg: &types.ChainCfg{
 			KeySpecific: ks,
 		},
 	}
 
 	evmtest.MustInsertChain(t, db, &chain)
 
-	var loadedChain types.Chain
+	var loadedChain types.DBChain
 	require.NoError(t, db.Get(&loadedChain, "SELECT * FROM evm_chains WHERE id = $1", chain.ID))
 
 	loadedVal := loadedChain.Cfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei

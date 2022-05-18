@@ -10,6 +10,8 @@ import (
 
 	context "context"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
@@ -171,15 +173,15 @@ func (_m *Chain) LogBroadcaster() log.Broadcaster {
 }
 
 // LogPoller provides a mock function with given fields:
-func (_m *Chain) LogPoller() *logpoller.LogPoller {
+func (_m *Chain) LogPoller() logpoller.LogPoller {
 	ret := _m.Called()
 
-	var r0 *logpoller.LogPoller
-	if rf, ok := ret.Get(0).(func() *logpoller.LogPoller); ok {
+	var r0 logpoller.LogPoller
+	if rf, ok := ret.Get(0).(func() logpoller.LogPoller); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logpoller.LogPoller)
+			r0 = ret.Get(0).(logpoller.LogPoller)
 		}
 	}
 
@@ -244,4 +246,9 @@ func (_m *Chain) TxManager() txmgr.TxManager {
 	}
 
 	return r0
+}
+
+// UpdateConfig provides a mock function with given fields: _a0
+func (_m *Chain) UpdateConfig(_a0 *evmtypes.ChainCfg) {
+	_m.Called(_a0)
 }

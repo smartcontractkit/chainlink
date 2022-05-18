@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react'
 
-import { gql } from '@apollo/client'
 import { useHistory } from 'react-router-dom'
 
 import Grid from '@material-ui/core/Grid'
@@ -19,14 +18,6 @@ import { ChainRow } from './ChainRow'
 import Content from 'src/components/Content'
 import { Heading1 } from 'src/components/Heading/Heading1'
 import { SearchTextField } from 'src/components/Search/SearchTextField'
-
-export const CHAINS_PAYLOAD__RESULTS_FIELDS = gql`
-  fragment ChainsPayload_ResultsFields on Chain {
-    id
-    enabled
-    createdAt
-  }
-`
 
 const searchIncludes = (searchParam: string) => {
   const lowerCaseSearchParam = searchParam.toLowerCase()

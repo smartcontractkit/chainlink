@@ -15,9 +15,12 @@ import (
 	"sync"
 	"time"
 
+	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jpillora/backoff"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
@@ -37,15 +40,43 @@ const (
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
 
+func RandomAddress() common.Address {
+	b := make([]byte, 20)
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	return common.BytesToAddress(b)
+}
+
+func RandomBytes32() (r [32]byte) {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b[:]) // Assignment for errcheck. Only used in tests so we can ignore.
+	copy(r[:], b)
+	return
+}
+
+func Bytes32ToSlice(a [32]byte) (r []byte) {
+	r = append(r, a[:]...)
+	return
+}
+
+func MustNewPeerID() string {
+	_, pubKey, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	peerID, err := peer.IDFromPublicKey(pubKey)
+	if err != nil {
+		panic(err)
+	}
+	return peerID.String()
+}
+
 // EmptyHash is a hash of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
 
-var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
-
 // Uint256ToBytes is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
-	if x.Cmp(maxUint256) > 0 {
+	if x.Cmp(MaxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
 	}
 	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
@@ -282,6 +313,16 @@ func Keccak256(in []byte) ([]byte, error) {
 	return hash.Sum(nil), err
 }
 
+func Keccak256Fixed(in []byte) [32]byte {
+	hash := sha3.NewLegacyKeccak256()
+	// Note this Keccak256 cannot error https://github.com/golang/crypto/blob/master/sha3/sha3.go#L126
+	// if we start supporting hashing algos which do, we can change this API to include an error.
+	hash.Write(in)
+	var h [32]byte
+	copy(h[:], hash.Sum(nil))
+	return h
+}
+
 // Sha256 returns a hexadecimal encoded string of a hashed input
 func Sha256(in string) (string, error) {
 	hasher := sha3.New256()
@@ -354,7 +395,7 @@ var zero = big.NewInt(0)
 
 // CheckUint256 returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
-	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
+	if n.Cmp(zero) < 0 || n.Cmp(MaxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
 	}
 	return nil
@@ -1013,4 +1054,20 @@ func AllEqual[T comparable](elems ...T) bool {
 		}
 	}
 	return true
+}
+
+// RandUint256 generates a random bigNum up to 2 ** 256 - 1
+func RandUint256() *big.Int {
+	n, err := rand.Int(rand.Reader, MaxUint256)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
+func LeftPadBitString(input string, length int) string {
+	if len(input) >= length {
+		return input
+	}
+	return strings.Repeat("0", length-len(input)) + input
 }

@@ -19,7 +19,7 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -281,21 +281,21 @@ const (
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
-	RelayConfig                       JSONConfig         `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig         `toml:"pluginConfig"`
-	PluginType                        OCR2PluginType     `toml:"pluginType"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
+	ID                                int32           `toml:"-"`
+	ContractID                        string          `toml:"contractID"`
+	Relay                             relay.Network   `toml:"relay"`
+	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
+	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String     `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
+	PluginType                        OCR2PluginType  `toml:"pluginType"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -488,9 +488,9 @@ type BlockhashStoreSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
+	ID                                int32         `toml:"-"`
+	ContractID                        string        `toml:"contractID"`
+	Relay                             relay.Network `toml:"relay"`
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`

@@ -82,6 +82,7 @@ func mustInsertConfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromAdd
 	etx.Nonce = &nonce
 	now := time.Now()
 	etx.BroadcastAt = &now
+	etx.InitialBroadcastAt = &now
 	require.NoError(t, borm.InsertEthTx(&etx))
 
 	return etx
@@ -321,7 +322,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		receiptJSON, err := json.Marshal(txmReceipt)
 		require.NoError(t, err)
 
-		assert.JSONEq(t, string(receiptJSON), string(ethReceipt.Receipt))
+		j, err := json.Marshal(ethReceipt.Receipt)
+		require.NoError(t, err)
+		assert.JSONEq(t, string(receiptJSON), string(j))
 
 		ethClient.AssertExpectations(t)
 	})
@@ -1203,7 +1206,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	t.Run("does not return confirmed or fatally errored eth_txes", func(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx1.ID)
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL WHERE id = $1`, etx2.ID)
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL, initial_broadcast_at=NULL WHERE id = $1`, etx2.ID)
 
 		etxs, err := txmgr.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, cltest.FixtureChainID)
 		require.NoError(t, err)
@@ -1304,6 +1307,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	}
 	now := time.Now()
 	etxWithoutAttempts.BroadcastAt = &now
+	etxWithoutAttempts.InitialBroadcastAt = &now
 	etxWithoutAttempts.State = txmgr.EthTxUnconfirmed
 	require.NoError(t, borm.InsertEthTx(&etxWithoutAttempts))
 	nonce++
@@ -1611,6 +1615,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// broadcast_at did not change
 		require.Equal(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
 
 		kst.AssertExpectations(t)
 		ethClient.AssertExpectations(t)
@@ -2732,8 +2737,9 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
-		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}, err error) error {
-			require.Nil(t, err)
+		var err error
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}, thisErr error) error {
+			err = thisErr
 			ch <- value
 			return nil
 		})
@@ -2743,23 +2749,23 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 3, 1, fromAddress)
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
 		attempt := etx.EthTxAttempts[0]
 		receipt := cltest.MustInsertEthReceipt(t, borm, head.Number-minConfirmations, head.Hash, attempt.Hash)
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
-			err := ec.ResumePendingTaskRuns(context.Background(), &head)
-			require.NoError(t, err)
+			err2 := ec.ResumePendingTaskRuns(context.Background(), &head)
+			require.NoError(t, err2)
 		}()
 
 		select {
 		case data := <-ch:
-			require.IsType(t, []byte{}, data)
+			assert.NoError(t, err)
 
-			var r evmtypes.Receipt
-			err := json.Unmarshal(data.([]byte), &r)
-			require.NoError(t, err)
+			require.IsType(t, evmtypes.Receipt{}, data)
+			r := data.(evmtypes.Receipt)
 			require.Equal(t, receipt.TxHash, r.TxHash)
 
 		case <-time.After(time.Second):
@@ -2767,4 +2773,44 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		}
 	})
 
+	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
+
+	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
+		ch := make(chan interface{})
+		var err error
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}, thisErr error) error {
+			err = thisErr
+			ch <- value
+			return nil
+		})
+
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
+		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
+
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 4, 1, fromAddress)
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
+		attempt := etx.EthTxAttempts[0]
+
+		// receipt is not passed through as a value since it reverted and caused an error
+		cltest.MustInsertRevertedEthReceipt(t, borm, head.Number-minConfirmations, head.Hash, attempt.Hash)
+
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+
+		go func() {
+			err2 := ec.ResumePendingTaskRuns(context.Background(), &head)
+			require.NoError(t, err2)
+		}()
+
+		select {
+		case data := <-ch:
+			assert.Error(t, err)
+			assert.EqualError(t, err, fmt.Sprintf("transaction %s reverted on-chain", etx.EthTxAttempts[0].Hash.Hex()))
+
+			assert.Nil(t, data)
+
+		case <-testutils.AfterWaitTimeout(t):
+			t.Fatal("no value received")
+		}
+	})
 }
