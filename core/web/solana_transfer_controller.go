@@ -105,23 +105,6 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	// marshal transaction
-	msg, err := tx.Message.MarshalBinary()
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to marshal tx: %v", err))
-		return
-	}
-
-	// sign tx
-	sigBytes, err := fromKey.Sign(msg)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to sign tx: %v", err))
-		return
-	}
-	var finalSig [64]byte
-	copy(finalSig[:], sigBytes)
-	tx.Signatures = append(tx.Signatures, finalSig)
-
 	err = txm.Enqueue("", tx)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("transaction failed: %v", err))

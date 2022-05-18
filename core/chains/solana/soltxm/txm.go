@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -42,6 +43,7 @@ type Txm struct {
 	done    sync.WaitGroup
 	cfg     config.Config
 	txs     PendingTxContext
+	ks      keystore.Solana
 	client  *utils.LazyLoad[solanaClient.ReaderWriter]
 }
 
@@ -52,7 +54,7 @@ type pendingTx struct {
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lggr logger.Logger) *Txm {
+func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg config.Config, ks keystore.Solana, lggr logger.Logger) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
@@ -62,6 +64,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 		chStop:  make(chan struct{}),
 		cfg:     cfg,
 		txs:     newPendingTxContextWithProm(chainID),
+		ks:      ks,
 		client:  utils.NewLazyLoad(tc),
 	}
 }
@@ -352,6 +355,35 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 // Enqueue enqueue a msg destined for the solana chain.
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
+	// validate nil pointer
+	if tx == nil {
+		return errors.New("error in soltxm.Enqueue: tx is nil pointer")
+	}
+	// validate account keys slice
+	if len(tx.Message.AccountKeys) == 0 {
+		return errors.New("error in soltxm.Enqueue: not enough account keys in tx")
+	}
+
+	// get key
+	// fee payer account is index 0 account
+	// https://github.com/gagliardetto/solana-go/blob/main/transaction.go#L252
+	key, err := txm.ks.Get(tx.Message.AccountKeys[0].String())
+	if err != nil {
+		return errors.Wrap(err, "error in soltxm.Enqueue.GetKey")
+	}
+	txMsg, err := tx.Message.MarshalBinary()
+	if err != nil {
+		return errors.Wrap(err, "error in soltxm.Enqueue.MarshalBinary")
+	}
+	// sign tx
+	sigBytes, err := key.Sign(txMsg)
+	if err != nil {
+		return errors.Wrap(err, "error in soltxm.Enqueue.Sign")
+	}
+	var finalSig [64]byte
+	copy(finalSig[:], sigBytes)
+	tx.Signatures = append(tx.Signatures, finalSig)
+
 	msg := pendingTx{
 		tx:      tx,
 		timeout: txm.cfg.TxRetryTimeout(),

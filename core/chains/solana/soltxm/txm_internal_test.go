@@ -17,6 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	keyMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -41,15 +44,44 @@ func (p soltxmProm) getInflight() float64 {
 	return testutil.ToFloat64(promSolTxmPendingTxs.WithLabelValues(p.id))
 }
 
+// create placeholder transaction
+func getTx(t *testing.T, pubkey solana.PublicKey) *solana.Transaction {
+	// create transfer tx
+	tx, err := solana.NewTransaction(
+		[]solana.Instruction{
+			system.NewTransferInstruction(
+				rand.Uint64(), // identifier is the transfer balance
+				pubkey,
+				pubkey,
+			).Build(),
+		},
+		solana.Hash{},
+		solana.TransactionPayer(pubkey),
+	)
+	assert.NoError(t, err)
+	return tx
+}
+
 func TestTxm(t *testing.T) {
 	// set up configs needed in txm
 	id := "mocknet"
 	lggr := logger.TestLogger(t)
 	cfg := config.NewConfig(db.ChainCfg{}, lggr)
 	mc := new(mocks.ReaderWriter)
+	defer mc.AssertExpectations(t)
+
+	// mock solana keystore
+	key, err := solkey.New()
+	pubkey := key.PublicKey()
+
+	require.NoError(t, err)
+	mkey := new(keyMocks.Solana)
+	defer mkey.AssertExpectations(t)
+	mkey.On("Get", key.ID()).Return(key, nil)
+
 	txm := NewTxm(id, func() (client.ReaderWriter, error) {
 		return mc, nil
-	}, cfg, lggr)
+	}, cfg, mkey, lggr)
 	require.NoError(t, txm.Start(context.Background()))
 
 	// tracking prom metrics
@@ -60,25 +92,6 @@ func TestTxm(t *testing.T) {
 		sig := make([]byte, 64)
 		rand.Read(sig)
 		return solana.SignatureFromBytes(sig)
-	}
-
-	// create placeholder transaction
-	getTx := func() *solana.Transaction {
-		// create transfer tx
-		key := solana.PublicKey{}
-		tx, err := solana.NewTransaction(
-			[]solana.Instruction{
-				system.NewTransferInstruction(
-					rand.Uint64(), // identifier is the transfer balance
-					key,
-					key,
-				).Build(),
-			},
-			solana.Hash{},
-			solana.TransactionPayer(key),
-		)
-		assert.NoError(t, err)
-		return tx
 	}
 
 	// check if cached transaction is cleared
@@ -101,7 +114,7 @@ func TestTxm(t *testing.T) {
 	// happy path (send => simulate success => tx: nil => tx: processed => tx: confirmed => done)
 	t.Run("happyPath", func(t *testing.T) {
 		sig := getSig()
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		var wg sync.WaitGroup
 		wg.Add(3)
 
@@ -149,7 +162,7 @@ func TestTxm(t *testing.T) {
 
 	// fail on initial transmit (RPC immediate rejects)
 	t.Run("fail_initialTx", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		var wg sync.WaitGroup
 		wg.Add(1)
 
@@ -173,7 +186,7 @@ func TestTxm(t *testing.T) {
 
 	// tx fails simulation (simulation error)
 	t.Run("fail_simulation", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -199,7 +212,7 @@ func TestTxm(t *testing.T) {
 
 	// tx fails simulation (rpc error, timeout should clean up b/c sig status will be nil)
 	t.Run("fail_simulation_confirmNil", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -227,7 +240,7 @@ func TestTxm(t *testing.T) {
 	// tx fails simulation with an InstructionError (indicates reverted execution)
 	// manager should cancel sending retry immediately + increment reverted prom metric
 	t.Run("fail_simulation_instructionError", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -263,7 +276,7 @@ func TestTxm(t *testing.T) {
 	// tx fails simulation with BlockHashNotFound error
 	// txm should continue to confirm tx (in this case it will succeed)
 	t.Run("fail_simulation_blockhashNotFound", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -295,7 +308,7 @@ func TestTxm(t *testing.T) {
 	// tx fails simulation with AlreadyProcessed error
 	// txm should continue to confirm tx (in this case it will revert)
 	t.Run("fail_simulation_alreadyProcessed", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -328,7 +341,7 @@ func TestTxm(t *testing.T) {
 
 	// tx passes sim, never passes processed (timeout should cleanup)
 	t.Run("fail_confirm_processed", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -357,7 +370,7 @@ func TestTxm(t *testing.T) {
 
 	// tx passes sim, shows processed, moves to nil (timeout should cleanup)
 	t.Run("fail_confirm_processedToNil", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -387,7 +400,7 @@ func TestTxm(t *testing.T) {
 
 	// tx passes sim, errors on confirm
 	t.Run("fail_confirm_revert", func(t *testing.T) {
-		tx := getTx()
+		tx := getTx(t, pubkey)
 		sig := getSig()
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -414,6 +427,48 @@ func TestTxm(t *testing.T) {
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
 	})
+}
 
-	mc.AssertExpectations(t)
+func TestTxm_Enqueue(t *testing.T) {
+	// set up configs needed in txm
+	lggr := logger.TestLogger(t)
+	cfg := config.NewConfig(db.ChainCfg{}, lggr)
+	mc := new(mocks.ReaderWriter)
+	defer mc.AssertExpectations(t)
+
+	// mock solana keystore
+	key, err := solkey.New()
+	pubkey := key.PublicKey()
+
+	require.NoError(t, err)
+	mkey := new(keyMocks.Solana)
+	defer mkey.AssertExpectations(t)
+	mkey.On("Get", key.ID()).Return(key, nil)
+	zerokey := solana.PublicKey{}
+	mkey.On("Get", zerokey.String()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: zerokey.String(), KeyType: "Solana"})
+
+	txm := NewTxm("enqueue_test", func() (client.ReaderWriter, error) {
+		return mc, nil
+	}, cfg, mkey, lggr)
+
+	txs := []struct {
+		name string
+		tx   *solana.Transaction
+		fail bool
+	}{
+		{"success", getTx(t, pubkey), false},
+		{"invalid_key", getTx(t, zerokey), true},
+		{"nil_pointer", nil, true},
+		{"empty_tx", &solana.Transaction{}, true},
+	}
+
+	for _, run := range txs {
+		t.Run(run.name, func(t *testing.T) {
+			if !run.fail {
+				assert.NoError(t, txm.Enqueue(run.name, run.tx))
+				return
+			}
+			assert.Error(t, txm.Enqueue(run.name, run.tx))
+		})
+	}
 }
