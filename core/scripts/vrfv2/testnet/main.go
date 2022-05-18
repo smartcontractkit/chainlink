@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/derived_price_feed_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -630,6 +631,32 @@ func main() {
 		rid, err := consumer.SRequestId(nil)
 		helpers.PanicErr(err)
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
+	case "derived-price-feed-deploy":
+		derivedPriceFeedDeployCmd := flag.NewFlagSet("derived-price-feed-deploy", flag.ExitOnError)
+		baseAddress := derivedPriceFeedDeployCmd.String("base-address", "", "address of base feed")
+		quoteAddress := derivedPriceFeedDeployCmd.String("quote-address", "", "address of quote feed")
+
+		helpers.ParseArgs(derivedPriceFeedDeployCmd, os.Args[2:], "base-address", "quote-address")
+		_, tx, _, err := derived_price_feed_wrapper.DeployDerivedPriceFeed(
+			owner,
+			ec,
+			common.HexToAddress(*baseAddress),
+			common.HexToAddress(*quoteAddress),
+			uint8(18))
+		helpers.PanicErr(err)
+		fmt.Println("Executing contract deployment, TX:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "derived-price-feed-latest-round-data":
+		cmd := flag.NewFlagSet("derived-price-feed-latest-round-data", flag.ExitOnError)
+		contractAddress := cmd.String("contract-address", "", "derived price feed address")
+		helpers.ParseArgs(cmd, os.Args[2:], "contract-address")
+
+		contract, err := derived_price_feed_wrapper.NewDerivedPriceFeed(common.HexToAddress(*contractAddress), ec)
+		helpers.PanicErr(err)
+
+		data, err := contract.LatestRoundData(nil)
+		helpers.PanicErr(err)
+
+		fmt.Printf("latest round data: %+v\n", data)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
