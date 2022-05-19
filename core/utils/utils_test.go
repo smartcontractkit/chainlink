@@ -970,3 +970,37 @@ func TestCronTicker(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, c, counter.Load())
 }
+
+func TestTryParseHex(t *testing.T) {
+	t.Parallel()
+
+	t.Run("0x prefix missing", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := utils.TryParseHex("abcd")
+		assert.Error(t, err)
+	})
+
+	t.Run("wrong hex characters", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := utils.TryParseHex("0xabcdzzz")
+		assert.Error(t, err)
+	})
+
+	t.Run("valid hex string", func(t *testing.T) {
+		t.Parallel()
+
+		b, err := utils.TryParseHex("0x1234")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{0x12, 0x34}, b)
+	})
+
+	t.Run("prepend odd length with zero", func(t *testing.T) {
+		t.Parallel()
+
+		b, err := utils.TryParseHex("0x123")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte{0x1, 0x23}, b)
+	})
+}
