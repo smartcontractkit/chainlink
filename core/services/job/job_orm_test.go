@@ -945,6 +945,77 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	})
 }
 
+func Test_FindJobWithoutSpecErrors(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db, config)
+	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, err)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err)
+
+	ocrSpecError1 := "ocr spec 1 errored"
+	ocrSpecError2 := "ocr spec 2 errored"
+	require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+	require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
+
+	jb, err = orm.FindJobWithoutSpecErrors(jobSpec.ID)
+	require.NoError(t, err)
+	jbWithErrors, err := orm.FindJobTx(jobSpec.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, len(jb.JobSpecErrors), 0)
+	assert.Equal(t, len(jbWithErrors.JobSpecErrors), 2)
+}
+
+func Test_FindSpecErrorsByJobIDs(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db, config)
+	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, err)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err)
+
+	ocrSpecError1 := "ocr spec 1 errored"
+	ocrSpecError2 := "ocr spec 2 errored"
+	require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+	require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
+
+	specErrs, err := orm.FindSpecErrorsByJobIDs([]int32{jobSpec.ID})
+	require.NoError(t, err)
+
+	assert.Equal(t, len(specErrs), 2)
+}
+
 func Test_CountPipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
 
