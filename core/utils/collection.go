@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// BatchSplit splits an array into an array of arrays with a maximum length
+// BatchSplit splits an slices into an slices of slicess with a maximum length
 func BatchSplit[T any](list []T, max int) (out [][]T, err error) {
 	if max == 0 {
 		return out, fmt.Errorf("max batch length cannot be 0")

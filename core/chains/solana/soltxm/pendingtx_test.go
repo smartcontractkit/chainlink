@@ -9,6 +9,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPendingTxContext(t *testing.T) {
@@ -64,4 +65,43 @@ func TestPendingTxContext_expired(t *testing.T) {
 
 	txs.Remove(sig)
 	assert.True(t, txs.Expired(sig, 60*time.Second)) // no longer exists, should be expired
+}
+
+func TestPendingTxContext_race(t *testing.T) {
+	t.Run("add", func(t *testing.T) {
+		txCtx := newPendingTxContext()
+		var wg sync.WaitGroup
+		wg.Add(2)
+		var err [2]error
+
+		go func() {
+			err[0] = txCtx.Add(solana.Signature{}, func() {})
+			wg.Done()
+		}()
+		go func() {
+			err[1] = txCtx.Add(solana.Signature{}, func() {})
+			wg.Done()
+		}()
+
+		wg.Wait()
+		assert.True(t, (err[0] != nil && err[1] == nil) || (err[0] == nil && err[1] != nil), "one and only one 'add' should have errored")
+	})
+
+	t.Run("remove", func(t *testing.T) {
+		txCtx := newPendingTxContext()
+		require.NoError(t, txCtx.Add(solana.Signature{}, func() {}))
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			assert.NotPanics(t, func() { txCtx.Remove(solana.Signature{}) })
+			wg.Done()
+		}()
+		go func() {
+			assert.NotPanics(t, func() { txCtx.Remove(solana.Signature{}) })
+			wg.Done()
+		}()
+
+		wg.Wait()
+	})
 }

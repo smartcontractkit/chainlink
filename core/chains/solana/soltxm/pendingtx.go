@@ -44,11 +44,15 @@ func (c *pendingTxContext) Add(sig solana.Signature, cancel context.CancelFunc) 
 	}
 	c.lock.RUnlock()
 
-	// save cancel func
+	// upgrade to write lock if sig does not exist
 	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.cancelBy[sig] != nil {
+		return errors.New("signature already exists")
+	}
+	// save cancel func
 	c.cancelBy[sig] = cancel
 	c.timestamp[sig] = time.Now()
-	c.lock.Unlock()
 	return nil
 }
 
@@ -61,12 +65,16 @@ func (c *pendingTxContext) Remove(sig solana.Signature) {
 	}
 	c.lock.RUnlock()
 
-	// call cancel func + remove from map
+	// upgrade to write lock if sig does not exist
 	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.cancelBy[sig] == nil {
+		return
+	}
+	// call cancel func + remove from map
 	c.cancelBy[sig]() // cancel context
 	delete(c.cancelBy, sig)
 	delete(c.timestamp, sig)
-	c.lock.Unlock()
 	return
 }
 
