@@ -152,6 +152,8 @@ func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
 		{"43-char []byte with 0x", []byte("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefd"), nil, pipeline.ErrBadInput},
 		{"42-char []byte without 0x", []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefde"), nil, pipeline.ErrBadInput},
 		{"40-char []byte without 0x", []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"), nil, pipeline.ErrBadInput},
+
+		{"42-char string with 0x but wrong characters", "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadzzzz", nil, pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
