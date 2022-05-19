@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"math/big"
 	"strings"
 
@@ -33,6 +34,7 @@ type RegistryWrapper struct {
 	Version     RegistryVersion
 	contract1_1 *registry1_1.KeeperRegistry
 	contract1_2 *registry1_2.KeeperRegistry
+	evmClient   bind.ContractBackend
 }
 
 func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBackend) (*RegistryWrapper, error) {
@@ -68,6 +70,7 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 		Version:     *version,
 		contract1_1: contract1_1,
 		contract1_2: contract1_2,
+		evmClient:   backend,
 	}, nil
 }
 
@@ -122,11 +125,25 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		}
 		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
-		activeUpkeepIDs := make([]*big.Int, 0)
+		// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
+		header, err := rw.evmClient.HeaderByNumber(context.Background(), (*big.Int)(nil))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch EVM block header")
+		}
+		if opts != nil {
+			opts.BlockNumber = header.Number
+		} else {
+			opts = &bind.CallOpts{
+				BlockNumber: header.Number,
+			}
+		}
+
 		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract state")
 		}
+
+		activeUpkeepIDs := make([]*big.Int, 0)
 		for int64(len(activeUpkeepIDs)) < state.State.NumUpkeeps.Int64() {
 			startIndex := int64(len(activeUpkeepIDs))
 			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(ActiveUpkeepIDBatchSize))
@@ -192,7 +209,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract config")
 		}
-		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
+		keeperAddresses, err := rw.contract1_1.GetKeeperList(nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get keeper list")
 		}
@@ -202,7 +219,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			KeeperAddresses:   keeperAddresses,
 		}, nil
 	case RegistryVersion_1_2:
-		state, err := rw.contract1_2.GetState(opts)
+		state, err := rw.contract1_2.GetState(nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract state")
 		}
