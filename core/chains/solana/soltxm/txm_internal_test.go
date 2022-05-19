@@ -101,8 +101,10 @@ func TestTxm(t *testing.T) {
 		return count == 0
 	}
 
+	// adjust wait time based on config
+	waitDuration := cfg.TxConfirmTimeout()
 	waitFor := func(f func() bool) {
-		for i := 0; i < 30; i++ {
+		for i := 0; i < int(waitDuration.Seconds()*1.5); i++ {
 			if f() {
 				return
 			}
