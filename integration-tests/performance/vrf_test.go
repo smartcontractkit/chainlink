@@ -93,9 +93,11 @@ var _ = Describe("VRF suite @vrf", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 		})
 
-		By("Creating jobs and registering proving keys", func() {
-			for _, n := range chainlinkNodes {
-				nodeKey, err := n.CreateVRFKey()
+		By("Setting up profiling", func() {
+			profileFunction := func(chainlinkNode client.Chainlink) {
+				defer GinkgoRecover()
+
+				nodeKey, err := chainlinkNode.CreateVRFKey()
 				Expect(err).ShouldNot(HaveOccurred(), "Creating VRF key shouldn't fail")
 				log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 				pubKeyCompressed := nodeKey.Data.ID
@@ -105,7 +107,7 @@ var _ = Describe("VRF suite @vrf", func() {
 				}
 				ost, err := os.String()
 				Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-				job, err = n.CreateJob(&client.VRFJobSpec{
+				job, err = chainlinkNode.CreateJob(&client.VRFJobSpec{
 					Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 					CoordinatorAddress:       coordinator.Address(),
 					MinIncomingConfirmations: 1,
@@ -115,7 +117,7 @@ var _ = Describe("VRF suite @vrf", func() {
 				})
 				Expect(err).ShouldNot(HaveOccurred(), "Creating VRF Job shouldn't fail")
 
-				oracleAddr, err := n.PrimaryEthAddress()
+				oracleAddr, err := chainlinkNode.PrimaryEthAddress()
 				Expect(err).ShouldNot(HaveOccurred(), "Getting primary ETH address of chainlink node shouldn't fail")
 				provingKey, err := actions.EncodeOnChainVRFProvingKey(*nodeKey)
 				Expect(err).ShouldNot(HaveOccurred(), "Encoding on-chain VRF Proving key shouldn't fail")
@@ -127,16 +129,12 @@ var _ = Describe("VRF suite @vrf", func() {
 				)
 				Expect(err).ShouldNot(HaveOccurred(), "Registering the on-chain VRF Proving key shouldn't fail")
 				encodedProvingKeys = append(encodedProvingKeys, provingKey)
-			}
-		})
 
-		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
-				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.
 					return
 				}
+
 				requestHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 				Expect(err).ShouldNot(HaveOccurred(), "Getting Hash of encoded proving keys shouldn't fail")
 				err = consumer.RequestRandomness(requestHash, big.NewInt(1))

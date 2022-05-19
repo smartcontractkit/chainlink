@@ -115,21 +115,6 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Creating direct_request job shouldn't fail")
 		})
 
-		By("Calling oracle contract", func() {
-			jobUUIDReplaces := strings.Replace(jobUUID.String(), "-", "", 4)
-			var jobID [32]byte
-			copy(jobID[:], jobUUIDReplaces)
-			err = consumer.CreateRequestTo(
-				oracle.Address(),
-				jobID,
-				big.NewInt(1e18),
-				fmt.Sprintf("%s/variable", mockserver.Config.ClusterURL),
-				"data,result",
-				big.NewInt(100),
-			)
-			Expect(err).ShouldNot(HaveOccurred(), "Calling oracle contract shouldn't fail")
-		})
-
 		By("Setting up profiling", func() {
 			profileFunction := func(chainlinkNode client.Chainlink) {
 				defer GinkgoRecover()

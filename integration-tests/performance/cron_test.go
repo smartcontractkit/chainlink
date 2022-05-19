@@ -54,33 +54,30 @@ var _ = Describe("Cronjob suite @cron", func() {
 			chainlinkNode = cls[0]
 		})
 
-		By("Adding cron job to a node", func() {
-			err = mockserver.SetValuePath("/variable", 5)
-			Expect(err).ShouldNot(HaveOccurred(), "Setting value path in mockserver shouldn't fail")
-
-			bta := client.BridgeTypeAttributes{
-				Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
-				URL:         fmt.Sprintf("%s/variable", mockserver.Config.ClusterURL),
-				RequestData: "{}",
-			}
-			err = chainlinkNode.CreateBridge(&bta)
-			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge in chainlink node shouldn't fail")
-
-			job, err = chainlinkNode.CreateJob(&client.CronJobSpec{
-				Schedule:          "CRON_TZ=UTC * * * * * *",
-				ObservationSource: client.ObservationSourceSpecBridge(bta),
-			})
-			Expect(err).ShouldNot(HaveOccurred(), "Creating Cron Job in chainlink node shouldn't fail")
-		})
-
 		By("Setting up profiling", func() {
 			profileFunction := func(chainlinkNode client.Chainlink) {
 				defer GinkgoRecover()
 				// initial value set is performed before jobs creation
 				Eventually(func(g Gomega) {
+					err = mockserver.SetValuePath("/variable", 5)
+					Expect(err).ShouldNot(HaveOccurred(), "Setting value path in mockserver shouldn't fail")
+
+					bta := client.BridgeTypeAttributes{
+						Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
+						URL:         fmt.Sprintf("%s/variable", mockserver.Config.ClusterURL),
+						RequestData: "{}",
+					}
+					err = chainlinkNode.CreateBridge(&bta)
+					Expect(err).ShouldNot(HaveOccurred(), "Creating bridge in chainlink node shouldn't fail")
+
+					job, err = chainlinkNode.CreateJob(&client.CronJobSpec{
+						Schedule:          "CRON_TZ=UTC * * * * * *",
+						ObservationSource: client.ObservationSourceSpecBridge(bta),
+					})
+					Expect(err).ShouldNot(HaveOccurred(), "Creating Cron Job in chainlink node shouldn't fail")
+
 					jobRuns, err := chainlinkNode.ReadRunsByJob(job.Data.ID)
 					g.Expect(err).ShouldNot(HaveOccurred(), "Reading Job run data shouldn't fail")
-
 					g.Expect(len(jobRuns.Data)).Should(BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
 
 					for _, jr := range jobRuns.Data {

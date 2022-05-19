@@ -82,12 +82,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 			registry = r
 		})
 
-		// By("Register Keeper Jobs", func() {
-		// 	actions.CreateKeeperJobs(chainlinkNodes, registry)
-		// 	err = networks.Default.WaitForEvents()
-		// 	Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
-		// })
-
 		By("Setting up profiling", func() {
 			profileFunction := func(chainlinkNode client.Chainlink) {
 				defer GinkgoRecover()
