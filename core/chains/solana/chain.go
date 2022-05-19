@@ -67,7 +67,7 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient()
 	}
-	ch.txm = soltxm.NewTxm(tc, cfg, lggr)
+	ch.txm = soltxm.NewTxm(ch.id, tc, cfg, ks, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
