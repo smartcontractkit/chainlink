@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //
@@ -164,7 +165,11 @@ func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
 					i, err2 := strconv.ParseInt(data.(string), 10, 32)
 					return int32(i), err2
 				case reflect.TypeOf(common.Hash{}):
-					return common.HexToHash(data.(string)), nil
+					hb, err := utils.TryParseHex(data.(string))
+					if err != nil {
+						return nil, err
+					}
+					return common.BytesToHash(hb), nil
 				}
 			}
 			return data, nil
@@ -191,7 +196,11 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 			case stringType:
 				switch to {
 				case reflect.TypeOf(common.Address{}):
-					return common.HexToAddress(data.(string)), nil
+					ab, err := utils.TryParseHex(data.(string))
+					if err != nil {
+						return nil, err
+					}
+					return common.BytesToAddress(ab), nil
 				}
 			}
 			return data, nil

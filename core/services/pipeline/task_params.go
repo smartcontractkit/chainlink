@@ -414,10 +414,14 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		return a.UnmarshalPipelineParam([]byte(v))
 	case []byte:
-		if utils.HasHexPrefix(string(v)) && len(v) == 42 {
-			*a = AddressParam(common.HexToAddress(string(v)))
-			return nil
-		} else if len(v) == 20 {
+		switch len(v) {
+		case 42:
+			bs, err := utils.TryParseHex(string(v))
+			if err == nil {
+				*a = AddressParam(common.BytesToAddress(bs))
+				return nil
+			}
+		case 20:
 			copy((*a)[:], v)
 			return nil
 		}
