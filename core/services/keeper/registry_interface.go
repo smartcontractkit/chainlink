@@ -209,7 +209,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract config")
 		}
-		keeperAddresses, err := rw.contract1_1.GetKeeperList(nil)
+		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get keeper list")
 		}
@@ -219,7 +219,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			KeeperAddresses:   keeperAddresses,
 		}, nil
 	case RegistryVersion_1_2:
-		state, err := rw.contract1_2.GetState(nil)
+		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract state")
 		}
