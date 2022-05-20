@@ -47,7 +47,8 @@ describe.only('CanaryUpkeep', () => {
     describe('checkUpkeep()', () => {
         it('returns true when sufficient time passes', async () => {
             await fastForward(moment.duration(6, 'minutes').asSeconds())
-            expect(await canaryUpkeep.checkUpkeep('0x')).to.be.true
+            const [ needsUpkeep ] = await canaryUpkeep.checkUpkeep('0x')
+            assert.isTrue(needsUpkeep)
         })
 
         it('returns false when insufficient time passes', async () => {
