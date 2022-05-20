@@ -62,12 +62,6 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	fromKey, err := tc.App.GetKeyStore().Solana().Get(tr.From.String())
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("fail to get key: %v", err))
-		return
-	}
-
 	txm := chain.TxManager()
 	var reader client.Reader
 	reader, err = chain.Reader()
@@ -104,23 +98,6 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 			return
 		}
 	}
-
-	// marshal transaction
-	msg, err := tx.Message.MarshalBinary()
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to marshal tx: %v", err))
-		return
-	}
-
-	// sign tx
-	sigBytes, err := fromKey.Sign(msg)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to sign tx: %v", err))
-		return
-	}
-	var finalSig [64]byte
-	copy(finalSig[:], sigBytes)
-	tx.Signatures = append(tx.Signatures, finalSig)
 
 	err = txm.Enqueue("", tx)
 	if err != nil {
