@@ -101,13 +101,38 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 		})
 
 		Describe("with Keeper job", func() {
-			It("performs upkeep of a target contract", func() {
+			It("performs upkeep of a target contract, stops upon cancel", func() {
+				// Hardocded upkeep id '0' for now, only works in registry v1.1
+				upkeepID := big.NewInt(int64(0))
+
+				// Let upkeep be performed atleast once
 				Eventually(func(g Gomega) {
 					cnt, err := consumer.Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 					g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)), "Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
 					log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 				}, "2m", "1s").Should(Succeed())
+
+				// Now cancel the upkeep as registry owner, it should get immediately cancelled
+				err := registry.CancelUpkeep(upkeepID)
+				Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+				err = networks.Default.WaitForEvents()
+				Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
+
+				// Get existing performed count
+				existingCnt, err := consumer.Counter(context.Background())
+				Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+				log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
+
+				// Expect count to be remain consistent
+				Consistently(func(g Gomega) {
+					cnt, err := consumer.Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+					g.Expect(cnt.Int64()).Should(
+						Equal(existingCnt.Int64()),
+						"Expected consumer counter to to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+					)
+				}, "1m", "1s").Should(Succeed())
 			})
 		})
 
