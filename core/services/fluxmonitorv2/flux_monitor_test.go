@@ -980,7 +980,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	// idle ticker
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now(), AvailableFunds: big.NewInt(0)}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1, nil).Run(func(args mock.Arguments) {
 		pollOccured <- struct{}{}
 	})
 	tm.orm.
@@ -998,7 +998,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	}
 
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1Responded, nil).Run(func(args mock.Arguments) {
 		pollOccured <- struct{}{}
 	})
 
@@ -1029,7 +1029,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	// hibernation ticker
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState2, nil).Once()
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState2, nil)
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, roundTwo, mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
