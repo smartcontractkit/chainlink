@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -333,9 +334,10 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	// Addede 1 minute timeout to account for big databases
+	// Added 1 minute timeout to account for big databases
 	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 
+	queryThreshold := time.Now().Add(-threshold)
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
 WITH batched_pipeline_runs AS (
@@ -347,7 +349,7 @@ WITH batched_pipeline_runs AS (
 DELETE FROM pipeline_runs
 USING batched_pipeline_runs
 WHERE pipeline_runs.id = batched_pipeline_runs.id`,
-			time.Now().Add(-threshold),
+			queryThreshold,
 			limit,
 		)
 		defer cancel()

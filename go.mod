@@ -54,8 +54,9 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220516191227-0ef69145749a
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220516191808-96b110521bc9
+	github.com/smartcontractkit/chainlink-relay v0.0.0-20220516224734-c4759cac049a
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220519124030-06ae6d2fe754
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220517130712-37c2baa48d68
 	github.com/smartcontractkit/libocr v0.0.0-20220512162406-9e4afd8896f3
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -280,7 +281,6 @@ require (
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.0.0-20220516114104-7bb76d12796b // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
