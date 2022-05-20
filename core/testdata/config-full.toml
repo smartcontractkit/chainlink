@@ -1,0 +1,173 @@
+Dev = true
+ExplorerAccessKey = 'test-access-key'
+ExplorerSecret = 'test-secret'
+ExplorerURL = 'http://explorer.url'
+FlagsContractAddress = '0x1234'
+InsecureFastScrypt = true
+ReaperExpiration = '168h0m0s'
+RootDir = 'test/root/dir'
+ShutdownGracePeriod = '10s'
+FeatureFeedsManager = true
+FeatureUICSAKeys = true
+FeatureLogPoller = true
+FMDefaultTransactionQueueDepth = 100
+FMSimulateTransactions = true
+FeatureOffchainReporting2 = true
+FeatureOffchainReporting = true
+
+[Database]
+URL = 'http://data.base/url'
+ListenerMaxReconnectDuration = '1m0s'
+ListenerMinReconnectInterval = '5m0s'
+Migrate = true
+ORMMaxIdleConns = 7
+ORMMaxOpenConns = 13
+TriggerFallbackDBPollInterval = '2m0s'
+AdvisoryLockCheckInterval = '5m0s'
+AdvisoryLockID = 345982730592843
+LockingMode = 'advisory'
+BackupDir = 'test/backup/dir'
+BackupOnVersionUpgrade = true
+BackupURL = 'http://test.back.up/fake'
+
+[TelemetryIngress]
+UniConn = true
+Logging = true
+ServerPubKey = 'test-pub-key'
+URL = 'https://prom.test'
+BufferSize = 1234
+MaxBatchSize = 4321
+SendInterval = '1m0s'
+SendTimeout = '5s'
+UseBatchSend = true
+
+[Log]
+JSONConsole = true
+FileDir = 'log/file/dir'
+SQL = true
+FileMaxSize = '100.00gb'
+FileMaxAge = 17
+FileMaxBackups = 9
+UnixTS = true
+
+[WebServer]
+AllowOrigins = '*'
+AuthenticatedRateLimit = 42
+AuthenticatedRateLimitPeriod = '1s'
+BridgeResponseURL = 'https://bridge.response'
+HTTPWriteTimeout = '1m0s'
+Port = 56
+SecureCookies = true
+SessionTimeout = '1h0m0s'
+UnAuthenticatedRateLimit = 7
+UnAuthenticatedRateLimitPeriod = '1m0s'
+RPID = 'test-rpid'
+RPOrigin = 'test-rp-origin'
+TLSCertPath = 'tls/cert/path'
+TLSHost = 'tls-host'
+TLSKeyPath = 'tls/key/path'
+TLSPort = 6789
+TLSRedirect = true
+
+[JobPipeline]
+DefaultHTTPLimit = 67
+DefaultHTTPTimeout = '1m0s'
+FeatureExternalInitiators = true
+MaxRunDuration = '1h0m0s'
+ReaperInterval = '4h0m0s'
+ReaperThreshold = '168h0m0s'
+ResultWriteQueueDepth = 10
+
+[OCR2]
+ContractConfirmations = 11
+BlockchainTimeout = '3s'
+ContractPollInterval = '1h0m0s'
+ContractSubscribeInterval = '1m0s'
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '8s'
+KeyBundleID = 'test-bundle-id'
+MonitoringEndpoint = 'test-mon-end'
+
+[OCR]
+ContractConfirmations = 11
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1s'
+ObservationGracePeriod = '1m0s'
+ObservationTimeout = '11s'
+BlockchainTimeout = '3s'
+ContractPollInterval = '1h0m0s'
+ContractSubscribeInterval = '1m0s'
+DefaultTransactionQueueDepth = 12
+KeyBundleID = 'test-key-bundle-id'
+MonitoringEndpoint = 'test-monitor'
+SimulateTransactions = true
+TransmitterAddress = '0x1234abcd'
+OutgoingMessageBufferSize = 7
+IncomingMessageBufferSize = 3
+DHTLookupInterval = 9
+BootstrapCheckInterval = '1m0s'
+NewStreamTimeout = '1s'
+
+[P2P]
+NetworkingStack = 'V1V2'
+IncomingMessageBufferSize = 13
+OutgoingMessageBufferSize = 17
+AnnouncePort = 1234
+BootstrapCheckInterval = '1m0s'
+BootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
+DHTAnnouncementCounterUserPrefix = 4321
+DHTLookupInterval = 9
+ListenPort = 9
+NewStreamTimeout = '1s'
+PeerID = 'ASDF'
+PeerstoreWriteInterval = '1m0s'
+V2AnnounceAddresses = ['a', 'b', 'c']
+V2Bootstrappers = ['1', '2', '3']
+V2DeltaDial = '1m0s'
+V2DeltaReconcile = '1s'
+V2ListenAddresses = ['foo', 'bar']
+
+[Keeper]
+CheckUpkeepGasPriceFeatureEnabled = true
+DefaultTransactionQueueDepth = 17
+GasPriceBufferPercent = 12
+GasTipCapBufferPercent = 43
+BaseFeeBufferPercent = 89
+MaximumGracePeriod = 31
+RegistryCheckGasOverhead = 90
+RegistryPerformGasOverhead = 18446744073709551615
+RegistrySyncInterval = '1h0m0s'
+RegistrySyncUpkeepQueueSize = 31
+TurnLookBack = 91
+TurnFlagEnabled = true
+
+[AutoPprof]
+Enabled = true
+ProfileRoot = 'prof/root'
+PollInterval = '1m0s'
+GatherDuration = '12s'
+GatherTraceDuration = '13s'
+MaxProfileSize = '1.00gb'
+CPUProfileRate = 7
+MemProfileRate = 9
+BlockProfileRate = 5
+MutexProfileFraction = 2
+MemThreshold = '1.00gb'
+GoroutineThreshold = 999
+
+[EVM]
+
+[EVM.1]
+
+[EVM.1.Nodes]
+
+[EVM.1.Nodes.primary]
+WSURL = 'wss://web.socket/test'
+
+[EVM.1.Nodes.secondary]
+HTTPURL = 'http://broadcast.mirror'
+SendOnly = true
+
+[Solana]
+
+[Terra]

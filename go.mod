@@ -84,6 +84,7 @@ require (
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/guregu/null.v4 v4.0.0
+	github.com/pelletier/go-toml/v2 v2.0.1
 )
 
 require (

@@ -53,6 +53,47 @@ type ORM interface {
 	SetupNodes([]Node, []utils.Big) error
 }
 
+type ChainTOMLCfg struct {
+	BlockHistoryEstimator       *BlockHistoryEstimatorConfig
+	ChainType                   string `toml:",omitempty"`
+	TxReaperThreshold           *models.Duration
+	TxResendAfterThreshold      *models.Duration
+	EIP1559DynamicFees          bool `toml:",omitempty"`
+	FinalityDepth               int  `toml:",omitempty"`
+	GasBumpPercent              int  `toml:",omitempty"`
+	GasBumpTxDepth              int  `toml:",omitempty"`
+	GasBumpWei                  *utils.Big
+	GasFeeCapDefault            *utils.Big
+	GasLimitDefault             int     `toml:",omitempty"`
+	GasLimitMultiplier          float64 `toml:",omitempty"`
+	GasPriceDefault             *utils.Big
+	GasTipCapDefault            *utils.Big
+	GasTipCapMinimum            *utils.Big
+	HeadTrackerHistoryDepth     int `toml:",omitempty"`
+	HeadTrackerMaxBufferSize    int `toml:",omitempty"`
+	HeadTrackerSamplingInterval *models.Duration
+	LogBackfillBatchSize        int `toml:",omitempty"`
+	LogPollInterval             *models.Duration
+	MaxGasPriceWei              *utils.Big
+	NonceAutoSync               bool                    `toml:",omitempty"`
+	UseForwarders               bool                    `toml:",omitempty"`
+	RPCDefaultBatchSize         int                     `toml:",omitempty"`
+	FlagsContractAddress        string                  `toml:",omitempty"`
+	GasEstimatorMode            string                  `toml:",omitempty"`
+	KeySpecific                 map[string]ChainTOMLCfg `toml:",omitempty"`
+	LinkContractAddress         string                  `toml:",omitempty"`
+	MinIncomingConfirmations    int                     `toml:",omitempty"`
+	MinimumContractPayment      *assets.Link
+	OCRObservationTimeout       *models.Duration
+	NodeNoNewHeadsThreshold     *models.Duration
+}
+
+type BlockHistoryEstimatorConfig struct {
+	BlockDelay                int
+	BlockHistorySize          int
+	EIP1559FeeCapBufferBlocks int
+}
+
 type ChainCfg struct {
 	BlockHistoryEstimatorBlockDelay                null.Int
 	BlockHistoryEstimatorBlockHistorySize          null.Int
@@ -107,17 +148,17 @@ func (c *ChainCfg) Value() (driver.Value, error) {
 type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
 type Node struct {
-	ID         int32
-	Name       string
-	EVMChainID utils.Big
-	WSURL      null.String `db:"ws_url"`
-	HTTPURL    null.String `db:"http_url"`
-	SendOnly   bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID         int32       `toml:"-"`
+	Name       string      `toml:"-"`
+	EVMChainID utils.Big   `toml:"-"`
+	WSURL      null.String `toml:",omitempty" db:"ws_url"`
+	HTTPURL    null.String `toml:",omitempty" db:"http_url"`
+	SendOnly   bool        `toml:",omitempty"`
+	CreatedAt  time.Time   `toml:"-"`
+	UpdatedAt  time.Time   `toml:"-"`
 	// State doesn't exist in the DB, it's used to hold an in-memory state for
 	// rendering
-	State string `db:"-"`
+	State string `toml:"-" db:"-"`
 }
 
 // Receipt represents an ethereum receipt.

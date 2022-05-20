@@ -283,6 +283,25 @@ func (d Duration) Value() (driver.Value, error) {
 	return int64(d.d), nil
 }
 
+// MarshalText implements the text.Marshaler interface.
+func (d Duration) MarshalText() ([]byte, error) {
+	return []byte(d.d.String()), nil
+}
+
+// UnmarshalText implements the text.Unmarshaler interface.
+func (d *Duration) UnmarshalText(input []byte) error {
+	v, err := time.ParseDuration(string(input))
+	if err != nil {
+		return err
+	}
+	pd, err := MakeDuration(v)
+	if err != nil {
+		return err
+	}
+	*d = pd
+	return nil
+}
+
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
