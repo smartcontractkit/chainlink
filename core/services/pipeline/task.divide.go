@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"math"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -21,6 +22,11 @@ type DivideTask struct {
 }
 
 var _ Task = (*DivideTask)(nil)
+
+var (
+	ErrDivideByZero    = errors.New("divide by zero")
+	ErrDivisionOverlow = errors.New("division overflow")
+)
 
 func (t *DivideTask) Type() TaskType {
 	return TaskTypeDivide
@@ -46,7 +52,17 @@ func (t *DivideTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		return Result{Error: err}, runInfo
 	}
 
+	if b.Decimal().IsZero() {
+		return Result{Error: ErrDivideByZero}, runInfo
+	}
+
 	if precision, isSet := maybePrecision.Int32(); isSet {
+		scale := -precision
+		e := int64(a.Decimal().Exponent()) - int64(b.Decimal().Exponent()) - int64(scale)
+		if e > math.MaxInt32 || e < math.MinInt32 {
+			return Result{Error: ErrDivisionOverlow}, runInfo
+		}
+
 		return Result{Value: a.Decimal().DivRound(b.Decimal(), precision)}, runInfo
 	}
 	// Note that decimal library defaults to rounding to 16 precision
