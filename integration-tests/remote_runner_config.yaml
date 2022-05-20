@@ -1,0 +1,6 @@
+# any ginkgo tag to run, you can find them in Describe string in tests
+# you can use that file to start the tests locally or override vars from env:
+# SLACK_API_KEY="" SLACK_CHANNEL="" SLACK_USER_ID="" REMOTE_RUNNER_CONFIG_FILE="../runner.yaml"
+slack_api_key: xoxb-slack-oauth-key
+slack_channel: C1A2B3C4D5G
+slack_user_id: U1A2B3C4D5G
