@@ -59,7 +59,7 @@ func (o *ORM) GetMsgsState(state db.State, limit int64, qopts ...pg.QOpt) (terra
 	}
 	q := o.q.WithOpts(qopts...)
 	var msgs terra.Msgs
-	if err := q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2 ORDER BY (created_at, id) LIMIT $3`, state, o.chainID, limit); err != nil {
+	if err := q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2 ORDER BY id ASC LIMIT $3`, state, o.chainID, limit); err != nil {
 		return nil, err
 	}
 	return msgs, nil

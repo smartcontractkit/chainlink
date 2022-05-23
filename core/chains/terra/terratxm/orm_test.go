@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -16,6 +17,23 @@ import (
 
 	. "github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 )
+
+func TestLoadORM(t *testing.T) {
+	_, db := heavyweight.FullTestDB(t, "blah")
+	lggr := logger.TestLogger(t)
+	logCfg := pgtest.NewPGCfg(true)
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, nil)
+	require.NoError(t, err)
+	o := NewORM(chainID, db, lggr, logCfg)
+	for j := 0; j < 100; j++ {
+		for i := 0; i < 1000; i++ {
+			_, err = o.InsertMsg("0x123", "", []byte("hello"))
+			require.NoError(t, err)
+		}
+	}
+
+}
 
 func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
