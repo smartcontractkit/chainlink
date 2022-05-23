@@ -359,16 +359,16 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
 		meta := &txmgr.EthTxMeta{
-			JobID:         jobID,
-			RequestID:     requestID,
-			RequestTxHash: requestTxHash,
+			JobID:         &jobID,
+			RequestID:     &requestID,
+			RequestTxHash: &requestTxHash,
 			MaxLink:       &testDefaultMaxLink, // 1e18
 			SubID:         &testDefaultSubID,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		checker := txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-			VRFCoordinatorAddress: testutils.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
