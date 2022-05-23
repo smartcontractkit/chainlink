@@ -10,6 +10,6 @@ import (
 )
 
 func Test_Suite(t *testing.T) {
-	actions.GinkgoSuite("../")
+	actions.GinkgoSuite()
 	RunSpecs(t, "Integration")
 }
