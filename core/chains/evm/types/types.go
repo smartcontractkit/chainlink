@@ -84,6 +84,7 @@ type ChainCfg struct {
 	GasEstimatorMode                               null.String
 	KeySpecific                                    map[string]ChainCfg
 	LinkContractAddress                            null.String
+	OperatorFactoryAddress                         null.String
 	MinIncomingConfirmations                       null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
