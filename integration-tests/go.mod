@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.26.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.2.2
+	github.com/smartcontractkit/chainlink-testing-framework v1.2.3-0.20220523123753-804ebbb6bbf7
 	github.com/smartcontractkit/helmenv v1.2.2
 )
 
@@ -83,6 +83,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
