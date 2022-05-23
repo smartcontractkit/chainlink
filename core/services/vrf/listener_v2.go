@@ -420,7 +420,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			return a.req.CallbackGasLimit < b.req.CallbackGasLimit
 		})
 
-		if !lsn.shouldProcessSub(subID, sub, reqs) {
+		if !lsn.shouldProcessSub(ctx, subID, sub, reqs) {
 			lsn.l.Infow("Not processing sub", "subID", subID, "balance", sub.Balance)
 			continue
 		}
@@ -434,7 +434,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 	lsn.pruneConfirmedRequestCounts()
 }
 
-func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
+func (lsn *listenerV2) shouldProcessSub(ctx context.Context, subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
 	// This really shouldn't happen, but sanity check.
 	// No point in processing a sub if there are no requests to service.
 	if len(reqs) == 0 {
@@ -460,17 +460,24 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 
 	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
-	estimatedFee, err := lsn.estimateFeeJuels(vrfRequest, gasPriceWei)
-	if err != nil {
-		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
-		return true
-	}
+	simResult := lsn.simulateFulfillment(ctx, gasPriceWei, reqs[0], l)
+	if simResult.err != nil {
+		// if the simulation fails with "execution reverted" it is most likely insufficient funds.
+		// in that case don't process the subscription.
+		if sub.Balance.Cmp(simResult.juelsNeeded) < 0 && errors.Is(simResult.err, errPossiblyInsufficientFunds{}) {
+			l.Infow(
+				"Insufficient link balance to fulfill a request based on estimate and simulation, not processing sub",
+				"err", simResult.err,
+				"juelsNeeded", simResult.juelsNeeded,
+			)
+			return false
+		}
 
-	if sub.Balance.Cmp(estimatedFee) < 0 {
-		l.Infow("Subscription is underfunded, not processing it's requests",
-			"estimatedFeeJuels", estimatedFee,
-		)
-		return false
+		// in the event simulation fails due to a missing blockhash or some other reason,
+		// we still process the subscription in case the blockhash will become available at
+		// some future point in time.
+		l.Warnw("Pipeline run failed, processing sub anyway", "err", simResult.err)
+		return true
 	}
 
 	// balance is sufficient for at least one request, good to process

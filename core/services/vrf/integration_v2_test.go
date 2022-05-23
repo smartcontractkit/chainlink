@@ -678,7 +678,6 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
@@ -710,7 +709,16 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 
 	// Make the first randomness request.
 	numWords := uint32(20)
-	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
+	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(
+		t,
+		consumerContract,
+		consumer,
+		keyHash,
+		subID,
+		numWords,
+		2_500_000, // very high gas limit should not deter this from being included
+		uni,
+	)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -728,7 +736,16 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	assertRandomWordsFulfilled(t, requestID1, true, uni)
 
 	// Make the second randomness request and assert fulfillment is successful
-	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
+	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(
+		t,
+		consumerContract,
+		consumer,
+		keyHash,
+		subID,
+		numWords,
+		500_000,
+		uni,
+	)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns()
@@ -1169,7 +1186,7 @@ func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]
 			EthTxReaperThreshold:           &reaperThreshold,
 			MinIncomingConfirmations:       null.IntFrom(1),
 			MinimumContractPayment:         assets.NewLinkFromJuels(100),
-			EvmGasLimitDefault:             null.NewInt(2000000, true),
+			EvmGasLimitDefault:             null.NewInt(3_500_000, true),
 			KeySpecific:                    ks,
 		},
 	)
