@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -847,56 +846,64 @@ func loadEthTxes(q pg.Queryer, attempts []EthTxAttempt) error {
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
 func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
-	// NOTE: These two queries could be combined into one using union but it
-	// becomes harder to read and difficult to test in isolation. KISS principle
-	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx, q, lggr, address, chainID)
+	stmt := `
+		SELECT (eth_txes).*, ARRAY_AGG(attempts ORDER BY (attempts).created_at) AS eth_tx_attempts
+		FROM (
+			SELECT
+				ROW(t.*)::eth_txes AS eth_txes,
+				ROW(a.*)::eth_tx_attempts AS attempts,
+				ROW_NUMBER() OVER(ORDER BY nonce) AS depth
+			FROM eth_txes AS t LEFT JOIN eth_tx_attempts AS a ON
+				t.id = a.eth_tx_id AND (a.state != 'broadcast' OR (broadcast_before_block_num IS NOT NULL AND $4 < broadcast_before_block_num))
+			WHERE t.state = 'unconfirmed' AND t.from_address = $1 AND t.evm_chain_id = $2
+		) x
+		WHERE (attempts).state = 'insufficient_eth'::eth_tx_attempts_state OR $3 = 0 OR depth <= $3 GROUP BY eth_txes ORDER BY nonce`
+
+	qq := q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err := tx.Select(&etxs, stmt, address, chainID.String(), bumpDepth, blockNum-gasBumpThreshold)
+		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed to load eth_txes")
+	}, pg.OptReadOnlyTx())
+
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	if len(etxInsufficientEths) > 0 {
-		lggr.Infow(fmt.Sprintf("Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", len(etxInsufficientEths)), "blockNum", blockNum, "address", address)
-	}
+	//sort.Slice(etxs, func(i, j int) bool {
+	//	return *(etxs[i].Nonce) < *(etxs[j].Nonce)
+	//})
 
-	// TODO: Just pass the Q through everything
-	etxBumps, err := FindEthTxsRequiringGasBump(ctx, q, lggr, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
-	if ctx.Err() != nil {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-
-	if len(etxBumps) > 0 {
-		// txes are ordered by nonce asc so the first will always be the oldest
-		etx := etxBumps[0]
-		// attempts are ordered by time sent asc so first will always be the oldest
-		var oldestBlocksBehind int64 = -1 // It should never happen that the oldest attempt has no BroadcastBeforeBlockNum set, but in case it does, we shouldn't crash - log this sentinel value instead
+	var etxInsufficientEthCount, etxBumpsCount, oldestBlocksBehind int64
+	var oldestBlockNum *int64
+	for _, etx := range etxs {
 		if len(etx.EthTxAttempts) > 0 {
-			oldestBlockNum := etx.EthTxAttempts[0].BroadcastBeforeBlockNum
-			if oldestBlockNum != nil {
-				oldestBlocksBehind = blockNum - *oldestBlockNum
+			// txes are ordered by nonce asc so the first will always be the oldest
+			if oldestBlockNum == nil {
+				// attempts are ordered by time sent asc so first will always be the oldest
+				oldestBlockNum = etx.EthTxAttempts[0].BroadcastBeforeBlockNum
+				if oldestBlockNum != nil {
+					oldestBlocksBehind = blockNum - *oldestBlockNum
+				}
+			} else {
+				logger.Sugared(lggr).AssumptionViolationf("Expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 			}
-		} else {
-			logger.Sugared(lggr).AssumptionViolationf("Expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
-		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
-	}
-
-	seen := make(map[int64]struct{})
-
-	for _, etx := range etxInsufficientEths {
-		seen[etx.ID] = struct{}{}
-		etxs = append(etxs, etx)
-	}
-	for _, etx := range etxBumps {
-		if _, exists := seen[etx.ID]; !exists {
-			etxs = append(etxs, etx)
+		for _, attempt := range etx.EthTxAttempts {
+			if attempt.State == "insufficient_eth" {
+				etxInsufficientEthCount++
+			} else {
+				etxBumpsCount++
+			}
 		}
 	}
 
-	sort.Slice(etxs, func(i, j int) bool {
-		return *(etxs[i].Nonce) < *(etxs[j].Nonce)
-	})
+	if etxInsufficientEthCount > 0 {
+		lggr.Infow(fmt.Sprintf("Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", etxInsufficientEthCount), "blockNum", blockNum, "address", address)
+	}
+
+	if etxBumpsCount > 0 {
+		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", etxBumpsCount, gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
+	}
 
 	if maxInFlightTransactions > 0 && len(etxs) > int(maxInFlightTransactions) {
 		lggr.Warnf("%d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, label.MaxInFlightTransactionsWarning)
