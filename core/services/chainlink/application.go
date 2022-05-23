@@ -19,6 +19,8 @@ import (
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -44,8 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -335,20 +337,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relaytypes.Network]relaytypes.Relayer)
+		relayers := make(map[relay.Network]relaytypes.Relayer)
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
-			relayers[relaytypes.EVM] = evmRelayer
+			relayers[relay.EVM] = evmRelayer
 			subservices = append(subservices, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana, keyStore.Solana())
-			relayers[relaytypes.Solana] = solanaRelayer
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
+			relayers[relay.Solana] = solanaRelayer
 			subservices = append(subservices, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relayers[relaytypes.Terra] = terraRelayer
+			relayers[relay.Terra] = terraRelayer
 			subservices = append(subservices, terraRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(

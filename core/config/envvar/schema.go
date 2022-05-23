@@ -152,6 +152,7 @@ type ConfigSchema struct {
 	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
+	OperatorFactoryAddress            string        `env:"OPERATOR_FACTORY_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	// Node liveness checking

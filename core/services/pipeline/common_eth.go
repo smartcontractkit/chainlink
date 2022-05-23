@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	ethABIRegex     = regexp.MustCompile(`\A\s*([a-zA-Z0-9_]+)?\s*\(\s*([a-zA-Z0-9\[\]_\s,]+\s*)?\)`)
+	ethABIRegex     = regexp.MustCompile(`\A\s*([a-zA-Z0-9_]+)?\s*\(\s*([a-zA-Z0-9\[\]_\s,]+\s*)?\)\z`)
 	indexedKeyword  = []byte("indexed")
 	calldataKeyword = []byte("calldata")
 	memoryKeyword   = []byte("memory")
