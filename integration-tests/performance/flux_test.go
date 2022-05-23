@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/helmenv/environment"
-	"github.com/smartcontractkit/helmenv/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,7 +44,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			// Increase HTTP_SERVER_WRITE_TIMEOUT to be larger than profile duration.
-			config.ProjectFrameworkSettings.ChainlinkEnvValues["HTTP_SERVER_WRITE_TIMEOUT"] = "300s"
+			config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["HTTP_SERVER_WRITE_TIMEOUT"] = "300s"
 
 			env, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
@@ -53,7 +52,6 @@ var _ = Describe("Flux monitor suite @flux", func() {
 					"chainlink-flux-profiling",
 					config.GethNetworks()...,
 				),
-				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 			err = env.ConnectAll()

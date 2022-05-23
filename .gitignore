@@ -59,5 +59,6 @@ core/web/assets
 
 # Integration Tests
 integration-tests/logs/
+integration-tests/smoke/logs/
 tests-*.xml
 *.test
