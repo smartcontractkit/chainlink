@@ -40,11 +40,13 @@ func (r *JobResolver) CreatedAt() graphql.Time {
 }
 
 // Errors resolves the job's top level errors.
-//
-// This could potentially be moved into a dataloader if only resolver code uses
-// it.
-func (r *JobResolver) Errors() []*JobErrorResolver {
-	return NewJobErrors(r.j.JobSpecErrors)
+func (r *JobResolver) Errors(ctx context.Context) ([]*JobErrorResolver, error) {
+	specErrs, err := loader.GetJobSpecErrorsByJobID(ctx, r.j.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobErrors(specErrs), nil
 }
 
 // ExternalJobID resolves the job's external job id.

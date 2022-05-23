@@ -367,3 +367,62 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	assert.Equal(t, []txmgr.EthTxAttempt{attempt2}, found[1].Data)
 	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[2].Data)
 }
+
+func TestLoader_SpecErrorsByJobID(t *testing.T) {
+	t.Parallel()
+
+	t.Run("without errors", func(t *testing.T) {
+		t.Parallel()
+
+		jobsORM := &jobORMMocks.ORM{}
+		app := &coremocks.Application{}
+		ctx := InjectDataloader(context.Background(), app)
+
+		defer t.Cleanup(func() {
+			mock.AssertExpectationsForObjects(t, app, jobsORM)
+		})
+
+		specErr1 := job.SpecError{ID: int64(2), JobID: int32(1)}
+		specErr2 := job.SpecError{ID: int64(3), JobID: int32(2)}
+		specErr3 := job.SpecError{ID: int64(4), JobID: int32(3)}
+
+		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{
+			specErr1, specErr2, specErr3,
+		}, nil)
+		app.On("JobORM").Return(jobsORM)
+
+		batcher := jobSpecErrorsBatcher{app}
+
+		keys := dataloader.NewKeysFromStrings([]string{"3", "1", "2"})
+		found := batcher.loadByJobIDs(ctx, keys)
+
+		require.Len(t, found, 3)
+		assert.Equal(t, []job.SpecError{specErr3}, found[0].Data)
+		assert.Equal(t, []job.SpecError{specErr1}, found[1].Data)
+		assert.Equal(t, []job.SpecError{specErr2}, found[2].Data)
+	})
+
+	t.Run("with errors", func(t *testing.T) {
+		t.Parallel()
+
+		jobsORM := &jobORMMocks.ORM{}
+		app := &coremocks.Application{}
+		ctx := InjectDataloader(context.Background(), app)
+
+		defer t.Cleanup(func() {
+			mock.AssertExpectationsForObjects(t, app, jobsORM)
+		})
+
+		jobsORM.On("FindSpecErrorsByJobIDs", []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
+		app.On("JobORM").Return(jobsORM)
+
+		batcher := jobSpecErrorsBatcher{app}
+
+		keys := dataloader.NewKeysFromStrings([]string{"3", "1", "2"})
+		found := batcher.loadByJobIDs(ctx, keys)
+
+		require.Len(t, found, 1)
+		assert.Nil(t, found[0].Data)
+		assert.ErrorIs(t, found[0].Error, sql.ErrNoRows)
+	})
+}

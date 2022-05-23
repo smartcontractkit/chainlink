@@ -137,7 +137,6 @@ func TestConfigSchema(t *testing.T) {
 		"MaximumServiceDuration":                         "MAXIMUM_SERVICE_DURATION",
 		"MigrateDatabase":                                "MIGRATE_DATABASE",
 		"MinIncomingConfirmations":                       "MIN_INCOMING_CONFIRMATIONS",
-		"MinRequiredOutgoingConfirmations":               "MIN_OUTGOING_CONFIRMATIONS",
 		"MinimumContractPayment":                         "MINIMUM_CONTRACT_PAYMENT_LINK_JUELS",
 		"MinimumServiceDuration":                         "MINIMUM_SERVICE_DURATION",
 		"NodeNoNewHeadsThreshold":                        "NODE_NO_NEW_HEADS_THRESHOLD",

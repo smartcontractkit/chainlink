@@ -70,7 +70,6 @@ type ChainScopedOnlyConfig interface {
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
-	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	NodeNoNewHeadsThreshold() time.Duration
 
@@ -366,7 +365,7 @@ func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 func (c *chainScopedConfig) EvmMaxQueuedTransactions() uint64 {
 	val, ok := c.GeneralConfig.GlobalEvmMaxQueuedTransactions()
 	if ok {
-		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
+		c.logEnvOverrideOnce("EvmMaxQueuedTransactions", val)
 		return val
 	}
 	return c.defaultSet.maxQueuedTransactions
@@ -641,14 +640,14 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
 	val, ok := c.GeneralConfig.GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks()
 	if ok {
-		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockHistorySize", val)
+		c.logEnvOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", val)
 		return val
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockHistorySize", p.Int64)
+		c.logPersistedOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", p.Int64)
 		return uint16(p.Int64)
 	}
 	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
@@ -769,27 +768,6 @@ func (c *chainScopedConfig) MinIncomingConfirmations() uint32 {
 		return uint32(p.Int64)
 	}
 	return c.defaultSet.minIncomingConfirmations
-}
-
-// MinRequiredOutgoingConfirmations represents the default minimum number of block
-// confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
-// This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
-// MIN_OUTGOING_CONFIRMATIONS=1 considers a transaction as "done" once it has been mined into one block
-// MIN_OUTGOING_CONFIRMATIONS=0 would consider a transaction as "done" even before it has been mined
-func (c *chainScopedConfig) MinRequiredOutgoingConfirmations() uint64 {
-	val, ok := c.GeneralConfig.GlobalMinRequiredOutgoingConfirmations()
-	if ok {
-		c.logEnvOverrideOnce("MinRequiredOutgoingConfirmations", val)
-		return val
-	}
-	c.persistMu.RLock()
-	p := c.persistedCfg.MinRequiredOutgoingConfirmations
-	c.persistMu.RUnlock()
-	if p.Valid {
-		c.logPersistedOverrideOnce("MinRequiredOutgoingConfirmations", p.Int64)
-		return uint64(p.Int64)
-	}
-	return c.defaultSet.minRequiredOutgoingConfirmations
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be
