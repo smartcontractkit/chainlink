@@ -569,6 +569,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
+		outOfBalance := false
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
@@ -584,6 +585,9 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
 					ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
+					outOfBalance = true
+
+					// break out of this inner loop to process the currently constructed batch
 					break
 				}
 
@@ -619,6 +623,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		for _, reqID := range processedRequestIDs {
 			processed[reqID] = struct{}{}
+		}
+
+		// outOfBalance is set to true if the current sub we are processing
+		// has ran out of funds to process any remaining requests. After enqueueing
+		// this constructed batch, we break out of this outer loop in order to
+		// avoid unnecessarily processing the remaining requests.
+		if outOfBalance {
+			break
 		}
 	}
 
