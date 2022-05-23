@@ -35,6 +35,7 @@ func TestChainSpecificConfigDefaultSets(t *testing.T) {
 
 func parseChainSpecificDefaults(chainID int64, settings chainSpecificConfigDefaultSet) [][]string {
 	data := [][]string{
+		{"chainID", strconv.FormatInt(int64(chainID), 10)},
 		{"balanceMonitorEnabled", strconv.FormatBool(settings.balanceMonitorEnabled)},
 		{"balanceMonitorBlockDelay", strconv.FormatUint(uint64(settings.balanceMonitorBlockDelay), 10)},
 		{"blockEmissionIdleWarningThreshold", settings.blockEmissionIdleWarningThreshold.String()},

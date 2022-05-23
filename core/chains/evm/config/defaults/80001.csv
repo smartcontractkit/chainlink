@@ -1,3 +1,4 @@
+chainID,80001
 balanceMonitorEnabled,true
 balanceMonitorBlockDelay,13
 blockEmissionIdleWarningThreshold,15s
