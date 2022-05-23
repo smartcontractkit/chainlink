@@ -929,7 +929,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, assets.Ether(3), uni)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, assets.Ether(2), uni)
 
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
