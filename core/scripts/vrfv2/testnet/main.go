@@ -20,9 +20,9 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_web_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -109,6 +110,29 @@ func main() {
 	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
 
 	switch os.Args[1] {
+	case "vrf-web-coordinator-deploy":
+		cmd := flag.NewFlagSet("vrf-web-coordinator-deploy", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "vrf coordinator v2 address")
+		subID := cmd.Uint64("sub-id", 0, "subscription id")
+		keyHash := cmd.String("key-hash", "", "vrf v2 key hash")
+		requestConfs := cmd.Uint("request-confs", 3, "request confirmations")
+		callbackGasLimit := cmd.Uint("callback-gas-limit", 500_000, "callback gas limit")
+		linkAddress := cmd.String("link-address", "", "link token address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "key-hash", "link-address")
+		_, tx, _, err := vrf_web_coordinator.DeployVRFWebCoordinator(
+			owner, ec,
+			common.HexToAddress(*coordinatorAddress),
+			common.HexToAddress(*linkAddress),
+		)
+		helpers.PanicErr(err)
+		webCoordinatorAddress, err := bind.WaitDeployed(context.Background(), ec, tx)
+		helpers.PanicErr(err)
+		// configure
+		webCoordinator, err := vrf_web_coordinator.NewVRFWebCoordinator(webCoordinatorAddress, ec)
+		helpers.PanicErr(err)
+		tx, err = webCoordinator.SetConfig(owner, *subID, common.HexToHash(*keyHash), uint16(*requestConfs), uint32(*callbackGasLimit))
+		helpers.PanicErr(err)
+		confirmTXMined(context.Background(), ec, tx, chainID)
 	case "keepers-vrf-consumer-deploy":
 		cmd := flag.NewFlagSet("keepers-vrf-consumer-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "vrf coordinator v2 address")

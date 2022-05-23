@@ -57,6 +57,9 @@ package gethwrappers
 // Keepers X VRF v2
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.13/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.13/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer
 
+// VRF Web
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.13/VRFWebCoordinator.abi ../../../contracts/solc/v0.8.13/VRFWebCoordinator.bin VRFWebCoordinator vrf_web_coordinator
+
 // Aggregators
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/AggregatorV3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV3Interface.bin AggregatorV3Interface aggregator_v3_interface

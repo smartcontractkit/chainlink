@@ -39,4 +39,5 @@ vrf_load_test_ownerless_consumer: ../../../contracts/solc/v0.8.6/VRFLoadTestOwne
 vrf_malicious_consumer_v2: ../../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8.6/VRFMaliciousConsumerV2.bin 68ecbaa5dfa616ed5d628e57772fa17569719fc0b0a2a10bcd27ba01c49bc998
 vrf_ownerless_consumer_example: ../../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8.6/VRFOwnerlessConsumerExample.bin 9893b3805863273917fb282eed32274e32aa3d5c2a67a911510133e1218132be
 vrf_single_consumer_example: ../../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin 892a5ed35da2e933f7fd7835cd6f7f70ef3aa63a9c03a22c5b1fd026711b0ece
+vrf_web_coordinator: ../../../contracts/solc/v0.8.13/VRFWebCoordinator.abi ../../../contracts/solc/v0.8.13/VRFWebCoordinator.bin 3cc28b058c8e0bb844d5924473100481405476d2707a79142a0c769ffbf78fa8
 vrfv2_reverting_example: ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin 0e4eb8e0f92fab1f74a6bef7951b511e2c2f7b7134ca1dc65928234ec73dca9a
