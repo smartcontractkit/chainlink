@@ -1002,29 +1002,9 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	// Assert the random word was fulfilled
 	assertRandomWordsFulfilled(t, reqIDs[1], false, uni)
 
-	// Assert that we've still only completed 1 run before adding new requests.
+	// Assert that we've still only completed 1 run
 	runs, err = app.PipelineORM().GetAllRuns()
 	assert.Equal(t, 1, len(runs))
-
-	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
-	reqIDs = []*big.Int{}
-	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
-	for _, limit := range callbackGasLimits {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
-		reqIDs = append(reqIDs, requestID)
-		uni.backend.Commit()
-	}
-
-	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK for any of the requests.
-	gomega.NewGomegaWithT(t).Consistently(func() bool {
-		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("assert 1", "runs", len(runs))
-		return len(runs) == 1
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
-
-	t.Log("Done!")
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {

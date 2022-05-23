@@ -756,7 +756,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"runningBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
