@@ -9,7 +9,7 @@ logging:
 
 # Specify the image and version of the chainlink image you want to run tests against. Leave blank for default.
 chainlink_image: public.ecr.aws/chainlink/chainlink
-chainlink_version: 1.4.1
+chainlink_version: 1.4.1-root
 chainlink_env_values:
   LOG_LEVEL: 'debug'
 
