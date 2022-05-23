@@ -127,6 +127,7 @@ func TestConfigSchema(t *testing.T) {
 		"LeaseLockDuration":                              "LEASE_LOCK_DURATION",
 		"LeaseLockRefreshInterval":                       "LEASE_LOCK_REFRESH_INTERVAL",
 		"LinkContractAddress":                            "LINK_CONTRACT_ADDRESS",
+		"OperatorFactoryAddress":                         "OPERATOR_FACTORY_ADDRESS",
 		"LogFileDir":                                     "LOG_FILE_DIR",
 		"LogLevel":                                       "LOG_LEVEL",
 		"LogSQL":                                         "LOG_SQL",
