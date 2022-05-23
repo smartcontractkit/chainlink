@@ -69,6 +69,7 @@ type ChainScopedOnlyConfig interface {
 	ChainType() config.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
+	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
 	NodeNoNewHeadsThreshold() time.Duration
@@ -747,6 +748,24 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 	c.persistMu.RUnlock()
 	if p.Valid {
 		c.logPersistedOverrideOnce("LinkContractAddress", p.String)
+		return p.String
+	}
+	return c.defaultSet.linkContractAddress
+}
+
+// OperatorFactoryAddress represents the address of the official LINK token
+// contract on the current Chain
+func (c *chainScopedConfig) OperatorFactoryAddress() string {
+	val, ok := c.GeneralConfig.GlobalOperatorFactoryAddress()
+	if ok {
+		c.logEnvOverrideOnce("OperatorFactoryAddress", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.OperatorFactoryAddress
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("OperatorFactoryAddress", p.String)
 		return p.String
 	}
 	return c.defaultSet.linkContractAddress

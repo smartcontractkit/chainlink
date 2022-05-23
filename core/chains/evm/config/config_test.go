@@ -161,6 +161,28 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val, cfg.LinkContractAddress())
 		})
 	})
+
+	t.Run("OperatorFactoryAddress", func(t *testing.T) {
+		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
+			assert.Equal(t, "", cfg.OperatorFactoryAddress())
+		})
+
+		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
+			val := testutils.NewAddress().String()
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.OperatorFactoryAddress = null.StringFrom(val)
+			})
+
+			assert.Equal(t, val, cfg.OperatorFactoryAddress())
+		})
+
+		t.Run("uses global value when that is set", func(t *testing.T) {
+			val := testutils.NewAddress().String()
+			gcfg.Overrides.OperatorFactoryAddress = null.StringFrom(val)
+
+			assert.Equal(t, val, cfg.OperatorFactoryAddress())
+		})
+	})
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {
