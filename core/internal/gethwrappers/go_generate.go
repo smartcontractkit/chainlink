@@ -16,6 +16,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/solc/v0.7/Consumer.bin Consumer consumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin Operator operator_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/OperatorFactory.abi ../../../contracts/solc/v0.7/OperatorFactory.bin OperatorFactory operator_factory
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/AuthorizedForwarder.abi ../../../contracts/solc/v0.7/AuthorizedForwarder.bin AuthorizedForwarder authorized_forwarder
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/AuthorizedReceiver.abi ../../../contracts/solc/v0.7/AuthorizedReceiver.bin AuthorizedReceiver authorized_receiver
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../../contracts/solc/v0.8.6/BatchBlockhashStore.bin BatchBlockhashStore batch_blockhash_store
