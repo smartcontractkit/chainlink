@@ -181,3 +181,28 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiplyTask_Overflow(t *testing.T) {
+	t.Parallel()
+
+	d1, err := decimal.NewFromString("6.34e-1147483647")
+	assert.NoError(t, err)
+	d2, err := decimal.NewFromString("6.34e-1147483647")
+	assert.NoError(t, err)
+
+	task := pipeline.MultiplyTask{
+		BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+		Input:    "$(a)",
+		Times:    "$(b)",
+	}
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"a": d1,
+		"b": d2,
+	})
+
+	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
+	require.Equal(t, pipeline.ErrMultiplyOverlow, errors.Cause(result.Error))
+}
