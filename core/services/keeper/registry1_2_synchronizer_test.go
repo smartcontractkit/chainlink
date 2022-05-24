@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -76,7 +75,7 @@ func mockRegistry1_2(
 		Config:  config,
 		Keepers: keeperList,
 	}
-	ethMock.On("HeaderByNumber", context.Background(), (*big.Int)(nil)).Return(
+	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).Return(
 		&types.Header{
 			Number: big.NewInt(10),
 		}, nil)

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"strings"
 
@@ -126,7 +127,7 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
 		// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
-		header, err := rw.evmClient.HeaderByNumber(context.Background(), (*big.Int)(nil))
+		header, err := rw.evmClient.HeaderByNumber(context.Background(), nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch EVM block header")
 		}
@@ -140,21 +141,18 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 
 		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get contract state")
+			return nil, errors.Wrapf(err, "failed to get contract state at block number %d", header.Number.Int64())
 		}
 
 		activeUpkeepIDs := make([]*big.Int, 0)
 		for int64(len(activeUpkeepIDs)) < state.State.NumUpkeeps.Int64() {
 			startIndex := int64(len(activeUpkeepIDs))
-			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(ActiveUpkeepIDBatchSize))
+			maxCount := int64(math.Min(float64(ActiveUpkeepIDBatchSize), float64(state.State.NumUpkeeps.Int64()-int64(len(activeUpkeepIDs)))))
+			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %v to %v", startIndex, startIndex+ActiveUpkeepIDBatchSize)
+				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %d to %d", startIndex, startIndex+ActiveUpkeepIDBatchSize)
 			}
 			activeUpkeepIDs = append(activeUpkeepIDs, activeUpkeepIDBatch...)
-
-			if int64(len(activeUpkeepIDBatch)) < ActiveUpkeepIDBatchSize {
-				break
-			}
 		}
 
 		return activeUpkeepIDs, nil
