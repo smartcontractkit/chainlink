@@ -180,7 +180,7 @@ type OffChainReporting2Spec struct {
 	ContractID                        string                 `json:"contractID"`
 	Relay                             relay.Network          `json:"relay"`
 	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray         `toml:"p2pv2Bootstrappers"`
+	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
 	TransmitterID                     null.String            `json:"transmitterID"`
 	ObservationTimeout                models.Interval        `json:"observationTimeout"`
