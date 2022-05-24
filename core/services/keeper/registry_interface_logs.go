@@ -36,6 +36,8 @@ func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32, u
 				registry1_2.KeeperRegistryUpkeepRegistered{}.Topic():  nil,
 				registry1_2.KeeperRegistryUpkeepPerformed{}.Topic():   upkeepPerformedFilter,
 				registry1_2.KeeperRegistryUpkeepGasLimitSet{}.Topic(): nil,
+				registry1_2.KeeperRegistryUpkeepMigrated{}.Topic():    nil,
+				registry1_2.KeeperRegistryUpkeepReceived{}.Topic():    nil,
 			},
 			MinIncomingConfirmations: minIncomingConfirmations,
 		}, nil
