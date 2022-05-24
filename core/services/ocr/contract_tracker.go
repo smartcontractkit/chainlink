@@ -386,11 +386,14 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
-	// We skip confirmation checking anyway on Optimism so there's no need to
-	// care about the block height; we have no way of getting the L1 block
-	// height anyway
-	if t.cfg.ChainType() == config.ChainOptimism {
+	switch t.cfg.ChainType() {
+	case config.ChainMetis, config.ChainOptimism:
+		// We skip confirmation checking anyway on these L2s so there's no need to
+		// care about the block height; we have no way of getting the L1 block
+		// height anyway
 		return 0, nil
+	case "", config.ChainArbitrum, config.ChainXDai:
+		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
 	if latestBlockHeight >= 0 {
