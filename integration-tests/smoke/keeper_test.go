@@ -18,10 +18,45 @@ import (
 	"github.com/smartcontractkit/helmenv/environment"
 )
 
-var _ = Describe("Keeper v1.1 suite @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1))
-var _ = Describe("Keeper v1.2 suite @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2))
+type KeeperTests int32
 
-func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
+const (
+	BasicSmokeTest KeeperTests = iota
+	BcptTest
+)
+
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicSmokeTest))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicSmokeTest))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BcptTest))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BcptTest))
+
+var defaultRegistryConfig = contracts.KeeperRegistrySettings{
+	PaymentPremiumPPB:    uint32(200000000),
+	FlatFeeMicroLINK:     uint32(0),
+	BlockCountPerTurn:    big.NewInt(10),
+	CheckGasLimit:        uint32(2500000),
+	StalenessSeconds:     big.NewInt(90000),
+	GasCeilingMultiplier: uint16(1),
+	MinUpkeepSpend:       big.NewInt(0),
+	MaxPerformGas:        uint32(5000000),
+	FallbackGasPrice:     big.NewInt(2e11),
+	FallbackLinkPrice:    big.NewInt(2e18),
+}
+
+var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
+	PaymentPremiumPPB:    uint32(200000000),
+	FlatFeeMicroLINK:     uint32(0),
+	BlockCountPerTurn:    big.NewInt(10000),
+	CheckGasLimit:        uint32(2500000),
+	StalenessSeconds:     big.NewInt(90000),
+	GasCeilingMultiplier: uint16(1),
+	MinUpkeepSpend:       big.NewInt(0),
+	MaxPerformGas:        uint32(5000000),
+	FallbackGasPrice:     big.NewInt(2e11),
+	FallbackLinkPrice:    big.NewInt(2e18),
+}
+
+func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion, registryConfig contracts.KeeperRegistrySettings, testToRun KeeperTests) func() {
 	return func() {
 		var (
 			err              error
@@ -29,6 +64,7 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 			contractDeployer contracts.ContractDeployer
 			registry         contracts.KeeperRegistry
 			consumer         contracts.KeeperConsumer
+			upkeepID         *big.Int
 			linkToken        contracts.LinkToken
 			chainlinkNodes   []client.Chainlink
 			env              *environment.Environment
@@ -36,6 +72,11 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 
 		BeforeEach(func() {
 			By("Deploying the environment", func() {
+				// Confirm all logs, txs after 1 block
+				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["MIN_INCOMING_CONFIRMATIONS"] = "1"
+				// Turn on buddy turn taking algo
+				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_FLAG_ENABLED"] = "true"
+
 				env, err = environment.DeployOrLoadEnvironment(
 					environment.NewChainlinkConfig(
 						environment.ChainlinkReplicas(6, config.ChainlinkVals()),
@@ -70,20 +111,9 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 				linkToken, err = contractDeployer.DeployLinkTokenContract()
 				Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
-				r, consumers := actions.DeployKeeperContracts(
+				r, consumers, upkeepIDs := actions.DeployKeeperContracts(
 					registryVersion,
-					contracts.KeeperRegistrySettings{
-						PaymentPremiumPPB:    uint32(200000000),
-						FlatFeeMicroLINK:     uint32(0),
-						BlockCountPerTurn:    big.NewInt(3),
-						CheckGasLimit:        uint32(2500000),
-						StalenessSeconds:     big.NewInt(90000),
-						GasCeilingMultiplier: uint16(1),
-						MinUpkeepSpend:       big.NewInt(0),
-						MaxPerformGas:        uint32(5000000),
-						FallbackGasPrice:     big.NewInt(2e11),
-						FallbackLinkPrice:    big.NewInt(2e18),
-					},
+					registryConfig,
 					1,
 					linkToken,
 					contractDeployer,
@@ -91,6 +121,7 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 				)
 				consumer = consumers[0]
 				registry = r
+				upkeepID = upkeepIDs[0]
 			})
 
 			By("Register Keeper Jobs", func() {
@@ -101,20 +132,15 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 		})
 
 		Describe("with Keeper job", func() {
-			It("performs upkeep of a target contract, stops upon cancel", func() {
-				// Hardocded upkeep id '0' for now, only works in registry v1.1
-				upkeepID := big.NewInt(int64(0))
-
-				// Let upkeep be performed atleast once
-				Eventually(func(g Gomega) {
-					cnt, err := consumer.Counter(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-					g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)), "Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
-					log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
-				}, "2m", "1s").Should(Succeed())
-
-				if registryVersion == ethereum.RegistryVersion_1_1 {
-					// TODO: Support cancelling upkeep on version 1.2
+			if testToRun == BasicSmokeTest {
+				It("performs upkeep of a target contract, stops upon cancel", func() {
+					// Let upkeep be performed atleast once
+					Eventually(func(g Gomega) {
+						cnt, err := consumer.Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+						g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)), "Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
+						log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
+					}, "2m", "1s").Should(Succeed())
 
 					// Now cancel the upkeep as registry owner, it should get immediately cancelled
 					err := registry.CancelUpkeep(upkeepID)
@@ -136,8 +162,70 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion) func() {
 							"Expected consumer counter to to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
-				}
-			})
+				})
+			}
+
+			if testToRun == BcptTest {
+				It("tests that keeper pairs change turn every blockCountPerTurn", func() {
+					keepersPerformed := make([]string, 0)
+
+					// Wait for upkeep to be performed twice by different keepers (buddies)
+					Eventually(func(g Gomega) {
+						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
+						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
+						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
+
+						log.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
+						keepersPerformed = append(keepersPerformed, latestKeeper)
+					}, "1m", "1s").Should(Succeed())
+
+					Eventually(func(g Gomega) {
+						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
+						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
+						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
+
+						log.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
+						keepersPerformed = append(keepersPerformed, latestKeeper)
+					}, "1m", "1s").Should(Succeed())
+
+					// Expect no new keepers to perform for a while
+					Consistently(func(g Gomega) {
+						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
+						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
+						g.Expect(latestKeeper).Should(BeElementOf(keepersPerformed), "Existing keepers should alternate turns wihtin BCPT")
+					}, "30s", "1s").Should(Succeed())
+
+					// Now set BCPT to be low, so keepers change turn frequently
+					lowBcpt := defaultRegistryConfig
+					lowBcpt.BlockCountPerTurn = big.NewInt(5)
+					err = registry.SetConfig(lowBcpt)
+					Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
+
+					// Expect a new keeper to perform
+					Eventually(func(g Gomega) {
+						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
+						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+
+						latestKeeper := upkeepInfo.LastKeeper
+						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
+						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
+
+						log.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
+						keepersPerformed = append(keepersPerformed, latestKeeper)
+					}, "1m", "1s").Should(Succeed())
+				})
+			}
 		})
 
 		AfterEach(func() {

@@ -66,7 +66,7 @@ var (
 		FluxMonitor:        true,
 		OffchainReporting:  false, // bootstrap jobs do not require it
 		OffchainReporting2: false, // bootstrap jobs do not require it
-		Keeper:             true,
+		Keeper:             false, // observationSource is injected in the upkeep executor
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
@@ -140,14 +140,14 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
 }
 
-// The external job ID (UUID) can be encoded into a log topic (32 bytes)
+// ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
-// The external job ID (UUID) can also be encoded into a log topic (32 bytes)
+// ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
