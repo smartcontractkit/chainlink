@@ -110,7 +110,7 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-p2pBootstrapPeers = []
+p2pv2Bootstrappers = []
 relay = "solana"
 pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
@@ -130,7 +130,7 @@ schemaVersion = 1
 name = "local testing job"
 contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 isBootstrapPeer = false
-p2pBootstrapPeers = []
+p2pv2Bootstrappers = []
 relay = "terra"
 transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 observationSource = """
