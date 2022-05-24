@@ -30,9 +30,9 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
 	jb.OCR2OracleSpec = &spec
-	if jb.OCR2OracleSpec.P2PBootstrapPeers == nil {
+	if jb.OCR2OracleSpec.P2PV2Bootstrappers == nil {
 		// Empty but non-null, field is non-nullable.
-		jb.OCR2OracleSpec.P2PBootstrapPeers = pq.StringArray{}
+		jb.OCR2OracleSpec.P2PV2Bootstrappers = pq.StringArray{}
 	}
 
 	if jb.Type != job.OffchainReporting2 {
@@ -41,8 +41,8 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if _, ok := relay.SupportedRelays[spec.Relay]; !ok {
 		return jb, errors.Errorf("no such relay %v supported", spec.Relay)
 	}
-	if len(spec.P2PBootstrapPeers) > 0 {
-		_, err := ocrcommon.ParseBootstrapPeers(spec.P2PBootstrapPeers)
+	if len(spec.P2PV2Bootstrappers) > 0 {
+		_, err := ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
 		if err != nil {
 			return jb, err
 		}

@@ -543,13 +543,13 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 	return &r.spec.MonitoringEndpoint.String
 }
 
-// P2PBootstrapPeers resolves the spec's p2p bootstrap peers
-func (r *OCR2SpecResolver) P2PBootstrapPeers() *[]string {
-	if len(r.spec.P2PBootstrapPeers) == 0 {
+// P2PV2Bootstrappers resolves the spec's p2pv2 bootstrappers
+func (r *OCR2SpecResolver) P2PV2Bootstrappers() *[]string {
+	if len(r.spec.P2PV2Bootstrappers) == 0 {
 		return nil
 	}
 
-	peers := []string(r.spec.P2PBootstrapPeers)
+	peers := []string(r.spec.P2PV2Bootstrappers)
 
 	return &peers
 }
