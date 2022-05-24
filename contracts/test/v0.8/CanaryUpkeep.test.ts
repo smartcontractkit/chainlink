@@ -83,6 +83,25 @@ describe.only('CanaryUpkeep', () => {
     await reset()
   })
 
+  describe('setInterval()', () => {
+    it('allows the owner setting interval', async () => {
+      await canaryUpkeep.connect(owner).setInterval(400)
+      const newInterval = await canaryUpkeep.getInterval()
+      assert.equal(
+        newInterval.toNumber(),
+        400,
+        'The interval is not updated correctly',
+      )
+    })
+
+    it('does not allow someone who is not an owner setting interval', async () => {
+      await evmRevert(
+        canaryUpkeep.connect(ned).setInterval(400),
+        'Only callable by owner',
+      )
+    })
+  })
+
   describe('checkUpkeep()', () => {
     it('returns true when sufficient time passes', async () => {
       await fastForward(moment.duration(6, 'minutes').asSeconds())
@@ -144,17 +163,33 @@ describe.only('CanaryUpkeep', () => {
       const keeperIndex = await canaryUpkeep.connect(ned).getKeeperIndex()
       assert.equal(
         keeperIndex.toNumber(),
-        keeperAddresses.length,
+        0,
         'Keeper index is not updated properly',
       )
+    })
+
+    it('updates the keeper index after the keepers array is shortened', async () => {
+      await keeperRegistry.setKeepers(keeperAddresses, keeperAddresses)
 
       await fastForward(moment.duration(6, 'minutes').asSeconds())
       await canaryUpkeep.connect(nelly).performUpkeep('0x')
-      const newKeeperIndex = await canaryUpkeep.connect(ned).getKeeperIndex()
+
+      await fastForward(moment.duration(6, 'minutes').asSeconds())
+      await canaryUpkeep.connect(nancy).performUpkeep('0x')
+
+      let shortAddresses: string[] = [
+        await nelly.getAddress(),
+        await nancy.getAddress(),
+      ]
+      await keeperRegistry.setKeepers(shortAddresses, shortAddresses)
+
+      await fastForward(moment.duration(6, 'minutes').asSeconds())
+      await canaryUpkeep.connect(nelly).performUpkeep('0x')
+      const keeperIndex = await canaryUpkeep.getKeeperIndex()
       assert.equal(
-        newKeeperIndex.toNumber(),
+        keeperIndex.toNumber(),
         1,
-        'Keeper index does not reset to zero after visiting the last keeper',
+        'Keeper index is not updated properly',
       )
     })
 
