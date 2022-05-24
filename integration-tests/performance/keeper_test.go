@@ -72,7 +72,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			linkToken, err = contractDeployer.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
-			r, consumers := actions.DeployKeeperContracts(
+			r, consumers, _ := actions.DeployKeeperContracts(
 				ethereum.RegistryVersion_1_1,
 				contracts.KeeperRegistrySettings{
 					PaymentPremiumPPB:    uint32(200000000),
