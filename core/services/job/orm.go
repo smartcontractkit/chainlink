@@ -262,10 +262,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
