@@ -220,13 +220,16 @@ func (c *chainScopedConfig) validate() (err error) {
 					"must be %q", gasEst, config.ChainArbitrum, "FixedPrice"))
 			}
 
-		case config.ChainOptimism:
+		case config.ChainOptimism, config.ChainMetis:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
-			case "Optimism", "Optimism2":
+			case "Optimism2", "L2Suggested":
+				// valid
+			case "Optimism":
+				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is no longer supported since OVM 1.0 was discontinued - use %q", "Optimism", "L2Suggested"))
 			default:
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q or %q", gasEst, config.ChainOptimism, "Optimism", "Optimism2"))
+					"must be %q (or the equivalent, deprecated %q)", gasEst, chainType, "L2Suggested", "Optimism2"))
 			}
 		case config.ChainXDai:
 
