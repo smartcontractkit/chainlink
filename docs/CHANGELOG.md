@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0]
+
 ### Changed
 
 - Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
@@ -54,7 +56,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Removed
 
 - The `Optimism` OVM 1.0 `GAS_ESTIMATOR_MODE` has been removed.
-- 
+
 ## [1.4.1] - 2022-05-11
 
 ### Fixed
