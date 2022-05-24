@@ -114,7 +114,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PBootstrapPeers, peerWrapper.Config().P2PV2Bootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, peerWrapper.Config().P2PV2Bootstrappers())
 	if err != nil {
 		return nil, err
 	}
