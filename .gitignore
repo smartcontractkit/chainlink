@@ -58,7 +58,6 @@ core/cmd/vrfkey1
 core/web/assets
 
 # Integration Tests
-integration-tests/logs/
-integration-tests/smoke/logs/
+integration-tests/**/logs/
 tests-*.xml
 *.test
