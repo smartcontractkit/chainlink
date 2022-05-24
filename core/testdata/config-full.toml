@@ -119,13 +119,14 @@ DHTAnnouncementCounterUserPrefix = 4321
 DHTLookupInterval = 9
 ListenPort = 9
 NewStreamTimeout = '1s'
-PeerID = 'ASDF'
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 V2AnnounceAddresses = ['a', 'b', 'c']
 V2Bootstrappers = ['1', '2', '3']
 V2DeltaDial = '1m0s'
 V2DeltaReconcile = '1s'
 V2ListenAddresses = ['foo', 'bar']
+
 
 [Keeper]
 CheckUpkeepGasPriceFeatureEnabled = true
@@ -158,6 +159,44 @@ GoroutineThreshold = 999
 [EVM]
 
 [EVM.1]
+ChainType = 'Optimism'
+TxReaperThreshold = '1m0s'
+TxResendAfterThreshold = '1h0m0s'
+EIP1559DynamicFees = true
+FinalityDepth = 42
+GasBumpPercent = 10
+GasBumpTxDepth = 6
+GasBumpWei = '100'
+GasFeeCapDefault = '9223372036854775807'
+GasLimitDefault = 12
+GasLimitMultiplier = 7.0
+GasPriceDefault = '9223372036854775807'
+GasTipCapDefault = '2'
+GasTipCapMinimum = '1'
+HeadTrackerHistoryDepth = 15
+HeadTrackerMaxBufferSize = 17
+HeadTrackerSamplingInterval = '1h0m0s'
+LogBackfillBatchSize = 17
+LogPollInterval = '1m0s'
+MaxGasPriceWei = '281474976710655'
+NonceAutoSync = true
+UseForwarders = true
+FlagsContractAddress = '0xabcd1234'
+GasEstimatorMode = 'L2Suggested'
+LinkContractAddress = '0x1234abcd'
+MinIncomingConfirmations = 13
+MinimumContractPayment = '9223372036854775807'
+OCRObservationTimeout = '1s'
+NodeNoNewHeadsThreshold = '1m0s'
+
+[EVM.1.BlockHistoryEstimator]
+BlockDelay = 10
+BlockHistorySize = 12
+EIP1559FeeCapBufferBlocks = 13
+
+[EVM.1.KeySpecific]
+
+[EVM.1.KeySpecific.0x1234]
 
 [EVM.1.Nodes]
 

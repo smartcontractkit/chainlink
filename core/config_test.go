@@ -13,10 +13,14 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml/v2"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -112,27 +116,32 @@ func ExampleConfig() {
 var fullToml string //TODO copy and add comments for an example-config.toml?
 
 func TestConfig_Marshal(t *testing.T) {
+	second := models.MustMakeDuration(time.Second)
+	minute := models.MustMakeDuration(time.Minute)
+	hour := models.MustMakeDuration(time.Hour)
+	mustPeerID := func(s string) p2pkey.PeerID {
+		id, err := p2pkey.MakePeerID(s)
+		require.NoError(t, err)
+		return id
+	}
+
 	global := Config{
-		Dev:                  true,
-		ExplorerAccessKey:    "test-access-key",
-		ExplorerSecret:       "test-secret",
-		ExplorerURL:          mustURL("http://explorer.url"),
-		FlagsContractAddress: "0x1234",
-		InsecureFastScrypt:   true,
-		ReaperExpiration:     Duration(7 * 24 * time.Hour),
-		RootDir:              "test/root/dir",
-		ShutdownGracePeriod:  Duration(10 * time.Second),
-
-		FeatureFeedsManager: true,
-		FeatureUICSAKeys:    true,
-
-		FeatureLogPoller: true,
-
+		Dev:                            true,
+		ExplorerAccessKey:              "test-access-key",
+		ExplorerSecret:                 "test-secret",
+		ExplorerURL:                    mustURL("http://explorer.url"),
+		FlagsContractAddress:           "0x1234",
+		InsecureFastScrypt:             true,
+		ReaperExpiration:               Duration(7 * 24 * time.Hour),
+		RootDir:                        "test/root/dir",
+		ShutdownGracePeriod:            Duration(10 * time.Second),
+		FeatureFeedsManager:            true,
+		FeatureUICSAKeys:               true,
+		FeatureLogPoller:               true,
 		FMDefaultTransactionQueueDepth: 100,
 		FMSimulateTransactions:         true,
-
-		FeatureOffchainReporting2: true,
-		FeatureOffchainReporting:  true,
+		FeatureOffchainReporting2:      true,
+		FeatureOffchainReporting:       true,
 	}
 
 	full := global
@@ -242,7 +251,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ListenIP:                         net.ParseIP("4:3:2:1"),
 		ListenPort:                       9,
 		NewStreamTimeout:                 Duration(time.Second),
-		PeerID:                           "ASDF",
+		PeerID:                           mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		PeerstoreWriteInterval:           Duration(time.Minute),
 		V2AnnounceAddresses:              []string{"a", "b", "c"},
 		V2Bootstrappers:                  []string{"1", "2", "3"},
@@ -280,7 +289,48 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.EVM = map[string]EVMConfig{
 		"1": {
-			//TODO more fields
+			ChainTOMLCfg: evmtypes.ChainTOMLCfg{
+				BlockHistoryEstimator: &evmtypes.BlockHistoryEstimatorConfig{
+					BlockDelay:                10,
+					BlockHistorySize:          12,
+					EIP1559FeeCapBufferBlocks: 13,
+				},
+				ChainType:                   "Optimism",
+				TxReaperThreshold:           &minute,
+				TxResendAfterThreshold:      &hour,
+				EIP1559DynamicFees:          true,
+				FinalityDepth:               42,
+				GasBumpPercent:              10,
+				GasBumpTxDepth:              6,
+				GasBumpWei:                  utils.NewBigI(100),
+				GasFeeCapDefault:            utils.NewBigI(math.MaxInt64),
+				GasLimitDefault:             12,
+				GasLimitMultiplier:          7,
+				GasPriceDefault:             utils.NewBigI(math.MaxInt64),
+				GasTipCapDefault:            utils.NewBigI(2),
+				GasTipCapMinimum:            utils.NewBigI(1),
+				HeadTrackerHistoryDepth:     15,
+				HeadTrackerMaxBufferSize:    17,
+				HeadTrackerSamplingInterval: &hour,
+				LogBackfillBatchSize:        17,
+				LogPollInterval:             &minute,
+				MaxGasPriceWei:              utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")),
+				NonceAutoSync:               true,
+				UseForwarders:               true,
+				RPCDefaultBatchSize:         0,
+				FlagsContractAddress:        "0xabcd1234",
+				GasEstimatorMode:            "L2Suggested",
+				KeySpecific: map[string]evmtypes.ChainTOMLCfg{
+					"0x1234": {
+						//TODO
+					},
+				},
+				LinkContractAddress:      "0x1234abcd",
+				MinIncomingConfirmations: 13,
+				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
+				OCRObservationTimeout:    &second,
+				NodeNoNewHeadsThreshold:  &minute,
+			},
 			Nodes: map[string]evmNode{
 				"primary": {
 					WSURL: mustURL("wss://web.socket/test"),
@@ -434,7 +484,7 @@ DHTAnnouncementCounterUserPrefix = 4321
 DHTLookupInterval = 9
 ListenPort = 9
 NewStreamTimeout = '1s'
-PeerID = 'ASDF'
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
 V2AnnounceAddresses = ['a', 'b', 'c']
 V2Bootstrappers = ['1', '2', '3']
@@ -476,6 +526,44 @@ GoroutineThreshold = 999
 [EVM]
 
 [EVM.1]
+ChainType = 'Optimism'
+TxReaperThreshold = '1m0s'
+TxResendAfterThreshold = '1h0m0s'
+EIP1559DynamicFees = true
+FinalityDepth = 42
+GasBumpPercent = 10
+GasBumpTxDepth = 6
+GasBumpWei = '100'
+GasFeeCapDefault = '9223372036854775807'
+GasLimitDefault = 12
+GasLimitMultiplier = 7.0
+GasPriceDefault = '9223372036854775807'
+GasTipCapDefault = '2'
+GasTipCapMinimum = '1'
+HeadTrackerHistoryDepth = 15
+HeadTrackerMaxBufferSize = 17
+HeadTrackerSamplingInterval = '1h0m0s'
+LogBackfillBatchSize = 17
+LogPollInterval = '1m0s'
+MaxGasPriceWei = '281474976710655'
+NonceAutoSync = true
+UseForwarders = true
+FlagsContractAddress = '0xabcd1234'
+GasEstimatorMode = 'L2Suggested'
+LinkContractAddress = '0x1234abcd'
+MinIncomingConfirmations = 13
+MinimumContractPayment = '9223372036854775807'
+OCRObservationTimeout = '1s'
+NodeNoNewHeadsThreshold = '1m0s'
+
+[EVM.1.BlockHistoryEstimator]
+BlockDelay = 10
+BlockHistorySize = 12
+EIP1559FeeCapBufferBlocks = 13
+
+[EVM.1.KeySpecific]
+
+[EVM.1.KeySpecific.0x1234]
 
 [EVM.1.Nodes]
 
@@ -493,6 +581,10 @@ SendOnly = true
 			s, err := prettyPrint(tt.config)
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
+
+			var got Config
+			require.NoError(t, toml.Unmarshal([]byte(s), &got))
+			assert.Equal(t, tt.config, got)
 		})
 	}
 }
