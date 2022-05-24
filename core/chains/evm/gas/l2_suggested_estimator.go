@@ -23,6 +23,7 @@ type rpcClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 }
 
+// l2SuggestedEstimator is an Estimator which uses the L2 suggested gas price from eth_gasPrice.
 type l2SuggestedEstimator struct {
 	utils.StartStopOnce
 
@@ -40,7 +41,7 @@ type l2SuggestedEstimator struct {
 	chDone         chan struct{}
 }
 
-// NewL2SuggestedEstimator returns a new optimism 2.0 estimator
+// NewL2SuggestedEstimator returns a new Estimator which uses the L2 suggested gas price.
 func NewL2SuggestedEstimator(lggr logger.Logger, config Config, client rpcClient) Estimator {
 	return &l2SuggestedEstimator{
 		utils.StartStopOnce{},
