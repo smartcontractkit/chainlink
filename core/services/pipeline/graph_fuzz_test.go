@@ -5,7 +5,6 @@ package pipeline_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -18,7 +17,6 @@ func FuzzParse(f *testing.F) {
 	f.Add(`ds1 [type=any retries=5];`)
 	f.Add(`ds1 [type=http retries=10 minBackoff="1s" maxBackoff="30m"];`)
 	f.Add(pipeline.DotStr)
-	f.Add(keeper.ExpectedObservationSource)
 	f.Add(CBORDietEmpty)
 	f.Add(CBORStdString)
 	f.Add(`
