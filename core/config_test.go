@@ -54,8 +54,10 @@ func ExampleConfig() {
 		},
 		EVM: map[string]EVMConfig{
 			"1": {
-				//TODO more fields
-				Nodes: map[string]evmNode{
+				ChainTOMLCfg: evmtypes.ChainTOMLCfg{
+					FinalityDepth: 26,
+				},
+				Nodes: map[string]EVMNode{
 					"primary": {
 						WSURL: mustURL("wss://web.socket/test"),
 					},
@@ -101,6 +103,7 @@ func ExampleConfig() {
 	// [EVM]
 	//
 	// [EVM.1]
+	// FinalityDepth = 26
 	//
 	// [EVM.1.Nodes]
 	//
@@ -322,7 +325,7 @@ func TestConfig_Marshal(t *testing.T) {
 				GasEstimatorMode:            "L2Suggested",
 				KeySpecific: map[string]evmtypes.ChainTOMLCfg{
 					"0x1234": {
-						//TODO
+						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 					},
 				},
 				LinkContractAddress:      "0x1234abcd",
@@ -331,7 +334,7 @@ func TestConfig_Marshal(t *testing.T) {
 				OCRObservationTimeout:    &second,
 				NodeNoNewHeadsThreshold:  &minute,
 			},
-			Nodes: map[string]evmNode{
+			Nodes: map[string]EVMNode{
 				"primary": {
 					WSURL: mustURL("wss://web.socket/test"),
 				},
@@ -340,13 +343,46 @@ func TestConfig_Marshal(t *testing.T) {
 					SendOnly: true,
 				},
 			}},
-		//TODO more chains
 	}
 	full.Solana = map[string]SolanaConfig{
-		//TODO
+		"mainnet": {
+			SolanaChainCfg: SolanaChainCfg{
+				BalancePollPeriod:   Duration(time.Minute),
+				ConfirmPollPeriod:   Duration(time.Second),
+				OCR2CachePollPeriod: Duration(time.Minute),
+				OCR2CacheTTL:        Duration(time.Hour),
+				TxTimeout:           Duration(time.Hour),
+				TxRetryTimeout:      Duration(time.Minute),
+				TxConfirmTimeout:    Duration(time.Second),
+				SkipPreflight:       true,
+				Commitment:          "banana",
+				MaxRetries:          7,
+			},
+			Nodes: map[string]solanaNode{
+				"primary": {URL: mustURL("http://solana.web")},
+			},
+		},
 	}
 	full.Terra = map[string]TerraConfig{
-		//TODO
+		"Bombay-12": {
+			TerraChainCfg: TerraChainCfg{
+				BlockRate:             Duration(time.Minute),
+				BlocksUntilTxTimeout:  12,
+				ConfirmPollPeriod:     Duration(time.Second),
+				FallbackGasPriceULuna: "0.001",
+				FCDURL:                mustURL("http://terra.com"),
+				GasLimitMultiplier:    1.2,
+				MaxMsgsPerBatch:       17,
+				OCR2CachePollPeriod:   Duration(time.Minute),
+				OCR2CacheTTL:          Duration(time.Hour),
+				TxMsgTimeout:          Duration(time.Second),
+			},
+			Nodes: map[string]TerraNode{
+				"primary": {
+					TendermintURL: mustURL("http://tender.mint"),
+				},
+			},
+		},
 	}
 
 	for _, tt := range []struct {
@@ -564,6 +600,7 @@ EIP1559FeeCapBufferBlocks = 13
 [EVM.1.KeySpecific]
 
 [EVM.1.KeySpecific.0x1234]
+MaxGasPriceWei = '79228162514264337593543950335'
 
 [EVM.1.Nodes]
 
@@ -574,7 +611,46 @@ WSURL = 'wss://web.socket/test'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
-		//TODO solana, terra
+		{"solana", Config{Solana: full.Solana}, `
+[Solana]
+
+[Solana.mainnet]
+BalancePollPeriod = '1m0s'
+ConfirmPollPeriod = '1s'
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxTimeout = '1h0m0s'
+TxRetryTimeout = '1m0s'
+TxConfirmTimeout = '1s'
+SkipPreflight = true
+Commitment = 'banana'
+MaxRetries = 7
+
+[Solana.mainnet.Nodes]
+
+[Solana.mainnet.Nodes.primary]
+URL = 'http://solana.web'
+`},
+		{"terra", Config{Terra: full.Terra}, `
+[Terra]
+
+[Terra.Bombay-12]
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.001'
+FCDURL = 'http://terra.com'
+GasLimitMultiplier = 1.2
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[Terra.Bombay-12.Nodes]
+
+[Terra.Bombay-12.Nodes.primary]
+TendermintURL = 'http://tender.mint'
+`},
 		{"full", full, fullToml},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

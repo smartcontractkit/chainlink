@@ -127,7 +127,6 @@ V2DeltaDial = '1m0s'
 V2DeltaReconcile = '1s'
 V2ListenAddresses = ['foo', 'bar']
 
-
 [Keeper]
 CheckUpkeepGasPriceFeatureEnabled = true
 DefaultTransactionQueueDepth = 17
@@ -197,6 +196,7 @@ EIP1559FeeCapBufferBlocks = 13
 [EVM.1.KeySpecific]
 
 [EVM.1.KeySpecific.0x1234]
+MaxGasPriceWei = '79228162514264337593543950335'
 
 [EVM.1.Nodes]
 
@@ -209,4 +209,38 @@ SendOnly = true
 
 [Solana]
 
+[Solana.mainnet]
+BalancePollPeriod = '1m0s'
+ConfirmPollPeriod = '1s'
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxTimeout = '1h0m0s'
+TxRetryTimeout = '1m0s'
+TxConfirmTimeout = '1s'
+SkipPreflight = true
+Commitment = 'banana'
+MaxRetries = 7
+
+[Solana.mainnet.Nodes]
+
+[Solana.mainnet.Nodes.primary]
+URL = 'http://solana.web'
+
 [Terra]
+
+[Terra.Bombay-12]
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.001'
+FCDURL = 'http://terra.com'
+GasLimitMultiplier = 1.2
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[Terra.Bombay-12.Nodes]
+
+[Terra.Bombay-12.Nodes.primary]
+TendermintURL = 'http://tender.mint'

@@ -7,8 +7,6 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -77,23 +75,57 @@ type Config struct {
 
 type EVMConfig struct {
 	evmtypes.ChainTOMLCfg
-	Nodes map[string]evmNode
+	Nodes map[string]EVMNode
 }
 
-type evmNode struct {
+type EVMNode struct {
 	WSURL    *URL
 	HTTPURL  *URL
 	SendOnly bool `toml:",omitempty"`
 }
 
 type SolanaConfig struct {
-	solanadb.ChainCfg
-	Nodes map[string]solanadb.Node
+	SolanaChainCfg
+	Nodes map[string]solanaNode
+}
+
+type SolanaChainCfg struct {
+	BalancePollPeriod   Duration
+	ConfirmPollPeriod   Duration
+	OCR2CachePollPeriod Duration
+	OCR2CacheTTL        Duration
+	TxTimeout           Duration
+	TxRetryTimeout      Duration
+	TxConfirmTimeout    Duration
+	SkipPreflight       bool   `toml:",omitempty"`
+	Commitment          string `toml:",omitempty"`
+	MaxRetries          int    `toml:",omitempty"`
+}
+
+type solanaNode struct {
+	URL *URL
 }
 
 type TerraConfig struct {
-	terradb.ChainCfg
-	Nodes map[string]terradb.Node
+	TerraChainCfg
+	Nodes map[string]TerraNode
+}
+
+type TerraChainCfg struct {
+	BlockRate             Duration
+	BlocksUntilTxTimeout  int
+	ConfirmPollPeriod     Duration
+	FallbackGasPriceULuna string //TODO decimal number type?
+	FCDURL                *URL
+	GasLimitMultiplier    float64
+	MaxMsgsPerBatch       int64
+	OCR2CachePollPeriod   Duration
+	OCR2CacheTTL          Duration
+	TxMsgTimeout          Duration
+}
+
+type TerraNode struct {
+	TendermintURL *URL
 }
 
 type DatabaseConfig struct {
