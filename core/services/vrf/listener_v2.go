@@ -415,15 +415,14 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			continue
 		}
 
-		// Sort requests in ascending order by CallbackGasLimit.
+		// Sort requests in ascending order by CallbackGasLimit
+		// so that we process the "cheapest" requests for each subscription
+		// first. This allows us to break out of the processing loop as early as possible
+		// in the event that a subscription is too underfunded to have it's
+		// requests processed.
 		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
 			return a.req.CallbackGasLimit < b.req.CallbackGasLimit
 		})
-
-		if !lsn.shouldProcessSub(subID, sub, reqs) {
-			lsn.l.Infow("Not processing sub", "subID", subID, "balance", sub.Balance)
-			continue
-		}
 
 		startBalance := sub.Balance
 		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
@@ -432,49 +431,6 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 	}
 	lsn.pruneConfirmedRequestCounts()
-}
-
-func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
-	// This really shouldn't happen, but sanity check.
-	// No point in processing a sub if there are no requests to service.
-	if len(reqs) == 0 {
-		return false
-	}
-
-	vrfRequest := reqs[0].req
-	l := lsn.l.With(
-		"subID", subID,
-		"balance", sub.Balance,
-		"requestID", vrfRequest.RequestId.String(),
-	)
-
-	fromAddresses := lsn.fromAddresses()
-	if len(fromAddresses) == 0 {
-		l.Warn("Couldn't get next from address, processing sub anyway")
-		return true
-	}
-
-	// NOTE: we are assuming that all keys have an identical max gas price.
-	// Otherwise, this is a misconfiguration of the node and/or job.
-	fromAddress := fromAddresses[0]
-
-	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
-
-	estimatedFee, err := lsn.estimateFeeJuels(vrfRequest, gasPriceWei)
-	if err != nil {
-		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
-		return true
-	}
-
-	if sub.Balance.Cmp(estimatedFee) < 0 {
-		l.Infow("Subscription is underfunded, not processing it's requests",
-			"estimatedFeeJuels", estimatedFee,
-		)
-		return false
-	}
-
-	// balance is sufficient for at least one request, good to process
-	return true
 }
 
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
@@ -613,6 +569,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
+		outOfBalance := false
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
@@ -621,12 +578,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"remainingBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
-					return processed
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
+					outOfBalance = true
+
+					// break out of this inner loop to process the currently constructed batch
+					break
 				}
 
 				if errors.Is(p.err, errBlockhashNotInStore{}) {
@@ -661,6 +623,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		for _, reqID := range processedRequestIDs {
 			processed[reqID] = struct{}{}
+		}
+
+		// outOfBalance is set to true if the current sub we are processing
+		// has ran out of funds to process any remaining requests. After enqueueing
+		// this constructed batch, we break out of this outer loop in order to
+		// avoid unnecessarily processing the remaining requests.
+		if outOfBalance {
+			break
 		}
 	}
 
@@ -749,7 +719,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"remainingBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
