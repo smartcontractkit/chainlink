@@ -62,6 +62,11 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	case 43113: // Avalanche testnet
 		fmtURL = "https://testnet.snowtrace.io/tx/%s"
 
+	case 1666600000, 1666600001, 1666600002, 1666600003: // Harmony mainnet
+		fmtURL = "https://explorer.harmony.one/tx/%s"
+	case 1666700000, 1666700001, 1666700002, 1666700003: // Harmony testnet
+		fmtURL = "https://explorer.testnet.harmony.one/tx/%s"
+
 	default: // Unknown chain, return TX as-is
 		fmtURL = "%s"
 	}
