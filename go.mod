@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.1.1
+	github.com/NethermindEth/juno v0.0.0-20220523142740-3e71279632d8
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/cosmos/cosmos-sdk v0.44.5
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -75,7 +76,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70
+	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
 	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
@@ -313,7 +314,7 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
+	golang.org/x/sys v0.0.0-20220403205710-6acee93ad0eb // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/genproto v0.0.0-20220107163113-42d7afdf6368 // indirect
 	google.golang.org/grpc v1.43.0 // indirect
