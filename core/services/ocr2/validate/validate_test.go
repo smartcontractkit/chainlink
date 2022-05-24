@@ -7,15 +7,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
@@ -75,7 +74,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = [
+p2pv2Bootstrappers = [
 "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 ]
 ocrKeyBundleID     = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
@@ -114,7 +113,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = [
+p2pv2Bootstrappers = [
 "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 ]
 isBootstrapPeer    = true
@@ -147,7 +146,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = []
+p2pv2Bootstrappers = []
 [relayConfig]
 chainID = 1337
 [pluginConfig]
@@ -165,7 +164,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = []
+p2pv2Bootstrappers = []
 observationSource = """
 ->
 """
@@ -186,7 +185,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = ["/invalid/peer/address"]
+p2pv2Bootstrappers = ["/invalid/peer/address"]
 observationSource = """
 blah
 """
@@ -207,7 +206,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 blockchainTimeout  = "0s"
 observationSource = """
 blah
@@ -229,7 +228,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
+p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 observationSource = """
 blah
 """
@@ -250,7 +249,7 @@ schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = []
+p2pv2Bootstrappers = []
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 [relayConfig]
 chainID = 1337
@@ -278,7 +277,7 @@ maxTaskDuration    = "30m"
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
-p2pBootstrapPeers  = [
+p2pv2Bootstrappers = [
 "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 ]
 monitoringEndpoint = "chain.link:4321"
