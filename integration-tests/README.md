@@ -1,6 +1,6 @@
 # Integration Tests
 
-Here lives the integration tests for chainlink, utilizing our [integrations-framework](https://github.com/smartcontractkit/integrations-framework).
+Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
 
 ## How to Run
 
@@ -12,9 +12,13 @@ increase minikube's resources significantly, or get a more substantial cluster.
 This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
 as well as some simulated blockchains, all depending on the types of tests and networks being used.
 
-### Running
+## Install Ginkgo
 
-Our suggested way to run these tests is to use [the ginkgo cli](https://onsi.github.io/ginkgo/#the-ginkgo-cli).
+[Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
+
+`go install github.com/onsi/ginkgo/v2/ginkgo`
+
+### Running
 
 The default for this repo is the utilize the Makefile.
 
@@ -40,14 +44,4 @@ or set environment variables that are all caps versions of the values found in t
 chainlink_image:      # Image of chainlink node
 chainlink_version:    # Version of the image on the chainlink node
 chainlink_env_values: # Environment values to pass onto the chainlink nodes
-
-# Specify the image and version of the simulated geth image you want to run tests against. Leave blank for default.
-# Has no effect when running tests on networks other than the simulated geth instances.
-geth_image:   # Image of the simulated geth to use
-geth_version: # Version of the geth image
-geth_args:    # List of CLI arguments to pass to simulated geth image. WARNING
 ```
-
-### WARNING
-
-Values passed into `geth_args` will fully REPLACE all existing defaults we use in our launch. This enables freedom from defaults, but you should most definitely look at all the [current defaults](https://github.com/smartcontractkit/helmenv/blob/master/charts/geth/values.yaml#L16) we usually use and replace them as necessary.

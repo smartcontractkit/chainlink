@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,6 +25,11 @@ type ORM interface {
 	StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+
+	// InsertFinishedRuns inserts all the given runs into the database.
+	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
+	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+
 	DeleteRunsOlderThan(context.Context, time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
@@ -181,6 +187,9 @@ func (o *orm) DeleteRun(id int64) error {
 }
 
 func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error) {
+	if result.OutputDB().Valid && result.ErrorDB().Valid {
+		panic("run result must specify either output or error, not both")
+	}
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
@@ -208,23 +217,64 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
 				return errors.Wrap(err, "UpdateTaskRunResult")
 			}
-
-			// NOTE: can't join and preload in a single query unless explicitly listing all the struct fields...
-			// https://snippets.aktagon.com/snippets/757-how-to-join-two-tables-with-jmoiron-sqlx
-			sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
-			return tx.Select(&run.PipelineTaskRuns, sql, run.ID)
 		}
 
-		return nil
+		return loadAssociations(tx, []*Run{&run})
 	})
 
 	return run, start, err
 }
 
-// If saveSuccessfulTaskRuns = false, we only save errored runs.
-// That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
-// which do not provide much value.
-func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error) {
+// InsertFinishedRuns inserts all the given runs into the database.
+func (o *orm) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	err := q.Transaction(func(tx pg.Queryer) error {
+		pipelineRunsQuery := `
+INSERT INTO pipeline_runs 
+	(pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+VALUES 
+	(:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+RETURNING id
+	`
+		rows, errQ := tx.NamedQuery(pipelineRunsQuery, runs)
+		if errQ != nil {
+			return errors.Wrap(errQ, "inserting finished pipeline runs")
+		}
+
+		var runIDs []int64
+		for rows.Next() {
+			var runID int64
+			if errS := rows.Scan(&runID); errS != nil {
+				return errors.Wrap(errS, "scanning pipeline runs id row")
+			}
+			runIDs = append(runIDs, runID)
+		}
+
+		for i, run := range runs {
+			for j := range run.PipelineTaskRuns {
+				run.PipelineTaskRuns[j].PipelineRunID = runIDs[i]
+			}
+		}
+
+		pipelineTaskRunsQuery := `
+INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
+VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);
+	`
+		var pipelineTaskRuns []TaskRun
+		for _, run := range runs {
+			if !saveSuccessfulTaskRuns && !run.HasErrors() {
+				continue
+			}
+			pipelineTaskRuns = append(pipelineTaskRuns, run.PipelineTaskRuns...)
+		}
+
+		_, errE := tx.NamedExec(pipelineTaskRunsQuery, pipelineTaskRuns)
+		return errors.Wrap(errE, "insert pipeline task runs")
+	})
+	return errors.Wrap(err, "InsertFinishedRuns failed")
+}
+
+func (o *orm) checkFinishedRun(run *Run, saveSuccessfulTaskRuns bool) error {
 	if run.CreatedAt.IsZero() {
 		return errors.New("run.CreatedAt must be set")
 	}
@@ -236,6 +286,17 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	}
 	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return errors.New("must provide task run results")
+	}
+	return nil
+}
+
+// InsertFinishedRun inserts the given run into the database.
+// If saveSuccessfulTaskRuns = false, we only save errored runs.
+// That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
+// which do not provide much value.
+func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error) {
+	if err = o.checkFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
+		return err
 	}
 
 	q := o.q.WithOpts(qopts...)
@@ -273,9 +334,10 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	// Addede 1 minute timeout to account for big databases
+	// Added 1 minute timeout to account for big databases
 	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 
+	queryThreshold := time.Now().Add(-threshold)
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
 WITH batched_pipeline_runs AS (
@@ -287,7 +349,7 @@ WITH batched_pipeline_runs AS (
 DELETE FROM pipeline_runs
 USING batched_pipeline_runs
 WHERE pipeline_runs.id = batched_pipeline_runs.id`,
-			time.Now().Add(-threshold),
+			queryThreshold,
 			limit,
 		)
 		defer cancel()
@@ -310,7 +372,7 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 }
 
 func (o *orm) FindRun(id int64) (r Run, err error) {
-	var runs []Run
+	var runs []*Run
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE id = $1 LIMIT 1`, id); err != nil {
 			return errors.Wrap(err, "failed to load runs")
@@ -320,25 +382,30 @@ func (o *orm) FindRun(id int64) (r Run, err error) {
 	if len(runs) == 0 {
 		return r, sql.ErrNoRows
 	}
-	return runs[0], err
+	return *runs[0], err
 }
 
 func (o *orm) GetAllRuns() (runs []Run, err error) {
+	var runsPtrs []*Run
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Select(&runs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
+		err = tx.Select(&runsPtrs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
 		if err != nil {
 			return errors.Wrap(err, "failed to load runs")
 		}
 
-		return loadAssociations(tx, runs)
+		return loadAssociations(tx, runsPtrs)
 	})
+	runs = make([]Run, len(runsPtrs))
+	for i, runPtr := range runsPtrs {
+		runs[i] = *runPtr
+	}
 	return runs, err
 }
 
 func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run Run) error) error {
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 	return pg.Batch(func(offset, limit uint) (count uint, err error) {
-		var runs []Run
+		var runs []*Run
 
 		err = q.Transaction(func(tx pg.Queryer) error {
 			err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE state = $1 AND created_at < $2 ORDER BY created_at ASC, id ASC OFFSET $3 LIMIT $4`, RunStatusRunning, now, offset, limit)
@@ -352,7 +419,7 @@ func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run 
 			}
 
 			for _, run := range runs {
-				if err = fn(run); err != nil {
+				if err = fn(*run); err != nil {
 					return err
 				}
 			}
@@ -364,7 +431,7 @@ func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run 
 }
 
 // loads PipelineSpec and PipelineTaskRuns for Runs in exactly 2 queries
-func loadAssociations(q pg.Queryer, runs []Run) error {
+func loadAssociations(q pg.Queryer, runs []*Run) error {
 	if len(runs) == 0 {
 		return nil
 	}
@@ -379,7 +446,7 @@ func loadAssociations(q pg.Queryer, runs []Run) error {
 			pipelineSpecIDM[run.PipelineSpecID] = Spec{}
 		}
 	}
-	if err := q.Select(&specs, `SELECT * FROM pipeline_specs WHERE id = ANY($1)`, pipelineSpecIDs); err != nil {
+	if err := q.Select(&specs, `SELECT ps.id , ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
 	}
 	for _, spec := range specs {

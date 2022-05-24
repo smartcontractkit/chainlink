@@ -59,11 +59,7 @@ func TestResolver_Nodes(t *testing.T) {
 					},
 				}, 1, nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
 			},
 			query: query,
 			result: `
@@ -214,17 +210,7 @@ func Test_CreateNodeMutation(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.On("CreateNode", createNodeInput).Return(types.Node{
-					ID:         int32(1),
-					Name:       createNodeInput.Name,
-					EVMChainID: createNodeInput.EVMChainID,
-					WSURL:      createNodeInput.WSURL,
-					HTTPURL:    createNodeInput.HTTPURL,
-					SendOnly:   createNodeInput.SendOnly,
-				}, nil)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{createNodeInput.EVMChainID}).Return([]types.Chain{
-					{ID: *utils.NewBigI(1), Enabled: true},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.DBChain{ID: *utils.NewBigI(1), Enabled: true})
 			},
 			query:     mutation,
 			variables: input,
@@ -303,7 +289,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.chainSet.On("GetNode", mock.Anything, fakeID).Return(fakeNode, nil)
-				f.Mocks.evmORM.On("DeleteNode", int64(2)).Return(nil)
+				f.Mocks.evmORM.AddNodes(types.Node{ID: 2})
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -333,7 +319,6 @@ func Test_DeleteNodeMutation(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.chainSet.On("GetNode", mock.Anything, fakeID).Return(fakeNode, nil)
-				f.Mocks.evmORM.On("DeleteNode", int64(2)).Return(sql.ErrNoRows)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,

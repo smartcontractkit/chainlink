@@ -79,7 +79,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.8.0
+	go install github.com/vektra/mockery/v2@v2.12.2
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -89,6 +89,10 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 	--go-wsrpc_out=. \
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
+
+.PHONY: test_install_ginkgo
+test_install_ginkgo: ## Install ginkgo executable to run tests
+	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
 .PHONY: test_smoke
 test_smoke: # Run integration smoke tests.

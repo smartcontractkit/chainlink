@@ -13,7 +13,10 @@ jobs:
           filters: |
             src:
               - '**/*.go'
+              - '**/*go.sum'
+              - '**/*go.mod'
   build-chainlink:
+    environment: integration
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     needs: changes
@@ -44,72 +47,29 @@ jobs:
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
   smoke:
+    environment: integration
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
-    env:
-      CHAINLINK_IMAGE: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
-      CHAINLINK_VERSION: latest.${{ github.sha }}
-      CGO_ENABLED: 0
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.18
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-duration-seconds: 3600
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-      - name: Set Kubernetes Context
-        uses: azure/k8s-set-context@v1
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBECONFIG }}
-      - name: Cache Vendor Packages
-        uses: actions/cache@v2
-        id: cache-packages
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Download Go Vendor Packages
-        if: steps.cache-packages.outputs.cache-hit != 'true'
-        run: go mod download
-      - name: Install Ginkgo CLI
-        run: |
-          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.1.2
-          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.1.2
-          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.1.2
-          go install github.com/onsi/ginkgo/v2/ginkgo
       - name: Run Tests
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          make test_smoke args="-nodes=6"
-      - name: Publish Test Results
-        uses: mikepenz/action-junit-report@v2
-        if: always()
+        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.1
         with:
-          report_paths: './tests-smoke-report.xml'
-          check_name: 'Smoke Test Results'
-      - name: Publish Artifacts
-        if: failure()
-        uses: actions/upload-artifact@v1
-        with:
-          name: test-logs
-          path: ./integration-tests/logs
+          test_command_to_run: make test_smoke args="-nodes=6"
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          cl_repo: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: latest.${{ github.sha }}
+          QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          QA_AWS_REGION: ${{ secrets.AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   solana:
     name: Solana Tests
     needs: [changes, build-chainlink]
@@ -126,6 +86,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
   terra:
     name: Terra Tests
     needs: [changes, build-chainlink]
@@ -142,4 +103,3 @@ jobs:
       QA_AWS_REGION: ${{ secrets.AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

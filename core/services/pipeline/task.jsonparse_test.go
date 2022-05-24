@@ -19,6 +19,7 @@ func TestJSONParseTask(t *testing.T) {
 		name              string
 		data              string
 		path              string
+		separator         string
 		lax               string
 		vars              pipeline.Vars
 		inputs            []pipeline.Result
@@ -30,6 +31,7 @@ func TestJSONParseTask(t *testing.T) {
 			"array index path",
 			"",
 			"data,0,availability",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data":[{"availability":"0.99991"}]}`}},
@@ -41,6 +43,7 @@ func TestJSONParseTask(t *testing.T) {
 			"float result",
 			"",
 			"availability",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"availability":0.99991}`}},
@@ -52,6 +55,7 @@ func TestJSONParseTask(t *testing.T) {
 			"index array",
 			"",
 			"data,0",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
@@ -63,6 +67,7 @@ func TestJSONParseTask(t *testing.T) {
 			"index array of array",
 			"",
 			"data,0,0",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
@@ -74,6 +79,7 @@ func TestJSONParseTask(t *testing.T) {
 			"index of negative one",
 			"",
 			"data,-1",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
@@ -85,6 +91,7 @@ func TestJSONParseTask(t *testing.T) {
 			"index of negative array length",
 			"",
 			"data,-10",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`}},
@@ -96,6 +103,7 @@ func TestJSONParseTask(t *testing.T) {
 			"index of negative array length minus one with lax returns nil",
 			"",
 			"data,-12",
+			"",
 			"true",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`}},
@@ -107,6 +115,7 @@ func TestJSONParseTask(t *testing.T) {
 			"index of negative array length minus one without lax returns error",
 			"",
 			"data,-12",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]}`}},
@@ -118,6 +127,7 @@ func TestJSONParseTask(t *testing.T) {
 			"maximum index array with lax returns nil",
 			"",
 			"data,18446744073709551615",
+			"",
 			"true",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
@@ -129,6 +139,7 @@ func TestJSONParseTask(t *testing.T) {
 			"maximum index array without lax returns error",
 			"",
 			"data,18446744073709551615",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
@@ -140,6 +151,7 @@ func TestJSONParseTask(t *testing.T) {
 			"overflow index array with lax returns nil",
 			"",
 			"data,18446744073709551616",
+			"",
 			"true",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
@@ -151,6 +163,7 @@ func TestJSONParseTask(t *testing.T) {
 			"overflow index array without lax returns error",
 			"",
 			"data,18446744073709551616",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
@@ -162,6 +175,7 @@ func TestJSONParseTask(t *testing.T) {
 			"return array",
 			"",
 			"data,0",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
@@ -173,6 +187,7 @@ func TestJSONParseTask(t *testing.T) {
 			"return false",
 			"",
 			"data",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": false}`}},
@@ -184,6 +199,7 @@ func TestJSONParseTask(t *testing.T) {
 			"return true",
 			"",
 			"data",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": true}`}},
@@ -195,6 +211,7 @@ func TestJSONParseTask(t *testing.T) {
 			"regression test: keys in the path have dots",
 			"",
 			"Realtime Currency Exchange Rate,5. Exchange Rate",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{
@@ -215,9 +232,48 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 		},
 		{
+			"custom separator: keys in the path have commas",
+			"",
+			"foo.bar1,bar2,bar3",
+			".",
+			"false",
+			pipeline.NewVarsFrom(nil),
+			[]pipeline.Result{{Value: `{
+                "foo": {
+                    "bar1": "LEND",
+                    "bar1,bar2": "EthLend",
+                    "bar2,bar3": "ETH",
+                    "bar1,bar3": "Ethereum",
+                    "bar1,bar2,bar3": "0.00058217",
+                    "bar1.bar2.bar3": "2020-06-22 19:14:04"
+                }
+            }`}},
+			"0.00058217",
+			nil,
+			"",
+		},
+		{
+			"custom separator: diabolical keys in the path",
+			"",
+			"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,/\\[]{}|<>?_+-=!@#$%^&*()__hacky__separator__foo",
+			"__hacky__separator__",
+			"false",
+			pipeline.NewVarsFrom(nil),
+			[]pipeline.Result{{Value: `{
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,/\\[]{}|<>?_+-=!@#$%^&*()": {
+                    "foo": "LEND",
+                    "bar": "EthLend"
+                }
+            }`}},
+			"LEND",
+			nil,
+			"",
+		},
+		{
 			"missing top-level key with lax=false returns error",
 			"",
 			"baz",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"foo": 1}`}},
@@ -229,6 +285,7 @@ func TestJSONParseTask(t *testing.T) {
 			"missing nested key with lax=false returns error",
 			"",
 			"foo,bar",
+			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"foo": {}}`}},
@@ -240,6 +297,7 @@ func TestJSONParseTask(t *testing.T) {
 			"missing top-level key with lax=true returns nil",
 			"",
 			"baz",
+			"",
 			"true",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{}`}},
@@ -251,6 +309,7 @@ func TestJSONParseTask(t *testing.T) {
 			"missing nested key with lax=true returns nil",
 			"",
 			"foo,baz",
+			"",
 			"true",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"foo": {}}`}},
@@ -262,6 +321,7 @@ func TestJSONParseTask(t *testing.T) {
 			"variable data",
 			"$(foo.bar)",
 			"data,0,availability",
+			"",
 			"false",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
@@ -274,6 +334,7 @@ func TestJSONParseTask(t *testing.T) {
 		{
 			"empty path",
 			"$(foo.bar)",
+			"",
 			"",
 			"false",
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -288,6 +349,7 @@ func TestJSONParseTask(t *testing.T) {
 			"no data or input",
 			"",
 			"$(chain.link)",
+			"",
 			"false",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
@@ -295,13 +357,14 @@ func TestJSONParseTask(t *testing.T) {
 			}),
 			[]pipeline.Result{},
 			"0.99991",
-			pipeline.ErrParameterEmpty,
+			pipeline.ErrIndexOutOfRange,
 			"data",
 		},
 		{
 			"malformed 'lax' param",
 			"$(foo.bar)",
 			"$(chain.link)",
+			"",
 			"sergey",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":   map[string]interface{}{"bar": `{"data":[{"availability":"0.99991"}]}`},
@@ -318,10 +381,11 @@ func TestJSONParseTask(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.JSONParseTask{
-				BaseTask: pipeline.NewBaseTask(0, "json", nil, nil, 0),
-				Path:     test.path,
-				Data:     test.data,
-				Lax:      test.lax,
+				BaseTask:  pipeline.NewBaseTask(0, "json", nil, nil, 0),
+				Path:      test.path,
+				Separator: test.separator,
+				Data:      test.data,
+				Lax:       test.lax,
 			}
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)

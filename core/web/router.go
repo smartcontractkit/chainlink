@@ -264,12 +264,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", cc.Patch)
 
-		feedsMgrCtlr := FeedsManagerController{app}
-		authv2.GET("/feeds_managers", feedsMgrCtlr.List)
-		authv2.POST("/feeds_managers", feedsMgrCtlr.Create)
-		authv2.GET("/feeds_managers/:id", feedsMgrCtlr.Show)
-		authv2.PATCH("/feeds_managers/:id", feedsMgrCtlr.Update)
-
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
 		authv2.GET("/tx_attempts/evm", paginatedRequest(tas.Index))
@@ -318,19 +312,19 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/p2p/import", p2pkc.Import)
 		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
 
-		solkc := SolanaKeysController{app}
-		authv2.GET("/keys/solana", solkc.Index)
-		authv2.POST("/keys/solana", solkc.Create)
-		authv2.DELETE("/keys/solana/:keyID", solkc.Delete)
-		authv2.POST("/keys/solana/import", solkc.Import)
-		authv2.POST("/keys/solana/export/:ID", solkc.Export)
-
-		terkc := TerraKeysController{app}
-		authv2.GET("/keys/terra", terkc.Index)
-		authv2.POST("/keys/terra", terkc.Create)
-		authv2.DELETE("/keys/terra/:keyID", terkc.Delete)
-		authv2.POST("/keys/terra/import", terkc.Import)
-		authv2.POST("/keys/terra/export/:ID", terkc.Export)
+		for _, keys := range []struct {
+			path string
+			kc   KeysController
+		}{
+			{"solana", NewSolanaKeysController(app)},
+			{"terra", NewTerraKeysController(app)},
+		} {
+			authv2.GET("/keys/"+keys.path, keys.kc.Index)
+			authv2.POST("/keys/"+keys.path, keys.kc.Create)
+			authv2.DELETE("/keys/"+keys.path+"/:keyID", keys.kc.Delete)
+			authv2.POST("/keys/"+keys.path+"/import", keys.kc.Import)
+			authv2.POST("/keys/"+keys.path+"/export/:ID", keys.kc.Export)
+		}
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
@@ -361,54 +355,47 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		echc := EVMChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
-		authv2.POST("/chains/evm", echc.Create)
-		authv2.GET("/chains/evm/:ID", echc.Show)
-		authv2.PATCH("/chains/evm/:ID", echc.Update)
-		authv2.DELETE("/chains/evm/:ID", echc.Delete)
+		chains := authv2.Group("chains")
+		for _, chain := range []struct {
+			path string
+			cc   ChainsController
+		}{
+			{"evm", NewEVMChainsController(app)},
+			{"solana", NewSolanaChainsController(app)},
+			{"terra", NewTerraChainsController(app)},
+		} {
+			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
+			chains.POST(chain.path, chain.cc.Create)
+			chains.GET(chain.path+"/:ID", chain.cc.Show)
+			chains.PATCH(chain.path+"/:ID", chain.cc.Update)
+			chains.DELETE(chain.path+"/:ID", chain.cc.Delete)
+		}
 
-		schc := SolanaChainsController{app}
-		authv2.GET("/chains/solana", paginatedRequest(schc.Index))
-		authv2.POST("/chains/solana", schc.Create)
-		authv2.GET("/chains/solana/:ID", schc.Show)
-		authv2.PATCH("/chains/solana/:ID", schc.Update)
-		authv2.DELETE("/chains/solana/:ID", schc.Delete)
-
-		tchc := TerraChainsController{app}
-		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
-		authv2.POST("/chains/terra", tchc.Create)
-		authv2.GET("/chains/terra/:ID", tchc.Show)
-		authv2.PATCH("/chains/terra/:ID", tchc.Update)
-		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
-
-		enc := EVMNodesController{app}
-		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
-		authv2.GET("/nodes", paginatedRequest(enc.Index))
-		authv2.POST("/nodes", enc.Create)
-		authv2.DELETE("/nodes/:ID", enc.Delete)
-
-		authv2.GET("/nodes/evm", paginatedRequest(enc.Index))
-		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(enc.Index))
-		authv2.POST("/nodes/evm", enc.Create)
-		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
+		nodes := authv2.Group("nodes")
+		for _, chain := range []struct {
+			path string
+			nc   NodesController
+		}{
+			{"evm", NewEVMNodesController(app)},
+			{"solana", NewSolanaNodesController(app)},
+			{"terra", NewTerraNodesController(app)},
+		} {
+			if chain.path == "evm" {
+				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
+				nodes.GET("", paginatedRequest(chain.nc.Index))
+				nodes.POST("", chain.nc.Create)
+				nodes.DELETE("/:ID", chain.nc.Delete)
+			}
+			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
+			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
+			nodes.POST(chain.path, chain.nc.Create)
+			nodes.DELETE(chain.path+"/:ID", chain.nc.Delete)
+		}
 
 		efc := EVMForwardersController{app}
 		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
 		authv2.POST("/nodes/evm/forwarders", efc.Create)
 		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
-
-		snc := SolanaNodesController{app}
-		authv2.GET("/nodes/solana", paginatedRequest(snc.Index))
-		authv2.GET("/chains/solana/:ID/nodes", paginatedRequest(snc.Index))
-		authv2.POST("/nodes/solana", snc.Create)
-		authv2.DELETE("/nodes/solana/:ID", snc.Delete)
-
-		tnc := TerraNodesController{app}
-		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
-		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
-		authv2.POST("/nodes/terra", tnc.Create)
-		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
 
 		build_info := BuildInfoController{app}
 		authv2.GET("/build_info", build_info.Show)

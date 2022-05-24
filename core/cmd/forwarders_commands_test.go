@@ -12,7 +12,6 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -75,7 +74,7 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 	// Create chain
 	orm := app.EVMORM()
 	id := newRandChainID()
-	chain, err := orm.CreateChain(*id, types.ChainCfg{})
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 
 	// Create the fwdr
@@ -123,7 +122,7 @@ func TestClient_CreateEVMForwarder_BadAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	id := newRandChainID()
-	chain, err := orm.CreateChain(*id, types.ChainCfg{})
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 
 	// Create the fwdr

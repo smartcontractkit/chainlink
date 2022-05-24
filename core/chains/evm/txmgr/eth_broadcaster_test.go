@@ -83,15 +83,16 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		errStr := "some error"
 
 		etxUnconfirmed := txmgr.EthTx{
-			Nonce:          &nonce,
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: encodedPayload,
-			Value:          value,
-			GasLimit:       gasLimit,
-			BroadcastAt:    &timeNow,
-			Error:          null.String{},
-			State:          txmgr.EthTxUnconfirmed,
+			Nonce:              &nonce,
+			FromAddress:        fromAddress,
+			ToAddress:          toAddress,
+			EncodedPayload:     encodedPayload,
+			Value:              value,
+			GasLimit:           gasLimit,
+			BroadcastAt:        &timeNow,
+			InitialBroadcastAt: &timeNow,
+			Error:              null.String{},
+			State:              txmgr.EthTxUnconfirmed,
 		}
 		etxWithError := txmgr.EthTx{
 			Nonce:          nil,
@@ -127,7 +128,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Earlier
 		tr := int32(99)
-		b, err := json.Marshal(txmgr.EthTxMeta{JobID: tr})
+		b, err := json.Marshal(txmgr.EthTxMeta{JobID: &tr})
 		require.NoError(t, err)
 		meta := datatypes.JSON(b)
 		earlierEthTx := txmgr.EthTx{
@@ -194,11 +195,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NotNil(t, earlierTransaction.Nonce)
 		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
+		assert.NotNil(t, earlierTransaction.InitialBroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
 		var m txmgr.EthTxMeta
 		err = json.Unmarshal(*earlierEthTx.Meta, &m)
 		require.NoError(t, err)
-		assert.Equal(t, tr, m.JobID)
+		assert.NotNil(t, m.JobID)
+		assert.Equal(t, tr, *m.JobID)
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -223,6 +226,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NotNil(t, laterTransaction.Nonce)
 		assert.Equal(t, int64(1), *laterTransaction.Nonce)
 		assert.NotNil(t, laterTransaction.BroadcastAt)
+		assert.NotNil(t, earlierTransaction.InitialBroadcastAt)
 		assert.Len(t, laterTransaction.EthTxAttempts, 1)
 
 		attempt = laterTransaction.EthTxAttempts[0]
@@ -287,6 +291,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NotNil(t, eipTxWithAl.Nonce)
 		assert.Equal(t, int64(4), *eipTxWithAl.Nonce)
 		assert.NotNil(t, eipTxWithAl.BroadcastAt)
+		assert.NotNil(t, eipTxWithAl.InitialBroadcastAt)
 		assert.True(t, eipTxWithAl.AccessList.Valid)
 		assert.Len(t, eipTxWithAl.AccessList.AccessList, 1)
 		assert.Len(t, eipTxWithAl.EthTxAttempts, 1)
@@ -530,7 +535,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
-	cfg, db := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking", true, true)
+	cfg, db := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking")
 	borm := cltest.NewTxmORM(t, db, cfg)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -729,7 +734,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			BroadcastAt:    nil,
 			Error:          null.String{},
 			State:          txmgr.EthTxInProgress,
 		}
@@ -741,7 +745,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			GasLimit:       gasLimit,
-			BroadcastAt:    nil,
 			Error:          null.String{},
 			State:          txmgr.EthTxInProgress,
 		}
@@ -780,6 +783,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		assert.Equal(t, txmgr.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
@@ -815,6 +819,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
 		assert.True(t, etx.Error.Valid)
 		assert.Equal(t, "exceeds block gas limit", etx.Error.String)
 		assert.Len(t, etx.EthTxAttempts, 0)
@@ -850,6 +855,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 
@@ -885,6 +891,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		require.NotNil(t, etx.BroadcastAt)
 		assert.Equal(t, *etx.BroadcastAt, etx.CreatedAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 
@@ -922,6 +929,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
 		assert.Equal(t, nextNonce, *etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
@@ -967,6 +975,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
@@ -1041,6 +1050,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, etx1.BroadcastAt)
 		assert.NotEqual(t, etx1.CreatedAt, *etx1.BroadcastAt)
+		assert.NotNil(t, etx1.InitialBroadcastAt)
 		require.NotNil(t, etx1.Nonce)
 		assert.Equal(t, int64(0), *etx1.Nonce)
 		assert.False(t, etx1.Error.Valid)
@@ -1080,6 +1090,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Nil(t, etx.BroadcastAt)
+			assert.Nil(t, etx.InitialBroadcastAt)
 			require.Nil(t, etx.Nonce)
 			assert.True(t, etx.Error.Valid)
 			assert.Contains(t, etx.Error.String, "exceeds block gas limit")
@@ -1174,6 +1185,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
 		require.Nil(t, etx.Nonce)
 		assert.True(t, etx.Error.Valid)
 		assert.Contains(t, etx.Error.String, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
@@ -1218,6 +1230,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
@@ -1239,6 +1252,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
@@ -1291,6 +1305,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
@@ -1326,6 +1341,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
 		assert.NotNil(t, etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
@@ -1355,6 +1371,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.EthTxAttempts, 1)
@@ -1433,6 +1450,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
 		require.NotNil(t, etx.Nonce)
 		assert.False(t, etx.Error.Valid)
 		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
@@ -1651,7 +1669,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
-	cfg, db := heavyweight.FullTestDB(t, "eth_tx_triggers", true, true)
+	cfg, db := heavyweight.FullTestDB(t, "eth_tx_triggers")
 	borm := cltest.NewTxmORM(t, db, cfg)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)

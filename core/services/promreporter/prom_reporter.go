@@ -24,7 +24,7 @@ type (
 		db           *sql.DB
 		lggr         logger.Logger
 		backend      PrometheusBackend
-		newHeads     *utils.Mailbox
+		newHeads     *utils.Mailbox[*evmtypes.Head]
 		chStop       chan struct{}
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
@@ -103,7 +103,7 @@ func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promR
 		db:           db,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
-		newHeads:     utils.NewMailbox(1),
+		newHeads:     utils.NewMailbox[*evmtypes.Head](1),
 		chStop:       chStop,
 		reportPeriod: period,
 	}
@@ -138,11 +138,10 @@ func (pr *promReporter) eventLoop() {
 	for {
 		select {
 		case <-pr.newHeads.Notify():
-			item, exists := pr.newHeads.Retrieve()
+			head, exists := pr.newHeads.Retrieve()
 			if !exists {
 				continue
 			}
-			head := evmtypes.AsHead(item)
 			pr.reportHeadMetrics(ctx, head)
 		case <-time.After(pr.reportPeriod):
 			if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
@@ -180,7 +179,7 @@ func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *bi
 func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID *big.Int) (err error) {
 	var broadcastAt null.Time
 	now := time.Now()
-	if err := pr.db.QueryRowContext(ctx, `SELECT min(broadcast_at) FROM eth_txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, evmChainID.String()).Scan(&broadcastAt); err != nil {
+	if err := pr.db.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM eth_txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, evmChainID.String()).Scan(&broadcastAt); err != nil {
 		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
 	}
 	var seconds float64

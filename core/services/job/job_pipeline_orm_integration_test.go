@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -12,9 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
@@ -30,7 +31,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 
         // data source 2
         ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];
-        ds2_parse    [type=jsonparse path="three,four"];
+        ds2_parse    [type=jsonparse path="three.four" separator="."];
         ds2_multiply [type=multiply times=4.56];
 
         ds1 -> ds1_parse -> ds1_multiply -> answer1;
@@ -146,7 +147,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
-		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
+		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr, nil, nil)
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore, cfg)
 

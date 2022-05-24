@@ -2,8 +2,8 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -52,7 +52,7 @@ type UpkeepExecuter struct {
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	gasEstimator    gas.Estimator
 	job             job.Job
-	mailbox         *utils.Mailbox
+	mailbox         *utils.Mailbox[*evmtypes.Head]
 	orm             ORM
 	pr              pipeline.Runner
 	logger          logger.Logger
@@ -78,7 +78,7 @@ func NewUpkeepExecuter(
 		headBroadcaster: headBroadcaster,
 		gasEstimator:    gasEstimator,
 		job:             job,
-		mailbox:         utils.NewMailbox(1),
+		mailbox:         utils.NewMailbox[*evmtypes.Head](1),
 		config:          config,
 		orm:             orm,
 		pr:              pr,
@@ -133,24 +133,46 @@ func (ex *UpkeepExecuter) run() {
 func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	item, exists := ex.mailbox.Retrieve()
+	head, exists := ex.mailbox.Retrieve()
 	if !exists {
 		ex.logger.Info("no head to retrieve. It might have been skipped")
 		return
 	}
 
-	head := evmtypes.AsHead(item)
-
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 
-	activeUpkeeps, err := ex.orm.EligibleUpkeepsForRegistry(
-		ex.job.KeeperSpec.ContractAddress,
-		head.Number,
-		ex.config.KeeperMaximumGracePeriod(),
-	)
+	registry, err := ex.orm.RegistryByContractAddress(ex.job.KeeperSpec.ContractAddress)
 	if err != nil {
-		ex.logger.With("error", err).Error("unable to load active registrations")
+		ex.logger.Error(errors.Wrap(err, "unable to load registry"))
 		return
+	}
+
+	var activeUpkeeps []UpkeepRegistration
+	if ex.config.KeeperTurnFlagEnabled() {
+		turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
+		if err2 != nil {
+			ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
+			return
+		}
+		activeUpkeeps, err2 = ex.orm.NewEligibleUpkeepsForRegistry(
+			ex.job.KeeperSpec.ContractAddress,
+			head.Number,
+			ex.config.KeeperMaximumGracePeriod(),
+			turnBinary)
+		if err2 != nil {
+			ex.logger.Error(errors.Wrap(err2, "unable to load active registrations"))
+			return
+		}
+	} else {
+		activeUpkeeps, err = ex.orm.EligibleUpkeepsForRegistry(
+			ex.job.KeeperSpec.ContractAddress,
+			head.Number,
+			ex.config.KeeperMaximumGracePeriod(),
+		)
+		if err != nil {
+			ex.logger.Error(errors.Wrap(err, "unable to load active registrations"))
+			return
+		}
 	}
 
 	wg := sync.WaitGroup{}
@@ -172,8 +194,8 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	defer done()
 
 	start := time.Now()
-	svcLogger := ex.logger.With("blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
-	svcLogger.Debug("checking upkeep")
+	svcLogger := ex.logger.With("jobID", ex.job.ID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
+	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
@@ -187,13 +209,14 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
 		price, fee, err := ex.estimateGasPrice(upkeep)
 		if err != nil {
-			svcLogger.With("error", err).Error("estimating gas price")
+			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
 			return
 		}
 		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
 
 		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
 		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
+		// Note: gasPrice will be nil if EvmEIP1559DynamicFees is enabled.
 		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
 			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
 			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
@@ -208,6 +231,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 			"fromAddress":           upkeep.Registry.FromAddress.String(),
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID,
+			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
@@ -220,29 +244,30 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
-		svcLogger.With("error", err).Error("failed executing run")
+		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return
 	}
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, pg.WithParentCtx(ctxService))
+		err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
 		if err != nil {
-			svcLogger.With("error", err).Error("failed to set last run height for upkeep")
+			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
+		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.
-			WithLabelValues(strconv.Itoa(int(upkeep.UpkeepID))).
+			WithLabelValues(upkeep.PrettyID()).
 			Set(float64(elapsed))
 	}
 }
 
 func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
 	var performTxData []byte
-	performTxData, err = RegistryABI.Pack(
-		"performUpkeep",
-		big.NewInt(upkeep.UpkeepID),
+	performTxData, err = Registry1_1ABI.Pack(
+		"performUpkeep", // performUpkeep is same across registry ABI versions
+		upkeep.UpkeepID.ToInt(),
 		common.Hex2Bytes("1234"), // placeholder
 	)
 	if err != nil {
@@ -268,4 +293,15 @@ func addBuffer(val *big.Int, prct uint32) *big.Int {
 		bigmath.Mul(val, 100+prct),
 		100,
 	)
+}
+
+func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
+	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
+	block, err := ex.ethClient.BlockByNumber(context.Background(), big.NewInt(turnBlock))
+	if err != nil {
+		return "", err
+	}
+	hashAtHeight := block.Hash()
+	binaryString := fmt.Sprintf("%b", hashAtHeight.Big())
+	return binaryString, nil
 }

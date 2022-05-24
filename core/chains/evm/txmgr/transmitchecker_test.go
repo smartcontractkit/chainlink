@@ -26,7 +26,7 @@ import (
 )
 
 func TestFactory(t *testing.T) {
-	client, _ := cltest.NewEthMocksWithDefaultChain(t)
+	client := cltest.NewEthMocksWithDefaultChain(t)
 	factory := &txmgr.CheckerFactory{Client: client}
 
 	t.Run("no checker", func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFactory(t *testing.T) {
 	t.Run("vrf v1 checker", func(t *testing.T) {
 		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV1,
-			VRFCoordinatorAddress: testutils.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})
 		require.NoError(t, err)
 		require.IsType(t, &txmgr.VRFV1Checker{}, c)
@@ -47,7 +47,7 @@ func TestFactory(t *testing.T) {
 	t.Run("vrf v2 checker", func(t *testing.T) {
 		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-			VRFCoordinatorAddress: testutils.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 			VRFRequestBlockNumber: big.NewInt(1),
 		})
 		require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestFactory(t *testing.T) {
 		// request block number not provided should error out.
 		c, err = factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-			VRFCoordinatorAddress: testutils.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})
 		require.Error(t, err)
 		require.Nil(t, c)
@@ -155,8 +155,9 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultMaxLink := "1000000000000000000"
 
 		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
+			h := common.BytesToHash(vrfReqID[:])
 			meta := txmgr.EthTxMeta{
-				RequestID: common.BytesToHash(vrfReqID[:]),
+				RequestID: &h,
 				MaxLink:   &testDefaultMaxLink, // 1 LINK
 				SubID:     &testDefaultSubID,
 			}
@@ -225,8 +226,9 @@ func TestTransmitCheckers(t *testing.T) {
 		testDefaultMaxLink := "1000000000000000000"
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EthTx, txmgr.EthTxAttempt) {
+			h := common.BytesToHash(vrfReqID.Bytes())
 			meta := txmgr.EthTxMeta{
-				RequestID: common.BytesToHash(vrfReqID.Bytes()),
+				RequestID: &h,
 				MaxLink:   &testDefaultMaxLink, // 1 LINK
 				SubID:     &testDefaultSubID,
 			}

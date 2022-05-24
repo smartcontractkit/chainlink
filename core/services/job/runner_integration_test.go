@@ -14,19 +14,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	pkgconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
@@ -52,18 +53,18 @@ var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAg
 func TestRunner(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
-	ethClient, _ := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
-	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
 	runner.Start(testutils.Context(t))
@@ -174,7 +175,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
 		cfg.On("Dev").Return(true)
-		cfg.On("ChainType").Return(chains.ChainType(""))
+		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
 		cs := new(evmmocks.ChainSet)
@@ -286,8 +287,6 @@ answer1      [type=median index=0];
 		err = jobORM.CreateJob(&jb3)
 		require.NoError(t, err)
 	})
-
-	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)
 
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
 		var httpURL string
@@ -452,6 +451,7 @@ ds1 -> ds1_parse;
 			nil,
 			cc,
 			logger.TestLogger(t),
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -490,6 +490,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -542,6 +543,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -576,6 +578,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -604,6 +607,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -635,6 +639,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)

@@ -8,14 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type TestEVMForwardersController struct {
@@ -43,10 +43,9 @@ func Test_EVMForwardersController_Create(t *testing.T) {
 	controller := setupEVMForwardersControllerTest(t)
 
 	// Setting up chain
-	chainId := *utils.NewBigI(42)
-	chaincfg := types.ChainCfg{}
+	chainId := testutils.NewRandomEVMChainID()
 	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId.ToInt()), chaincfg)
+	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId), nil)
 	require.NoError(t, err)
 
 	// Build EVMForwarderRequest
@@ -75,10 +74,9 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	controller := setupEVMForwardersControllerTest(t)
 
 	// Setting up chain
-	chainId := *utils.NewBigI(42)
-	chaincfg := types.ChainCfg{}
+	chainId := testutils.NewRandomEVMChainID()
 	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId.ToInt()), chaincfg)
+	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId), nil)
 	require.NoError(t, err)
 
 	// Build EVMForwarderRequest

@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/atomic"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -23,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/atomic"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -356,8 +357,8 @@ func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error)
 	return user, orm.CreateUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, sessions.SessionRequest{})
+func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient {
+	return cmd.NewAuthenticatedHTTPClient(lggr, cfg, MockCookieAuthenticator{SessionID: sessionID}, sessions.SessionRequest{})
 }
 
 type MockCookieAuthenticator struct {

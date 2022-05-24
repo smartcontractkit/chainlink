@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// ToIntable represents a type that is convertable to a big.Int, ex utils.Big
+type ToIntable interface {
+	ToInt() *big.Int
+}
+
 // I returns a new big.Int.
 func I() *big.Int { return new(big.Int) }
 
@@ -46,7 +51,20 @@ func Max(x, y interface{}) *big.Int {
 	return yBig
 }
 
+// Accumulate returns the sum of the given slice after coercing all elements
+// to a big.Int, or panics if it cannot.
+func Accumulate(s []interface{}) (r *big.Int) {
+	r = big.NewInt(0)
+	for _, e := range s {
+		r.Add(r, bnIfy(e))
+	}
+	return
+}
+
 func bnIfy(val interface{}) *big.Int {
+	if toIntable, ok := val.(ToIntable); ok {
+		return toIntable.ToInt()
+	}
 	switch v := val.(type) {
 	case uint:
 		return big.NewInt(0).SetUint64(uint64(v))

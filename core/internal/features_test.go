@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +30,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -209,7 +212,7 @@ observationSource   = """
 		headers[static.ExternalInitiatorAccessKeyHeader] = eiaWrong.AccessKey
 		headers[static.ExternalInitiatorSecretHeader] = eiaWrong.Secret
 
-		url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobUUID.String() + "/runs"
+		url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
 		bodyBuf := bytes.NewBufferString(body)
 		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
 		defer cleanup()
@@ -259,7 +262,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
-	url := app.Config.ClientNodeURL() + "/v2/config"
+	url := app.Server.URL + "/v2/config"
 	headers := make(map[string]string)
 	headers[webauth.APIKey] = cltest.APIKey
 	headers[webauth.APISecret] = cltest.APISecret
@@ -275,6 +278,7 @@ type OperatorContracts struct {
 	multiWordConsumerAddress  common.Address
 	singleWordConsumerAddress common.Address
 	operatorAddress           common.Address
+	linkTokenAddress          common.Address
 	linkToken                 *link_token_interface.LinkToken
 	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
 	singleWord                *consumer_wrapper.Consumer
@@ -320,6 +324,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 		multiWordConsumerAddress:  multiWordConsumerAddress,
 		singleWordConsumerAddress: singleConsumerAddress,
 		linkToken:                 linkContract,
+		linkTokenAddress:          linkTokenAddress,
 		multiWord:                 multiWordConsumerContract,
 		singleWord:                singleConsumerContract,
 		operator:                  operatorContract,
@@ -410,7 +415,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			})
 			defer stopBlocks()
 
-			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
+			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, 100*time.Millisecond)
 			pipelineRun := pipelineRuns[0]
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
@@ -437,7 +442,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b.Commit()
 			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), 5*time.Second, 100*time.Millisecond)
+			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
 			pipelineRun = pipelineRuns[0]
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
@@ -445,6 +450,168 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			assert.Equal(t, big.NewInt(61464), v)
 		})
 	}
+}
+
+func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
+	b := operatorContracts.sim
+	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	app = cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
+	b.Commit()
+
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+	require.NoError(t, err)
+
+	// Fund node account with ETH.
+	n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+	require.NoError(t, err)
+	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	err = app.Start(testutils.Context(t))
+	require.NoError(t, err)
+
+	testutils.WaitForLogMessage(t, o, "Subscribing to new heads on chain 1337")
+	testutils.WaitForLogMessage(t, o, "Subscribed to heads on chain 1337")
+
+	return app, sendingKeys[0].Address.Address(), o
+}
+
+func TestIntegration_AsyncEthTx(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
+	operatorContracts := setupOperatorContracts(t)
+	b := operatorContracts.sim
+
+	t.Run("with FailOnRevert enabled, run succeeds when transaction is successful", func(t *testing.T) {
+		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		tomlSpec := `
+type            = "webhook"
+schemaVersion   = 1
+observationSource   = """
+	submit_tx  [type=ethtx to="%s"
+            data="%s"
+            minConfirmations="2"
+			failOnRevert=false
+            from="[\\"%s\\"]"
+			]
+"""
+`
+		// This succeeds for whatever reason
+		revertingData := "0xdeadbeef"
+		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingAddr)
+		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
+
+		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
+		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+
+		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		b.Commit() // Needs at least two confirmations
+		b.Commit() // Needs at least two confirmations
+		b.Commit() // Needs at least two confirmations
+		testutils.WaitForLogMessage(t, o, "Resume run success")
+
+		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+
+		// The run should have succeeded but with the receipt detailing the reverted transaction
+		pipelineRun := pipelineRuns[0]
+		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+
+		outputs := pipelineRun.Outputs.Val.([]interface{})
+		require.Len(t, outputs, 1)
+		output := outputs[0]
+		receipt := output.(map[string]interface{})
+		assert.Equal(t, "0x7", receipt["blockNumber"])
+		assert.Equal(t, "0x538f", receipt["gasUsed"])
+		assert.Equal(t, "0x0", receipt["status"]) // success
+	})
+
+	t.Run("with FailOnRevert enabled, run fails with transaction reverted error", func(t *testing.T) {
+		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		tomlSpec := `
+type            = "webhook"
+schemaVersion   = 1
+observationSource   = """
+	submit_tx  [type=ethtx to="%s"
+            data="%s"
+            minConfirmations="2"
+			failOnRevert=true
+            from="[\\"%s\\"]"
+			]
+"""
+`
+		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
+		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
+		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingAddr)
+		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
+
+		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
+		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+
+		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		b.Commit() // Needs at least two confirmations
+		b.Commit() // Needs at least two confirmations
+		b.Commit() // Needs at least two confirmations
+		testutils.WaitForLogMessage(t, o, "Resume run success")
+
+		pipelineRuns := cltest.WaitForPipelineError(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+
+		// The run should have failed as a revert
+		pipelineRun := pipelineRuns[0]
+		cltest.AssertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
+	})
+
+	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
+		app, sendingAddr, o := setupAppForEthTx(t, cfg, operatorContracts)
+		tomlSpec := `
+type            = "webhook"
+schemaVersion   = 1
+observationSource   = """
+	submit_tx  [type=ethtx to="%s"
+            data="%s"
+            minConfirmations="2"
+			failOnRevert=false
+            from="[\\"%s\\"]"
+			]
+"""
+`
+		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
+		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
+		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingAddr)
+		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
+
+		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
+		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+
+		testutils.WaitForLogMessage(t, o, "Sent transaction")
+		b.Commit() // Needs at least two confirmations
+		b.Commit() // Needs at least two confirmations
+		b.Commit() // Needs at least two confirmations
+		testutils.WaitForLogMessage(t, o, "Resume run success")
+
+		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), 100*time.Millisecond)
+
+		// The run should have succeeded but with the receipt detailing the reverted transaction
+		pipelineRun := pipelineRuns[0]
+		cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+
+		outputs := pipelineRun.Outputs.Val.([]interface{})
+		require.Len(t, outputs, 1)
+		output := outputs[0]
+		receipt := output.(map[string]interface{})
+		assert.Equal(t, "0x11", receipt["blockNumber"])
+		assert.Equal(t, "0x7a120", receipt["gasUsed"])
+		assert.Equal(t, "0x0", receipt["status"])
+	})
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
@@ -494,7 +661,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
@@ -795,8 +962,8 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
-	ethClient, sub := cltest.NewEthMocksWithDefaultChain(t)
-	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
+	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
@@ -831,12 +998,16 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil).Maybe()
-
+	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *evmtypes.Head) }).
-		Return(sub, nil)
+		Return(
+			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+				sub := mockEth.NewSub(t)
+				chchNewHeads <- evmtest.NewRawSub(ch, sub.Err())
+				return sub
+			},
+			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
+		)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 
@@ -857,7 +1028,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start(testutils.Context(t)))
-	var newHeads chan<- *evmtypes.Head
+	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):
@@ -885,7 +1056,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
 
 	// Simulate one new head and check the gas price got updated
-	newHeads <- cltest.Head(43)
+	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)

@@ -4,36 +4,64 @@ package soltxm_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
+	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTxm_Integration(t *testing.T) {
 	url := solanaClient.SetupLocalSolNode(t)
-	privKey, err := solana.NewRandomPrivateKey()
+
+	// setup key
+	key, err := solkey.New()
 	require.NoError(t, err)
-	pubKey := privKey.PublicKey()
-	solanaClient.FundTestAccounts(t, []solana.PublicKey{pubKey}, url)
+	pubKey := key.PublicKey()
+
+	// setup load test key
+	loadTestKey, err := solkey.New()
+	require.NoError(t, err)
+
+	// setup receiver key
+	privKeyReceiver, err := solana.NewRandomPrivateKey()
+	pubKeyReceiver := privKeyReceiver.PublicKey()
+
+	// fund keys
+	solanaClient.FundTestAccounts(t, []solana.PublicKey{pubKey, loadTestKey.PublicKey()}, url)
+
+	// setup mock keystore
+	mkey := new(mocks.Solana)
+	defer mkey.AssertExpectations(t)
+	mkey.On("Get", key.ID()).Return(key, nil)
+	mkey.On("Get", loadTestKey.ID()).Return(loadTestKey, nil)
+	mkey.On("Get", pubKeyReceiver.String()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: pubKeyReceiver.String(), KeyType: "Solana"})
 
 	// set up txm
 	lggr := logger.TestLogger(t)
-	cfg := config.NewConfig(db.ChainCfg{}, lggr)
+	confirmDuration, err := relayutils.NewDuration(500 * time.Millisecond)
+	require.NoError(t, err)
+	cfg := config.NewConfig(db.ChainCfg{
+		ConfirmPollPeriod: &confirmDuration,
+	}, lggr)
 	client, err := solanaClient.NewClient(url, cfg, 2*time.Second, lggr)
 	require.NoError(t, err)
 	getClient := func() (solanaClient.ReaderWriter, error) {
 		return client, nil
 	}
-	txm := soltxm.NewTxm(getClient, cfg, lggr)
+	txm := soltxm.NewTxm("localnet", getClient, cfg, mkey, lggr)
 
 	// track initial balance
 	initBal, err := client.Balance(pubKey)
@@ -46,48 +74,65 @@ func TestTxm_Integration(t *testing.T) {
 	// already started
 	assert.Error(t, txm.Start(context.Background()))
 
-	// create receiver
-	privKeyReceiver, err := solana.NewRandomPrivateKey()
-	pubKeyReceiver := privKeyReceiver.PublicKey()
+	createTx := func(signer solana.PublicKey, sender solana.PublicKey, receiver solana.PublicKey, amt uint64) *solana.Transaction {
+		// create transfer tx
+		hash, err := client.LatestBlockhash()
+		assert.NoError(t, err)
+		tx, err := solana.NewTransaction(
+			[]solana.Instruction{
+				system.NewTransferInstruction(
+					amt,
+					sender,
+					receiver,
+				).Build(),
+			},
+			hash.Value.Blockhash,
+			solana.TransactionPayer(signer),
+		)
+		require.NoError(t, err)
+		return tx
+	}
 
-	// create transfer tx
-	hash, err := client.LatestBlockhash()
-	assert.NoError(t, err)
-	tx, err := solana.NewTransaction(
-		[]solana.Instruction{
-			system.NewTransferInstruction(
-				solana.LAMPORTS_PER_SOL,
-				pubKey,
-				pubKeyReceiver,
-			).Build(),
-		},
-		hash.Value.Blockhash,
-		solana.TransactionPayer(pubKey),
-	)
-	assert.NoError(t, err)
+	// enqueue txs (must pass to move on to load test)
+	require.NoError(t, txm.Enqueue("test_success_0", createTx(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL)))
+	require.Error(t, txm.Enqueue("test_invalidSigner", createTx(pubKeyReceiver, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL))) // cannot sign tx before enqueuing
+	require.NoError(t, txm.Enqueue("test_invalidReceiver", createTx(pubKey, pubKey, solana.PublicKey{}, solana.LAMPORTS_PER_SOL)))
+	time.Sleep(500 * time.Millisecond) // pause 0.5s for new blockhash
+	require.NoError(t, txm.Enqueue("test_success_1", createTx(pubKey, pubKey, pubKeyReceiver, solana.LAMPORTS_PER_SOL)))
+	require.NoError(t, txm.Enqueue("test_txFail", createTx(pubKey, pubKey, pubKeyReceiver, 1000*solana.LAMPORTS_PER_SOL)))
 
-	// sign tx
-	_, err = tx.Sign(
-		func(key solana.PublicKey) *solana.PrivateKey {
-			if privKey.PublicKey().Equals(key) {
-				return &privKey
+	// load test: try to overload txs, confirm, or simulation
+	for i := 0; i < 1000; i++ {
+		assert.NoError(t, txm.Enqueue(fmt.Sprintf("load_%d", i), createTx(loadTestKey.PublicKey(), loadTestKey.PublicKey(), loadTestKey.PublicKey(), uint64(i))))
+		time.Sleep(10 * time.Millisecond) // ~100 txs per second (note: have run 5ms delays for ~200tx/s succesfully)
+	}
+
+	// check to make sure all txs are closed out from inflight list (longest should last MaxConfirmTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			assert.Equal(t, 0, txm.InflightTxs())
+			break loop
+		case <-ticker.C:
+			if txm.InflightTxs() == 0 {
+				cancel() // exit for loop
 			}
-			return nil
-		},
-	)
-	assert.NoError(t, err)
-
-	// enqueue tx
-	assert.NoError(t, txm.Enqueue("testTransmission", tx))
-	time.Sleep(time.Second) // wait for tx
+		}
+	}
+	assert.NoError(t, txm.Close())
 
 	// check balance changes
 	senderBal, err := client.Balance(pubKey)
 	assert.NoError(t, err)
 	assert.Greater(t, initBal, senderBal)
-	assert.Greater(t, initBal - senderBal, solana.LAMPORTS_PER_SOL) // balance change = sent + fees
+	assert.Greater(t, initBal-senderBal, 2*solana.LAMPORTS_PER_SOL) // balance change = sent + fees
 
 	receiverBal, err := client.Balance(pubKeyReceiver)
 	assert.NoError(t, err)
-	assert.Equal(t, solana.LAMPORTS_PER_SOL, receiverBal)
+	assert.Equal(t, 2*solana.LAMPORTS_PER_SOL, receiverBal)
 }

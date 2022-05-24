@@ -22,7 +22,7 @@ func TestORM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewPGCfg(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{})
+	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, nil)
 	require.NoError(t, err)
 	o := NewORM(chainID, db, lggr, logCfg)
 
@@ -62,6 +62,8 @@ func TestORM(t *testing.T) {
 
 	// Update
 	txHash := "123"
+	err = o.UpdateMsgs([]int64{mid}, Started, &txHash)
+	require.NoError(t, err)
 	err = o.UpdateMsgs([]int64{mid}, Broadcasted, &txHash)
 	require.NoError(t, err)
 	broadcasted, err := o.GetMsgsState(Broadcasted, 5)

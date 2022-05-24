@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -16,10 +17,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )
 
 // ethUSDPairing has the ETH/USD parameters needed when POSTing to the price
@@ -39,7 +42,8 @@ func TestHTTPTask_Happy(t *testing.T) {
 		URL:         s1.URL,
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(config, c, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -164,9 +168,12 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        bridge.Name.String(),
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(cfg, db, uuid.UUID{})
+			c := clhttptest.NewTestLocalOnlyHTTPClient()
+			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-			test.vars.Set("meta", test.meta)
+			err = test.vars.Set("meta", test.meta)
+			require.NoError(t, err)
+
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
@@ -210,7 +217,10 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	// Use real clients here to actually test the local connection blocking
+	r := clhttp.NewRestrictedHTTPClient(config, logger.TestLogger(t))
+	u := clhttp.NewUnrestrictedHTTPClient()
+	task.HelperSetDependencies(config, r, u)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -251,12 +261,13 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task := pipeline.HTTPTask{
 		Method:      "POST",
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	task.HelperSetDependencies(config, c, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -286,7 +297,8 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		URL:         server.URL,
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(config)
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	task.HelperSetDependencies(config, c, c)
 
 	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
@@ -294,4 +306,99 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
+}
+
+func TestHTTPTask_Headers(t *testing.T) {
+	allHeaders := func(headers http.Header) (s []string) {
+		var keys []string
+		for k, _ := range headers {
+			keys = append(keys, k)
+		}
+		// get it in a consistent order
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := headers.Get(k)
+			s = append(s, k, v)
+		}
+		return s
+	}
+
+	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
+
+	t.Run("sends headers", func(t *testing.T) {
+		config := cltest.NewTestGeneralConfig(t)
+		var headers http.Header
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			headers = r.Header
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"fooresponse": 1}`))
+			require.NoError(t, err)
+		})
+
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		task := pipeline.HTTPTask{
+			Method:      "POST",
+			URL:         server.URL,
+			RequestData: ethUSDPairing,
+			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar"]`,
+		}
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		task.HelperSetDependencies(config, c, c)
+
+		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
+	})
+
+	t.Run("errors with odd number of headers", func(t *testing.T) {
+		task := pipeline.HTTPTask{
+			Method:      "POST",
+			URL:         "http://example.com",
+			RequestData: ethUSDPairing,
+			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
+		}
+
+		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.NotNil(t, result.Error)
+		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
+		assert.Nil(t, result.Value)
+	})
+
+	t.Run("allows to override content-type", func(t *testing.T) {
+		config := cltest.NewTestGeneralConfig(t)
+		var headers http.Header
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			headers = r.Header
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"fooresponse": 3}`))
+			require.NoError(t, err)
+		})
+
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		task := pipeline.HTTPTask{
+			Method:      "POST",
+			URL:         server.URL,
+			RequestData: ethUSDPairing,
+			Headers:     `["X-Header-1", "foo", "Content-Type", "footype", "X-Header-2", "bar"]`,
+		}
+		c := clhttptest.NewTestLocalOnlyHTTPClient()
+		task.HelperSetDependencies(config, c, c)
+
+		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		assert.False(t, runInfo.IsPending)
+		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
+		assert.Nil(t, result.Error)
+
+		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
+	})
 }

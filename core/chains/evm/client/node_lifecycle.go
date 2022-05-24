@@ -76,7 +76,7 @@ func (n *node) aliveLoop() {
 	pollFailureThreshold := n.cfg.NodePollFailureThreshold()
 	pollInterval := n.cfg.NodePollInterval()
 
-	lggr := n.log.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
+	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
 	var headsC <-chan *evmtypes.Head
@@ -213,7 +213,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 
 	outOfSyncAt := time.Now()
 
-	lggr := n.log.Named("OutOfSync")
+	lggr := n.lfcLog.Named("OutOfSync")
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
@@ -227,7 +227,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	// Manually re-verify since out-of-sync nodes are automatically disconnected
 	err = n.verify(context.Background())
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
+		lggr.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
 		n.declareInvalidChainID()
 		return
 	}
@@ -295,7 +295,7 @@ func (n *node) unreachableLoop() {
 
 	unreachableAt := time.Now()
 
-	lggr := n.log.Named("Unreachable")
+	lggr := n.lfcLog.Named("Unreachable")
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.State())
 
 	dialRetryBackoff := utils.NewRedialBackoff()
@@ -350,7 +350,7 @@ func (n *node) invalidChainIDLoop() {
 
 	invalidAt := time.Now()
 
-	lggr := n.log.Named("InvalidChainID")
+	lggr := n.lfcLog.Named("InvalidChainID")
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.State())
 
 	chainIDRecheckBackoff := utils.NewRedialBackoff()

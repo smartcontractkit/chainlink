@@ -14,9 +14,6 @@ describe('FeedsManagerForm', () => {
       name: '',
       uri: '',
       publicKey: '',
-      jobTypes: [],
-      isBootstrapPeer: false,
-      bootstrapPeerMultiaddr: undefined,
     }
 
     render(
@@ -26,21 +23,12 @@ describe('FeedsManagerForm', () => {
       />,
     )
 
-    userEvent.click(
-      getByRole('checkbox', {
-        name: 'Is this node running as a bootstrap peer?',
-      }),
-    )
-
     userEvent.click(getByRole('button', { name: /submit/i }))
 
     await waitFor(() => {
       expect(getByTestId('name-helper-text')).toHaveTextContent('Required')
       expect(getByTestId('uri-helper-text')).toHaveTextContent('Required')
       expect(getByTestId('publicKey-helper-text')).toHaveTextContent('Required')
-      expect(
-        getByTestId('bootstrapPeerMultiaddr-helper-text'),
-      ).toHaveTextContent('Required')
     })
   })
 
@@ -50,9 +38,6 @@ describe('FeedsManagerForm', () => {
       name: '',
       uri: '',
       publicKey: '',
-      jobTypes: [],
-      isBootstrapPeer: false,
-      bootstrapPeerMultiaddr: undefined,
     }
 
     render(
@@ -68,7 +53,6 @@ describe('FeedsManagerForm', () => {
     )
     userEvent.type(getByRole('textbox', { name: 'URI *' }), 'localhost:8080')
     userEvent.type(getByRole('textbox', { name: 'Public Key *' }), '11111')
-    userEvent.click(getByRole('checkbox', { name: 'Flux Monitor' }))
 
     userEvent.click(getByText(/submit/i))
 
@@ -78,9 +62,6 @@ describe('FeedsManagerForm', () => {
           name: 'Chainlink Feeds Manager',
           uri: 'localhost:8080',
           publicKey: '11111',
-          jobTypes: ['FLUX_MONITOR'],
-          isBootstrapPeer: false,
-          bootstrapPeerMultiaddr: undefined,
         },
         expect.anything(),
       ),

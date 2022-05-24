@@ -24,7 +24,7 @@ describe('BatchBlockhashStore', () => {
     blockhashStore = await bhFactory.deploy()
 
     const batchBHSFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/BatchBlockhashStore.sol:BatchBlockhashStore',
+      'src/v0.8/BatchBlockhashStore.sol:BatchBlockhashStore',
       accounts[0],
     )
 

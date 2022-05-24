@@ -82,7 +82,7 @@ func TestLoggerObserved(t T, lvl zapcore.Level) (Logger, *observer.ObservedLogs)
 
 func testLogger(t T, cores ...zapcore.Core) SugaredLogger {
 	cfg := newZapConfigTest()
-	ll, invalid := envvar.LogLevel.ParseLogLevel()
+	ll, invalid := envvar.LogLevel.Parse()
 	cfg.Level.SetLevel(ll)
 	l, close, err := zapLoggerConfig{Config: cfg}.newLogger(cores...)
 	if err != nil {

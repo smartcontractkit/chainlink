@@ -111,6 +111,60 @@ answer2 [type=bridge name=election_winner index=1];
 	return run
 }
 
+func TestInsertFinishedRuns(t *testing.T) {
+	db, orm := setupORM(t)
+
+	_, err := db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
+	require.NoError(t, err)
+
+	var runs []*pipeline.Run
+	for i := 0; i < 3; i++ {
+		now := time.Now()
+		r := pipeline.Run{
+			State:       pipeline.RunStatusRunning,
+			AllErrors:   pipeline.RunErrors{},
+			FatalErrors: pipeline.RunErrors{},
+			CreatedAt:   now,
+			FinishedAt:  null.Time{},
+			Outputs:     pipeline.JSONSerializable{},
+		}
+
+		require.NoError(t, orm.InsertRun(&r))
+
+		r.PipelineTaskRuns = []pipeline.TaskRun{
+			{
+				ID:            uuid.NewV4(),
+				PipelineRunID: r.ID,
+				Type:          "bridge",
+				DotID:         "ds1",
+				CreatedAt:     now,
+				FinishedAt:    null.TimeFrom(now.Add(100 * time.Millisecond)),
+			},
+			{
+				ID:            uuid.NewV4(),
+				PipelineRunID: r.ID,
+				Type:          "median",
+				DotID:         "answer2",
+				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+				CreatedAt:     now,
+				FinishedAt:    null.TimeFrom(now.Add(200 * time.Millisecond)),
+			},
+		}
+		r.FinishedAt = null.TimeFrom(now.Add(300 * time.Millisecond))
+		r.Outputs = pipeline.JSONSerializable{
+			Val:   "stuff",
+			Valid: true,
+		}
+		r.FatalErrors = append(r.AllErrors, null.NewString("", false))
+		r.State = pipeline.RunStatusCompleted
+		runs = append(runs, &r)
+	}
+
+	err = orm.InsertFinishedRuns(runs, true)
+	require.NoError(t, err)
+
+}
+
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	_, orm := setupORM(t)
@@ -297,6 +351,9 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	r, start, err := orm.UpdateTaskRunResult(ds1_id, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
+	assert.Greater(t, run.ID, int64(0))
+	assert.Greater(t, run.PipelineSpec.ID, int32(0)) // Make sure it actually loaded everything
+
 	require.Len(t, run.PipelineTaskRuns, 2)
 	// assert that run should be in "running" state
 	require.Equal(t, pipeline.RunStatusRunning, run.State)

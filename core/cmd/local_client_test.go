@@ -57,7 +57,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -74,9 +74,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.NoError(t, err)
 
 	lcfg := logger.Config{
-		LogLevel:    zapcore.DebugLevel,
-		FileMaxSize: int(logFileSize),
-		Dir:         t.TempDir(),
+		LogLevel:      zapcore.DebugLevel,
+		FileMaxSizeMB: int(logFileSize / utils.MB),
+		Dir:           t.TempDir(),
 	}
 
 	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
@@ -122,7 +122,6 @@ BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE: 0
 BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE: 0
 BRIDGE_RESPONSE_URL: 
 CHAIN_TYPE: 
-CLIENT_NODE_URL: http://localhost:6688
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
 DATABASE_BACKUP_ON_VERSION_UPGRADE: true
@@ -149,12 +148,14 @@ KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
 KEEPER_GAS_PRICE_BUFFER_PERCENT: 20
 KEEPER_GAS_TIP_CAP_BUFFER_PERCENT: 20
 KEEPER_BASE_FEE_BUFFER_PERCENT: 20
-KEEPER_MAXIMUM_GRACE_PERIOD: 0
-KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 0
-KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 0
-KEEPER_REGISTRY_SYNC_INTERVAL: 
-KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 0
+KEEPER_MAXIMUM_GRACE_PERIOD: 100
+KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 200000
+KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 150000
+KEEPER_REGISTRY_SYNC_INTERVAL: 30m0s
+KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 10
 KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
+KEEPER_TURN_LOOK_BACK: 1000
+KEEPER_TURN_FLAG_ENABLED: false
 LEASE_LOCK_DURATION: 10s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
@@ -231,12 +232,12 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
-			ethClient := cltest.NewEthClientMock(t)
+			ethClient := evmtest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
@@ -283,12 +284,12 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 	app.On("Start", mock.Anything).Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := evmtest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
@@ -415,8 +416,8 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
-				Dir:         t.TempDir(),
-				FileMaxSize: int(tt.logFileSize(t)),
+				Dir:           t.TempDir(),
+				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB),
 			}
 			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
@@ -437,7 +438,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
+	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions")
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -464,7 +465,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
@@ -513,7 +514,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
+			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange")
 			config.Overrides.Dialect = dialects.Postgres
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
@@ -574,7 +575,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce", true, true)
+	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce")
 	ethKeyStore := cltest.NewKeyStore(t, sqlxDB, config).Eth()
 	lggr := logger.TestLogger(t)
 

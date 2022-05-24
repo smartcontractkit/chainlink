@@ -251,9 +251,7 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.AdminCredentialsFile = null.StringFrom("")
-	}))
+	app := startNewApplication(t)
 
 	tests := []struct {
 		name, file string
@@ -275,6 +273,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
 			set.String("file", test.file, "")
 			set.Bool("bypass-version-check", true, "")
+			set.String("admin-credentials-file", "", "")
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.RemoteLogin(c)
@@ -651,8 +650,8 @@ func TestClient_AutoLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{}, logger.TestLogger(t))
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.NewClientOpts(), &cmd.MemoryCookieStore{}, logger.TestLogger(t))
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
@@ -678,7 +677,7 @@ func TestClient_AutoLogin_AuthFails(t *testing.T) {
 	}
 	client, _ := app.NewClientAndRenderer()
 	client.CookieAuthenticator = FailingAuthenticator{}
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
@@ -733,25 +732,4 @@ func TestClient_SetLogConfig(t *testing.T) {
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
 	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
-}
-
-func TestClient_SetPkgLogLevel(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	logPkg := logger.HeadTracker
-	logLevel := "warn"
-	set := flag.NewFlagSet("logpkg", 0)
-	set.String("pkg", logPkg, "")
-	set.String("level", logLevel, "")
-	c := cli.NewContext(nil, set, nil)
-
-	err := client.SetLogPkg(c)
-	require.NoError(t, err)
-
-	level, ok := logger.NewORM(app.GetSqlxDB(), logger.TestLogger(t)).GetServiceLogLevel(logPkg)
-	require.True(t, ok)
-	assert.Equal(t, logLevel, level)
 }

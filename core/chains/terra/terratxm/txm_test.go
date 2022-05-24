@@ -34,7 +34,8 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
+	t.Skip("requires terrad")
+	cfg, db := heavyweight.FullTestDBNoFixtures(t, "terra_txm")
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	logCfg := pgtest.NewPGCfg(true)
@@ -44,12 +45,12 @@ func TestTxm_Integration(t *testing.T) {
 			"uluna": fallbackGasPrice,
 		}),
 	}, lggr)
-	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{
+	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, &ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
 		GasLimitMultiplier:    null.FloatFrom(1.5),
 	})
 	require.NoError(t, err)
-	chainCfg := pkgterra.NewConfig(dbChain.Cfg, lggr)
+	chainCfg := pkgterra.NewConfig(*dbChain.Cfg, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start(testutils.Context(t)))

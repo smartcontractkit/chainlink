@@ -5,11 +5,9 @@ import { Route } from 'react-router-dom'
 import { renderWithRouter, screen } from 'support/test-utils'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 
-import {
-  FeedsManagerScreen,
-  FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
-} from './FeedsManagerScreen'
+import { FeedsManagerScreen } from './FeedsManagerScreen'
 import { buildFeedsManagerResultFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { FEEDS_MANAGERS_WITH_PROPOSALS_QUERY } from 'src/hooks/queries/useFeedsManagersWithProposalsQuery'
 
 const { findByText } = screen
 

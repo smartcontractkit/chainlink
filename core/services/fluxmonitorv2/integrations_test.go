@@ -215,7 +215,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
+	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()))
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -841,7 +841,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
-		cfg.Overrides.GlobalMinRequiredOutgoingConfirmations = null.IntFrom(2)
+		cfg.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 		cfg.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	})
 

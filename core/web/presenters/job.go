@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -100,8 +100,8 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 	}
 	return &FluxMonitorSpec{
 		ContractAddress:     spec.ContractAddress,
-		Threshold:           spec.Threshold,
-		AbsoluteThreshold:   spec.AbsoluteThreshold,
+		Threshold:           float32(spec.Threshold),
+		AbsoluteThreshold:   float32(spec.AbsoluteThreshold),
 		PollTimerPeriod:     spec.PollTimerPeriod.String(),
 		PollTimerDisabled:   spec.PollTimerDisabled,
 		IdleTimerPeriod:     spec.IdleTimerPeriod.String(),
@@ -178,7 +178,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
 	ContractID                        string                 `json:"contractID"`
-	Relay                             types.Network          `json:"relay"`
+	Relay                             relay.Network          `json:"relay"`
 	RelayConfig                       map[string]interface{} `json:"relayConfig"`
 	P2PBootstrapPeers                 pq.StringArray         `json:"p2pBootstrapPeers"`
 	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
@@ -276,19 +276,27 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress       ethkey.EIP55Address   `json:"coordinatorAddress"`
-	PublicKey                secp256k1.PublicKey   `json:"publicKey"`
-	FromAddresses            []ethkey.EIP55Address `json:"fromAddresses"`
-	PollPeriod               models.Duration       `json:"pollPeriod"`
-	MinIncomingConfirmations uint32                `json:"confirmations"`
-	CreatedAt                time.Time             `json:"createdAt"`
-	UpdatedAt                time.Time             `json:"updatedAt"`
-	EVMChainID               *utils.Big            `json:"evmChainID"`
-	ChunkSize                uint32                `json:"chunkSize"`
+	BatchCoordinatorAddress       *ethkey.EIP55Address  `json:"batchCoordinatorAddress"`
+	BatchFulfillmentEnabled       bool                  `json:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64               `json:"batchFulfillmentGasMultiplier"`
+	CoordinatorAddress            ethkey.EIP55Address   `json:"coordinatorAddress"`
+	PublicKey                     secp256k1.PublicKey   `json:"publicKey"`
+	FromAddresses                 []ethkey.EIP55Address `json:"fromAddresses"`
+	PollPeriod                    models.Duration       `json:"pollPeriod"`
+	MinIncomingConfirmations      uint32                `json:"confirmations"`
+	CreatedAt                     time.Time             `json:"createdAt"`
+	UpdatedAt                     time.Time             `json:"updatedAt"`
+	EVMChainID                    *utils.Big            `json:"evmChainID"`
+	ChunkSize                     uint32                `json:"chunkSize"`
+	RequestTimeout                models.Duration       `json:"requestTimeout"`
+	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
+	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	return &VRFSpec{
+		BatchCoordinatorAddress:  spec.BatchCoordinatorAddress,
+		BatchFulfillmentEnabled:  spec.BatchFulfillmentEnabled,
 		CoordinatorAddress:       spec.CoordinatorAddress,
 		PublicKey:                spec.PublicKey,
 		FromAddresses:            spec.FromAddresses,
@@ -298,6 +306,9 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		UpdatedAt:                spec.UpdatedAt,
 		EVMChainID:               spec.EVMChainID,
 		ChunkSize:                spec.ChunkSize,
+		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
+		BackoffInitialDelay:      models.MustMakeDuration(spec.BackoffInitialDelay),
+		BackoffMaxDelay:          models.MustMakeDuration(spec.BackoffMaxDelay),
 	}
 }
 
@@ -334,7 +345,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
 	ContractID                             string                 `json:"contractID"`
-	Relay                                  types.Network          `json:"relay"`
+	Relay                                  relay.Network          `json:"relay"`
 	RelayConfig                            map[string]interface{} `json:"relayConfig"`
 	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
 	ContractConfigTrackerSubscribeInterval models.Interval        `json:"contractConfigTrackerSubscribeInterval"`

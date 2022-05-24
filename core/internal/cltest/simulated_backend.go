@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -64,18 +64,17 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
-	simulatedBackendChain := evmtypes.Chain{
+	simulatedBackendChain := evmtypes.DBChain{
 		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
-		Cfg: evmtypes.ChainCfg{
-			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
-			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:        &zero,
-			EvmFinalityDepth:                 null.IntFrom(15),
-			EthTxReaperThreshold:             &reaperThreshold,
-			MinIncomingConfirmations:         null.IntFrom(1),
-			MinRequiredOutgoingConfirmations: null.IntFrom(1),
-			MinimumContractPayment:           assets.NewLinkFromJuels(100),
+		Cfg: &evmtypes.ChainCfg{
+			GasEstimatorMode:               null.StringFrom("FixedPrice"),
+			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
+			EthTxResendAfterThreshold:      &zero,
+			EvmFinalityDepth:               null.IntFrom(15),
+			EthTxReaperThreshold:           &reaperThreshold,
+			MinIncomingConfirmations:       null.IntFrom(1),
+			MinimumContractPayment:         assets.NewLinkFromJuels(100),
 		},
 		Enabled: true,
 	}

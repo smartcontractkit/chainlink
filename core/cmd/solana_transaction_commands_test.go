@@ -16,6 +16,7 @@ import (
 
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
@@ -31,12 +32,13 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	solanaClient.FundTestAccounts(t, []solana.PublicKey{from.PublicKey()}, url)
 
 	chains := app.GetChains()
-	_, err = chains.Solana.Add(testutils.Context(t), chainID, solanadb.ChainCfg{})
+	_, err = chains.Solana.Add(testutils.Context(t), chainID, nil)
 	require.NoError(t, err)
 	chain, err := chains.Solana.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Solana.ORM().CreateNode(solanadb.NewNode{
+	ctx := testutils.Context(t)
+	_, err = chains.Solana.CreateNode(ctx, solanadb.Node{
 		Name:          t.Name(),
 		SolanaChainID: chainID,
 		SolanaURL:     url,
@@ -95,11 +97,25 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			assert.Equal(t, to.PublicKey().String(), renderedMsg.To)
 			assert.Equal(t, tt.amount, strconv.FormatUint(renderedMsg.Amount, 10))
 
-			time.Sleep(time.Second) // wait for tx execution
+			// wait for updated balance
+			updated := false
+			endBal := uint64(0)
+			for i := 0; i < 5; i++ {
+				time.Sleep(time.Second) // wait for tx execution
+
+				// Check balance
+				endBal, err = reader.Balance(from.PublicKey())
+				require.NoError(t, err)
+
+				// exit if difference found
+				if endBal != startBal {
+					updated = true
+					break
+				}
+			}
+			require.True(t, updated, "end bal == start bal, transaction likely not succeeded")
 
 			// Check balance
-			endBal, err := reader.Balance(from.PublicKey())
-			require.NoError(t, err)
 			if assert.NotEqual(t, 0, startBal) && assert.NotEqual(t, 0, endBal) {
 				diff := startBal - endBal
 				receiveBal, err := reader.Balance(to.PublicKey())

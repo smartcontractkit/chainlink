@@ -78,7 +78,10 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 		9,
 		"TEST",
 	)
-
+	// Ensure we have finality depth worth of blocks to start.
+	for i := 0; i < 20; i++ {
+		b.Commit()
+	}
 	require.NoError(t, err)
 	_, err = linkContract.Transfer(owner, ocrContractAddress, big.NewInt(1000))
 	require.NoError(t, err)
@@ -87,9 +90,12 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 }
 
 func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocr2key.KeyBundle, *configtest.TestGeneralConfig) {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port))
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
+	config.Overrides.FeatureLogPoller = null.BoolFrom(true)
+	poll := 500 * time.Millisecond
+	config.Overrides.GlobalEvmLogPollInterval = &poll
 	config.Overrides.P2PEnabled = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
 	config.Overrides.P2PListenPort = null.NewInt(0, true)
@@ -337,7 +343,7 @@ juelsPerFeeCoinSource = """
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
@@ -373,7 +379,8 @@ juelsPerFeeCoinSource = """
 	// Assert we can read the latest config digest and epoch after a report has been submitted.
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
-	ct := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, lggr)
+	ct, err := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, apps[0].Chains.EVM.Chains()[0].LogPoller(), lggr)
+	require.NoError(t, err)
 	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(context.Background())
 	require.NoError(t, err)
 	details, err := ocrContract.LatestConfigDetails(nil)

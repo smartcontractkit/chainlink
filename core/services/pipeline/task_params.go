@@ -1,11 +1,8 @@
 package pipeline
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math"
 	"math/big"
 	"net/url"
@@ -50,156 +47,6 @@ func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
 	return nil
 }
 
-type GetterFunc func() (interface{}, error)
-
-func From(getters ...interface{}) []GetterFunc {
-	var gfs []GetterFunc
-	for _, g := range getters {
-		switch v := g.(type) {
-		case GetterFunc:
-			gfs = append(gfs, v)
-
-		default:
-			// If a bare value is passed in, create a simple getter
-			gfs = append(gfs, func() (interface{}, error) {
-				return v, nil
-			})
-		}
-	}
-	return gfs
-}
-
-func VarExpr(s string, vars Vars) GetterFunc {
-	return func() (interface{}, error) {
-		trimmed := strings.TrimSpace(s)
-		if len(trimmed) == 0 {
-			return nil, ErrParameterEmpty
-		}
-		isVariableExpr := strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')'
-		if !isVariableExpr {
-			return nil, ErrParameterEmpty
-		}
-		keypath := strings.TrimSpace(trimmed[2 : len(trimmed)-1])
-		val, err := vars.Get(keypath)
-		if err != nil {
-			return nil, err
-		} else if as, is := val.(error); is {
-			return nil, errors.Wrapf(ErrTooManyErrors, "VarExpr: %v", as)
-		}
-		return val, nil
-	}
-}
-
-func JSONWithVarExprs(s string, vars Vars, allowErrors bool) GetterFunc {
-	return func() (interface{}, error) {
-		if strings.TrimSpace(s) == "" {
-			return nil, ErrParameterEmpty
-		}
-		replaced := variableRegexp.ReplaceAllFunc([]byte(s), func(expr []byte) []byte {
-			keypathStr := strings.TrimSpace(string(expr[2 : len(expr)-1]))
-			return []byte(fmt.Sprintf(`{ "__chainlink_var_expr__": "%v" }`, keypathStr))
-		})
-		var val interface{}
-		err := json.Unmarshal(replaced, &val)
-		if err != nil {
-			return nil, errors.Wrapf(ErrBadInput, "while interpolating variables in JSON payload: %v; got input: %v", err, replaced)
-		}
-		return mapGoValue(val, func(val interface{}) (interface{}, error) {
-			if m, is := val.(map[string]interface{}); is {
-				maybeKeypath, exists := m["__chainlink_var_expr__"]
-				if !exists {
-					return val, nil
-				}
-				keypath, is := maybeKeypath.(string)
-				if !is {
-					return nil, errors.New("you cannot use __chainlink_var_expr__ in your JSON")
-				}
-				newVal, err := vars.Get(keypath)
-				if err != nil {
-					return nil, err
-				} else if err, is := newVal.(error); is && !allowErrors {
-					return nil, errors.Wrapf(ErrBadInput, "JSONWithVarExprs: %v", err)
-				}
-				return newVal, nil
-			}
-			return val, nil
-		})
-	}
-}
-
-func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (x interface{}, err error) {
-	type item struct {
-		val         interface{}
-		parentMap   map[string]interface{}
-		parentKey   string
-		parentSlice []interface{}
-		parentIdx   int
-	}
-
-	stack := []item{{val: v}}
-	var current item
-
-	for len(stack) > 0 {
-		current = stack[0]
-		stack = stack[1:]
-
-		val, err := fn(current.val)
-		if err != nil {
-			return nil, err
-		}
-
-		if current.parentMap != nil {
-			current.parentMap[current.parentKey] = val
-		} else if current.parentSlice != nil {
-			current.parentSlice[current.parentIdx] = val
-		}
-
-		if asMap, isMap := val.(map[string]interface{}); isMap {
-			for key := range asMap {
-				stack = append(stack, item{val: asMap[key], parentMap: asMap, parentKey: key})
-			}
-		} else if asSlice, isSlice := val.([]interface{}); isSlice {
-			for i := range asSlice {
-				stack = append(stack, item{val: asSlice[i], parentSlice: asSlice, parentIdx: i})
-			}
-		}
-	}
-	return v, nil
-}
-
-func NonemptyString(s string) GetterFunc {
-	return func() (interface{}, error) {
-		trimmed := strings.TrimSpace(s)
-		if len(trimmed) == 0 {
-			return nil, ErrParameterEmpty
-		}
-		return trimmed, nil
-	}
-}
-
-func Input(inputs []Result, index int) GetterFunc {
-	return func() (interface{}, error) {
-		if len(inputs)-1 < index {
-			return nil, ErrParameterEmpty
-		}
-		return inputs[index].Value, inputs[index].Error
-	}
-}
-
-func Inputs(inputs []Result) GetterFunc {
-	return func() (interface{}, error) {
-		var vals []interface{}
-		for _, input := range inputs {
-			if input.Error != nil {
-				vals = append(vals, input.Error)
-			} else {
-				vals = append(vals, input.Value)
-			}
-		}
-		return vals, nil
-	}
-}
-
 type StringParam string
 
 func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
@@ -210,21 +57,63 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 	case []byte:
 		*s = StringParam(string(v))
 		return nil
-
 	case ObjectParam:
 		if v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
-
 	case *ObjectParam:
-		if v.Type == StringType {
+		if v != nil && v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
-
 	}
 	return errors.Wrapf(ErrBadInput, "expected string, got %T", val)
+}
+
+func (s *StringParam) String() string {
+	if s == nil {
+		return ""
+	}
+	return string(*s)
+}
+
+type StringSliceParam []string
+
+func (s *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
+	var ssp StringSliceParam
+	switch v := val.(type) {
+	case nil:
+		ssp = nil
+	case string:
+		return s.UnmarshalPipelineParam([]byte(v))
+
+	case []byte:
+		var theSlice []string
+		err := json.Unmarshal(v, &theSlice)
+		if err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+		*s = StringSliceParam(theSlice)
+		return nil
+	case []string:
+		ssp = v
+	case []interface{}:
+		return s.UnmarshalPipelineParam(SliceParam(v))
+	case SliceParam:
+		for _, x := range v {
+			var s StringParam
+			err := s.UnmarshalPipelineParam(x)
+			if err != nil {
+				return err
+			}
+			ssp = append(ssp, s.String())
+		}
+	default:
+		return errors.Wrapf(ErrBadInput, "expected string slice, got %T", val)
+	}
+	*s = ssp
+	return nil
 }
 
 type BytesParam []byte
@@ -232,29 +121,36 @@ type BytesParam []byte
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
-		// try hex first
-		if len(v) >= 2 && v[:2] == "0x" {
-			bs, err := hex.DecodeString(v[2:])
+		// first check if this is a valid hex-encoded string
+		if utils.HasHexPrefix(v) {
+			noHexPrefix := utils.RemoveHexPrefix(v)
+			bs, err := hex.DecodeString(noHexPrefix)
 			if err == nil {
-				*b = BytesParam(bs)
+				*b = bs
 				return nil
 			}
-			// The base64 encoding for the binary 0b110100110001 is '0x', so carry on.
 		}
-		// try decoding as base64 first, in case this is a string from the database
-		bs, err := base64.StdEncoding.DecodeString(v)
-		if err != nil {
-			bs = []byte(v)
-		}
-		*b = BytesParam(bs)
-	case []byte:
 		*b = BytesParam(v)
+		return nil
+	case []byte:
+		*b = v
+		return nil
 	case nil:
 		*b = BytesParam(nil)
-	default:
-		return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
+		return nil
+	case ObjectParam:
+		if v.Type == StringType {
+			*b = BytesParam(v.StringValue)
+			return nil
+		}
+	case *ObjectParam:
+		if v.Type == StringType {
+			*b = BytesParam(v.StringValue)
+			return nil
+		}
 	}
-	return nil
+
+	return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
 }
 
 type Uint64Param uint64
@@ -272,16 +168,34 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case uint64:
 		*u = Uint64Param(v)
 	case int:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int8:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int16:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int32:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int64:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case float64: // when decoding from db: JSON numbers are floats
+		if v < 0 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case string:
 		n, err := strconv.ParseUint(v, 10, 64)
@@ -290,7 +204,7 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 		}
 		*u = Uint64Param(n)
 	default:
-		return errors.Wrapf(ErrBadInput, "expected unsiend integer, got %T", val)
+		return errors.Wrapf(ErrBadInput, "expected unsigned integer, got %T", val)
 	}
 	return nil
 }
@@ -298,6 +212,14 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 type MaybeUint64Param struct {
 	n     uint64
 	isSet bool
+}
+
+// NewMaybeUint64Param creates new instance of MaybeUint64Param
+func NewMaybeUint64Param(n uint64, isSet bool) MaybeUint64Param {
+	return MaybeUint64Param{
+		n:     n,
+		isSet: isSet,
+	}
 }
 
 func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
@@ -314,16 +236,34 @@ func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case uint64:
 		n = v
 	case int:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int8:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int16:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int32:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int64:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case float64: // when decoding from db: JSON numbers are floats
+		if v < 0 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
@@ -351,6 +291,14 @@ func (p MaybeUint64Param) Uint64() (uint64, bool) {
 type MaybeInt32Param struct {
 	n     int32
 	isSet bool
+}
+
+// NewMaybeInt32Param creates new instance of MaybeInt32Param
+func NewMaybeInt32Param(n int32, isSet bool) MaybeInt32Param {
+	return MaybeInt32Param{
+		n:     n,
+		isSet: isSet,
+	}
 }
 
 func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
@@ -433,20 +381,18 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 	case bool:
 		*b = BoolParam(v)
 		return nil
-
 	case ObjectParam:
 		if v.Type == BoolType {
 			*b = v.BoolValue
 			return nil
 		}
-
 	case *ObjectParam:
 		if v.Type == BoolType {
 			*b = v.BoolValue
 			return nil
 		}
-
 	}
+
 	return errors.Wrapf(ErrBadInput, "expected true or false, got %T", val)
 }
 
@@ -456,9 +402,14 @@ func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
 	if v, ok := val.(ObjectParam); ok && v.Type == DecimalType {
 		*d = v.DecimalValue
 		return nil
-	} else if v, ok := val.(*ObjectParam); ok && v.Type == DecimalType {
-		*d = v.DecimalValue
-		return nil
+	} else if v, ok := val.(*ObjectParam); ok {
+		if v == nil {
+			return errors.Wrap(ErrBadInput, "nil ObjectParam")
+		}
+		if v.Type == DecimalType {
+			*d = v.DecimalValue
+			return nil
+		}
 	}
 	x, err := utils.ToDecimal(val)
 	if err != nil {
@@ -499,20 +450,23 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		return a.UnmarshalPipelineParam([]byte(v))
 	case []byte:
-		if bytes.Equal(v[:2], []byte("0x")) && len(v) == 42 {
-			*a = AddressParam(common.HexToAddress(string(v)))
-			return nil
-		} else if len(v) == 20 {
+		switch len(v) {
+		case 42:
+			bs, err := utils.TryParseHex(string(v))
+			if err == nil {
+				*a = AddressParam(common.BytesToAddress(bs))
+				return nil
+			}
+		case 20:
 			copy((*a)[:], v)
 			return nil
 		}
-		return ErrBadInput
 	case common.Address:
 		*a = AddressParam(v)
-	default:
-		return ErrBadInput
+		return nil
 	}
-	return nil
+
+	return errors.Wrapf(ErrBadInput, "expected common.Address, got %T", val)
 }
 
 // MapParam accepts maps or JSON-encoded strings
@@ -551,7 +505,7 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 		}
 
 	case *ObjectParam:
-		if v.Type == MapType {
+		if v != nil && v.Type == MapType {
 			*m = v.MapValue
 			return nil
 		}
@@ -654,12 +608,12 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		err := json.Unmarshal([]byte(v), &dsp)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
 	case []byte:
 		err := json.Unmarshal(v, &dsp)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
 	case []interface{}:
 		for _, h := range v {
@@ -670,6 +624,16 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 				}
 				dsp = append(dsp, hash)
+			} else if b, is := h.([]byte); is {
+				// same semantic as AddressSliceParam
+				var hash common.Hash
+				err := hash.UnmarshalText(b)
+				if err != nil {
+					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
+				}
+				dsp = append(dsp, hash)
+			} else if h, is := h.(common.Hash); is {
+				dsp = append(dsp, h)
 			} else {
 				return errors.Wrap(ErrBadInput, "HashSliceParam")
 			}
@@ -718,7 +682,23 @@ func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type JSONPathParam []string
 
+// NewJSONPathParam returns a new JSONPathParam using the given separator, or the default if empty.
+func NewJSONPathParam(sep string) JSONPathParam {
+	if len(sep) == 0 {
+		return nil
+	}
+	return []string{sep}
+}
+
+// UnmarshalPipelineParam unmarshals a slice of strings from val.
+// If val is a string or []byte, it is split on a separator.
+// The default separator is ',' but can be overridden by initializing via NewJSONPathParam.
 func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
+	sep := ","
+	if len(*p) > 0 {
+		// custom separator
+		sep = (*p)[0]
+	}
 	var ssp JSONPathParam
 	switch v := val.(type) {
 	case nil:
@@ -737,12 +717,12 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 		if len(v) == 0 {
 			return nil
 		}
-		ssp = strings.Split(v, ",")
+		ssp = strings.Split(v, sep)
 	case []byte:
 		if len(v) == 0 {
 			return nil
 		}
-		ssp = strings.Split(string(v), ",")
+		ssp = strings.Split(string(v), sep)
 	default:
 		return ErrBadInput
 	}
@@ -752,6 +732,13 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 
 type MaybeBigIntParam struct {
 	n *big.Int
+}
+
+// NewMaybeBigIntParam creates a new instance of MaybeBigIntParam
+func NewMaybeBigIntParam(n *big.Int) MaybeBigIntParam {
+	return MaybeBigIntParam{
+		n: n,
+	}
 }
 
 func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
@@ -778,7 +765,14 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 	case int64:
 		n = big.NewInt(int64(v))
 	case float64: // when decoding from db: JSON numbers are floats
-		n = big.NewInt(0).SetUint64(uint64(v))
+		if v < math.MinInt64 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to u/int64", v)
+		}
+		if v < 0 {
+			n = big.NewInt(int64(v))
+		} else {
+			n = big.NewInt(0).SetUint64(uint64(v))
+		}
 	case string:
 		if strings.TrimSpace(v) == "" {
 			*p = MaybeBigIntParam{n: nil}

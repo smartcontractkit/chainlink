@@ -14,7 +14,7 @@
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
 /core/services/health @archseer @samsondav
 /core/services/job @spooktheducks @connorwstein @archseer
-/core/services/keeper @RyanRHall @samsondav
+/core/services/keeper @smartcontractkit/keepers
 /core/services/keystore @RyanRHall
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
@@ -22,7 +22,7 @@
 /core/services/pipeline @spooktheducks @connorwstein @archseer @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
-/core/services/vrf @connorwstein
+/core/services/vrf @connorwstein @Nic0s @makramkd
 /core/services/webhook @spooktheducks @archseer
 
 # API
@@ -36,6 +36,7 @@
 
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
+/contracts/**/Keeper* @smartcontractkit/keepers
 
 # Tests
 /integration-tests/ @kalverra
@@ -45,6 +46,9 @@
 /core/chains @samsondav
 /core/logger @jmank88
 /core/internal @samsondav @jmank88 @archseer
+
+# CI/CD
+/.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public

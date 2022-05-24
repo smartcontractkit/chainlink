@@ -116,11 +116,16 @@ type ConfigSchema struct {
 	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
 	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
+	// LogPoller
+	FeatureLogPoller bool `env:"FEATURE_LOG_POLLER" default:"false"` //nodoc
+
 	// General chains/RPC
-	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
-	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
-	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
-	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
+	EVMEnabled    bool   `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled bool   `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled bool   `env:"SOLANA_ENABLED" default:"false"`
+	SolanaNodes   string `env:"SOLANA_NODES"`
+	TerraEnabled  bool   `env:"TERRA_ENABLED" default:"false"`
+	TerraNodes    string `env:"TERRA_NODES"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
@@ -144,10 +149,11 @@ type ConfigSchema struct {
 	EvmHeadTrackerMaxBufferSize       uint          `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE"`
 	EvmHeadTrackerSamplingInterval    time.Duration `env:"ETH_HEAD_TRACKER_SAMPLING_INTERVAL"`
 	EvmLogBackfillBatchSize           uint32        `env:"ETH_LOG_BACKFILL_BATCH_SIZE"`
+	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
+	OperatorFactoryAddress            string        `env:"OPERATOR_FACTORY_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
-	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	// Node liveness checking
 	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
@@ -180,16 +186,16 @@ type ConfigSchema struct {
 	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
 	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
 	EvmNonceAutoSync           bool   `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmUseForwarders           bool   `env:"ETH_USE_FORWARDERS"`
 
 	// Job Pipeline and tasks
-	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
-	DefaultHTTPLimit                          int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
-	DefaultHTTPTimeout                        models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
-	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	JobPipelineMaxRunDuration                 time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
-	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
-	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"24h"`
-	JobPipelineResultWriteQueueDepth          uint64          `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
+	DefaultHTTPLimit                 int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
+	DefaultHTTPTimeout               models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
+	FeatureExternalInitiators        bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
+	JobPipelineMaxRunDuration        time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
+	JobPipelineReaperInterval        time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
+	JobPipelineReaperThreshold       time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"24h"`
+	JobPipelineResultWriteQueueDepth uint64          `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
 
 	// Flux Monitor
 	FMDefaultTransactionQueueDepth uint32 `env:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"` //nodoc
@@ -268,11 +274,8 @@ type ConfigSchema struct {
 	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
-
-	// CLI client
-	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
-	ClientNodeURL        string `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	InsecureSkipVerify   bool   `env:"INSECURE_SKIP_VERIFY" default:"false"`
+	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
+	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
 
 	// Debugging
 	AutoPprofEnabled              bool            `env:"AUTO_PPROF_ENABLED" default:"false"`            //nodoc
@@ -317,17 +320,4 @@ func DefaultValue(name string) (string, bool) {
 	}
 	log.Panicf("Invariant violated, no field of name %s found for DefaultValue", name)
 	return "", false
-}
-
-// ZeroValue returns the zero value for a named field, or panics if it does not exist.
-func ZeroValue(name string) interface{} {
-	schemaT := reflect.TypeOf(ConfigSchema{})
-	if item, ok := schemaT.FieldByName(name); ok {
-		if item.Type.Kind() == reflect.Ptr {
-			return nil
-		}
-		return reflect.New(item.Type).Interface()
-	}
-	log.Panicf("Invariant violated, no field of name %s found for ZeroValue", name)
-	return nil
 }

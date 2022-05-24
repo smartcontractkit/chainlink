@@ -32,6 +32,8 @@ func init() {
 	}
 }
 
+//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
 //
@@ -60,10 +62,6 @@ type Logger interface {
 	//   a := l.Named("a") // logger=a
 	//   b := a.Named("b") // logger=a.b
 	Named(name string) Logger
-
-	// NewRootLogger creates a new root Logger with an independent log level
-	// unaffected by upstream calls to SetLogLevel.
-	NewRootLogger(lvl zapcore.Level) (Logger, error)
 
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
@@ -127,14 +125,6 @@ const (
 	Keeper          = "Keeper"
 )
 
-func GetLogServices() []string {
-	return []string{
-		HeadTracker,
-		FluxMonitor,
-		Keeper,
-	}
-}
-
 // newZapConfigProd returns a new production zap.Config.
 func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
 	config := newZapConfigBase()
@@ -168,9 +158,10 @@ func verShaName(ver, sha string) string {
 func NewLogger() (Logger, func() error) {
 	var c Config
 	var parseErrs []string
+	var warnings []string
 
 	var invalid string
-	c.LogLevel, invalid = envvar.LogLevel.ParseLogLevel()
+	c.LogLevel, invalid = envvar.LogLevel.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
@@ -178,22 +169,29 @@ func NewLogger() (Logger, func() error) {
 	c.Dir = os.Getenv("LOG_FILE_DIR")
 	if c.Dir == "" {
 		var invalid2 string
-		c.Dir, invalid2 = envvar.RootDir.ParseString()
+		c.Dir, invalid2 = envvar.RootDir.Parse()
 		if invalid2 != "" {
 			parseErrs = append(parseErrs, invalid2)
 		}
 	}
 
-	c.JsonConsole, invalid = envvar.JSONConsole.ParseBool()
+	c.JsonConsole, invalid = envvar.JSONConsole.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
 
 	var fileMaxSize utils.FileSize
-	fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
-	c.FileMaxSize = int(fileMaxSize)
+	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
+	}
+	if fileMaxSize <= 0 {
+		c.FileMaxSizeMB = 0 // disabled
+	} else if fileMaxSize < utils.MB {
+		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
+		warnings = append(warnings, fmt.Sprintf("LogFileMaxSize %s is too small: using default %s", fileMaxSize, utils.FileSize(utils.MB)))
+	} else {
+		c.FileMaxSizeMB = int(fileMaxSize / utils.MB)
 	}
 
 	if c.DebugLogsToDisk() {
@@ -202,20 +200,20 @@ func NewLogger() (Logger, func() error) {
 			maxBackups int64
 		)
 
-		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
-		c.FileMaxAge = int(fileMaxAge)
+		fileMaxAge, invalid = envvar.LogFileMaxAge.Parse()
+		c.FileMaxAgeDays = int(fileMaxAge)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 
-		maxBackups, invalid = envvar.LogFileMaxBackups.ParseInt64()
+		maxBackups, invalid = envvar.LogFileMaxBackups.Parse()
 		c.FileMaxBackups = int(maxBackups)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 	}
 
-	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
+	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
@@ -223,6 +221,9 @@ func NewLogger() (Logger, func() error) {
 	l, close := c.New()
 	for _, msg := range parseErrs {
 		l.Error(msg)
+	}
+	for _, msg := range warnings {
+		l.Warn(msg)
 	}
 	return l.Named(verShaNameStatic()), close
 }
@@ -232,8 +233,8 @@ type Config struct {
 	Dir            string
 	JsonConsole    bool
 	UnixTS         bool
-	FileMaxSize    int // megabytes
-	FileMaxAge     int // days
+	FileMaxSizeMB  int
+	FileMaxAgeDays int
 	FileMaxBackups int // files
 }
 
@@ -257,12 +258,12 @@ func (c *Config) New() (Logger, func() error) {
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
 func (c Config) DebugLogsToDisk() bool {
-	return c.FileMaxSize > 0
+	return c.FileMaxSizeMB > 0
 }
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
-	return utils.FileSize(c.FileMaxSize * (c.FileMaxBackups + 1))
+	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.

@@ -6,20 +6,21 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func mustInsertEVMChain(t *testing.T, orm types.ORM) types.Chain {
-	id := utils.NewBigI(99)
-	config := types.ChainCfg{}
-	chain, err := orm.CreateChain(*id, config)
+func mustInsertEVMChain(t *testing.T, orm types.ORM) types.DBChain {
+	id := utils.NewBig(testutils.NewRandomEVMChainID())
+	chain, err := orm.CreateChain(*id, nil)
 	require.NoError(t, err)
 	return chain
 }
@@ -44,7 +45,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	require.NoError(t, err)
 	chain := mustInsertEVMChain(t, orm)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
@@ -54,7 +55,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexEVMNodes(cltest.EmptyCLIContext()))
+	require.Nil(t, cmd.NewEVMNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.EVMNodePresenters)
 	require.Len(t, nodes, initialCount+1)
@@ -87,7 +88,7 @@ func TestClient_CreateEVMNode(t *testing.T) {
 	set.String("http-url", "http://TestClient_CreateEVMNode2.invalid", "")
 	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
 	c := cli.NewContext(nil, set, nil)
-	err = client.CreateEVMNode(c)
+	err = cmd.NewEVMNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	// successful send-only
@@ -97,7 +98,7 @@ func TestClient_CreateEVMNode(t *testing.T) {
 	set.String("http-url", "http://TestClient_CreateEVMNode3.invalid", "")
 	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateEVMNode(c)
+	err = cmd.NewEVMNodeClient(client).CreateNode(c)
 	require.NoError(t, err)
 
 	nodes, _, err := orm.Nodes(0, 25)
@@ -131,7 +132,7 @@ func TestClient_RemoveEVMNode(t *testing.T) {
 
 	chain := mustInsertEVMChain(t, orm)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
@@ -148,7 +149,7 @@ func TestClient_RemoveEVMNode(t *testing.T) {
 	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveEVMNode(c)
+	err = cmd.NewEVMNodeClient(client).RemoveNode(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Nodes(0, 25)

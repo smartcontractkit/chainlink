@@ -4,8 +4,9 @@ import { GraphQLError } from 'graphql'
 import { renderWithRouter, screen } from 'support/test-utils'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 
-import { EVMAccounts, ETH_KEYS_QUERY } from './EVMAccounts'
+import { EVMAccounts } from './EVMAccounts'
 import { buildETHKeys } from 'support/factories/gql/fetchETHKeys'
+import { ETH_KEYS_QUERY } from 'hooks/queries/useEVMAccountsQuery'
 import { waitForLoading } from 'support/test-helpers/wait'
 import { shortenHex } from 'src/utils/shortenHex'
 

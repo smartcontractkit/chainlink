@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -57,7 +58,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 		return nil, nil, fmt.Errorf(
 			"should have two arguments after \"eth_call\", got %d", len(args))
 	}
-	callArgs, ok := args[0].(CallArgs)
+	callArgs, ok := args[0].(map[string]interface{})
 	if !ok {
 		return nil, nil, fmt.Errorf("third arg to SimulatedBackendClient.Call "+
 			"must be an eth.CallArgs, got %+#v", args[0])
@@ -68,7 +69,12 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 			"must be the string \"latest\", or a *big.Int equal to current "+
 			"blocknumber, got %#+v", args[1])
 	}
-	return &callArgs, blockNumber, nil
+	ca := CallArgs{
+		From: callArgs["from"].(common.Address),
+		To:   *callArgs["to"].(*common.Address),
+		Data: callArgs["data"].(hexutil.Bytes),
+	}
+	return &ca, blockNumber, nil
 }
 
 // CallContext mocks the ethereum client RPC calls used by chainlink, copying the
@@ -80,7 +86,7 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 		if err != nil {
 			return err
 		}
-		callMsg := ethereum.CallMsg{To: &callArgs.To, Data: callArgs.Data}
+		callMsg := ethereum.CallMsg{From: callArgs.From, To: &callArgs.To, Data: callArgs.Data}
 		b, err := c.b.CallContract(ctx, callMsg, nil /* always latest block */)
 		if err != nil {
 			return errors.Wrapf(err, "while calling contract at address %x with "+
@@ -240,6 +246,11 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 // BlockByNumber returns a geth block type.
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
 	return c.b.BlockByNumber(ctx, n)
+}
+
+// BlockByNumber returns a geth block type.
+func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return c.b.BlockByHash(ctx, hash)
 }
 
 // ChainID returns the ethereum ChainID.

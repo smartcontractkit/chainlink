@@ -35,7 +35,7 @@ type orm struct {
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, chainID big.Int) ORM {
-	return &orm{pg.NewQ(db, lggr, cfg), utils.Big(chainID)}
+	return &orm{pg.NewQ(db, lggr.Named("HeadTrackerORM"), cfg), utils.Big(chainID)}
 }
 
 func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error {

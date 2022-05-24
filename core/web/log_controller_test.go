@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -24,8 +22,6 @@ type testCase struct {
 	Description string
 	logLevel    string
 	logSql      *bool
-	svcName     string
-	svcLevel    string
 
 	expectedLogLevel  zapcore.Level
 	expectedLogSQL    bool
@@ -112,68 +108,6 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			logLevel:          "test",
 			expectedErrorCode: http.StatusBadRequest,
 		},
-		{
-			Description: "Set head tracker to info",
-			logLevel:    "info",
-
-			svcName:  strings.Join([]string{logger.HeadTracker}, ","),
-			svcLevel: strings.Join([]string{"info"}, ","),
-
-			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.HeadTracker: zapcore.InfoLevel},
-		},
-		{
-			Description: "Set flux monitor to warn",
-			logLevel:    "info",
-
-			svcName:  strings.Join([]string{logger.FluxMonitor}, ","),
-			svcLevel: strings.Join([]string{"warn"}, ","),
-
-			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.FluxMonitor: zapcore.WarnLevel},
-		},
-		{
-			Description: "Set keeper to info",
-			logLevel:    "info",
-
-			svcName:  strings.Join([]string{logger.Keeper}, ","),
-			svcLevel: strings.Join([]string{"info"}, ","),
-
-			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{logger.Keeper: zapcore.InfoLevel},
-		},
-		{
-			Description: "Set multiple services log levels",
-			logLevel:    "info",
-
-			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor, logger.Keeper}, ","),
-			svcLevel: strings.Join([]string{"debug", "warn", "info"}, ","),
-
-			expectedLogLevel: zapcore.InfoLevel,
-			expectedSvcLevel: map[string]zapcore.Level{
-				logger.HeadTracker: zapcore.DebugLevel,
-				logger.FluxMonitor: zapcore.WarnLevel,
-				logger.Keeper:      zapcore.InfoLevel,
-			},
-		},
-		{
-			Description: "Set incorrect log levels",
-			logLevel:    "info",
-
-			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor, logger.Keeper}, ","),
-			svcLevel: strings.Join([]string{"debug", "warning", "infa"}, ","),
-
-			expectedErrorCode: http.StatusBadRequest,
-		},
-		{
-			Description: "Set incorrect service names",
-			logLevel:    "info",
-
-			svcName:  strings.Join([]string{logger.HeadTracker, "FLUX-MONITOR", "SHKEEPER"}, ","),
-			svcLevel: strings.Join([]string{"debug", "warning", "info"}, ","),
-
-			expectedErrorCode: http.StatusBadRequest,
-		},
 	}
 
 	for _, tc := range cases {
@@ -184,19 +118,6 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			client := app.NewHTTPClient()
 
 			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
-
-			if tc.svcName != "" {
-				svcs := strings.Split(tc.svcName, ",")
-				lvls := strings.Split(tc.svcLevel, ",")
-
-				serviceLogLevel := make([][2]string, len(svcs))
-
-				for i, p := range svcs {
-					serviceLogLevel[i][0] = p
-					serviceLogLevel[i][1] = lvls[i]
-				}
-				request.ServiceLogLevel = serviceLogLevel
-			}
 
 			requestData, _ := json.Marshal(request)
 			buf := bytes.NewBuffer(requestData)
@@ -219,14 +140,6 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 
 					if svcName == "IsSqlEnabled" {
 						assert.Equal(t, strconv.FormatBool(tc.expectedLogSQL), svcLogConfig.LogLevel[i])
-					}
-
-					if svcName == logger.HeadTracker {
-						assert.Equal(t, tc.expectedSvcLevel[logger.HeadTracker].String(), svcLogConfig.LogLevel[i])
-					}
-
-					if svcName == logger.FluxMonitor {
-						assert.Equal(t, tc.expectedSvcLevel[logger.FluxMonitor].String(), svcLogConfig.LogLevel[i])
 					}
 				}
 			}

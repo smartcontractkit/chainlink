@@ -59,7 +59,11 @@ type (
 
 		WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error)
 		MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error
-		// NOTE: WasAlreadyConsumed and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
+
+		// MarkManyConsumed marks all the provided log broadcasts as consumed.
+		MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error
+
+		// NOTE: WasAlreadyConsumed, MarkConsumed and MarkManyConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
 	}
 
 	BroadcasterInTest interface {
@@ -100,8 +104,8 @@ type (
 
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
-		changeSubscriberStatus *utils.Mailbox
-		newHeads               *utils.Mailbox
+		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
+		newHeads               *utils.Mailbox[*evmtypes.Head]
 
 		utils.StartStopOnce
 		utils.DependentAwaiter
@@ -138,6 +142,9 @@ type (
 
 		// Minimum number of block confirmations before the log is received
 		MinIncomingConfirmations uint32
+
+		// ReplayStartedCallback is called by the log broadcaster once a replay request is received.
+		ReplayStartedCallback func()
 	}
 
 	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
@@ -169,8 +176,8 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
 		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
 		logPool:                newLogPool(),
-		changeSubscriberStatus: utils.NewMailbox(100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
-		newHeads:               utils.NewMailbox(1),
+		changeSubscriberStatus: utils.NewMailbox[changeSubscriberStatus](100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
+		newHeads:               utils.NewMailbox[*evmtypes.Head](1),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
@@ -459,6 +466,13 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 // onReplayRequest clears the pool and sets the block backfill number.
 func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
+	// notify subscribers that we are about to replay.
+	for subscriber := range b.registrations.registeredSubs {
+		if subscriber.opts.ReplayStartedCallback != nil {
+			subscriber.opts.ReplayStartedCallback()
+		}
+	}
+
 	_ = b.invalidatePool()
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and
@@ -516,11 +530,10 @@ func (b *broadcaster) onNewHeads() {
 	var latestHead *evmtypes.Head
 	for {
 		// We only care about the most recent head
-		item := b.newHeads.RetrieveLatestAndClear()
-		if item == nil {
+		head := b.newHeads.RetrieveLatestAndClear()
+		if head == nil {
 			break
 		}
-		head := evmtypes.AsHead(item)
 		latestHead = head
 	}
 
@@ -584,13 +597,9 @@ func (b *broadcaster) onNewHeads() {
 
 func (b *broadcaster) onChangeSubscriberStatus() (needsResubscribe bool) {
 	for {
-		x, exists := b.changeSubscriberStatus.Retrieve()
+		change, exists := b.changeSubscriberStatus.Retrieve()
 		if !exists {
 			break
-		}
-		change, ok := x.(changeSubscriberStatus)
-		if !ok {
-			b.logger.Panicf("expected `changeSubscriberStatus`, got %T", x)
 		}
 		sub := change.sub
 
@@ -667,6 +676,23 @@ func (b *broadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
 	return b.orm.MarkBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID(), qopts...)
 }
 
+// MarkManyConsumed marks the logs as having been successfully consumed by the subscriber
+func (b *broadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) (err error) {
+	var (
+		blockHashes  = make([]common.Hash, len(lbs))
+		blockNumbers = make([]uint64, len(lbs))
+		logIndexes   = make([]uint, len(lbs))
+		jobIDs       = make([]int32, len(lbs))
+	)
+	for i := range lbs {
+		blockHashes[i] = lbs[i].RawLog().BlockHash
+		blockNumbers[i] = lbs[i].RawLog().BlockNumber
+		logIndexes[i] = lbs[i].RawLog().Index
+		jobIDs[i] = lbs[i].JobID()
+	}
+	return b.orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs, qopts...)
+}
+
 // test only
 func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return b.trackedAddressesCount.Load()
@@ -720,6 +746,9 @@ func (n *NullBroadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bo
 	return false, errors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
+	return errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error {
 	return errors.New(n.ErrMsg)
 }
 

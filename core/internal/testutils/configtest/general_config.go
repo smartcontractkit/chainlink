@@ -37,76 +37,77 @@ const (
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
-	AdvisoryLockCheckInterval                 *time.Duration
-	AdminCredentialsFile                      null.String
-	AdvisoryLockID                            null.Int
-	AllowOrigins                              null.String
-	BlockBackfillDepth                        null.Int
-	BlockBackfillSkip                         null.Bool
-	ClientNodeURL                             null.String
-	DatabaseURL                               null.String
-	DatabaseLockingMode                       null.String
-	DefaultChainID                            *big.Int
-	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
-	DefaultHTTPTimeout                        *time.Duration
-	HTTPServerWriteTimeout                    *time.Duration
-	Dev                                       null.Bool
-	ShutdownGracePeriod                       *time.Duration
-	Dialect                                   dialects.DialectName
-	EthereumURL                               null.String
-	GlobalBalanceMonitorEnabled               null.Bool
-	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
-	GlobalChainType                           null.String
-	GlobalEthTxReaperThreshold                *time.Duration
-	GlobalEthTxResendAfterThreshold           *time.Duration
-	GlobalEvmEIP1559DynamicFees               null.Bool
-	GlobalEvmFinalityDepth                    null.Int
-	GlobalEvmGasBumpPercent                   null.Int
-	GlobalEvmGasBumpTxDepth                   null.Int
-	GlobalEvmGasBumpWei                       *big.Int
-	GlobalEvmGasFeeCapDefault                 *big.Int
-	GlobalEvmGasLimitDefault                  null.Int
-	GlobalEvmGasLimitMultiplier               null.Float
-	GlobalEvmGasPriceDefault                  *big.Int
-	GlobalEvmGasTipCapDefault                 *big.Int
-	GlobalEvmGasTipCapMinimum                 *big.Int
-	GlobalEvmHeadTrackerHistoryDepth          null.Int
-	GlobalEvmHeadTrackerMaxBufferSize         null.Int
-	GlobalEvmHeadTrackerSamplingInterval      *time.Duration
-	GlobalEvmLogBackfillBatchSize             null.Int
-	GlobalEvmMaxGasPriceWei                   *big.Int
-	GlobalEvmMinGasPriceWei                   *big.Int
-	GlobalEvmNonceAutoSync                    null.Bool
-	GlobalEvmRPCDefaultBatchSize              null.Int
-	GlobalFlagsContractAddress                null.String
-	GlobalGasEstimatorMode                    null.String
-	GlobalMinIncomingConfirmations            null.Int
-	GlobalMinRequiredOutgoingConfirmations    null.Int
-	GlobalMinimumContractPayment              *assets.Link
-	GlobalOCRObservationGracePeriod           time.Duration
-	KeeperCheckUpkeepGasPriceFeatureEnabled   null.Bool
-	KeeperMaximumGracePeriod                  null.Int
-	KeeperRegistrySyncInterval                *time.Duration
-	KeeperRegistrySyncUpkeepQueueSize         null.Int
-	LeaseLockDuration                         *time.Duration
-	LeaseLockRefreshInterval                  *time.Duration
-	LogFileDir                                null.String
-	LogLevel                                  *zapcore.Level
-	DefaultLogLevel                           *zapcore.Level
-	LogSQL                                    null.Bool
-	LogFileMaxSize                            null.String
-	LogFileMaxAge                             null.Int
-	LogFileMaxBackups                         null.Int
-	SecretGenerator                           config.SecretGenerator
-	TriggerFallbackDBPollInterval             *time.Duration
-	KeySpecific                               map[string]types.ChainCfg
-	LinkContractAddress                       null.String
+	AdvisoryLockCheckInterval               *time.Duration
+	AdvisoryLockID                          null.Int
+	AllowOrigins                            null.String
+	BlockBackfillDepth                      null.Int
+	BlockBackfillSkip                       null.Bool
+	DatabaseURL                             null.String
+	DatabaseLockingMode                     null.String
+	DefaultChainID                          *big.Int
+	DefaultHTTPTimeout                      *time.Duration
+	HTTPServerWriteTimeout                  *time.Duration
+	Dev                                     null.Bool
+	ShutdownGracePeriod                     *time.Duration
+	Dialect                                 dialects.DialectName
+	EthereumURL                             null.String
+	GlobalBalanceMonitorEnabled             null.Bool
+	GlobalBlockEmissionIdleWarningThreshold *time.Duration
+	GlobalChainType                         null.String
+	GlobalEthTxReaperThreshold              *time.Duration
+	GlobalEthTxResendAfterThreshold         *time.Duration
+	GlobalEvmEIP1559DynamicFees             null.Bool
+	GlobalEvmFinalityDepth                  null.Int
+	GlobalEvmGasBumpPercent                 null.Int
+	GlobalEvmGasBumpTxDepth                 null.Int
+	GlobalEvmGasBumpWei                     *big.Int
+	GlobalEvmGasFeeCapDefault               *big.Int
+	GlobalEvmGasLimitDefault                null.Int
+	GlobalEvmGasLimitMultiplier             null.Float
+	GlobalEvmGasPriceDefault                *big.Int
+	GlobalEvmGasTipCapDefault               *big.Int
+	GlobalEvmGasTipCapMinimum               *big.Int
+	GlobalEvmHeadTrackerHistoryDepth        null.Int
+	GlobalEvmHeadTrackerMaxBufferSize       null.Int
+	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
+	GlobalEvmLogBackfillBatchSize           null.Int
+	GlobalEvmLogPollInterval                *time.Duration
+	GlobalEvmMaxGasPriceWei                 *big.Int
+	GlobalEvmMinGasPriceWei                 *big.Int
+	GlobalEvmNonceAutoSync                  null.Bool
+	GlobalEvmRPCDefaultBatchSize            null.Int
+	GlobalFlagsContractAddress              null.String
+	GlobalGasEstimatorMode                  null.String
+	GlobalMinIncomingConfirmations          null.Int
+	GlobalMinimumContractPayment            *assets.Link
+	GlobalOCRObservationGracePeriod         time.Duration
+	KeeperCheckUpkeepGasPriceFeatureEnabled null.Bool
+	KeeperMaximumGracePeriod                null.Int
+	KeeperRegistrySyncInterval              *time.Duration
+	KeeperRegistrySyncUpkeepQueueSize       null.Int
+	KeeperTurnLookBack                      null.Int
+	KeeperTurnFlagEnabled                   null.Bool
+	LeaseLockDuration                       *time.Duration
+	LeaseLockRefreshInterval                *time.Duration
+	LogFileDir                              null.String
+	LogLevel                                *zapcore.Level
+	DefaultLogLevel                         *zapcore.Level
+	LogSQL                                  null.Bool
+	LogFileMaxSize                          null.String
+	LogFileMaxAge                           null.Int
+	LogFileMaxBackups                       null.Int
+	SecretGenerator                         config.SecretGenerator
+	TriggerFallbackDBPollInterval           *time.Duration
+	KeySpecific                             map[string]types.ChainCfg
+	LinkContractAddress                     null.String
+	OperatorFactoryAddress                  null.String
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
 	FeatureFeedsManager       null.Bool
 	FeatureOffchainReporting  null.Bool
 	FeatureOffchainReporting2 null.Bool
+	FeatureLogPoller          null.Bool
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
@@ -257,12 +258,12 @@ func (c *TestGeneralConfig) SetRootDir(dir string) {
 	c.rootdir = dir
 }
 
-func (c *TestGeneralConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(2 * time.Minute)
-}
-
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
+}
+
+func (c *TestGeneralConfig) SessionTimeout() models.Duration {
+	return models.MustMakeDuration(2 * time.Minute)
 }
 
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
@@ -321,13 +322,6 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	return "txdb"
 }
 
-func (c *TestGeneralConfig) ClientNodeURL() string {
-	if c.Overrides.ClientNodeURL.Valid {
-		return c.Overrides.ClientNodeURL.String
-	}
-	return c.GeneralConfig.ClientNodeURL()
-}
-
 func (c *TestGeneralConfig) DatabaseURL() url.URL {
 	if c.Overrides.DatabaseURL.Valid {
 		uri, err := url.Parse(c.Overrides.DatabaseURL.String)
@@ -374,6 +368,13 @@ func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
 	return c.GeneralConfig.FeatureOffchainReporting2()
 }
 
+func (c *TestGeneralConfig) FeatureLogPoller() bool {
+	if c.Overrides.FeatureLogPoller.Valid {
+		return c.Overrides.FeatureLogPoller.Bool
+	}
+	return c.GeneralConfig.FeatureLogPoller()
+}
+
 // TriggerFallbackDBPollInterval returns the test configured value for TriggerFallbackDBPollInterval
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
@@ -409,20 +410,6 @@ func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
 		return c.Overrides.LogFileMaxBackups.Int64
 	}
 	return int64(c.GeneralConfig.LogFileMaxBackups())
-}
-
-func (c *TestGeneralConfig) AdminCredentialsFile() string {
-	if c.Overrides.AdminCredentialsFile.Valid {
-		return c.Overrides.AdminCredentialsFile.String
-	}
-	return c.GeneralConfig.AdminCredentialsFile()
-}
-
-func (c *TestGeneralConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
-	if c.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess.Valid {
-		return c.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess.Bool
-	}
-	return c.GeneralConfig.DefaultHTTPAllowUnrestrictedNetworkAccess()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
@@ -466,6 +453,20 @@ func (c *TestGeneralConfig) KeeperMaximumGracePeriod() int64 {
 		return c.Overrides.KeeperMaximumGracePeriod.Int64
 	}
 	return c.GeneralConfig.KeeperMaximumGracePeriod()
+}
+
+func (c *TestGeneralConfig) KeeperTurnLookBack() int64 {
+	if c.Overrides.KeeperTurnLookBack.Valid {
+		return c.Overrides.KeeperTurnLookBack.Int64
+	}
+	return c.GeneralConfig.KeeperTurnLookBack()
+}
+
+func (c *TestGeneralConfig) KeeperTurnFlagEnabled() bool {
+	if c.Overrides.KeeperTurnFlagEnabled.Valid {
+		return c.Overrides.KeeperTurnFlagEnabled.Bool
+	}
+	return c.GeneralConfig.KeeperTurnFlagEnabled()
 }
 
 func (c *TestGeneralConfig) BlockBackfillSkip() bool {
@@ -610,6 +611,13 @@ func (c *TestGeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
 }
 
+func (c *TestGeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	if c.Overrides.GlobalEvmLogPollInterval != nil {
+		return *c.Overrides.GlobalEvmLogPollInterval, true
+	}
+	return c.GeneralConfig.GlobalEvmLogPollInterval()
+}
+
 func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	if c.Overrides.GlobalEvmMaxGasPriceWei != nil {
 		return c.Overrides.GlobalEvmMaxGasPriceWei, true
@@ -657,13 +665,6 @@ func (c *TestGeneralConfig) GlobalFlagsContractAddress() (string, bool) {
 		return c.Overrides.GlobalFlagsContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalFlagsContractAddress()
-}
-
-func (c *TestGeneralConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
-	if c.Overrides.GlobalMinRequiredOutgoingConfirmations.Valid {
-		return uint64(c.Overrides.GlobalMinRequiredOutgoingConfirmations.Int64), true
-	}
-	return c.GeneralConfig.GlobalMinRequiredOutgoingConfirmations()
 }
 
 func (c *TestGeneralConfig) GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool) {
@@ -756,4 +757,12 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+// GlobalOperatorFactoryAddress allows to override the LINK contract address
+func (c *TestGeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
+	if c.Overrides.OperatorFactoryAddress.Valid {
+		return c.Overrides.OperatorFactoryAddress.String, true
+	}
+	return c.GeneralConfig.GlobalOperatorFactoryAddress()
 }

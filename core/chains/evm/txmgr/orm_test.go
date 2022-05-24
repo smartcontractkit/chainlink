@@ -138,7 +138,7 @@ func TestORM(t *testing.T) {
 	})
 	var r txmgr.EthReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
-		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash)
+		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash, 0x1)
 		err = orm.InsertEthReceipt(&r)
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)

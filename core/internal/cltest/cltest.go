@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -93,7 +94,7 @@ const (
 	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password = testutils.Password
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultPeerID is the peer ID of the default p2p key
@@ -170,11 +171,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
-	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr)
+	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -281,7 +282,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
 			app.Key = v
-		case evmtypes.Chain:
+		case evmtypes.DBChain:
 			chainID = v.ID
 		}
 	}
@@ -304,7 +305,17 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	t.Helper()
 	testutils.SkipShortDB(t)
 
-	lggr := logger.TestLogger(t)
+	var lggr logger.Logger
+	for _, dep := range flagsAndDeps {
+		argLggr, is := dep.(logger.Logger)
+		if is {
+			lggr = argLggr
+			break
+		}
+	}
+	if lggr == nil {
+		lggr = logger.TestLogger(t)
+	}
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
@@ -328,17 +339,17 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case evmtypes.Chain:
+		case evmtypes.DBChain:
 			if chainORM != nil {
 				panic("cannot set more than one chain")
 			}
-			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
+			chainORM = evmtest.NewMockORM([]evmtypes.DBChain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg)
 			}
 
 		}
@@ -359,7 +370,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.Chain) evmclient.Client {
+		GenEthClient: func(c evmtypes.DBChain) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
@@ -398,6 +409,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
@@ -407,6 +419,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		Logger:                   lggr,
 		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
+		RestrictedHTTPClient:     c,
+		UnrestrictedHTTPClient:   c,
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
@@ -417,8 +431,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 	ta.Server = newServer(ta)
 
-	cfg.Overrides.ClientNodeURL = null.StringFrom(ta.Server.URL)
-
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
@@ -426,54 +438,38 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
 	testutils.SkipShortDB(t)
-	c, s = NewEthMocks(t)
+	c = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription) {
-	c, s := NewEthClientAndSubMock(t)
+func NewEthMocks(t testing.TB) *evmMocks.Client {
+	c := new(evmMocks.Client)
+	c.Test(t)
 	switch tt := t.(type) {
 	case *testing.T:
 		t.Cleanup(func() {
 			c.AssertExpectations(tt)
-			s.AssertExpectations(tt)
 		})
 	}
-	return c, s
-}
-
-func NewEthClientAndSubMock(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
-	mockSub := new(evmMocks.Subscription)
-	mockSub.Test(t)
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth, mockSub
-}
-
-func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
-	mockEth, mockSub := NewEthClientAndSubMock(t)
-	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
-	return mockEth, mockSub
-}
-
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth
-}
-
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
-	c := NewEthClientMock(t)
-	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return c
+}
+
+// Deprecated: use evmtest.NewEthClientMock
+func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
+	return evmtest.NewEthClientMock(t)
+}
+
+// Deprecated: use evmtest.NewEthClientMockWithDefaultChain
+func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+	return evmtest.NewEthClientMockWithDefaultChain(t)
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	testutils.SkipShort(t, "long test")
-	c, s := NewEthMocks(t)
+	c := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -486,15 +482,13 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	})
 	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
-	s.On("Err").Return(nil).Maybe()
-	s.On("Unsubscribe").Return(nil).Maybe()
 	return c
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Client {
 	testutils.SkipShort(t, "long test")
-	c, s := NewEthMocks(t)
+	c := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -521,9 +515,6 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 		Number: big.NewInt(100),
 	})
 	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
-
-	s.On("Err").Return(nil).Maybe()
-	s.On("Unsubscribe").Return(nil).Maybe()
 
 	return c
 }
@@ -589,9 +580,13 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 	sessionID := ta.MustSeedNewSession()
 
 	return HTTPClientCleaner{
-		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
+		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
 		t:          ta.t,
 	}
+}
+
+func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
+	return cmd.ClientOpts{RemoteNodeURL: *MustParseURL(ta.t, ta.Server.URL), InsecureSkipVerify: true}
 }
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
@@ -607,7 +602,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
-		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
+		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
 		CookieAuthenticator:            MockCookieAuthenticator{t: ta.t},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
@@ -618,7 +613,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	lggr := logger.TestLogger(ta.t)
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{}, lggr)
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
@@ -627,7 +622,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(lggr),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
@@ -822,7 +817,7 @@ func CreateJobRunViaExternalInitiatorV2(
 	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
 	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
 
-	url := app.Config.ClientNodeURL() + "/v2/jobs/" + jobID.String() + "/runs"
+	url := app.Server.URL + "/v2/jobs/" + jobID.String() + "/runs"
 	bodyBuf := bytes.NewBufferString(body)
 	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
 	defer cleanup()
@@ -832,6 +827,26 @@ func CreateJobRunViaExternalInitiatorV2(
 	require.NoError(t, err)
 
 	// assert.Equal(t, j.ID, pr.JobSpecID)
+	return pr
+}
+
+func CreateJobRunViaUser(
+	t testing.TB,
+	app *TestApplication,
+	jobID uuid.UUID,
+	body string,
+) webpresenters.PipelineRunResource {
+	t.Helper()
+
+	bodyBuf := bytes.NewBufferString(body)
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var pr webpresenters.PipelineRunResource
+	err := ParseJSONAPIResponse(t, resp, &pr)
+	require.NoError(t, err)
+
 	return pr
 }
 
@@ -864,7 +879,7 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitTimeout is just preserved for compatabilty. Use testutils.WaitTimeout directly instead.
+// WaitTimeout is just preserved for compatibility. Use testutils.WaitTimeout directly instead.
 // Deprecated
 var WaitTimeout = testutils.WaitTimeout
 
@@ -1076,7 +1091,7 @@ func AssertError(t testing.TB, want bool, err error) {
 func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	request, err := http.NewRequest("POST", url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
@@ -1091,7 +1106,7 @@ func UnauthenticatedPost(t testing.TB, url string, body io.Reader, headers map[s
 func UnauthenticatedPatch(t testing.TB, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
-	client := http.Client{}
+	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	request, err := http.NewRequest("PATCH", url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
@@ -1184,7 +1199,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	}
 }
 
-func MustParseURL(t *testing.T, input string) *url.URL {
+func MustParseURL(t testing.TB, input string) *url.URL {
 	return testutils.MustParseURL(t, input)
 }
 
@@ -1551,6 +1566,13 @@ func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 	t.Helper()
 	for i, run := range runs {
 		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
+}
+
+func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
 	}
 }
 

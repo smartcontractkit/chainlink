@@ -18,7 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/denom"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -28,6 +27,7 @@ import (
 )
 
 func TestClient_SendTerraCoins(t *testing.T) {
+	t.Skip("requires terrad")
 	chainID := terratest.RandomChainID()
 	accounts, _, tendermintURL := terraclient.SetupLocalTerraNode(t, chainID)
 	require.Greater(t, len(accounts), 1)
@@ -38,12 +38,13 @@ func TestClient_SendTerraCoins(t *testing.T) {
 	require.NoError(t, app.GetKeyStore().Terra().Add(terrakey.Raw(from.PrivateKey.Bytes()).Key()))
 
 	chains := app.GetChains()
-	_, err := chains.Terra.Add(testutils.Context(t), chainID, terradb.ChainCfg{})
+	_, err := chains.Terra.Add(testutils.Context(t), chainID, nil)
 	require.NoError(t, err)
 	chain, err := chains.Terra.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Terra.ORM().CreateNode(terratypes.NewNode{
+	ctx := testutils.Context(t)
+	_, err = chains.Terra.CreateNode(ctx, terradb.Node{
 		Name:          t.Name(),
 		TerraChainID:  chainID,
 		TendermintURL: tendermintURL,

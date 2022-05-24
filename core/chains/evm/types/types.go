@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,26 +28,29 @@ type NewNode struct {
 }
 
 type ChainConfigORM interface {
-	StoreString(chainID *big.Int, key, val string) error
-	Clear(chainID *big.Int, key string) error
+	StoreString(chainID utils.Big, key, val string) error
+	Clear(chainID utils.Big, key string) error
 }
 
-//go:generate mockery --name ORM --output ./../mocks/ --case=underscore
 type ORM interface {
-	EnabledChainsWithNodes() ([]Chain, error)
-	Chain(id utils.Big) (chain Chain, err error)
-	CreateChain(id utils.Big, config ChainCfg) (Chain, error)
-	UpdateChain(id utils.Big, enabled bool, config ChainCfg) (Chain, error)
-	DeleteChain(id utils.Big) error
-	Chains(offset, limit int) ([]Chain, int, error)
-	CreateNode(data NewNode) (Node, error)
-	DeleteNode(id int64) error
-	GetChainsByIDs(ids []utils.Big) (chains []Chain, err error)
+	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
+	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
+	CreateChain(id utils.Big, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	UpdateChain(id utils.Big, enabled bool, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
+	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
+	EnabledChains(...pg.QOpt) ([]DBChain, error)
+
+	CreateNode(data Node, qopts ...pg.QOpt) (Node, error)
+	DeleteNode(id int32, qopts ...pg.QOpt) error
 	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
 	Node(id int32, qopts ...pg.QOpt) (Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
+
 	ChainConfigORM
+
+	SetupNodes([]Node, []utils.Big) error
 }
 
 type ChainCfg struct {
@@ -71,15 +75,17 @@ type ChainCfg struct {
 	EvmHeadTrackerMaxBufferSize                    null.Int
 	EvmHeadTrackerSamplingInterval                 *models.Duration
 	EvmLogBackfillBatchSize                        null.Int
+	EvmLogPollInterval                             *models.Duration
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
+	EvmUseForwarders                               null.Bool
 	EvmRPCDefaultBatchSize                         null.Int
 	FlagsContractAddress                           null.String
 	GasEstimatorMode                               null.String
 	KeySpecific                                    map[string]ChainCfg
 	LinkContractAddress                            null.String
+	OperatorFactoryAddress                         null.String
 	MinIncomingConfirmations                       null.Int
-	MinRequiredOutgoingConfirmations               null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
 	NodeNoNewHeadsThreshold                        *models.Duration
@@ -94,18 +100,11 @@ func (c *ChainCfg) Scan(value interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-func (c ChainCfg) Value() (driver.Value, error) {
+func (c *ChainCfg) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-type Chain struct {
-	ID        utils.Big
-	Nodes     []Node
-	Cfg       ChainCfg
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Enabled   bool
-}
+type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
 type Node struct {
 	ID         int32
@@ -263,6 +262,19 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 		r.TransactionIndex = uint(*dec.TransactionIndex)
 	}
 	return nil
+}
+
+func (r *Receipt) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, r)
+}
+
+func (r *Receipt) Value() (driver.Value, error) {
+	return json.Marshal(r)
 }
 
 // Log represents a contract log event.

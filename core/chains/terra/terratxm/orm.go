@@ -30,13 +30,26 @@ func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *
 }
 
 // InsertMsg inserts a terra msg, assumed to be a serialized terra ExecuteContractMsg.
-func (o *ORM) InsertMsg(contractID, typeURL string, msg []byte) (int64, error) {
+func (o *ORM) InsertMsg(contractID, typeURL string, msg []byte, qopts ...pg.QOpt) (int64, error) {
 	var tm terra.Msg
-	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, type, raw, state, terra_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`, contractID, typeURL, msg, db.Unstarted, o.chainID)
+	q := o.q.WithOpts(qopts...)
+	err := q.Get(&tm, `INSERT INTO terra_msgs (contract_id, type, raw, state, terra_chain_id, created_at, updated_at) 
+	VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`, contractID, typeURL, msg, db.Unstarted, o.chainID)
 	if err != nil {
 		return 0, err
 	}
 	return tm.ID, nil
+}
+
+// UpdateMsgsContract updates messages for the given contract.
+func (o *ORM) UpdateMsgsContract(contractID string, from, to db.State, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	_, err := q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() 
+	WHERE terra_chain_id = $2 AND contract_id = $3 AND state = $4`, to, o.chainID, contractID, from)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetMsgsState returns the oldest messages with a given state up to limit.
@@ -46,7 +59,7 @@ func (o *ORM) GetMsgsState(state db.State, limit int64, qopts ...pg.QOpt) (terra
 	}
 	q := o.q.WithOpts(qopts...)
 	var msgs terra.Msgs
-	if err := q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2 ORDER BY created_at LIMIT $3`, state, o.chainID, limit); err != nil {
+	if err := q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2 ORDER BY id ASC LIMIT $3`, state, o.chainID, limit); err != nil {
 		return nil, err
 	}
 	return msgs, nil
