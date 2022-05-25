@@ -254,7 +254,7 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
-        "value": "150000"
+        "value": "300000"
       },
 	  {
 		"key":"KEEPER_REGISTRY_SYNC_INTERVAL",

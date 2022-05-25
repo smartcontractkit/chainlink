@@ -271,7 +271,7 @@ type ConfigSchema struct {
 	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
-	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
+	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"300000"`
 	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
