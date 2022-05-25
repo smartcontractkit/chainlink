@@ -469,6 +469,8 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
+	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
+
 	getExecuteGas := func() uint64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
