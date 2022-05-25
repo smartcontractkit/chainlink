@@ -1,8 +1,8 @@
 name: Integration Soak Test
 on:
-  pull_request:
-  # schedule:
-  #   - cron: '0 */3 * * *'
+  # pull_request:
+  schedule:
+    - cron: '0 */3 * * *'
   # workflow_dispatch:
   #   inputs:
   #     cl_branch_ref:
