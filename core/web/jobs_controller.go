@@ -47,8 +47,8 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 		return
 	}
 	var resources []presenters.JobResource
-	for _, job := range jobs {
-		resources = append(resources, *presenters.NewJobResource(job))
+	for _, individualJob := range jobs {
+		resources = append(resources, *presenters.NewJobResource(individualJob))
 	}
 
 	paginatedResponse(c, "jobs", size, page, resources, count, err)

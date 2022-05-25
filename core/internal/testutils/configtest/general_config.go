@@ -100,6 +100,7 @@ type GeneralConfigOverrides struct {
 	TriggerFallbackDBPollInterval           *time.Duration
 	KeySpecific                             map[string]types.ChainCfg
 	LinkContractAddress                     null.String
+	OperatorFactoryAddress                  null.String
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
@@ -756,4 +757,12 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+// GlobalOperatorFactoryAddress allows to override the LINK contract address
+func (c *TestGeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
+	if c.Overrides.OperatorFactoryAddress.Valid {
+		return c.Overrides.OperatorFactoryAddress.String, true
+	}
+	return c.GeneralConfig.GlobalOperatorFactoryAddress()
 }

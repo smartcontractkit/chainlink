@@ -100,6 +100,14 @@ func main() {
 	gp, err := ec.SuggestGasPrice(context.Background())
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
+	gasLimit, set := os.LookupEnv("GAS_LIMIT")
+	if set {
+		parsedGasLimit, err := strconv.ParseUint(gasLimit, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Failure while parsing GAS_LIMIT: %s", gasLimit))
+		}
+		owner.GasLimit = parsedGasLimit
+	}
 
 	// the execution environment for the scripts
 	e := environment{owner, ec, chainID}

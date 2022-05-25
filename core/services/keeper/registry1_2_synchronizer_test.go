@@ -17,6 +17,7 @@ import (
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 )
 
@@ -77,6 +78,32 @@ func mockRegistry1_2(
 	if timesGetUpkeepMock > 0 {
 		registryMock.MockResponse("getUpkeep", upkeepConfig).Times(timesGetUpkeepMock)
 	}
+}
+
+func Test_LogListenerOpts1_2(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+
+	contractAddress := j.KeeperSpec.ContractAddress.Address()
+	registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
+	registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
+
+	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)
+	require.NoError(t, err)
+
+	logListenerOpts, err := registryWrapper.GetLogListenerOpts(1, nil)
+	require.NoError(t, err)
+
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryKeepersUpdated{}.Topic(), "Registry should listen to KeeperRegistryKeepersUpdated log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryConfigSet{}.Topic(), "Registry should listen to KeeperRegistryConfigSet log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepCanceled{}.Topic(), "Registry should listen to KeeperRegistryUpkeepCanceled log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepRegistered{}.Topic(), "Registry should listen to KeeperRegistryUpkeepRegistered log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepPerformed{}.Topic(), "Registry should listen to KeeperRegistryUpkeepPerformed log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepGasLimitSet{}.Topic(), "Registry should listen to KeeperRegistryUpkeepGasLimitSet log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepMigrated{}.Topic(), "Registry should listen to KeeperRegistryUpkeepMigrated log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepReceived{}.Topic(), "Registry should listen to KeeperRegistryUpkeepReceived log")
 }
 
 func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
@@ -442,6 +469,8 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
+	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
+
 	getExecuteGas := func() uint64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
