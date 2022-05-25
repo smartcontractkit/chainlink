@@ -125,22 +125,24 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		}
 		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
-		// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
-		header, err := rw.evmClient.HeaderByNumber(context.Background(), nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch EVM block header")
-		}
-		if opts != nil {
-			opts.BlockNumber = header.Number
-		} else {
-			opts = &bind.CallOpts{
-				BlockNumber: header.Number,
+		if opts == nil || opts.BlockNumber.Int64() == 0 {
+			// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
+			header, err := rw.evmClient.HeaderByNumber(context.Background(), nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to fetch EVM block header")
+			}
+			if opts != nil {
+				opts.BlockNumber = header.Number
+			} else {
+				opts = &bind.CallOpts{
+					BlockNumber: header.Number,
+				}
 			}
 		}
 
 		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get contract state at block number %d", header.Number.Int64())
+			return nil, errors.Wrapf(err, "failed to get contract state at block number %d", opts.BlockNumber.Int64())
 		}
 
 		activeUpkeepIDs := make([]*big.Int, 0)
