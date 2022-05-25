@@ -72,7 +72,6 @@ type ChainScopedOnlyConfig interface {
 	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
-	NodeNoNewHeadsThreshold() time.Duration
 
 	// OCR2 chain specific config
 	OCR2ContractConfirmations() uint16

@@ -16,9 +16,7 @@ import (
 
 type Config struct {
 	// General/misc
-	Dev                  bool   `toml:",omitempty"`
-	ExplorerAccessKey    string `toml:",omitempty"`
-	ExplorerSecret       string `toml:",omitempty"`
+	Dev                  bool `toml:",omitempty"`
 	ExplorerURL          *URL
 	FlagsContractAddress string   `toml:",omitempty"`
 	InsecureFastScrypt   bool     `toml:",omitempty"`
@@ -71,6 +69,13 @@ type Config struct {
 	Solana map[string]SolanaConfig `toml:",omitempty"`
 
 	Terra map[string]TerraConfig `toml:",omitempty"`
+}
+
+type Secrets struct {
+	DatabaseURL       *URL
+	ExplorerAccessKey string `toml:",omitempty"`
+	ExplorerSecret    string `toml:",omitempty"`
+	//TODO more?
 }
 
 type EVMConfig struct {
@@ -129,9 +134,6 @@ type TerraNode struct {
 }
 
 type DatabaseConfig struct {
-	// Essential
-	URL *URL
-
 	ListenerMaxReconnectDuration  Duration `toml:",omitempty"`
 	ListenerMinReconnectInterval  Duration `toml:",omitempty"`
 	Migrate                       bool     `toml:",omitempty"`
@@ -224,11 +226,6 @@ type OCR2Config struct {
 }
 
 type OCRConfig struct {
-	// Per-chain defaults
-	ContractConfirmations              uint     `toml:",omitempty"`
-	ContractTransmitterTransmitTimeout Duration `toml:",omitempty"`
-	DatabaseTimeout                    Duration `toml:",omitempty"`
-	ObservationGracePeriod             Duration `toml:",omitempty"`
 	// Global defaults
 	ObservationTimeout           Duration `toml:",omitempty"`
 	BlockchainTimeout            Duration `toml:",omitempty"`

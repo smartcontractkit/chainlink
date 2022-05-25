@@ -54,44 +54,77 @@ type ORM interface {
 }
 
 type ChainTOMLCfg struct {
-	BlockHistoryEstimator       *BlockHistoryEstimatorConfig
-	ChainType                   string `toml:",omitempty"`
-	TxReaperThreshold           *models.Duration
-	TxResendAfterThreshold      *models.Duration
-	EIP1559DynamicFees          bool `toml:",omitempty"`
-	FinalityDepth               int  `toml:",omitempty"`
-	GasBumpPercent              int  `toml:",omitempty"`
-	GasBumpTxDepth              int  `toml:",omitempty"`
-	GasBumpWei                  *utils.Big
-	GasFeeCapDefault            *utils.Big
-	GasLimitDefault             int     `toml:",omitempty"`
-	GasLimitMultiplier          float64 `toml:",omitempty"`
-	GasPriceDefault             *utils.Big
-	GasTipCapDefault            *utils.Big
-	GasTipCapMinimum            *utils.Big
+	BalanceMonitorEnabled             bool             `toml:",omitempty"`
+	BlockBackfillDepth                uint64           `toml:",omitempty"`
+	BlockBackfillSkip                 bool             `toml:",omitempty"`
+	BlockEmissionIdleWarningThreshold *models.Duration `toml:",omitempty"`
+
+	BlockHistoryEstimator *BlockHistoryEstimatorConfig
+
+	ChainType            string `toml:",omitempty"`
+	EIP1559DynamicFees   bool   `toml:",omitempty"`
+	FinalityDepth        int    `toml:",omitempty"`
+	FlagsContractAddress string `toml:",omitempty"`
+
+	GasBumpPercent     uint16 `toml:",omitempty"`
+	GasBumpThreshold   uint64 `toml:",omitempty"`
+	GasBumpTxDepth     uint16 `toml:",omitempty"`
+	GasBumpWei         *utils.Big
+	GasEstimatorMode   string `toml:",omitempty"`
+	GasFeeCapDefault   *utils.Big
+	GasLimitDefault    uint64  `toml:",omitempty"`
+	GasLimitMultiplier float64 `toml:",omitempty"`
+	GasLimitTransfer   uint64  `toml:",omitempty"`
+	GasPriceDefault    *utils.Big
+	GasTipCapDefault   *utils.Big
+	GasTipCapMinimum   *utils.Big
+
 	HeadTrackerHistoryDepth     int `toml:",omitempty"`
 	HeadTrackerMaxBufferSize    int `toml:",omitempty"`
 	HeadTrackerSamplingInterval *models.Duration
-	LogBackfillBatchSize        int `toml:",omitempty"`
-	LogPollInterval             *models.Duration
-	MaxGasPriceWei              *utils.Big
-	NonceAutoSync               bool                    `toml:",omitempty"`
-	UseForwarders               bool                    `toml:",omitempty"`
-	RPCDefaultBatchSize         int                     `toml:",omitempty"`
-	FlagsContractAddress        string                  `toml:",omitempty"`
-	GasEstimatorMode            string                  `toml:",omitempty"`
-	KeySpecific                 map[string]ChainTOMLCfg `toml:",omitempty"`
-	LinkContractAddress         string                  `toml:",omitempty"`
-	MinIncomingConfirmations    int                     `toml:",omitempty"`
-	MinimumContractPayment      *assets.Link
-	OCRObservationTimeout       *models.Duration
-	NodeNoNewHeadsThreshold     *models.Duration
+
+	//TODO everything? or limit to MaxGasPriceWei only?
+	KeySpecific map[string]ChainTOMLCfg `toml:",omitempty"`
+
+	LinkContractAddress  string `toml:",omitempty"`
+	LogBackfillBatchSize int    `toml:",omitempty"`
+	LogPollInterval      *models.Duration
+
+	MaxGasPriceWei           *utils.Big
+	MaxInFlightTransactions  uint32 `toml:",omitempty"`
+	MaxQueuedTransactions    uint64 `toml:",omitempty"`
+	MinGasPriceWei           *utils.Big
+	MinIncomingConfirmations uint32 `toml:",omitempty"`
+	MinimumContractPayment   *assets.Link
+
+	NodeNoNewHeadsThreshold  *models.Duration
+	NodePollFailureThreshold uint32 `toml:",omitempty"`
+	NodePollInterval         *models.Duration
+
+	NonceAutoSync bool `toml:",omitempty"`
+
+	OCRContractConfirmations              uint16           `toml:",omitempty"`
+	OCRContractTransmitterTransmitTimeout *models.Duration `toml:",omitempty"`
+	OCRDatabaseTimeout                    *models.Duration `toml:",omitempty"`
+	OCRObservationGracePeriod             *models.Duration `toml:",omitempty"`
+	OCR2ContractConfirmations             uint16           `toml:",omitempty"`
+
+	OperatorFactoryAddress string `toml:",omitempty"`
+	RPCDefaultBatchSize    int    `toml:",omitempty"`
+
+	TxReaperInterval       *models.Duration
+	TxReaperThreshold      *models.Duration
+	TxResendAfterThreshold *models.Duration
+
+	UseForwarders bool `toml:",omitempty"`
 }
 
 type BlockHistoryEstimatorConfig struct {
-	BlockDelay                int
-	BlockHistorySize          int
-	EIP1559FeeCapBufferBlocks int
+	BatchSize                 uint32
+	BlockDelay                uint16
+	BlockHistorySize          uint16
+	EIP1559FeeCapBufferBlocks uint16
+	TransactionPercentile     uint16
 }
 
 type ChainCfg struct {
@@ -128,8 +161,8 @@ type ChainCfg struct {
 	OperatorFactoryAddress                         null.String
 	MinIncomingConfirmations                       null.Int
 	MinimumContractPayment                         *assets.Link
-	OCRObservationTimeout                          *models.Duration
-	NodeNoNewHeadsThreshold                        *models.Duration
+	OCRObservationTimeout                          *models.Duration //TODO only used from resolver?
+	NodeNoNewHeadsThreshold                        *models.Duration //TODO unused
 }
 
 func (c *ChainCfg) Scan(value interface{}) error {

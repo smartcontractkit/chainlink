@@ -29,7 +29,7 @@ func ExampleConfig() {
 		RootDir: "my/root/dir",
 
 		Database: &DatabaseConfig{
-			URL: mustURL("http://local.postgres"),
+			BackupFrequency: Duration(time.Hour),
 		},
 		Log: &LogConfig{
 			Level: zapcore.WarnLevel,
@@ -77,7 +77,7 @@ func ExampleConfig() {
 	// RootDir = 'my/root/dir'
 	//
 	// [Database]
-	// URL = 'http://local.postgres'
+	// BackupFrequency = '1h0m02'
 	//
 	// [Log]
 	// Level = 'warn'
@@ -130,8 +130,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Dev:                            true,
-		ExplorerAccessKey:              "test-access-key",
-		ExplorerSecret:                 "test-secret",
 		ExplorerURL:                    mustURL("http://explorer.url"),
 		FlagsContractAddress:           "0x1234",
 		InsecureFastScrypt:             true,
@@ -149,7 +147,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 	full.Database = &DatabaseConfig{
-		URL:                           mustURL("http://data.base/url"),
 		ListenerMaxReconnectDuration:  Duration(time.Minute),
 		ListenerMinReconnectInterval:  Duration(5 * time.Minute),
 		Migrate:                       true,
@@ -222,24 +219,20 @@ func TestConfig_Marshal(t *testing.T) {
 		MonitoringEndpoint:                 "test-mon-end",
 	}
 	full.OCR = &OCRConfig{
-		ContractConfirmations:              11,
-		ContractTransmitterTransmitTimeout: Duration(time.Minute),
-		DatabaseTimeout:                    Duration(time.Second),
-		ObservationGracePeriod:             Duration(time.Minute),
-		ObservationTimeout:                 Duration(11 * time.Second),
-		BlockchainTimeout:                  Duration(3 * time.Second),
-		ContractPollInterval:               Duration(time.Hour),
-		ContractSubscribeInterval:          Duration(time.Minute),
-		DefaultTransactionQueueDepth:       12,
-		KeyBundleID:                        "test-key-bundle-id",
-		MonitoringEndpoint:                 "test-monitor",
-		SimulateTransactions:               true,
-		TransmitterAddress:                 "0x1234abcd",
-		OutgoingMessageBufferSize:          7,
-		IncomingMessageBufferSize:          3,
-		DHTLookupInterval:                  9,
-		BootstrapCheckInterval:             Duration(time.Minute),
-		NewStreamTimeout:                   Duration(time.Second),
+		ObservationTimeout:           Duration(11 * time.Second),
+		BlockchainTimeout:            Duration(3 * time.Second),
+		ContractPollInterval:         Duration(time.Hour),
+		ContractSubscribeInterval:    Duration(time.Minute),
+		DefaultTransactionQueueDepth: 12,
+		KeyBundleID:                  "test-key-bundle-id",
+		MonitoringEndpoint:           "test-monitor",
+		SimulateTransactions:         true,
+		TransmitterAddress:           "0x1234abcd",
+		OutgoingMessageBufferSize:    7,
+		IncomingMessageBufferSize:    3,
+		DHTLookupInterval:            9,
+		BootstrapCheckInterval:       Duration(time.Minute),
+		NewStreamTimeout:             Duration(time.Second),
 	}
 	full.P2P = &P2PConfig{
 		NetworkingStack:                  ocrnetworking.NetworkingStackV1V2,
@@ -293,46 +286,72 @@ func TestConfig_Marshal(t *testing.T) {
 	full.EVM = map[string]EVMConfig{
 		"1": {
 			ChainTOMLCfg: evmtypes.ChainTOMLCfg{
+				BalanceMonitorEnabled:             true,
+				BlockBackfillDepth:                100,
+				BlockBackfillSkip:                 true,
+				BlockEmissionIdleWarningThreshold: &hour,
 				BlockHistoryEstimator: &evmtypes.BlockHistoryEstimatorConfig{
+					BatchSize:                 17,
 					BlockDelay:                10,
 					BlockHistorySize:          12,
 					EIP1559FeeCapBufferBlocks: 13,
+					TransactionPercentile:     15,
 				},
-				ChainType:                   "Optimism",
-				TxReaperThreshold:           &minute,
-				TxResendAfterThreshold:      &hour,
-				EIP1559DynamicFees:          true,
-				FinalityDepth:               42,
-				GasBumpPercent:              10,
-				GasBumpTxDepth:              6,
-				GasBumpWei:                  utils.NewBigI(100),
-				GasFeeCapDefault:            utils.NewBigI(math.MaxInt64),
-				GasLimitDefault:             12,
-				GasLimitMultiplier:          7,
-				GasPriceDefault:             utils.NewBigI(math.MaxInt64),
-				GasTipCapDefault:            utils.NewBigI(2),
-				GasTipCapMinimum:            utils.NewBigI(1),
+				ChainType:            "Optimism",
+				EIP1559DynamicFees:   true,
+				FinalityDepth:        42,
+				FlagsContractAddress: "0xabcd1234",
+
+				GasBumpPercent:     10,
+				GasBumpTxDepth:     6,
+				GasBumpWei:         utils.NewBigI(100),
+				GasEstimatorMode:   "L2Suggested",
+				GasFeeCapDefault:   utils.NewBigI(math.MaxInt64),
+				GasLimitDefault:    12,
+				GasLimitMultiplier: 7,
+				GasPriceDefault:    utils.NewBigI(math.MaxInt64),
+				GasTipCapDefault:   utils.NewBigI(2),
+				GasTipCapMinimum:   utils.NewBigI(1),
+
 				HeadTrackerHistoryDepth:     15,
 				HeadTrackerMaxBufferSize:    17,
 				HeadTrackerSamplingInterval: &hour,
-				LogBackfillBatchSize:        17,
-				LogPollInterval:             &minute,
-				MaxGasPriceWei:              utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")),
-				NonceAutoSync:               true,
-				UseForwarders:               true,
-				RPCDefaultBatchSize:         0,
-				FlagsContractAddress:        "0xabcd1234",
-				GasEstimatorMode:            "L2Suggested",
+
 				KeySpecific: map[string]evmtypes.ChainTOMLCfg{
 					"0x1234": {
 						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 					},
 				},
-				LinkContractAddress:      "0x1234abcd",
+
+				LinkContractAddress:  "0x1234abcd",
+				LogBackfillBatchSize: 17,
+				LogPollInterval:      &minute,
+
+				MaxGasPriceWei:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")),
+				MaxInFlightTransactions:  19,
+				MaxQueuedTransactions:    99,
+				MinGasPriceWei:           utils.NewBigI(13),
 				MinIncomingConfirmations: 13,
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
-				OCRObservationTimeout:    &second,
+
+				NonceAutoSync:            true,
 				NodeNoNewHeadsThreshold:  &minute,
+				NodePollFailureThreshold: 5,
+				NodePollInterval:         &minute,
+
+				OperatorFactoryAddress: "0x9876qwerty",
+
+				OCRContractConfirmations:              11,
+				OCRContractTransmitterTransmitTimeout: &minute,
+				OCRDatabaseTimeout:                    &second,
+				OCRObservationGracePeriod:             &second,
+				OCR2ContractConfirmations:             7,
+
+				RPCDefaultBatchSize:    0,
+				TxReaperInterval:       &minute,
+				TxReaperThreshold:      &minute,
+				TxResendAfterThreshold: &hour,
+				UseForwarders:          true,
 			},
 			Nodes: map[string]EVMNode{
 				"primary": {
@@ -392,8 +411,6 @@ func TestConfig_Marshal(t *testing.T) {
 	}{
 		{"empty", Config{}, ``},
 		{"global", global, `Dev = true
-ExplorerAccessKey = 'test-access-key'
-ExplorerSecret = 'test-secret'
 ExplorerURL = 'http://explorer.url'
 FlagsContractAddress = '0x1234'
 InsecureFastScrypt = true
@@ -410,7 +427,6 @@ FeatureOffchainReporting = true
 `},
 		{"Database", Config{Database: full.Database}, `
 [Database]
-URL = 'http://data.base/url'
 ListenerMaxReconnectDuration = '1m0s'
 ListenerMinReconnectInterval = '5m0s'
 Migrate = true
@@ -478,10 +494,6 @@ ResultWriteQueueDepth = 10
 `},
 		{"OCR", Config{OCR: full.OCR}, `
 [OCR]
-ContractConfirmations = 11
-ContractTransmitterTransmitTimeout = '1m0s'
-DatabaseTimeout = '1s'
-ObservationGracePeriod = '1m0s'
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
@@ -562,14 +574,18 @@ GoroutineThreshold = 999
 [EVM]
 
 [EVM.1]
+BalanceMonitorEnabled = true
+BlockBackfillDepth = 100
+BlockBackfillSkip = true
+BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '1h0m0s'
 EIP1559DynamicFees = true
 FinalityDepth = 42
+FlagsContractAddress = '0xabcd1234'
 GasBumpPercent = 10
 GasBumpTxDepth = 6
 GasBumpWei = '100'
+GasEstimatorMode = 'L2Suggested'
 GasFeeCapDefault = '9223372036854775807'
 GasLimitDefault = 12
 GasLimitMultiplier = 7.0
@@ -579,23 +595,36 @@ GasTipCapMinimum = '1'
 HeadTrackerHistoryDepth = 15
 HeadTrackerMaxBufferSize = 17
 HeadTrackerSamplingInterval = '1h0m0s'
+LinkContractAddress = '0x1234abcd'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 MaxGasPriceWei = '281474976710655'
-NonceAutoSync = true
-UseForwarders = true
-FlagsContractAddress = '0xabcd1234'
-GasEstimatorMode = 'L2Suggested'
-LinkContractAddress = '0x1234abcd'
+MaxInFlightTransactions = 19
+MaxQueuedTransactions = 99
+MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9223372036854775807'
-OCRObservationTimeout = '1s'
 NodeNoNewHeadsThreshold = '1m0s'
+NodePollFailureThreshold = 5
+NodePollInterval = '1m0s'
+NonceAutoSync = true
+OCRContractConfirmations = 11
+OCRContractTransmitterTransmitTimeout = '1m0s'
+OCRDatabaseTimeout = '1s'
+OCRObservationGracePeriod = '1s'
+OCR2ContractConfirmations = 7
+OperatorFactoryAddress = '0x9876qwerty'
+TxReaperInterval = '1m0s'
+TxReaperThreshold = '1m0s'
+TxResendAfterThreshold = '1h0m0s'
+UseForwarders = true
 
 [EVM.1.BlockHistoryEstimator]
+BatchSize = 17
 BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
+TransactionPercentile = 15
 
 [EVM.1.KeySpecific]
 

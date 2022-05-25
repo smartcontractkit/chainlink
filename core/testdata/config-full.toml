@@ -1,6 +1,4 @@
 Dev = true
-ExplorerAccessKey = 'test-access-key'
-ExplorerSecret = 'test-secret'
 ExplorerURL = 'http://explorer.url'
 FlagsContractAddress = '0x1234'
 InsecureFastScrypt = true
@@ -16,7 +14,6 @@ FeatureOffchainReporting2 = true
 FeatureOffchainReporting = true
 
 [Database]
-URL = 'http://data.base/url'
 ListenerMaxReconnectDuration = '1m0s'
 ListenerMinReconnectInterval = '5m0s'
 Migrate = true
@@ -89,10 +86,6 @@ KeyBundleID = 'test-bundle-id'
 MonitoringEndpoint = 'test-mon-end'
 
 [OCR]
-ContractConfirmations = 11
-ContractTransmitterTransmitTimeout = '1m0s'
-DatabaseTimeout = '1s'
-ObservationGracePeriod = '1m0s'
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
@@ -158,14 +151,18 @@ GoroutineThreshold = 999
 [EVM]
 
 [EVM.1]
+BalanceMonitorEnabled = true
+BlockBackfillDepth = 100
+BlockBackfillSkip = true
+BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '1h0m0s'
 EIP1559DynamicFees = true
 FinalityDepth = 42
+FlagsContractAddress = '0xabcd1234'
 GasBumpPercent = 10
 GasBumpTxDepth = 6
 GasBumpWei = '100'
+GasEstimatorMode = 'L2Suggested'
 GasFeeCapDefault = '9223372036854775807'
 GasLimitDefault = 12
 GasLimitMultiplier = 7.0
@@ -175,23 +172,36 @@ GasTipCapMinimum = '1'
 HeadTrackerHistoryDepth = 15
 HeadTrackerMaxBufferSize = 17
 HeadTrackerSamplingInterval = '1h0m0s'
+LinkContractAddress = '0x1234abcd'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 MaxGasPriceWei = '281474976710655'
-NonceAutoSync = true
-UseForwarders = true
-FlagsContractAddress = '0xabcd1234'
-GasEstimatorMode = 'L2Suggested'
-LinkContractAddress = '0x1234abcd'
+MaxInFlightTransactions = 19
+MaxQueuedTransactions = 99
+MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9223372036854775807'
-OCRObservationTimeout = '1s'
 NodeNoNewHeadsThreshold = '1m0s'
+NodePollFailureThreshold = 5
+NodePollInterval = '1m0s'
+NonceAutoSync = true
+OCRContractConfirmations = 11
+OCRContractTransmitterTransmitTimeout = '1m0s'
+OCRDatabaseTimeout = '1s'
+OCRObservationGracePeriod = '1s'
+OCR2ContractConfirmations = 7
+OperatorFactoryAddress = '0x9876qwerty'
+TxReaperInterval = '1m0s'
+TxReaperThreshold = '1m0s'
+TxResendAfterThreshold = '1h0m0s'
+UseForwarders = true
 
 [EVM.1.BlockHistoryEstimator]
+BatchSize = 17
 BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
+TransactionPercentile = 15
 
 [EVM.1.KeySpecific]
 
