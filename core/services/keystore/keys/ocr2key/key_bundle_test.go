@@ -3,6 +3,7 @@ package ocr2key_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,18 +17,35 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.K
 
 func TestOCR2keys_New(t *testing.T) {
 	t.Parallel()
-	pk1, err := ocr2key.New("evm")
-	require.NoError(t, err)
-	pk2, err := ocr2key.New("evm")
-	require.NoError(t, err)
-	pk3, err := ocr2key.New("solana")
-	require.NoError(t, err)
-	pk4, err := ocr2key.New("solana")
-	require.NoError(t, err)
-	assertKeyBundlesNotEqual(t, pk1, pk2)
-	assertKeyBundlesNotEqual(t, pk3, pk4)
-	assertKeyBundlesNotEqual(t, pk1, pk3)
-	require.Equal(t, pk1.ChainType(), pk2.ChainType())
-	require.Equal(t, pk3.ChainType(), pk4.ChainType())
-	require.NotEqual(t, pk1.ChainType(), pk3.ChainType())
+
+	var keys []ocr2key.KeyBundle
+
+	// create two keys for each chain type
+	for _, chain := range chaintype.SupportedChainTypes {
+		pk0, err := ocr2key.New(chain)
+		require.NoError(t, err)
+		pk1, err := ocr2key.New(chain)
+		require.NoError(t, err)
+
+		keys = append(keys, pk0)
+		keys = append(keys, pk1)
+	}
+
+	// validate keys are unique
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			assertKeyBundlesNotEqual(t, keys[i], keys[j])
+		}
+	}
+
+	// validate chain types
+	for i := 0; i < len(keys); i += 2 {
+		// check key for same chain
+		require.Equal(t, keys[i].ChainType(), keys[i+1].ChainType())
+
+		// check 1 key for each chain
+		for j := i + 2; j < len(keys); j += 2 {
+			require.NotEqual(t, keys[i].ChainType(), keys[j].ChainType())
+		}
+	}
 }

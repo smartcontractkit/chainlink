@@ -17,10 +17,12 @@ const (
 	Solana ChainType = "solana"
 	// Terra for the Terra chain
 	Terra ChainType = "terra"
+	// Starknet for the Starknet chain
+	Starknet ChainType = "starknet"
 )
 
 // SupportedChainTypes contain all chains that are supported
-var SupportedChainTypes = []ChainType{EVM, Solana, Terra}
+var SupportedChainTypes = []ChainType{EVM, Solana, Terra, Starknet}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error
