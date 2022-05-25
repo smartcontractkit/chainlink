@@ -132,6 +132,7 @@ func getKeeperSuite(
 						registryVersion,
 						registryConfig,
 						1,
+						uint32(2500000), //upkeepGasLimit
 						linkToken,
 						contractDeployer,
 						networks,
@@ -143,6 +144,7 @@ func getKeeperSuite(
 					r, consumers, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 						registryVersion,
 						1,
+						uint32(2500000), //upkeepGasLimit
 						linkToken,
 						contractDeployer,
 						networks,
@@ -269,7 +271,7 @@ func getKeeperSuite(
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 						g.Expect(cnt.Int64()).Should(
-							Equal(0),
+							Equal(int64(0)),
 							"Expected consumer counter to to remain constant at %d, but got %d", 0, cnt.Int64(),
 						)
 
