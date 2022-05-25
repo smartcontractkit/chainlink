@@ -23,12 +23,21 @@ type KeeperTests int32
 const (
 	BasicSmokeTest KeeperTests = iota
 	BcptTest
+	PerformSimluationTest
 )
 
-var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicSmokeTest))
-var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicSmokeTest))
-var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BcptTest))
-var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BcptTest))
+type KeeperConsumerContracts int32
+
+const (
+	BasicCounter KeeperConsumerContracts = iota
+	PerformanceCounter
+)
+
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimluationTest))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -56,18 +65,24 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
-func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion, registryConfig contracts.KeeperRegistrySettings, testToRun KeeperTests) func() {
+func getKeeperSuite(
+	registryVersion ethereum.KeeperRegistryVersion,
+	registryConfig contracts.KeeperRegistrySettings,
+	consumerContract KeeperConsumerContracts,
+	testToRun KeeperTests,
+) func() {
 	return func() {
 		var (
-			err              error
-			networks         *blockchain.Networks
-			contractDeployer contracts.ContractDeployer
-			registry         contracts.KeeperRegistry
-			consumer         contracts.KeeperConsumer
-			upkeepID         *big.Int
-			linkToken        contracts.LinkToken
-			chainlinkNodes   []client.Chainlink
-			env              *environment.Environment
+			err                 error
+			networks            *blockchain.Networks
+			contractDeployer    contracts.ContractDeployer
+			registry            contracts.KeeperRegistry
+			consumer            contracts.KeeperConsumer
+			consumerPerformance contracts.KeeperConsumerPerformance
+			upkeepID            *big.Int
+			linkToken           contracts.LinkToken
+			chainlinkNodes      []client.Chainlink
+			env                 *environment.Environment
 		)
 
 		BeforeEach(func() {
@@ -111,17 +126,36 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion, registryConf
 				linkToken, err = contractDeployer.DeployLinkTokenContract()
 				Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
-				r, consumers, upkeepIDs := actions.DeployKeeperContracts(
-					registryVersion,
-					registryConfig,
-					1,
-					linkToken,
-					contractDeployer,
-					networks,
-				)
-				consumer = consumers[0]
-				registry = r
-				upkeepID = upkeepIDs[0]
+				switch consumerContract {
+				case BasicCounter:
+					r, consumers, upkeepIDs := actions.DeployKeeperContracts(
+						registryVersion,
+						registryConfig,
+						1,
+						linkToken,
+						contractDeployer,
+						networks,
+					)
+					registry = r
+					upkeepID = upkeepIDs[0]
+					consumer = consumers[0]
+				case PerformanceCounter:
+					r, consumers, upkeepIDs := actions.DeployPerformanceKeeperContracts(
+						registryVersion,
+						1,
+						linkToken,
+						contractDeployer,
+						networks,
+						&registryConfig,
+						10000,     // How many blocks this upkeep will be eligible from first upkeep block
+						5,         // Interval of blocks that upkeeps are expected to be performed
+						100000,    // How much gas should be burned on checkUpkeep() calls
+						100000000, // How much gas should be burned on performUpkeep() calls. Intially set very high
+					)
+					registry = r
+					upkeepID = upkeepIDs[0]
+					consumerPerformance = consumers[0]
+				}
 			})
 
 			By("Register Keeper Jobs", func() {
@@ -224,6 +258,42 @@ func getKeeperSuite(registryVersion ethereum.KeeperRegistryVersion, registryConf
 						log.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
 						keepersPerformed = append(keepersPerformed, latestKeeper)
 					}, "1m", "1s").Should(Succeed())
+				})
+			}
+
+			if testToRun == PerformSimluationTest {
+				It("tests that performUpkeep simulation is run before tx is broadcasted", func() {
+					// Initially performGas is set high, so performUpkeep reverts and no upkeep should be performed
+					Consistently(func(g Gomega) {
+						// Consumer count shold remain at 0
+						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+						g.Expect(cnt.Int64()).Should(
+							Equal(0),
+							"Expected consumer counter to to remain constant at %d, but got %d", 0, cnt.Int64(),
+						)
+
+						// Not even reverted upkeeps should be performed. Last keeper for the upkeep should be 0 address
+						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
+						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
+						g.Expect(upkeepInfo.LastKeeper).Should(Equal(actions.ZeroAddress.String()), "Last keeper should be zero address")
+					}, "1m", "1s").Should(Succeed())
+
+					// Set performGas on cosumer to be low, so that performUpkeep starts becoming successful
+					err = consumerPerformance.SetPerformGasToBurn(context.Background(), big.NewInt(100000))
+					Expect(err).ShouldNot(HaveOccurred(), "Perform gas should be set successfully on consumer")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set perform gas tx")
+
+					// Upkeep should now start performing
+					Eventually(func(g Gomega) {
+						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+						g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
+							"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
+						)
+					}, "1m", "1s").Should(Succeed())
+
 				})
 			}
 		})
