@@ -87,6 +87,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 					FallbackLinkPrice:    big.NewInt(2e18),
 				},
 				1,
+				uint32(2500000), //upkeepGasLimit
 				linkToken,
 				contractDeployer,
 				networks,
