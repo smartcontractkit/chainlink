@@ -57,11 +57,13 @@ func ExampleConfig() {
 				ChainTOMLCfg: evmtypes.ChainTOMLCfg{
 					FinalityDepth: 26,
 				},
-				Nodes: map[string]EVMNode{
-					"primary": {
+				Nodes: []EVMNode{
+					{
+						Name:  "primary",
 						WSURL: mustURL("wss://web.socket/test"),
 					},
-					"secondary": {
+					{
+						Name:     "secondary",
 						HTTPURL:  mustURL("http://broadcast.mirror"),
 						SendOnly: true,
 					},
@@ -77,7 +79,7 @@ func ExampleConfig() {
 	// RootDir = 'my/root/dir'
 	//
 	// [Database]
-	// BackupFrequency = '1h0m02'
+	// BackupFrequency = '1h0m0s'
 	//
 	// [Log]
 	// Level = 'warn'
@@ -105,12 +107,12 @@ func ExampleConfig() {
 	// [EVM.1]
 	// FinalityDepth = 26
 	//
-	// [EVM.1.Nodes]
-	//
-	// [EVM.1.Nodes.primary]
+	// [[EVM.1.Nodes]]
+	// Name = 'primary'
 	// WSURL = 'wss://web.socket/test'
 	//
-	// [EVM.1.Nodes.secondary]
+	// [[EVM.1.Nodes]]
+	// Name = 'secondary'
 	// HTTPURL = 'http://broadcast.mirror'
 	// SendOnly = true
 }
@@ -353,11 +355,19 @@ func TestConfig_Marshal(t *testing.T) {
 				TxResendAfterThreshold: &hour,
 				UseForwarders:          true,
 			},
-			Nodes: map[string]EVMNode{
-				"primary": {
-					WSURL: mustURL("wss://web.socket/test"),
+			Nodes: []EVMNode{
+				{
+					Name:    "foo",
+					HTTPURL: mustURL("https://foo.web"),
+					WSURL:   mustURL("wss://web.socket/test"),
 				},
-				"secondary": {
+				{
+					Name:    "bar",
+					HTTPURL: mustURL("https://bar.com"),
+					WSURL:   mustURL("wss://web.socket/test"),
+				},
+				{
+					Name:     "broadcast",
 					HTTPURL:  mustURL("http://broadcast.mirror"),
 					SendOnly: true,
 				},
@@ -377,8 +387,10 @@ func TestConfig_Marshal(t *testing.T) {
 				Commitment:          "banana",
 				MaxRetries:          7,
 			},
-			Nodes: map[string]solanaNode{
-				"primary": {URL: mustURL("http://solana.web")},
+			Nodes: []solanaNode{
+				{Name: "primary", URL: mustURL("http://solana.web")},
+				{Name: "foo", URL: mustURL("http://solana.foo")},
+				{Name: "bar", URL: mustURL("http://solana.bar")},
 			},
 		},
 	}
@@ -396,10 +408,10 @@ func TestConfig_Marshal(t *testing.T) {
 				OCR2CacheTTL:          Duration(time.Hour),
 				TxMsgTimeout:          Duration(time.Second),
 			},
-			Nodes: map[string]TerraNode{
-				"primary": {
-					TendermintURL: mustURL("http://tender.mint"),
-				},
+			Nodes: []TerraNode{
+				{Name: "primary", TendermintURL: mustURL("http://tender.mint")},
+				{Name: "foo", TendermintURL: mustURL("http://foo.url")},
+				{Name: "bar", TendermintURL: mustURL("http://bar.web")},
 			},
 		},
 	}
@@ -631,12 +643,18 @@ TransactionPercentile = 15
 [EVM.1.KeySpecific.0x1234]
 MaxGasPriceWei = '79228162514264337593543950335'
 
-[EVM.1.Nodes]
-
-[EVM.1.Nodes.primary]
+[[EVM.1.Nodes]]
+Name = 'foo'
 WSURL = 'wss://web.socket/test'
+HTTPURL = 'https://foo.web'
 
-[EVM.1.Nodes.secondary]
+[[EVM.1.Nodes]]
+Name = 'bar'
+WSURL = 'wss://web.socket/test'
+HTTPURL = 'https://bar.com'
+
+[[EVM.1.Nodes]]
+Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
@@ -655,10 +673,17 @@ SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
 
-[Solana.mainnet.Nodes]
-
-[Solana.mainnet.Nodes.primary]
+[[Solana.mainnet.Nodes]]
+Name = 'primary'
 URL = 'http://solana.web'
+
+[[Solana.mainnet.Nodes]]
+Name = 'foo'
+URL = 'http://solana.foo'
+
+[[Solana.mainnet.Nodes]]
+Name = 'bar'
+URL = 'http://solana.bar'
 `},
 		{"terra", Config{Terra: full.Terra}, `
 [Terra]
@@ -675,10 +700,17 @@ OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
 TxMsgTimeout = '1s'
 
-[Terra.Bombay-12.Nodes]
-
-[Terra.Bombay-12.Nodes.primary]
+[[Terra.Bombay-12.Nodes]]
+Name = 'primary'
 TendermintURL = 'http://tender.mint'
+
+[[Terra.Bombay-12.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Terra.Bombay-12.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'
 `},
 		{"full", full, fullToml},
 	} {

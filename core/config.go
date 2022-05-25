@@ -80,10 +80,11 @@ type Secrets struct {
 
 type EVMConfig struct {
 	evmtypes.ChainTOMLCfg
-	Nodes map[string]EVMNode
+	Nodes []EVMNode
 }
 
 type EVMNode struct {
+	Name     string
 	WSURL    *URL
 	HTTPURL  *URL
 	SendOnly bool `toml:",omitempty"`
@@ -91,7 +92,7 @@ type EVMNode struct {
 
 type SolanaConfig struct {
 	SolanaChainCfg
-	Nodes map[string]solanaNode
+	Nodes []solanaNode
 }
 
 type SolanaChainCfg struct {
@@ -108,12 +109,13 @@ type SolanaChainCfg struct {
 }
 
 type solanaNode struct {
-	URL *URL
+	Name string
+	URL  *URL
 }
 
 type TerraConfig struct {
 	TerraChainCfg
-	Nodes map[string]TerraNode
+	Nodes []TerraNode
 }
 
 type TerraChainCfg struct {
@@ -130,6 +132,7 @@ type TerraChainCfg struct {
 }
 
 type TerraNode struct {
+	Name          string
 	TendermintURL *URL
 }
 
