@@ -309,7 +309,7 @@ func getKeeperSuite(
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 						g.Expect(cnt.Int64()).Should(
 							Equal(int64(0)),
-							"Expected consumer counter to to remain constant at %d, but got %d", 0, cnt.Int64(),
+							"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
 
@@ -343,7 +343,7 @@ func getKeeperSuite(
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 						g.Expect(cnt.Int64()).Should(
 							Equal(existingCnt.Int64()),
-							"Expected consumer counter to to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+							"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
 
