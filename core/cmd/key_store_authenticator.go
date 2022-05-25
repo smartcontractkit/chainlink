@@ -21,12 +21,17 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
+	// If the file does not exist, the password will be empty and err will be nil.
 	password, err := passwordFromFile(c.String("password"))
 	if err != nil {
 		return errors.Wrap(err, "error reading password from file")
 	}
-	passwordProvided := len(password) != 0
-	if passwordProvided {
+	if len(password) != 0 {
+		// Because we fixed password requirements to have 3+ symbols,
+		// to not break backward compatibility we enforce this only for empty key stores.
+		if err = auth.validatePasswordStrength(password); err != nil && isEmpty {
+			return err
+		}
 		return keyStore.Unlock(password)
 	}
 	interactive := auth.Prompter.IsTerminal()
@@ -55,9 +60,8 @@ func (auth TerminalKeyStoreAuthenticator) promptExistingPassword() string {
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword() (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
-		err := auth.validatePasswordStrength(password)
-		if err != nil {
-			return password, err
+		if err := auth.validatePasswordStrength(password); err != nil {
+			return "", err
 		}
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")
