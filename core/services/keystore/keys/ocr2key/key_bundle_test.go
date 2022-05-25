@@ -19,59 +19,58 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.K
 
 func TestOCR2Keys_New(t *testing.T) {
 	t.Parallel()
-	pk1, err := ocr2key.New(chaintype.EVM)
-	require.NoError(t, err)
-	pk2, err := ocr2key.New(chaintype.EVM)
-	require.NoError(t, err)
-	pk3, err := ocr2key.New(chaintype.Solana)
-	require.NoError(t, err)
-	pk4, err := ocr2key.New(chaintype.Solana)
-	require.NoError(t, err)
-	pk5, err := ocr2key.New(chaintype.Terra)
-	require.NoError(t, err)
-	pk6, err := ocr2key.New(chaintype.Terra)
-	require.NoError(t, err)
-	_, err = ocr2key.New("invalid")
-	assert.Error(t, err)
-	assertKeyBundlesNotEqual(t, pk1, pk2)
-	assertKeyBundlesNotEqual(t, pk3, pk4)
-	assertKeyBundlesNotEqual(t, pk1, pk3)
-	assertKeyBundlesNotEqual(t, pk5, pk6)
-	assertKeyBundlesNotEqual(t, pk1, pk5)
-	assertKeyBundlesNotEqual(t, pk3, pk5)
-	assert.Equal(t, pk1.ChainType(), pk2.ChainType())
-	assert.Equal(t, pk3.ChainType(), pk4.ChainType())
-	assert.Equal(t, pk5.ChainType(), pk6.ChainType())
-	assert.NotEqual(t, pk1.ChainType(), pk3.ChainType())
-	assert.NotEqual(t, pk1.ChainType(), pk5.ChainType())
-	assert.NotEqual(t, pk3.ChainType(), pk5.ChainType())
+	var keys []ocr2key.KeyBundle
+
+	// create two keys for each chain type
+	for _, chain := range chaintype.SupportedChainTypes {
+		pk0, err := ocr2key.New(chain)
+		require.NoError(t, err)
+		pk1, err := ocr2key.New(chain)
+		require.NoError(t, err)
+
+		keys = append(keys, pk0)
+		keys = append(keys, pk1)
+	}
+
+	// validate keys are unique
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			assertKeyBundlesNotEqual(t, keys[i], keys[j])
+		}
+	}
+
+	// validate chain types
+	for i := 0; i < len(keys); i += 2 {
+		// check key for same chain
+		require.Equal(t, keys[i].ChainType(), keys[i+1].ChainType())
+
+		// check 1 key for each chain
+		for j := i + 2; j < len(keys); j += 2 {
+			require.NotEqual(t, keys[i].ChainType(), keys[j].ChainType())
+		}
+	}
 }
 
 func TestOCR2KeyBundle_RawToKey(t *testing.T) {
 	t.Parallel()
 
-	pk1, err := ocr2key.New(chaintype.EVM)
-	require.NoError(t, err)
-	pk2, err := ocr2key.New(chaintype.Solana)
-	require.NoError(t, err)
-	pk3, err := ocr2key.New(chaintype.Terra)
-	require.NoError(t, err)
+	for _, chain := range chaintype.SupportedChainTypes {
+		pk, err := ocr2key.New(chain)
+		require.NoError(t, err)
 
-	pk1FromRaw := pk1.Raw().Key()
-	pk2FromRaw := pk2.Raw().Key()
-	pk3FromRaw := pk3.Raw().Key()
-
-	assert.NotNil(t, pk1FromRaw)
-	assert.NotNil(t, pk2FromRaw)
-	assert.NotNil(t, pk3FromRaw)
+		pkFromRaw := pk.Raw().Key()
+		assert.NotNil(t, pkFromRaw)
+	}
 }
 
 func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
 
-	kb, err := ocr2key.New(chaintype.EVM)
-	require.NoError(t, err)
+	for _, chain := range chaintype.SupportedChainTypes {
+		kb, err := ocr2key.New(chain)
+		require.NoError(t, err)
 
-	assert.NotNil(t, kb.ID())
-	assert.Equal(t, fmt.Sprintf(`bundle: KeyBundle{chainType: evm, id: %s}`, kb.ID()), fmt.Sprintf(`bundle: %s`, kb))
+		assert.NotNil(t, kb.ID())
+		assert.Equal(t, fmt.Sprintf(`bundle: KeyBundle{chainType: evm, id: %s}`, kb.ID()), fmt.Sprintf(`bundle: %s`, kb))
+	}
 }
