@@ -100,6 +100,12 @@ test_smoke: # Run integration smoke tests.
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
+.PHONY: test_soak_vrfv2
+test_soak_vrfv2: # Run integration soak vrfv2 tests.
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --focus=@soak_vrfv2 --trace --randomize-all --randomize-suites \
+	--progress $(args) ./integration-tests/soak
+
 
 help:
 	@echo ""
