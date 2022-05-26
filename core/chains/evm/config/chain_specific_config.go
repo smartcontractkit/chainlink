@@ -52,6 +52,7 @@ type (
 		headTrackerMaxBufferSize                       uint32
 		headTrackerSamplingInterval                    time.Duration
 		linkContractAddress                            string
+		operatorFactoryAddress                         string
 		logBackfillBatchSize                           uint32
 		logPollInterval                                time.Duration
 		maxGasPriceWei                                 big.Int
@@ -128,6 +129,7 @@ func setChainSpecificConfigDefaultSets() {
 		headTrackerMaxBufferSize:              3,
 		headTrackerSamplingInterval:           1 * time.Second,
 		linkContractAddress:                   "",
+		operatorFactoryAddress:                "",
 		logBackfillBatchSize:                  100,
 		logPollInterval:                       15 * time.Second,
 		maxGasPriceWei:                        *assets.GWei(100000),
@@ -155,20 +157,26 @@ func setChainSpecificConfigDefaultSets() {
 	mainnet.eip1559DynamicFees = true // enable EIP-1559 on Eth Mainnet and all testnets
 	mainnet.linkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	mainnet.minimumContractPayment = assets.NewLinkFromJuels(100000000000000000) // 0.1 LINK
+	mainnet.operatorFactoryAddress = "0x3e64cd889482443324f91bfa9c84fe72a511f48a"
+
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but the defaults have been working fine and if it ain't
 	// broke, don't fix it.
 	ropsten := mainnet
 	ropsten.linkContractAddress = "0x20fe562d797a42dcb3399062ae9546cd06f63280"
+	ropsten.operatorFactoryAddress = ""
 	kovan := mainnet
 	kovan.linkContractAddress = "0xa36085F69e2889c224210F603D836748e7dC0088"
+	kovan.operatorFactoryAddress = "0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3"
 	kovan.eip1559DynamicFees = false // FIXME: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	goerli := mainnet
 	goerli.linkContractAddress = "0x326c977e6efc84e512bb9c30f76e30c160ed06fb"
 	goerli.eip1559DynamicFees = false // TODO: EIP1559 on goerli has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	goerli.operatorFactoryAddress = ""
 	rinkeby := mainnet
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
 	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	rinkeby.operatorFactoryAddress = ""
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -261,12 +269,12 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
-	optimismMainnet.gasEstimatorMode = "Optimism2"
+	optimismMainnet.gasEstimatorMode = "L2Suggested"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
-	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the Optimism2 estimator; we don't want to place any limits on the minimum gas price
+	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
@@ -325,6 +333,21 @@ func setChainSpecificConfigDefaultSets() {
 	okxMainnet := fallbackDefaultSet
 	okxTestnet := okxMainnet
 
+	// Metis is an L2 chain based on Optimism.
+	metisMainnet := fallbackDefaultSet
+	metisMainnet.balanceMonitorBlockDelay = 0
+	metisMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on metis
+	metisMainnet.chainType = config.ChainMetis
+	metisMainnet.finalityDepth = 1    // Sequencer offers absolute finality
+	metisMainnet.gasBumpThreshold = 0 // Never bump gas on metis
+	metisMainnet.gasEstimatorMode = "L2Suggested"
+	metisMainnet.linkContractAddress = ""
+	metisMainnet.minIncomingConfirmations = 1
+	metisMainnet.minGasPriceWei = *big.NewInt(0) // Metis uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
+	metisMainnet.ocrContractConfirmations = 1
+	metisRinkeby := metisMainnet
+	metisRinkeby.linkContractAddress = ""
+
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
 	chainSpecificConfigDefaultSets[3] = ropsten
@@ -350,6 +373,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
 	chainSpecificConfigDefaultSets[65] = okxTestnet
 	chainSpecificConfigDefaultSets[66] = okxMainnet
+	chainSpecificConfigDefaultSets[588] = metisRinkeby
+	chainSpecificConfigDefaultSets[1088] = metisMainnet
 
 	// sanity check
 	for id, c := range chainSpecificConfigDefaultSets {

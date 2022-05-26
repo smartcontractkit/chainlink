@@ -56,13 +56,14 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.1
+        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.2
         with:
-          test_command_to_run: make test_smoke args="-nodes=6"
+          test_command_to_run: make test_smoke args="-nodes=10"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
+          artifacts_location: ./integration-tests/smoke/logs
           QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           QA_AWS_REGION: ${{ secrets.AWS_REGION }}
