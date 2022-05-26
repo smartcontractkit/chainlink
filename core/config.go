@@ -63,12 +63,11 @@ type Config struct {
 	// Debugging
 	AutoPprof *AutoPprofConfig
 
-	//TODO do we need [EVM] wide config too?
-	EVM map[string]EVMConfig `toml:",omitempty"`
+	EVM []EVMConfig `toml:",omitempty"`
 
-	Solana map[string]SolanaConfig `toml:",omitempty"`
+	Solana []SolanaConfig `toml:",omitempty"`
 
-	Terra map[string]TerraConfig `toml:",omitempty"`
+	Terra []TerraConfig `toml:",omitempty"`
 }
 
 type Secrets struct {
@@ -79,6 +78,7 @@ type Secrets struct {
 }
 
 type EVMConfig struct {
+	ChainID int64 `toml:",omitempty"` //TODO big.Int?
 	evmtypes.ChainTOMLCfg
 	Nodes []EVMNode
 }
@@ -91,6 +91,7 @@ type EVMNode struct {
 }
 
 type SolanaConfig struct {
+	ChainID string `toml:",omitempty"`
 	SolanaChainCfg
 	Nodes []solanaNode
 }
@@ -114,6 +115,7 @@ type solanaNode struct {
 }
 
 type TerraConfig struct {
+	ChainID string `toml:",omitempty"`
 	TerraChainCfg
 	Nodes []TerraNode
 }

@@ -83,8 +83,7 @@ type ChainTOMLCfg struct {
 	HeadTrackerMaxBufferSize    int `toml:",omitempty"`
 	HeadTrackerSamplingInterval *models.Duration
 
-	//TODO everything? or limit to MaxGasPriceWei only?
-	KeySpecific map[string]ChainTOMLCfg `toml:",omitempty"`
+	KeySpecific []KeySpecificConfig `toml:",omitempty"`
 
 	LinkContractAddress  string `toml:",omitempty"`
 	LogBackfillBatchSize int    `toml:",omitempty"`
@@ -125,6 +124,12 @@ type BlockHistoryEstimatorConfig struct {
 	BlockHistorySize          uint16
 	EIP1559FeeCapBufferBlocks uint16
 	TransactionPercentile     uint16
+}
+
+type KeySpecificConfig struct {
+	Key            string `toml:",omitempty"`
+	MaxGasPriceWei *utils.Big
+	//TODO more?
 }
 
 type ChainCfg struct {

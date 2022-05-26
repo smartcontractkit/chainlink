@@ -52,8 +52,9 @@ func ExampleConfig() {
 		AutoPprof: &AutoPprofConfig{
 			CPUProfileRate: 7,
 		},
-		EVM: map[string]EVMConfig{
-			"1": {
+		EVM: []EVMConfig{
+			{
+				ChainID: 1,
 				ChainTOMLCfg: evmtypes.ChainTOMLCfg{
 					FinalityDepth: 26,
 				},
@@ -102,16 +103,15 @@ func ExampleConfig() {
 	// [AutoPprof]
 	// CPUProfileRate = 7
 	//
-	// [EVM]
-	//
-	// [EVM.1]
+	// [[EVM]]
+	// ChainID = 1
 	// FinalityDepth = 26
 	//
-	// [[EVM.1.Nodes]]
+	// [[EVM.Nodes]]
 	// Name = 'primary'
 	// WSURL = 'wss://web.socket/test'
 	//
-	// [[EVM.1.Nodes]]
+	// [[EVM.Nodes]]
 	// Name = 'secondary'
 	// HTTPURL = 'http://broadcast.mirror'
 	// SendOnly = true
@@ -285,8 +285,9 @@ func TestConfig_Marshal(t *testing.T) {
 		MemThreshold:         utils.GB,
 		GoroutineThreshold:   999,
 	}
-	full.EVM = map[string]EVMConfig{
-		"1": {
+	full.EVM = []EVMConfig{
+		{
+			ChainID: 1,
 			ChainTOMLCfg: evmtypes.ChainTOMLCfg{
 				BalanceMonitorEnabled:             true,
 				BlockBackfillDepth:                100,
@@ -319,8 +320,9 @@ func TestConfig_Marshal(t *testing.T) {
 				HeadTrackerMaxBufferSize:    17,
 				HeadTrackerSamplingInterval: &hour,
 
-				KeySpecific: map[string]evmtypes.ChainTOMLCfg{
-					"0x1234": {
+				KeySpecific: []evmtypes.KeySpecificConfig{
+					{
+						Key:            "0x1234",
 						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 					},
 				},
@@ -373,8 +375,9 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = map[string]SolanaConfig{
-		"mainnet": {
+	full.Solana = []SolanaConfig{
+		{
+			ChainID: "mainnet",
 			SolanaChainCfg: SolanaChainCfg{
 				BalancePollPeriod:   Duration(time.Minute),
 				ConfirmPollPeriod:   Duration(time.Second),
@@ -394,8 +397,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Terra = map[string]TerraConfig{
-		"Bombay-12": {
+	full.Terra = []TerraConfig{
+		{
+			ChainID: "Bombay-12",
 			TerraChainCfg: TerraChainCfg{
 				BlockRate:             Duration(time.Minute),
 				BlocksUntilTxTimeout:  12,
@@ -583,9 +587,8 @@ MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 `},
 		{"evm", Config{EVM: full.EVM}, `
-[EVM]
-
-[EVM.1]
+[[EVM]]
+ChainID = 1
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -631,37 +634,35 @@ TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
 UseForwarders = true
 
-[EVM.1.BlockHistoryEstimator]
+[EVM.BlockHistoryEstimator]
 BatchSize = 17
 BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
-[EVM.1.KeySpecific]
-
-[EVM.1.KeySpecific.0x1234]
+[[EVM.KeySpecific]]
+Key = '0x1234'
 MaxGasPriceWei = '79228162514264337593543950335'
 
-[[EVM.1.Nodes]]
+[[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test'
 HTTPURL = 'https://foo.web'
 
-[[EVM.1.Nodes]]
+[[EVM.Nodes]]
 Name = 'bar'
 WSURL = 'wss://web.socket/test'
 HTTPURL = 'https://bar.com'
 
-[[EVM.1.Nodes]]
+[[EVM.Nodes]]
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
 		{"solana", Config{Solana: full.Solana}, `
-[Solana]
-
-[Solana.mainnet]
+[[Solana]]
+ChainID = 'mainnet'
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'
@@ -673,22 +674,21 @@ SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
 
-[[Solana.mainnet.Nodes]]
+[[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
 
-[[Solana.mainnet.Nodes]]
+[[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
 
-[[Solana.mainnet.Nodes]]
+[[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
 `},
 		{"terra", Config{Terra: full.Terra}, `
-[Terra]
-
-[Terra.Bombay-12]
+[[Terra]]
+ChainID = 'Bombay-12'
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
@@ -700,15 +700,15 @@ OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
 TxMsgTimeout = '1s'
 
-[[Terra.Bombay-12.Nodes]]
+[[Terra.Nodes]]
 Name = 'primary'
 TendermintURL = 'http://tender.mint'
 
-[[Terra.Bombay-12.Nodes]]
+[[Terra.Nodes]]
 Name = 'foo'
 TendermintURL = 'http://foo.url'
 
-[[Terra.Bombay-12.Nodes]]
+[[Terra.Nodes]]
 Name = 'bar'
 TendermintURL = 'http://bar.web'
 `},

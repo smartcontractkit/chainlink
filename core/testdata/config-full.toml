@@ -148,9 +148,8 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
-[EVM]
-
-[EVM.1]
+[[EVM]]
+ChainID = 1
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -196,36 +195,34 @@ TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
 UseForwarders = true
 
-[EVM.1.BlockHistoryEstimator]
+[EVM.BlockHistoryEstimator]
 BatchSize = 17
 BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
-[EVM.1.KeySpecific]
-
-[EVM.1.KeySpecific.0x1234]
+[[EVM.KeySpecific]]
+Key = '0x1234'
 MaxGasPriceWei = '79228162514264337593543950335'
 
-[[EVM.1.Nodes]]
+[[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test'
 HTTPURL = 'https://foo.web'
 
-[[EVM.1.Nodes]]
+[[EVM.Nodes]]
 Name = 'bar'
 WSURL = 'wss://web.socket/test'
 HTTPURL = 'https://bar.com'
 
-[[EVM.1.Nodes]]
+[[EVM.Nodes]]
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 
-[Solana]
-
-[Solana.mainnet]
+[[Solana]]
+ChainID = 'mainnet'
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'
@@ -237,21 +234,20 @@ SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
 
-[[Solana.mainnet.Nodes]]
+[[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
 
-[[Solana.mainnet.Nodes]]
+[[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
 
-[[Solana.mainnet.Nodes]]
+[[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
 
-[Terra]
-
-[Terra.Bombay-12]
+[[Terra]]
+ChainID = 'Bombay-12'
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
@@ -263,14 +259,14 @@ OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
 TxMsgTimeout = '1s'
 
-[[Terra.Bombay-12.Nodes]]
+[[Terra.Nodes]]
 Name = 'primary'
 TendermintURL = 'http://tender.mint'
 
-[[Terra.Bombay-12.Nodes]]
+[[Terra.Nodes]]
 Name = 'foo'
 TendermintURL = 'http://foo.url'
 
-[[Terra.Bombay-12.Nodes]]
+[[Terra.Nodes]]
 Name = 'bar'
 TendermintURL = 'http://bar.web'
