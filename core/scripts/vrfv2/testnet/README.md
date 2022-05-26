@@ -41,6 +41,8 @@ export COORDINATOR=<COORDINATOR ADDRESS>
 export KEY_HASH=<KEY HASH>
 ```
 
+By default, the script automatically estimates gas limits for operations. Optionally, `GAS_LIMIT` environment variable can be set to override gas limit for operations. 
+
 Now "cd" into the VRF V2 testnet scripts directory:
 
 ```shell
