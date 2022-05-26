@@ -58,7 +58,7 @@ before(async () => {
   ]
 })
 
-describe.only('CanaryUpkeep', () => {
+describe('CanaryUpkeep', () => {
   beforeEach(async () => {
     const keeperRegistryFactory = await ethers.getContractFactory(
       'KeeperRegistry',
