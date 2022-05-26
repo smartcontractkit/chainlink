@@ -11,16 +11,17 @@ import "../ConfirmedOwner.sol";
  */
 contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   uint256 private s_keeperIndex;
-  uint256 private s_interval = 300;
+  uint256 private s_interval;
   uint256 private s_timestamp;
-  KeeperRegistryInterface private immutable s_keeperRegistry;
+  KeeperRegistryInterface private immutable i_keeperRegistry;
 
   /**
    * @param keeperRegistry address of a keeper registry
    */
-  constructor(KeeperRegistryInterface keeperRegistry) ConfirmedOwner(msg.sender) {
-    s_keeperRegistry = keeperRegistry;
+  constructor(KeeperRegistryInterface keeperRegistry, uint256 interval) ConfirmedOwner(msg.sender) {
+    i_keeperRegistry = keeperRegistry;
     s_timestamp = block.timestamp;
+    s_interval = interval;
     s_keeperIndex = 0;
   }
 
@@ -59,8 +60,7 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   function checkUpkeep(
     bytes calldata /* checkData */
   ) external view returns (bool, bytes memory) {
-    (State memory _s, Config memory _c, address[] memory keepers) = s_keeperRegistry.getState();
-    bool upkeepNeeded = keepers.length != 0 && block.timestamp >= s_interval + s_timestamp;
+    bool upkeepNeeded = block.timestamp >= s_interval + s_timestamp;
     return (upkeepNeeded, bytes(""));
   }
 
@@ -71,7 +71,7 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   function performUpkeep(
     bytes calldata /* performData */
   ) external {
-    (State memory _s, Config memory _c, address[] memory keepers) = s_keeperRegistry.getState();
+    (State memory _s, Config memory _c, address[] memory keepers) = i_keeperRegistry.getState();
     if (keepers.length == 0) {
       revert("no keeper nodes exists");
     }

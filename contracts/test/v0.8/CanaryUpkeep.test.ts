@@ -17,6 +17,7 @@ let ned: Signer
 let keeperAddresses: string[]
 let keeperRegistry: KeeperRegistry
 
+const defaultInterval = 300
 const paymentPremiumPPB = BigNumber.from(250000000)
 const flatFeeMicroLink = BigNumber.from(0)
 const blockCountPerTurn = BigNumber.from(3)
@@ -57,7 +58,7 @@ before(async () => {
   ]
 })
 
-describe('CanaryUpkeep', () => {
+describe.only('CanaryUpkeep', () => {
   beforeEach(async () => {
     const keeperRegistryFactory = await ethers.getContractFactory(
       'KeeperRegistry',
@@ -75,7 +76,7 @@ describe('CanaryUpkeep', () => {
     const canaryUpkeepFactory = await ethers.getContractFactory('CanaryUpkeep')
     canaryUpkeep = await canaryUpkeepFactory
       .connect(owner)
-      .deploy(keeperRegistry.address)
+      .deploy(keeperRegistry.address, defaultInterval)
     await canaryUpkeep.deployed()
   })
 
@@ -120,7 +121,7 @@ describe('CanaryUpkeep', () => {
     it('returns false when keeper array is empty', async () => {
       await fastForward(moment.duration(6, 'minutes').asSeconds())
       const [needsUpkeep] = await canaryUpkeep.checkUpkeep('0x')
-      assert.isFalse(needsUpkeep)
+      assert.isTrue(needsUpkeep)
     })
   })
 
