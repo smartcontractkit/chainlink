@@ -154,7 +154,7 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 			}
 			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %d to %d", startIndex, startIndex+maxCount)
+				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %d to %d (both inclusive)", startIndex, startIndex+maxCount-1)
 			}
 			activeUpkeepIDs = append(activeUpkeepIDs, activeUpkeepIDBatch...)
 		}
