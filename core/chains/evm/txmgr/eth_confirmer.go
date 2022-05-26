@@ -847,17 +847,17 @@ func loadEthTxes(q pg.Queryer, attempts []EthTxAttempt) error {
 // and attempts that need bumping, in nonce ASC order
 func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
 	stmt := `
-		SELECT (eth_txes).*, ARRAY_AGG(attempts ORDER BY (attempts).created_at) AS eth_tx_attempts
+		SELECT (eth_txes).*, ARRAY_AGG(attempt ORDER BY (attempt).created_at) AS eth_tx_attempts
 		FROM (
 			SELECT
 				ROW(t.*)::eth_txes AS eth_txes,
-				ROW(a.*)::eth_tx_attempts AS attempts,
+				ROW(a.*)::eth_tx_attempt AS attempt,
 				ROW_NUMBER() OVER(ORDER BY nonce) AS depth
 			FROM eth_txes AS t LEFT JOIN eth_tx_attempts AS a ON
 				t.id = a.eth_tx_id AND (a.state != 'broadcast' OR (broadcast_before_block_num IS NOT NULL AND $4 < broadcast_before_block_num))
 			WHERE t.state = 'unconfirmed' AND t.from_address = $1 AND t.evm_chain_id = $2
 		) x
-		WHERE (attempts).state = 'insufficient_eth'::eth_tx_attempts_state OR $3 = 0 OR depth <= $3 GROUP BY eth_txes ORDER BY nonce`
+		WHERE (attempt).state = 'insufficient_eth'::eth_tx_attempts_state OR $3 = 0 OR depth <= $3 GROUP BY eth_txes ORDER BY nonce`
 
 	qq := q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
