@@ -36,13 +36,13 @@ const (
 	PerformanceCounter
 )
 
-//var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
 var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
 
-//var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
-//var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
-//var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
-//var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
+var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -216,8 +216,8 @@ func getKeeperSuite(
 							log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 						}, "1m", "1s").Should(Succeed())
 
-						// Only test cancel capabilities for half of the upkeeps to keep the running time reasonable
-						if randomConsumerAndUpkeepID%2 == 0 {
+						// Only test cancel capabilities for 2 of the upkeeps to keep the running time reasonable
+						if randomConsumerAndUpkeepID%5 == 0 {
 							// Cancel the upkeep as the registry owner
 							err := registry.CancelUpkeep(upkeepID)
 							Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
