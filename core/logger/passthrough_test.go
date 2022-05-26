@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/mock"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap/zapcore"
 )
 
