@@ -67,6 +67,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
+	if len(keys) == 0 {
+		return nil, errors.New(fmt.Sprintf("missing sending keys for chain ID: %v", chain.ID()))
+	}
 	fromAddress := keys[0].Address
 	if jb.BlockhashStoreSpec.FromAddress != nil {
 		fromAddress = *jb.BlockhashStoreSpec.FromAddress
