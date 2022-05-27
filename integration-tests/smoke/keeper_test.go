@@ -38,7 +38,6 @@ const (
 
 var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
 var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-
 var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
 var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
 var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
@@ -174,7 +173,7 @@ func getKeeperSuite(
 
 		Describe("with Keeper job", func() {
 			if testToRun == BasicSmokeTest {
-				It("register 10 upkeeps, watch them perform (increasing count) and finally, cancel 5 of them", func() {
+				It("register 10 upkeeps, watch them perform (increasing count) and finally, cancel two of them", func() {
 					// We want to override the registration of just one upkeep in the BeforeEach function which gets called
 					// prior to the execution of each test by registering 10 upkeeps and watching all of them perform.
 					registry, consumers, upkeepIDs := actions.DeployKeeperContracts(
