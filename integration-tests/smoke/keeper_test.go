@@ -75,16 +75,16 @@ func getKeeperSuite(
 ) func() {
 	return func() {
 		var (
-			err                   error
-			networks              *blockchain.Networks
-			contractDeployer      contracts.ContractDeployer
-			registry              contracts.KeeperRegistry
+			err                  error
+			networks             *blockchain.Networks
+			contractDeployer     contracts.ContractDeployer
+			registry             contracts.KeeperRegistry
 			consumers            []contracts.KeeperConsumer
 			consumersPerformance []contracts.KeeperConsumerPerformance
 			upkeepIDs            []*big.Int
-			linkToken             contracts.LinkToken
-			chainlinkNodes        []client.Chainlink
-			env                   *environment.Environment
+			linkToken            contracts.LinkToken
+			chainlinkNodes       []client.Chainlink
+			env                  *environment.Environment
 		)
 
 		BeforeEach(func() {
