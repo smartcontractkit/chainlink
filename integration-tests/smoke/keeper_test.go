@@ -177,23 +177,23 @@ func getKeeperSuite(
 						}
 					}, "1m", "1s").Should(Succeed())
 
+					// For the upkeep which we registered last, we will also check if it is cancelled successfully.
+					// We don't do this for all the upkeeps because the cancellation checks are time-consuming.
+					upkeepID := upkeepIDs[len(upkeepIDs)-1]
+					consumer := consumers[len(consumers)-1]
+
+					// Cancel the newest registered upkeep via the registry
+					err := registry.CancelUpkeep(upkeepID)
+					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
+
+					// Obtain the amount of times the upkeep has been executed so far
+					counterAfterCancellation, err := consumer.Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
+
 					Consistently(func(g Gomega) {
-						// For the upkeep which we registered last, we will also check if it is cancelled successfully.
-						// We don't do this for all the upkeeps because the cancellation checks are time-consuming.
-						upkeepID := upkeepIDs[len(upkeepIDs)-1]
-						consumer := consumers[len(consumers)-1]
-
-						// Cancel the newest registered upkeep via the registry
-						err := registry.CancelUpkeep(upkeepID)
-						Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
-						err = networks.Default.WaitForEvents()
-						Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
-
-						// Obtain the amount of times the upkeep has been executed so far
-						counterAfterCancellation, err := consumer.Counter(context.Background())
-						Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
-
 						// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
 						latestCounter, err := consumer.Counter(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
