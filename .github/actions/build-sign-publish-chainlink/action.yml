@@ -1,6 +1,6 @@
 name: Build and Publish Chainlink
 
-description: A composite action that allows building and publishing signed chainlink images. Note that this action only supports public ECR repositories. The value of the registry to login to in the docker/login-action setup is hardcoded to 'public.ecr.aws'
+description: A composite action that allows building and publishing signed chainlink images.
 
 inputs:
   # Inputs for publishing
@@ -9,13 +9,17 @@ inputs:
     default: "false"
     required: false
 
-  image-name:
-    description: The name of the image, should match the repository name in ECR
-    required: true
-
-  ecr-registry:
-    description: The ECR registry to push to, used in docker/login-action and for tagging images
-    default: public.ecr.aws/chainlink
+  ecr-prefix:
+    description: The ECR registry scope
+    default: public.ecr.aws
+    required: false
+  ecr-repo-path:
+    description: Name of the ECR registry to push to, used in docker/login-action and for tagging images
+    default: chainlink/chainlink
+    required: false
+  aws-use-access-key:
+    description: If true, aws will be authenticated via 'aws-access-key-id', else role will be assumed through OIDC
+    default: true
     required: false
   aws-access-key-id:
     description: The IAM access key used to authenticate to ECR, used in configuring docker/login-action
@@ -63,7 +67,7 @@ runs:
     shell: sh
     # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
     run: |
-      SHARED_IMAGES=${{ inputs.ecr-registry }}/${{ inputs.image-name }}
+      SHARED_IMAGES=${{ inputs.ecr-prefix }}/${{ inputs.ecr-repo-path }}
 
       SHARED_TAG_LIST=$(cat << EOF
       type=ref,event=branch
@@ -89,7 +93,7 @@ runs:
       echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
       echo "EOF" >> $GITHUB_ENV
 
-  - if: inputs.publish == 'true'
+  - if: inputs.publish == 'true' && inputs.aws-use-access-key == 'true'
     name: Configure AWS Credentials
     uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
     with:
@@ -99,11 +103,19 @@ runs:
       role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
       aws-region: ${{ inputs.aws-region }}
 
+  - if: inputs.publish == 'true' && inputs.aws-use-access-key == 'false'
+    name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
+    with:
+      role-to-assume: ${{ inputs.aws-role-to-assume }}
+      role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
+      aws-region: ${{ inputs.aws-region }}
+
   - if: inputs.publish == 'true'
     name: Login to ECR
     uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
     with:
-      registry: public.ecr.aws
+      registry: ${{ inputs.ecr-prefix }}
 
   - name: Setup Docker Buildx
     uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
@@ -178,7 +190,7 @@ runs:
       echo "Fail build if non-root image runs as user: root"
       # if we're publishing the image, it doesn't get loaded into the local docker daemon
       # so we need to pull the image into our daemon
-      if [ $PUBLISH = "true" ]; then 
+      if [ $PUBLISH = "true" ]; then
        docker pull "${nonroot_image_name}"
       fi
       docker inspect "${nonroot_image_name}" | jq -r '.[].Config.User' | ( ! grep "root" )
