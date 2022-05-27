@@ -100,7 +100,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
    * @param _consumer the VRF randomness consumer to send the result to
    * @param _words user provided random words
    */
-  function fulfillRandomWords(
+  function fulfillRandomWordsWithOverride(
     uint256 _requestId,
     address _consumer,
     uint256[] memory _words
