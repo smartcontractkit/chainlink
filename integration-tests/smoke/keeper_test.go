@@ -88,7 +88,7 @@ func getKeeperSuite(
 		)
 
 		BeforeEach(func() {
-			By("Deploying the environment", func() {
+			By("Deploying the environment!", func() {
 				// Confirm all logs, txs after 1 block
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["MIN_INCOMING_CONFIRMATIONS"] = "1"
 				// Turn on buddy turn taking algo
