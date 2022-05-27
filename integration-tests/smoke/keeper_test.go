@@ -4,8 +4,6 @@ package smoke
 import (
 	"context"
 	"math/big"
-	"math/rand"
-	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -77,16 +75,16 @@ func getKeeperSuite(
 ) func() {
 	return func() {
 		var (
-			err                 error
-			networks            *blockchain.Networks
-			contractDeployer    contracts.ContractDeployer
-			registry            contracts.KeeperRegistry
-			consumer            contracts.KeeperConsumer
-			consumerPerformance contracts.KeeperConsumerPerformance
-			upkeepID            *big.Int
-			linkToken           contracts.LinkToken
-			chainlinkNodes      []client.Chainlink
-			env                 *environment.Environment
+			err                  error
+			networks             *blockchain.Networks
+			contractDeployer     contracts.ContractDeployer
+			registry             contracts.KeeperRegistry
+			consumers            []contracts.KeeperConsumer
+			consumersPerformance []contracts.KeeperConsumerPerformance
+			upkeepIDs            []*big.Int
+			linkToken            contracts.LinkToken
+			chainlinkNodes       []client.Chainlink
+			env                  *environment.Environment
 		)
 
 		BeforeEach(func() {
@@ -132,20 +130,17 @@ func getKeeperSuite(
 
 				switch consumerContract {
 				case BasicCounter:
-					r, consumers, upkeepIDs := actions.DeployKeeperContracts(
+					registry, consumers, upkeepIDs = actions.DeployKeeperContracts(
 						registryVersion,
 						registryConfig,
-						1,
+						10,
 						uint32(2500000), //upkeepGasLimit
 						linkToken,
 						contractDeployer,
 						networks,
 					)
-					registry = r
-					upkeepID = upkeepIDs[0]
-					consumer = consumers[0]
 				case PerformanceCounter:
-					r, consumers, upkeepIDs := actions.DeployPerformanceKeeperContracts(
+					registry, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
 						registryVersion,
 						1,
 						uint32(2500000), //upkeepGasLimit
@@ -158,9 +153,6 @@ func getKeeperSuite(
 						100000,  // How much gas should be burned on checkUpkeep() calls
 						4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than upkeepGasLimit
 					)
-					registry = r
-					upkeepID = upkeepIDs[0]
-					consumerPerformance = consumers[0]
 				}
 			})
 
@@ -173,88 +165,50 @@ func getKeeperSuite(
 
 		Describe("with Keeper job", func() {
 			if testToRun == BasicSmokeTest {
-				var testDescription = "check the initial upkeep (including the cancellation feature), then " +
-					"register another 9 upkeeps and watch all of them perform successfully"
-				It(testDescription, func() {
-					// Test that the upkeep which is registered in the BeforeEach function is executed
-					Eventually(func(g Gomega) {
-						oldestUpkeepCounter, err := consumer.Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						g.Expect(oldestUpkeepCounter.Int64()).Should(BeNumerically(">", int64(0)),
-							"Expected consumer counter to be greater than 0, but got %d", oldestUpkeepCounter.Int64())
-						log.Info().Int64("Upkeep counter", oldestUpkeepCounter.Int64()).Msg("Upkeeps performed")
-					}, "1m", "1s").Should(Succeed())
+				It("monitors all the registered upkeeps perform and checks the cancel functionality for the last of them", func() {
+					for i := 0; i < len(upkeepIDs); i++ {
+						// Check if the upkeep is performing by analysing its counter and checking it is greater than 0
+						Eventually(func(g Gomega) {
+							counter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+							log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
+						}, "1m", "1s").Should(Succeed())
+					}
 
-					// Cancel the oldest upkeep via the registry
+					// For the upkeep which we registered last, we will also check if it is cancelled successfully.
+					// We don't do this for all the upkeeps because the cancellation checks take around 2 minutes.
+					upkeepID := upkeepIDs[len(upkeepIDs)-1]
+					consumer := consumers[len(consumers)-1]
+
+					// Cancel the newest registered upkeep via the registry
 					err := registry.CancelUpkeep(upkeepID)
 					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
 
 					// Obtain the amount of times the upkeep has been executed so far
-					existingCnt, err := consumer.Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-					log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
+					counterAfterCancellation, err := consumer.Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+					log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
 
 					// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
 					Consistently(func(g Gomega) {
-						cnt, err := consumer.Counter(context.Background())
+						latestCounter, err := consumer.Counter(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-						g.Expect(cnt.Int64()).Should(
-							Equal(existingCnt.Int64()),
-							"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+						g.Expect(latestCounter.Int64()).Should(
+							Equal(counterAfterCancellation.Int64()),
+							"Expected consumer counter to remain constant at %d, but got %d", counterAfterCancellation.Int64(), latestCounter.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
-
-					// Register another 9 upkeeps and deploy the contracts associated to them
-					registry, consumers, upkeepIDs := actions.DeployKeeperContracts(
-						registryVersion,
-						registryConfig,
-						9,
-						uint32(2500000), //upkeepGasLimit
-						linkToken,
-						contractDeployer,
-						networks,
-					)
-
-					// Register the Keeper jobs responsible for the 9 newly registered upkeeps
-					actions.CreateKeeperJobs(chainlinkNodes, registry)
-					err = networks.Default.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
-
-					var testedUpkeeps = 0
-					var upkeepIndexesLeftToTest = []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
-
-					// Go through all the 9 upkeeps and check if they are performing (increasing execution counter)
-					for testedUpkeeps < 9 {
-						var randomIndex = rand.Intn(len(upkeepIndexesLeftToTest))
-						var randomConsumerAndUpkeepID = upkeepIndexesLeftToTest[randomIndex]
-
-						log.Info().Msg("Watching upkeep indexed at " + strconv.Itoa(randomConsumerAndUpkeepID) +
-							" in the original list of 9 upkeeps perform")
-
-						consumer = consumers[randomConsumerAndUpkeepID]
-						upkeepID = upkeepIDs[randomConsumerAndUpkeepID]
-
-						// Check if the upkeep is being performed by verifying the counter is greater than 0
-						Eventually(func(g Gomega) {
-							cnt, err := consumer.Counter(context.Background())
-							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-							g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
-								"Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
-							log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
-						}, "1m", "1s").Should(Succeed())
-
-						testedUpkeeps++
-						// Remove the random index chosen above form the slice of upkeep indexes which have yet been tested.
-						upkeepIndexesLeftToTest = append(upkeepIndexesLeftToTest[:randomIndex], upkeepIndexesLeftToTest[randomIndex+1:]...)
-					}
 				})
 			}
 
 			if testToRun == BcptTest {
 				It("tests that keeper pairs change turn every blockCountPerTurn", func() {
 					keepersPerformed := make([]string, 0)
+					upkeepID := upkeepIDs[0]
 
 					// Wait for upkeep to be performed twice by different keepers (buddies)
 					Eventually(func(g Gomega) {
@@ -316,6 +270,9 @@ func getKeeperSuite(
 
 			if testToRun == PerformSimulationTest {
 				It("tests that performUpkeep simulation is run before tx is broadcast", func() {
+					consumerPerformance := consumersPerformance[0]
+					upkeepID := upkeepIDs[0]
+
 					// Initially performGas is set high, so performUpkeep reverts and no upkeep should be performed
 					Consistently(func(g Gomega) {
 						// Consumer count should remain at 0
@@ -352,6 +309,9 @@ func getKeeperSuite(
 
 			if testToRun == CheckPerformGasLimitTest {
 				It("tests that check/perform gas limits are respected for upkeeps", func() {
+					consumerPerformance := consumersPerformance[0]
+					upkeepID := upkeepIDs[0]
+
 					// Initially performGas is set higher than upkeepGasLimit, so no upkeep should be performed
 					Consistently(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
