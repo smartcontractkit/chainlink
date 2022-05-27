@@ -43,7 +43,9 @@ jobs:
           context: .
           file: core/chainlink.Dockerfile
           # comma separated like: KEY1=VAL1,KEY2=VAL2,...
-          build-args: COMMIT_SHA=${{ github.sha }}
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
+            CHAINLINK_USER=chainlink
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
   smoke:
