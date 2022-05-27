@@ -195,13 +195,13 @@ func getKeeperSuite(
 					var upkeepIndexesLeftToTest = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 					// Go through all the 10 upkeeps and check if they are performing (increasing execution counter);
-					// if they can be cancelled and if the counter is constant after cancellation.
+					// if we have checked 9 of the upkeeps also check that the last one can be cancelled successfully.
 					for testedUpkeeps < 10 {
 						var randomIndex = rand.Intn(len(upkeepIndexesLeftToTest))
 						var randomConsumerAndUpkeepID = upkeepIndexesLeftToTest[randomIndex]
 
-						log.Info().Msg("Testing upkeep indexed at " + strconv.Itoa(randomConsumerAndUpkeepID) +
-							" in the original list of 10 upkeeps")
+						log.Info().Msg("Watching upkeep indexed at " + strconv.Itoa(randomConsumerAndUpkeepID) +
+							" in the original list of 10 upkeeps perform")
 
 						consumer = consumers[randomConsumerAndUpkeepID]
 						upkeepID = upkeepIDs[randomConsumerAndUpkeepID]
@@ -215,20 +215,20 @@ func getKeeperSuite(
 							log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 						}, "1m", "1s").Should(Succeed())
 
-						// Only test cancel capabilities for 2 of the upkeeps to keep the running time reasonable
-						if randomConsumerAndUpkeepID%5 == 0 {
-							// Cancel the upkeep as the registry owner
+						// Only test cancel capabilities for the last upkeep because this is a time-consuming process
+						if testedUpkeeps == 9 {
+							// Cancel the upkeep via the registry
 							err := registry.CancelUpkeep(upkeepID)
 							Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
 							err = networks.Default.WaitForEvents()
 							Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
 
-							// Get existing performed count
+							// Obtain the amount of times the upkeep has been executed so far
 							existingCnt, err := consumer.Counter(context.Background())
 							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 							log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
 
-							// Expect count to remain constant because the upkeep was cancelled; it shouldn't increase anymore
+							// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
 							Consistently(func(g Gomega) {
 								cnt, err := consumer.Counter(context.Background())
 								g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
