@@ -14,7 +14,7 @@ import (
 	utilsmocks "github.com/smartcontractkit/chainlink/core/utils/mocks"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

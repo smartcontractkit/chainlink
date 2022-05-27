@@ -57,16 +57,26 @@ func NewApp(client *Client) *cli.App {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 		urlStr := c.String("remote-node-url")
+		if envUrlStr := os.Getenv("CLIENT_NODE_URL"); envUrlStr != "" {
+			urlStr = envUrlStr
+		}
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
 			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
 		}
-		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: c.Bool("insecure-skip-verify")}
+		insecureSkipVerify := c.Bool("insecure-skip-verify")
+		if envInsecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY"); envInsecureSkipVerify == "true" {
+			insecureSkipVerify = true
+		}
+		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
 		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
 		sr := sessions.SessionRequest{}
 		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
 		{
 			credentialsFile := c.String("admin-credentials-file")
+			if envCredentialsFile := os.Getenv("ADMIN_CREDENTIALS_FILE"); envCredentialsFile != "" {
+				credentialsFile = envCredentialsFile
+			}
 			var err error
 			sr, err = sessionRequestBuilder.Build(credentialsFile)
 			if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
@@ -1022,12 +1032,12 @@ func format(s string) string {
 
 func logDeprecatedClientEnvWarnings(lggr logger.Logger) {
 	if s := os.Getenv("INSECURE_SKIP_VERIFY"); s != "" {
-		lggr.Error("INSECURE_SKIP_VERIFY env var no longer has any effect. Use flag instead: --insecure-skip-verify")
+		lggr.Error("INSECURE_SKIP_VERIFY env var has been deprecated and will be removed in a future release. Use flag instead: --insecure-skip-verify")
 	}
 	if s := os.Getenv("CLIENT_NODE_URL"); s != "" {
-		lggr.Errorf("CLIENT_NODE_URL env var no longer has any effect. Use flag instead: --remote-node-url=%s", s)
+		lggr.Errorf("CLIENT_NODE_URL env var has been deprecated and will be removed in a future release. Use flag instead: --remote-node-url=%s", s)
 	}
 	if s := os.Getenv("ADMIN_CREDENTIALS_FILE"); s != "" {
-		lggr.Errorf("ADMIN_CREDENTIALS_FILE env var no longer has any effect. Use flag instead: --admin-credentials-file=%s", s)
+		lggr.Errorf("ADMIN_CREDENTIALS_FILE env var has been deprecated and will be removed in a future release. Use flag instead: --admin-credentials-file=%s", s)
 	}
 }

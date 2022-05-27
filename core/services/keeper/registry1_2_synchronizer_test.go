@@ -17,6 +17,7 @@ import (
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 )
 
@@ -62,6 +63,8 @@ func mockRegistry1_2(
 	keeperList []common.Address,
 	upkeepConfig registry1_2.GetUpkeep,
 	timesGetUpkeepMock int,
+	getStateTime int,
+	getActiveUpkeepIDsTime int,
 ) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
 
@@ -72,11 +75,45 @@ func mockRegistry1_2(
 		Config:  config,
 		Keepers: keeperList,
 	}
-	registryMock.MockResponse("getState", getState).Once()
-	registryMock.MockResponse("getActiveUpkeepIDs", activeUpkeepIDs).Once()
+	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).Return(
+		&types.Header{
+			Number: big.NewInt(10),
+		}, nil)
+	if getStateTime > 0 {
+		registryMock.MockResponse("getState", getState).Times(getStateTime)
+	}
+	if getActiveUpkeepIDsTime > 0 {
+		registryMock.MockResponse("getActiveUpkeepIDs", activeUpkeepIDs).Times(getActiveUpkeepIDsTime)
+	}
 	if timesGetUpkeepMock > 0 {
 		registryMock.MockResponse("getUpkeep", upkeepConfig).Times(timesGetUpkeepMock)
 	}
+}
+
+func Test_LogListenerOpts1_2(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+
+	contractAddress := j.KeeperSpec.ContractAddress.Address()
+	registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
+	registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
+
+	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)
+	require.NoError(t, err)
+
+	logListenerOpts, err := registryWrapper.GetLogListenerOpts(1, nil)
+	require.NoError(t, err)
+
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryKeepersUpdated{}.Topic(), "Registry should listen to KeeperRegistryKeepersUpdated log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryConfigSet{}.Topic(), "Registry should listen to KeeperRegistryConfigSet log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepCanceled{}.Topic(), "Registry should listen to KeeperRegistryUpkeepCanceled log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepRegistered{}.Topic(), "Registry should listen to KeeperRegistryUpkeepRegistered log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepPerformed{}.Topic(), "Registry should listen to KeeperRegistryUpkeepPerformed log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepGasLimitSet{}.Topic(), "Registry should listen to KeeperRegistryUpkeepGasLimitSet log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepMigrated{}.Topic(), "Registry should listen to KeeperRegistryUpkeepMigrated log")
+	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_2.KeeperRegistryUpkeepReceived{}.Topic(), "Registry should listen to KeeperRegistryUpkeepReceived log")
 }
 
 func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
@@ -92,6 +129,8 @@ func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
 		[]*big.Int{},
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		0,
+		2,
 		0)
 
 	err := synchronizer.Start(testutils.Context(t))
@@ -122,7 +161,9 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 		[]*big.Int{big.NewInt(3), big.NewInt(69), big.NewInt(420)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig,
-		3) // sync all 3
+		3, // sync all 3
+		2,
+		1)
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
@@ -167,7 +208,9 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 		[]*big.Int{big.NewInt(69), big.NewInt(420), big.NewInt(2022)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
-		1) // 1 new upkeep to sync
+		1, // 1 new upkeep to sync
+		2,
+		1)
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
@@ -191,6 +234,8 @@ func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
 		[]*big.Int{}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		0,
+		2,
 		0)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
@@ -244,6 +289,8 @@ func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
 		[]*big.Int{}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		0,
+		2,
 		0)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
@@ -296,7 +343,9 @@ func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
 		[]*big.Int{big.NewInt(3), big.NewInt(69), big.NewInt(420)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
-		3)
+		3,
+		2,
+		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer func() { require.NoError(t, synchronizer.Close()) }()
@@ -336,6 +385,8 @@ func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
 		[]*big.Int{big.NewInt(3)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		1,
+		2,
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
@@ -381,6 +432,8 @@ func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
 		[]*big.Int{big.NewInt(3)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		1,
+		2,
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
@@ -437,11 +490,15 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 		[]*big.Int{big.NewInt(3)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		1,
+		2,
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
+	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
+
 	getExecuteGas := func() uint64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
@@ -488,6 +545,8 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 		[]*big.Int{big.NewInt(3)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
+		1,
+		2,
 		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
@@ -531,7 +590,9 @@ func Test_RegistrySynchronizer1_2_UpkeepMigratedLog(t *testing.T) {
 		[]*big.Int{big.NewInt(3), big.NewInt(69), big.NewInt(420)}, // Upkeep IDs
 		[]common.Address{fromAddress},
 		upkeepConfig1_2,
-		3)
+		3,
+		2,
+		1)
 
 	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer func() { require.NoError(t, synchronizer.Close()) }()

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/helmenv/environment"
-	"github.com/smartcontractkit/helmenv/tools"
 )
 
 var _ = Describe("Direct request suite @runlog", func() {
@@ -41,7 +40,6 @@ var _ = Describe("Direct request suite @runlog", func() {
 					"chainlink-runlog-core-ci",
 					config.GethNetworks()...,
 				),
-				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 			err = e.ConnectAll()
