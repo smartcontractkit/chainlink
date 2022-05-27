@@ -3,7 +3,7 @@
 -- +goose StatementBegin
 
 --
--- Name: eth_txes_state; Type: TYPE; Schema: public; Owner: postgres
+-- Name: eth_tx_attempt; Type: TYPE; Schema: public; Owner: postgres
 --
 CREATE TYPE eth_tx_attempt AS (
 		 id BIGINT,
