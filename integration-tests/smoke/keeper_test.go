@@ -173,18 +173,19 @@ func getKeeperSuite(
 
 		Describe("with Keeper job", func() {
 			if testToRun == BasicSmokeTest {
-				It("check the initial upkeep (including cancellation feature, then register another 9 upkeeps"+
-					"and watch all of them perform successfully)", func() {
+				var testDescription = "check the initial upkeep (including the cancellation feature), then " +
+					"register another 9 upkeeps and watch all of them perform successfully"
+				It(testDescription, func() {
 					// Test that the upkeep which is registered in the BeforeEach function is executed
 					Eventually(func(g Gomega) {
 						oldestUpkeepCounter, err := consumer.Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 						g.Expect(oldestUpkeepCounter.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %d", oldestUpkeepCounter.Int64())
 						log.Info().Int64("Upkeep counter", oldestUpkeepCounter.Int64()).Msg("Upkeeps performed")
 					}, "1m", "1s").Should(Succeed())
 
-					// Cancel the upkeep via the registry
+					// Cancel the oldest upkeep via the registry
 					err := registry.CancelUpkeep(upkeepID)
 					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
 					err = networks.Default.WaitForEvents()
@@ -205,8 +206,7 @@ func getKeeperSuite(
 						)
 					}, "1m", "1s").Should(Succeed())
 
-					// We want to override the registration of just one upkeep in the BeforeEach function which gets called
-					// prior to the execution of each test by registering 10 upkeeps and watching all of them perform.
+					// Register another 9 upkeeps and deploy the contracts associated to them
 					registry, consumers, upkeepIDs := actions.DeployKeeperContracts(
 						registryVersion,
 						registryConfig,
@@ -217,7 +217,7 @@ func getKeeperSuite(
 						networks,
 					)
 
-					// Register the Keeper jobs responsible for the 10 upkeeps.
+					// Register the Keeper jobs responsible for the 9 newly registered upkeeps
 					actions.CreateKeeperJobs(chainlinkNodes, registry)
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
@@ -225,18 +225,18 @@ func getKeeperSuite(
 					var testedUpkeeps = 0
 					var upkeepIndexesLeftToTest = []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
 
-					// Go through all the 9 upkeeps and check if they are performing (increasing execution counter);
+					// Go through all the 9 upkeeps and check if they are performing (increasing execution counter)
 					for testedUpkeeps < 9 {
 						var randomIndex = rand.Intn(len(upkeepIndexesLeftToTest))
 						var randomConsumerAndUpkeepID = upkeepIndexesLeftToTest[randomIndex]
 
 						log.Info().Msg("Watching upkeep indexed at " + strconv.Itoa(randomConsumerAndUpkeepID) +
-							" in the original list of 10 upkeeps perform")
+							" in the original list of 9 upkeeps perform")
 
 						consumer = consumers[randomConsumerAndUpkeepID]
 						upkeepID = upkeepIDs[randomConsumerAndUpkeepID]
 
-						// Check if the upkeep is being performed
+						// Check if the upkeep is being performed by verifying the counter is greater than 0
 						Eventually(func(g Gomega) {
 							cnt, err := consumer.Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
