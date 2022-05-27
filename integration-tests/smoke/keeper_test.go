@@ -173,13 +173,44 @@ func getKeeperSuite(
 
 		Describe("with Keeper job", func() {
 			if testToRun == BasicSmokeTest {
-				It("register 10 upkeeps, watch them perform (increasing count) and finally, cancel two of them", func() {
+				It("check the initial upkeep (including cancellation feature, then register another 9 upkeeps"+
+					"and watch all of them perform successfully)", func() {
+					// Test that the upkeep which is registered in the BeforeEach function is executed
+					Eventually(func(g Gomega) {
+						oldestUpkeepCounter, err := consumer.Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+						g.Expect(oldestUpkeepCounter.Int64()).Should(BeNumerically(">", int64(0)),
+							"Expected consumer counter to be greater than 0, but got %d", oldestUpkeepCounter.Int64())
+						log.Info().Int64("Upkeep counter", oldestUpkeepCounter.Int64()).Msg("Upkeeps performed")
+					}, "1m", "1s").Should(Succeed())
+
+					// Cancel the upkeep via the registry
+					err := registry.CancelUpkeep(upkeepID)
+					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
+
+					// Obtain the amount of times the upkeep has been executed so far
+					existingCnt, err := consumer.Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+					log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
+
+					// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
+					Consistently(func(g Gomega) {
+						cnt, err := consumer.Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+						g.Expect(cnt.Int64()).Should(
+							Equal(existingCnt.Int64()),
+							"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
+						)
+					}, "1m", "1s").Should(Succeed())
+
 					// We want to override the registration of just one upkeep in the BeforeEach function which gets called
 					// prior to the execution of each test by registering 10 upkeeps and watching all of them perform.
 					registry, consumers, upkeepIDs := actions.DeployKeeperContracts(
 						registryVersion,
 						registryConfig,
-						10,
+						9,
 						uint32(2500000), //upkeepGasLimit
 						linkToken,
 						contractDeployer,
@@ -192,11 +223,10 @@ func getKeeperSuite(
 					Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
 					var testedUpkeeps = 0
-					var upkeepIndexesLeftToTest = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+					var upkeepIndexesLeftToTest = []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
 
-					// Go through all the 10 upkeeps and check if they are performing (increasing execution counter);
-					// if we have checked 9 of the upkeeps also check that the last one can be cancelled successfully.
-					for testedUpkeeps < 10 {
+					// Go through all the 9 upkeeps and check if they are performing (increasing execution counter);
+					for testedUpkeeps < 9 {
 						var randomIndex = rand.Intn(len(upkeepIndexesLeftToTest))
 						var randomConsumerAndUpkeepID = upkeepIndexesLeftToTest[randomIndex]
 
@@ -214,30 +244,6 @@ func getKeeperSuite(
 								"Expected consumer counter to be greater than 0, but got %d", cnt.Int64())
 							log.Info().Int64("Upkeep counter", cnt.Int64()).Msg("Upkeeps performed")
 						}, "1m", "1s").Should(Succeed())
-
-						// Only test cancel capabilities for the last upkeep because this is a time-consuming process
-						if testedUpkeeps == 9 {
-							// Cancel the upkeep via the registry
-							err := registry.CancelUpkeep(upkeepID)
-							Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
-							err = networks.Default.WaitForEvents()
-							Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
-
-							// Obtain the amount of times the upkeep has been executed so far
-							existingCnt, err := consumer.Counter(context.Background())
-							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-							log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep cancelled")
-
-							// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
-							Consistently(func(g Gomega) {
-								cnt, err := consumer.Counter(context.Background())
-								g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-								g.Expect(cnt.Int64()).Should(
-									Equal(existingCnt.Int64()),
-									"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
-								)
-							}, "1m", "1s").Should(Succeed())
-						}
 
 						testedUpkeeps++
 						// Remove the random index chosen above form the slice of upkeep indexes which have yet been tested.
