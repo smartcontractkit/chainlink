@@ -85,19 +85,36 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
    * @param _consumer the VRF randomness consumer to send the result to
    */
   function fulfillRandomWords(uint256 _requestId, address _consumer) external {
+    fulfillRandomWordsWithOverride(_requestId, _consumer, new uint256[](0));
+  }
+
+  /**
+   * @notice fulfillRandomWordsWithOverride allows the user to pass in their own random words.
+   *
+   * @param _requestId the request to fulfill
+   * @param _consumer the VRF randomness consumer to send the result to
+   * @param _words user-provided random words
+   */
+  function fulfillRandomWordsWithOverride(
+    uint256 _requestId,
+    address _consumer,
+    uint256[] memory _words
+  ) public {
     uint256 startGas = gasleft();
     if (s_requests[_requestId].subId == 0) {
       revert("nonexistent request");
     }
     Request memory req = s_requests[_requestId];
 
-    uint256[] memory words = new uint256[](req.numWords);
-    for (uint256 i = 0; i < req.numWords; i++) {
-      words[i] = uint256(keccak256(abi.encode(_requestId, i)));
+    if (_words.length != req.numWords) {
+      _words = new uint256[](req.numWords);
+      for (uint256 i = 0; i < req.numWords; i++) {
+        _words[i] = uint256(keccak256(abi.encode(_requestId, i)));
+      }
     }
 
     VRFConsumerBaseV2 v;
-    bytes memory callReq = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, _requestId, words);
+    bytes memory callReq = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, _requestId, _words);
     (bool success, ) = _consumer.call{gas: req.callbackGasLimit}(callReq);
 
     uint96 payment = uint96(BASE_FEE + ((startGas - gasleft()) * GAS_PRICE_LINK));
