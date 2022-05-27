@@ -87,20 +87,3 @@ jobs:
       QA_AWS_REGION: ${{ secrets.AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
-
-  terra:
-    name: Terra Tests
-    needs: [changes, build-chainlink]
-    if: ${{ needs.changes.outputs.src == 'true' }}
-    uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
-    with:
-      repo_name: smartcontractkit/chainlink-terra
-      ref: develop
-      cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
-      cl_image: latest.${{ github.sha }}
-    secrets:
-      QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
