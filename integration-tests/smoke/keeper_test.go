@@ -98,7 +98,7 @@ func getKeeperSuite(
 					environment.NewChainlinkConfig(
 						environment.ChainlinkReplicas(6, config.ChainlinkVals()),
 						"chainlink-keeper-core-ci",
-						config.GethNetworks()...,
+						environment.PerformanceGeth,
 					),
 				)
 				Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
