@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"go.uber.org/zap/zapcore"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -16,13 +17,12 @@ import (
 
 type Config struct {
 	// General/misc
-	Dev                  bool `toml:",omitempty"`
-	ExplorerURL          *URL
-	FlagsContractAddress string   `toml:",omitempty"`
-	InsecureFastScrypt   bool     `toml:",omitempty"`
-	ReaperExpiration     Duration `toml:",omitempty"`
-	RootDir              string   `toml:",omitempty"`
-	ShutdownGracePeriod  Duration `toml:",omitempty"`
+	Dev                 bool `toml:",omitempty"`
+	ExplorerURL         *URL
+	InsecureFastScrypt  bool     `toml:",omitempty"`
+	ReaperExpiration    Duration `toml:",omitempty"`
+	RootDir             string   `toml:",omitempty"`
+	ShutdownGracePeriod Duration `toml:",omitempty"`
 
 	Database *DatabaseConfig
 
@@ -124,9 +124,9 @@ type TerraChainCfg struct {
 	BlockRate             Duration
 	BlocksUntilTxTimeout  int
 	ConfirmPollPeriod     Duration
-	FallbackGasPriceULuna string //TODO decimal number type?
+	FallbackGasPriceULuna *decimal.Decimal
 	FCDURL                *URL
-	GasLimitMultiplier    float64
+	GasLimitMultiplier    *decimal.Decimal
 	MaxMsgsPerBatch       int64
 	OCR2CachePollPeriod   Duration
 	OCR2CacheTTL          Duration
@@ -277,14 +277,14 @@ type P2PConfig struct {
 }
 
 type KeeperConfig struct {
-	CheckUpkeepGasPriceFeatureEnabled bool     `toml:",omitempty"`
-	DefaultTransactionQueueDepth      uint32   `toml:",omitempty"`
-	GasPriceBufferPercent             uint32   `toml:",omitempty"`
-	GasTipCapBufferPercent            uint32   `toml:",omitempty"`
-	BaseFeeBufferPercent              uint32   `toml:",omitempty"`
-	MaximumGracePeriod                int64    `toml:",omitempty"`
-	RegistryCheckGasOverhead          uint64   `toml:",omitempty"`
-	RegistryPerformGasOverhead        uint64   `toml:",omitempty"`
+	CheckUpkeepGasPriceFeatureEnabled bool   `toml:",omitempty"`
+	DefaultTransactionQueueDepth      uint32 `toml:",omitempty"`
+	GasPriceBufferPercent             uint32 `toml:",omitempty"`
+	GasTipCapBufferPercent            uint32 `toml:",omitempty"`
+	BaseFeeBufferPercent              uint32 `toml:",omitempty"`
+	MaximumGracePeriod                int64  `toml:",omitempty"`
+	RegistryCheckGasOverhead          *utils.Big
+	RegistryPerformGasOverhead        *utils.Big
 	RegistrySyncInterval              Duration `toml:",omitempty"`
 	RegistrySyncUpkeepQueueSize       uint32   `toml:",omitempty"`
 	TurnLookBack                      int64    `toml:",omitempty"`

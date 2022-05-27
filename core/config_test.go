@@ -4,18 +4,22 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"math/big"
 	"net"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml/v2"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -69,7 +73,28 @@ func ExampleConfig() {
 						SendOnly: true,
 					},
 				}},
-			//TODO more chains
+		},
+		Solana: []SolanaConfig{
+			{
+				ChainID: "mainnet",
+				SolanaChainCfg: SolanaChainCfg{
+					MaxRetries: 12,
+				},
+				Nodes: []solanaNode{
+					{Name: "primary", URL: mustURL("http://solana.com")},
+				},
+			},
+		},
+		Terra: []TerraConfig{
+			{
+				ChainID: "Columbus-5",
+				TerraChainCfg: TerraChainCfg{
+					MaxMsgsPerBatch: 13,
+				},
+				Nodes: []TerraNode{
+					{Name: "primary", TendermintURL: mustURL("http://solana.com")},
+				},
+			},
 		},
 	}); err != nil {
 		fmt.Println(err)
@@ -115,6 +140,22 @@ func ExampleConfig() {
 	// Name = 'secondary'
 	// HTTPURL = 'http://broadcast.mirror'
 	// SendOnly = true
+	//
+	// [[Solana]]
+	// ChainID = 'mainnet'
+	// MaxRetries = 12
+	//
+	// [[Solana.Nodes]]
+	// Name = 'primary'
+	// URL = 'http://solana.com'
+	//
+	// [[Terra]]
+	// ChainID = 'Columbus-5'
+	// MaxMsgsPerBatch = 13
+	//
+	// [[Terra.Nodes]]
+	// Name = 'primary'
+	// TendermintURL = 'http://solana.com'
 }
 
 //go:embed testdata/config-full.toml
@@ -129,11 +170,20 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return id
 	}
+	mustDecimal := func(s string) *decimal.Decimal {
+		d, err := decimal.NewFromString(s)
+		require.NoError(t, err)
+		return &d
+	}
+	mustAddress := func(s string) *common.Address {
+		require.True(t, common.IsHexAddress(s))
+		a := common.HexToAddress(s)
+		return &a
+	}
 
 	global := Config{
 		Dev:                            true,
 		ExplorerURL:                    mustURL("http://explorer.url"),
-		FlagsContractAddress:           "0x1234",
 		InsecureFastScrypt:             true,
 		ReaperExpiration:               Duration(7 * 24 * time.Hour),
 		RootDir:                        "test/root/dir",
@@ -264,8 +314,8 @@ func TestConfig_Marshal(t *testing.T) {
 		GasTipCapBufferPercent:            43,
 		BaseFeeBufferPercent:              89,
 		MaximumGracePeriod:                31,
-		RegistryCheckGasOverhead:          90,
-		RegistryPerformGasOverhead:        math.MaxUint64,
+		RegistryCheckGasOverhead:          utils.NewBigI(90),
+		RegistryPerformGasOverhead:        utils.NewBig(new(big.Int).SetUint64(math.MaxUint64)),
 		RegistrySyncInterval:              Duration(time.Hour),
 		RegistrySyncUpkeepQueueSize:       31,
 		TurnLookBack:                      91,
@@ -303,15 +353,15 @@ func TestConfig_Marshal(t *testing.T) {
 				ChainType:            "Optimism",
 				EIP1559DynamicFees:   true,
 				FinalityDepth:        42,
-				FlagsContractAddress: "0xabcd1234",
+				FlagsContractAddress: mustAddress("0xabcd123400000000000000000000000000000000"),
 
 				GasBumpPercent:     10,
 				GasBumpTxDepth:     6,
 				GasBumpWei:         utils.NewBigI(100),
 				GasEstimatorMode:   "L2Suggested",
 				GasFeeCapDefault:   utils.NewBigI(math.MaxInt64),
-				GasLimitDefault:    12,
-				GasLimitMultiplier: 7,
+				GasLimitDefault:    utils.NewBigI(12),
+				GasLimitMultiplier: mustDecimal("1.234"),
 				GasPriceDefault:    utils.NewBigI(math.MaxInt64),
 				GasTipCapDefault:   utils.NewBigI(2),
 				GasTipCapMinimum:   utils.NewBigI(1),
@@ -322,12 +372,12 @@ func TestConfig_Marshal(t *testing.T) {
 
 				KeySpecific: []evmtypes.KeySpecificConfig{
 					{
-						Key:            "0x1234",
+						Key:            mustAddress("0x1234000000000000000000000000000000000000"),
 						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 					},
 				},
 
-				LinkContractAddress:  "0x1234abcd",
+				LinkContractAddress:  mustAddress("0x1234abcd00000000000000000000000000000000"),
 				LogBackfillBatchSize: 17,
 				LogPollInterval:      &minute,
 
@@ -343,7 +393,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NodePollFailureThreshold: 5,
 				NodePollInterval:         &minute,
 
-				OperatorFactoryAddress: "0x9876qwerty",
+				OperatorFactoryAddress: mustAddress("0x9876000000000000000000000000000000abcdef"),
 
 				OCRContractConfirmations:              11,
 				OCRContractTransmitterTransmitTimeout: &minute,
@@ -404,9 +454,9 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockRate:             Duration(time.Minute),
 				BlocksUntilTxTimeout:  12,
 				ConfirmPollPeriod:     Duration(time.Second),
-				FallbackGasPriceULuna: "0.001",
+				FallbackGasPriceULuna: mustDecimal("0.001"),
 				FCDURL:                mustURL("http://terra.com"),
-				GasLimitMultiplier:    1.2,
+				GasLimitMultiplier:    mustDecimal("1.2"),
 				MaxMsgsPerBatch:       17,
 				OCR2CachePollPeriod:   Duration(time.Minute),
 				OCR2CacheTTL:          Duration(time.Hour),
@@ -428,7 +478,6 @@ func TestConfig_Marshal(t *testing.T) {
 		{"empty", Config{}, ``},
 		{"global", global, `Dev = true
 ExplorerURL = 'http://explorer.url'
-FlagsContractAddress = '0x1234'
 InsecureFastScrypt = true
 ReaperExpiration = '168h0m0s'
 RootDir = 'test/root/dir'
@@ -564,8 +613,8 @@ GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaximumGracePeriod = 31
-RegistryCheckGasOverhead = 90
-RegistryPerformGasOverhead = 18446744073709551615
+RegistryCheckGasOverhead = '90'
+RegistryPerformGasOverhead = '18446744073709551615'
 RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
@@ -596,21 +645,21 @@ BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
 EIP1559DynamicFees = true
 FinalityDepth = 42
-FlagsContractAddress = '0xabcd1234'
+FlagsContractAddress = '0xabcd123400000000000000000000000000000000'
 GasBumpPercent = 10
 GasBumpTxDepth = 6
 GasBumpWei = '100'
 GasEstimatorMode = 'L2Suggested'
 GasFeeCapDefault = '9223372036854775807'
-GasLimitDefault = 12
-GasLimitMultiplier = 7.0
+GasLimitDefault = '12'
+GasLimitMultiplier = '1.234'
 GasPriceDefault = '9223372036854775807'
 GasTipCapDefault = '2'
 GasTipCapMinimum = '1'
 HeadTrackerHistoryDepth = 15
 HeadTrackerMaxBufferSize = 17
 HeadTrackerSamplingInterval = '1h0m0s'
-LinkContractAddress = '0x1234abcd'
+LinkContractAddress = '0x1234abcd00000000000000000000000000000000'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 MaxGasPriceWei = '281474976710655'
@@ -628,7 +677,7 @@ OCRContractTransmitterTransmitTimeout = '1m0s'
 OCRDatabaseTimeout = '1s'
 OCRObservationGracePeriod = '1s'
 OCR2ContractConfirmations = 7
-OperatorFactoryAddress = '0x9876qwerty'
+OperatorFactoryAddress = '0x9876000000000000000000000000000000abcdef'
 TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
@@ -642,7 +691,7 @@ EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [[EVM.KeySpecific]]
-Key = '0x1234'
+Key = '0x1234000000000000000000000000000000000000'
 MaxGasPriceWei = '79228162514264337593543950335'
 
 [[EVM.Nodes]]
@@ -694,7 +743,7 @@ BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPriceULuna = '0.001'
 FCDURL = 'http://terra.com'
-GasLimitMultiplier = 1.2
+GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
