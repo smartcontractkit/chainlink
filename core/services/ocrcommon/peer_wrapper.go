@@ -80,7 +80,7 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 		// In V2 mode, OCR2 jobs don't need a default list of v2 bootstrappers, but OCR jobs do if enabled
 		//  since there is no way to override it for them.
 		if config.FeatureOffchainReporting() && len(config.P2PV2Bootstrappers()) == 0 {
-			return errors.New("FEATURE_OFFCHAIN_REPORTING enabled in v2 networking mode, but no P2PV2Bootstrappers specified")
+			return errors.New("FEATURE_OFFCHAIN_REPORTING enabled in v2 networking mode, but no P2PV2_BOOTSTRAPPERS specified")
 		}
 	case ocrnetworking.NetworkingStackV1V2:
 		if config.P2PListenPort() == 0 {
@@ -92,7 +92,7 @@ func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
 		// Because there is no way to specify v2 bootstrappers in OCR jobs, we require they be set
 		//  in the environment. v1 bootstrap peers can be specified either here or in the OCR jobspec
 		if len(config.P2PV2Bootstrappers()) == 0 {
-			return errors.New("networking stack v1v2 selected but no P2PV2Bootstrappers specified")
+			return errors.New("networking stack v1v2 selected but no P2PV2_BOOTSTRAPPERS specified")
 		}
 	default:
 		return errors.New("unknown networking stack")
