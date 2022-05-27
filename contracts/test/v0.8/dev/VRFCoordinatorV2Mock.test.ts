@@ -230,7 +230,7 @@ describe('VRFCoordinatorV2Mock', () => {
       await expect(
         vrfCoordinatorV2Mock
           .connect(random)
-          ['fulfillRandomWords(uint256,address)'](1, vrfConsumerV2.address),
+          .fulfillRandomWords(1, vrfConsumerV2.address),
       ).to.be.revertedWith('InsufficientBalance')
     })
     it('can request and fulfill [ @skip-coverage ]', async function () {
