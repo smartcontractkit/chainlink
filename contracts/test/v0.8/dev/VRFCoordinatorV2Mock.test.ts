@@ -254,7 +254,7 @@ describe('VRFCoordinatorV2Mock', () => {
 
       let tx = await vrfCoordinatorV2Mock
         .connect(random)
-        ['fulfillRandomWords(uint256,address)'](1, vrfConsumerV2.address)
+        .fulfillRandomWords(1, vrfConsumerV2.address)
       let receipt = await tx.wait()
       expect(receipt.events[0].event).to.equal('RandomWordsFulfilled')
       expect(receipt.events[0].args['requestId']).to.equal(1)
