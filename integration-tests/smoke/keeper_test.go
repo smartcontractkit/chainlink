@@ -167,15 +167,15 @@ func getKeeperSuite(
 			if testToRun == BasicSmokeTest {
 				It("monitors all the registered upkeeps perform and checks the cancel functionality for the last of them", func() {
 					// Check if the upkeeps are performing by analysing their counters and checking they are greater than 0
-					Eventually(func(g Gomega) {
-						for i := 0; i < len(upkeepIDs); i++ {
+					for i := 0; i < len(upkeepIDs); i++ {
+						Eventually(func(g Gomega) {
 							counter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 							log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
-						}
-					}, "1m", "1s").Should(Succeed())
+						}, "1m", "1s").Should(Succeed())
+					}
 
 					// For the upkeep which we registered last, we will also check if it is cancelled successfully.
 					// We don't do this for all the upkeeps because the cancellation checks are time-consuming.
