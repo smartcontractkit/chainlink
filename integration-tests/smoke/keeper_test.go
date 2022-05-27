@@ -142,7 +142,7 @@ func getKeeperSuite(
 				case PerformanceCounter:
 					registry, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
 						registryVersion,
-						1,
+						10,
 						uint32(2500000), //upkeepGasLimit
 						linkToken,
 						contractDeployer,
@@ -166,41 +166,41 @@ func getKeeperSuite(
 		Describe("with Keeper job", func() {
 			if testToRun == BasicSmokeTest {
 				It("monitors all the registered upkeeps perform and checks the cancel functionality for the last of them", func() {
-					for i := 0; i < len(upkeepIDs); i++ {
-						// Check if the upkeep is performing by analysing its counter and checking it is greater than 0
-						Eventually(func(g Gomega) {
+					// Check if the upkeeps are performing by analysing their counters and checking they are greater than 0
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 							log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
-						}, "1m", "1s").Should(Succeed())
-					}
+						}
+					}, "1m", "1s").Should(Succeed())
 
-					// For the upkeep which we registered last, we will also check if it is cancelled successfully.
-					// We don't do this for all the upkeeps because the cancellation checks take around 2 minutes.
-					upkeepID := upkeepIDs[len(upkeepIDs)-1]
-					consumer := consumers[len(consumers)-1]
-
-					// Cancel the newest registered upkeep via the registry
-					err := registry.CancelUpkeep(upkeepID)
-					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
-					err = networks.Default.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
-
-					// Obtain the amount of times the upkeep has been executed so far
-					counterAfterCancellation, err := consumer.Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
-
-					// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
 					Consistently(func(g Gomega) {
+						// For the upkeep which we registered last, we will also check if it is cancelled successfully.
+						// We don't do this for all the upkeeps because the cancellation checks are time-consuming.
+						upkeepID := upkeepIDs[len(upkeepIDs)-1]
+						consumer := consumers[len(consumers)-1]
+
+						// Cancel the newest registered upkeep via the registry
+						err := registry.CancelUpkeep(upkeepID)
+						Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+						err = networks.Default.WaitForEvents()
+						Expect(err).ShouldNot(HaveOccurred(), "Error waiting for cancel upkeep tx")
+
+						// Obtain the amount of times the upkeep has been executed so far
+						counterAfterCancellation, err := consumer.Counter(context.Background())
+						Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
+
+						// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
 						latestCounter, err := consumer.Counter(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 						g.Expect(latestCounter.Int64()).Should(
 							Equal(counterAfterCancellation.Int64()),
-							"Expected consumer counter to remain constant at %d, but got %d", counterAfterCancellation.Int64(), latestCounter.Int64(),
-						)
+							"Expected consumer counter to remain constant at %d, but got %d",
+							counterAfterCancellation.Int64(), latestCounter.Int64())
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
