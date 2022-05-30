@@ -45,20 +45,20 @@ const config = {
   registrar,
 }
 
-before(async () => {
-  personas = (await getUsers()).personas
-  owner = personas.Default
-  nelly = personas.Nelly
-  nancy = personas.Nancy
-  ned = personas.Ned
-  keeperAddresses = [
-    await nelly.getAddress(),
-    await nancy.getAddress(),
-    await ned.getAddress(),
-  ]
-})
-
 describe('CanaryUpkeep', () => {
+  before(async () => {
+    personas = (await getUsers()).personas
+    owner = personas.Default
+    nelly = personas.Nelly
+    nancy = personas.Nancy
+    ned = personas.Ned
+    keeperAddresses = [
+      await nelly.getAddress(),
+      await nancy.getAddress(),
+      await ned.getAddress(),
+    ]
+  })
+
   beforeEach(async () => {
     const keeperRegistryFactory = await ethers.getContractFactory(
       'KeeperRegistry',
@@ -197,7 +197,7 @@ describe('CanaryUpkeep', () => {
     it('reverts if the keeper array is empty', async () => {
       await evmRevert(
         canaryUpkeep.connect(nelly).performUpkeep('0x'),
-        'no keeper nodes exists',
+        `NoKeeperNodes`,
       )
     })
 
@@ -206,7 +206,7 @@ describe('CanaryUpkeep', () => {
       await fastForward(moment.duration(3, 'minutes').asSeconds())
       await evmRevert(
         canaryUpkeep.connect(nelly).performUpkeep('0x'),
-        'Not enough time has passed after the previous upkeep',
+        `InsufficientInterval`,
       )
     })
 

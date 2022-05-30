@@ -5,6 +5,9 @@ import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/KeeperRegistryInterface.sol";
 import "../ConfirmedOwner.sol";
 
+error NoKeeperNodes();
+error InsufficientInterval();
+
 /**
  * @notice A canary upkeep which requires a different keeper to service its upkeep at an interval. This makes sure that
  * all keepers are in a healthy state.
@@ -47,6 +50,13 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   }
 
   /**
+   * @return the keeper registry
+   */
+  function getKeeperRegistry() external view returns (KeeperRegistryInterface) {
+    return i_keeperRegistry;
+  }
+
+  /**
    * @notice updates the interval
    * @param interval the new interval
    */
@@ -73,10 +83,10 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   ) external {
     (State memory _s, Config memory _c, address[] memory keepers) = i_keeperRegistry.getState();
     if (keepers.length == 0) {
-      revert("no keeper nodes exists");
+      revert NoKeeperNodes();
     }
     if (block.timestamp < s_interval + s_timestamp) {
-      revert("Not enough time has passed after the previous upkeep");
+      revert InsufficientInterval();
     }
     // if keepers array is shortened, this statement will make sure keeper index is always valid
     if (s_keeperIndex >= keepers.length) {
