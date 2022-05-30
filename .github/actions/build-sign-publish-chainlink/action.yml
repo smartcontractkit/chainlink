@@ -9,23 +9,21 @@ inputs:
     default: "false"
     required: false
 
-  ecr-prefix:
+  ecr-hostname:
     description: The ECR registry scope
     default: public.ecr.aws
     required: false
-  ecr-repo-path:
-    description: Name of the ECR registry to push to, used in docker/login-action and for tagging images
+  ecr-image-name:
+    description: |
+      The image name with path, in the format of `[registry]/repository`. For private ECR repos the registry name is optional, where for public repos, it is required.
+      Eg. Public ECR repo `chainlink` and registry alias `chainlinklabs` should be `chainlinklabs/chainlink`. For a private ECR repo `chainlink` the image name should be `chainlink`
     default: chainlink/chainlink
     required: false
-  aws-use-access-key:
-    description: If true, aws will be authenticated via 'aws-access-key-id', else role will be assumed through OIDC
-    default: true
-    required: false
   aws-access-key-id:
-    description: The IAM access key used to authenticate to ECR, used in configuring docker/login-action
+    description: The IAM access key used to authenticate to ECR, used in configuring docker/login-action. Omit this and aws-secret-access-key to attempt OIDC authentication
     required: false
   aws-secret-access-key:
-    description: The IAM access key secret used to authenticate to ECR, used in configuring docker/login-action
+    description: The IAM access key secret used to authenticate to ECR, used in configuring docker/login-action. Omit this and aws-secret-access-key to attempt OIDC authentication
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -67,7 +65,7 @@ runs:
     shell: sh
     # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
     run: |
-      SHARED_IMAGES=${{ inputs.ecr-prefix }}/${{ inputs.ecr-repo-path }}
+      SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
 
       SHARED_TAG_LIST=$(cat << EOF
       type=ref,event=branch
@@ -93,7 +91,8 @@ runs:
       echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
       echo "EOF" >> $GITHUB_ENV
 
-  - if: inputs.publish == 'true' && inputs.aws-use-access-key == 'true'
+  - if: inputs.publish == 'true'
+    # Log in to AWS for publish to ECR, OIDC auth will be attempted instead if both access-key fields are empty
     name: Configure AWS Credentials
     uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
     with:
@@ -103,19 +102,11 @@ runs:
       role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
       aws-region: ${{ inputs.aws-region }}
 
-  - if: inputs.publish == 'true' && inputs.aws-use-access-key == 'false'
-    name: Configure AWS Credentials
-    uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
-    with:
-      role-to-assume: ${{ inputs.aws-role-to-assume }}
-      role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
-      aws-region: ${{ inputs.aws-region }}
-
   - if: inputs.publish == 'true'
     name: Login to ECR
     uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
     with:
-      registry: ${{ inputs.ecr-prefix }}
+      registry: ${{ inputs.ecr-hostname }}
 
   - name: Setup Docker Buildx
     uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
