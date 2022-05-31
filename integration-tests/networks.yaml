@@ -154,9 +154,3 @@ networks:
     private_url: iotex_testnet_url
     private_keys:
       - iotex_testnet_1
-  terra:
-    <<: *ethereum_geth_performance
-    name: 'localterra'
-    type: eth_multinode
-    transaction_timeout: 10m
-    gas_estimation_buffer: 0
