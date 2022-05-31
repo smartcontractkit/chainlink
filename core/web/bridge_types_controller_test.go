@@ -191,7 +191,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridgesindex1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -201,7 +201,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	}
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges2"),
+		Name:          bridges.MustParseBridgeName("testingbridgesindex2"),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
@@ -269,7 +269,7 @@ func TestBridgeController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridgesshow1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
