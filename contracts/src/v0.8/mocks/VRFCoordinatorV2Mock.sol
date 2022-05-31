@@ -16,6 +16,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   error MustBeSubOwner(address owner);
   error TooManyConsumers();
   error InvalidConsumer();
+  error InvalidRandomWords();
 
   event RandomWordsRequested(
     bytes32 indexed keyHash,
@@ -106,11 +107,13 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     }
     Request memory req = s_requests[_requestId];
 
-    if (_words.length != req.numWords) {
+    if (_words.length == 0) {
       _words = new uint256[](req.numWords);
       for (uint256 i = 0; i < req.numWords; i++) {
         _words[i] = uint256(keccak256(abi.encode(_requestId, i)));
       }
+    } else if (_words.length != req.numWords) {
+      revert InvalidRandomWords();
     }
 
     VRFConsumerBaseV2 v;
