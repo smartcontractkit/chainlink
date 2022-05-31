@@ -159,6 +159,22 @@ func (_m *Master) Solana() keystore.Solana {
 	return r0
 }
 
+// Starknet provides a mock function with given fields:
+func (_m *Master) Starknet() keystore.Starknet {
+	ret := _m.Called()
+
+	var r0 keystore.Starknet
+	if rf, ok := ret.Get(0).(func() keystore.Starknet); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Starknet)
+		}
+	}
+
+	return r0
+}
+
 // Terra provides a mock function with given fields:
 func (_m *Master) Terra() keystore.Terra {
 	ret := _m.Called()
