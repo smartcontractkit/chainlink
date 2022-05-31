@@ -1,26 +1,17 @@
-name: Integration Tests
+name: Performance Tests
 on:
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: cron|directrequest|flux|keeper|ocr|vrf|suite
+        required: true
+        default: suite
+        type: string
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      src: ${{ steps.changes.outputs.src }}
-    steps:
-      - uses: dorny/paths-filter@v2
-        id: changes
-        with:
-          filters: |
-            src:
-              - '**/*.go'
-              - '**/*go.sum'
-              - '**/*go.mod'
   build-chainlink:
     environment: integration
     name: Build Chainlink Image
     runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -46,44 +37,33 @@ jobs:
           build-args: COMMIT_SHA=${{ github.sha }}
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
-  smoke:
+  run_tests:
     environment: integration
-    name: ETH Smoke Tests
+    name: run core evm ${{ github.event.inputs.focus }} performance tests
     runs-on: ubuntu-latest
-    needs: [changes, build-chainlink]
-    if: ${{ needs.changes.outputs.src == 'true' }}
+    needs: build-chainlink
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
         uses: smartcontractkit/ctf-ci-e2e-action@v1.0.2
         with:
-          test_command_to_run: make test_smoke args="-nodes=10"
+          test_command_to_run: make test_perf args="--procs=10 --focus=${{ github.event.inputs.focus }}"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
-          artifacts_location: ./integration-tests/smoke/logs
+          artifacts_location: ./integration-tests/performance/logs
+          publish_report_paths: ./tests-perf-report.xml
           QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           QA_AWS_REGION: ${{ secrets.AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  solana:
-    name: Solana Tests
-    needs: [changes, build-chainlink]
-    if: ${{ needs.changes.outputs.src == 'true' }}
-    uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
-    with:
-      repo_name: smartcontractkit/chainlink-solana
-      ref: develop
-      cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
-      cl_image: latest.${{ github.sha }}
-    secrets:
-      QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      - name: Publish pprof artifacts
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: pprof_results
+          path: ./integration-tests/performance/logs
