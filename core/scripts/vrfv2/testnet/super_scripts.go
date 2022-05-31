@@ -26,8 +26,6 @@ func deployBHSCoordinatorAndConsumer(e environment) {
 		"link-address",
 		"link-eth-feed",
 		"fallback-wei-per-unit-link",
-		"uncompressed-pub-key",
-		"oracle-address",
 		"subscription-balance",
 	)
 
@@ -67,13 +65,15 @@ func deployBHSCoordinatorAndConsumer(e environment) {
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
 	printCoordinatorConfig(e, *coordinator)
 
-	fmt.Println("\nRegistering proving key...")
-	registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+	if len(*registerKeyUncompressedPubKey) > 0 {
+		fmt.Println("\nRegistering proving key...")
+		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 
-	fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
-	_, _, s_provingKeyHashes, err := coordinator.GetRequestConfig(nil)
-	helpers.PanicErr(err)
-	fmt.Printf("Hashes: %+v\n", s_provingKeyHashes)
+		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
+		_, _, s_provingKeyHashes, err := coordinator.GetRequestConfig(nil)
+		helpers.PanicErr(err)
+		fmt.Printf("Hashes: %+v\n", s_provingKeyHashes)
+	}
 
 	fmt.Println("\nDeploying consumer...")
 	consumerAddress := eoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress)
