@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	"github.com/pkg/errors"
@@ -39,6 +40,7 @@ type Master interface {
 	P2P() P2P
 	Solana() Solana
 	Terra() Terra
+	Starknet() Starknet
 	VRF() VRF
 	Unlock(password string) error
 	Migrate(vrfPassword string, f DefaultEVMChainIDFunc) error
@@ -47,14 +49,15 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa    *csa
-	eth    *eth
-	ocr    *ocr
-	ocr2   ocr2
-	p2p    *p2p
-	solana *solana
-	terra  *terra
-	vrf    *vrf
+	csa      *csa
+	eth      *eth
+	ocr      *ocr
+	ocr2     ocr2
+	p2p      *p2p
+	solana   *solana
+	starknet *starknet
+	terra    *terra
+	vrf      *vrf
 }
 
 func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
@@ -78,6 +81,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 		p2p:        newP2PKeyStore(km),
 		solana:     newSolanaKeyStore(km),
 		terra:      newTerraKeyStore(km),
+		starknet:   newStarknetKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 	}
 }
@@ -108,6 +112,10 @@ func (ks *master) Solana() Solana {
 
 func (ks *master) Terra() Terra {
 	return ks.terra
+}
+
+func (ks *master) Starknet() Starknet {
+	return ks.starknet
 }
 
 func (ks *master) VRF() VRF {
@@ -313,6 +321,8 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "Solana", nil
 	case terrakey.Key:
 		return "Terra", nil
+	case starkkey.Key:
+		return "Starknet", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	}

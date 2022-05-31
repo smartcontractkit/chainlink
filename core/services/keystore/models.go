@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -73,26 +74,28 @@ func (ks keyStates) validate(kr keyRing) (err error) {
 }
 
 type keyRing struct {
-	CSA    map[string]csakey.KeyV2
-	Eth    map[string]ethkey.KeyV2
-	OCR    map[string]ocrkey.KeyV2
-	OCR2   map[string]ocr2key.KeyBundle
-	P2P    map[string]p2pkey.KeyV2
-	Solana map[string]solkey.Key
-	Terra  map[string]terrakey.Key
-	VRF    map[string]vrfkey.KeyV2
+	CSA      map[string]csakey.KeyV2
+	Eth      map[string]ethkey.KeyV2
+	OCR      map[string]ocrkey.KeyV2
+	OCR2     map[string]ocr2key.KeyBundle
+	P2P      map[string]p2pkey.KeyV2
+	Solana   map[string]solkey.Key
+	Terra    map[string]terrakey.Key
+	Starknet map[string]starkkey.Key
+	VRF      map[string]vrfkey.KeyV2
 }
 
 func newKeyRing() keyRing {
 	return keyRing{
-		CSA:    make(map[string]csakey.KeyV2),
-		Eth:    make(map[string]ethkey.KeyV2),
-		OCR:    make(map[string]ocrkey.KeyV2),
-		OCR2:   make(map[string]ocr2key.KeyBundle),
-		P2P:    make(map[string]p2pkey.KeyV2),
-		Solana: make(map[string]solkey.Key),
-		Terra:  make(map[string]terrakey.Key),
-		VRF:    make(map[string]vrfkey.KeyV2),
+		CSA:      make(map[string]csakey.KeyV2),
+		Eth:      make(map[string]ethkey.KeyV2),
+		OCR:      make(map[string]ocrkey.KeyV2),
+		OCR2:     make(map[string]ocr2key.KeyBundle),
+		P2P:      make(map[string]p2pkey.KeyV2),
+		Solana:   make(map[string]solkey.Key),
+		Terra:    make(map[string]terrakey.Key),
+		Starknet: make(map[string]starkkey.Key),
+		VRF:      make(map[string]vrfkey.KeyV2),
 	}
 }
 
@@ -141,6 +144,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, terrakey := range kr.Terra {
 		rawKeys.Terra = append(rawKeys.Terra, terrakey.Raw())
 	}
+	for _, starkkey := range kr.Starknet {
+		rawKeys.Starknet = append(rawKeys.Starknet, starkkey.Raw())
+	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
@@ -177,6 +183,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, terraKey := range kr.Terra {
 		terraIDs = append(terraIDs, terraKey.ID())
 	}
+	var starknetIDs []string
+	for _, starkkey := range kr.Starknet {
+		starknetIDs = append(starknetIDs, starkkey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
@@ -202,6 +212,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(terraIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Terra keys", len(terraIDs)), "keys", terraIDs)
 	}
+	if len(starknetIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Starknet keys", len(starknetIDs)), "keys", starknetIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
@@ -211,14 +224,15 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 // it holds only the essential key information to avoid adding unnecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
-	Eth    []ethkey.Raw
-	CSA    []csakey.Raw
-	OCR    []ocrkey.Raw
-	OCR2   []ocr2key.Raw
-	P2P    []p2pkey.Raw
-	Solana []solkey.Raw
-	Terra  []terrakey.Raw
-	VRF    []vrfkey.Raw
+	Eth      []ethkey.Raw
+	CSA      []csakey.Raw
+	OCR      []ocrkey.Raw
+	OCR2     []ocr2key.Raw
+	P2P      []p2pkey.Raw
+	Solana   []solkey.Raw
+	Terra    []terrakey.Raw
+	Starknet []starkkey.Raw
+	VRF      []vrfkey.Raw
 }
 
 func (rawKeys rawKeyRing) keys() (keyRing, error) {
@@ -250,6 +264,10 @@ func (rawKeys rawKeyRing) keys() (keyRing, error) {
 	for _, rawTerraKey := range rawKeys.Terra {
 		terraKey := rawTerraKey.Key()
 		keyRing.Terra[terraKey.ID()] = terraKey
+	}
+	for _, rawStarknetKey := range rawKeys.Starknet {
+		starkKey := rawStarknetKey.Key()
+		keyRing.Starknet[starkKey.ID()] = starkKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()
