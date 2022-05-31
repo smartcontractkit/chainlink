@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -9,6 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+var ErrPasswordWhitespace = errors.New("leading/trailing whitespace detected in password")
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
 // exit code.
@@ -25,6 +28,9 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 	password, err := passwordFromFile(c.String("password"))
 	if err != nil {
 		return errors.Wrap(err, "error reading password from file")
+	}
+	if strings.TrimSpace(password) != password {
+		return ErrPasswordWhitespace
 	}
 	if len(password) != 0 {
 		// Because we fixed password requirements to have 3+ symbols,
@@ -62,6 +68,9 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword() (string, error) {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
 		if err := auth.validatePasswordStrength(password); err != nil {
 			return "", err
+		}
+		if strings.TrimSpace(password) != password {
+			return "", ErrPasswordWhitespace
 		}
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")

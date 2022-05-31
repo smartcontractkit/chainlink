@@ -328,7 +328,7 @@ func passwordFromFile(pwdFile string) (string, error) {
 		return "", nil
 	}
 	dat, err := ioutil.ReadFile(pwdFile)
-	return strings.TrimSpace(string(dat)), err
+	return string(dat), err
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of
