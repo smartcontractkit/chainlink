@@ -54,6 +54,7 @@ func (c *generalConfig) P2PListenPort() uint16 {
 	if c.viper.IsSet(envvar.Name("P2PListenPort")) {
 		return uint16(c.viper.GetUint32(envvar.Name("P2PListenPort")))
 	}
+	//TODO where to replicate this logic?
 	switch c.P2PNetworkingStack() {
 	case ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV1V2:
 		return c.randomP2PListenPort()

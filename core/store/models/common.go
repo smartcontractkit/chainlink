@@ -221,6 +221,11 @@ func MustMakeDuration(d time.Duration) Duration {
 	return rv
 }
 
+func MustNewDuration(d time.Duration) *Duration {
+	rv := MustMakeDuration(d)
+	return &rv
+}
+
 // Duration returns the value as the standard time.Duration value.
 func (d Duration) Duration() time.Duration {
 	return d.d
@@ -472,6 +477,10 @@ func MustSha256HashFromHex(x string) Sha256Hash {
 
 func (s Sha256Hash) String() string {
 	return hex.EncodeToString(s[:])
+}
+
+func (s *Sha256Hash) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
 }
 
 func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {

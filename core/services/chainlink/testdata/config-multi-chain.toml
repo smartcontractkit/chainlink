@@ -1,0 +1,54 @@
+RootDir = 'my/root/dir'
+
+[Database]
+BackupFrequency = '1h0m0s'
+
+[Log]
+Level = 'warn'
+
+[JobPipeline]
+DefaultHTTPTimeout = '30s'
+
+[OCR2]
+DatabaseTimeout = '20s'
+
+[OCR]
+BlockchainTimeout = '5s'
+
+[P2P]
+AnnouncePort = 999
+
+[Keeper]
+GasPriceBufferPercent = 10
+
+[AutoPprof]
+CPUProfileRate = 7
+
+[[EVM]]
+ChainID = 1
+FinalityDepth = 26
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
+
+[[EVM.Nodes]]
+Name = 'secondary'
+HTTPURL = 'http://broadcast.mirror'
+SendOnly = true
+
+[[Solana]]
+ChainID = 'mainnet'
+MaxRetries = 12
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://solana.com'
+
+[[Terra]]
+ChainID = 'Columbus-5'
+MaxMsgsPerBatch = 13
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://solana.com'

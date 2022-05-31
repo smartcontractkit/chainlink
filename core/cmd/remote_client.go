@@ -412,6 +412,20 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 	return err
 }
 
+func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
+	resp, err := cli.HTTP.Get("/v2/config/dump")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	err = cli.printResponseBody(resp)
+	return err
+}
+
 func normalizePassword(password string) string {
 	return url.QueryEscape(strings.TrimSpace(password))
 }

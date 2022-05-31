@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -52,85 +51,6 @@ type ORM interface {
 	ChainConfigORM
 
 	SetupNodes([]Node, []utils.Big) error
-}
-
-type ChainTOMLCfg struct {
-	BalanceMonitorEnabled             bool   `toml:",omitempty"`
-	BlockBackfillDepth                uint32 `toml:",omitempty"`
-	BlockBackfillSkip                 bool   `toml:",omitempty"`
-	BlockEmissionIdleWarningThreshold *models.Duration
-
-	BlockHistoryEstimator *BlockHistoryEstimatorConfig
-
-	ChainType            string `toml:",omitempty"`
-	EIP1559DynamicFees   bool   `toml:",omitempty"`
-	FinalityDepth        int    `toml:",omitempty"`
-	FlagsContractAddress *common.Address
-
-	GasBumpPercent     uint16 `toml:",omitempty"`
-	GasBumpThreshold   *utils.Big
-	GasBumpTxDepth     uint16 `toml:",omitempty"`
-	GasBumpWei         *utils.Big
-	GasEstimatorMode   string `toml:",omitempty"`
-	GasFeeCapDefault   *utils.Big
-	GasLimitDefault    *utils.Big
-	GasLimitMultiplier *decimal.Decimal
-	GasLimitTransfer   *utils.Big
-	GasPriceDefault    *utils.Big
-	GasTipCapDefault   *utils.Big
-	GasTipCapMinimum   *utils.Big
-
-	HeadTrackerHistoryDepth     int `toml:",omitempty"`
-	HeadTrackerMaxBufferSize    int `toml:",omitempty"`
-	HeadTrackerSamplingInterval *models.Duration
-
-	KeySpecific []KeySpecificConfig `toml:",omitempty"`
-
-	LinkContractAddress  *common.Address
-	LogBackfillBatchSize int `toml:",omitempty"`
-	LogPollInterval      *models.Duration
-
-	MaxGasPriceWei           *utils.Big
-	MaxInFlightTransactions  uint32 `toml:",omitempty"`
-	MaxQueuedTransactions    uint32 `toml:",omitempty"`
-	MinGasPriceWei           *utils.Big
-	MinIncomingConfirmations uint32 `toml:",omitempty"`
-	MinimumContractPayment   *assets.Link
-
-	NodeNoNewHeadsThreshold  *models.Duration
-	NodePollFailureThreshold uint32 `toml:",omitempty"`
-	NodePollInterval         *models.Duration
-
-	NonceAutoSync bool `toml:",omitempty"`
-
-	OCRContractConfirmations              uint16           `toml:",omitempty"`
-	OCRContractTransmitterTransmitTimeout *models.Duration `toml:",omitempty"`
-	OCRDatabaseTimeout                    *models.Duration `toml:",omitempty"`
-	OCRObservationGracePeriod             *models.Duration `toml:",omitempty"`
-	OCR2ContractConfirmations             uint16           `toml:",omitempty"`
-
-	OperatorFactoryAddress *common.Address
-	RPCDefaultBatchSize    int `toml:",omitempty"`
-
-	TxReaperInterval       *models.Duration
-	TxReaperThreshold      *models.Duration
-	TxResendAfterThreshold *models.Duration
-
-	UseForwarders bool `toml:",omitempty"`
-}
-
-type BlockHistoryEstimatorConfig struct {
-	BatchSize                 uint32
-	BlockDelay                uint16
-	BlockHistorySize          uint16
-	EIP1559FeeCapBufferBlocks uint16
-	TransactionPercentile     uint16
-}
-
-type KeySpecificConfig struct {
-	Key            *common.Address
-	MaxGasPriceWei *utils.Big
-	//TODO more?
 }
 
 type ChainCfg struct {
