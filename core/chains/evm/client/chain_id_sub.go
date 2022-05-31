@@ -77,6 +77,9 @@ func (c *chainIDSubForwarder) forwardLoop() {
 }
 
 func (c *chainIDSubForwarder) Unsubscribe() {
+	// the error channel must be closed by Unsubscribe
+	defer close(c.err)
+
 	// tell forwardLoop to unsubscribe
 	select {
 	case c.unSub <- struct{}{}:
