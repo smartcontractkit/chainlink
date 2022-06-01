@@ -10,12 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -266,19 +267,21 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission chain not found", func(t *testing.T) {
-		db, _, ethMock, _, _, _, job, jpv2, _, _, ch, orm := setup(t)
+		db, _, ethMock, _, _, _, _, jpv2, _, keyStore, ch, orm := setup(t)
 
+		registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 		// change chain ID to non-configured chain
-		job.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
+		jb.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
+		cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 		lggr := logger.TestLogger(t)
-		executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
+		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 		err := executer.Start(testutils.Context(t))
 		require.NoError(t, err)
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), &head)
 		// TODO we want to see an errored run result once this is completed
 		// https://app.shortcut.com/chainlinklabs/story/25397/remove-failearly-flag-from-eth-call-task
-		cltest.AssertPipelineRunsStays(t, job.PipelineSpecID, db, 0)
+		cltest.AssertPipelineRunsStays(t, jb.PipelineSpecID, db, 0)
 		ethMock.AssertExpectations(t)
 	})
 
