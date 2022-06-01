@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"math/big"
@@ -96,7 +97,7 @@ func deployUniverse(e environment) {
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, s_provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
 		helpers.PanicErr(configErr)
-		fmt.Printf("Hashes: %+v\n", s_provingKeyHashes)
+		fmt.Println("Key hash registered:", hex.EncodeToString(s_provingKeyHashes[0][:]))
 	}
 
 	fmt.Println("\nDeploying consumer...")
