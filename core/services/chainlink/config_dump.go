@@ -5,6 +5,8 @@ import (
 	"encoding/csv"
 	"net"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -39,7 +41,6 @@ func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error)
 	if err != nil {
 		return "", err
 	}
-	//TODO what about secrets?
 
 	return string(b), nil
 }
@@ -304,6 +305,14 @@ func (c *Config) loadLegacyEVMEnv() {
 		for i := range c.EVM {
 			c.EVM[i].GasEstimatorMode = e
 		}
+	} else if e, ok := os.LookupEnv("GAS_UPDATER_ENABLED"); ok {
+		v := "FixedPrice"
+		if b, err := strconv.ParseBool(e); err != nil && b {
+			v = "BlockHistory"
+		}
+		for i := range c.EVM {
+			c.EVM[i].GasEstimatorMode = &v
+		}
 	}
 	if e := envvar.NewUint32("BlockHistoryEstimatorBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
@@ -311,6 +320,16 @@ func (c *Config) loadLegacyEVMEnv() {
 				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BatchSize = e
+		}
+	} else if s, ok := os.LookupEnv("GAS_UPDATER_BATCH_SIZE"); ok {
+		l, err := parse.Uint32(s)
+		if err == nil {
+			for i := range c.EVM {
+				if c.EVM[i].BlockHistoryEstimator == nil {
+					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				}
+				c.EVM[i].BlockHistoryEstimator.BatchSize = &l
+			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
@@ -320,6 +339,16 @@ func (c *Config) loadLegacyEVMEnv() {
 			}
 			c.EVM[i].BlockHistoryEstimator.BlockDelay = e
 		}
+	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
+		l, err := parse.Uint16(s)
+		if err == nil {
+			for i := range c.EVM {
+				if c.EVM[i].BlockHistoryEstimator == nil {
+					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				}
+				c.EVM[i].BlockHistoryEstimator.BlockDelay = &l
+			}
+		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockHistorySize").ParsePtr(); e != nil {
 		for i := range c.EVM {
@@ -327,6 +356,16 @@ func (c *Config) loadLegacyEVMEnv() {
 				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BlockHistorySize = e
+		}
+	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE"); ok {
+		l, err := parse.Uint16(s)
+		if err == nil {
+			for i := range c.EVM {
+				if c.EVM[i].BlockHistoryEstimator == nil {
+					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				}
+				c.EVM[i].BlockHistoryEstimator.BlockHistorySize = &l
+			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
@@ -343,6 +382,16 @@ func (c *Config) loadLegacyEVMEnv() {
 				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.TransactionPercentile = e
+		}
+	} else if s, ok := os.LookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE"); ok {
+		l, err := parse.Uint16(s)
+		if err == nil {
+			for i := range c.EVM {
+				if c.EVM[i].BlockHistoryEstimator == nil {
+					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				}
+				c.EVM[i].BlockHistoryEstimator.TransactionPercentile = &l
+			}
 		}
 	}
 	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {

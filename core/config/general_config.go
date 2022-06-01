@@ -469,7 +469,6 @@ func (c *generalConfig) AutoPprofEnabled() bool {
 
 func (c *generalConfig) AutoPprofProfileRoot() string {
 	root := c.viper.GetString(envvar.Name("AutoPprofProfileRoot"))
-	//TODO where to replicate?
 	if root == "" {
 		return c.RootDir()
 	}

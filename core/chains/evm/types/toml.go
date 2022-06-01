@@ -66,9 +66,9 @@ type ChainTOMLCfg struct {
 	OCRContractConfirmations              *uint16
 	OCRContractTransmitterTransmitTimeout *models.Duration
 	OCRDatabaseTimeout                    *models.Duration
+	OCRObservationTimeout                 *models.Duration
 	OCRObservationGracePeriod             *models.Duration
 	OCR2ContractConfirmations             *uint16
-	//TODO OCRObservationTimeout *models.Duration missing?
 
 	OperatorFactoryAddress *ethkey.EIP55Address
 	RPCDefaultBatchSize    *uint32
@@ -112,7 +112,7 @@ func (c *ChainTOMLCfg) SetFromDB(cfg *ChainCfg) error {
 			c.BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = &v
 		}
 	}
-	if cfg.ChainType.Valid { //TODO and not empty?
+	if cfg.ChainType.Valid {
 		c.ChainType = &cfg.ChainType.String
 	}
 	c.TxReaperThreshold = cfg.EthTxReaperThreshold
@@ -215,7 +215,7 @@ func (c *ChainTOMLCfg) SetFromDB(cfg *ChainCfg) error {
 		c.MinIncomingConfirmations = &v
 	}
 	c.MinimumContractPayment = cfg.MinimumContractPayment
-	//TODO cfg.OCRObservationTimeout unused legacy, but was bug?
+	c.OCRObservationTimeout = cfg.OCRObservationTimeout
 	c.NodeNoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
 	return nil
 }

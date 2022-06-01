@@ -87,8 +87,8 @@ type ChainCfg struct {
 	OperatorFactoryAddress                         null.String
 	MinIncomingConfirmations                       null.Int
 	MinimumContractPayment                         *assets.Link
-	OCRObservationTimeout                          *models.Duration //TODO only used from resolver?
-	NodeNoNewHeadsThreshold                        *models.Duration //TODO unused
+	OCRObservationTimeout                          *models.Duration
+	NodeNoNewHeadsThreshold                        *models.Duration
 }
 
 func (c *ChainCfg) Scan(value interface{}) error {

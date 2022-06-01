@@ -215,27 +215,26 @@ type KeeperConfig struct {
 	GasPriceBufferPercent             *uint32
 	GasTipCapBufferPercent            *uint32
 	BaseFeeBufferPercent              *uint32
-	MaximumGracePeriod                *int64 //TODO units? duration? blocks?
+	MaximumGracePeriod                *int64
 	RegistryCheckGasOverhead          *utils.Big
 	RegistryPerformGasOverhead        *utils.Big
 	RegistrySyncInterval              *models.Duration
 	RegistrySyncUpkeepQueueSize       *uint32
-	TurnLookBack                      *int64 //TODO units? duration? blocks?
+	TurnLookBack                      *int64
 	TurnFlagEnabled                   *bool
 }
 
 type AutoPprofConfig struct {
-	Enabled             *bool
-	ProfileRoot         *string
-	PollInterval        *models.Duration
-	GatherDuration      *models.Duration
-	GatherTraceDuration *models.Duration
-	MaxProfileSize      *utils.FileSize
-	//TODO what are units for Rate?
-	CPUProfileRate       *int64
-	MemProfileRate       *int64
-	BlockProfileRate     *int64
-	MutexProfileFraction *int64
+	Enabled              *bool
+	ProfileRoot          *string
+	PollInterval         *models.Duration
+	GatherDuration       *models.Duration
+	GatherTraceDuration  *models.Duration
+	MaxProfileSize       *utils.FileSize
+	CPUProfileRate       *int64 // runtime.SetCPUProfileRate
+	MemProfileRate       *int64 // runtime.MemProfileRate
+	BlockProfileRate     *int64 // runtime.SetBlockProfileRate
+	MutexProfileFraction *int64 // runtime.SetMutexProfileFraction
 	MemThreshold         *utils.FileSize
 	GoroutineThreshold   *int64
 }

@@ -346,6 +346,7 @@ func TestConfig_Marshal(t *testing.T) {
 				OCRContractConfirmations:              ptr[uint16](11),
 				OCRContractTransmitterTransmitTimeout: &minute,
 				OCRDatabaseTimeout:                    &second,
+				OCRObservationTimeout:                 &second,
 				OCRObservationGracePeriod:             &second,
 				OCR2ContractConfirmations:             ptr[uint16](7),
 
