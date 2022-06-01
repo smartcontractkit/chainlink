@@ -17,8 +17,8 @@ Must comprise at least 3 of:
 	numbers
 	symbols
 Must not comprise:
-	A user's API email
 	More than three identical consecutive characters
+	Leading or trailing whitespace, except one trailing newline character when the password is in a file
 `
 
 var (
