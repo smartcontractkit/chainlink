@@ -3456,6 +3456,20 @@ func (_m *GeneralConfig) TerraEnabled() bool {
 	return r0
 }
 
+// StarknetEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) StarknetEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // TerraNodes provides a mock function with given fields:
 func (_m *GeneralConfig) TerraNodes() string {
 	ret := _m.Called()
