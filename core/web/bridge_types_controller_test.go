@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -228,7 +229,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	bt, err := app.BridgeORM().FindBridge(bridges.MustParseBridgeName(testutils.RandomizeName(btName)))
+	bt, err := app.BridgeORM().FindBridge(bridges.MustParseBridgeName(btName))
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint32(10), bt.Confirmations)
@@ -244,14 +245,16 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
+	bridgeName := testutils.RandomizeName("BRidgea")
 	bt := &bridges.BridgeType{
-		Name: bridges.MustParseBridgeName(testutils.RandomizeName("BRidgea")),
+		Name: bridges.MustParseBridgeName(bridgeName),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
-	ud := bytes.NewBuffer([]byte(`{"name": "BRidgea","url":"http://yourbridge"}`))
-	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
+	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
+	ud := bytes.NewBuffer([]byte(body))
+	resp, cleanup := client.Patch("/v2/bridge_types/"+bridgeName, ud)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
