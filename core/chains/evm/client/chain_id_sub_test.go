@@ -31,7 +31,7 @@ func TestChainIDSubForwarder(t *testing.T) {
 
 	chainID := big.NewInt(123)
 
-	t.Run("unsubscribe", func(t *testing.T) {
+	t.Run("unsubscribe forwarder", func(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan *evmtypes.Head)
@@ -39,6 +39,42 @@ func TestChainIDSubForwarder(t *testing.T) {
 		sub := newMockSubscription()
 		err := forwarder.start(sub, nil)
 		assert.NoError(t, err)
+		forwarder.Unsubscribe()
+
+		assert.True(t, sub.unsubscribed)
+		_, ok := <-sub.Err()
+		assert.False(t, ok)
+		_, ok = <-forwarder.Err()
+		assert.False(t, ok)
+	})
+
+	t.Run("unsubscribe forwarder with error", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan *evmtypes.Head)
+		forwarder := newChainIDSubForwarder(chainID, ch)
+		sub := newMockSubscription()
+		err := forwarder.start(sub, nil)
+		assert.NoError(t, err)
+		sub.Errors <- errors.New("boo")
+		forwarder.Unsubscribe()
+
+		assert.True(t, sub.unsubscribed)
+		_, ok := <-sub.Err()
+		assert.False(t, ok)
+		_, ok = <-forwarder.Err()
+		assert.False(t, ok)
+	})
+
+	t.Run("unsubscribe forwarder with message", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan *evmtypes.Head)
+		forwarder := newChainIDSubForwarder(chainID, ch)
+		sub := newMockSubscription()
+		err := forwarder.start(sub, nil)
+		assert.NoError(t, err)
+		forwarder.srcCh <- &evmtypes.Head{}
 		forwarder.Unsubscribe()
 
 		assert.True(t, sub.unsubscribed)
