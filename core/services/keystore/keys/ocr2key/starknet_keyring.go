@@ -35,21 +35,50 @@ func (sk *starknetKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 	return weierstrass.Marshal(starkCurve, sk.privateKey.PublicKey.X, sk.privateKey.PublicKey.Y)
 }
 
-func (sk *starknetKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
+func (sk *starknetKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	var dataArray []*big.Int
 	rawReportContext := evmutil.RawReportContext(reportCtx)
 	dataArray = append(dataArray, new(big.Int).SetBytes(rawReportContext[0][:]))
 	dataArray = append(dataArray, new(big.Int).SetBytes(rawReportContext[1][:]))
 	dataArray = append(dataArray, new(big.Int).SetBytes(rawReportContext[2][:]))
 
-	// TODO: split & hash report
+	// TODO: report hashing needs to be finalized and verified before merging
+
+	// assert minimum length (timestamp + observers + observation number + observations + juelsPerFeeCoin)
+	// 4 bytes (uint32) + 32 bytes + 1 byte + obs number * 16 bytes + 16 bytes
+	timestampLen := 4
+	observersLen := 32
+	obsCountLen := 1
+	obsLen := 16
+	juelsLen := 16
+	min := timestampLen + observersLen + obsCountLen + 0*obsLen + juelsLen
+	if len(report) < min {
+		return []byte{}, errors.Errorf("report did not meet minimum length, got %d want %d", len(report), min)
+	}
+	obsCount := int(report[timestampLen+observersLen])
+	expectedLen := min + obsLen*obsCount
+	if len(report) != expectedLen {
+		return []byte{}, errors.Errorf("incorrect report length, got %d want %d", len(report), expectedLen)
+	}
+	dataArray = append(dataArray, new(big.Int).SetBytes(report[:timestampLen]))
+	dataArray = append(dataArray, new(big.Int).SetBytes(report[timestampLen:timestampLen+observersLen]))
+	dataArray = append(dataArray, new(big.Int).SetBytes(report[timestampLen+observersLen:timestampLen+observersLen+obsCountLen]))
+	// hash observations
+	for i := 0; i < obsCount; i++ {
+		obsData := report[timestampLen+observersLen+obsCountLen+obsLen*i : timestampLen+observersLen+obsCountLen+obsLen*(i+1)]
+		dataArray = append(dataArray, new(big.Int).SetBytes(obsData))
+	}
+	dataArray = append(dataArray, new(big.Int).SetBytes(report[expectedLen-juelsLen:]))
 
 	hash := pedersen.ArrayDigest(dataArray...)
-	return hash.Bytes()
+	return hash.Bytes(), nil
 }
 
 func (sk *starknetKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
-	hash := sk.reportToSigData(reportCtx, report)
+	hash, err := sk.reportToSigData(reportCtx, report)
+	if err != nil {
+		return []byte{}, err
+	}
 
 	r, s, err := starksig.Sign(cryptorand.Reader, &sk.privateKey, hash)
 	if err != nil {
@@ -88,7 +117,10 @@ func (sk *starknetKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx
 		return false
 	}
 
-	hash := sk.reportToSigData(reportCtx, report)
+	hash, err := sk.reportToSigData(reportCtx, report)
+	if err != nil {
+		return false
+	}
 
 	r := new(big.Int).SetBytes(signature[1:33])
 	s := new(big.Int).SetBytes(signature[33:65])
