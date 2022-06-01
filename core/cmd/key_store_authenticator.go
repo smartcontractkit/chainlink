@@ -11,7 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var ErrPasswordWhitespace = errors.New("leading/trailing whitespace detected in password")
+var (
+	ErrPasswordWhitespace  = errors.New("leading/trailing whitespace detected in password")
+	ErrEmptyPasswordInFile = errors.New("detected empty password in password file")
+)
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
 // exit code.
@@ -24,13 +27,17 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
-	// If the file does not exist, the password will be empty and err will be nil.
-	password, err := passwordFromFile(c.String("password"))
+	// If empty filename is provided, the password will be empty and err will be nil.
+	passwordFile := c.String("password")
+	password, err := passwordFromFile(passwordFile)
 	if err != nil {
 		return errors.Wrap(err, "error reading password from file")
 	}
 	if strings.TrimSpace(password) != password {
 		return ErrPasswordWhitespace
+	}
+	if len(passwordFile) != 0 && len(password) == 0 {
+		return ErrEmptyPasswordInFile
 	}
 	if len(password) != 0 {
 		// Because we fixed password requirements to have 3+ symbols,
