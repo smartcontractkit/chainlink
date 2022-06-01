@@ -20,7 +20,7 @@ require (
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
-	github.com/gin-gonic/gin v1.7.7
+	github.com/gin-gonic/gin v1.8.0
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -84,6 +84,11 @@ require (
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/guregu/null.v4 v4.0.0
+)
+
+require (
+	github.com/goccy/go-json v0.9.7 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 )
 
 require (
