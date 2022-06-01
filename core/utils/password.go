@@ -18,7 +18,7 @@ Must comprise at least 3 of:
 	symbols
 Must not comprise:
 	More than three identical consecutive characters
-	Leading or trailing whitespace, except one trailing newline character when the password is in a file
+	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 `
 
 var (
