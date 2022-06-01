@@ -15,9 +15,16 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 	kr2, err := newStarknetKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	ctx := ocrtypes.ReportContext{}
+	report := ocrtypes.Report{
+		97, 91, 43, 83, // observations_timestamp
+		0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // observers
+		2,                                                   // len
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 150, 2, 210, // observation 1
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 150, 2, 211, // observation 2
+		0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0, // juels per luna (1 with 18 decimal places)
+	}
 
 	t.Run("can verify", func(t *testing.T) {
-		report := ocrtypes.Report{}
 		sig, err := kr1.Sign(ctx, report)
 		require.NoError(t, err)
 		t.Log(len(sig))
@@ -26,7 +33,6 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 	})
 
 	t.Run("invalid sig", func(t *testing.T) {
-		report := ocrtypes.Report{}
 		result := kr2.Verify(kr1.PublicKey(), ctx, report, []byte{0x01})
 		require.False(t, result)
 
@@ -36,7 +42,6 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 	})
 
 	t.Run("invalid pubkey", func(t *testing.T) {
-		report := ocrtypes.Report{}
 		sig, err := kr1.Sign(ctx, report)
 		require.NoError(t, err)
 		result := kr2.Verify([]byte{0x01}, ctx, report, sig)
