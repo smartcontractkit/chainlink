@@ -1,11 +1,11 @@
 package types
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/config/toml"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -20,8 +20,8 @@ type ChainTOMLCfg struct {
 
 	ChainType            *string
 	EIP1559DynamicFees   *bool
-	FinalityDepth        *int
-	FlagsContractAddress *common.Address
+	FinalityDepth        *uint32
+	FlagsContractAddress *ethkey.EIP55Address
 
 	GasBumpPercent     *uint16
 	GasBumpThreshold   *utils.Big
@@ -36,14 +36,14 @@ type ChainTOMLCfg struct {
 	GasTipCapDefault   *utils.Big
 	GasTipCapMinimum   *utils.Big
 
-	HeadTrackerHistoryDepth     *int
-	HeadTrackerMaxBufferSize    *int
+	HeadTrackerHistoryDepth     *uint32
+	HeadTrackerMaxBufferSize    *uint32
 	HeadTrackerSamplingInterval *models.Duration
 
 	KeySpecific []KeySpecificConfig `toml:",omitempty"`
 
-	LinkContractAddress  *common.Address
-	LogBackfillBatchSize *int
+	LinkContractAddress  *ethkey.EIP55Address
+	LogBackfillBatchSize *uint32
 	LogPollInterval      *models.Duration
 
 	MaxGasPriceWei           *utils.Big
@@ -65,8 +65,8 @@ type ChainTOMLCfg struct {
 	OCRObservationGracePeriod             *models.Duration
 	OCR2ContractConfirmations             *uint16
 
-	OperatorFactoryAddress *common.Address
-	RPCDefaultBatchSize    *int
+	OperatorFactoryAddress *ethkey.EIP55Address
+	RPCDefaultBatchSize    *uint32
 
 	TxReaperInterval       *models.Duration
 	TxReaperThreshold      *models.Duration
@@ -84,7 +84,7 @@ type BlockHistoryEstimatorConfig struct {
 }
 
 type KeySpecificConfig struct {
-	Key            *common.Address
+	Key            *ethkey.EIP55Address
 	MaxGasPriceWei *utils.Big
 	//TODO more?
 }

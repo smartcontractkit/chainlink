@@ -158,7 +158,7 @@ BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
 EIP1559DynamicFees = true
 FinalityDepth = 42
-FlagsContractAddress = '0xabcd123400000000000000000000000000000000'
+FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 GasBumpPercent = 10
 GasBumpTxDepth = 6
 GasBumpWei = '100'
@@ -172,7 +172,7 @@ GasTipCapMinimum = '1'
 HeadTrackerHistoryDepth = 15
 HeadTrackerMaxBufferSize = 17
 HeadTrackerSamplingInterval = '1h0m0s'
-LinkContractAddress = '0x1234abcd00000000000000000000000000000000'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 MaxGasPriceWei = '281474976710655'
@@ -190,7 +190,7 @@ OCRContractTransmitterTransmitTimeout = '1m0s'
 OCRDatabaseTimeout = '1s'
 OCRObservationGracePeriod = '1s'
 OCR2ContractConfirmations = 7
-OperatorFactoryAddress = '0x9876000000000000000000000000000000abcdef'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
@@ -205,7 +205,7 @@ EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [[EVM.KeySpecific]]
-Key = '0x1234000000000000000000000000000000000000'
+Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 MaxGasPriceWei = '79228162514264337593543950335'
 
 [[EVM.Nodes]]

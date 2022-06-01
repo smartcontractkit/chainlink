@@ -11,7 +11,7 @@ import (
 //
 // When adding a new field:
 // 	- consider including a unit suffix with the field name
-// 	- TOML is limited to int64/float64, so fields requiring greating range/precision must use non-standard types
+// 	- TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
 //	implementing encoding.TextMarshaler/TextUnmarshaler
 type Config struct {
 	toml.CoreConfig

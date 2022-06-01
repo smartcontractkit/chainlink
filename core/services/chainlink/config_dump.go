@@ -7,8 +7,11 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/shopspring/decimal"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -50,9 +53,263 @@ func (c *Config) loadChainsAndNodes(chains Chains) error {
 	return nil
 }
 
-//TODO doc
+// loadLegacyEVMEnv reads legacy ETH/EVM global overrides from the environment and updates all EVM chains.
+//TODO test
 func (c *Config) loadLegacyEVMEnv() {
 	//TODO read legacy ETH/EVM global overrides, clobbering persisted values already set
+	if e := envvar.NewBool("BalanceMonitorEnabled").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].BalanceMonitorEnabled = e
+		}
+	}
+	if e := envvar.NewUint32("BlockBackfillDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].BlockBackfillDepth = e
+		}
+	}
+	if e := envvar.NewBool("BlockBackfillSkip").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].BlockBackfillSkip = e
+		}
+	}
+	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].BlockEmissionIdleWarningThreshold = d
+		}
+	}
+	if e := envvar.NewDuration("EthTxReaperInterval").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].TxReaperInterval = d
+		}
+	}
+	if e := envvar.NewDuration("EthTxReaperThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].TxReaperThreshold = d
+		}
+	}
+	if e := envvar.NewDuration("EthTxResendAfterThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].TxResendAfterThreshold = d
+		}
+	}
+	if e := envvar.NewUint32("EvmFinalityDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].FinalityDepth = e
+		}
+	}
+	if e := envvar.NewUint32("EvmHeadTrackerHistoryDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].HeadTrackerHistoryDepth = e
+		}
+	}
+	if e := envvar.NewUint32("EvmHeadTrackerMaxBufferSize").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].HeadTrackerMaxBufferSize = e
+		}
+	}
+	if e := envvar.NewDuration("EvmHeadTrackerSamplingInterval").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].HeadTrackerSamplingInterval = d
+		}
+	}
+	if e := envvar.NewUint32("EvmLogBackfillBatchSize").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].LogBackfillBatchSize = e
+		}
+	}
+	if e := envvar.NewDuration("EvmLogPollInterval").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].LogPollInterval = d
+		}
+	}
+	if e := envvar.NewUint32("EvmRPCDefaultBatchSize").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].RPCDefaultBatchSize = e
+		}
+	}
+	if e := envvar.New("LinkContractAddress", ethkey.NewEIP55Address).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].LinkContractAddress = e
+		}
+	}
+	if e := envvar.New("OperatorFactoryAddress", ethkey.NewEIP55Address).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].OperatorFactoryAddress = e
+		}
+	}
+	if e := envvar.NewUint32("MinIncomingConfirmations").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].MinIncomingConfirmations = e
+		}
+	}
+	if e := envvar.New("MinimumContractPayment", func(s string) (l assets.Link, err error) {
+		err = l.UnmarshalText([]byte(s))
+		return
+	}).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].MinimumContractPayment = e
+		}
+	}
+	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].NodeNoNewHeadsThreshold = d
+		}
+	}
+	if e := envvar.NewUint32("NodePollFailureThreshold").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].NodePollFailureThreshold = e
+		}
+	}
+	if e := envvar.NewDuration("NodePollInterval").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			c.EVM[i].NodePollInterval = d
+		}
+	}
+	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].EIP1559DynamicFees = e
+		}
+	}
+	if e := envvar.NewUint16("EvmGasBumpPercent").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasBumpPercent = e
+		}
+	}
+	if e := envvar.New("EvmGasBumpThreshold", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasBumpThreshold = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasBumpWei", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasBumpWei = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasFeeCapDefault", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasFeeCapDefault = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasLimitDefault", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasLimitDefault = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasLimitMultiplier = e
+		}
+	}
+	if e := envvar.New("EvmGasLimitTransfer", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasLimitTransfer = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasPriceDefault", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasPriceDefault = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasTipCapDefault", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasTipCapDefault = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmGasTipCapMinimum", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasTipCapMinimum = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].MaxGasPriceWei = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.New("EvmMinGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].MinGasPriceWei = utils.NewBig(*e)
+		}
+	}
+	if e := envvar.NewString("GasEstimatorMode").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasEstimatorMode = e
+		}
+	}
+	if e := envvar.NewUint32("BlockHistoryEstimatorBatchSize").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].BlockHistoryEstimator == nil {
+				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+			}
+			c.EVM[i].BlockHistoryEstimator.BatchSize = e
+		}
+	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].BlockHistoryEstimator == nil {
+				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+			}
+			c.EVM[i].BlockHistoryEstimator.BlockDelay = e
+		}
+	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorBlockHistorySize").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].BlockHistoryEstimator == nil {
+				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+			}
+			c.EVM[i].BlockHistoryEstimator.BlockHistorySize = e
+		}
+	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].BlockHistoryEstimator == nil {
+				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+			}
+			c.EVM[i].BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = e
+		}
+	}
+	if e := envvar.NewUint16("BlockHistoryEstimatorTransactionPercentile").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].BlockHistoryEstimator == nil {
+				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+			}
+			c.EVM[i].BlockHistoryEstimator.TransactionPercentile = e
+		}
+	}
+	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].GasBumpTxDepth = e
+		}
+	}
+	if e := envvar.NewUint32("EvmMaxInFlightTransactions").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].MaxInFlightTransactions = e
+		}
+	}
+	if e := envvar.NewUint32("EvmMaxQueuedTransactions").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].MaxInFlightTransactions = e
+		}
+	}
+	if e := envvar.NewBool("EvmNonceAutoSync").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].NonceAutoSync = e
+		}
+	}
+	if e := envvar.NewBool("EvmUseForwarders").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].UseForwarders = e
+		}
+	}
+
+	//TODO what about URL, HTTP_URL, SECONDARY(S)?
 	//TODO ignore EVM_NODES? since DB already updated at this point?
 }
 

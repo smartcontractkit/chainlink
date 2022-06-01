@@ -67,8 +67,11 @@ func (e *EnvVar[T]) Parse() (v T, invalid string) {
 	return
 }
 
-// ParsePtr attempts to parse the value from the environment, returning nil if the env var was invalid.
+// ParsePtr attempts to parse the value from the environment, returning nil if the env var was empty or invalid.
 func (e *EnvVar[T]) ParsePtr() *T {
+	if os.Getenv(e.envVarName) == "" {
+		return nil
+	}
 	v, invalid, err := e.ParseFrom(os.Getenv)
 	if err != nil {
 		log.Fatal(err)

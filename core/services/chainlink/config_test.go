@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
@@ -69,7 +68,7 @@ var (
 			{
 				ChainID: 1,
 				ChainTOMLCfg: evmtypes.ChainTOMLCfg{
-					FinalityDepth: ptr(26),
+					FinalityDepth: ptr[uint32](26),
 				},
 				Nodes: []evmtypes.TOMLNode{
 					{
@@ -122,9 +121,9 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &d
 	}
-	mustAddress := func(s string) *common.Address {
-		require.True(t, common.IsHexAddress(s))
-		a := common.HexToAddress(s)
+	mustAddress := func(s string) *ethkey.EIP55Address {
+		a, err := ethkey.NewEIP55Address(s)
+		require.NoError(t, err)
 		return &a
 	}
 
@@ -301,8 +300,8 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				ChainType:            ptr("Optimism"),
 				EIP1559DynamicFees:   ptr(true),
-				FinalityDepth:        ptr(42),
-				FlagsContractAddress: mustAddress("0xabcd123400000000000000000000000000000000"),
+				FinalityDepth:        ptr[uint32](42),
+				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasBumpPercent:     ptr[uint16](10),
 				GasBumpTxDepth:     ptr[uint16](6),
@@ -315,19 +314,19 @@ func TestConfig_Marshal(t *testing.T) {
 				GasTipCapDefault:   utils.NewBigI(2),
 				GasTipCapMinimum:   utils.NewBigI(1),
 
-				HeadTrackerHistoryDepth:     ptr(15),
-				HeadTrackerMaxBufferSize:    ptr(17),
+				HeadTrackerHistoryDepth:     ptr[uint32](15),
+				HeadTrackerMaxBufferSize:    ptr[uint32](17),
 				HeadTrackerSamplingInterval: &hour,
 
 				KeySpecific: []evmtypes.KeySpecificConfig{
 					{
-						Key:            mustAddress("0x1234000000000000000000000000000000000000"),
+						Key:            mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
 						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
 					},
 				},
 
-				LinkContractAddress:  mustAddress("0x1234abcd00000000000000000000000000000000"),
-				LogBackfillBatchSize: ptr(17),
+				LinkContractAddress:  mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize: ptr[uint32](17),
 				LogPollInterval:      &minute,
 
 				MaxGasPriceWei:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")),
@@ -342,7 +341,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NodePollFailureThreshold: ptr[uint32](5),
 				NodePollInterval:         &minute,
 
-				OperatorFactoryAddress: mustAddress("0x9876000000000000000000000000000000abcdef"),
+				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
 
 				OCRContractConfirmations:              ptr[uint16](11),
 				OCRContractTransmitterTransmitTimeout: &minute,
@@ -350,7 +349,7 @@ func TestConfig_Marshal(t *testing.T) {
 				OCRObservationGracePeriod:             &second,
 				OCR2ContractConfirmations:             ptr[uint16](7),
 
-				RPCDefaultBatchSize:    ptr(17),
+				RPCDefaultBatchSize:    ptr[uint32](17),
 				TxReaperInterval:       &minute,
 				TxReaperThreshold:      &minute,
 				TxResendAfterThreshold: &hour,
@@ -596,7 +595,7 @@ BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
 EIP1559DynamicFees = true
 FinalityDepth = 42
-FlagsContractAddress = '0xabcd123400000000000000000000000000000000'
+FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 GasBumpPercent = 10
 GasBumpTxDepth = 6
 GasBumpWei = '100'
@@ -610,7 +609,7 @@ GasTipCapMinimum = '1'
 HeadTrackerHistoryDepth = 15
 HeadTrackerMaxBufferSize = 17
 HeadTrackerSamplingInterval = '1h0m0s'
-LinkContractAddress = '0x1234abcd00000000000000000000000000000000'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 MaxGasPriceWei = '281474976710655'
@@ -628,7 +627,7 @@ OCRContractTransmitterTransmitTimeout = '1m0s'
 OCRDatabaseTimeout = '1s'
 OCRObservationGracePeriod = '1s'
 OCR2ContractConfirmations = 7
-OperatorFactoryAddress = '0x9876000000000000000000000000000000abcdef'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
@@ -643,7 +642,7 @@ EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
 [[EVM.KeySpecific]]
-Key = '0x1234000000000000000000000000000000000000'
+Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 MaxGasPriceWei = '79228162514264337593543950335'
 
 [[EVM.Nodes]]

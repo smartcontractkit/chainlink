@@ -107,17 +107,17 @@ func (c *ChainCfg) Value() (driver.Value, error) {
 type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
 type Node struct {
-	ID         int32       `toml:"-"`
-	Name       string      `toml:"-"`
-	EVMChainID utils.Big   `toml:"-"`
-	WSURL      null.String `toml:",omitempty" db:"ws_url"`
-	HTTPURL    null.String `toml:",omitempty" db:"http_url"`
-	SendOnly   bool        `toml:",omitempty"`
-	CreatedAt  time.Time   `toml:"-"`
-	UpdatedAt  time.Time   `toml:"-"`
+	ID         int32
+	Name       string
+	EVMChainID utils.Big
+	WSURL      null.String `db:"ws_url"`
+	HTTPURL    null.String `db:"http_url"`
+	SendOnly   bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 	// State doesn't exist in the DB, it's used to hold an in-memory state for
 	// rendering
-	State string `toml:"-" db:"-"`
+	State string `db:"-"`
 }
 
 // Receipt represents an ethereum receipt.
