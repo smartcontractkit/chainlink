@@ -116,15 +116,17 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
-	b.setLatestBaseFee(head.BaseFeePerGas)
+	b.setLatestBaseFee(head)
 	b.mb.Deliver(head)
 }
 
-func (b *BlockHistoryEstimator) setLatestBaseFee(baseFee *utils.Big) {
+func (b *BlockHistoryEstimator) setLatestBaseFee(head *evmtypes.Head) {
 	// Non-eip1559 blocks don't include base fee; just ignore
+	baseFee := head.BaseFeePerGas
 	if baseFee == nil {
 		return
 	}
+	b.logger.Debugw("Set latest base fee", "baseFee", baseFee, "blockNum", head.Number, "blockHash", head.Hash)
 	promBlockHistoryEstimatorCurrentBaseFee.WithLabelValues(b.chainID.String()).Set(float64(baseFee.ToInt().Int64()))
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -152,7 +154,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 			b.logger.Warnw("initial check for latest head failed, head was unexpectedly nil")
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
-			b.setLatestBaseFee(latestHead.BaseFeePerGas)
+			b.setLatestBaseFee(latestHead)
 			b.FetchBlocksAndRecalculate(fetchCtx, latestHead)
 		}
 
