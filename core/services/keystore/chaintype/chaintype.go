@@ -21,8 +21,21 @@ const (
 	Starknet ChainType = "starknet"
 )
 
+type ChainTypes []ChainType
+
+func (c ChainTypes) String() (out string) {
+	for i, chain := range c {
+		prefix := ", "
+		if i == 0 {
+			prefix = ""
+		}
+		out += prefix + string(chain)
+	}
+	return
+}
+
 // SupportedChainTypes contain all chains that are supported
-var SupportedChainTypes = []ChainType{EVM, Solana, Terra, Starknet}
+var SupportedChainTypes = ChainTypes{EVM, Solana, Terra, Starknet}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error
