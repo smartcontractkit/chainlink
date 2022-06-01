@@ -403,10 +403,21 @@ EVM_ENABLED=false
 		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
-	if !c.Dev() {
-		if err := validateDBURL(c.DatabaseURL()); err != nil {
-			// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
-			c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink.\n\n", err, utils.PasswordComplexityRequirements)
+	{
+		str := os.Getenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK")
+		var skipDatabasePasswordComplexityCheck bool
+		if str != "" {
+			var err error
+			skipDatabasePasswordComplexityCheck, err = strconv.ParseBool(str)
+			if err != nil {
+				return errors.Errorf("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK has invalid value for bool: %s", str)
+			}
+		}
+		if !(c.Dev() || skipDatabasePasswordComplexityCheck) {
+			if err := validateDBURL(c.DatabaseURL()); err != nil {
+				// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
+				c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink. To bypass this check at your own risk, you may set SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true\n\n", err, utils.PasswordComplexityRequirements)
+			}
 		}
 	}
 
