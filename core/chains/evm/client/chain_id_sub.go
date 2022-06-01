@@ -49,7 +49,10 @@ func (c *chainIDSubForwarder) start(sub ethereum.Subscription, err error) error 
 // forwardLoop receives from src, adds the chainID, and then sends to dest.
 // It also handles Unsubscribing, which may interrupt either forwarding operation.
 func (c *chainIDSubForwarder) forwardLoop() {
+	// the error channel must be closed when unsubscribing
+	defer close(c.err)
 	defer close(c.done)
+
 	for {
 		select {
 		case err := <-c.srcSub.Err():
