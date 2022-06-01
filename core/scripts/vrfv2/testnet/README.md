@@ -37,8 +37,11 @@ export ETH_URL=<YOUR ETH URL>
 export ETH_CHAIN_ID=<YOUR CHAIN ID>
 export ACCOUNT_KEY=<YOUR PRIVATE KEY>
 export LINK=<LINK ADDRESS>
+export LINK_ETH_FEED=<ADDRESS OFF LINK/ETH FEED>
 export COORDINATOR=<COORDINATOR ADDRESS>
 export KEY_HASH=<KEY HASH>
+export ORACLE_ADDRESS=<YOUR ORACLE NODE ADDRESS>
+export PUB_KEY=<YOUR UNCOMPRESSED PUBLIC KEY>
 ```
 
 By default, the script automatically estimates gas limits for operations. Optionally, `GAS_LIMIT` environment variable can be set to override gas limit for operations. 
@@ -49,12 +52,20 @@ Now "cd" into the VRF V2 testnet scripts directory:
 cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/vrfv2/testnet
 ```
 
+## Deploying a full VRF Universe (BHS, Registered + Funded Coordinator, Consumer)
+
+To deploy a full VRF environment on-chain, run:
+
+```shell
+go run . deploy-universe --link-address=$LINK --link-eth-feed=$LINK_ETH_FEED --subscription-balance=<SUBSCRIPTION AMOUNT> --uncompressed-pub-key=$PUB_KEY --oracle-address=$ORACLE_ADDRESS
+```
+
 ## Deploying the Consumer Contract
 
 To deploy the VRFExternalSubOwnerExample contract, run:
 
 ```shell
-go run main.go eoa-consumer-deploy --coordinator-address=$COORDINATOR --link-address=$LINK
+go run . eoa-consumer-deploy --coordinator-address=$COORDINATOR --link-address=$LINK
 ```
 
 You should get the output:
@@ -75,7 +86,7 @@ authorized for a funded subscription.
 ### Creating a Subscription
 
 ```shell
-go run main.go eoa-create-sub --coordinator-address=$COORDINATOR
+go run . eoa-create-sub --coordinator-address=$COORDINATOR
 ```
 
 You should get the output:
@@ -98,7 +109,7 @@ export SUB_ID=<YOUR SUBSCRIPTION ID>
 
 In order to fund your subscription with 10 LINK, run:
 ```shell
-go run main.go eoa-fund-sub --coordinator-address $COORDINATOR --link-address=$LINK  --sub-id=$SUB_ID --amount=10000000000000000000 # 10e18 or 10 LINK
+go run . eoa-fund-sub --coordinator-address $COORDINATOR --link-address=$LINK  --sub-id=$SUB_ID --amount=10000000000000000000 # 10e18 or 10 LINK
 ```
 
 You should get the output:
@@ -111,7 +122,7 @@ Funding sub 61 hash <YOUR FUNDING TX HASH>
 
 To check the LINK balance of your subscription, run:
 ```shell
-go run main.go sub-balance --coordinator-address $COORDINATOR --sub-id=$SUB_ID
+go run . sub-balance --coordinator-address $COORDINATOR --sub-id=$SUB_ID
 ```
 
 You should get the output:
@@ -124,7 +135,7 @@ sub id <YOUR SUB ID> balance: <YOUR SUB BALANCE>
 In order to authorize the consumer contract to use the new subscription, run the
 command:
 ```shell
-go run main.go eoa-add-sub-consumer --coordinator-address $COORDINATOR --sub-id=$SUB_ID --consumer-address=$CONSUMER
+go run . eoa-add-sub-consumer --coordinator-address $COORDINATOR --sub-id=$SUB_ID --consumer-address=$CONSUMER
 ```
 
 ### Requesting Randomness
@@ -134,7 +145,7 @@ subscription, and is ready to request random words.
 
 To make a request, run:
 ```shell
-go run main.go eoa-request --consumer-address=$CONSUMER --sub-id=$SUB_ID --key-hash=$KEY_HASH --num-words 1 
+go run . eoa-request --consumer-address=$CONSUMER --sub-id=$SUB_ID --key-hash=$KEY_HASH --num-words 1 
 ```
 
 You should get the output:
@@ -165,20 +176,20 @@ and fetch many blockhashes in a single transaction.
 ### Deploy a `BatchBlockhashStore` instance
 
 ```
-go run main.go batch-bhs-deploy -bhs-address $BHS_ADDRESS
+go run . batch-bhs-deploy -bhs-address $BHS_ADDRESS
 ```
 
 where `$BHS_ADDRESS` is an environment variable that points to an existing `BlockhashStore` contract. If one is not available,
 you can easily deploy one using this command:
 
 ```
-go run main.go bhs-deploy
+go run . bhs-deploy
 ```
 
 ### Store many blockhashes
 
 ```
-go run main.go batch-bhs-store -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
+go run . batch-bhs-store -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
 ```
 
 where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, and `-block-numbers` is a comma-separated
@@ -189,7 +200,7 @@ Please note that these block numbers must not be further than 256 from the lates
 ### Fetch many blockhashes
 
 ```
-go run main.go batch-bhs-get -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
+go run . batch-bhs-get -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
 ```
 
 where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, and `-block-numbers` is a comma-separated
@@ -202,7 +213,7 @@ In order to store blockhashes farther back than 256 blocks we can make use of th
 Here's how to use it:
 
 ```
-go run main.go batch-bhs-storeVerify -batch-bhs-address $BATCH_BHS_ADDRESS -num-blocks 25 -start-block 10298739
+go run . batch-bhs-storeVerify -batch-bhs-address $BATCH_BHS_ADDRESS -num-blocks 25 -start-block 10298739
 ```
 
 where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, `-num-blocks` is the amount of blocks to store, and
@@ -228,7 +239,7 @@ for big block ranges.
 Example:
 
 ```
-go run main.go batch-bhs-backwards -batch-bhs-address $BATCH_BHS_ADDRESS -start-block 25814538 -end-block 25811350 -batch-size 50
+go run . batch-bhs-backwards -batch-bhs-address $BATCH_BHS_ADDRESS -start-block 25814538 -end-block 25811350 -batch-size 50
 ```
 
 This script is simplistic on purpose, where we wait for the transaction to mine before proceeding with the next one. This
