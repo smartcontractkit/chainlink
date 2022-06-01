@@ -13,7 +13,7 @@ import (
 
 var (
 	ErrPasswordWhitespace  = errors.New("leading/trailing whitespace detected in password")
-	ErrEmptyPasswordInFile = errors.New("detected empty in password in file")
+	ErrEmptyPasswordInFile = errors.New("detected empty password in password file")
 )
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
