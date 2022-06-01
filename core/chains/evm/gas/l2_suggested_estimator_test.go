@@ -20,7 +20,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 	t.Parallel()
 
 	config := new(mocks.Config)
-	client := new(mocks.OptimismRPCClient)
+	client := new(mocks.RPCClient)
 	o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
@@ -52,7 +52,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 
 	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
-		client := new(mocks.OptimismRPCClient)
+		client := new(mocks.RPCClient)
 		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
 		client.On("Call", mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
