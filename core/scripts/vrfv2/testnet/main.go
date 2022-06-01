@@ -622,8 +622,8 @@ func main() {
 		rid, err := consumer.SRequestId(nil)
 		helpers.PanicErr(err)
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
-	case "deploy-bhs-coordinator-consumer":
-		deployBHSCoordinatorAndConsumer(e)
+	case "deploy-universe":
+		deployUniverse(e)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")

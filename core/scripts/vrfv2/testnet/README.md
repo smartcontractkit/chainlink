@@ -37,8 +37,11 @@ export ETH_URL=<YOUR ETH URL>
 export ETH_CHAIN_ID=<YOUR CHAIN ID>
 export ACCOUNT_KEY=<YOUR PRIVATE KEY>
 export LINK=<LINK ADDRESS>
+export LINK_ETH_FEED=<ADDRESS OFF LINK/ETH FEED>
 export COORDINATOR=<COORDINATOR ADDRESS>
 export KEY_HASH=<KEY HASH>
+export ORACLE_ADDRESS=<YOUR ORACLE NODE ADDRESS>
+export PUB_KEY=<YOUR UNCOMPRESSED PUBLIC KEY>
 ```
 
 By default, the script automatically estimates gas limits for operations. Optionally, `GAS_LIMIT` environment variable can be set to override gas limit for operations. 
@@ -47,6 +50,14 @@ Now "cd" into the VRF V2 testnet scripts directory:
 
 ```shell
 cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/vrfv2/testnet
+```
+
+## Deploying a full VRF Universe (BHS, Registered + Funded Coordinator, Consumer)
+
+To deploy a full VRF environment on-chain, run:
+
+```shell
+go run . deploy-universe --link-address=$LINK --link-eth-feed=$LINK_ETH_FEED --subscription-balance=<SUBSCRIPTION AMOUNT> --uncompressed-pub-key=$PUB_KEY --oracle-address=$ORACLE_ADDRESS
 ```
 
 ## Deploying the Consumer Contract
