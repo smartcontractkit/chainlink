@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -26,7 +25,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -43,6 +41,12 @@ import (
 var (
 	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 )
+
+type environment struct {
+	owner   *bind.TransactOpts
+	ec      *ethclient.Client
+	chainID int64
+}
 
 type logconfig struct{}
 
@@ -104,6 +108,9 @@ func main() {
 		}
 		owner.GasLimit = parsedGasLimit
 	}
+
+	// the execution environment for the scripts
+	e := environment{owner, ec, chainID}
 
 	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
 	//
@@ -415,23 +422,14 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
-		_, tx, _, err := blockhash_store.DeployBlockhashStore(owner, ec)
-		helpers.PanicErr(err)
-		confirmContractDeployed(context.Background(), ec, tx, chainID)
+		deployBHS(e)
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
 		coordinatorDeployBHSAddress := coordinatorDeployCmd.String("bhs-address", "", "address of bhs")
 		coordinatorDeployLinkEthFeedAddress := coordinatorDeployCmd.String("link-eth-feed", "", "address of link-eth-feed")
 		helpers.ParseArgs(coordinatorDeployCmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
-		_, tx, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
-			owner,
-			ec,
-			common.HexToAddress(*coordinatorDeployLinkAddress),
-			common.HexToAddress(*coordinatorDeployBHSAddress),
-			common.HexToAddress(*coordinatorDeployLinkEthFeedAddress))
-		helpers.PanicErr(err)
-		confirmContractDeployed(context.Background(), ec, tx, chainID)
+		deployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -440,14 +438,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
 		helpers.PanicErr(err)
 
-		cfg, err := coordinator.GetConfig(nil)
-		helpers.PanicErr(err)
-
-		feeConfig, err := coordinator.GetFeeConfig(nil)
-		helpers.PanicErr(err)
-
-		fmt.Printf("config: %+v\n", cfg)
-		fmt.Printf("fee config: %+v\n", feeConfig)
+		printCoordinatorConfig(e, *coordinator)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -467,16 +458,17 @@ func main() {
 		reqsForTier5 := cmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
 
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "fallback-wei-per-unit-link")
-
-		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), e.ec)
 		helpers.PanicErr(err)
 
-		tx, err := coordinator.SetConfig(owner,
-			uint16(*minConfs),         // minRequestConfirmations
-			uint32(*maxGasLimit),      // max gas limit
-			uint32(*stalenessSeconds), // stalenessSeconds
-			uint32(*gasAfterPayment),  // gasAfterPaymentCalculation
-			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(), // 0.01 eth per link fallbackLinkPrice
+		setCoordinatorConfig(
+			e,
+			*coordinator,
+			uint16(*minConfs),
+			uint32(*maxGasLimit),
+			uint32(*stalenessSeconds),
+			uint32(*gasAfterPayment),
+			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
 			vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 				FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
 				FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
@@ -489,8 +481,6 @@ func main() {
 				ReqsForTier5:                   big.NewInt(*reqsForTier5),
 			},
 		)
-		helpers.PanicErr(err)
-		confirmTXMined(context.Background(), ec, tx, chainID)
 	case "coordinator-register-key":
 		coordinatorRegisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
@@ -504,22 +494,8 @@ func main() {
 		if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
-		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
-		helpers.PanicErr(err)
-		pk, err := crypto.UnmarshalPubkey(pubBytes)
-		helpers.PanicErr(err)
-		tx, err := coordinator.RegisterProvingKey(owner,
-			common.HexToAddress(*registerKeyOracleAddress),
-			[2]*big.Int{pk.X, pk.Y})
-		helpers.PanicErr(err)
-		confirmTXMined(
-			context.Background(),
-			ec,
-			tx,
-			chainID,
-			fmt.Sprintf("Uncompressed public key: %s,", *registerKeyUncompressedPubKey),
-			fmt.Sprintf("Oracle address: %s,", *registerKeyOracleAddress),
-		)
+
+		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -646,18 +622,15 @@ func main() {
 		rid, err := consumer.SRequestId(nil)
 		helpers.PanicErr(err)
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
+	case "deploy-universe":
+		deployUniverse(e)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		helpers.ParseArgs(consumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
-		_, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
-			owner,
-			ec,
-			common.HexToAddress(*consumerCoordinator),
-			common.HexToAddress(*consumerLinkAddress))
-		helpers.PanicErr(err)
-		confirmContractDeployed(context.Background(), ec, tx, chainID)
+
+		eoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
 	case "eoa-load-test-consumer-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -676,9 +649,7 @@ func main() {
 		helpers.ParseArgs(createSubCmd, os.Args[2:], "coordinator-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.CreateSubscription(owner)
-		helpers.PanicErr(err)
-		confirmTXMined(context.Background(), ec, tx, chainID)
+		eoaCreateSub(e, *coordinator)
 	case "eoa-add-sub-consumer":
 		addSubConsCmd := flag.NewFlagSet("eoa-add-sub-consumer", flag.ExitOnError)
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")
@@ -687,9 +658,7 @@ func main() {
 		helpers.ParseArgs(addSubConsCmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		helpers.PanicErr(err)
-		txadd, err := coordinator.AddConsumer(owner, *subID, common.HexToAddress(*consumerAddress))
-		helpers.PanicErr(err)
-		confirmTXMined(context.Background(), ec, txadd, chainID)
+		eoaAddConsumerToSub(e, *coordinator, uint64(*subID), *consumerAddress)
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -828,17 +797,7 @@ func main() {
 		}
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		helpers.PanicErr(err)
-		linkToken, err := link_token_interface.NewLinkToken(common.HexToAddress(*consumerLinkAddress), ec)
-		helpers.PanicErr(err)
-		bal, err := linkToken.BalanceOf(nil, owner.From)
-		helpers.PanicErr(err)
-		fmt.Println("Initial account balance:", bal, owner.From.String(), "Funding amount:", amount.String())
-		b, err := utils.GenericEncode([]string{"uint64"}, uint64(*subID))
-		helpers.PanicErr(err)
-		owner.GasLimit = 500000
-		tx, err := linkToken.TransferAndCall(owner, coordinator.Address(), amount, b)
-		helpers.PanicErr(err)
-		confirmTXMined(context.Background(), ec, tx, chainID, fmt.Sprintf("sub ID: %d", *subID))
+		eoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")
@@ -956,112 +915,4 @@ func main() {
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
-}
-
-func confirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) {
-	fmt.Println("Executing TX", helpers.ExplorerLink(chainID, transaction.Hash()), txInfo)
-	receipt, err := bind.WaitMined(context, client, transaction)
-	helpers.PanicErr(err)
-	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber, "\nGas Used: ", receipt.GasUsed)
-}
-
-func confirmContractDeployed(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64) {
-	fmt.Println("Executing contract deployment, TX:", helpers.ExplorerLink(chainID, transaction.Hash()))
-	contractAddress, err := bind.WaitDeployed(context, client, transaction)
-	helpers.PanicErr(err)
-	fmt.Println("Contract Address:", contractAddress.String())
-}
-
-func parseIntSlice(arg string) (ret []*big.Int) {
-	parts := strings.Split(arg, ",")
-	ret = []*big.Int{}
-	for _, part := range parts {
-		ret = append(ret, decimal.RequireFromString(part).BigInt())
-	}
-	return ret
-}
-
-func parseAddressSlice(arg string) (ret []common.Address) {
-	parts := strings.Split(arg, ",")
-	ret = []common.Address{}
-	for _, part := range parts {
-		ret = append(ret, common.HexToAddress(part))
-	}
-	return
-}
-
-func parseHashSlice(arg string) (ret []common.Hash) {
-	parts := strings.Split(arg, ",")
-	ret = []common.Hash{}
-	for _, part := range parts {
-		ret = append(ret, common.HexToHash(part))
-	}
-	return
-}
-
-// decreasingBlockRange creates a continugous block range starting with
-// block `start` and ending at block `end`.
-func decreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
-	if start.Cmp(end) == -1 {
-		return nil, fmt.Errorf("start (%s) must be greater than end (%s)", start.String(), end.String())
-	}
-	ret = []*big.Int{}
-	for i := new(big.Int).Set(start); i.Cmp(end) >= 0; i.Sub(i, big.NewInt(1)) {
-		ret = append(ret, new(big.Int).Set(i))
-	}
-	return
-}
-
-func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]byte, err error) {
-	headers = [][]byte{}
-	for _, blockNum := range blockNumbers {
-		// Get child block since it's the one that has the parent hash in it's header.
-		h, err := ec.HeaderByNumber(
-			context.Background(),
-			new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get header: %+v", err)
-		}
-		rlpHeader, err := rlp.EncodeToBytes(h)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode rlp: %+v", err)
-		}
-		// Uncomment in case storeVerifyHeader calls are reverting, there may be an issue with the RLP
-		// encoding.
-		// h2, err := ec.HeaderByNumber(context.Background(), blockNum)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("failed to get header: %v", err)
-		// }
-		// fmt.Println("block number:", blockNum, "blockhash:", h2.Hash(), "encoded header of next block:", common.Bytes2Hex(rlpHeader))
-		headers = append(headers, rlpHeader)
-	}
-	return
-}
-
-// binarySearch finds the highest value within the range bottom-top at which the test function is
-// true.
-func binarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.Int {
-	var runs int
-	// While the difference between top and bottom is > 1
-	for new(big.Int).Sub(top, bottom).Cmp(big.NewInt(1)) > 0 {
-		// Calculate midpoint between top and bottom
-		midpoint := new(big.Int).Sub(top, bottom)
-		midpoint.Div(midpoint, big.NewInt(2))
-		midpoint.Add(midpoint, bottom)
-
-		// Check if the midpoint amount is withdrawable
-		if test(midpoint) {
-			bottom = midpoint
-		} else {
-			top = midpoint
-		}
-
-		runs++
-		if runs%10 == 0 {
-			fmt.Printf("Searching... current range %s-%s\n", bottom.String(), top.String())
-		}
-	}
-
-	return bottom
 }
