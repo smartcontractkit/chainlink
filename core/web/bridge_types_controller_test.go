@@ -191,7 +191,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridgesindex1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -201,7 +201,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	}
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridgesindex2"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
@@ -228,7 +228,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	bt, err := app.BridgeORM().FindBridge(bridges.MustParseBridgeName(btName))
+	bt, err := app.BridgeORM().FindBridge(bridges.MustParseBridgeName(testutils.RandomizeName(btName)))
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint32(10), bt.Confirmations)
@@ -245,7 +245,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
-		Name: bridges.MustParseBridgeName("BRidgea"),
+		Name: bridges.MustParseBridgeName(testutils.RandomizeName("BRidgea")),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
@@ -269,7 +269,7 @@ func TestBridgeController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridgesshow1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}

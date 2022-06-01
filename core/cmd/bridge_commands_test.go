@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -67,7 +68,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingclibridgesindex1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -75,7 +76,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	require.NoError(t, err)
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingclibridgesindex2"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -103,7 +104,7 @@ func TestClient_ShowBridge(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingclibridgesshow1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -162,7 +163,7 @@ func TestClient_RemoveBridge(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingclibridgesremove1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("removebridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
