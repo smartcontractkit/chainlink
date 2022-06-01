@@ -570,6 +570,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 		c.logEnvOverrideOnce("BlockHistoryEstimatorBatchSize", val)
 		size = val
 	} else {
+		//TODO convert with dump and remove?
 		valLegacy, set := lookupEnv(c, "GAS_UPDATER_BATCH_SIZE", parse.Uint32)
 		if set {
 			c.logEnvOverrideOnce("GAS_UPDATER_BATCH_SIZE", valLegacy)
@@ -599,8 +600,8 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockDelay", val)
 		return val
 	}
+	//TODO convert with dump and remove?
 	valLegacy, set := lookupEnv(c, "GAS_UPDATER_BLOCK_DELAY", parse.Uint16)
-
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_DELAY", valLegacy)
 		c.logger.Error("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
@@ -624,6 +625,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockHistorySize", val)
 		return val
 	}
+	//TODO convert with dump and remove?
 	valLegacy, set := lookupEnv(c, "GAS_UPDATER_BLOCK_HISTORY_SIZE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_HISTORY_SIZE", valLegacy)
@@ -669,6 +671,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16 
 		c.logEnvOverrideOnce("BlockHistoryEstimatorTransactionPercentile", val)
 		return val
 	}
+	//TODO convert with dump and remove?
 	valLegacy, set := lookupEnv(c, "GAS_UPDATER_TRANSACTION_PERCENTILE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_TRANSACTION_PERCENTILE", valLegacy)

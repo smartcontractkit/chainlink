@@ -1,6 +1,10 @@
 package types
 
 import (
+	"fmt"
+	"net/url"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -64,6 +68,7 @@ type ChainTOMLCfg struct {
 	OCRDatabaseTimeout                    *models.Duration
 	OCRObservationGracePeriod             *models.Duration
 	OCR2ContractConfirmations             *uint16
+	//TODO OCRObservationTimeout *models.Duration missing?
 
 	OperatorFactoryAddress *ethkey.EIP55Address
 	RPCDefaultBatchSize    *uint32
@@ -86,7 +91,133 @@ type BlockHistoryEstimatorConfig struct {
 type KeySpecificConfig struct {
 	Key            *ethkey.EIP55Address
 	MaxGasPriceWei *utils.Big
-	//TODO more?
+}
+
+func (c *ChainTOMLCfg) SetFromDB(cfg *ChainCfg) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
+		c.BlockHistoryEstimator = &BlockHistoryEstimatorConfig{}
+		if cfg.BlockHistoryEstimatorBlockDelay.Valid {
+			v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
+			c.BlockHistoryEstimator.BlockDelay = &v
+		}
+		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
+			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
+			c.BlockHistoryEstimator.BlockHistorySize = &v
+		}
+		if cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
+			v := uint16(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Int64)
+			c.BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = &v
+		}
+	}
+	if cfg.ChainType.Valid { //TODO and not empty?
+		c.ChainType = &cfg.ChainType.String
+	}
+	c.TxReaperThreshold = cfg.EthTxReaperThreshold
+	c.TxResendAfterThreshold = cfg.EthTxResendAfterThreshold
+	if cfg.EvmEIP1559DynamicFees.Valid {
+		c.EIP1559DynamicFees = &cfg.EvmEIP1559DynamicFees.Bool
+	}
+	if cfg.EvmFinalityDepth.Valid {
+		v := uint32(cfg.EvmFinalityDepth.Int64)
+		c.FinalityDepth = &v
+	}
+	if cfg.EvmGasBumpPercent.Valid {
+		v := uint16(cfg.EvmGasBumpPercent.Int64)
+		c.GasBumpPercent = &v
+	}
+	if cfg.EvmGasBumpTxDepth.Valid {
+		v := uint16(cfg.EvmGasBumpTxDepth.Int64)
+		c.GasBumpTxDepth = &v
+	}
+	c.GasBumpWei = cfg.EvmGasBumpWei
+	c.GasFeeCapDefault = cfg.EvmGasFeeCapDefault
+	if cfg.EvmGasLimitDefault.Valid {
+		c.GasLimitDefault = utils.NewBigI(cfg.EvmGasLimitDefault.Int64)
+	}
+	if cfg.EvmGasLimitMultiplier.Valid {
+		v := decimal.NewFromFloat(cfg.EvmGasLimitMultiplier.Float64)
+		c.GasLimitMultiplier = &v
+	}
+	c.GasPriceDefault = cfg.EvmGasPriceDefault
+	c.GasTipCapDefault = cfg.EvmGasTipCapDefault
+	c.GasTipCapMinimum = cfg.EvmGasTipCapMinimum
+	if cfg.EvmHeadTrackerHistoryDepth.Valid {
+		v := uint32(cfg.EvmHeadTrackerHistoryDepth.Int64)
+		c.HeadTrackerHistoryDepth = &v
+	}
+	if cfg.EvmHeadTrackerMaxBufferSize.Valid {
+		v := uint32(cfg.EvmHeadTrackerMaxBufferSize.Int64)
+		c.HeadTrackerMaxBufferSize = &v
+	}
+	c.HeadTrackerSamplingInterval = cfg.EvmHeadTrackerSamplingInterval
+	if cfg.EvmLogBackfillBatchSize.Valid {
+		v := uint32(cfg.EvmLogBackfillBatchSize.Int64)
+		c.LogBackfillBatchSize = &v
+	}
+	c.LogPollInterval = cfg.EvmLogPollInterval
+	c.MaxGasPriceWei = cfg.EvmMaxGasPriceWei
+	if cfg.EvmNonceAutoSync.Valid {
+		c.NonceAutoSync = &cfg.EvmNonceAutoSync.Bool
+	}
+	if cfg.EvmUseForwarders.Valid {
+		c.UseForwarders = &cfg.EvmUseForwarders.Bool
+	}
+	if cfg.EvmRPCDefaultBatchSize.Valid {
+		v := uint32(cfg.EvmRPCDefaultBatchSize.Int64)
+		c.RPCDefaultBatchSize = &v
+	}
+	if cfg.FlagsContractAddress.Valid {
+		s := cfg.FlagsContractAddress.String
+		if !common.IsHexAddress(s) {
+			return fmt.Errorf("invalid FlagsContractAddress: %s", s)
+		}
+		a := common.HexToAddress(s)
+		v := ethkey.EIP55AddressFromAddress(a)
+		c.FlagsContractAddress = &v
+	}
+	if cfg.GasEstimatorMode.Valid {
+		c.GasEstimatorMode = &cfg.GasEstimatorMode.String
+	}
+	for s, kcfg := range cfg.KeySpecific {
+		if !common.IsHexAddress(s) {
+			return fmt.Errorf("invalid address KeySpecific: %s", s)
+		}
+		a := common.HexToAddress(s)
+		v := ethkey.EIP55AddressFromAddress(a)
+		c.KeySpecific = append(c.KeySpecific, KeySpecificConfig{
+			Key:            &v,
+			MaxGasPriceWei: kcfg.EvmMaxGasPriceWei,
+		})
+	}
+	if cfg.LinkContractAddress.Valid {
+		s := cfg.LinkContractAddress.String
+		if !common.IsHexAddress(s) {
+			return fmt.Errorf("invalid LinkContractAddress: %s", s)
+		}
+		a := common.HexToAddress(s)
+		v := ethkey.EIP55AddressFromAddress(a)
+		c.LinkContractAddress = &v
+	}
+	if cfg.OperatorFactoryAddress.Valid {
+		s := cfg.OperatorFactoryAddress.String
+		if !common.IsHexAddress(s) {
+			return fmt.Errorf("invalid OperatorFactoryAddress: %s", s)
+		}
+		a := common.HexToAddress(s)
+		v := ethkey.EIP55AddressFromAddress(a)
+		c.OperatorFactoryAddress = &v
+	}
+	if cfg.MinIncomingConfirmations.Valid {
+		v := uint32(cfg.MinIncomingConfirmations.Int64)
+		c.MinIncomingConfirmations = &v
+	}
+	c.MinimumContractPayment = cfg.MinimumContractPayment
+	//TODO cfg.OCRObservationTimeout unused legacy, but was bug?
+	c.NodeNoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
+	return nil
 }
 
 type TOMLNode struct {
@@ -94,4 +225,29 @@ type TOMLNode struct {
 	WSURL    *toml.URL
 	HTTPURL  *toml.URL
 	SendOnly *bool
+}
+
+func NewTOMLNodeFromDB(db Node) (n TOMLNode, err error) {
+	n.Name = &db.Name
+	if db.WSURL.Valid {
+		var u *url.URL
+		u, err = url.Parse(db.WSURL.String)
+		if err != nil {
+			return
+		}
+		n.WSURL = (*toml.URL)(u)
+	}
+	if db.HTTPURL.Valid {
+		var u *url.URL
+		u, err = url.Parse(db.HTTPURL.String)
+		if err != nil {
+			return
+		}
+		n.HTTPURL = (*toml.URL)(u)
+	}
+	if db.SendOnly {
+		// Only necessary if true
+		n.SendOnly = &db.SendOnly
+	}
+	return
 }

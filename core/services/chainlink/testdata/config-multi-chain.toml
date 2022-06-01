@@ -25,7 +25,7 @@ GasPriceBufferPercent = 10
 CPUProfileRate = 7
 
 [[EVM]]
-ChainID = 1
+ChainID = '1'
 FinalityDepth = 26
 
 [[EVM.Nodes]]

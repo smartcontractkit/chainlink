@@ -26,7 +26,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 }
 
 func (cc *ConfigController) Dump(c *gin.Context) {
-	tomlStr, err := cc.App.ConfigDump()
+	tomlStr, err := cc.App.ConfigDump(c)
 	if err != nil {
 		cc.App.GetLogger().Errorw("Failed to dump TOML config", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)

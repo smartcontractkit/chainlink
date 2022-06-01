@@ -66,7 +66,7 @@ var (
 		},
 		EVM: []EVMConfig{
 			{
-				ChainID: 1,
+				ChainID: utils.NewBigI(1),
 				ChainTOMLCfg: evmtypes.ChainTOMLCfg{
 					FinalityDepth: ptr[uint32](26),
 				},
@@ -86,7 +86,7 @@ var (
 			{
 				ChainID: "mainnet",
 				TOMLChain: solana.TOMLChain{
-					MaxRetries: ptr(12),
+					MaxRetries: ptr[int64](12),
 				},
 				Nodes: []solana.TOMLNode{
 					{Name: "primary", URL: mustURL("http://solana.com")},
@@ -97,7 +97,7 @@ var (
 			{
 				ChainID: "Columbus-5",
 				TOMLChain: terra.TOMLChain{
-					MaxMsgsPerBatch: 13,
+					MaxMsgsPerBatch: ptr[int64](13),
 				},
 				Nodes: []terra.TOMLNode{
 					{Name: "primary", TendermintURL: mustURL("http://solana.com")},
@@ -285,7 +285,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.EVM = []EVMConfig{
 		{
-			ChainID: 1,
+			ChainID: utils.NewBigI(1),
 			ChainTOMLCfg: evmtypes.ChainTOMLCfg{
 				BalanceMonitorEnabled:             ptr(true),
 				BlockBackfillDepth:                ptr[uint32](100),
@@ -376,6 +376,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.Solana = []SolanaConfig{
 		{
 			ChainID: "mainnet",
+			Enabled: ptr(false),
 			TOMLChain: solana.TOMLChain{
 				BalancePollPeriod:   models.MustNewDuration(time.Minute),
 				ConfirmPollPeriod:   models.MustNewDuration(time.Second),
@@ -386,7 +387,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TxConfirmTimeout:    models.MustNewDuration(time.Second),
 				SkipPreflight:       ptr(true),
 				Commitment:          ptr("banana"),
-				MaxRetries:          ptr(7),
+				MaxRetries:          ptr[int64](7),
 			},
 			Nodes: []solana.TOMLNode{
 				{Name: "primary", URL: mustURL("http://solana.web")},
@@ -400,12 +401,12 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: "Bombay-12",
 			TOMLChain: terra.TOMLChain{
 				BlockRate:             models.MustNewDuration(time.Minute),
-				BlocksUntilTxTimeout:  12,
+				BlocksUntilTxTimeout:  ptr[int64](12),
 				ConfirmPollPeriod:     models.MustNewDuration(time.Second),
 				FallbackGasPriceULuna: mustDecimal("0.001"),
 				FCDURL:                mustURL("http://terra.com"),
 				GasLimitMultiplier:    mustDecimal("1.2"),
-				MaxMsgsPerBatch:       17,
+				MaxMsgsPerBatch:       ptr[int64](17),
 				OCR2CachePollPeriod:   models.MustNewDuration(time.Minute),
 				OCR2CacheTTL:          models.MustNewDuration(time.Hour),
 				TxMsgTimeout:          models.MustNewDuration(time.Second),
@@ -587,7 +588,7 @@ GoroutineThreshold = 999
 `},
 		{"evm", Config{EVM: full.EVM}, `
 [[EVM]]
-ChainID = 1
+ChainID = '1'
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -663,6 +664,7 @@ SendOnly = true
 		{"solana", Config{Solana: full.Solana}, `
 [[Solana]]
 ChainID = 'mainnet'
+Enabled = false
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'

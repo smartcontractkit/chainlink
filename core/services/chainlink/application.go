@@ -67,7 +67,7 @@ type Application interface {
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	// ConfigDump returns a TOML configuration from the current environment and database configuration.
-	ConfigDump() (string, error)
+	ConfigDump(context.Context) (string, error)
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster

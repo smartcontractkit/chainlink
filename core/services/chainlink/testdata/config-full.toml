@@ -150,7 +150,7 @@ MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
 [[EVM]]
-ChainID = 1
+ChainID = '1'
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -225,6 +225,7 @@ SendOnly = true
 
 [[Solana]]
 ChainID = 'mainnet'
+Enabled = false
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
 OCR2CachePollPeriod = '1m0s'

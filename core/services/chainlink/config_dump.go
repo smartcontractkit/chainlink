@@ -1,12 +1,14 @@
 package chainlink
 
 import (
+	"context"
 	"encoding/csv"
 	"net"
 	"net/url"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
@@ -22,10 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func (app *ChainlinkApplication) ConfigDump() (string, error) {
+func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error) {
 	var c Config
 
-	if err := c.loadChainsAndNodes(app.Chains); err != nil {
+	if err := c.loadChainsAndNodes(ctx, app.Chains); err != nil {
 		return "", err
 	}
 
@@ -42,21 +44,81 @@ func (app *ChainlinkApplication) ConfigDump() (string, error) {
 	return string(b), nil
 }
 
+// loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
 //TODO doc
-func (c *Config) loadChainsAndNodes(chains Chains) error {
-	//TODO copy chains and nodes from database
-	//TODO must iterate over pure ORM methods for all chains and nodes
-	//TODO even disabled chains?
-	c.EVM = nil
-	c.Solana = nil
-	c.Terra = nil
+func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
+	{ // EVM
+		dbChains, _, err := chains.EVM.Index(0, -1)
+		if err != nil {
+			return err
+		}
+		for _, dbChain := range dbChains {
+			dbNodes, _, err := chains.EVM.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get nodes for chain %v", dbChain.ID)
+			}
+			evmChain, err := newEVMConfigFromDB(dbChain, dbNodes)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert db config for chain %v", dbChain.ID)
+			}
+			if *evmChain.Enabled {
+				// no need to persist if enabled
+				evmChain.Enabled = nil
+			}
+			c.EVM = append(c.EVM, evmChain)
+		}
+	}
+
+	{ // Solana
+		dbChains, _, err := chains.Solana.Index(0, -1)
+		if err != nil {
+			return err
+		}
+		for _, dbChain := range dbChains {
+			dbNodes, _, err := chains.Solana.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
+			}
+			solChain, err := newSolanaConfigFromDB(dbChain, dbNodes)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
+			}
+			if *solChain.Enabled {
+				// no need to persist if enabled
+				solChain.Enabled = nil
+			}
+			c.Solana = append(c.Solana, solChain)
+		}
+	}
+
+	{ // Terra
+		dbChains, _, err := chains.Terra.Index(0, -1)
+		if err != nil {
+			return err
+		}
+		for _, dbChain := range dbChains {
+			dbNodes, _, err := chains.Terra.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
+			}
+			terChain, err := newTerraConfigFromDB(dbChain, dbNodes)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
+			}
+			if *terChain.Enabled {
+				// no need to persist if enabled
+				terChain.Enabled = nil
+			}
+			c.Terra = append(c.Terra, terChain)
+		}
+	}
+
 	return nil
 }
 
 // loadLegacyEVMEnv reads legacy ETH/EVM global overrides from the environment and updates all EVM chains.
 //TODO test
 func (c *Config) loadLegacyEVMEnv() {
-	//TODO read legacy ETH/EVM global overrides, clobbering persisted values already set
 	if e := envvar.NewBool("BalanceMonitorEnabled").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].BalanceMonitorEnabled = e
