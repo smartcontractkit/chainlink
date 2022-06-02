@@ -9,6 +9,7 @@ import (
 
 	starksig "github.com/NethermindEth/juno/pkg/crypto/signature"
 	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 var curve = weierstrass.Stark()
@@ -76,8 +77,9 @@ func (key Key) ID() string {
 
 // PublicKeyStr
 func (key Key) PublicKeyStr() string {
-	pubKeyBytes := weierstrass.Marshal(curve, key.privkey.PublicKey.X, key.privkey.PublicKey.Y)
-	return hex.EncodeToString(pubKeyBytes)
+	// implements the pubkey to starkkey functionality: https://github.com/0xs34n/starknet.js/blob/cd61356974d355aa42f07a3d63f7ccefecbd913c/src/utils/ellipticCurve.ts#L49
+	starkkey := math.PaddedBigBytes(key.privkey.PublicKey.X, 32)
+	return "0x" + hex.EncodeToString(starkkey)
 }
 
 // Raw from private key
