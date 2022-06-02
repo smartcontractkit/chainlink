@@ -396,7 +396,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	cancel()
 
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
-	if sendError.IsTooExpensive() {
+	if sendError.IsTxFeeExceedsCap() {
 		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"ethTxID", etx.ID,
 			"err", sendError,
