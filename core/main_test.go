@@ -197,15 +197,16 @@ func ExampleRun_keys() {
 	//    core.test keys command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    eth      Remote commands for administering the node's Ethereum keys
-	//    p2p      Remote commands for administering the node's p2p keys
-	//    csa      Remote commands for administering the node's CSA keys
-	//    ocr      Remote commands for administering the node's legacy off chain reporting keys
-	//    ocr2     Remote commands for administering the node's off chain reporting keys
-	//    solana   Remote commands for administering the node's Solana keys
-	//    terra    Remote commands for administering the node's Terra keys
-	//    dkgsign  Remote commands for administering the node's DKGSign keys
-	//    vrf      Remote commands for administering the node's vrf keys
+	//    eth       Remote commands for administering the node's Ethereum keys
+	//    p2p       Remote commands for administering the node's p2p keys
+	//    csa       Remote commands for administering the node's CSA keys
+	//    ocr       Remote commands for administering the node's legacy off chain reporting keys
+	//    ocr2      Remote commands for administering the node's off chain reporting keys
+	//    solana    Remote commands for administering the node's Solana keys
+	//    terra     Remote commands for administering the node's Terra keys
+	//    starknet  Remote commands for administering the node's Starknet keys
+	//    dkgsign   Remote commands for administering the node's DKGSign keys
+	//    vrf       Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -346,6 +347,26 @@ func ExampleRun_keys_terra() {
 	//    export  Export Terra key to keyfile
 	//    delete  Delete Terra key if present
 	//    list    List the Terra keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_starknet() {
+	run("keys", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys starknet - Remote commands for administering the node's Starknet keys
+	//
+	// USAGE:
+	//    core.test keys starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Starknet key
+	//    import  Import Starknet key from keyfile
+	//    export  Export Starknet key to keyfile
+	//    delete  Delete Starknet key if present
+	//    list    List the Starknet keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
