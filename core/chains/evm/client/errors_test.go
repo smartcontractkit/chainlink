@@ -165,6 +165,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "geth"},
 			{"tx fee (1.10 FTM) exceeds the configured cap (1.00 FTM)", true, "geth"},
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
+			{"call failed: InsufficientFunds", true, "Nethermind"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
