@@ -46,7 +46,7 @@ const (
 	TransactionAlreadyInMempool
 	TerminallyUnderpriced
 	InsufficientEth
-	TooExpensive
+	TxFeeExceedsCap
 	FeeTooLow
 	FeeTooHigh
 	TransactionAlreadyMined
@@ -77,7 +77,7 @@ var geth = ClientErrors{
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
-	TooExpensive:                      regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)$`),
+	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	Fatal:                             gethFatal,
 }
 
@@ -125,8 +125,6 @@ var nethermind = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
-	// The TooExpensive filter uses InsufficientFunds: https://github.com/NethermindEth/nethermind/blob/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters/TooExpensiveTxFilter.cs
-	TooExpensive:    regexp.MustCompile(`(: |^)InsufficientFunds$`),
 	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds$`),
 	Fatal:           nethermindFatal,
 }
@@ -191,12 +189,12 @@ func (s *SendError) IsInsufficientEth() bool {
 	return s.is(InsufficientEth)
 }
 
-// IsTooExpensive returns true if the transaction and gas price are combined in
+// IsTxFeeExceedsCap returns true if the transaction and gas price are combined in
 // some way that makes the total transaction too expensive for the eth node to
 // accept at all. No amount of retrying at this or higher gas prices can ever
 // succeed.
-func (s *SendError) IsTooExpensive() bool {
-	return s.is(TooExpensive)
+func (s *SendError) IsTxFeeExceedsCap() bool {
+	return s.is(TxFeeExceedsCap)
 }
 
 // IsFeeTooLow is an optimism-specific error returned when total fee is too low
