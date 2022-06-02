@@ -17,12 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	"github.com/smartcontractkit/chainlink/core/config"
 	tcfg "github.com/smartcontractkit/chainlink/core/config/toml"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -37,10 +36,10 @@ var (
 	multiChainTOML string
 	multiChain     = Config{
 		CoreConfig: tcfg.CoreConfig{
-			RootDir: ptr("my/root/dir"),
+			Root: ptr("my/root/dir"),
 
 			Database: &tcfg.DatabaseConfig{
-				BackupFrequency: models.MustNewDuration(time.Hour),
+				TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
 			},
 			Log: &tcfg.LogConfig{
 				Level: ptr(zapcore.WarnLevel),
@@ -55,7 +54,7 @@ var (
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
 			P2P: &tcfg.P2PConfig{
-				AnnouncePort: ptr[uint16](999),
+				IncomingMessageBufferSize: ptr[int64](999),
 			},
 			Keeper: &tcfg.KeeperConfig{
 				GasPriceBufferPercent: ptr[uint32](10),
@@ -133,7 +132,7 @@ func TestConfig_Marshal(t *testing.T) {
 			ExplorerURL:                    mustURL("http://explorer.url"),
 			InsecureFastScrypt:             ptr(true),
 			ReaperExpiration:               models.MustNewDuration(7 * 24 * time.Hour),
-			RootDir:                        ptr("test/root/dir"),
+			Root:                           ptr("test/root/dir"),
 			ShutdownGracePeriod:            models.MustNewDuration(10 * time.Second),
 			FeatureFeedsManager:            ptr(true),
 			FeatureUICSAKeys:               ptr(true),
@@ -153,12 +152,20 @@ func TestConfig_Marshal(t *testing.T) {
 		ORMMaxIdleConns:               ptr[int64](7),
 		ORMMaxOpenConns:               ptr[int64](13),
 		TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
-		AdvisoryLockCheckInterval:     models.MustNewDuration(5 * time.Minute),
-		AdvisoryLockID:                ptr[int64](345982730592843),
-		LockingMode:                   ptr("advisory"),
-		BackupDir:                     ptr("test/backup/dir"),
-		BackupOnVersionUpgrade:        ptr(true),
-		BackupURL:                     mustURL("http://test.back.up/fake"),
+		Lock: &tcfg.DatabaseLockConfig{
+			Mode:                  ptr("advisory"),
+			AdvisoryCheckInterval: models.MustNewDuration(5 * time.Minute),
+			AdvisoryID:            ptr[int64](345982730592843),
+			LeaseDuration:         &minute,
+			LeaseRefreshInterval:  &second,
+		},
+		Backup: &tcfg.DatabaseBackupConfig{
+			Dir:              ptr("test/backup/dir"),
+			Frequency:        &hour,
+			Mode:             &config.DatabaseBackupModeFull,
+			OnVersionUpgrade: ptr(true),
+			URL:              mustURL("http://test.back.up/fake"),
+		},
 	}
 	full.TelemetryIngress = &tcfg.TelemetryIngressConfig{
 		UniConn:      ptr(true),
@@ -228,32 +235,30 @@ func TestConfig_Marshal(t *testing.T) {
 		MonitoringEndpoint:           ptr("test-monitor"),
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
-		OutgoingMessageBufferSize:    ptr[int64](7),
-		IncomingMessageBufferSize:    ptr[int64](3),
-		DHTLookupInterval:            ptr[int64](9),
-		BootstrapCheckInterval:       models.MustNewDuration(time.Minute),
-		NewStreamTimeout:             models.MustNewDuration(time.Second),
 	}
 	full.P2P = &tcfg.P2PConfig{
-		NetworkingStack:                  ptr(ocrnetworking.NetworkingStackV1V2),
-		IncomingMessageBufferSize:        ptr[int64](13),
-		OutgoingMessageBufferSize:        ptr[int64](17),
-		AnnounceIP:                       mustIP("1.2.3.4"),
-		AnnouncePort:                     ptr[uint16](1234),
-		BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
-		BootstrapPeers:                   &[]string{"foo", "bar", "should", "these", "be", "typed"},
-		DHTAnnouncementCounterUserPrefix: ptr[uint32](4321),
-		DHTLookupInterval:                ptr[int64](9),
-		ListenIP:                         mustIP("4.3.2.1"),
-		ListenPort:                       ptr[uint16](9),
-		NewStreamTimeout:                 models.MustNewDuration(time.Second),
-		PeerID:                           mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
-		PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
-		V2AnnounceAddresses:              &[]string{"a", "b", "c"},
-		V2Bootstrappers:                  &[]string{"1", "2", "3"},
-		V2DeltaDial:                      models.MustNewDuration(time.Minute),
-		V2DeltaReconcile:                 models.MustNewDuration(time.Second),
-		V2ListenAddresses:                &[]string{"foo", "bar"},
+		IncomingMessageBufferSize: ptr[int64](13),
+		OutgoingMessageBufferSize: ptr[int64](17),
+		V1: &tcfg.P2PV1Config{
+			AnnounceIP:                       mustIP("1.2.3.4"),
+			AnnouncePort:                     ptr[uint16](1234),
+			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
+			BootstrapPeers:                   &[]string{"foo", "bar", "should", "these", "be", "typed"},
+			DHTAnnouncementCounterUserPrefix: ptr[uint32](4321),
+			DHTLookupInterval:                ptr[int64](9),
+			ListenIP:                         mustIP("4.3.2.1"),
+			ListenPort:                       ptr[uint16](9),
+			NewStreamTimeout:                 models.MustNewDuration(time.Second),
+			PeerID:                           mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
+			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
+		},
+		V2: &tcfg.P2PV2Config{
+			AnnounceAddresses: &[]string{"a", "b", "c"},
+			Bootstrappers:     &[]string{"1", "2", "3"},
+			DeltaDial:         models.MustNewDuration(time.Minute),
+			DeltaReconcile:    models.MustNewDuration(time.Second),
+			ListenAddresses:   &[]string{"foo", "bar"},
+		},
 	}
 	full.Keeper = &tcfg.KeeperConfig{
 		CheckUpkeepGasPriceFeatureEnabled: ptr(true),
@@ -430,7 +435,7 @@ func TestConfig_Marshal(t *testing.T) {
 ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 ReaperExpiration = '168h0m0s'
-RootDir = 'test/root/dir'
+Root = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 FeatureFeedsManager = true
 FeatureUICSAKeys = true
@@ -448,12 +453,20 @@ Migrate = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 TriggerFallbackDBPollInterval = '2m0s'
-AdvisoryLockCheckInterval = '5m0s'
-AdvisoryLockID = 345982730592843
-LockingMode = 'advisory'
-BackupDir = 'test/backup/dir'
-BackupOnVersionUpgrade = true
-BackupURL = 'http://test.back.up/fake'
+
+[Database.Lock]
+Mode = 'advisory'
+AdvisoryCheckInterval = '5m0s'
+AdvisoryID = 345982730592843
+LeaseDuration = '1m0s'
+LeaseRefreshInterval = '1s'
+
+[Database.Backup]
+Dir = 'test/backup/dir'
+Frequency = '1h0m0s'
+Mode = 'full'
+OnVersionUpgrade = true
+URL = 'http://test.back.up/fake'
 `},
 		{"TelemetryIngress", Config{CoreConfig: tcfg.CoreConfig{TelemetryIngress: full.TelemetryIngress}}, `
 [TelemetryIngress]
@@ -518,11 +531,6 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
-OutgoingMessageBufferSize = 7
-IncomingMessageBufferSize = 3
-DHTLookupInterval = 9
-BootstrapCheckInterval = '1m0s'
-NewStreamTimeout = '1s'
 `},
 		{"OCR2", Config{CoreConfig: tcfg.CoreConfig{OCR2: full.OCR2}}, `
 [OCR2]
@@ -537,9 +545,10 @@ MonitoringEndpoint = 'test-mon-end'
 `},
 		{"P2P", Config{CoreConfig: tcfg.CoreConfig{P2P: full.P2P}}, `
 [P2P]
-NetworkingStack = 'V1V2'
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+
+[P2P.V1]
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -551,11 +560,13 @@ ListenPort = 9
 NewStreamTimeout = '1s'
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
-V2AnnounceAddresses = ['a', 'b', 'c']
-V2Bootstrappers = ['1', '2', '3']
-V2DeltaDial = '1m0s'
-V2DeltaReconcile = '1s'
-V2ListenAddresses = ['foo', 'bar']
+
+[P2P.V2]
+AnnounceAddresses = ['a', 'b', 'c']
+Bootstrappers = ['1', '2', '3']
+DeltaDial = '1m0s'
+DeltaReconcile = '1s'
+ListenAddresses = ['foo', 'bar']
 `},
 		{"Keeper", Config{CoreConfig: tcfg.CoreConfig{Keeper: full.Keeper}}, `
 [Keeper]
@@ -627,6 +638,7 @@ NonceAutoSync = true
 OCRContractConfirmations = 11
 OCRContractTransmitterTransmitTimeout = '1m0s'
 OCRDatabaseTimeout = '1s'
+OCRObservationTimeout = '1s'
 OCRObservationGracePeriod = '1s'
 OCR2ContractConfirmations = 7
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'

@@ -2,7 +2,7 @@ Dev = true
 ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 ReaperExpiration = '168h0m0s'
-RootDir = 'test/root/dir'
+Root = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 FeatureFeedsManager = true
 FeatureUICSAKeys = true
@@ -19,12 +19,20 @@ Migrate = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 TriggerFallbackDBPollInterval = '2m0s'
-AdvisoryLockCheckInterval = '5m0s'
-AdvisoryLockID = 345982730592843
-LockingMode = 'advisory'
-BackupDir = 'test/backup/dir'
-BackupOnVersionUpgrade = true
-BackupURL = 'http://test.back.up/fake'
+
+[Database.Lock]
+Mode = 'advisory'
+AdvisoryCheckInterval = '5m0s'
+AdvisoryID = 345982730592843
+LeaseDuration = '1m0s'
+LeaseRefreshInterval = '1s'
+
+[Database.Backup]
+Dir = 'test/backup/dir'
+Frequency = '1h0m0s'
+Mode = 'full'
+OnVersionUpgrade = true
+URL = 'http://test.back.up/fake'
 
 [TelemetryIngress]
 UniConn = true
@@ -94,16 +102,12 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
-OutgoingMessageBufferSize = 7
-IncomingMessageBufferSize = 3
-DHTLookupInterval = 9
-BootstrapCheckInterval = '1m0s'
-NewStreamTimeout = '1s'
 
 [P2P]
-NetworkingStack = 'V1V2'
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+
+[P2P.V1]
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
@@ -115,11 +119,13 @@ ListenPort = 9
 NewStreamTimeout = '1s'
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 PeerstoreWriteInterval = '1m0s'
-V2AnnounceAddresses = ['a', 'b', 'c']
-V2Bootstrappers = ['1', '2', '3']
-V2DeltaDial = '1m0s'
-V2DeltaReconcile = '1s'
-V2ListenAddresses = ['foo', 'bar']
+
+[P2P.V2]
+AnnounceAddresses = ['a', 'b', 'c']
+Bootstrappers = ['1', '2', '3']
+DeltaDial = '1m0s'
+DeltaReconcile = '1s'
+ListenAddresses = ['foo', 'bar']
 
 [Keeper]
 CheckUpkeepGasPriceFeatureEnabled = true
@@ -188,6 +194,7 @@ NonceAutoSync = true
 OCRContractConfirmations = 11
 OCRContractTransmitterTransmitTimeout = '1m0s'
 OCRDatabaseTimeout = '1s'
+OCRObservationTimeout = '1s'
 OCRObservationGracePeriod = '1s'
 OCR2ContractConfirmations = 7
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'

@@ -1,7 +1,7 @@
-RootDir = 'my/root/dir'
+Root = 'my/root/dir'
 
 [Database]
-BackupFrequency = '1h0m0s'
+TriggerFallbackDBPollInterval = '2m0s'
 
 [Log]
 Level = 'warn'
@@ -16,7 +16,7 @@ DatabaseTimeout = '20s'
 BlockchainTimeout = '5s'
 
 [P2P]
-AnnouncePort = 999
+IncomingMessageBufferSize = 999
 
 [Keeper]
 GasPriceBufferPercent = 10

@@ -4,7 +4,6 @@ import (
 	"net"
 	"net/url"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -21,7 +20,7 @@ type CoreConfig struct {
 	ExplorerURL         *URL
 	InsecureFastScrypt  *bool
 	ReaperExpiration    *models.Duration
-	RootDir             *string
+	Root                *string
 	ShutdownGracePeriod *models.Duration
 
 	Database *DatabaseConfig
@@ -78,18 +77,28 @@ type DatabaseConfig struct {
 	ORMMaxIdleConns               *int64
 	ORMMaxOpenConns               *int64
 	TriggerFallbackDBPollInterval *models.Duration
+
 	// Database Global Lock
-	AdvisoryLockCheckInterval *models.Duration
-	AdvisoryLockID            *int64
-	LockingMode               *string
-	LeaseLockDuration         *models.Duration
-	LeaseLockRefreshInterval  *models.Duration
+	Lock *DatabaseLockConfig
+
 	// Database Autobackups
-	BackupDir              *string
-	BackupFrequency        *models.Duration
-	BackupMode             *config.DatabaseBackupMode
-	BackupOnVersionUpgrade *bool
-	BackupURL              *URL
+	Backup *DatabaseBackupConfig
+}
+
+type DatabaseLockConfig struct {
+	Mode                  *string
+	AdvisoryCheckInterval *models.Duration
+	AdvisoryID            *int64
+	LeaseDuration         *models.Duration
+	LeaseRefreshInterval  *models.Duration
+}
+
+type DatabaseBackupConfig struct {
+	Dir              *string
+	Frequency        *models.Duration
+	Mode             *config.DatabaseBackupMode
+	OnVersionUpgrade *bool
+	URL              *URL
 }
 
 type TelemetryIngressConfig struct {
@@ -175,21 +184,21 @@ type OCRConfig struct {
 	SimulateTransactions *bool
 	TraceLogging         *bool
 	TransmitterAddress   *ethkey.EIP55Address
-	// DEPRECATED
-	//TODO these log errors... can we just drop them?
-	OutgoingMessageBufferSize *int64
-	IncomingMessageBufferSize *int64
-	DHTLookupInterval         *int64
-	BootstrapCheckInterval    *models.Duration
-	NewStreamTimeout          *models.Duration
 }
 
 type P2PConfig struct {
 	// V1 and V2
-	NetworkingStack           *ocrnetworking.NetworkingStack
 	IncomingMessageBufferSize *int64
 	OutgoingMessageBufferSize *int64
+
 	// V1 Only
+	V1 *P2PV1Config
+
+	// V2 Only
+	V2 *P2PV2Config
+}
+
+type P2PV1Config struct {
 	AnnounceIP                       *net.IP
 	AnnouncePort                     *uint16
 	BootstrapCheckInterval           *models.Duration
@@ -201,12 +210,14 @@ type P2PConfig struct {
 	NewStreamTimeout                 *models.Duration
 	PeerID                           *p2pkey.PeerID
 	PeerstoreWriteInterval           *models.Duration
-	// V2 Only
-	V2AnnounceAddresses *[]string
-	V2Bootstrappers     *[]string
-	V2DeltaDial         *models.Duration
-	V2DeltaReconcile    *models.Duration
-	V2ListenAddresses   *[]string
+}
+
+type P2PV2Config struct {
+	AnnounceAddresses *[]string
+	Bootstrappers     *[]string
+	DeltaDial         *models.Duration
+	DeltaReconcile    *models.Duration
+	ListenAddresses   *[]string
 }
 
 type KeeperConfig struct {

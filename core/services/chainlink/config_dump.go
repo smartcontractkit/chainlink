@@ -431,7 +431,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.ExplorerURL = envURL("ExplorerURL")
 	c.InsecureFastScrypt = envvar.NewBool("InsecureFastScrypt").ParsePtr()
 	c.ReaperExpiration = envDuration("ReaperExpiration")
-	c.RootDir = envvar.RootDir.ParsePtr()
+	c.Root = envvar.RootDir.ParsePtr()
 	c.ShutdownGracePeriod = envDuration("ShutdownGracePeriod")
 
 	c.Database = &tcfg.DatabaseConfig{
@@ -441,16 +441,20 @@ func (c *Config) loadLegacyCoreEnv() {
 		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
-		AdvisoryLockCheckInterval:     envDuration("AdvisoryLockCheckInterval"),
-		AdvisoryLockID:                envvar.AdvisoryLockID.ParsePtr(),
-		LockingMode:                   envvar.NewString("DatabaseLockingMode").ParsePtr(),
-		LeaseLockDuration:             envDuration("LeaseLockDuration"),
-		LeaseLockRefreshInterval:      envDuration("LeaseLockRefreshInterval"),
-		BackupDir:                     envvar.NewString("DatabaseBackupDir").ParsePtr(),
-		BackupFrequency:               envDuration("DatabaseBackupFrequency"),
-		BackupMode:                    config.DatabaseBackupModeEnvVar.ParsePtr(),
-		BackupOnVersionUpgrade:        envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
-		BackupURL:                     envURL("DatabaseBackupDir"),
+		Lock: &tcfg.DatabaseLockConfig{
+			Mode:                  envvar.NewString("DatabaseLockingMode").ParsePtr(),
+			AdvisoryCheckInterval: envDuration("AdvisoryLockCheckInterval"),
+			AdvisoryID:            envvar.AdvisoryLockID.ParsePtr(),
+			LeaseDuration:         envDuration("LeaseLockDuration"),
+			LeaseRefreshInterval:  envDuration("LeaseLockRefreshInterval"),
+		},
+		Backup: &tcfg.DatabaseBackupConfig{
+			Dir:              envvar.NewString("DatabaseBackupDir").ParsePtr(),
+			Frequency:        envDuration("DatabaseBackupFrequency"),
+			Mode:             config.DatabaseBackupModeEnvVar.ParsePtr(),
+			OnVersionUpgrade: envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
+			URL:              envURL("DatabaseBackupDir"),
+		},
 	}
 
 	c.TelemetryIngress = &tcfg.TelemetryIngressConfig{
@@ -536,36 +540,42 @@ func (c *Config) loadLegacyCoreEnv() {
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
 		TraceLogging:                 envvar.NewBool("OCRTraceLogging").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
-		OutgoingMessageBufferSize:    envvar.NewInt64("OCROutgoingMessageBufferSize").ParsePtr(),
-		IncomingMessageBufferSize:    envvar.NewInt64("OCRIncomingMessageBufferSize").ParsePtr(),
-		DHTLookupInterval:            envvar.NewInt64("OCRDHTLookupInterval").ParsePtr(),
-		BootstrapCheckInterval:       envDuration("OCRBootstrapCheckInterval"),
-		NewStreamTimeout:             envDuration("OCRNewStreamTimeout"),
 	}
 
 	c.P2P = &tcfg.P2PConfig{
-		NetworkingStack: envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
-			err = ns.UnmarshalText([]byte(s))
-			return
-		}).ParsePtr(),
-		IncomingMessageBufferSize:        envvar.NewInt64("P2PIncomingMessageBufferSize").ParsePtr(),
-		OutgoingMessageBufferSize:        envvar.NewInt64("P2POutgoingMessageBufferSize").ParsePtr(),
-		AnnounceIP:                       envIP("P2PAnnounceIP"),
-		AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
-		BootstrapCheckInterval:           envDuration("P2PBootstrapCheckInterval"),
-		BootstrapPeers:                   envStringSlice("P2PBootstrapPeers"),
-		DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
-		DHTLookupInterval:                envvar.NewInt64("P2PDHTLookupInterval").ParsePtr(),
-		ListenIP:                         envIP("P2PListenIP"),
-		ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
-		NewStreamTimeout:                 envDuration("P2PNewStreamTimeout"),
-		PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
-		PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
-		V2AnnounceAddresses:              envStringSlice("P2PV2AnnounceAddresses"),
-		V2Bootstrappers:                  envStringSlice("P2PV2Bootstrappers"),
-		V2DeltaDial:                      envDuration("P2PV2DeltaDial"),
-		V2DeltaReconcile:                 envDuration("P2PV2DeltaReconcile"),
-		V2ListenAddresses:                envStringSlice("P2PV2ListenAddresses"),
+		IncomingMessageBufferSize: try(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
+		OutgoingMessageBufferSize: try(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+	}
+	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
+		err = ns.UnmarshalText([]byte(s))
+		return
+	}).ParsePtr(); p != nil {
+		ns := *p
+		var v1, v2, v1v2 = ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV2, ocrnetworking.NetworkingStackV1V2
+		if ns == v1 || ns == v1v2 {
+			c.P2P.V1 = &tcfg.P2PV1Config{
+				AnnounceIP:                       envIP("P2PAnnounceIP"),
+				AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
+				BootstrapCheckInterval:           envDuration("P2PBootstrapCheckInterval"),
+				BootstrapPeers:                   envStringSlice("P2PBootstrapPeers"),
+				DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
+				DHTLookupInterval:                envvar.NewInt64("P2PDHTLookupInterval").ParsePtr(),
+				ListenIP:                         envIP("P2PListenIP"),
+				ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
+				NewStreamTimeout:                 envDuration("P2PNewStreamTimeout"),
+				PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
+				PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
+			}
+		}
+		if ns == v2 || ns == v1v2 {
+			c.P2P.V2 = &tcfg.P2PV2Config{
+				AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
+				Bootstrappers:     envStringSlice("P2PV2Bootstrappers"),
+				DeltaDial:         envDuration("P2PV2DeltaDial"),
+				DeltaReconcile:    envDuration("P2PV2DeltaReconcile"),
+				ListenAddresses:   envStringSlice("P2PV2ListenAddresses"),
+			}
+		}
 	}
 
 	c.Keeper = &tcfg.KeeperConfig{
@@ -599,11 +609,22 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 }
 
-func envDuration(s string) *models.Duration {
-	if p := envvar.NewDuration(s).ParsePtr(); p != nil {
-		d := *p
-		if d >= 0 {
-			return models.MustNewDuration(d)
+func try[T any](es ...*envvar.EnvVar[T]) *T {
+	for _, e := range es {
+		if p := e.ParsePtr(); p != nil {
+			return p
+		}
+	}
+	return nil
+}
+
+func envDuration(ns ...string) *models.Duration {
+	for _, n := range ns {
+		if p := envvar.NewDuration(n).ParsePtr(); p != nil {
+			d := *p
+			if d >= 0 {
+				return models.MustNewDuration(d)
+			}
 		}
 	}
 	return nil
