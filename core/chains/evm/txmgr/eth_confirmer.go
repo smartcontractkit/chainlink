@@ -1118,7 +1118,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		sendError = nil
 	}
 
-	if sendError.IsTooExpensive() {
+	if sendError.IsTxFeeExceedsCap() {
 		// The gas price was bumped too high. This transaction attempt cannot be accepted.
 		//
 		// Best thing we can do is to re-send the previous attempt at the old
