@@ -1,0 +1,24 @@
+ChainID = '128'
+#BalanceMonitorBlockDelay = 2
+TxResendAfterThreshold = '1m'
+FinalityDepth = 50
+GasBumpThreshold = 5
+GasBumpWei = '5000000000'
+GasPriceDefault = '5000000000'
+LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
+MinGasPriceWei = '1000000000'
+MinIncomingConfirmations = 3
+OCRDatabaseTimeout = '2s'
+OCRContractTransmitterTransmitTimeout = '2s'
+OCRObservationGracePeriod = '500ms'
+LogPollInterval = '3s'
+
+[BlockHistoryEstimator]
+BlockDelay = 2
+BlockHistorySize = 24
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+HistoryDepth = 100
+SamplingInterval = '1s'
+

@@ -1,0 +1,9 @@
+ChainID = '5'
+LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
+MinimumContractPayment = '100000000000000000'
+
+[BlockHistoryEstimator]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 4
+TransactionPercentile = 50

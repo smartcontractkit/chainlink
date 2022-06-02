@@ -1,0 +1,19 @@
+ChainID = '69'
+#BalanceMonitorBlockDelay = 0
+ChainType = 'optimism'
+TxResendAfterThreshold = '15s'
+FinalityDepth = 1
+GasBumpThreshold = '0'
+GasEstimatorMode = 'L2Suggested'
+LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
+MinIncomingConfirmations = 1
+MinGasPriceWei = 0
+OCRContractConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 10
+SamplingInterval = '1s'
+BlockEmissionIdleWarningThreshold = '30m'
+
+[BlockHistoryEstimator]
+BlockHistorySize = 0

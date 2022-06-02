@@ -16,8 +16,9 @@ import (
 
 type Chain struct {
 	BalanceMonitorEnabled *bool
-	BlockBackfillDepth    *uint32
-	BlockBackfillSkip     *bool
+	//TODO BalanceMonitorBlockDelay
+	BlockBackfillDepth *uint32
+	BlockBackfillSkip  *bool
 
 	ChainType            *string
 	EIP1559DynamicFees   *bool
@@ -85,7 +86,7 @@ type BlockHistoryEstimator struct {
 
 type KeySpecific struct {
 	Key            *ethkey.EIP55Address
-	MaxGasPriceWei *utils.Big
+	MaxGasPriceWei *utils.Big //TODO strict type, drop Wei suffix?
 }
 
 type HeadTracker struct {

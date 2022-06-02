@@ -1,0 +1,8 @@
+ChainID = '100'
+ChainType = 'xdai'
+GasBumpThreshold = '3'
+GasPriceDefault = '1000000000'
+MinGasPriceWei = '1000000000'
+MaxGasPriceWei = '500000000000'
+LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
+LogPollInterval = '5s'

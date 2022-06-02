@@ -1,0 +1,22 @@
+ChainID = '80001'
+#BalanceMonitorBlockDelay = 13
+FinalityDepth = 500
+GasBumpThreshold = 5
+GasBumpWei = '20000000000'
+MaxQueuedTransactions = 5000
+MaxGasPriceWei = '200000000000000'
+GasPriceDefault = '1000000000'
+MinGasPriceWei = '1000000000'
+TxResendAfterThreshold = '1m'
+LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
+MinIncomingConfirmations = 5
+LogPollInterval = '1s'
+
+[BlockHistoryEstimator]
+BlockDelay = 10
+BlockHistorySize = 24
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+HistoryDepth = 2000
+SamplingInterval = '1s'

@@ -1,0 +1,14 @@
+ChainID = '43114'
+LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
+FinalityDepth = 1
+GasEstimatorMode = 'BlockHistory'
+GasPriceDefault = '25000000000'
+MaxGasPriceWei = '1000000000000'
+MinGasPriceWei = '25000000000'
+MinIncomingConfirmations = 1
+OCRContractConfirmations = 1
+LogPollInterval = '3s'
+
+[BlockHistoryEstimator]
+BlockHistorySize = 24
+BlockDelay = 2
