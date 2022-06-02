@@ -765,7 +765,7 @@ func (c *chainScopedConfig) OperatorFactoryAddress() string {
 		c.logPersistedOverrideOnce("OperatorFactoryAddress", p.String)
 		return p.String
 	}
-	return c.defaultSet.linkContractAddress
+	return c.defaultSet.operatorFactoryAddress
 }
 
 // MinIncomingConfirmations represents the minimum number of block

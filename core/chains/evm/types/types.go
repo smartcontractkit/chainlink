@@ -314,6 +314,21 @@ func FromGethLog(gl *gethTypes.Log) *Log {
 	}
 }
 
+// ToGethLog converts a Log to a gethTypes.Log
+func (l Log) ToGethLog() *gethTypes.Log {
+	return &gethTypes.Log{
+		Address:     l.Address,
+		Topics:      l.Topics,
+		Data:        l.Data,
+		BlockNumber: l.BlockNumber,
+		TxHash:      l.TxHash,
+		TxIndex:     l.TxIndex,
+		BlockHash:   l.BlockHash,
+		Index:       l.Index,
+		Removed:     l.Removed,
+	}
+}
+
 // MarshalJSON marshals as JSON.
 func (l Log) MarshalJSON() ([]byte, error) {
 	type Log struct {

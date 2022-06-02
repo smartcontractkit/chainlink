@@ -1009,6 +1009,27 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
+		{
+			Name:  "operators",
+			Usage: "Commands for managing operators addresses.",
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Create a new forwarder",
+					Action: client.DeployOperator,
+					Flags: []cli.Flag{
+						cli.Int64Flag{
+							Name:  "chainId, c",
+							Usage: "chain ID, if left empty, ETH_CHAIN_ID will be used",
+						},
+						cli.StringFlag{
+							Name:  "owner, o",
+							Usage: "The forwarding address (in hex format)",
+						},
+					},
+				},
+			},
+		},
 	}...)
 	return app
 }

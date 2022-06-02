@@ -397,6 +397,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/nodes/evm/forwarders", efc.Create)
 		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
 
+		ecc := OperatorsController{app}
+		authv2.POST("/operators/deploy", ecc.Deploy)
+		authv2.GET("/operators/:chainID/:txID/status", ecc.Status)
+		authv2.DELETE("/operators/:operatorID", ecc.Delete)
+
 		build_info := BuildInfoController{app}
 		authv2.GET("/build_info", build_info.Show)
 
