@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
@@ -32,7 +33,7 @@ func newStarknetKeyring(material io.Reader) (*starknetKeyring, error) {
 }
 
 func (sk *starknetKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	return weierstrass.Marshal(starkCurve, sk.privateKey.PublicKey.X, sk.privateKey.PublicKey.Y)
+	return starkkey.PubToStarkKey(sk.privateKey.PublicKey)
 }
 
 func (sk *starknetKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
@@ -104,12 +105,21 @@ func (sk *starknetKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtype
 }
 
 func (sk *starknetKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
-	pubKey := starksig.PublicKey{Curve: starkCurve}
-	pubKey.X, pubKey.Y = weierstrass.Unmarshal(starkCurve, publicKey)
+	var keys [2]starksig.PublicKey
 
-	// handle invalid publicKey
-	if pubKey.X == nil || pubKey.Y == nil {
-		return false
+	// convert OnchainPublicKey (starkkey) into ecdsa public keys (prepend 2 or 3 to indicate +/- Y coord)
+	prefix := []byte{2, 3}
+	for i := 0; i < len(prefix); i++ {
+		keys[i] = starksig.PublicKey{Curve: starkCurve}
+
+		// prepend sign byte
+		compressedKey := append([]byte{prefix[i]}, publicKey...)
+		keys[i].X, keys[i].Y = weierstrass.UnmarshalCompressed(starkCurve, compressedKey)
+
+		// handle invalid publicKey
+		if keys[i].X == nil || keys[i].Y == nil {
+			return false
+		}
 	}
 
 	// check valid signature length
@@ -124,7 +134,8 @@ func (sk *starknetKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx
 
 	r := new(big.Int).SetBytes(signature[1:33])
 	s := new(big.Int).SetBytes(signature[33:65])
-	return starksig.Verify(&pubKey, hash, r, s)
+
+	return starksig.Verify(&keys[0], hash, r, s) || starksig.Verify(&keys[1], hash, r, s)
 }
 
 func (sk *starknetKeyring) MaxSignatureLength() int {
