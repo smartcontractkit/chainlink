@@ -20,7 +20,7 @@ type Chain struct {
 	BlockBackfillSkip                 *bool
 	BlockEmissionIdleWarningThreshold *models.Duration
 
-	BlockHistoryEstimator *BlockHistoryEstimatorConfig
+	BlockHistoryEstimator *BlockHistoryEstimator
 
 	ChainType            *string
 	EIP1559DynamicFees   *bool
@@ -44,7 +44,7 @@ type Chain struct {
 	HeadTrackerMaxBufferSize    *uint32
 	HeadTrackerSamplingInterval *models.Duration
 
-	KeySpecific []KeySpecificConfig `toml:",omitempty"`
+	KeySpecific []KeySpecific `toml:",omitempty"`
 
 	LinkContractAddress  *ethkey.EIP55Address
 	LogBackfillBatchSize *uint32
@@ -80,7 +80,7 @@ type Chain struct {
 	UseForwarders *bool
 }
 
-type BlockHistoryEstimatorConfig struct {
+type BlockHistoryEstimator struct {
 	BatchSize                 *uint32
 	BlockDelay                *uint16
 	BlockHistorySize          *uint16
@@ -88,7 +88,7 @@ type BlockHistoryEstimatorConfig struct {
 	TransactionPercentile     *uint16
 }
 
-type KeySpecificConfig struct {
+type KeySpecific struct {
 	Key            *ethkey.EIP55Address
 	MaxGasPriceWei *utils.Big
 }
@@ -98,7 +98,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		return nil
 	}
 	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
-		c.BlockHistoryEstimator = &BlockHistoryEstimatorConfig{}
+		c.BlockHistoryEstimator = &BlockHistoryEstimator{}
 		if cfg.BlockHistoryEstimatorBlockDelay.Valid {
 			v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
 			c.BlockHistoryEstimator.BlockDelay = &v
@@ -187,7 +187,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		}
 		a := common.HexToAddress(s)
 		v := ethkey.EIP55AddressFromAddress(a)
-		c.KeySpecific = append(c.KeySpecific, KeySpecificConfig{
+		c.KeySpecific = append(c.KeySpecific, KeySpecific{
 			Key:            &v,
 			MaxGasPriceWei: kcfg.EvmMaxGasPriceWei,
 		})

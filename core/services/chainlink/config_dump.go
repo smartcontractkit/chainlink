@@ -316,7 +316,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint32("BlockHistoryEstimatorBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BatchSize = e
 		}
@@ -325,7 +325,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 				}
 				c.EVM[i].BlockHistoryEstimator.BatchSize = &l
 			}
@@ -334,7 +334,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BlockDelay = e
 		}
@@ -343,7 +343,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 				}
 				c.EVM[i].BlockHistoryEstimator.BlockDelay = &l
 			}
@@ -352,7 +352,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockHistorySize").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BlockHistorySize = e
 		}
@@ -361,7 +361,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 				}
 				c.EVM[i].BlockHistoryEstimator.BlockHistorySize = &l
 			}
@@ -370,7 +370,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 			}
 			c.EVM[i].BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = e
 		}
@@ -378,7 +378,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorTransactionPercentile").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 			}
 			c.EVM[i].BlockHistoryEstimator.TransactionPercentile = e
 		}
@@ -387,7 +387,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
 				}
 				c.EVM[i].BlockHistoryEstimator.TransactionPercentile = &l
 			}

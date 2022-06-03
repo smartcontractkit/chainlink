@@ -300,7 +300,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillDepth:                ptr[uint32](100),
 				BlockBackfillSkip:                 ptr(true),
 				BlockEmissionIdleWarningThreshold: &hour,
-				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimatorConfig{
+				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimator{
 					BatchSize:                 ptr[uint32](17),
 					BlockDelay:                ptr[uint16](10),
 					BlockHistorySize:          ptr[uint16](12),
@@ -327,7 +327,7 @@ func TestConfig_Marshal(t *testing.T) {
 				HeadTrackerMaxBufferSize:    ptr[uint32](17),
 				HeadTrackerSamplingInterval: &hour,
 
-				KeySpecific: []evmcfg.KeySpecificConfig{
+				KeySpecific: []evmcfg.KeySpecific{
 					{
 						Key:            mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
 						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
