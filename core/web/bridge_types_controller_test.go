@@ -190,9 +190,11 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[1].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 }
 
+// cannot randomize bridge names here since they are ordered by name on the API
+// leading in random order for assertion...
 func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
+		Name:          bridges.MustParseBridgeName("indexbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -202,7 +204,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	}
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
+		Name:          bridges.MustParseBridgeName("indexbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
