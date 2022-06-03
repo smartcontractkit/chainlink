@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import "../KeeperRegistry.sol";
+import {KeeperRegistryExecutableInterface} from "../KeeperRegistry.sol";
 import "../ConfirmedOwner.sol";
 
 /**
@@ -27,16 +27,24 @@ contract KeeperRegistryCheckUpkeepGasUsageWrapper is ConfirmedOwner {
   /**
    * @notice This function is called by monitoring service to estimate how much gas checkUpkeep functions will consume.
    * @param id identifier of the upkeep to check
-   * @param from the address to simulate performing the upkeep from
    */
-  function checkUpkeep(uint256 id, address from)
+  function measureCheckGas(uint256 id)
     external
     returns (
-      bool checkUpkeepSuccess,
-      bytes memory performData,
-      uint256 gasUsed
+      bool,
+      bytes memory,
+      uint256
     )
   {
+    (, , , , address lastKeeper, , , ) = i_keeperRegistry.getUpkeep(id);
+    (, , address[] memory keepers) = i_keeperRegistry.getState();
+
+    uint256 index = block.number % keepers.length;
+    address from = keepers[index];
+    if (from == lastKeeper) {
+      from = keepers[(index + 1) % keepers.length];
+    }
+
     uint256 startGas = gasleft();
     try i_keeperRegistry.checkUpkeep(id, from) returns (
       bytes memory performData,
@@ -45,10 +53,10 @@ contract KeeperRegistryCheckUpkeepGasUsageWrapper is ConfirmedOwner {
       uint256 adjustedGasWei,
       uint256 linkEth
     ) {
-      gasUsed = startGas - gasleft();
+      uint256 gasUsed = startGas - gasleft();
       return (true, performData, gasUsed);
     } catch {
-      gasUsed = startGas - gasleft();
+      uint256 gasUsed = startGas - gasleft();
       return (false, "", gasUsed);
     }
   }
