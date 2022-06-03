@@ -560,13 +560,13 @@ func (c *Config) loadLegacyCoreEnv() {
 			c.P2P.V1 = &tcfg.P2PV1Config{
 				AnnounceIP:                       envIP("P2PAnnounceIP"),
 				AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
-				BootstrapCheckInterval:           envDuration("P2PBootstrapCheckInterval"),
+				BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
 				BootstrapPeers:                   envStringSlice("P2PBootstrapPeers"),
 				DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
-				DHTLookupInterval:                envvar.NewInt64("P2PDHTLookupInterval").ParsePtr(),
+				DHTLookupInterval:                try(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
 				ListenIP:                         envIP("P2PListenIP"),
 				ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
-				NewStreamTimeout:                 envDuration("P2PNewStreamTimeout"),
+				NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
 				PeerID:                           envvar.New("P2PPeerID", p2pkey.MakePeerID).ParsePtr(),
 				PeerstoreWriteInterval:           envDuration("P2PPeerstoreWriteInterval"),
 			}
