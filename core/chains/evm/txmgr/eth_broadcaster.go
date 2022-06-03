@@ -287,7 +287,8 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		n++
 		var a EthTxAttempt
 		if eb.config.EvmEIP1559DynamicFees() {
-			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit)
+			keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit, keySpecificMaxGasPriceWei)
 			if err != nil {
 				return errors.Wrap(err, "failed to get dynamic gas fee")
 			}
@@ -616,7 +617,8 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit)
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit, keySpecificMaxGasPriceWei)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainBumpingLegacyGas failed")
 	}
@@ -627,7 +629,8 @@ func (eb *EthBroadcaster) tryAgainBumpingLegacyGas(ctx context.Context, lgr logg
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	bumpedFee, bumpedGasLimit, err := eb.estimator.BumpDynamicFee(attempt.DynamicFee(), etx.GasLimit)
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	bumpedFee, bumpedGasLimit, err := eb.estimator.BumpDynamicFee(attempt.DynamicFee(), etx.GasLimit, keySpecificMaxGasPriceWei)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainBumpingDynamicFeeGas failed")
 	}

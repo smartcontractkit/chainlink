@@ -19,6 +19,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 // MaxStartTime is the maximum amount of time we are allowed to spend
@@ -204,11 +205,11 @@ func (b *BlockHistoryEstimator) getTipCap() *big.Int {
 	return b.tipCap
 }
 
-func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit)
+func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit, maxGasPriceWei)
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	if !b.config.EvmEIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
@@ -226,13 +227,13 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 		}
 		if b.config.EvmGasBumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
-			feeCap = b.config.EvmMaxGasPriceWei()
+			feeCap = bigmath.Min(b.config.EvmMaxGasPriceWei(), maxGasPriceWei)
 		} else if b.latestBaseFee != nil {
 			// HACK: due to a flaw of how EIP-1559 is implemented we have to
 			// set a much lower FeeCap than the actual maximum we are willing
 			// to pay in order to give ourselves headroom for bumping
 			// See: https://github.com/ethereum/go-ethereum/issues/24284
-			feeCap = calcFeeCap(b.latestBaseFee, b.config, tipCap)
+			feeCap = calcFeeCap(b.latestBaseFee, b.config, tipCap, maxGasPriceWei)
 		} else {
 			// This shouldn't happen on EIP-1559 blocks, since if the tip cap
 			// is set, Start must have succeeded and we would expect an initial
@@ -252,7 +253,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 	return
 }
 
-func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.Int) (feeCap *big.Int) {
+func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.Int, maxGasPriceWei *big.Int) (feeCap *big.Int) {
 	const maxBaseFeeIncreasePerBlock float64 = 1.125
 
 	bufferBlocks := int(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks())
@@ -268,14 +269,16 @@ func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.I
 	baseFeeInt, _ := baseFee.Int(nil)
 	feeCap = new(big.Int).Add(baseFeeInt, tipCap)
 
-	if feeCap.Cmp(cfg.EvmMaxGasPriceWei()) > 0 {
-		return cfg.EvmMaxGasPriceWei()
+	gasPriceLimitWei := bigmath.Min(maxGasPriceWei, cfg.EvmMaxGasPriceWei())
+
+	if feeCap.Cmp(gasPriceLimitWei) > 0 {
+		return gasPriceLimitWei
 	}
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit)
+func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit, maxGasPriceWei)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {
