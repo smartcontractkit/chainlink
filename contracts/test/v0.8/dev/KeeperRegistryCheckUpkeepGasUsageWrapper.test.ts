@@ -106,10 +106,10 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
 
   describe('measureCheckGas()', () => {
     it("returns gas used when registry's checkUpkeep executes successfully", async () => {
-      const n = 15
-      await mineNBlocks(n)
-
-      let nextKeeperIndex = (n + 5) % keeperAddresses.length
+      // this is named blockNumBefore because everytime we deploy a contract or mock a function, the block number increases
+      // hence, after mocking the checkUpkeep function below, the actual block number will be blockNumBefore + 1
+      let blockNumBefore = await ethers.provider.getBlockNumber()
+      let nextKeeperIndex = (blockNumBefore + 1) % keeperAddresses.length
       if (nextKeeperIndex == lastKeeperIndex) {
         nextKeeperIndex = (lastKeeperIndex + 1) % keeperAddresses.length
       }
@@ -141,10 +141,8 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
     })
 
     it("returns gas used when registry's checkUpkeep reverts", async () => {
-      const n = 15
-      await mineNBlocks(n)
-
-      let nextKeeperIndex = (n + 5) % keeperAddresses.length
+      let blockNumBefore = await ethers.provider.getBlockNumber()
+      let nextKeeperIndex = (blockNumBefore + 1) % keeperAddresses.length
       if (nextKeeperIndex == lastKeeperIndex) {
         nextKeeperIndex = (lastKeeperIndex + 1) % keeperAddresses.length
       }
@@ -181,9 +179,3 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
     })
   })
 })
-
-async function mineNBlocks(n: number) {
-  for (let index = 0; index < n; index++) {
-    await ethers.provider.send('evm_mine', [])
-  }
-}
