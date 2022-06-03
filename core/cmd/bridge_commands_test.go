@@ -68,7 +68,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
+		Name:          bridges.MustParseBridgeName("cliindexbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -76,7 +76,7 @@ func TestClient_IndexBridges(t *testing.T) {
 	require.NoError(t, err)
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("indexbridges")),
+		Name:          bridges.MustParseBridgeName("cliindexbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
