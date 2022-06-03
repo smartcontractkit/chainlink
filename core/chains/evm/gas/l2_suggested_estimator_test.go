@@ -46,7 +46,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 	})
 
 	t.Run("calling BumpGas always returns error", func(t *testing.T) {
-		_, _, err := o.BumpLegacyGas(big.NewInt(42), gasLimit)
+		_, _, err := o.BumpLegacyGas(big.NewInt(42), gasLimit, big.NewInt(10))
 		assert.EqualError(t, err, "bump gas is not supported for this l2")
 	})
 

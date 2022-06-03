@@ -17,27 +17,27 @@ type Estimator struct {
 	mock.Mock
 }
 
-// BumpDynamicFee provides a mock function with given fields: original, gasLimit
-func (_m *Estimator) BumpDynamicFee(original gas.DynamicFee, gasLimit uint64) (gas.DynamicFee, uint64, error) {
-	ret := _m.Called(original, gasLimit)
+// BumpDynamicFee provides a mock function with given fields: original, gasLimit, maxGasPriceWei
+func (_m *Estimator) BumpDynamicFee(original gas.DynamicFee, gasLimit uint64, maxGasPriceWei *big.Int) (gas.DynamicFee, uint64, error) {
+	ret := _m.Called(original, gasLimit, maxGasPriceWei)
 
 	var r0 gas.DynamicFee
-	if rf, ok := ret.Get(0).(func(gas.DynamicFee, uint64) gas.DynamicFee); ok {
-		r0 = rf(original, gasLimit)
+	if rf, ok := ret.Get(0).(func(gas.DynamicFee, uint64, *big.Int) gas.DynamicFee); ok {
+		r0 = rf(original, gasLimit, maxGasPriceWei)
 	} else {
 		r0 = ret.Get(0).(gas.DynamicFee)
 	}
 
 	var r1 uint64
-	if rf, ok := ret.Get(1).(func(gas.DynamicFee, uint64) uint64); ok {
-		r1 = rf(original, gasLimit)
+	if rf, ok := ret.Get(1).(func(gas.DynamicFee, uint64, *big.Int) uint64); ok {
+		r1 = rf(original, gasLimit, maxGasPriceWei)
 	} else {
 		r1 = ret.Get(1).(uint64)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(gas.DynamicFee, uint64) error); ok {
-		r2 = rf(original, gasLimit)
+	if rf, ok := ret.Get(2).(func(gas.DynamicFee, uint64, *big.Int) error); ok {
+		r2 = rf(original, gasLimit, maxGasPriceWei)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -45,13 +45,13 @@ func (_m *Estimator) BumpDynamicFee(original gas.DynamicFee, gasLimit uint64) (g
 	return r0, r1, r2
 }
 
-// BumpLegacyGas provides a mock function with given fields: originalGasPrice, gasLimit
-func (_m *Estimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (*big.Int, uint64, error) {
-	ret := _m.Called(originalGasPrice, gasLimit)
+// BumpLegacyGas provides a mock function with given fields: originalGasPrice, gasLimit, maxGasPriceWei
+func (_m *Estimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64, maxGasPriceWei *big.Int) (*big.Int, uint64, error) {
+	ret := _m.Called(originalGasPrice, gasLimit, maxGasPriceWei)
 
 	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(*big.Int, uint64) *big.Int); ok {
-		r0 = rf(originalGasPrice, gasLimit)
+	if rf, ok := ret.Get(0).(func(*big.Int, uint64, *big.Int) *big.Int); ok {
+		r0 = rf(originalGasPrice, gasLimit, maxGasPriceWei)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
@@ -59,15 +59,15 @@ func (_m *Estimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (
 	}
 
 	var r1 uint64
-	if rf, ok := ret.Get(1).(func(*big.Int, uint64) uint64); ok {
-		r1 = rf(originalGasPrice, gasLimit)
+	if rf, ok := ret.Get(1).(func(*big.Int, uint64, *big.Int) uint64); ok {
+		r1 = rf(originalGasPrice, gasLimit, maxGasPriceWei)
 	} else {
 		r1 = ret.Get(1).(uint64)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(*big.Int, uint64) error); ok {
-		r2 = rf(originalGasPrice, gasLimit)
+	if rf, ok := ret.Get(2).(func(*big.Int, uint64, *big.Int) error); ok {
+		r2 = rf(originalGasPrice, gasLimit, maxGasPriceWei)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -89,27 +89,27 @@ func (_m *Estimator) Close() error {
 	return r0
 }
 
-// GetDynamicFee provides a mock function with given fields: gasLimit
-func (_m *Estimator) GetDynamicFee(gasLimit uint64) (gas.DynamicFee, uint64, error) {
-	ret := _m.Called(gasLimit)
+// GetDynamicFee provides a mock function with given fields: gasLimit, maxGasPriceWei
+func (_m *Estimator) GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (gas.DynamicFee, uint64, error) {
+	ret := _m.Called(gasLimit, maxGasPriceWei)
 
 	var r0 gas.DynamicFee
-	if rf, ok := ret.Get(0).(func(uint64) gas.DynamicFee); ok {
-		r0 = rf(gasLimit)
+	if rf, ok := ret.Get(0).(func(uint64, *big.Int) gas.DynamicFee); ok {
+		r0 = rf(gasLimit, maxGasPriceWei)
 	} else {
 		r0 = ret.Get(0).(gas.DynamicFee)
 	}
 
 	var r1 uint64
-	if rf, ok := ret.Get(1).(func(uint64) uint64); ok {
-		r1 = rf(gasLimit)
+	if rf, ok := ret.Get(1).(func(uint64, *big.Int) uint64); ok {
+		r1 = rf(gasLimit, maxGasPriceWei)
 	} else {
 		r1 = ret.Get(1).(uint64)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(uint64) error); ok {
-		r2 = rf(gasLimit)
+	if rf, ok := ret.Get(2).(func(uint64, *big.Int) error); ok {
+		r2 = rf(gasLimit, maxGasPriceWei)
 	} else {
 		r2 = ret.Error(2)
 	}
