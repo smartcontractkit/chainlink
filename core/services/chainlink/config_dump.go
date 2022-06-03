@@ -14,7 +14,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -57,8 +57,8 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to get nodes for chain %v", dbChain.ID)
 			}
-			evmChain, err := newEVMConfigFromDB(dbChain, dbNodes)
-			if err != nil {
+			var evmChain EVMConfig
+			if err := evmChain.setFromDB(dbChain, dbNodes); err != nil {
 				return errors.Wrapf(err, "failed to convert db config for chain %v", dbChain.ID)
 			}
 			if *evmChain.Enabled {
@@ -79,8 +79,8 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
 			}
-			solChain, err := newSolanaConfigFromDB(dbChain, dbNodes)
-			if err != nil {
+			var solChain SolanaConfig
+			if err := solChain.setFromDB(dbChain, dbNodes); err != nil {
 				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
 			}
 			if *solChain.Enabled {
@@ -101,8 +101,8 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
 			}
-			terChain, err := newTerraConfigFromDB(dbChain, dbNodes)
-			if err != nil {
+			var terChain TerraConfig
+			if err := terChain.setFromDB(dbChain, dbNodes); err != nil {
 				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
 			}
 			if *terChain.Enabled {
@@ -316,7 +316,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint32("BlockHistoryEstimatorBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BatchSize = e
 		}
@@ -325,7 +325,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 				}
 				c.EVM[i].BlockHistoryEstimator.BatchSize = &l
 			}
@@ -334,7 +334,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BlockDelay = e
 		}
@@ -343,7 +343,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 				}
 				c.EVM[i].BlockHistoryEstimator.BlockDelay = &l
 			}
@@ -352,7 +352,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockHistorySize").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.BlockHistorySize = e
 		}
@@ -361,7 +361,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 				}
 				c.EVM[i].BlockHistoryEstimator.BlockHistorySize = &l
 			}
@@ -370,7 +370,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = e
 		}
@@ -378,7 +378,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint16("BlockHistoryEstimatorTransactionPercentile").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 			}
 			c.EVM[i].BlockHistoryEstimator.TransactionPercentile = e
 		}
@@ -387,7 +387,7 @@ func (c *Config) loadLegacyEVMEnv() {
 		if err == nil {
 			for i := range c.EVM {
 				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &types.BlockHistoryEstimatorConfig{}
+					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimatorConfig{}
 				}
 				c.EVM[i].BlockHistoryEstimator.TransactionPercentile = &l
 			}

@@ -1,4 +1,4 @@
-package types
+package v2
 
 import (
 	"fmt"
@@ -8,12 +8,13 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type ChainTOMLCfg struct {
+type Chain struct {
 	BalanceMonitorEnabled             *bool
 	BlockBackfillDepth                *uint32
 	BlockBackfillSkip                 *bool
@@ -92,7 +93,7 @@ type KeySpecificConfig struct {
 	MaxGasPriceWei *utils.Big
 }
 
-func (c *ChainTOMLCfg) SetFromDB(cfg *ChainCfg) error {
+func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg == nil {
 		return nil
 	}
@@ -219,14 +220,14 @@ func (c *ChainTOMLCfg) SetFromDB(cfg *ChainCfg) error {
 	return nil
 }
 
-type TOMLNode struct {
+type Node struct {
 	Name     *string
 	WSURL    *models.URL
 	HTTPURL  *models.URL
 	SendOnly *bool
 }
 
-func NewTOMLNodeFromDB(db Node) (n TOMLNode, err error) {
+func (n *Node) SetFromDB(db types.Node) (err error) {
 	n.Name = &db.Name
 	if db.WSURL.Valid {
 		var u *url.URL

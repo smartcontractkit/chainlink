@@ -18,9 +18,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	solcfg "github.com/smartcontractkit/chainlink/core/chains/solana/config"
+	tercfg "github.com/smartcontractkit/chainlink/core/chains/terra/config"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -66,10 +66,10 @@ var (
 		EVM: []EVMConfig{
 			{
 				ChainID: utils.NewBigI(1),
-				ChainTOMLCfg: evmtypes.ChainTOMLCfg{
+				Chain: evmcfg.Chain{
 					FinalityDepth: ptr[uint32](26),
 				},
-				Nodes: []evmtypes.TOMLNode{
+				Nodes: []evmcfg.Node{
 					{
 						Name:  ptr("primary"),
 						WSURL: mustURL("wss://web.socket/test"),
@@ -84,10 +84,10 @@ var (
 		Solana: []SolanaConfig{
 			{
 				ChainID: "mainnet",
-				TOMLChain: solana.TOMLChain{
+				Chain: solcfg.Chain{
 					MaxRetries: ptr[int64](12),
 				},
-				Nodes: []solana.TOMLNode{
+				Nodes: []solcfg.Node{
 					{Name: "primary", URL: mustURL("http://solana.com")},
 				},
 			},
@@ -95,10 +95,10 @@ var (
 		Terra: []TerraConfig{
 			{
 				ChainID: "Columbus-5",
-				TOMLChain: terra.TOMLChain{
+				Chain: tercfg.Chain{
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
-				Nodes: []terra.TOMLNode{
+				Nodes: []tercfg.Node{
 					{Name: "primary", TendermintURL: mustURL("http://solana.com")},
 				},
 			},
@@ -295,12 +295,12 @@ func TestConfig_Marshal(t *testing.T) {
 	full.EVM = []EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
-			ChainTOMLCfg: evmtypes.ChainTOMLCfg{
+			Chain: evmcfg.Chain{
 				BalanceMonitorEnabled:             ptr(true),
 				BlockBackfillDepth:                ptr[uint32](100),
 				BlockBackfillSkip:                 ptr(true),
 				BlockEmissionIdleWarningThreshold: &hour,
-				BlockHistoryEstimator: &evmtypes.BlockHistoryEstimatorConfig{
+				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimatorConfig{
 					BatchSize:                 ptr[uint32](17),
 					BlockDelay:                ptr[uint16](10),
 					BlockHistorySize:          ptr[uint16](12),
@@ -327,7 +327,7 @@ func TestConfig_Marshal(t *testing.T) {
 				HeadTrackerMaxBufferSize:    ptr[uint32](17),
 				HeadTrackerSamplingInterval: &hour,
 
-				KeySpecific: []evmtypes.KeySpecificConfig{
+				KeySpecific: []evmcfg.KeySpecificConfig{
 					{
 						Key:            mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
 						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
@@ -365,7 +365,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TxResendAfterThreshold: &hour,
 				UseForwarders:          ptr(true),
 			},
-			Nodes: []evmtypes.TOMLNode{
+			Nodes: []evmcfg.Node{
 				{
 					Name:    ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
@@ -387,7 +387,7 @@ func TestConfig_Marshal(t *testing.T) {
 		{
 			ChainID: "mainnet",
 			Enabled: ptr(false),
-			TOMLChain: solana.TOMLChain{
+			Chain: solcfg.Chain{
 				BalancePollPeriod:   models.MustNewDuration(time.Minute),
 				ConfirmPollPeriod:   models.MustNewDuration(time.Second),
 				OCR2CachePollPeriod: models.MustNewDuration(time.Minute),
@@ -399,7 +399,7 @@ func TestConfig_Marshal(t *testing.T) {
 				Commitment:          ptr("banana"),
 				MaxRetries:          ptr[int64](7),
 			},
-			Nodes: []solana.TOMLNode{
+			Nodes: []solcfg.Node{
 				{Name: "primary", URL: mustURL("http://solana.web")},
 				{Name: "foo", URL: mustURL("http://solana.foo")},
 				{Name: "bar", URL: mustURL("http://solana.bar")},
@@ -409,7 +409,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.Terra = []TerraConfig{
 		{
 			ChainID: "Bombay-12",
-			TOMLChain: terra.TOMLChain{
+			Chain: tercfg.Chain{
 				BlockRate:             models.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout:  ptr[int64](12),
 				ConfirmPollPeriod:     models.MustNewDuration(time.Second),
@@ -421,7 +421,7 @@ func TestConfig_Marshal(t *testing.T) {
 				OCR2CacheTTL:          models.MustNewDuration(time.Hour),
 				TxMsgTimeout:          models.MustNewDuration(time.Second),
 			},
-			Nodes: []terra.TOMLNode{
+			Nodes: []tercfg.Node{
 				{Name: "primary", TendermintURL: mustURL("http://tender.mint")},
 				{Name: "foo", TendermintURL: mustURL("http://foo.url")},
 				{Name: "bar", TendermintURL: mustURL("http://bar.web")},

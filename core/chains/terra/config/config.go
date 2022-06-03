@@ -1,4 +1,4 @@
-package terra
+package config
 
 import (
 	"net/url"
@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type TOMLChain struct {
+type Chain struct {
 	BlockRate             *models.Duration
 	BlocksUntilTxTimeout  *int64
 	ConfirmPollPeriod     *models.Duration
@@ -23,7 +23,7 @@ type TOMLChain struct {
 	TxMsgTimeout          *models.Duration
 }
 
-func (c *TOMLChain) SetFromDB(cfg *db.ChainCfg) error {
+func (c *Chain) SetFromDB(cfg *db.ChainCfg) error {
 	if cfg == nil {
 		return nil
 	}
@@ -71,20 +71,19 @@ func (c *TOMLChain) SetFromDB(cfg *db.ChainCfg) error {
 	return nil
 }
 
-type TOMLNode struct {
+type Node struct {
 	Name          string
 	TendermintURL *models.URL
 }
 
-func NewTOMLNodeFromDB(db db.Node) (n TOMLNode, err error) {
+func (n *Node) SetFromDB(db db.Node) error {
 	n.Name = db.Name
 	if db.TendermintURL != "" {
-		var u *url.URL
-		u, err = url.Parse(db.TendermintURL)
+		u, err := url.Parse(db.TendermintURL)
 		if err != nil {
-			return
+			return err
 		}
 		n.TendermintURL = (*models.URL)(u)
 	}
-	return n, nil
+	return nil
 }

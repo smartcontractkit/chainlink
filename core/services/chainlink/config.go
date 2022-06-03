@@ -1,13 +1,15 @@
 package chainlink
 
 import (
-	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	solcfg "github.com/smartcontractkit/chainlink/core/chains/solana/config"
+	tercfg "github.com/smartcontractkit/chainlink/core/chains/terra/config"
+	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -31,74 +33,71 @@ type Config struct {
 type EVMConfig struct {
 	ChainID *utils.Big
 	Enabled *bool // TODO or find a way to output toml comments....
-	evmtypes.ChainTOMLCfg
-	Nodes []evmtypes.TOMLNode
+	evmcfg.Chain
+	Nodes []evmcfg.Node
 }
 
-func newEVMConfigFromDB(ch evmtypes.DBChain, nodes []evmtypes.Node) (EVMConfig, error) {
-	c := EVMConfig{
-		ChainID: &ch.ID,
-		Enabled: &ch.Enabled,
-	}
-	if err := c.ChainTOMLCfg.SetFromDB(ch.Cfg); err != nil {
-		return EVMConfig{}, err
+func (c *EVMConfig) setFromDB(ch evmtyp.DBChain, nodes []evmtyp.Node) error {
+	c.ChainID = &ch.ID
+	c.Enabled = &ch.Enabled
+
+	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
+		return err
 	}
 	for _, db := range nodes {
-		n, err := evmtypes.NewTOMLNodeFromDB(db)
-		if err != nil {
-			return EVMConfig{}, err
+		var n evmcfg.Node
+		if err := n.SetFromDB(db); err != nil {
+			return err
 		}
 		c.Nodes = append(c.Nodes, n)
 	}
-	return c, nil
+	return nil
 }
 
 type SolanaConfig struct {
 	ChainID string
 	Enabled *bool
-	solana.TOMLChain
-	Nodes []solana.TOMLNode
+	solcfg.Chain
+	Nodes []solcfg.Node
 }
 
-func newSolanaConfigFromDB(ch solana.DBChain, nodes []solanadb.Node) (SolanaConfig, error) {
-	c := SolanaConfig{
-		ChainID: ch.ID,
-		Enabled: &ch.Enabled,
-	}
-	if err := c.TOMLChain.SetFromDB(ch.Cfg); err != nil {
-		return SolanaConfig{}, err
+func (c *SolanaConfig) setFromDB(ch solana.DBChain, nodes []soldb.Node) error {
+	c.ChainID = ch.ID
+	c.Enabled = &ch.Enabled
+
+	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
+		return err
 	}
 	for _, db := range nodes {
-		n, err := solana.NewTOMLNodeFromDB(db)
-		if err != nil {
-			return SolanaConfig{}, err
+		var n solcfg.Node
+		if err := n.SetFromDB(db); err != nil {
+			return err
 		}
 		c.Nodes = append(c.Nodes, n)
 	}
-	return c, nil
+	return nil
 }
 
 type TerraConfig struct {
 	ChainID string
 	Enabled *bool
-	terra.TOMLChain
-	Nodes []terra.TOMLNode
+	tercfg.Chain
+	Nodes []tercfg.Node
 }
 
-func newTerraConfigFromDB(ch terratypes.DBChain, nodes []terradb.Node) (TerraConfig, error) {
-	c := TerraConfig{
-		ChainID: ch.ID,
-		Enabled: &ch.Enabled,
-	}
-	if err := c.TOMLChain.SetFromDB(ch.Cfg); err != nil {
-		return TerraConfig{}, err
+func (c *TerraConfig) setFromDB(ch tertyp.DBChain, nodes []terdb.Node) error {
+	c.ChainID = ch.ID
+	c.Enabled = &ch.Enabled
+
+	if err := c.Chain.SetFromDB(ch.Cfg); err != nil {
+		return err
 	}
 	for _, db := range nodes {
-		n, err := terra.NewTOMLNodeFromDB(db)
-		if err != nil {
-			return TerraConfig{}, err
+		var n tercfg.Node
+		if err := n.SetFromDB(db); err != nil {
+			return err
 		}
 		c.Nodes = append(c.Nodes, n)
 	}
-	return c, nil
+	return nil
 }
