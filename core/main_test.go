@@ -665,7 +665,7 @@ func ExampleRun_forwarders() {
 	//
 	// COMMANDS:
 	//    list    List all stored forwarders addresses
-	//    create  Create a new forwarder
+	//    track   Tracks a new forwarder addr storing eoa and dest addresses
 	//    delete  Delete a forwarder address
 	//
 	// OPTIONS:

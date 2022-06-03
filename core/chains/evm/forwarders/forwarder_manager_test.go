@@ -58,7 +58,7 @@ func TestFwdMgr(t *testing.T) {
 	fwdMgr := forwarders.NewFwdMgr(db, ethClient, lp, lggr, pgtest.NewPGCfg(true))
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
-	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
+	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, owner.From, operatorAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
 
 	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))

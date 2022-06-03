@@ -82,8 +82,10 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 	set.String("file", "../internal/fixtures/apicredentials", "")
 	set.Bool("bypass-version-check", true, "")
 	set.String("address", "0x5431F5F973781809D18643b87B44921b11355d81", "")
+	set.String("eoa", "0x809D18643b87B44921b11355d815431F5F973781", "")
+	set.String("dest", "0x5431F5F9734921b11355d81781809D18643b87B4", "")
 	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
-	err = client.CreateForwarder(cli.NewContext(nil, set, nil))
+	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
 	createOutput, ok := r.Renders[0].(*cmd.EVMForwarderPresenter)
@@ -130,8 +132,10 @@ func TestClient_CreateEVMForwarder_BadAddress(t *testing.T) {
 	set.String("file", "../internal/fixtures/apicredentials", "")
 	set.Bool("bypass-version-check", true, "")
 	set.String("address", "0xWrongFormatAddress", "")
+	set.String("eoa", "0x809D18643b87B44921b11355d815431F5F973781", "")
+	set.String("dest", "0x5431F5F9734921b11355d81781809D18643b87B4", "")
 	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
-	err = client.CreateForwarder(cli.NewContext(nil, set, nil))
+	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")
 }
 

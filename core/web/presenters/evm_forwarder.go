@@ -12,8 +12,8 @@ import (
 type EVMForwarderResource struct {
 	JAID
 	Address    common.Address `json:"address"`
-	EOA        common.Address `json:"eoa_address"`
-	Dest       common.Address `json:"dest_address"`
+	EOA        common.Address `json:"eoaAddress"`
+	Dest       common.Address `json:"destAddress"`
 	EVMChainID utils.Big      `json:"evmChainId"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`

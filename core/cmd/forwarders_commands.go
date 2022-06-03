@@ -23,7 +23,7 @@ type EVMForwarderPresenter struct {
 	presenters.EVMForwarderResource
 }
 
-var evmFwdsHeaders = []string{"ID", "Address", "EOA", "DEST", "Chain ID", "Created At"}
+var evmFwdsHeaders = []string{"ID", "Address", "EOA", "Dest", "Chain ID", "Created At"}
 
 // ToRow presents the EVMForwarderResource as a slice of strings.
 func (p *EVMForwarderPresenter) ToRow() []string {

@@ -88,10 +88,14 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 		{
 			EVMChainID: &dbChain.ID,
 			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+			EOA:        common.HexToAddress("0x809D18643b87B44921b11355d815431F5F973781"),
+			Dest:       common.HexToAddress("0xb87B44925431F5F9737811b11355d81809D18643"),
 		},
 		{
 			EVMChainID: &dbChain.ID,
 			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d82"),
+			EOA:        common.HexToAddress("0x809D18643b87B44921b11355d815431F5F973782"),
+			Dest:       common.HexToAddress("0xb87B44925431F5F9737811b11355d81809D18642"),
 		},
 	}
 	for _, fwdr := range fwdrs {
@@ -99,6 +103,8 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 		body, err := json.Marshal(web.CreateEVMForwarderRequest{
 			EVMChainID: &dbChain.ID,
 			Address:    fwdr.Address,
+			EOA:        fwdr.EOA,
+			Dest:       fwdr.Dest,
 		},
 		)
 		require.NoError(t, err)
