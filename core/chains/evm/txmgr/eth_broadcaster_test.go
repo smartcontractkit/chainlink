@@ -1161,7 +1161,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	txmgr.SetResumeCallbackOnEthBroadcaster(nil, eb)
 
 	t.Run("geth Client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
-		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
+		TxFeeExceedsCapError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
 		etx := txmgr.EthTx{
@@ -1176,7 +1176,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		})).Return(errors.New(tooExpensiveError)).Once()
+		})).Return(errors.New(TxFeeExceedsCapError)).Once()
 
 		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 

@@ -1114,11 +1114,11 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		// In that case, the safest thing to do is to pretend the transaction
 		// was accepted and continue the normal gas bumping cycle until we can
 		// get it into the mempool
-		lggr.Infow("Transaction temporarily underpriced", "attemptID", attempt.ID, "err", sendError.Error(), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
+		lggr.Debugw("Transaction temporarily underpriced", "attemptID", attempt.ID, "err", sendError.Error(), "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		sendError = nil
 	}
 
-	if sendError.IsTooExpensive() {
+	if sendError.IsTxFeeExceedsCap() {
 		// The gas price was bumped too high. This transaction attempt cannot be accepted.
 		//
 		// Best thing we can do is to re-send the previous attempt at the old
