@@ -77,9 +77,12 @@ func (key Key) ID() string {
 
 // PublicKeyStr
 func (key Key) PublicKeyStr() string {
-	// implements the pubkey to starkkey functionality: https://github.com/0xs34n/starknet.js/blob/cd61356974d355aa42f07a3d63f7ccefecbd913c/src/utils/ellipticCurve.ts#L49
-	starkkey := math.PaddedBigBytes(key.privkey.PublicKey.X, 32)
-	return "0x" + hex.EncodeToString(starkkey)
+	return "0x" + hex.EncodeToString(PubToStarkKey(key.privkey.PublicKey))
+}
+
+// PubToStarkKey implements the pubkey to starkkey functionality: https://github.com/0xs34n/starknet.js/blob/cd61356974d355aa42f07a3d63f7ccefecbd913c/src/utils/ellipticCurve.ts#L49
+func PubToStarkKey(pubkey starksig.PublicKey) []byte {
+	return math.PaddedBigBytes(pubkey.X, 32)
 }
 
 // Raw from private key
