@@ -546,7 +546,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chBlock := make(chan struct{})
 
 	estimator := new(gasmocks.Estimator)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Return(assets.GWei(32), uint64(500), nil).Run(func(_ mock.Arguments) {
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmcfg.KeySpecificMaxGasPriceWei(fromAddress)).Return(assets.GWei(32), uint64(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
 		<-chBlock
 	})
