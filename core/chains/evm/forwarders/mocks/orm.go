@@ -15,20 +15,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateForwarder provides a mock function with given fields: addr, evmChainId
-func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big) (forwarders.Forwarder, error) {
-	ret := _m.Called(addr, evmChainId)
+// CreateForwarder provides a mock function with given fields: addr, eoa_addr, dest_addr, evmChainId
+func (_m *ORM) CreateForwarder(addr common.Address, eoa_addr common.Address, dest_addr common.Address, evmChainId utils.Big) (forwarders.Forwarder, error) {
+	ret := _m.Called(addr, eoa_addr, dest_addr, evmChainId)
 
 	var r0 forwarders.Forwarder
-	if rf, ok := ret.Get(0).(func(common.Address, utils.Big) forwarders.Forwarder); ok {
-		r0 = rf(addr, evmChainId)
+	if rf, ok := ret.Get(0).(func(common.Address, common.Address, common.Address, utils.Big) forwarders.Forwarder); ok {
+		r0 = rf(addr, eoa_addr, dest_addr, evmChainId)
 	} else {
 		r0 = ret.Get(0).(forwarders.Forwarder)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, utils.Big) error); ok {
-		r1 = rf(addr, evmChainId)
+	if rf, ok := ret.Get(1).(func(common.Address, common.Address, common.Address, utils.Big) error); ok {
+		r1 = rf(addr, eoa_addr, dest_addr, evmChainId)
 	} else {
 		r1 = ret.Error(1)
 	}
