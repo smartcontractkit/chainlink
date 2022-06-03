@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"math/big"
 	"time"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -13,6 +14,7 @@ var Registry1_2ABI = evmtypes.MustGetABI(keeper_registry_wrapper1_2.KeeperRegist
 
 type Config interface {
 	EvmEIP1559DynamicFees() bool
+	EvmMaxGasPriceWei() *big.Int
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32

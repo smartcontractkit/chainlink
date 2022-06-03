@@ -57,10 +57,12 @@ func setup(t *testing.T) (
 	evm.Chain,
 	keeper.ORM,
 ) {
+	maxGasPriceWei := big.NewInt(100000000000000)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperTurnLookBack = null.IntFrom(0)
 	cfg.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
+	cfg.Overrides.GlobalEvmMaxGasPriceWei = maxGasPriceWei
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -74,7 +76,7 @@ func setup(t *testing.T) (
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
-	estimator.On("GetDynamicFee", mock.Anything).Maybe().Return(gas.DynamicFee{
+	estimator.On("GetDynamicFee", mock.Anything, maxGasPriceWei).Maybe().Return(gas.DynamicFee{
 		FeeCap: assets.GWei(60),
 		TipCap: assets.GWei(60),
 	}, uint64(60), nil)

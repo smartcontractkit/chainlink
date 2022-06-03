@@ -33,11 +33,11 @@ func (f *fixedPriceEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) 
 	return
 }
 
-func (f *fixedPriceEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, gasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit)
+func (f *fixedPriceEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64, maxGasPriceWei *big.Int) (gasPrice *big.Int, gasLimit uint64, err error) {
+	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit, maxGasPriceWei)
 }
 
-func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64, maxGasPriceWei *big.Int) (d DynamicFee, chainSpecificGasLimit uint64, err error) {
 	gasTipCap := f.config.EvmGasTipCapDefault()
 	if gasTipCap == nil {
 		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
@@ -47,7 +47,7 @@ func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicF
 	var feeCap *big.Int
 	if f.config.EvmGasBumpThreshold() == 0 {
 		// Gas bumping is disabled, just use the max fee cap
-		feeCap = f.config.EvmMaxGasPriceWei()
+		feeCap = min(f.config.EvmMaxGasPriceWei(), maxGasPriceWei)
 	} else {
 		// Need to leave headroom for bumping so we fallback to the default value here
 		feeCap = f.config.EvmGasFeeCapDefault()
@@ -59,6 +59,6 @@ func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicF
 	}, chainSpecificGasLimit, nil
 }
 
-func (f *fixedPriceEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), nil, originalFee, originalGasLimit)
+func (f *fixedPriceEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+	return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
 }
