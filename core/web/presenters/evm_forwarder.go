@@ -12,6 +12,8 @@ import (
 type EVMForwarderResource struct {
 	JAID
 	Address    common.Address `json:"address"`
+	EOA        common.Address `json:"eoa_address"`
+	Dest       common.Address `json:"dest_address"`
 	EVMChainID utils.Big      `json:"evmChainId"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
@@ -27,6 +29,8 @@ func NewEVMForwarderResource(fwd forwarders.Forwarder) EVMForwarderResource {
 	return EVMForwarderResource{
 		JAID:       NewJAIDInt64(fwd.ID),
 		Address:    fwd.Address,
+		EOA:        fwd.EOA,
+		Dest:       fwd.Dest,
 		EVMChainID: fwd.EVMChainID,
 		CreatedAt:  fwd.CreatedAt,
 		UpdatedAt:  fwd.UpdatedAt,

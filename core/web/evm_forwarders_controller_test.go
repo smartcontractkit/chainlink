@@ -50,9 +50,13 @@ func Test_EVMForwardersController_Create(t *testing.T) {
 
 	// Build EVMForwarderRequest
 	address := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
+	eoa := common.HexToAddress("0x09D18643b87B44921b11355d815431F5F9737818")
+	dest := common.HexToAddress("0x5431F5F973781B44921b11355d81809D18643b87")
 	body, err := json.Marshal(web.CreateEVMForwarderRequest{
 		EVMChainID: &dbChain.ID,
 		Address:    address,
+		EOA:        eoa,
+		Dest:       dest,
 	},
 	)
 	require.NoError(t, err)

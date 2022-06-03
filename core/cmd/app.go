@@ -998,9 +998,9 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ListForwarders,
 				},
 				{
-					Name:   "create",
-					Usage:  "Create a new forwarder",
-					Action: client.CreateForwarder,
+					Name:   "track",
+					Usage:  "Tracks a new forwarder addr storing eoa and dest addresses",
+					Action: client.TrackForwarder,
 					Flags: []cli.Flag{
 						cli.Int64Flag{
 							Name:  "evmChainID, c",
@@ -1009,6 +1009,14 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "address, a",
 							Usage: "The forwarding address (in hex format)",
+						},
+						cli.StringFlag{
+							Name:  "eoa, e",
+							Usage: "The eoa address (in hex format)",
+						},
+						cli.StringFlag{
+							Name:  "dest, d",
+							Usage: "The dest address (in hex format)",
 						},
 					},
 				},

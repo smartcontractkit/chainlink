@@ -11,6 +11,8 @@ import (
 type Forwarder struct {
 	ID         int64
 	Address    common.Address
+	EOA        common.Address
+	Dest       common.Address
 	EVMChainID utils.Big
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

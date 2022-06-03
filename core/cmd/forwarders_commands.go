@@ -23,13 +23,15 @@ type EVMForwarderPresenter struct {
 	presenters.EVMForwarderResource
 }
 
-var evmFwdsHeaders = []string{"ID", "Address", "Chain ID", "Created At"}
+var evmFwdsHeaders = []string{"ID", "Address", "EOA", "DEST", "Chain ID", "Created At"}
 
 // ToRow presents the EVMForwarderResource as a slice of strings.
 func (p *EVMForwarderPresenter) ToRow() []string {
 	row := []string{
 		p.GetID(),
 		p.Address.String(),
+		p.EOA.String(),
+		p.Dest.String(),
 		p.EVMChainID.ToInt().String(),
 		p.CreatedAt.Format(time.RFC3339),
 	}
@@ -84,9 +86,11 @@ func (cli *Client) DeleteForwarder(c *cli.Context) (err error) {
 	return nil
 }
 
-// AddForwarder adds forwarder address to node db.
-func (cli *Client) CreateForwarder(c *cli.Context) (err error) {
+// TrackForwarder adds forwarder address to node db.
+func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 	addressHex := c.String("address")
+	eoaHex := c.String("eoa")
+	destHex := c.String("dest")
 	chainIDStr := c.String("evmChainID")
 
 	addressBytes, err := hexutil.Decode(addressHex)
@@ -94,6 +98,18 @@ func (cli *Client) CreateForwarder(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
+
+	eoaBytes, err := hexutil.Decode(eoaHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode eoa"))
+	}
+	eoa := gethCommon.BytesToAddress(eoaBytes)
+
+	destBytes, err := hexutil.Decode(destHex)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "could not decode dest"))
+	}
+	dest := gethCommon.BytesToAddress(destBytes)
 
 	var chainID *big.Int
 	if chainIDStr != "" {
@@ -107,6 +123,8 @@ func (cli *Client) CreateForwarder(c *cli.Context) (err error) {
 	request, err := json.Marshal(web.CreateEVMForwarderRequest{
 		EVMChainID: (*utils.Big)(chainID),
 		Address:    address,
+		EOA:        eoa,
+		Dest:       dest,
 	})
 	if err != nil {
 		return cli.errorOut(err)

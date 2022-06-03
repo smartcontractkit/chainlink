@@ -40,6 +40,8 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 type CreateEVMForwarderRequest struct {
 	EVMChainID *utils.Big     `json:"chainID"`
 	Address    common.Address `json:"address"`
+	EOA        common.Address `json:"eoa_address"`
+	Dest       common.Address `json:"dest_address"`
 }
 
 // Create adds a new EVM forwarder.
@@ -51,7 +53,7 @@ func (cc *EVMForwardersController) Create(c *gin.Context) {
 		return
 	}
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig())
-	fwd, err := orm.CreateForwarder(request.Address, *request.EVMChainID)
+	fwd, err := orm.CreateForwarder(request.Address, request.EOA, request.Dest, *request.EVMChainID)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
