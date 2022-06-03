@@ -17,6 +17,7 @@ type ChainType string
 
 const (
 	ChainTypeArbitrum ChainType = "ARBITRUM"
+	ChainTypeMetis    ChainType = "METIS"
 	ChainTypeOptimism ChainType = "OPTIMISM"
 	ChainTypeXDAI     ChainType = "XDAI"
 )
@@ -25,6 +26,8 @@ func ToChainType(s string) (ChainType, error) {
 	switch s {
 	case "arbitrum":
 		return ChainTypeArbitrum, nil
+	case "metis":
+		return ChainTypeMetis, nil
 	case "optimism":
 		return ChainTypeOptimism, nil
 	case "xdai":
@@ -38,6 +41,8 @@ func FromChainType(ct ChainType) string {
 	switch ct {
 	case ChainTypeArbitrum:
 		return "arbitrum"
+	case ChainTypeMetis:
+		return "metis"
 	case ChainTypeOptimism:
 		return "optimism"
 	case ChainTypeXDAI:
@@ -52,8 +57,8 @@ type GasEstimatorMode string
 const (
 	GasEstimatorModeBlockHistory GasEstimatorMode = "BLOCK_HISTORY"
 	GasEstimatorModeFixedPrice   GasEstimatorMode = "FIXED_PRICE"
-	GasEstimatorModeOptimism     GasEstimatorMode = "OPTIMISM"
 	GasEstimatorModeOptimism2    GasEstimatorMode = "OPTIMISM2"
+	GasEstimatorModeL2Suggested  GasEstimatorMode = "L2_SUGGESTED"
 )
 
 func ToGasEstimatorMode(s string) (GasEstimatorMode, error) {
@@ -62,10 +67,10 @@ func ToGasEstimatorMode(s string) (GasEstimatorMode, error) {
 		return GasEstimatorModeBlockHistory, nil
 	case "FixedPrice":
 		return GasEstimatorModeFixedPrice, nil
-	case "Optimism":
-		return GasEstimatorModeOptimism, nil
 	case "Optimism2":
 		return GasEstimatorModeOptimism2, nil
+	case "L2Suggested":
+		return GasEstimatorModeL2Suggested, nil
 	default:
 		return "", errors.New("invalid gas estimator mode")
 	}
@@ -77,10 +82,10 @@ func FromGasEstimatorMode(gsm GasEstimatorMode) string {
 		return "BlockHistory"
 	case GasEstimatorModeFixedPrice:
 		return "FixedPrice"
-	case GasEstimatorModeOptimism:
-		return "Optimism"
 	case GasEstimatorModeOptimism2:
 		return "Optimism2"
+	case GasEstimatorModeL2Suggested:
+		return "L2Suggested"
 	default:
 		return strings.ToLower(string(gsm))
 	}
@@ -367,17 +372,6 @@ func (r *ChainConfigResolver) MinIncomingConfirmations() *int32 {
 	return nil
 }
 
-func (r *ChainConfigResolver) MinRequiredOutgoingConfirmations() *int32 {
-	if r.cfg.MinRequiredOutgoingConfirmations.Valid {
-		val := r.cfg.MinRequiredOutgoingConfirmations.Int64
-		intVal := int32(val)
-
-		return &intVal
-	}
-
-	return nil
-}
-
 func (r *ChainConfigResolver) MinimumContractPayment() *string {
 	if r.cfg.MinimumContractPayment != nil {
 		value := r.cfg.MinimumContractPayment.String()
@@ -453,7 +447,6 @@ type ChainConfigInput struct {
 	GasEstimatorMode                      *GasEstimatorMode
 	ChainType                             *ChainType
 	MinIncomingConfirmations              *int32
-	MinRequiredOutgoingConfirmations      *int32
 	MinimumContractPayment                *string
 	OCRObservationTimeout                 *string
 	LinkContractAddress                   *string
@@ -606,10 +599,6 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 
 	if input.MinIncomingConfirmations != nil {
 		cfg.MinIncomingConfirmations = null.IntFrom(int64(*input.MinIncomingConfirmations))
-	}
-
-	if input.MinRequiredOutgoingConfirmations != nil {
-		cfg.MinRequiredOutgoingConfirmations = null.IntFrom(int64(*input.MinRequiredOutgoingConfirmations))
 	}
 
 	if input.MinimumContractPayment != nil {

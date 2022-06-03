@@ -36,6 +36,8 @@ func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32, u
 				registry1_2.KeeperRegistryUpkeepRegistered{}.Topic():  nil,
 				registry1_2.KeeperRegistryUpkeepPerformed{}.Topic():   upkeepPerformedFilter,
 				registry1_2.KeeperRegistryUpkeepGasLimitSet{}.Topic(): nil,
+				registry1_2.KeeperRegistryUpkeepMigrated{}.Topic():    nil,
+				registry1_2.KeeperRegistryUpkeepReceived{}.Topic():    nil,
 			},
 			MinIncomingConfirmations: minIncomingConfirmations,
 		}, nil
@@ -123,5 +125,33 @@ func (rw *RegistryWrapper) GetIDFromGasLimitSetLog(broadcast log.Broadcast) (*bi
 		return broadcastedLog.Id, nil
 	default:
 		return nil, newUnsupportedVersionError("GetIDFromGasLimitSetLog", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) GetUpkeepIdFromReceivedLog(broadcast log.Broadcast) (*big.Int, error) {
+	// Only supported on 1.2
+	switch rw.Version {
+	case RegistryVersion_1_2:
+		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepReceived)
+		if !ok {
+			return nil, errors.Errorf("expected UpkeepReceived log but got %T", broadcastedLog)
+		}
+		return broadcastedLog.Id, nil
+	default:
+		return nil, newUnsupportedVersionError("GetUpkeepIdFromReceivedLog", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) GetUpkeepIdFromMigratedLog(broadcast log.Broadcast) (*big.Int, error) {
+	// Only supported on 1.2
+	switch rw.Version {
+	case RegistryVersion_1_2:
+		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepMigrated)
+		if !ok {
+			return nil, errors.Errorf("expected UpkeepMigrated log but got %T", broadcastedLog)
+		}
+		return broadcastedLog.Id, nil
+	default:
+		return nil, newUnsupportedVersionError("GetUpkeepIdFromMigratedLog", rw.Version)
 	}
 }

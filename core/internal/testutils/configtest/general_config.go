@@ -38,12 +38,10 @@ var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
 	AdvisoryLockCheckInterval               *time.Duration
-	AdminCredentialsFile                    null.String
 	AdvisoryLockID                          null.Int
 	AllowOrigins                            null.String
 	BlockBackfillDepth                      null.Int
 	BlockBackfillSkip                       null.Bool
-	ClientNodeURL                           null.String
 	DatabaseURL                             null.String
 	DatabaseLockingMode                     null.String
 	DefaultChainID                          *big.Int
@@ -73,6 +71,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
 	GlobalEvmLogBackfillBatchSize           null.Int
+	GlobalEvmLogPollInterval                *time.Duration
 	GlobalEvmMaxGasPriceWei                 *big.Int
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
@@ -80,7 +79,6 @@ type GeneralConfigOverrides struct {
 	GlobalFlagsContractAddress              null.String
 	GlobalGasEstimatorMode                  null.String
 	GlobalMinIncomingConfirmations          null.Int
-	GlobalMinRequiredOutgoingConfirmations  null.Int
 	GlobalMinimumContractPayment            *assets.Link
 	GlobalOCRObservationGracePeriod         time.Duration
 	KeeperCheckUpkeepGasPriceFeatureEnabled null.Bool
@@ -102,12 +100,14 @@ type GeneralConfigOverrides struct {
 	TriggerFallbackDBPollInterval           *time.Duration
 	KeySpecific                             map[string]types.ChainCfg
 	LinkContractAddress                     null.String
+	OperatorFactoryAddress                  null.String
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
 	FeatureFeedsManager       null.Bool
 	FeatureOffchainReporting  null.Bool
 	FeatureOffchainReporting2 null.Bool
+	FeatureLogPoller          null.Bool
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
@@ -258,12 +258,12 @@ func (c *TestGeneralConfig) SetRootDir(dir string) {
 	c.rootdir = dir
 }
 
-func (c *TestGeneralConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(2 * time.Minute)
-}
-
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
+}
+
+func (c *TestGeneralConfig) SessionTimeout() models.Duration {
+	return models.MustMakeDuration(2 * time.Minute)
 }
 
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
@@ -322,13 +322,6 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	return "txdb"
 }
 
-func (c *TestGeneralConfig) ClientNodeURL() string {
-	if c.Overrides.ClientNodeURL.Valid {
-		return c.Overrides.ClientNodeURL.String
-	}
-	return c.GeneralConfig.ClientNodeURL()
-}
-
 func (c *TestGeneralConfig) DatabaseURL() url.URL {
 	if c.Overrides.DatabaseURL.Valid {
 		uri, err := url.Parse(c.Overrides.DatabaseURL.String)
@@ -375,6 +368,13 @@ func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
 	return c.GeneralConfig.FeatureOffchainReporting2()
 }
 
+func (c *TestGeneralConfig) FeatureLogPoller() bool {
+	if c.Overrides.FeatureLogPoller.Valid {
+		return c.Overrides.FeatureLogPoller.Bool
+	}
+	return c.GeneralConfig.FeatureLogPoller()
+}
+
 // TriggerFallbackDBPollInterval returns the test configured value for TriggerFallbackDBPollInterval
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
@@ -410,13 +410,6 @@ func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
 		return c.Overrides.LogFileMaxBackups.Int64
 	}
 	return int64(c.GeneralConfig.LogFileMaxBackups())
-}
-
-func (c *TestGeneralConfig) AdminCredentialsFile() string {
-	if c.Overrides.AdminCredentialsFile.Valid {
-		return c.Overrides.AdminCredentialsFile.String
-	}
-	return c.GeneralConfig.AdminCredentialsFile()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
@@ -618,6 +611,13 @@ func (c *TestGeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return c.GeneralConfig.GlobalEvmLogBackfillBatchSize()
 }
 
+func (c *TestGeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	if c.Overrides.GlobalEvmLogPollInterval != nil {
+		return *c.Overrides.GlobalEvmLogPollInterval, true
+	}
+	return c.GeneralConfig.GlobalEvmLogPollInterval()
+}
+
 func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	if c.Overrides.GlobalEvmMaxGasPriceWei != nil {
 		return c.Overrides.GlobalEvmMaxGasPriceWei, true
@@ -665,13 +665,6 @@ func (c *TestGeneralConfig) GlobalFlagsContractAddress() (string, bool) {
 		return c.Overrides.GlobalFlagsContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalFlagsContractAddress()
-}
-
-func (c *TestGeneralConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
-	if c.Overrides.GlobalMinRequiredOutgoingConfirmations.Valid {
-		return uint64(c.Overrides.GlobalMinRequiredOutgoingConfirmations.Int64), true
-	}
-	return c.GeneralConfig.GlobalMinRequiredOutgoingConfirmations()
 }
 
 func (c *TestGeneralConfig) GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool) {
@@ -764,4 +757,12 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 		return c.Overrides.LinkContractAddress.String, true
 	}
 	return c.GeneralConfig.GlobalLinkContractAddress()
+}
+
+// GlobalOperatorFactoryAddress allows to override the LINK contract address
+func (c *TestGeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
+	if c.Overrides.OperatorFactoryAddress.Valid {
+		return c.Overrides.OperatorFactoryAddress.String, true
+	}
+	return c.GeneralConfig.GlobalOperatorFactoryAddress()
 }

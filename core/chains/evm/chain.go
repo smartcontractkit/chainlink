@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -33,13 +32,14 @@ type Chain interface {
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
+	UpdateConfig(*types.ChainCfg)
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
 	TxManager() txmgr.TxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
-	LogPoller() *logpoller.LogPoller
+	LogPoller() logpoller.LogPoller
 }
 
 var _ Chain = &chain{}
@@ -54,7 +54,7 @@ type chain struct {
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
 	logBroadcaster  log.Broadcaster
-	logPoller       *logpoller.LogPoller
+	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
 	keyStore        keystore.Eth
 }
@@ -65,16 +65,9 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID.String())
 	}
-	cfg := evmconfig.NewChainScopedConfig(chainID, dbchain.Cfg, opts.ORM, l, opts.Config)
+	cfg := evmconfig.NewChainScopedConfig(chainID, *dbchain.Cfg, opts.ORM, l, opts.Config)
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
-	}
-	headTrackerLL := opts.Config.LogLevel().String()
-	db := opts.DB
-	if db != nil {
-		if ll, ok := logger.NewORM(db, l).GetServiceLogLevel(logger.HeadTracker); ok {
-			headTrackerLL = ll
-		}
 	}
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
@@ -89,28 +82,24 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 		client = opts.GenEthClient(dbchain)
 	}
 
+	db := opts.DB
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if !cfg.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		var ll zapcore.Level
-		if err2 := ll.UnmarshalText([]byte(headTrackerLL)); err2 != nil {
-			return nil, err2
-		}
-		headTrackerLogger, err2 := l.NewRootLogger(ll)
-		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
-		}
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
-		headSaver = headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, headBroadcaster, headSaver)
+		headSaver = headtracker.NewHeadSaver(l, orm, cfg)
+		headTracker = headtracker.NewHeadTracker(l, client, cfg, headBroadcaster, headSaver)
 	} else {
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
-	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	var logPoller logpoller.LogPoller = logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	if opts.GenLogPoller != nil {
+		logPoller = opts.GenLogPoller(dbchain)
+	}
 
 	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
@@ -280,8 +269,9 @@ func (c *chain) Healthy() (merr error) {
 func (c *chain) ID() *big.Int                             { return c.id }
 func (c *chain) Client() evmclient.Client                 { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
+func (c *chain) UpdateConfig(cfg *types.ChainCfg)         { c.cfg.Configure(*cfg) }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
-func (c *chain) LogPoller() *logpoller.LogPoller          { return c.logPoller }
+func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
 func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }

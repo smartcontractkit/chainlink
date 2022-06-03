@@ -52,6 +52,7 @@ type (
 		headTrackerMaxBufferSize                       uint32
 		headTrackerSamplingInterval                    time.Duration
 		linkContractAddress                            string
+		operatorFactoryAddress                         string
 		logBackfillBatchSize                           uint32
 		logPollInterval                                time.Duration
 		maxGasPriceWei                                 big.Int
@@ -59,7 +60,6 @@ type (
 		maxQueuedTransactions                          uint64
 		minGasPriceWei                                 big.Int
 		minIncomingConfirmations                       uint32
-		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
 		nodeDeadAfterNoNewHeadersThreshold             time.Duration
 		nodePollFailureThreshold                       uint32
@@ -129,14 +129,14 @@ func setChainSpecificConfigDefaultSets() {
 		headTrackerMaxBufferSize:              3,
 		headTrackerSamplingInterval:           1 * time.Second,
 		linkContractAddress:                   "",
+		operatorFactoryAddress:                "",
 		logBackfillBatchSize:                  100,
 		logPollInterval:                       15 * time.Second,
-		maxGasPriceWei:                        *assets.GWei(5000),
+		maxGasPriceWei:                        *assets.GWei(100000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
 		minGasPriceWei:                        *assets.GWei(1),
 		minIncomingConfirmations:              3,
-		minRequiredOutgoingConfirmations:      12,
 		minimumContractPayment:                DefaultMinimumContractPayment,
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
@@ -157,20 +157,26 @@ func setChainSpecificConfigDefaultSets() {
 	mainnet.eip1559DynamicFees = true // enable EIP-1559 on Eth Mainnet and all testnets
 	mainnet.linkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	mainnet.minimumContractPayment = assets.NewLinkFromJuels(100000000000000000) // 0.1 LINK
+	mainnet.operatorFactoryAddress = "0x3e64cd889482443324f91bfa9c84fe72a511f48a"
+
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but the defaults have been working fine and if it ain't
 	// broke, don't fix it.
 	ropsten := mainnet
 	ropsten.linkContractAddress = "0x20fe562d797a42dcb3399062ae9546cd06f63280"
+	ropsten.operatorFactoryAddress = ""
 	kovan := mainnet
 	kovan.linkContractAddress = "0xa36085F69e2889c224210F603D836748e7dC0088"
+	kovan.operatorFactoryAddress = "0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3"
 	kovan.eip1559DynamicFees = false // FIXME: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	goerli := mainnet
 	goerli.linkContractAddress = "0x326c977e6efc84e512bb9c30f76e30c160ed06fb"
 	goerli.eip1559DynamicFees = false // TODO: EIP1559 on goerli has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	goerli.operatorFactoryAddress = ""
 	rinkeby := mainnet
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
 	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+	rinkeby.operatorFactoryAddress = ""
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -206,7 +212,6 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.linkContractAddress = "0x404460c6a5ede2d891e8297795264fde62adbb75"
 	bscMainnet.minGasPriceWei = *assets.GWei(1)
 	bscMainnet.minIncomingConfirmations = 3
-	bscMainnet.minRequiredOutgoingConfirmations = 12
 	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
 	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
@@ -234,7 +239,6 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.minIncomingConfirmations = 5
-	polygonMainnet.minRequiredOutgoingConfirmations = 12
 	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
 	polygonMumbai.gasPriceDefault = *assets.GWei(1)
@@ -265,13 +269,12 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
-	optimismMainnet.gasEstimatorMode = "Optimism2"
+	optimismMainnet.gasEstimatorMode = "L2Suggested"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
-	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the Optimism2 estimator; we don't want to place any limits on the minimum gas price
-	optimismMainnet.minRequiredOutgoingConfirmations = 0
+	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
@@ -280,9 +283,9 @@ func setChainSpecificConfigDefaultSets() {
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
+	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.minIncomingConfirmations = 3
-	fantomMainnet.minRequiredOutgoingConfirmations = 2
 	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
@@ -311,7 +314,6 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheMainnet.blockHistoryEstimatorBlockHistorySize = 24 // Average block time of 2s
 	avalancheMainnet.blockHistoryEstimatorBlockDelay = 2
 	avalancheMainnet.minIncomingConfirmations = 1
-	avalancheMainnet.minRequiredOutgoingConfirmations = 1
 	avalancheMainnet.ocrContractConfirmations = 1
 	avalancheMainnet.logPollInterval = 3 * time.Second
 
@@ -323,7 +325,6 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyMainnet.linkContractAddress = "0x218532a12a389a4a92fC0C5Fb22901D1c19198aA"
 	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
-	harmonyMainnet.minRequiredOutgoingConfirmations = 2
 	harmonyMainnet.logPollInterval = 2 * time.Second
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
@@ -331,6 +332,21 @@ func setChainSpecificConfigDefaultSets() {
 	// OKExChain
 	okxMainnet := fallbackDefaultSet
 	okxTestnet := okxMainnet
+
+	// Metis is an L2 chain based on Optimism.
+	metisMainnet := fallbackDefaultSet
+	metisMainnet.balanceMonitorBlockDelay = 0
+	metisMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on metis
+	metisMainnet.chainType = config.ChainMetis
+	metisMainnet.finalityDepth = 1    // Sequencer offers absolute finality
+	metisMainnet.gasBumpThreshold = 0 // Never bump gas on metis
+	metisMainnet.gasEstimatorMode = "L2Suggested"
+	metisMainnet.linkContractAddress = ""
+	metisMainnet.minIncomingConfirmations = 1
+	metisMainnet.minGasPriceWei = *big.NewInt(0) // Metis uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
+	metisMainnet.ocrContractConfirmations = 1
+	metisRinkeby := metisMainnet
+	metisRinkeby.linkContractAddress = ""
 
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
@@ -357,6 +373,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
 	chainSpecificConfigDefaultSets[65] = okxTestnet
 	chainSpecificConfigDefaultSets[66] = okxMainnet
+	chainSpecificConfigDefaultSets[588] = metisRinkeby
+	chainSpecificConfigDefaultSets[1088] = metisMainnet
 
 	// sanity check
 	for id, c := range chainSpecificConfigDefaultSets {

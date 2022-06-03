@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/helmenv/environment"
-	"github.com/smartcontractkit/helmenv/tools"
 )
 
 var _ = Describe("VRF suite @vrf", func() {
@@ -43,7 +42,6 @@ var _ = Describe("VRF suite @vrf", func() {
 					"chainlink-vrf-core-ci",
 					config.GethNetworks()...,
 				),
-				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 			err = e.ConnectAll()

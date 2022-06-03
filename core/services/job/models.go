@@ -19,11 +19,12 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
 )
 
 const (
@@ -65,7 +66,7 @@ var (
 		FluxMonitor:        true,
 		OffchainReporting:  false, // bootstrap jobs do not require it
 		OffchainReporting2: false, // bootstrap jobs do not require it
-		Keeper:             true,
+		Keeper:             false, // observationSource is injected in the upkeep executor
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
@@ -139,14 +140,14 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
 }
 
-// The external job ID (UUID) can be encoded into a log topic (32 bytes)
+// ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
-// The external job ID (UUID) can also be encoded into a log topic (32 bytes)
+// ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
@@ -280,21 +281,21 @@ const (
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
-	RelayConfig                       JSONConfig         `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig         `toml:"pluginConfig"`
-	PluginType                        OCR2PluginType     `toml:"pluginType"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
+	ID                                int32           `toml:"-"`
+	ContractID                        string          `toml:"contractID"`
+	Relay                             relay.Network   `toml:"relay"`
+	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String     `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
+	PluginType                        OCR2PluginType  `toml:"pluginType"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -372,34 +373,14 @@ func (s *CronSpec) SetID(value string) error {
 	return nil
 }
 
-// Need to also try integer thresholds until
-// https://github.com/pelletier/go-toml/issues/571 is addressed.
-// The UI's TOML.stringify({"threshold": 1.0}) (https://github.com/iarna/iarna-toml)
-// will return "threshold = 1" since ts/js doesn't know the
-// difference between 1.0 and 1, so we need to address it on the backend.
-type FluxMonitorSpecIntThreshold struct {
-	ContractAddress     ethkey.EIP55Address `toml:"contractAddress"`
-	Threshold           int                 `toml:"threshold"`
-	AbsoluteThreshold   int                 `toml:"absoluteThreshold"`
-	PollTimerPeriod     time.Duration
-	PollTimerDisabled   bool
-	IdleTimerPeriod     time.Duration
-	IdleTimerDisabled   bool
-	DrumbeatSchedule    string
-	DrumbeatRandomDelay time.Duration
-	DrumbeatEnabled     bool
-	MinPayment          *assets.Link
-	EVMChainID          *utils.Big `toml:"evmChainID"`
-}
-
 type FluxMonitorSpec struct {
 	ID              int32               `toml:"-"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
-	Threshold       float32             `toml:"threshold,float"`
+	Threshold       tomlutils.Float32   `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   float32 `toml:"absoluteThreshold,float"`
+	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"`
 	PollTimerPeriod     time.Duration
 	PollTimerDisabled   bool
 	IdleTimerPeriod     time.Duration
@@ -435,7 +416,7 @@ type VRFSpec struct {
 	BatchFulfillmentEnabled bool `toml:"batchFulfillmentEnabled"`
 	// BatchFulfillmentGasMultiplier is used to determine the final gas estimate for the batch
 	// fulfillment.
-	BatchFulfillmentGasMultiplier float64 `toml:"batchFulfillmentGasMultiplier"`
+	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
 
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
@@ -507,9 +488,9 @@ type BlockhashStoreSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relaytypes.Network `toml:"relay"`
+	ID                                int32         `toml:"-"`
+	ContractID                        string        `toml:"contractID"`
+	Relay                             relay.Network `toml:"relay"`
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`

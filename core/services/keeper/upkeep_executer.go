@@ -195,7 +195,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	start := time.Now()
 	svcLogger := ex.logger.With("jobID", ex.job.ID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
-	svcLogger.Debug("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
+	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
@@ -242,7 +242,10 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		},
 	})
 
+	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
+	ex.job.PipelineSpec.DotDagSource = observationSource
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
+
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
 		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return

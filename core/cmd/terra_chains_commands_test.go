@@ -10,13 +10,13 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestClient_IndexTerraChains(t *testing.T) {
@@ -30,7 +30,7 @@ func TestClient_IndexTerraChains(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := testutils.Context(t)
-	chain, err := ter.Add(ctx, terratest.RandomChainID(), db.ChainCfg{})
+	chain, err := ter.Add(ctx, terratest.RandomChainID(), nil)
 	require.NoError(t, err)
 
 	require.Nil(t, cmd.TerraChainClient(client).IndexChains(cltest.EmptyCLIContext()))
@@ -80,7 +80,7 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	terraChainID := terratest.RandomChainID()
-	_, err = ter.Add(ctx, terraChainID, db.ChainCfg{})
+	_, err = ter.Add(ctx, terraChainID, nil)
 	require.NoError(t, err)
 	chains, _, err := ter.Index(0, 25)
 	require.NoError(t, err)
@@ -111,14 +111,15 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	require.NoError(t, err)
 
 	terraChainID := terratest.RandomChainID()
-	minute := models.MustMakeDuration(time.Minute)
+	minute, err := utils.NewDuration(time.Minute)
+	require.NoError(t, err)
 	original := db.ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom("99.07"),
 		GasLimitMultiplier:    null.FloatFrom(1.111),
 		ConfirmPollPeriod:     &minute,
 	}
 	ctx := testutils.Context(t)
-	_, err = ter.Add(ctx, terraChainID, original)
+	_, err = ter.Add(ctx, terraChainID, &original)
 	require.NoError(t, err)
 	chains, _, err := ter.Index(0, 25)
 	require.NoError(t, err)

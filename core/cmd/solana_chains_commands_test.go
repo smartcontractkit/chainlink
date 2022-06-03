@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/solanatest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestClient_IndexSolanaChains(t *testing.T) {
@@ -28,7 +28,7 @@ func TestClient_IndexSolanaChains(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := testutils.Context(t)
-	chain, err := sol.Add(ctx, solanatest.RandomChainID(), db.ChainCfg{})
+	chain, err := sol.Add(ctx, solanatest.RandomChainID(), nil)
 	require.NoError(t, err)
 
 	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))
@@ -78,7 +78,7 @@ func TestClient_RemoveSolanaChain(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	solanaChainID := solanatest.RandomChainID()
-	_, err = sol.Add(ctx, solanaChainID, db.ChainCfg{})
+	_, err = sol.Add(ctx, solanaChainID, nil)
 	require.NoError(t, err)
 	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)
@@ -109,14 +109,16 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	require.NoError(t, err)
 
 	solanaChainID := solanatest.RandomChainID()
-	minute := models.MustMakeDuration(time.Minute)
-	hour := models.MustMakeDuration(time.Hour)
+	minute, err := utils.NewDuration(time.Minute)
+	require.NoError(t, err)
+	hour, err := utils.NewDuration(time.Hour)
+	require.NoError(t, err)
 	original := db.ChainCfg{
 		ConfirmPollPeriod: &minute,
 		TxTimeout:         &hour,
 	}
 	ctx := testutils.Context(t)
-	_, err = sol.Add(ctx, solanaChainID, original)
+	_, err = sol.Add(ctx, solanaChainID, &original)
 	require.NoError(t, err)
 	chains, _, err := sol.Index(0, 25)
 	require.NoError(t, err)

@@ -11,17 +11,13 @@ import (
 func TestNullLogger(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns same instance", func(t *testing.T) {
+	t.Run("names", func(t *testing.T) {
 		t.Parallel()
 
 		l := logger.NullLogger
 		assert.Equal(t, l, l.Named("foo"))
 		assert.Equal(t, l, l.With("foo"))
 		assert.Equal(t, l, l.Helper(123))
-
-		r, err := l.NewRootLogger(zapcore.DebugLevel)
-		assert.NoError(t, err)
-		assert.Equal(t, l, r)
 	})
 
 	t.Run("no-op", func(t *testing.T) {

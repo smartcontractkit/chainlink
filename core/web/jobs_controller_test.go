@@ -16,20 +16,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -180,12 +181,16 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "keeper",
-			toml: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-				Name:              "example keeper spec",
-				ContractAddress:   "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
-				FromAddress:       "0xa8037A20989AFcBC51798de9762b351D63ff462e",
-				ObservationSource: keeper.ExpectedObservationSource,
-			}).Toml(),
+			toml: `
+                                  type                        = "keeper"
+                                  schemaVersion               = 3
+                                  name                        = "example keeper spec"
+                                  contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
+                                  fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+                                  evmChainId                  = 4
+                                  minIncomingConfigurations   = 1
+                                  externalJobID               = "123e4567-e89b-12d3-a456-426655440002"
+                             `,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 
@@ -303,8 +308,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
-				assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
-				assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
+				assert.Equal(t, tomlutils.Float32(0.5), jb.FluxMonitorSpec.Threshold)
+				assert.Equal(t, tomlutils.Float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 			},
 		},
 		{
@@ -394,7 +399,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	resources := []presenters.JobResource{}
+	var resources []presenters.JobResource
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
 	assert.NoError(t, err)
 

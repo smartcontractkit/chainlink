@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net/url"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -66,6 +67,7 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 		registryAddr, registry = k.deployRegistry(ctx)
 		upkeepCount = 0
 	}
+	log.Println("Upkeep Count: ", upkeepCount)
 
 	// Create Keeper Jobs on Nodes for Registry
 	for i, keeperAddr := range k.cfg.Keepers {
@@ -97,13 +99,17 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
 	// Set Keepers
-	log.Println("Set keepers...")
-	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
-	if err != nil {
-		log.Fatal("SetKeepers failed: ", err)
+	if len(keepers) > 0 {
+		log.Println("Set keepers...")
+		setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
+		if err != nil {
+			log.Fatal("SetKeepers failed: ", err)
+		}
+		k.waitTx(ctx, setKeepersTx)
+		log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+	} else {
+		log.Println("No Keepers to register")
 	}
-	k.waitTx(ctx, setKeepersTx)
-	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
 
 	return registryAddr
 }
@@ -227,8 +233,12 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 }
 
 // createKeeperJobOnExistingNode connect to existing node to create keeper job
-func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAddr, nodeAddr string) error {
-	c := cfg{nodeURL: url}
+func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registryAddr, nodeAddr string) error {
+	remoteNodeURL, err := url.Parse(urlStr)
+	if err != nil {
+		return err
+	}
+	c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
 	sr := sessions.SessionRequest{Email: email, Password: password}
 	store := &cmd.MemoryCookieStore{}
 	lggr, close := logger.NewLogger()
@@ -238,7 +248,7 @@ func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAdd
 		log.Println("failed to authenticate: ", err)
 		return err
 	}
-	cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
+	cl := cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr)
 
 	if err := k.createKeeperJob(cl, registryAddr, nodeAddr); err != nil {
 		log.Println("Failed to create keeper job: ", err)

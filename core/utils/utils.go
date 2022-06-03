@@ -15,9 +15,12 @@ import (
 	"sync"
 	"time"
 
+	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jpillora/backoff"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
@@ -36,6 +39,36 @@ const (
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
+
+func RandomAddress() common.Address {
+	b := make([]byte, 20)
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	return common.BytesToAddress(b)
+}
+
+func RandomBytes32() (r [32]byte) {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b[:]) // Assignment for errcheck. Only used in tests so we can ignore.
+	copy(r[:], b)
+	return
+}
+
+func Bytes32ToSlice(a [32]byte) (r []byte) {
+	r = append(r, a[:]...)
+	return
+}
+
+func MustNewPeerID() string {
+	_, pubKey, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	peerID, err := peer.IDFromPublicKey(pubKey)
+	if err != nil {
+		panic(err)
+	}
+	return peerID.String()
+}
 
 // EmptyHash is a hash of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000000000000000000000000000
@@ -278,6 +311,16 @@ func Keccak256(in []byte) ([]byte, error) {
 	hash := sha3.NewLegacyKeccak256()
 	_, err := hash.Write(in)
 	return hash.Sum(nil), err
+}
+
+func Keccak256Fixed(in []byte) [32]byte {
+	hash := sha3.NewLegacyKeccak256()
+	// Note this Keccak256 cannot error https://github.com/golang/crypto/blob/master/sha3/sha3.go#L126
+	// if we start supporting hashing algos which do, we can change this API to include an error.
+	hash.Write(in)
+	var h [32]byte
+	copy(h[:], hash.Sum(nil))
+	return h
 }
 
 // Sha256 returns a hexadecimal encoded string of a hashed input
@@ -1027,4 +1070,20 @@ func LeftPadBitString(input string, length int) string {
 		return input
 	}
 	return strings.Repeat("0", length-len(input)) + input
+}
+
+// TryParseHex parses the given hex string to bytes,
+// it can return error if the hex string is invalid.
+// Follows the semantic of ethereum's FromHex.
+func TryParseHex(s string) (b []byte, err error) {
+	if !HasHexPrefix(s) {
+		err = errors.New("hex string must have 0x prefix")
+	} else {
+		s = s[2:]
+		if len(s)%2 == 1 {
+			s = "0" + s
+		}
+		b, err = hex.DecodeString(s)
+	}
+	return
 }

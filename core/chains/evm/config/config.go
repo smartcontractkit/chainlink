@@ -69,8 +69,8 @@ type ChainScopedOnlyConfig interface {
 	ChainType() config.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
+	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
-	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	NodeNoNewHeadsThreshold() time.Duration
 
@@ -92,7 +92,7 @@ type ChainScopedConfig interface {
 	ChainScopedOnlyConfig
 	Validate() error
 	// Both Configure() and PersistedConfig() should be accessed through ChainSet methods only.
-	Configure(config evmtypes.ChainCfg) error
+	Configure(config evmtypes.ChainCfg)
 	PersistedConfig() evmtypes.ChainCfg
 }
 
@@ -129,7 +129,7 @@ func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.
 		id:            chainID,
 		knownID:       exists,
 		onceMap:       make(map[string]struct{})}
-	_ = css.Configure(cfg)
+	css.Configure(cfg)
 	return &css
 }
 
@@ -140,11 +140,11 @@ func (c *chainScopedConfig) Validate() (err error) {
 	)
 }
 
-func (c *chainScopedConfig) Configure(config evmtypes.ChainCfg) (err error) {
+func (c *chainScopedConfig) Configure(config evmtypes.ChainCfg) {
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
 	c.persistedCfg = config
-	return nil
+	return
 }
 
 func (c *chainScopedConfig) PersistedConfig() evmtypes.ChainCfg {
@@ -220,13 +220,16 @@ func (c *chainScopedConfig) validate() (err error) {
 					"must be %q", gasEst, config.ChainArbitrum, "FixedPrice"))
 			}
 
-		case config.ChainOptimism:
+		case config.ChainOptimism, config.ChainMetis:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
-			case "Optimism", "Optimism2":
+			case "Optimism2", "L2Suggested":
+				// valid
+			case "Optimism":
+				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is no longer supported since OVM 1.0 was discontinued - use %q", "Optimism", "L2Suggested"))
 			default:
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q or %q", gasEst, config.ChainOptimism, "Optimism", "Optimism2"))
+					"must be %q (or the equivalent, deprecated %q)", gasEst, chainType, "L2Suggested", "Optimism2"))
 			}
 		case config.ChainXDai:
 
@@ -253,7 +256,7 @@ func (c *chainScopedConfig) logEnvOverrideOnce(name string, envVal interface{}) 
 	if _, ok := c.onceMap[k]; ok {
 		return
 	}
-	c.logger.Warnf("Global ENV var set %s=%v, overriding all other values for %s", envvar.TryName(name), envVal, name)
+	c.logger.Warnf("Global ENV var set %s=%v, overriding all non key-specific values for %s", envvar.TryName(name), envVal, name)
 	c.onceMap[k] = struct{}{}
 }
 
@@ -366,7 +369,7 @@ func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 func (c *chainScopedConfig) EvmMaxQueuedTransactions() uint64 {
 	val, ok := c.GeneralConfig.GlobalEvmMaxQueuedTransactions()
 	if ok {
-		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
+		c.logEnvOverrideOnce("EvmMaxQueuedTransactions", val)
 		return val
 	}
 	return c.defaultSet.maxQueuedTransactions
@@ -641,14 +644,14 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
 	val, ok := c.GeneralConfig.GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks()
 	if ok {
-		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockHistorySize", val)
+		c.logEnvOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", val)
 		return val
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockHistorySize", p.Int64)
+		c.logPersistedOverrideOnce("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks", p.Int64)
 		return uint16(p.Int64)
 	}
 	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
@@ -704,15 +707,12 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 }
 
 func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int {
-	val, ok := c.GeneralConfig.GlobalEvmMaxGasPriceWei()
-	if ok {
-		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
-		return val
-	}
 	c.persistMu.RLock()
 	keySpecific := c.persistedCfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
 	c.persistMu.RUnlock()
-	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) {
+
+	chainSpecific := utils.NewBig(c.EvmMaxGasPriceWei())
+	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) && keySpecific.Cmp(chainSpecific) < 0 {
 		c.logKeySpecificOverrideOnce("EvmMaxGasPriceWei", addr, keySpecific)
 		return keySpecific.ToInt()
 	}
@@ -753,6 +753,24 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 	return c.defaultSet.linkContractAddress
 }
 
+// OperatorFactoryAddress represents the address of the official LINK token
+// contract on the current Chain
+func (c *chainScopedConfig) OperatorFactoryAddress() string {
+	val, ok := c.GeneralConfig.GlobalOperatorFactoryAddress()
+	if ok {
+		c.logEnvOverrideOnce("OperatorFactoryAddress", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.OperatorFactoryAddress
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("OperatorFactoryAddress", p.String)
+		return p.String
+	}
+	return c.defaultSet.linkContractAddress
+}
+
 // MinIncomingConfirmations represents the minimum number of block
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
@@ -772,27 +790,6 @@ func (c *chainScopedConfig) MinIncomingConfirmations() uint32 {
 		return uint32(p.Int64)
 	}
 	return c.defaultSet.minIncomingConfirmations
-}
-
-// MinRequiredOutgoingConfirmations represents the default minimum number of block
-// confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
-// This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
-// MIN_OUTGOING_CONFIRMATIONS=1 considers a transaction as "done" once it has been mined into one block
-// MIN_OUTGOING_CONFIRMATIONS=0 would consider a transaction as "done" even before it has been mined
-func (c *chainScopedConfig) MinRequiredOutgoingConfirmations() uint64 {
-	val, ok := c.GeneralConfig.GlobalMinRequiredOutgoingConfirmations()
-	if ok {
-		c.logEnvOverrideOnce("MinRequiredOutgoingConfirmations", val)
-		return val
-	}
-	c.persistMu.RLock()
-	p := c.persistedCfg.MinRequiredOutgoingConfirmations
-	c.persistMu.RUnlock()
-	if p.Valid {
-		c.logPersistedOverrideOnce("MinRequiredOutgoingConfirmations", p.Int64)
-		return uint64(p.Int64)
-	}
-	return c.defaultSet.minRequiredOutgoingConfirmations
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be

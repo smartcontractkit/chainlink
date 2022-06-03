@@ -38,14 +38,20 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil
 	case TransmitCheckerTypeVRFV1:
-		coord, err := v1.NewVRFCoordinator(spec.VRFCoordinatorAddress, c.Client)
+		if spec.VRFCoordinatorAddress == nil {
+			return nil, errors.Errorf("malformed checker, expected non-nil VRFCoordinatorAddress, got: %v", spec)
+		}
+		coord, err := v1.NewVRFCoordinator(*spec.VRFCoordinatorAddress, c.Client)
 		if err != nil {
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V1 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
 		return &VRFV1Checker{coord.Callbacks}, nil
 	case TransmitCheckerTypeVRFV2:
-		coord, err := v2.NewVRFCoordinatorV2(spec.VRFCoordinatorAddress, c.Client)
+		if spec.VRFCoordinatorAddress == nil {
+			return nil, errors.Errorf("malformed checker, expected non-nil VRFCoordinatorAddress, got: %v", spec)
+		}
+		coord, err := v2.NewVRFCoordinatorV2(*spec.VRFCoordinatorAddress, c.Client)
 		if err != nil {
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V2 coordinator at address %v", spec.VRFCoordinatorAddress)

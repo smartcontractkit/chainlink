@@ -69,7 +69,6 @@ type GeneralOnlyConfig interface {
 
 	FeatureFlags
 
-	AdminCredentialsFile() string
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
 	AllowOrigins() string
@@ -91,7 +90,6 @@ type GeneralOnlyConfig interface {
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
 	CertFile() string
-	ClientNodeURL() string
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
@@ -120,7 +118,6 @@ type GeneralOnlyConfig interface {
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
 	InsecureFastScrypt() bool
-	InsecureSkipVerify() bool
 	JSONConsole() bool
 	JobPipelineMaxRunDuration() time.Duration
 	JobPipelineReaperInterval() time.Duration
@@ -224,8 +221,8 @@ type GlobalConfig interface {
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
+	GlobalOperatorFactoryAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
-	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
 	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
 	GlobalNodePollFailureThreshold() (uint32, bool)
@@ -413,6 +410,10 @@ EVM_ENABLED=false
 		}
 	}
 
+	if str := c.viper.GetString("MIN_OUTGOING_CONFIRMATIONS"); str != "" {
+		c.lggr.Errorf("MIN_OUTGOING_CONFIRMATIONS has been removed and no longer has any effect. EVM_FINALITY_DEPTH is now used as the default for ethtx confirmations instead. You may override this on a per-task basis by setting `minConfirmations` e.g. `foo [type=ethtx minConfirmations=%s ...]`", str)
+	}
+
 	return nil
 }
 
@@ -449,17 +450,6 @@ func (c *generalConfig) AppID() uuid.UUID {
 		c.appID = uuid.NewV4()
 	})
 	return c.appID
-}
-
-// AdminCredentialsFile points to text file containing admin credentials for logging in
-func (c *generalConfig) AdminCredentialsFile() string {
-	fieldName := "AdminCredentialsFile"
-	file := c.viper.GetString(envvar.Name(fieldName))
-	defaultValue, _ := envvar.DefaultValue(fieldName)
-	if file == defaultValue {
-		return filepath.Join(c.RootDir(), "apicredentials")
-	}
-	return file
 }
 
 // AuthenticatedRateLimit defines the threshold to which authenticated requests
@@ -539,11 +529,6 @@ func (c *generalConfig) BlockBackfillSkip() bool {
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c *generalConfig) BridgeResponseURL() *url.URL {
 	return getEnvWithFallback(c, envvar.New("BridgeResponseURL", url.Parse))
-}
-
-// ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
-func (c *generalConfig) ClientNodeURL() string {
-	return c.viper.GetString(envvar.Name("ClientNodeURL"))
 }
 
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
@@ -774,15 +759,6 @@ func (c *generalConfig) P2PEnabled() bool {
 // This is insecure and only useful for local testing. DO NOT SET THIS IN PRODUCTION
 func (c *generalConfig) InsecureFastScrypt() bool {
 	return c.viper.GetBool(envvar.Name("InsecureFastScrypt"))
-}
-
-// InsecureSkipVerify disables SSL certificate verification when connection to
-// a chainlink client using the remote client, i.e. when executing most remote
-// commands in the CLI.
-//
-// This is mostly useful for people who want to use TLS on localhost.
-func (c *generalConfig) InsecureSkipVerify() bool {
-	return c.viper.GetBool(envvar.Name("InsecureSkipVerify"))
 }
 
 func (c *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
@@ -1311,11 +1287,11 @@ func (c *generalConfig) GlobalChainType() (string, bool) {
 func (c *generalConfig) GlobalLinkContractAddress() (string, bool) {
 	return lookupEnv(c, envvar.Name("LinkContractAddress"), parse.String)
 }
+func (c *generalConfig) GlobalOperatorFactoryAddress() (string, bool) {
+	return lookupEnv(c, envvar.Name("OperatorFactoryAddress"), parse.String)
+}
 func (c *generalConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("MinIncomingConfirmations"), parse.Uint32)
-}
-func (c *generalConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("MinRequiredOutgoingConfirmations"), parse.Uint64)
 }
 func (c *generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 	return lookupEnv(c, envvar.Name("MinimumContractPayment"), parse.Link)

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -30,7 +31,6 @@ import (
 	keeperRegV1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -43,13 +43,6 @@ const (
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
 	defaultChainlinkNodePassword = "twochains"
 )
-
-type cfg struct {
-	nodeURL string
-}
-
-func (c cfg) ClientNodeURL() string    { return c.nodeURL }
-func (c cfg) InsecureSkipVerify() bool { return true }
 
 type startedNodeData struct {
 	url     string
@@ -133,7 +126,11 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		}
 
 		// Create authenticated client
-		c := cfg{nodeURL: startedNode.url}
+		remoteNodeURL, err := url.Parse(startedNode.url)
+		if err != nil {
+			log.Fatal(err)
+		}
+		c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
 		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
 		store := &cmd.MemoryCookieStore{}
 		tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
@@ -141,7 +138,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 			log.Println("failed to authenticate: ", err)
 			continue
 		}
-		cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
+		cl := cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr)
 
 		// Get node's wallet address
 		var nodeAddrHex string
@@ -267,7 +264,6 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 			FromAddress:              nodeAddr,
 			EvmChainID:               int(k.cfg.ChainID),
 			MinIncomingConfirmations: 1,
-			ObservationSource:        keeper.ExpectedObservationSource,
 		}).Toml(),
 	})
 	if err != nil {

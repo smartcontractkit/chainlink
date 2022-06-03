@@ -55,7 +55,7 @@ type cachedClient struct {
 
 // NewChain returns a new chain backed by node.
 func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain DBChain, orm ORM, lggr logger.Logger) (*chain, error) {
-	cfg := config.NewConfig(dbchain.Cfg, lggr)
+	cfg := config.NewConfig(*dbchain.Cfg, lggr)
 	lggr = lggr.With("chainID", dbchain.ID, "chainSet", "solana")
 	var ch = chain{
 		id:          dbchain.ID,
@@ -67,7 +67,7 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient()
 	}
-	ch.txm = soltxm.NewTxm(tc, cfg, lggr)
+	ch.txm = soltxm.NewTxm(ch.id, tc, cfg, ks, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
@@ -80,8 +80,8 @@ func (c *chain) Config() config.Config {
 	return c.cfg
 }
 
-func (c *chain) UpdateConfig(cfg db.ChainCfg) {
-	c.cfg.Update(cfg)
+func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
+	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() solana.TxManager {

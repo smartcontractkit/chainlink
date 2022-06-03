@@ -2,11 +2,16 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -31,11 +36,56 @@ func NewApp(client *Client) *cli.App {
 			Name:  "json, j",
 			Usage: "json output as opposed to table",
 		},
+		cli.StringFlag{
+			Name:  "admin-credentials-file",
+			Usage: "optional, applies only in client mode when making remote API calls. If provided, `FILE` containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored",
+			Value: filepath.Join(client.Config.RootDir(), "apicredentials"),
+		},
+		cli.StringFlag{
+			Name:  "remote-node-url",
+			Usage: "optional, applies only in client mode when making remote API calls. If provided, `URL` will be used as the remote Chainlink API endpoint",
+			Value: "http://localhost:6688",
+		},
+		cli.BoolFlag{
+			Name:  "insecure-skip-verify",
+			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
+		},
 	}
 	app.Before = func(c *cli.Context) error {
+		logDeprecatedClientEnvWarnings(client.Logger)
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
+		urlStr := c.String("remote-node-url")
+		if envUrlStr := os.Getenv("CLIENT_NODE_URL"); envUrlStr != "" {
+			urlStr = envUrlStr
+		}
+		remoteNodeURL, err := url.Parse(urlStr)
+		if err != nil {
+			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
+		}
+		insecureSkipVerify := c.Bool("insecure-skip-verify")
+		if envInsecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY"); envInsecureSkipVerify == "true" {
+			insecureSkipVerify = true
+		}
+		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
+		sr := sessions.SessionRequest{}
+		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
+		{
+			credentialsFile := c.String("admin-credentials-file")
+			if envCredentialsFile := os.Getenv("ADMIN_CREDENTIALS_FILE"); envCredentialsFile != "" {
+				credentialsFile = envCredentialsFile
+			}
+			var err error
+			sr, err = sessionRequestBuilder.Build(credentialsFile)
+			if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
+				return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
+			}
+		}
+		client.HTTP = NewAuthenticatedHTTPClient(client.Logger, clientOpts, cookieAuth, sr)
+		client.CookieAuthenticator = cookieAuth
+		client.FileSessionRequestBuilder = sessionRequestBuilder
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -174,21 +224,6 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "level",
 							Usage: "set log level for node (debug||info||warn||error)",
-						},
-					},
-				},
-				{
-					Name:   "logpkg",
-					Usage:  "Set package specific logging",
-					Action: client.SetLogPkg,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "pkg",
-							Usage: "set log filter for package specific logging",
-						},
-						cli.StringFlag{
-							Name:  "level",
-							Usage: "set log level for specified pkg",
 						},
 					},
 				},
@@ -551,119 +586,8 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 
-				{
-					Name:  "solana",
-					Usage: "Remote commands for administering the node's solana keys",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a Solana key",
-							Action: client.CreateSolanaKey,
-						},
-						{
-							Name:  "import",
-							Usage: "Import Solana key from keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "oldpassword, p",
-									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
-								},
-							},
-							Action: client.ImportSolanaKey,
-						},
-						{
-							Name:  "export",
-							Usage: "Export Solana key to keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "newpassword, p",
-									Usage: "`FILE` containing the password to encrypt the key (required)",
-								},
-								cli.StringFlag{
-									Name:  "output, o",
-									Usage: "`FILE` where the JSON file will be saved (required)",
-								},
-							},
-							Action: client.ExportSolanaKey,
-						},
-						{
-							Name:  "delete",
-							Usage: "Delete Solana key if present",
-							Flags: []cli.Flag{
-								cli.BoolFlag{
-									Name:  "yes, y",
-									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
-								},
-							},
-							Action: client.DeleteSolanaKey,
-						},
-						{
-							Name: "list", Usage: "List the Solana keys",
-							Action: client.ListSolanaKeys,
-						},
-					},
-				},
-
-				{
-					Name:  "terra",
-					Usage: "Remote commands for administering the node's terra keys",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a Terra key",
-							Action: client.CreateTerraKey,
-						},
-						{
-							Name:  "import",
-							Usage: "Import Terra key from keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "oldpassword, p",
-									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
-								},
-							},
-							Action: client.ImportTerraKey,
-						},
-						{
-							Name:  "export",
-							Usage: "Export Terra key to keyfile",
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "newpassword, p",
-									Usage: "`FILE` containing the password to encrypt the key (required)",
-								},
-								cli.StringFlag{
-									Name:  "output, o",
-									Usage: "`FILE` where the JSON file will be saved (required)",
-								},
-							},
-							Action: client.ExportTerraKey,
-						},
-						{
-							Name:  "delete",
-							Usage: "Delete Terra key if present",
-							Flags: []cli.Flag{
-								cli.BoolFlag{
-									Name:  "yes, y",
-									Usage: "skip the confirmation prompt",
-								},
-								cli.BoolFlag{
-									Name:  "hard",
-									Usage: "hard-delete the key instead of archiving (irreversible!)",
-								},
-							},
-							Action: client.DeleteTerraKey,
-						},
-						{
-							Name: "list", Usage: "List the Terra keys",
-							Action: client.ListTerraKeys,
-						},
-					},
-				},
+				keysCommand("Solana", NewSolanaKeysClient(client)),
+				keysCommand("Terra", NewTerraKeysClient(client)),
 
 				{
 					Name:  "vrf",
@@ -1104,4 +1028,16 @@ var whitespace = regexp.MustCompile(`\s+`)
 // format returns result of replacing all whitespace in s with a single space
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
+}
+
+func logDeprecatedClientEnvWarnings(lggr logger.Logger) {
+	if s := os.Getenv("INSECURE_SKIP_VERIFY"); s != "" {
+		lggr.Error("INSECURE_SKIP_VERIFY env var has been deprecated and will be removed in a future release. Use flag instead: --insecure-skip-verify")
+	}
+	if s := os.Getenv("CLIENT_NODE_URL"); s != "" {
+		lggr.Errorf("CLIENT_NODE_URL env var has been deprecated and will be removed in a future release. Use flag instead: --remote-node-url=%s", s)
+	}
+	if s := os.Getenv("ADMIN_CREDENTIALS_FILE"); s != "" {
+		lggr.Errorf("ADMIN_CREDENTIALS_FILE env var has been deprecated and will be removed in a future release. Use flag instead: --admin-credentials-file=%s", s)
+	}
 }

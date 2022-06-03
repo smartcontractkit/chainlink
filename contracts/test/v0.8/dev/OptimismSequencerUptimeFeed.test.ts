@@ -271,7 +271,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert no update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        33062,
+        30853,
         gasUsedDeviation,
       )
 
@@ -284,7 +284,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        60599,
+        58390,
         gasUsedDeviation,
       )
     })

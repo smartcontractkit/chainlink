@@ -35,8 +35,8 @@ type ChainConfigORM interface {
 type ORM interface {
 	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id utils.Big, config ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id utils.Big, enabled bool, config ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	CreateChain(id utils.Big, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
+	UpdateChain(id utils.Big, enabled bool, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
 	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
 	EnabledChains(...pg.QOpt) ([]DBChain, error)
@@ -84,8 +84,8 @@ type ChainCfg struct {
 	GasEstimatorMode                               null.String
 	KeySpecific                                    map[string]ChainCfg
 	LinkContractAddress                            null.String
+	OperatorFactoryAddress                         null.String
 	MinIncomingConfirmations                       null.Int
-	MinRequiredOutgoingConfirmations               null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
 	NodeNoNewHeadsThreshold                        *models.Duration
@@ -100,11 +100,11 @@ func (c *ChainCfg) Scan(value interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-func (c ChainCfg) Value() (driver.Value, error) {
+func (c *ChainCfg) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-type DBChain = chains.DBChain[utils.Big, ChainCfg]
+type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
 type Node struct {
 	ID         int32
@@ -262,6 +262,19 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 		r.TransactionIndex = uint(*dec.TransactionIndex)
 	}
 	return nil
+}
+
+func (r *Receipt) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, r)
+}
+
+func (r *Receipt) Value() (driver.Value, error) {
+	return json.Marshal(r)
 }
 
 // Log represents a contract log event.

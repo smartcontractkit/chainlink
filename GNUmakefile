@@ -79,7 +79,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.10.1
+	go install github.com/vektra/mockery/v2@v2.13.0-beta.1
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -100,6 +100,11 @@ test_smoke: # Run integration smoke tests.
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
+.PHONY: test_perf
+test_perf: # Run core node performance tests.
+	ginkgo -v -r --junit-report=tests-perf-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress $(args) ./integration-tests/performance
 
 help:
 	@echo ""

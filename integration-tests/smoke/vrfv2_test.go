@@ -14,11 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/helmenv/environment"
-	"github.com/smartcontractkit/helmenv/tools"
 )
 
 var _ = Describe("VRFv2 suite @v2vrf", func() {
@@ -42,12 +42,10 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		By("Deploying the environment", func() {
 			e, err = environment.DeployOrLoadEnvironment(
 				environment.NewChainlinkConfig(
-					nil,
-					"",
-					// works only on perf Geth
+					config.ChainlinkVals(),
+					"chainlink-vrfv2-core-ci",
 					environment.PerformanceGeth,
 				),
-				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			err = e.ConnectAll()
@@ -64,6 +62,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			nets.Default.ParallelTransactions(true)
 		})
+
 		By("Funding Chainlink nodes", func() {
 			err = actions.FundChainlinkNodes(cls, nets.Default, big.NewFloat(3))
 			Expect(err).ShouldNot(HaveOccurred())

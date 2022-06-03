@@ -347,7 +347,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 	}
 }
 
-func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
+func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.EthReceipt {
 	transactionIndex := uint(NewRandomInt64())
 
 	receipt := evmtypes.Receipt{
@@ -355,22 +355,27 @@ func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHas
 		BlockHash:        blockHash,
 		TxHash:           txHash,
 		TransactionIndex: transactionIndex,
+		Status:           status,
 	}
 
-	data, err := json.Marshal(receipt)
-	require.NoError(t, err)
 	r := txmgr.EthReceipt{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
 		TxHash:           txHash,
 		TransactionIndex: transactionIndex,
-		Receipt:          data,
+		Receipt:          receipt,
 	}
 	return r
 }
 
 func MustInsertEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
-	r := NewEthReceipt(t, blockNumber, blockHash, txHash)
+	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
+	require.NoError(t, borm.InsertEthReceipt(&r))
+	return r
+}
+
+func MustInsertRevertedEthReceipt(t *testing.T, borm txmgr.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.EthReceipt {
+	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
 	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
 }
@@ -535,8 +540,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
-	dds := keeper.ExpectedObservationSource
-	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
+	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
 
 	jb := job.Job{
@@ -548,6 +552,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
+
 	cfg := NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg)

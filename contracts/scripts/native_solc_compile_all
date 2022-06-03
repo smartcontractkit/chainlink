@@ -27,6 +27,7 @@ $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
 $SCRIPTPATH/native_solc7_compile AuthorizedForwarder.sol
 $SCRIPTPATH/native_solc7_compile AuthorizedReceiver.sol
+$SCRIPTPATH/native_solc7_compile OperatorFactory.sol
 $SCRIPTPATH/native_solc7_compile tests/Consumer.sol
 $SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
 
@@ -56,8 +57,8 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFMaliciousConsumerV2.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
 
-$SCRIPTPATH/native_solc8_6_compile dev/BatchBlockhashStore.sol
-$SCRIPTPATH/native_solc8_13_compile dev/BatchVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
+$SCRIPTPATH/native_solc8_13_compile BatchVRFCoordinatorV2.sol
 
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol
@@ -67,10 +68,10 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestOwnerlessConsumer.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestExternalSubOwner.sol
 
 # Keepers x VRF v2
-$SCRIPTPATH/native_solc8_13_compile dev/KeepersVRFConsumer.sol
+$SCRIPTPATH/native_solc8_13_compile KeepersVRFConsumer.sol
 
 $SCRIPTPATH/native_solc8_6_compile tests/VRFCoordinatorV2TestHelper.sol
-$SCRIPTPATH/native_solc8_6_compile dev/VRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile VRFCoordinatorV2.sol
 
 # Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol

@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
@@ -119,7 +118,7 @@ func (lsn *listenerV2) processBatch(
 	totalGasLimitBumped := batchFulfillmentGasEstimate(
 		uint64(len(batch.proofs)),
 		maxCallbackGasLimit,
-		lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
+		float64(lsn.job.VRFSpec.BatchFulfillmentGasMultiplier),
 	)
 	ll := l.With("numRequestsInBatch", len(batch.reqIDs),
 		"requestIDs", batch.reqIDs,
@@ -145,12 +144,11 @@ func (lsn *listenerV2) processBatch(
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
 		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:      fromAddress,
-			ToAddress:        lsn.batchCoordinator.Address(),
-			EncodedPayload:   payload,
-			GasLimit:         totalGasLimitBumped,
-			MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-			Strategy:         txmgr.NewSendEveryStrategy(),
+			FromAddress:    fromAddress,
+			ToAddress:      lsn.batchCoordinator.Address(),
+			EncodedPayload: payload,
+			GasLimit:       totalGasLimitBumped,
+			Strategy:       txmgr.NewSendEveryStrategy(),
 			Meta: &txmgr.EthTxMeta{
 				RequestIDs: reqIDHashes,
 				MaxLink:    &maxLinkStr,

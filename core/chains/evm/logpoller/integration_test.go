@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -22,6 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+func logRuntime(t *testing.T) func() {
+	s := time.Now()
+	return func() { t.Log("runtime", time.Since(s)) }
+}
 
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("only for local load testing and query analysis")
@@ -31,31 +36,67 @@ func TestPopulateLoadedDB(t *testing.T) {
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
 	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
-	event1 := logpoller.EmitterABI.Events["Log1"].ID
+	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
 
+	// We start at 1 just so block number > 0
 	for j := 1; j < 1000; j++ {
 		var logs []logpoller.Log
 		// Max we can insert per batch
-		for i := 1; i < 1000; i++ {
+		for i := 0; i < 1000; i++ {
 			addr := address1
 			if (i+(1000*j))%2 == 0 {
 				addr = address2
 			}
-			logs = append(logs, logpoller.GenLog(chainID, 1, int64(i+(1000*j)), fmt.Sprintf("0x%d", i+(1000*j)), event1[:], addr))
+			logs = append(logs, logpoller.Log{
+				EvmChainId:  utils.NewBig(chainID),
+				LogIndex:    1,
+				BlockHash:   common.HexToHash(fmt.Sprintf("0x%d", i+(1000*j))),
+				BlockNumber: int64(i + (1000 * j)),
+				EventSig:    event1[:],
+				Topics:      [][]byte{event1[:], logpoller.EvmWord(uint64(i + 1000*j)).Bytes()},
+				Address:     addr,
+				TxHash:      common.HexToHash("0x1234"),
+				Data:        logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
+			})
 		}
 		require.NoError(t, o.InsertLogs(logs))
 	}
-	s := time.Now()
-	lgs, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1[:])
-	require.NoError(t, err)
-	t.Log(time.Since(s), len(lgs))
+	func() {
+		defer logRuntime(t)()
+		_, err := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1[:])
+		require.NoError(t, err)
+	}()
+	func() {
+		defer logRuntime(t)()
+		_, err = o.LatestLogEventSigsAddrs(0, []common.Address{address1}, []common.Hash{event1})
+		require.NoError(t, err)
+	}()
 
-	s = time.Now()
-	lgs, err = o.LatestLogEventSigsAddrs(0, []common.Address{address1}, []common.Hash{event1})
-	require.NoError(t, err)
-	t.Log(time.Since(s), len(lgs))
+	// Confirm all the logs.
+	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000))
+	func() {
+		defer logRuntime(t)()
+		lgs, err := o.SelectDataWordRange(address1, event1[:], 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		require.NoError(t, err)
+		// 10 since every other log is for address1
+		assert.Equal(t, 10, len(lgs))
+	}()
+
+	func() {
+		defer logRuntime(t)()
+		lgs, err := o.SelectIndexedLogs(address2, event1[:], 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(lgs))
+	}()
+
+	func() {
+		defer logRuntime(t)()
+		lgs, err := o.SelectIndexLogsTopicRange(address1, event1[:], 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		require.NoError(t, err)
+		assert.Equal(t, 10, len(lgs))
+	}()
 }
 
 func TestLogPoller_Integration(t *testing.T) {
@@ -80,9 +121,9 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
-		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
+		cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
-	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log1"].ID}, emitterAddress1)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, emitterAddress1)
 	require.NoError(t, lp.Start(context.Background()))
 
 	// Emit some logs in blocks 3->7.
@@ -97,13 +138,13 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// We should eventually receive all those Log1 logs.
 	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log1"].ID, emitterAddress1)
+		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log1"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 5)
 		return len(logs) == 5
 	})
 	// Now let's update the filter and replay to get Log2 logs.
-	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log2"].ID}, emitterAddress1)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, emitterAddress1)
 	// Replay an invalid block should error
 	assert.Error(t, lp.Replay(context.Background(), 0))
 	assert.Error(t, lp.Replay(context.Background(), 20))
@@ -112,7 +153,7 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// We should eventually see 4 logs2 logs.
 	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log2"].ID, emitterAddress1)
+		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log2"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 4)
 		return len(logs) == 4

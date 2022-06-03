@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../dev/VRFCoordinatorV2.sol";
+import "../VRFCoordinatorV2.sol";
 
 contract VRFCoordinatorV2TestHelper is VRFCoordinatorV2 {
   uint96 s_paymentAmount;

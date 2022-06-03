@@ -18,6 +18,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -374,6 +374,8 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 								lsn.job.VRFSpec.BackoffMaxDelay,
 								req.lastTry))
 					}
+				} else {
+					lsn.markLogAsConsumed(req.lb)
 				}
 			}
 		}
@@ -389,7 +391,6 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		lsn.reqsMu.Unlock() // unlock here since len(lsn.reqs) is a read, to avoid a data race.
 	}()
 
-	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
@@ -400,15 +401,28 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
 			Context: ctx,
 		}, subID)
+
 		if err != nil {
-			lsn.l.Errorw("Unable to read subscription balance", "err", err)
+			if strings.Contains(err.Error(), "execution reverted") {
+				lsn.l.Warnw("Subscription not found", "subID", subID, "err", err)
+				for _, req := range reqs {
+					lsn.l.Infow("Skipping requests without valid subscription", "subID", subID, "reqID", req.req.RequestId)
+					processed[req.req.RequestId.String()] = struct{}{}
+				}
+			} else {
+				lsn.l.Errorw("Unable to read subscription balance", "subID", subID, "err", err)
+			}
 			continue
 		}
 
-		if !lsn.shouldProcessSub(subID, sub, reqs) {
-			lsn.l.Infow("Not processing sub", "subID", subID, "balance", sub.Balance)
-			continue
-		}
+		// Sort requests in ascending order by CallbackGasLimit
+		// so that we process the "cheapest" requests for each subscription
+		// first. This allows us to break out of the processing loop as early as possible
+		// in the event that a subscription is too underfunded to have it's
+		// requests processed.
+		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
+			return a.req.CallbackGasLimit < b.req.CallbackGasLimit
+		})
 
 		startBalance := sub.Balance
 		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
@@ -417,49 +431,6 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 	}
 	lsn.pruneConfirmedRequestCounts()
-}
-
-func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
-	// This really shouldn't happen, but sanity check.
-	// No point in processing a sub if there are no requests to service.
-	if len(reqs) == 0 {
-		return false
-	}
-
-	vrfRequest := reqs[0].req
-	l := lsn.l.With(
-		"subID", subID,
-		"balance", sub.Balance,
-		"requestID", vrfRequest.RequestId.String(),
-	)
-
-	fromAddresses := lsn.fromAddresses()
-	if len(fromAddresses) == 0 {
-		l.Warn("Couldn't get next from address, processing sub anyway")
-		return true
-	}
-
-	// NOTE: we are assuming that all keys have an identical max gas price.
-	// Otherwise, this is a misconfiguration of the node and/or job.
-	fromAddress := fromAddresses[0]
-
-	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
-
-	estimatedFee, err := lsn.estimateFeeJuels(reqs[0].req, gasPriceWei)
-	if err != nil {
-		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
-		return true
-	}
-
-	if sub.Balance.Cmp(estimatedFee) < 0 {
-		l.Infow("Subscription is underfunded, not processing it's requests",
-			"estimatedFeeJuels", estimatedFee,
-		)
-		return false
-	}
-
-	// balance is sufficient for at least one request, good to process
-	return true
 }
 
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
@@ -583,7 +554,6 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		}
 		for i, a := range alreadyFulfilled {
 			if a {
-				lsn.markLogAsConsumed(chunk[i].lb)
 				processed[chunk[i].req.RequestId.String()] = struct{}{}
 			} else {
 				unfulfilled = append(unfulfilled, chunk[i])
@@ -599,6 +569,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
+		outOfBalance := false
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
@@ -607,12 +578,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"remainingBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
-					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
-					return processed
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
+					outOfBalance = true
+
+					// break out of this inner loop to process the currently constructed batch
+					break
 				}
 
 				if errors.Is(p.err, errBlockhashNotInStore{}) {
@@ -647,6 +623,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 
 		for _, reqID := range processedRequestIDs {
 			processed[reqID] = struct{}{}
+		}
+
+		// outOfBalance is set to true if the current sub we are processing
+		// has ran out of funds to process any remaining requests. After enqueueing
+		// this constructed batch, we break out of this outer loop in order to
+		// avoid unnecessarily processing the remaining requests.
+		if outOfBalance {
+			break
 		}
 	}
 
@@ -713,7 +697,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		for i, a := range alreadyFulfilled {
 			if a {
-				lsn.markLogAsConsumed(chunk[i].lb)
 				processed[chunk[i].req.RequestId.String()] = struct{}{}
 			} else {
 				unfulfilled = append(unfulfilled, chunk[i])
@@ -736,7 +719,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"juelsNeeded", p.juelsNeeded.String(),
 				"maxLink", p.maxLink.String(),
 				"gasLimit", p.gasLimit,
-				"attempts", p.req.attempts)
+				"attempts", p.req.attempts,
+				"remainingBalance", startBalanceNoReserveLink.String(),
+			)
 
 			if p.err != nil {
 				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
@@ -771,21 +756,22 @@ func (lsn *listenerV2) processRequestsPerSub(
 				}
 
 				maxLinkString := p.maxLink.String()
+				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
+				coordinatorAddress := lsn.coordinator.Address()
 				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
-						RequestID: common.BytesToHash(p.req.req.RequestId.Bytes()),
+						RequestID: &requestID,
 						MaxLink:   &maxLinkString,
 						SubID:     &p.req.req.SubId,
 					},
-					MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-					Strategy:         txmgr.NewSendEveryStrategy(),
+					Strategy: txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
-						VRFCoordinatorAddress: lsn.coordinator.Address(),
+						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
 					},
 				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))

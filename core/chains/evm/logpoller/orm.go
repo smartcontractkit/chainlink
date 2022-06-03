@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -115,8 +116,7 @@ func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {
 	return logs, nil
 }
 
-// SelectLogsByBlockRangeFilter finds the latest logs by block.
-// Assumes that logs inserted later for a given block are "more" canonical.
+// SelectLogsByBlockRangeFilter finds the logs in a given block range.
 func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Address, eventSig []byte, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
@@ -158,6 +158,93 @@ func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Addres
 	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
+	}
+	return logs, nil
+}
+
+func (o *ORM) SelectDataWordRange(address common.Address, eventSig []byte, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs,
+		`SELECT * FROM logs 
+			WHERE logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND encode(substring(data from 32*$4+1 for 32), 'hex') >= $5
+			AND encode(substring(data from 32*$4+1 for 32), 'hex') <= $6
+			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY (logs.block_number, logs.log_index)`, utils.NewBig(o.chainID), address, eventSig, wordIndex, wordValueMin.String()[2:], wordValueMax.String()[2:], confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig []byte, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs,
+		`SELECT * FROM logs 
+			WHERE logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND encode(substring(data from 32*$4+1 for 32), 'hex') >= $5
+			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY (logs.block_number, logs.log_index)`, utils.NewBig(o.chainID), address, eventSig, wordIndex, wordValueMin.String()[2:], confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig []byte, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs,
+		`SELECT * FROM logs 
+			WHERE logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND encode(topics[$4], 'hex') >= $5
+			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY (logs.block_number, logs.log_index)`, utils.NewBig(o.chainID), address, eventSig, topicIndex+1, topicValueMin.String()[2:], confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig []byte, topicIndex int, topicValueMin, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs,
+		`SELECT * FROM logs 
+			WHERE logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND encode(topics[$4], 'hex') >= $5
+			AND encode(topics[$4], 'hex') <= $6
+			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY (logs.block_number, logs.log_index)`, utils.NewBig(o.chainID), address, eventSig, topicIndex+1, topicValueMin.String()[2:], topicValueMax.String()[2:], confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (o *ORM) SelectIndexedLogs(address common.Address, eventSig []byte, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	topicValuesList := fmt.Sprintf("'%s'", topicValues[0].String()[2:])
+	for _, topicValue := range topicValues[1:] {
+		topicValuesList += fmt.Sprintf(",'%s'", topicValue.String()[2:])
+	}
+	// Add 1 since arrays are 1-indexed.
+	err := q.Select(&logs, fmt.Sprintf(`
+		SELECT * FROM logs 
+			WHERE logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND encode(topics[$4], 'hex') IN (%s) 
+			AND (block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY (logs.block_number, logs.log_index)`, topicValuesList), utils.NewBig(o.chainID), address, eventSig, topicIndex+1, confs)
+	if err != nil {
+		return nil, err
 	}
 	return logs, nil
 }

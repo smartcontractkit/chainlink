@@ -16,7 +16,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -59,23 +58,22 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 		cfg.Overrides.P2PEnabled = null.BoolFrom(false)
 	}
 
-	client := evmclient.NewSimulatedBackendClient(t, backend, chainId)
+	client := NewSimulatedBackendClient(t, backend, chainId)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	simulatedBackendChain := evmtypes.DBChain{
 		ID: *utils.NewBigI(SimulatedBackendEVMChainID),
-		Cfg: evmtypes.ChainCfg{
-			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
-			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:        &zero,
-			EvmFinalityDepth:                 null.IntFrom(15),
-			EthTxReaperThreshold:             &reaperThreshold,
-			MinIncomingConfirmations:         null.IntFrom(1),
-			MinRequiredOutgoingConfirmations: null.IntFrom(1),
-			MinimumContractPayment:           assets.NewLinkFromJuels(100),
+		Cfg: &evmtypes.ChainCfg{
+			GasEstimatorMode:               null.StringFrom("FixedPrice"),
+			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
+			EthTxResendAfterThreshold:      &zero,
+			EvmFinalityDepth:               null.IntFrom(15),
+			EthTxReaperThreshold:           &reaperThreshold,
+			MinIncomingConfirmations:       null.IntFrom(1),
+			MinimumContractPayment:         assets.NewLinkFromJuels(100),
 		},
 		Enabled: true,
 	}

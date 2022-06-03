@@ -83,16 +83,6 @@ func (s *sentryLogger) Named(name string) Logger {
 	}
 }
 
-func (s *sentryLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
-	h, err := s.h.NewRootLogger(lvl)
-	if err != nil {
-		return nil, err
-	}
-	return &sentryLogger{
-		h: h,
-	}, nil
-}
-
 func (s *sentryLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }

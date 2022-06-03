@@ -152,8 +152,8 @@ type ConfigSchema struct {
 	EvmLogPollInterval                time.Duration `env:"ETH_LOG_POLL_INTERVAL"`
 	EvmRPCDefaultBatchSize            uint32        `env:"ETH_RPC_DEFAULT_BATCH_SIZE"`
 	LinkContractAddress               string        `env:"LINK_CONTRACT_ADDRESS"`
+	OperatorFactoryAddress            string        `env:"OPERATOR_FACTORY_ADDRESS"`
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
-	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	// Node liveness checking
 	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
@@ -276,11 +276,6 @@ type ConfigSchema struct {
 	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	KeeperTurnLookBack                      int64         `env:"KEEPER_TURN_LOOK_BACK" default:"1000"`
 	KeeperTurnFlagEnabled                   bool          `env:"KEEPER_TURN_FLAG_ENABLED" default:"false"`
-
-	// CLI client
-	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
-	ClientNodeURL        string `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	InsecureSkipVerify   bool   `env:"INSECURE_SKIP_VERIFY" default:"false"`
 
 	// Debugging
 	AutoPprofEnabled              bool            `env:"AUTO_PPROF_ENABLED" default:"false"`            //nodoc

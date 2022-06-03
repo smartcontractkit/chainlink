@@ -128,7 +128,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Earlier
 		tr := int32(99)
-		b, err := json.Marshal(txmgr.EthTxMeta{JobID: tr})
+		b, err := json.Marshal(txmgr.EthTxMeta{JobID: &tr})
 		require.NoError(t, err)
 		meta := datatypes.JSON(b)
 		earlierEthTx := txmgr.EthTx{
@@ -200,7 +200,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		var m txmgr.EthTxMeta
 		err = json.Unmarshal(*earlierEthTx.Meta, &m)
 		require.NoError(t, err)
-		assert.Equal(t, tr, m.JobID)
+		assert.NotNil(t, m.JobID)
+		assert.Equal(t, tr, *m.JobID)
 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
@@ -1160,7 +1161,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	txmgr.SetResumeCallbackOnEthBroadcaster(nil, eb)
 
 	t.Run("geth Client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
-		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
+		TxFeeExceedsCapError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
 		etx := txmgr.EthTx{
@@ -1175,7 +1176,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		})).Return(errors.New(tooExpensiveError)).Once()
+		})).Return(errors.New(TxFeeExceedsCapError)).Once()
 
 		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 

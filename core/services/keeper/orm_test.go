@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
@@ -395,14 +396,24 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 
 	registry, j := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+	registry.NumKeepers = 2
+	registry.KeeperIndexMap = map[ethkey.EIP55Address]int32{
+		registry.FromAddress:                              0,
+		ethkey.EIP55AddressFromAddress(utils.ZeroAddress): 1,
+	}
+	err := orm.UpsertRegistry(&registry)
+	require.NoError(t, err, "UPDATE keeper_registries")
 
 	// update
 	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
-	// update to lower block not allowed
+	// update to lower block height not allowed
 	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
-	// update to higher block allowed
+	// update to same block height allowed
+	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, ethkey.EIP55AddressFromAddress(utils.ZeroAddress)))
+	assertLastRunHeight(t, db, upkeep, 100, 1)
+	// update to higher block height allowed
 	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 101, 0)
 }

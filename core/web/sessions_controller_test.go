@@ -26,7 +26,6 @@ func TestSessionsController_Create(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	config := app.GetConfig()
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
 		name        string
@@ -42,7 +41,7 @@ func TestSessionsController_Create(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, test.email, test.password)
-			request, err := http.NewRequest("POST", config.ClientNodeURL()+"/sessions", bytes.NewBufferString(body))
+			request, err := http.NewRequest("POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
@@ -92,7 +91,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	mustInsertSession(t, q, &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
-	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
+	resp, err := http.Post(app.Server.URL+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -120,7 +119,6 @@ func TestSessionsController_Destroy(t *testing.T) {
 	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 	mustInsertSession(t, q, &correctSession)
 
-	config := app.GetConfig()
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
 		name, sessionID string
@@ -133,7 +131,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
-			request, err := http.NewRequest("DELETE", config.ClientNodeURL()+"/sessions", nil)
+			request, err := http.NewRequest("DELETE", app.Server.URL+"/sessions", nil)
 			assert.NoError(t, err)
 			request.AddCookie(cookie)
 
@@ -167,7 +165,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	mustInsertSession(t, q, &staleSession)
 
-	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
+	request, err := http.NewRequest("DELETE", app.Server.URL+"/sessions", nil)
 	assert.NoError(t, err)
 	request.AddCookie(cookie)
 

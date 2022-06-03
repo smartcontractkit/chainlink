@@ -72,7 +72,7 @@ func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.FeedsManager, e
 	return &mgr, nil
 }
 
-// GetJobRunsByID fetches the job runs by their ID.
+// GetJobRunsByIDs fetches the job runs by their ID.
 func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	ldr := For(ctx)
 
@@ -231,4 +231,24 @@ func GetFeedsManagerChainConfigsByManagerID(ctx context.Context, mgrID int64) ([
 	}
 
 	return cfgs, nil
+}
+
+// GetJobSpecErrorsByJobID fetches the Spec Errors for a Job.
+func GetJobSpecErrorsByJobID(ctx context.Context, jobID int32) ([]job.SpecError, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.SpecErrorsByJobIDLoader.Load(ctx,
+		dataloader.StringKey(stringutils.FromInt32(jobID)),
+	)
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	specErrs, ok := result.([]job.SpecError)
+	if !ok {
+		return nil, ErrInvalidType
+	}
+
+	return specErrs, nil
 }
