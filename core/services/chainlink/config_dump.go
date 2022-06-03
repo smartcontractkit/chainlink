@@ -48,7 +48,7 @@ func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error)
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
 //TODO doc
 func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
-	{ // EVM
+	{
 		dbChains, _, err := chains.EVM.Index(0, -1)
 		if err != nil {
 			return err
@@ -70,7 +70,7 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 		}
 	}
 
-	{ // Solana
+	{
 		dbChains, _, err := chains.Solana.Index(0, -1)
 		if err != nil {
 			return err
@@ -92,7 +92,7 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 		}
 	}
 
-	{ // Terra
+	{
 		dbChains, _, err := chains.Terra.Index(0, -1)
 		if err != nil {
 			return err
@@ -419,9 +419,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].UseForwarders = e
 		}
 	}
-
-	//TODO what about URL, HTTP_URL, SECONDARY(S)?
-	//TODO ignore EVM_NODES? since DB already updated at this point?
 }
 
 // loadLegacyCoreEnv loads CoreConfig values from legacy environment variables.
@@ -547,8 +544,8 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.P2P = &tcfg.P2PConfig{
-		IncomingMessageBufferSize: try(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
-		OutgoingMessageBufferSize: try(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
+		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
 	}
 	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
 		err = ns.UnmarshalText([]byte(s))
@@ -563,7 +560,7 @@ func (c *Config) loadLegacyCoreEnv() {
 				BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
 				BootstrapPeers:                   envStringSlice("P2PBootstrapPeers"),
 				DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
-				DHTLookupInterval:                try(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
+				DHTLookupInterval:                first(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
 				ListenIP:                         envIP("P2PListenIP"),
 				ListenPort:                       envvar.NewUint16("P2PListenPort").ParsePtr(),
 				NewStreamTimeout:                 envDuration("OCRNewStreamTimeout", "P2PNewStreamTimeout"),
@@ -613,7 +610,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 }
 
-func try[T any](es ...*envvar.EnvVar[T]) *T {
+func first[T any](es ...*envvar.EnvVar[T]) *T {
 	for _, e := range es {
 		if p := e.ParsePtr(); p != nil {
 			return p
