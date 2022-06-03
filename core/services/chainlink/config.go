@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
-	"github.com/smartcontractkit/chainlink/core/config/toml"
+	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,7 +19,7 @@ import (
 // 	- TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
 //	implementing encoding.TextMarshaler/TextUnmarshaler
 type Config struct {
-	toml.CoreConfig
+	config.Core
 
 	EVM []EVMConfig `toml:",omitempty"`
 

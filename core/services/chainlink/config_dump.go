@@ -15,10 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
+	legacy "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
-	tcfg "github.com/smartcontractkit/chainlink/core/config/toml"
+	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -420,7 +420,7 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 }
 
-// loadLegacyCoreEnv loads CoreConfig values from legacy environment variables.
+// loadLegacyCoreEnv loads Core values from legacy environment variables.
 //TODO test
 func (c *Config) loadLegacyCoreEnv() {
 	c.Dev = envvar.NewBool("Dev").ParsePtr()
@@ -430,30 +430,30 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.Root = envvar.RootDir.ParsePtr()
 	c.ShutdownGracePeriod = envDuration("ShutdownGracePeriod")
 
-	c.Database = &tcfg.DatabaseConfig{
+	c.Database = &config.Database{
 		ListenerMaxReconnectDuration:  envDuration("DatabaseListenerMaxReconnectDuration"),
 		ListenerMinReconnectInterval:  envDuration("DatabaseListenerMinReconnectInterval"),
 		Migrate:                       envvar.NewBool("MigrateDatabase").ParsePtr(),
 		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
-		Lock: &tcfg.DatabaseLockConfig{
+		Lock: &config.DatabaseLock{
 			Mode:                  envvar.NewString("DatabaseLockingMode").ParsePtr(),
 			AdvisoryCheckInterval: envDuration("AdvisoryLockCheckInterval"),
 			AdvisoryID:            envvar.AdvisoryLockID.ParsePtr(),
 			LeaseDuration:         envDuration("LeaseLockDuration"),
 			LeaseRefreshInterval:  envDuration("LeaseLockRefreshInterval"),
 		},
-		Backup: &tcfg.DatabaseBackupConfig{
+		Backup: &config.DatabaseBackup{
 			Dir:              envvar.NewString("DatabaseBackupDir").ParsePtr(),
 			Frequency:        envDuration("DatabaseBackupFrequency"),
-			Mode:             config.DatabaseBackupModeEnvVar.ParsePtr(),
+			Mode:             legacy.DatabaseBackupModeEnvVar.ParsePtr(),
 			OnVersionUpgrade: envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
 			URL:              envURL("DatabaseBackupDir"),
 		},
 	}
 
-	c.TelemetryIngress = &tcfg.TelemetryIngressConfig{
+	c.TelemetryIngress = &config.TelemetryIngress{
 		UniConn:      envvar.NewBool("TelemetryIngressUniConn").ParsePtr(),
 		Logging:      envvar.NewBool("TelemetryIngressLogging").ParsePtr(),
 		ServerPubKey: envvar.NewString("TelemetryIngressServerPubKey").ParsePtr(),
@@ -465,7 +465,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		UseBatchSend: envvar.NewBool("TelemetryIngressUseBatchSend").ParsePtr(),
 	}
 
-	c.Log = &tcfg.LogConfig{
+	c.Log = &config.Log{
 		JSONConsole:    envvar.JSONConsole.ParsePtr(),
 		FileDir:        envvar.NewString("LogFileDir").ParsePtr(),
 		Level:          envvar.LogLevel.ParsePtr(),
@@ -476,7 +476,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		UnixTS:         envvar.LogUnixTS.ParsePtr(),
 	}
 
-	c.WebServer = &tcfg.WebServerConfig{
+	c.WebServer = &config.WebServer{
 		AllowOrigins:                   envvar.NewString("AllowOrigins").ParsePtr(),
 		AuthenticatedRateLimit:         envvar.NewInt64("AuthenticatedRateLimit").ParsePtr(),
 		AuthenticatedRateLimitPeriod:   envDuration("AuthenticatedRateLimitPeriod"),
@@ -487,11 +487,11 @@ func (c *Config) loadLegacyCoreEnv() {
 		SessionTimeout:                 envDuration("SessionTimeout"),
 		UnAuthenticatedRateLimit:       envvar.NewInt64("UnAuthenticatedRateLimit").ParsePtr(),
 		UnAuthenticatedRateLimitPeriod: envDuration("UnAuthenticatedRateLimitPeriod"),
-		MFA: &tcfg.WebServerMFAConfig{
+		MFA: &config.WebServerMFA{
 			RPID:     envvar.NewString("RPID").ParsePtr(),
 			RPOrigin: envvar.NewString("RPOrigin").ParsePtr(),
 		},
-		TLS: &tcfg.WebServerTLSConfig{
+		TLS: &config.WebServerTLS{
 			CertPath: envvar.NewString("TLSCertPath").ParsePtr(),
 			Host:     envvar.NewString("TLSHost").ParsePtr(),
 			KeyPath:  envvar.NewString("TLSKeyPath").ParsePtr(),
@@ -503,7 +503,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.FeatureFeedsManager = envvar.NewBool("FeatureFeedsManager").ParsePtr()
 	c.FeatureUICSAKeys = envvar.NewBool("FeatureUICSAKeys").ParsePtr()
 
-	c.JobPipeline = &tcfg.JobPipelineConfig{
+	c.JobPipeline = &config.JobPipeline{
 		DefaultHTTPLimit:          envvar.NewInt64("DefaultHTTPLimit").ParsePtr(),
 		DefaultHTTPTimeout:        envDuration("DefaultHTTPTimeout"),
 		FeatureExternalInitiators: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
@@ -517,7 +517,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.FMSimulateTransactions = envvar.NewBool("FMSimulateTransactions").ParsePtr()
 
 	c.FeatureOffchainReporting2 = envvar.NewBool("FeatureOffchainReporting2").ParsePtr()
-	c.OCR2 = &tcfg.OCR2Config{
+	c.OCR2 = &config.OCR2{
 		ContractConfirmations:              envvar.NewUint32("OCR2ContractConfirmations").ParsePtr(),
 		BlockchainTimeout:                  envDuration("OCR2BlockchainTimeout"),
 		ContractPollInterval:               envDuration("OCR2ContractPollInterval"),
@@ -529,7 +529,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.FeatureOffchainReporting = envvar.NewBool("FeatureOffchainReporting").ParsePtr()
-	c.OCR = &tcfg.OCRConfig{
+	c.OCR = &config.OCR{
 		ObservationTimeout:           envDuration("OCRObservationTimeout"),
 		BlockchainTimeout:            envDuration("OCRBlockchainTimeout"),
 		ContractPollInterval:         envDuration("OCRContractPollInterval"),
@@ -542,7 +542,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
 	}
 
-	c.P2P = &tcfg.P2PConfig{
+	c.P2P = &config.P2P{
 		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
 	}
@@ -553,7 +553,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		ns := *p
 		var v1, v2, v1v2 = ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV2, ocrnetworking.NetworkingStackV1V2
 		if ns == v1 || ns == v1v2 {
-			c.P2P.V1 = &tcfg.P2PV1Config{
+			c.P2P.V1 = &config.P2PV1{
 				AnnounceIP:                       envIP("P2PAnnounceIP"),
 				AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
 				BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
@@ -568,7 +568,7 @@ func (c *Config) loadLegacyCoreEnv() {
 			}
 		}
 		if ns == v2 || ns == v1v2 {
-			c.P2P.V2 = &tcfg.P2PV2Config{
+			c.P2P.V2 = &config.P2PV2{
 				AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
 				Bootstrappers:     envStringSlice("P2PV2Bootstrappers"),
 				DeltaDial:         envDuration("P2PV2DeltaDial"),
@@ -578,7 +578,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		}
 	}
 
-	c.Keeper = &tcfg.KeeperConfig{
+	c.Keeper = &config.Keeper{
 		CheckUpkeepGasPriceFeatureEnabled: envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
 		DefaultTransactionQueueDepth:      envvar.NewUint32("KeeperDefaultTransactionQueueDepth").ParsePtr(),
 		GasPriceBufferPercent:             envvar.NewUint32("KeeperGasPriceBufferPercent").ParsePtr(),
@@ -593,7 +593,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		TurnFlagEnabled:                   envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 	}
 
-	c.AutoPprof = &tcfg.AutoPprofConfig{
+	c.AutoPprof = &config.AutoPprof{
 		Enabled:              envvar.NewBool("AutoPprofEnabled").ParsePtr(),
 		ProfileRoot:          envvar.NewString("AutoPprofProfileRoot").ParsePtr(),
 		PollInterval:         envDuration("AutoPprofPollInterval"),

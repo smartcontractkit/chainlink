@@ -21,8 +21,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	"github.com/smartcontractkit/chainlink/core/config"
-	tcfg "github.com/smartcontractkit/chainlink/core/config/toml"
+	legacy "github.com/smartcontractkit/chainlink/core/config"
+	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,31 +35,31 @@ var (
 	//go:embed testdata/config-multi-chain.toml
 	multiChainTOML string
 	multiChain     = Config{
-		CoreConfig: tcfg.CoreConfig{
+		Core: config.Core{
 			Root: ptr("my/root/dir"),
 
-			Database: &tcfg.DatabaseConfig{
+			Database: &config.Database{
 				TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
 			},
-			Log: &tcfg.LogConfig{
+			Log: &config.Log{
 				Level: ptr(zapcore.WarnLevel),
 			},
-			JobPipeline: &tcfg.JobPipelineConfig{
+			JobPipeline: &config.JobPipeline{
 				DefaultHTTPTimeout: models.MustNewDuration(30 * time.Second),
 			},
-			OCR2: &tcfg.OCR2Config{
+			OCR2: &config.OCR2{
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
 			},
-			OCR: &tcfg.OCRConfig{
+			OCR: &config.OCR{
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
-			P2P: &tcfg.P2PConfig{
+			P2P: &config.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
-			Keeper: &tcfg.KeeperConfig{
+			Keeper: &config.Keeper{
 				GasPriceBufferPercent: ptr[uint32](10),
 			},
-			AutoPprof: &tcfg.AutoPprofConfig{
+			AutoPprof: &config.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
 		},
@@ -127,7 +127,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	global := Config{
-		CoreConfig: tcfg.CoreConfig{
+		Core: config.Core{
 			Dev:                            ptr(true),
 			ExplorerURL:                    mustURL("http://explorer.url"),
 			InsecureFastScrypt:             ptr(true),
@@ -145,29 +145,29 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full := global
-	full.Database = &tcfg.DatabaseConfig{
+	full.Database = &config.Database{
 		ListenerMaxReconnectDuration:  models.MustNewDuration(time.Minute),
 		ListenerMinReconnectInterval:  models.MustNewDuration(5 * time.Minute),
 		Migrate:                       ptr(true),
 		ORMMaxIdleConns:               ptr[int64](7),
 		ORMMaxOpenConns:               ptr[int64](13),
 		TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
-		Lock: &tcfg.DatabaseLockConfig{
+		Lock: &config.DatabaseLock{
 			Mode:                  ptr("advisory"),
 			AdvisoryCheckInterval: models.MustNewDuration(5 * time.Minute),
 			AdvisoryID:            ptr[int64](345982730592843),
 			LeaseDuration:         &minute,
 			LeaseRefreshInterval:  &second,
 		},
-		Backup: &tcfg.DatabaseBackupConfig{
+		Backup: &config.DatabaseBackup{
 			Dir:              ptr("test/backup/dir"),
 			Frequency:        &hour,
-			Mode:             &config.DatabaseBackupModeFull,
+			Mode:             &legacy.DatabaseBackupModeFull,
 			OnVersionUpgrade: ptr(true),
 			URL:              mustURL("http://test.back.up/fake"),
 		},
 	}
-	full.TelemetryIngress = &tcfg.TelemetryIngressConfig{
+	full.TelemetryIngress = &config.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
 		ServerPubKey: ptr("test-pub-key"),
@@ -178,7 +178,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
 	}
-	full.Log = &tcfg.LogConfig{
+	full.Log = &config.Log{
 		JSONConsole:    ptr(true),
 		FileDir:        ptr("log/file/dir"),
 		SQL:            ptr(true),
@@ -187,7 +187,7 @@ func TestConfig_Marshal(t *testing.T) {
 		FileMaxBackups: ptr[int64](9),
 		UnixTS:         ptr(true),
 	}
-	full.WebServer = &tcfg.WebServerConfig{
+	full.WebServer = &config.WebServer{
 		AllowOrigins:                   ptr("*"),
 		AuthenticatedRateLimit:         ptr[int64](42),
 		AuthenticatedRateLimitPeriod:   models.MustNewDuration(time.Second),
@@ -198,11 +198,11 @@ func TestConfig_Marshal(t *testing.T) {
 		SessionTimeout:                 models.MustNewDuration(time.Hour),
 		UnAuthenticatedRateLimit:       ptr[int64](7),
 		UnAuthenticatedRateLimitPeriod: models.MustNewDuration(time.Minute),
-		MFA: &tcfg.WebServerMFAConfig{
+		MFA: &config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
 		},
-		TLS: &tcfg.WebServerTLSConfig{
+		TLS: &config.WebServerTLS{
 			CertPath: ptr("tls/cert/path"),
 			Host:     ptr("tls-host"),
 			KeyPath:  ptr("tls/key/path"),
@@ -210,7 +210,7 @@ func TestConfig_Marshal(t *testing.T) {
 			Redirect: ptr(true),
 		},
 	}
-	full.JobPipeline = &tcfg.JobPipelineConfig{
+	full.JobPipeline = &config.JobPipeline{
 		DefaultHTTPLimit:          ptr[int64](67),
 		DefaultHTTPTimeout:        models.MustNewDuration(time.Minute),
 		FeatureExternalInitiators: ptr(true),
@@ -219,7 +219,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
 	}
-	full.OCR2 = &tcfg.OCR2Config{
+	full.OCR2 = &config.OCR2{
 		ContractConfirmations:              ptr[uint32](11),
 		BlockchainTimeout:                  models.MustNewDuration(3 * time.Second),
 		ContractPollInterval:               models.MustNewDuration(time.Hour),
@@ -229,7 +229,7 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		MonitoringEndpoint:                 ptr("test-mon-end"),
 	}
-	full.OCR = &tcfg.OCRConfig{
+	full.OCR = &config.OCR{
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
 		BlockchainTimeout:            models.MustNewDuration(3 * time.Second),
 		ContractPollInterval:         models.MustNewDuration(time.Hour),
@@ -240,10 +240,10 @@ func TestConfig_Marshal(t *testing.T) {
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 	}
-	full.P2P = &tcfg.P2PConfig{
+	full.P2P = &config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
 		OutgoingMessageBufferSize: ptr[int64](17),
-		V1: &tcfg.P2PV1Config{
+		V1: &config.P2PV1{
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
 			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
@@ -256,7 +256,7 @@ func TestConfig_Marshal(t *testing.T) {
 			PeerID:                           mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
-		V2: &tcfg.P2PV2Config{
+		V2: &config.P2PV2{
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			Bootstrappers:     &[]string{"1", "2", "3"},
 			DeltaDial:         models.MustNewDuration(time.Minute),
@@ -264,7 +264,7 @@ func TestConfig_Marshal(t *testing.T) {
 			ListenAddresses:   &[]string{"foo", "bar"},
 		},
 	}
-	full.Keeper = &tcfg.KeeperConfig{
+	full.Keeper = &config.Keeper{
 		CheckUpkeepGasPriceFeatureEnabled: ptr(true),
 		DefaultTransactionQueueDepth:      ptr[uint32](17),
 		GasPriceBufferPercent:             ptr[uint32](12),
@@ -278,7 +278,7 @@ func TestConfig_Marshal(t *testing.T) {
 		TurnLookBack:                      ptr[int64](91),
 		TurnFlagEnabled:                   ptr(true),
 	}
-	full.AutoPprof = &tcfg.AutoPprofConfig{
+	full.AutoPprof = &config.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
 		PollInterval:         models.MustNewDuration(time.Minute),
@@ -449,7 +449,7 @@ FMSimulateTransactions = true
 FeatureOffchainReporting2 = true
 FeatureOffchainReporting = true
 `},
-		{"Database", Config{CoreConfig: tcfg.CoreConfig{Database: full.Database}}, `
+		{"Database", Config{Core: config.Core{Database: full.Database}}, `
 [Database]
 ListenerMaxReconnectDuration = '1m0s'
 ListenerMinReconnectInterval = '5m0s'
@@ -472,7 +472,7 @@ Mode = 'full'
 OnVersionUpgrade = true
 URL = 'http://test.back.up/fake'
 `},
-		{"TelemetryIngress", Config{CoreConfig: tcfg.CoreConfig{TelemetryIngress: full.TelemetryIngress}}, `
+		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `
 [TelemetryIngress]
 UniConn = true
 Logging = true
@@ -484,7 +484,7 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 `},
-		{"Log", Config{CoreConfig: tcfg.CoreConfig{Log: full.Log}}, `
+		{"Log", Config{Core: config.Core{Log: full.Log}}, `
 [Log]
 JSONConsole = true
 FileDir = 'log/file/dir'
@@ -494,7 +494,7 @@ FileMaxAgeDays = 17
 FileMaxBackups = 9
 UnixTS = true
 `},
-		{"WebServer", Config{CoreConfig: tcfg.CoreConfig{WebServer: full.WebServer}}, `
+		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `
 [WebServer]
 AllowOrigins = '*'
 AuthenticatedRateLimit = 42
@@ -518,7 +518,7 @@ KeyPath = 'tls/key/path'
 Port = 6789
 Redirect = true
 `},
-		{"JobPipeline", Config{CoreConfig: tcfg.CoreConfig{JobPipeline: full.JobPipeline}}, `
+		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `
 [JobPipeline]
 DefaultHTTPLimit = 67
 DefaultHTTPTimeout = '1m0s'
@@ -528,7 +528,7 @@ ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
 `},
-		{"OCR", Config{CoreConfig: tcfg.CoreConfig{OCR: full.OCR}}, `
+		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `
 [OCR]
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
@@ -540,7 +540,7 @@ MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
-		{"OCR2", Config{CoreConfig: tcfg.CoreConfig{OCR2: full.OCR2}}, `
+		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
 [OCR2]
 ContractConfirmations = 11
 BlockchainTimeout = '3s'
@@ -551,7 +551,7 @@ DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 MonitoringEndpoint = 'test-mon-end'
 `},
-		{"P2P", Config{CoreConfig: tcfg.CoreConfig{P2P: full.P2P}}, `
+		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `
 [P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
@@ -576,7 +576,7 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{CoreConfig: tcfg.CoreConfig{Keeper: full.Keeper}}, `
+		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `
 [Keeper]
 CheckUpkeepGasPriceFeatureEnabled = true
 DefaultTransactionQueueDepth = 17
@@ -591,7 +591,7 @@ RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
 `},
-		{"AutoPprof", Config{CoreConfig: tcfg.CoreConfig{AutoPprof: full.AutoPprof}}, `
+		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `
 [AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'

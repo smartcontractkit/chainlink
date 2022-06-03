@@ -1,4 +1,4 @@
-package toml
+package v2
 
 import (
 	"net"
@@ -13,7 +13,7 @@ import (
 )
 
 //TODO doc
-type CoreConfig struct {
+type Core struct {
 	// General/misc
 	Dev                 *bool
 	ExplorerURL         *models.URL
@@ -22,13 +22,13 @@ type CoreConfig struct {
 	Root                *string
 	ShutdownGracePeriod *models.Duration
 
-	Database *DatabaseConfig
+	Database *Database
 
-	TelemetryIngress *TelemetryIngressConfig
+	TelemetryIngress *TelemetryIngress
 
-	Log *LogConfig
+	Log *Log
 
-	WebServer *WebServerConfig
+	WebServer *WebServer
 
 	// Feeds manager
 	FeatureFeedsManager *bool
@@ -38,7 +38,7 @@ type CoreConfig struct {
 	FeatureLogPoller *bool
 
 	// Job Pipeline and tasks
-	JobPipeline *JobPipelineConfig
+	JobPipeline *JobPipeline
 
 	// Flux Monitor
 	FMDefaultTransactionQueueDepth *uint32
@@ -46,30 +46,30 @@ type CoreConfig struct {
 
 	// OCR V2
 	FeatureOffchainReporting2 *bool
-	OCR2                      *OCR2Config
+	OCR2                      *OCR2
 
 	// OCR V1
 	FeatureOffchainReporting *bool
-	OCR                      *OCRConfig
+	OCR                      *OCR
 
 	// P2P Networking
-	P2P *P2PConfig
+	P2P *P2P
 
 	// Keeper
-	Keeper *KeeperConfig
+	Keeper *Keeper
 
 	// Debugging
-	AutoPprof *AutoPprofConfig
+	AutoPprof *AutoPprof
 }
 
-type SecretsConfig struct {
+type Secrets struct {
 	DatabaseURL       *models.URL
 	ExplorerAccessKey string `toml:",omitempty"`
 	ExplorerSecret    string `toml:",omitempty"`
 	//TODO more?
 }
 
-type DatabaseConfig struct {
+type Database struct {
 	ListenerMaxReconnectDuration  *models.Duration
 	ListenerMinReconnectInterval  *models.Duration
 	Migrate                       *bool
@@ -78,13 +78,13 @@ type DatabaseConfig struct {
 	TriggerFallbackDBPollInterval *models.Duration
 
 	// Database Global Lock
-	Lock *DatabaseLockConfig
+	Lock *DatabaseLock
 
 	// Database Autobackups
-	Backup *DatabaseBackupConfig
+	Backup *DatabaseBackup
 }
 
-type DatabaseLockConfig struct {
+type DatabaseLock struct {
 	Mode                  *string
 	AdvisoryCheckInterval *models.Duration
 	AdvisoryID            *int64
@@ -92,7 +92,7 @@ type DatabaseLockConfig struct {
 	LeaseRefreshInterval  *models.Duration
 }
 
-type DatabaseBackupConfig struct {
+type DatabaseBackup struct {
 	Dir              *string
 	Frequency        *models.Duration
 	Mode             *config.DatabaseBackupMode
@@ -100,7 +100,7 @@ type DatabaseBackupConfig struct {
 	URL              *models.URL
 }
 
-type TelemetryIngressConfig struct {
+type TelemetryIngress struct {
 	UniConn      *bool
 	Logging      *bool
 	ServerPubKey *string
@@ -112,7 +112,7 @@ type TelemetryIngressConfig struct {
 	UseBatchSend *bool
 }
 
-type LogConfig struct {
+type Log struct {
 	JSONConsole    *bool
 	FileDir        *string
 	Level          *zapcore.Level //TODO is this actually an exceptional case to leave as env var?
@@ -123,7 +123,7 @@ type LogConfig struct {
 	UnixTS         *bool
 }
 
-type WebServerConfig struct {
+type WebServer struct {
 	// Web Server
 	AllowOrigins                   *string
 	AuthenticatedRateLimit         *int64
@@ -136,17 +136,17 @@ type WebServerConfig struct {
 	UnAuthenticatedRateLimit       *int64
 	UnAuthenticatedRateLimitPeriod *models.Duration
 
-	MFA *WebServerMFAConfig
+	MFA *WebServerMFA
 
-	TLS *WebServerTLSConfig
+	TLS *WebServerTLS
 }
 
-type WebServerMFAConfig struct {
+type WebServerMFA struct {
 	RPID     *string
 	RPOrigin *string
 }
 
-type WebServerTLSConfig struct {
+type WebServerTLS struct {
 	CertPath *string
 	Host     *string
 	KeyPath  *string
@@ -154,7 +154,7 @@ type WebServerTLSConfig struct {
 	Redirect *bool
 }
 
-type JobPipelineConfig struct {
+type JobPipeline struct {
 	DefaultHTTPLimit          *int64
 	DefaultHTTPTimeout        *models.Duration
 	FeatureExternalInitiators *bool
@@ -164,7 +164,7 @@ type JobPipelineConfig struct {
 	ResultWriteQueueDepth     *uint32
 }
 
-type OCR2Config struct {
+type OCR2 struct {
 	// Global defaults
 	ContractConfirmations              *uint32
 	BlockchainTimeout                  *models.Duration
@@ -176,7 +176,7 @@ type OCR2Config struct {
 	MonitoringEndpoint                 *string
 }
 
-type OCRConfig struct {
+type OCR struct {
 	// Global defaults
 	ObservationTimeout           *models.Duration
 	BlockchainTimeout            *models.Duration
@@ -191,19 +191,19 @@ type OCRConfig struct {
 	TransmitterAddress   *ethkey.EIP55Address
 }
 
-type P2PConfig struct {
+type P2P struct {
 	// V1 and V2
 	IncomingMessageBufferSize *int64
 	OutgoingMessageBufferSize *int64
 
 	// V1 Only
-	V1 *P2PV1Config
+	V1 *P2PV1
 
 	// V2 Only
-	V2 *P2PV2Config
+	V2 *P2PV2
 }
 
-type P2PV1Config struct {
+type P2PV1 struct {
 	AnnounceIP                       *net.IP
 	AnnouncePort                     *uint16
 	BootstrapCheckInterval           *models.Duration
@@ -217,7 +217,7 @@ type P2PV1Config struct {
 	PeerstoreWriteInterval           *models.Duration
 }
 
-type P2PV2Config struct {
+type P2PV2 struct {
 	AnnounceAddresses *[]string
 	Bootstrappers     *[]string
 	DeltaDial         *models.Duration
@@ -225,7 +225,7 @@ type P2PV2Config struct {
 	ListenAddresses   *[]string
 }
 
-type KeeperConfig struct {
+type Keeper struct {
 	CheckUpkeepGasPriceFeatureEnabled *bool
 	DefaultTransactionQueueDepth      *uint32
 	GasPriceBufferPercent             *uint32
@@ -240,7 +240,7 @@ type KeeperConfig struct {
 	TurnFlagEnabled                   *bool
 }
 
-type AutoPprofConfig struct {
+type AutoPprof struct {
 	Enabled              *bool
 	ProfileRoot          *string
 	PollInterval         *models.Duration
