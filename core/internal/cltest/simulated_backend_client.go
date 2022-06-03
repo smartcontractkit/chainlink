@@ -1,4 +1,4 @@
-package client
+package cltest
 
 import (
 	"bytes"
@@ -18,12 +18,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-var _ Client = (*SimulatedBackendClient)(nil)
 
 // SimulatedBackendClient is an Client implementation using a simulated
 // blockchain backend. Note that not all RPC methods are implemented here.
@@ -53,7 +52,7 @@ func (c *SimulatedBackendClient) Close() {}
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
-	args []interface{}) (*CallArgs, *big.Int, error) {
+	args []interface{}) (*evmclient.CallArgs, *big.Int, error) {
 	if len(args) != 2 {
 		return nil, nil, fmt.Errorf(
 			"should have two arguments after \"eth_call\", got %d", len(args))
@@ -69,7 +68,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 			"must be the string \"latest\", or a *big.Int equal to current "+
 			"blocknumber, got %#+v", args[1])
 	}
-	ca := CallArgs{
+	ca := evmclient.CallArgs{
 		From: callArgs["from"].(common.Address),
 		To:   *callArgs["to"].(*common.Address),
 		Data: callArgs["data"].(hexutil.Bytes),
