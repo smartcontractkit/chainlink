@@ -2,7 +2,6 @@ package toml
 
 import (
 	"net"
-	"net/url"
 
 	"go.uber.org/zap/zapcore"
 
@@ -17,7 +16,7 @@ import (
 type CoreConfig struct {
 	// General/misc
 	Dev                 *bool
-	ExplorerURL         *URL
+	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	ReaperExpiration    *models.Duration
 	Root                *string
@@ -64,7 +63,7 @@ type CoreConfig struct {
 }
 
 type SecretsConfig struct {
-	DatabaseURL       *URL
+	DatabaseURL       *models.URL
 	ExplorerAccessKey string `toml:",omitempty"`
 	ExplorerSecret    string `toml:",omitempty"`
 	//TODO more?
@@ -98,14 +97,14 @@ type DatabaseBackupConfig struct {
 	Frequency        *models.Duration
 	Mode             *config.DatabaseBackupMode
 	OnVersionUpgrade *bool
-	URL              *URL
+	URL              *models.URL
 }
 
 type TelemetryIngressConfig struct {
 	UniConn      *bool
 	Logging      *bool
 	ServerPubKey *string
-	URL          *URL
+	URL          *models.URL
 	BufferSize   *uint16
 	MaxBatchSize *uint16
 	SendInterval *models.Duration
@@ -129,7 +128,7 @@ type WebServerConfig struct {
 	AllowOrigins                   *string
 	AuthenticatedRateLimit         *int64
 	AuthenticatedRateLimitPeriod   *models.Duration
-	BridgeResponseURL              *URL
+	BridgeResponseURL              *models.URL
 	HTTPWriteTimeout               *models.Duration
 	Port                           *uint16
 	SecureCookies                  *bool
@@ -137,17 +136,17 @@ type WebServerConfig struct {
 	UnAuthenticatedRateLimit       *int64
 	UnAuthenticatedRateLimitPeriod *models.Duration
 
-	MFA *WebserverMFAConfig
+	MFA *WebServerMFAConfig
 
-	TLS *WebserverTLSConfig
+	TLS *WebServerTLSConfig
 }
 
-type WebserverMFAConfig struct {
+type WebServerMFAConfig struct {
 	RPID     *string
 	RPOrigin *string
 }
 
-type WebserverTLSConfig struct {
+type WebServerTLSConfig struct {
 	CertPath *string
 	Host     *string
 	KeyPath  *string
@@ -254,20 +253,4 @@ type AutoPprofConfig struct {
 	MutexProfileFraction *int64 // runtime.SetMutexProfileFraction
 	MemThreshold         *utils.FileSize
 	GoroutineThreshold   *int64
-}
-
-// URL extends url.URL to implement encoding.TextMarshaler.
-type URL url.URL
-
-func (u *URL) MarshalText() ([]byte, error) {
-	return []byte((*url.URL)(u).String()), nil
-}
-
-func (u *URL) UnmarshalText(input []byte) error {
-	v, err := url.Parse(string(input))
-	if err != nil {
-		return err
-	}
-	*u = URL(*v)
-	return nil
 }

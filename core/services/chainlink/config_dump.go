@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -488,11 +487,11 @@ func (c *Config) loadLegacyCoreEnv() {
 		SessionTimeout:                 envDuration("SessionTimeout"),
 		UnAuthenticatedRateLimit:       envvar.NewInt64("UnAuthenticatedRateLimit").ParsePtr(),
 		UnAuthenticatedRateLimitPeriod: envDuration("UnAuthenticatedRateLimitPeriod"),
-		MFA: &tcfg.WebserverMFAConfig{
+		MFA: &tcfg.WebServerMFAConfig{
 			RPID:     envvar.NewString("RPID").ParsePtr(),
 			RPOrigin: envvar.NewString("RPOrigin").ParsePtr(),
 		},
-		TLS: &tcfg.WebserverTLSConfig{
+		TLS: &tcfg.WebServerTLSConfig{
 			CertPath: envvar.NewString("TLSCertPath").ParsePtr(),
 			Host:     envvar.NewString("TLSHost").ParsePtr(),
 			KeyPath:  envvar.NewString("TLSKeyPath").ParsePtr(),
@@ -631,9 +630,9 @@ func envDuration(ns ...string) *models.Duration {
 	return nil
 }
 
-func envURL(s string) *tcfg.URL {
-	if p := envvar.New(s, url.Parse).ParsePtr(); p != nil {
-		return (*tcfg.URL)(*p)
+func envURL(s string) *models.URL {
+	if p := envvar.New(s, models.ParseURL).ParsePtr(); p != nil {
+		return *p
 	}
 	return nil
 }

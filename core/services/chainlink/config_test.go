@@ -198,11 +198,11 @@ func TestConfig_Marshal(t *testing.T) {
 		SessionTimeout:                 models.MustNewDuration(time.Hour),
 		UnAuthenticatedRateLimit:       ptr[int64](7),
 		UnAuthenticatedRateLimitPeriod: models.MustNewDuration(time.Minute),
-		MFA: &tcfg.WebserverMFAConfig{
+		MFA: &tcfg.WebServerMFAConfig{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
 		},
-		TLS: &tcfg.WebserverTLSConfig{
+		TLS: &tcfg.WebServerTLSConfig{
 			CertPath: ptr("tls/cert/path"),
 			Host:     ptr("tls-host"),
 			KeyPath:  ptr("tls/key/path"),
@@ -752,8 +752,8 @@ TendermintURL = 'http://bar.web'
 
 //TODO TestConfig_Unmarshal
 
-func mustURL(s string) *tcfg.URL {
-	var u tcfg.URL
+func mustURL(s string) *models.URL {
+	var u models.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}

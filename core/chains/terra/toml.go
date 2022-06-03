@@ -7,7 +7,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
-	"github.com/smartcontractkit/chainlink/core/config/toml"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -16,7 +15,7 @@ type TOMLChain struct {
 	BlocksUntilTxTimeout  *int64
 	ConfirmPollPeriod     *models.Duration
 	FallbackGasPriceULuna *decimal.Decimal
-	FCDURL                *toml.URL
+	FCDURL                *models.URL
 	GasLimitMultiplier    *decimal.Decimal
 	MaxMsgsPerBatch       *int64
 	OCR2CachePollPeriod   *models.Duration
@@ -51,7 +50,7 @@ func (c *TOMLChain) SetFromDB(cfg *db.ChainCfg) error {
 		if err != nil {
 			return errors.Wrapf(err, "invalid FCDURL: %s", s)
 		}
-		c.FCDURL = (*toml.URL)(d)
+		c.FCDURL = (*models.URL)(d)
 	}
 	if cfg.GasLimitMultiplier.Valid {
 		d := decimal.NewFromFloat(cfg.GasLimitMultiplier.Float64)
@@ -74,7 +73,7 @@ func (c *TOMLChain) SetFromDB(cfg *db.ChainCfg) error {
 
 type TOMLNode struct {
 	Name          string
-	TendermintURL *toml.URL
+	TendermintURL *models.URL
 }
 
 func NewTOMLNodeFromDB(db db.Node) (n TOMLNode, err error) {
@@ -85,7 +84,7 @@ func NewTOMLNodeFromDB(db db.Node) (n TOMLNode, err error) {
 		if err != nil {
 			return
 		}
-		n.TendermintURL = (*toml.URL)(u)
+		n.TendermintURL = (*models.URL)(u)
 	}
 	return n, nil
 }

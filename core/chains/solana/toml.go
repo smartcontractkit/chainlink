@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/core/config/toml"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -62,7 +61,7 @@ func (c *TOMLChain) SetFromDB(cfg *db.ChainCfg) error {
 
 type TOMLNode struct {
 	Name string
-	URL  *toml.URL
+	URL  *models.URL
 }
 
 func NewTOMLNodeFromDB(db db.Node) (n TOMLNode, err error) {
@@ -73,7 +72,7 @@ func NewTOMLNodeFromDB(db db.Node) (n TOMLNode, err error) {
 		if err != nil {
 			return
 		}
-		n.URL = (*toml.URL)(u)
+		n.URL = (*models.URL)(u)
 	}
 	return n, nil
 }

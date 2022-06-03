@@ -8,7 +8,6 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/config/toml"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -222,8 +221,8 @@ func (c *ChainTOMLCfg) SetFromDB(cfg *ChainCfg) error {
 
 type TOMLNode struct {
 	Name     *string
-	WSURL    *toml.URL
-	HTTPURL  *toml.URL
+	WSURL    *models.URL
+	HTTPURL  *models.URL
 	SendOnly *bool
 }
 
@@ -235,7 +234,7 @@ func NewTOMLNodeFromDB(db Node) (n TOMLNode, err error) {
 		if err != nil {
 			return
 		}
-		n.WSURL = (*toml.URL)(u)
+		n.WSURL = (*models.URL)(u)
 	}
 	if db.HTTPURL.Valid {
 		var u *url.URL
@@ -243,7 +242,7 @@ func NewTOMLNodeFromDB(db Node) (n TOMLNode, err error) {
 		if err != nil {
 			return
 		}
-		n.HTTPURL = (*toml.URL)(u)
+		n.HTTPURL = (*models.URL)(u)
 	}
 	if db.SendOnly {
 		// Only necessary if true
