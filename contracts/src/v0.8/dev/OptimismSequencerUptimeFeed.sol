@@ -56,7 +56,7 @@ contract OptimismSequencerUptimeFeed is
   FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, latestTimestamp: 0});
   mapping(uint80 => Round) private s_rounds;
 
-  IL2CrossDomainMessenger private s_l2CrossDomainMessenger;
+  IL2CrossDomainMessenger private immutable s_l2CrossDomainMessenger;
 
   /**
    * @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
