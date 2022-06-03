@@ -60,7 +60,7 @@ const config = {
 const upkeepId = 123
 const lastKeeperIndex = 0
 
-describe.only('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
+describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
   before(async () => {
     personas = (await getUsers()).personas
     owner = personas.Default
