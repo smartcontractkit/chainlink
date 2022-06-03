@@ -65,13 +65,17 @@ SecureCookies = true
 SessionTimeout = '1h0m0s'
 UnAuthenticatedRateLimit = 7
 UnAuthenticatedRateLimitPeriod = '1m0s'
+
+[WebServer.MFA]
 RPID = 'test-rpid'
 RPOrigin = 'test-rp-origin'
-TLSCertPath = 'tls/cert/path'
-TLSHost = 'tls-host'
-TLSKeyPath = 'tls/key/path'
-TLSPort = 6789
-TLSRedirect = true
+
+[WebServer.TLS]
+CertPath = 'tls/cert/path'
+Host = 'tls-host'
+KeyPath = 'tls/key/path'
+Port = 6789
+Redirect = true
 
 [JobPipeline]
 DefaultHTTPLimit = 67

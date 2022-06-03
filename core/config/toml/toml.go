@@ -137,16 +137,22 @@ type WebServerConfig struct {
 	UnAuthenticatedRateLimit       *int64
 	UnAuthenticatedRateLimitPeriod *models.Duration
 
-	// Web Server MFA
+	MFA *WebserverMFAConfig
+
+	TLS *WebserverTLSConfig
+}
+
+type WebserverMFAConfig struct {
 	RPID     *string
 	RPOrigin *string
+}
 
-	// Web Server TLS
-	TLSCertPath *string
-	TLSHost     *string
-	TLSKeyPath  *string
-	TLSPort     *uint16
-	TLSRedirect *bool
+type WebserverTLSConfig struct {
+	CertPath *string
+	Host     *string
+	KeyPath  *string
+	Port     *uint16
+	Redirect *bool
 }
 
 type JobPipelineConfig struct {

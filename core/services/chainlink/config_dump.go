@@ -491,13 +491,17 @@ func (c *Config) loadLegacyCoreEnv() {
 		SessionTimeout:                 envDuration("SessionTimeout"),
 		UnAuthenticatedRateLimit:       envvar.NewInt64("UnAuthenticatedRateLimit").ParsePtr(),
 		UnAuthenticatedRateLimitPeriod: envDuration("UnAuthenticatedRateLimitPeriod"),
-		RPID:                           envvar.NewString("RPID").ParsePtr(),
-		RPOrigin:                       envvar.NewString("RPOrigin").ParsePtr(),
-		TLSCertPath:                    envvar.NewString("TLSCertPath").ParsePtr(),
-		TLSHost:                        envvar.NewString("TLSHost").ParsePtr(),
-		TLSKeyPath:                     envvar.NewString("TLSKeyPath").ParsePtr(),
-		TLSPort:                        envvar.NewUint16("TLSPort").ParsePtr(),
-		TLSRedirect:                    envvar.NewBool("TLSRedirect").ParsePtr(),
+		MFA: &tcfg.WebserverMFAConfig{
+			RPID:     envvar.NewString("RPID").ParsePtr(),
+			RPOrigin: envvar.NewString("RPOrigin").ParsePtr(),
+		},
+		TLS: &tcfg.WebserverTLSConfig{
+			CertPath: envvar.NewString("TLSCertPath").ParsePtr(),
+			Host:     envvar.NewString("TLSHost").ParsePtr(),
+			KeyPath:  envvar.NewString("TLSKeyPath").ParsePtr(),
+			Port:     envvar.NewUint16("TLSPort").ParsePtr(),
+			Redirect: envvar.NewBool("TLSRedirect").ParsePtr(),
+		},
 	}
 
 	c.FeatureFeedsManager = envvar.NewBool("FeatureFeedsManager").ParsePtr()

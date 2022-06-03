@@ -198,13 +198,17 @@ func TestConfig_Marshal(t *testing.T) {
 		SessionTimeout:                 models.MustNewDuration(time.Hour),
 		UnAuthenticatedRateLimit:       ptr[int64](7),
 		UnAuthenticatedRateLimitPeriod: models.MustNewDuration(time.Minute),
-		RPID:                           ptr("test-rpid"),
-		RPOrigin:                       ptr("test-rp-origin"),
-		TLSCertPath:                    ptr("tls/cert/path"),
-		TLSHost:                        ptr("tls-host"),
-		TLSKeyPath:                     ptr("tls/key/path"),
-		TLSPort:                        ptr[uint16](6789),
-		TLSRedirect:                    ptr(true),
+		MFA: &tcfg.WebserverMFAConfig{
+			RPID:     ptr("test-rpid"),
+			RPOrigin: ptr("test-rp-origin"),
+		},
+		TLS: &tcfg.WebserverTLSConfig{
+			CertPath: ptr("tls/cert/path"),
+			Host:     ptr("tls-host"),
+			KeyPath:  ptr("tls/key/path"),
+			Port:     ptr[uint16](6789),
+			Redirect: ptr(true),
+		},
 	}
 	full.JobPipeline = &tcfg.JobPipelineConfig{
 		DefaultHTTPLimit:          ptr[int64](67),
@@ -502,13 +506,17 @@ SecureCookies = true
 SessionTimeout = '1h0m0s'
 UnAuthenticatedRateLimit = 7
 UnAuthenticatedRateLimitPeriod = '1m0s'
+
+[WebServer.MFA]
 RPID = 'test-rpid'
 RPOrigin = 'test-rp-origin'
-TLSCertPath = 'tls/cert/path'
-TLSHost = 'tls-host'
-TLSKeyPath = 'tls/key/path'
-TLSPort = 6789
-TLSRedirect = true
+
+[WebServer.TLS]
+CertPath = 'tls/cert/path'
+Host = 'tls-host'
+KeyPath = 'tls/key/path'
+Port = 6789
+Redirect = true
 `},
 		{"JobPipeline", Config{CoreConfig: tcfg.CoreConfig{JobPipeline: full.JobPipeline}}, `
 [JobPipeline]
