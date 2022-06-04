@@ -3,6 +3,7 @@ package v2
 import (
 	"net"
 
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -30,35 +31,26 @@ type Core struct {
 
 	WebServer *WebServer
 
-	// Feeds manager
+	//TODO feature table?
 	FeatureFeedsManager *bool
 	FeatureUICSAKeys    *bool
 
-	// LogPoller
 	FeatureLogPoller *bool
 
-	// Job Pipeline and tasks
 	JobPipeline *JobPipeline
 
-	// Flux Monitor
-	FMDefaultTransactionQueueDepth *uint32
-	FMSimulateTransactions         *bool
+	FluxMonitor *FluxMonitor
 
-	// OCR V2
 	FeatureOffchainReporting2 *bool
 	OCR2                      *OCR2
 
-	// OCR V1
 	FeatureOffchainReporting *bool
 	OCR                      *OCR
 
-	// P2P Networking
 	P2P *P2P
 
-	// Keeper
 	Keeper *Keeper
 
-	// Debugging
 	AutoPprof *AutoPprof
 }
 
@@ -72,15 +64,13 @@ type Secrets struct {
 type Database struct {
 	ListenerMaxReconnectDuration  *models.Duration
 	ListenerMinReconnectInterval  *models.Duration
-	Migrate                       *bool
+	MigrateOnStartup              *bool
 	ORMMaxIdleConns               *int64
 	ORMMaxOpenConns               *int64
 	TriggerFallbackDBPollInterval *models.Duration
 
-	// Database Global Lock
 	Lock *DatabaseLock
 
-	// Database Autobackups
 	Backup *DatabaseBackup
 }
 
@@ -124,19 +114,16 @@ type Log struct {
 }
 
 type WebServer struct {
-	// Web Server
-	AllowOrigins                   *string
-	AuthenticatedRateLimit         *int64
-	AuthenticatedRateLimitPeriod   *models.Duration
-	BridgeResponseURL              *models.URL
-	HTTPWriteTimeout               *models.Duration
-	Port                           *uint16
-	SecureCookies                  *bool
-	SessionTimeout                 *models.Duration
-	UnAuthenticatedRateLimit       *int64
-	UnAuthenticatedRateLimitPeriod *models.Duration
+	AllowOrigins     *string
+	ExternalURL      *models.URL
+	HTTPWriteTimeout *models.Duration
+	HTTPPort         *uint16
+	SecureCookies    *bool
+	SessionTimeout   *models.Duration
 
 	MFA *WebServerMFA
+
+	RateLimit *WebServerRateLimit
 
 	TLS *WebServerTLS
 }
@@ -146,26 +133,37 @@ type WebServerMFA struct {
 	RPOrigin *string
 }
 
+type WebServerRateLimit struct {
+	Authenticated         *int64
+	AuthenticatedPeriod   *models.Duration
+	Unauthenticated       *int64
+	UnauthenticatedPeriod *models.Duration
+}
+
 type WebServerTLS struct {
-	CertPath *string
-	Host     *string
-	KeyPath  *string
-	Port     *uint16
-	Redirect *bool
+	CertPath      *string
+	ForceRedirect *bool
+	Host          *string
+	HTTPSPort     *uint16
+	KeyPath       *string
 }
 
 type JobPipeline struct {
-	DefaultHTTPLimit          *int64
-	DefaultHTTPTimeout        *models.Duration
-	FeatureExternalInitiators *bool
+	DefaultHTTPRequestTimeout *models.Duration
+	ExternalInitiatorsEnabled *bool
+	HTTPRequestMaxSizeBytes   *int64
 	MaxRunDuration            *models.Duration
 	ReaperInterval            *models.Duration
 	ReaperThreshold           *models.Duration
 	ResultWriteQueueDepth     *uint32
 }
 
+type FluxMonitor struct {
+	DefaultTransactionQueueDepth *uint32
+	SimulateTransactions         *bool
+}
+
 type OCR2 struct {
-	// Global defaults
 	ContractConfirmations              *uint32
 	BlockchainTimeout                  *models.Duration
 	ContractPollInterval               *models.Duration
@@ -177,7 +175,6 @@ type OCR2 struct {
 }
 
 type OCR struct {
-	// Global defaults
 	ObservationTimeout           *models.Duration
 	BlockchainTimeout            *models.Duration
 	ContractPollInterval         *models.Duration
@@ -196,18 +193,28 @@ type P2P struct {
 	IncomingMessageBufferSize *int64
 	OutgoingMessageBufferSize *int64
 
-	// V1 Only
 	V1 *P2PV1
 
-	// V2 Only
 	V2 *P2PV2
+}
+
+func (p *P2P) NetworkStack() ocrnetworking.NetworkingStack {
+	switch {
+	case p.V1 != nil && p.V2 != nil:
+		return ocrnetworking.NetworkingStackV1V2
+	case p.V2 != nil:
+		return ocrnetworking.NetworkingStackV2
+	case p.V1 != nil:
+		return ocrnetworking.NetworkingStackV1
+	}
+	return ocrnetworking.NetworkingStack(0)
 }
 
 type P2PV1 struct {
 	AnnounceIP                       *net.IP
 	AnnouncePort                     *uint16
 	BootstrapCheckInterval           *models.Duration
-	BootstrapPeers                   *[]string
+	DefaultBootstrapPeers            *[]string
 	DHTAnnouncementCounterUserPrefix *uint32
 	DHTLookupInterval                *int64
 	ListenIP                         *net.IP
@@ -218,11 +225,11 @@ type P2PV1 struct {
 }
 
 type P2PV2 struct {
-	AnnounceAddresses *[]string
-	Bootstrappers     *[]string
-	DeltaDial         *models.Duration
-	DeltaReconcile    *models.Duration
-	ListenAddresses   *[]string
+	AnnounceAddresses    *[]string
+	DefaultBootstrappers *[]string
+	DeltaDial            *models.Duration
+	DeltaReconcile       *models.Duration
+	ListenAddresses      *[]string
 }
 
 type Keeper struct {

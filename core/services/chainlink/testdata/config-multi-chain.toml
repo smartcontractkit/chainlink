@@ -7,7 +7,7 @@ TriggerFallbackDBPollInterval = '2m0s'
 Level = 'warn'
 
 [JobPipeline]
-DefaultHTTPTimeout = '30s'
+DefaultHTTPRequestTimeout = '30s'
 
 [OCR2]
 DatabaseTimeout = '20s'

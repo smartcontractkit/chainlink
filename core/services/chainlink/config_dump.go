@@ -433,7 +433,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.Database = &config.Database{
 		ListenerMaxReconnectDuration:  envDuration("DatabaseListenerMaxReconnectDuration"),
 		ListenerMinReconnectInterval:  envDuration("DatabaseListenerMinReconnectInterval"),
-		Migrate:                       envvar.NewBool("MigrateDatabase").ParsePtr(),
+		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
 		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
@@ -477,26 +477,28 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.WebServer = &config.WebServer{
-		AllowOrigins:                   envvar.NewString("AllowOrigins").ParsePtr(),
-		AuthenticatedRateLimit:         envvar.NewInt64("AuthenticatedRateLimit").ParsePtr(),
-		AuthenticatedRateLimitPeriod:   envDuration("AuthenticatedRateLimitPeriod"),
-		BridgeResponseURL:              envURL("BridgeResponseURL"),
-		HTTPWriteTimeout:               envDuration("HTTPServerWriteTimeout"),
-		Port:                           envvar.NewUint16("Port").ParsePtr(),
-		SecureCookies:                  envvar.NewBool("SecureCookies").ParsePtr(),
-		SessionTimeout:                 envDuration("SessionTimeout"),
-		UnAuthenticatedRateLimit:       envvar.NewInt64("UnAuthenticatedRateLimit").ParsePtr(),
-		UnAuthenticatedRateLimitPeriod: envDuration("UnAuthenticatedRateLimitPeriod"),
+		AllowOrigins:     envvar.NewString("AllowOrigins").ParsePtr(),
+		ExternalURL:      envURL("BridgeResponseURL"),
+		HTTPWriteTimeout: envDuration("HTTPServerWriteTimeout"),
+		HTTPPort:         envvar.NewUint16("Port").ParsePtr(),
+		SecureCookies:    envvar.NewBool("SecureCookies").ParsePtr(),
+		SessionTimeout:   envDuration("SessionTimeout"),
 		MFA: &config.WebServerMFA{
 			RPID:     envvar.NewString("RPID").ParsePtr(),
 			RPOrigin: envvar.NewString("RPOrigin").ParsePtr(),
 		},
+		RateLimit: &config.WebServerRateLimit{
+			Authenticated:         envvar.NewInt64("AuthenticatedRateLimit").ParsePtr(),
+			AuthenticatedPeriod:   envDuration("AuthenticatedRateLimitPeriod"),
+			Unauthenticated:       envvar.NewInt64("UnAuthenticatedRateLimit").ParsePtr(),
+			UnauthenticatedPeriod: envDuration("UnAuthenticatedRateLimitPeriod"),
+		},
 		TLS: &config.WebServerTLS{
-			CertPath: envvar.NewString("TLSCertPath").ParsePtr(),
-			Host:     envvar.NewString("TLSHost").ParsePtr(),
-			KeyPath:  envvar.NewString("TLSKeyPath").ParsePtr(),
-			Port:     envvar.NewUint16("TLSPort").ParsePtr(),
-			Redirect: envvar.NewBool("TLSRedirect").ParsePtr(),
+			CertPath:      envvar.NewString("TLSCertPath").ParsePtr(),
+			Host:          envvar.NewString("TLSHost").ParsePtr(),
+			KeyPath:       envvar.NewString("TLSKeyPath").ParsePtr(),
+			HTTPSPort:     envvar.NewUint16("TLSPort").ParsePtr(),
+			ForceRedirect: envvar.NewBool("TLSRedirect").ParsePtr(),
 		},
 	}
 
@@ -504,17 +506,19 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.FeatureUICSAKeys = envvar.NewBool("FeatureUICSAKeys").ParsePtr()
 
 	c.JobPipeline = &config.JobPipeline{
-		DefaultHTTPLimit:          envvar.NewInt64("DefaultHTTPLimit").ParsePtr(),
-		DefaultHTTPTimeout:        envDuration("DefaultHTTPTimeout"),
-		FeatureExternalInitiators: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
+		HTTPRequestMaxSizeBytes:   envvar.NewInt64("DefaultHTTPLimit").ParsePtr(),
+		DefaultHTTPRequestTimeout: envDuration("DefaultHTTPTimeout"),
+		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
 	}
 
-	c.FMDefaultTransactionQueueDepth = envvar.NewUint32("FMDefaultTransactionQueueDepth").ParsePtr()
-	c.FMSimulateTransactions = envvar.NewBool("FMSimulateTransactions").ParsePtr()
+	c.FluxMonitor = &config.FluxMonitor{
+		DefaultTransactionQueueDepth: envvar.NewUint32("FMDefaultTransactionQueueDepth").ParsePtr(),
+		SimulateTransactions:         envvar.NewBool("FMSimulateTransactions").ParsePtr(),
+	}
 
 	c.FeatureOffchainReporting2 = envvar.NewBool("FeatureOffchainReporting2").ParsePtr()
 	c.OCR2 = &config.OCR2{
@@ -557,7 +561,7 @@ func (c *Config) loadLegacyCoreEnv() {
 				AnnounceIP:                       envIP("P2PAnnounceIP"),
 				AnnouncePort:                     envvar.NewUint16("P2PAnnouncePort").ParsePtr(),
 				BootstrapCheckInterval:           envDuration("OCRBootstrapCheckInterval", "P2PBootstrapCheckInterval"),
-				BootstrapPeers:                   envStringSlice("P2PBootstrapPeers"),
+				DefaultBootstrapPeers:            envStringSlice("P2PBootstrapPeers"),
 				DHTAnnouncementCounterUserPrefix: envvar.NewUint32("P2PDHTAnnouncementCounterUserPrefix").ParsePtr(),
 				DHTLookupInterval:                first(envvar.NewInt64("OCRDHTLookupInterval"), envvar.NewInt64("P2PDHTLookupInterval")),
 				ListenIP:                         envIP("P2PListenIP"),
@@ -569,11 +573,11 @@ func (c *Config) loadLegacyCoreEnv() {
 		}
 		if ns == v2 || ns == v1v2 {
 			c.P2P.V2 = &config.P2PV2{
-				AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
-				Bootstrappers:     envStringSlice("P2PV2Bootstrappers"),
-				DeltaDial:         envDuration("P2PV2DeltaDial"),
-				DeltaReconcile:    envDuration("P2PV2DeltaReconcile"),
-				ListenAddresses:   envStringSlice("P2PV2ListenAddresses"),
+				AnnounceAddresses:    envStringSlice("P2PV2AnnounceAddresses"),
+				DefaultBootstrappers: envStringSlice("P2PV2Bootstrappers"),
+				DeltaDial:            envDuration("P2PV2DeltaDial"),
+				DeltaReconcile:       envDuration("P2PV2DeltaReconcile"),
+				ListenAddresses:      envStringSlice("P2PV2ListenAddresses"),
 			}
 		}
 	}

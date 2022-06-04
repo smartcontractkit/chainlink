@@ -20,8 +20,6 @@ type Chain struct {
 	BlockBackfillSkip                 *bool
 	BlockEmissionIdleWarningThreshold *models.Duration
 
-	BlockHistoryEstimator *BlockHistoryEstimator
-
 	ChainType            *string
 	EIP1559DynamicFees   *bool
 	FinalityDepth        *uint32
@@ -43,8 +41,6 @@ type Chain struct {
 	HeadTrackerHistoryDepth     *uint32
 	HeadTrackerMaxBufferSize    *uint32
 	HeadTrackerSamplingInterval *models.Duration
-
-	KeySpecific []KeySpecific `toml:",omitempty"`
 
 	LinkContractAddress  *ethkey.EIP55Address
 	LogBackfillBatchSize *uint32
@@ -78,6 +74,10 @@ type Chain struct {
 	TxResendAfterThreshold *models.Duration
 
 	UseForwarders *bool
+
+	BlockHistoryEstimator *BlockHistoryEstimator
+	
+	KeySpecific []KeySpecific `toml:",omitempty"`
 }
 
 type BlockHistoryEstimator struct {

@@ -7,15 +7,13 @@ ShutdownGracePeriod = '10s'
 FeatureFeedsManager = true
 FeatureUICSAKeys = true
 FeatureLogPoller = true
-FMDefaultTransactionQueueDepth = 100
-FMSimulateTransactions = true
 FeatureOffchainReporting2 = true
 FeatureOffchainReporting = true
 
 [Database]
 ListenerMaxReconnectDuration = '1m0s'
 ListenerMinReconnectInterval = '5m0s'
-Migrate = true
+MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 TriggerFallbackDBPollInterval = '2m0s'
@@ -56,35 +54,41 @@ UnixTS = true
 
 [WebServer]
 AllowOrigins = '*'
-AuthenticatedRateLimit = 42
-AuthenticatedRateLimitPeriod = '1s'
-BridgeResponseURL = 'https://bridge.response'
+ExternalURL = 'https://bridge.response'
 HTTPWriteTimeout = '1m0s'
-Port = 56
+HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
-UnAuthenticatedRateLimit = 7
-UnAuthenticatedRateLimitPeriod = '1m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
 RPOrigin = 'test-rp-origin'
 
+[WebServer.RateLimit]
+Authenticated = 42
+AuthenticatedPeriod = '1s'
+Unauthenticated = 7
+UnauthenticatedPeriod = '1m0s'
+
 [WebServer.TLS]
 CertPath = 'tls/cert/path'
+ForceRedirect = true
 Host = 'tls-host'
+HTTPSPort = 6789
 KeyPath = 'tls/key/path'
-Port = 6789
-Redirect = true
 
 [JobPipeline]
-DefaultHTTPLimit = 67
-DefaultHTTPTimeout = '1m0s'
-FeatureExternalInitiators = true
+DefaultHTTPRequestTimeout = '1m0s'
+ExternalInitiatorsEnabled = true
+HTTPRequestMaxSizeBytes = 67
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 100
+SimulateTransactions = true
 
 [OCR2]
 ContractConfirmations = 11
@@ -115,7 +119,7 @@ OutgoingMessageBufferSize = 17
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
-BootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
+DefaultBootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
 DHTAnnouncementCounterUserPrefix = 4321
 DHTLookupInterval = 9
 ListenIP = '4.3.2.1'
@@ -126,7 +130,7 @@ PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
 AnnounceAddresses = ['a', 'b', 'c']
-Bootstrappers = ['1', '2', '3']
+DefaultBootstrappers = ['1', '2', '3']
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']

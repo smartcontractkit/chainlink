@@ -45,7 +45,7 @@ var (
 				Level: ptr(zapcore.WarnLevel),
 			},
 			JobPipeline: &config.JobPipeline{
-				DefaultHTTPTimeout: models.MustNewDuration(30 * time.Second),
+				DefaultHTTPRequestTimeout: models.MustNewDuration(30 * time.Second),
 			},
 			OCR2: &config.OCR2{
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
@@ -128,19 +128,17 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: config.Core{
-			Dev:                            ptr(true),
-			ExplorerURL:                    mustURL("http://explorer.url"),
-			InsecureFastScrypt:             ptr(true),
-			ReaperExpiration:               models.MustNewDuration(7 * 24 * time.Hour),
-			Root:                           ptr("test/root/dir"),
-			ShutdownGracePeriod:            models.MustNewDuration(10 * time.Second),
-			FeatureFeedsManager:            ptr(true),
-			FeatureUICSAKeys:               ptr(true),
-			FeatureLogPoller:               ptr(true),
-			FMDefaultTransactionQueueDepth: ptr[uint32](100),
-			FMSimulateTransactions:         ptr(true),
-			FeatureOffchainReporting2:      ptr(true),
-			FeatureOffchainReporting:       ptr(true),
+			Dev:                       ptr(true),
+			ExplorerURL:               mustURL("http://explorer.url"),
+			InsecureFastScrypt:        ptr(true),
+			ReaperExpiration:          models.MustNewDuration(7 * 24 * time.Hour),
+			Root:                      ptr("test/root/dir"),
+			ShutdownGracePeriod:       models.MustNewDuration(10 * time.Second),
+			FeatureFeedsManager:       ptr(true),
+			FeatureUICSAKeys:          ptr(true),
+			FeatureLogPoller:          ptr(true),
+			FeatureOffchainReporting2: ptr(true),
+			FeatureOffchainReporting:  ptr(true),
 		},
 	}
 
@@ -148,7 +146,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.Database = &config.Database{
 		ListenerMaxReconnectDuration:  models.MustNewDuration(time.Minute),
 		ListenerMinReconnectInterval:  models.MustNewDuration(5 * time.Minute),
-		Migrate:                       ptr(true),
+		MigrateOnStartup:              ptr(true),
 		ORMMaxIdleConns:               ptr[int64](7),
 		ORMMaxOpenConns:               ptr[int64](13),
 		TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
@@ -188,36 +186,42 @@ func TestConfig_Marshal(t *testing.T) {
 		UnixTS:         ptr(true),
 	}
 	full.WebServer = &config.WebServer{
-		AllowOrigins:                   ptr("*"),
-		AuthenticatedRateLimit:         ptr[int64](42),
-		AuthenticatedRateLimitPeriod:   models.MustNewDuration(time.Second),
-		BridgeResponseURL:              mustURL("https://bridge.response"),
-		HTTPWriteTimeout:               models.MustNewDuration(time.Minute),
-		Port:                           ptr[uint16](56),
-		SecureCookies:                  ptr(true),
-		SessionTimeout:                 models.MustNewDuration(time.Hour),
-		UnAuthenticatedRateLimit:       ptr[int64](7),
-		UnAuthenticatedRateLimitPeriod: models.MustNewDuration(time.Minute),
+		AllowOrigins:     ptr("*"),
+		ExternalURL:      mustURL("https://bridge.response"),
+		HTTPWriteTimeout: models.MustNewDuration(time.Minute),
+		HTTPPort:         ptr[uint16](56),
+		SecureCookies:    ptr(true),
+		SessionTimeout:   models.MustNewDuration(time.Hour),
 		MFA: &config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
 		},
+		RateLimit: &config.WebServerRateLimit{
+			Authenticated:         ptr[int64](42),
+			AuthenticatedPeriod:   models.MustNewDuration(time.Second),
+			Unauthenticated:       ptr[int64](7),
+			UnauthenticatedPeriod: models.MustNewDuration(time.Minute),
+		},
 		TLS: &config.WebServerTLS{
-			CertPath: ptr("tls/cert/path"),
-			Host:     ptr("tls-host"),
-			KeyPath:  ptr("tls/key/path"),
-			Port:     ptr[uint16](6789),
-			Redirect: ptr(true),
+			CertPath:      ptr("tls/cert/path"),
+			Host:          ptr("tls-host"),
+			KeyPath:       ptr("tls/key/path"),
+			HTTPSPort:     ptr[uint16](6789),
+			ForceRedirect: ptr(true),
 		},
 	}
 	full.JobPipeline = &config.JobPipeline{
-		DefaultHTTPLimit:          ptr[int64](67),
-		DefaultHTTPTimeout:        models.MustNewDuration(time.Minute),
-		FeatureExternalInitiators: ptr(true),
+		HTTPRequestMaxSizeBytes:   ptr[int64](67),
+		DefaultHTTPRequestTimeout: models.MustNewDuration(time.Minute),
+		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
+	}
+	full.FluxMonitor = &config.FluxMonitor{
+		DefaultTransactionQueueDepth: ptr[uint32](100),
+		SimulateTransactions:         ptr(true),
 	}
 	full.OCR2 = &config.OCR2{
 		ContractConfirmations:              ptr[uint32](11),
@@ -247,7 +251,7 @@ func TestConfig_Marshal(t *testing.T) {
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
 			BootstrapCheckInterval:           models.MustNewDuration(time.Minute),
-			BootstrapPeers:                   &[]string{"foo", "bar", "should", "these", "be", "typed"},
+			DefaultBootstrapPeers:            &[]string{"foo", "bar", "should", "these", "be", "typed"},
 			DHTAnnouncementCounterUserPrefix: ptr[uint32](4321),
 			DHTLookupInterval:                ptr[int64](9),
 			ListenIP:                         mustIP("4.3.2.1"),
@@ -257,11 +261,11 @@ func TestConfig_Marshal(t *testing.T) {
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: &config.P2PV2{
-			AnnounceAddresses: &[]string{"a", "b", "c"},
-			Bootstrappers:     &[]string{"1", "2", "3"},
-			DeltaDial:         models.MustNewDuration(time.Minute),
-			DeltaReconcile:    models.MustNewDuration(time.Second),
-			ListenAddresses:   &[]string{"foo", "bar"},
+			AnnounceAddresses:    &[]string{"a", "b", "c"},
+			DefaultBootstrappers: &[]string{"1", "2", "3"},
+			DeltaDial:            models.MustNewDuration(time.Minute),
+			DeltaReconcile:       models.MustNewDuration(time.Second),
+			ListenAddresses:      &[]string{"foo", "bar"},
 		},
 	}
 	full.Keeper = &config.Keeper{
@@ -444,8 +448,6 @@ ShutdownGracePeriod = '10s'
 FeatureFeedsManager = true
 FeatureUICSAKeys = true
 FeatureLogPoller = true
-FMDefaultTransactionQueueDepth = 100
-FMSimulateTransactions = true
 FeatureOffchainReporting2 = true
 FeatureOffchainReporting = true
 `},
@@ -453,7 +455,7 @@ FeatureOffchainReporting = true
 [Database]
 ListenerMaxReconnectDuration = '1m0s'
 ListenerMinReconnectInterval = '5m0s'
-Migrate = true
+MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 TriggerFallbackDBPollInterval = '2m0s'
@@ -497,32 +499,39 @@ UnixTS = true
 		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `
 [WebServer]
 AllowOrigins = '*'
-AuthenticatedRateLimit = 42
-AuthenticatedRateLimitPeriod = '1s'
-BridgeResponseURL = 'https://bridge.response'
+ExternalURL = 'https://bridge.response'
 HTTPWriteTimeout = '1m0s'
-Port = 56
+HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
-UnAuthenticatedRateLimit = 7
-UnAuthenticatedRateLimitPeriod = '1m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
 RPOrigin = 'test-rp-origin'
 
+[WebServer.RateLimit]
+Authenticated = 42
+AuthenticatedPeriod = '1s'
+Unauthenticated = 7
+UnauthenticatedPeriod = '1m0s'
+
 [WebServer.TLS]
 CertPath = 'tls/cert/path'
+ForceRedirect = true
 Host = 'tls-host'
+HTTPSPort = 6789
 KeyPath = 'tls/key/path'
-Port = 6789
-Redirect = true
+`},
+		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `
+[FluxMonitor]
+DefaultTransactionQueueDepth = 100
+SimulateTransactions = true
 `},
 		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `
 [JobPipeline]
-DefaultHTTPLimit = 67
-DefaultHTTPTimeout = '1m0s'
-FeatureExternalInitiators = true
+DefaultHTTPRequestTimeout = '1m0s'
+ExternalInitiatorsEnabled = true
+HTTPRequestMaxSizeBytes = 67
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
@@ -560,7 +569,7 @@ OutgoingMessageBufferSize = 17
 AnnounceIP = '1.2.3.4'
 AnnouncePort = 1234
 BootstrapCheckInterval = '1m0s'
-BootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
+DefaultBootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
 DHTAnnouncementCounterUserPrefix = 4321
 DHTLookupInterval = 9
 ListenIP = '4.3.2.1'
@@ -571,7 +580,7 @@ PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
 AnnounceAddresses = ['a', 'b', 'c']
-Bootstrappers = ['1', '2', '3']
+DefaultBootstrappers = ['1', '2', '3']
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
