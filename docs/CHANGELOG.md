@@ -30,6 +30,7 @@ For backward compatibility all insecure passwords will continue to work, however
 - The `Optimism2` `GAS_ESTIMATOR_MODE` has been renamed to `L2Suggested`. The old name is still supported for now.
 
 - The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
+
 ### Added 
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
 - In job pipeline (direct request) the three new block variables are exposed:
@@ -53,6 +54,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
 - Correctly handle the case where bumped gas would exceed the RPC node's configured maximum on Fantom (note that node operators should check their Fantom RPC node configuration and remove the fee cap if there is one)
+- Fixed handling of Metis internal fee change
 
 ### Removed
 
