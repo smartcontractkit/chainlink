@@ -14,10 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -81,8 +84,8 @@ func eoaDeployConsumer(e environment, coordinatorAddress string, linkAddress str
 	return confirmContractDeployed(context.Background(), e.ec, tx, e.chainID)
 }
 
-func eoaFundSubscription(e environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, linkAddress string, amount *big.Int, subID uint64) {
-	linkToken, err := link_token_interface.NewLinkToken(common.HexToAddress(linkAddress), e.ec)
+func eoaFundSubscription(e environment, coordinatorAddress common.Address, linkAddress common.Address, amount *big.Int, subID uint64) {
+	linkToken, err := link_token_interface.NewLinkToken(linkAddress, e.ec)
 	helpers.PanicErr(err)
 	bal, err := linkToken.BalanceOf(nil, e.owner.From)
 	helpers.PanicErr(err)
@@ -90,7 +93,7 @@ func eoaFundSubscription(e environment, coordinator vrf_coordinator_v2.VRFCoordi
 	b, err := utils.GenericEncode([]string{"uint64"}, subID)
 	helpers.PanicErr(err)
 	e.owner.GasLimit = 500000
-	tx, err := linkToken.TransferAndCall(e.owner, coordinator.Address(), amount, b)
+	tx, err := linkToken.TransferAndCall(e.owner, coordinatorAddress, amount, b)
 	helpers.PanicErr(err)
 	confirmTXMined(context.Background(), e.ec, tx, e.chainID, fmt.Sprintf("sub ID: %d", subID))
 }
@@ -240,4 +243,66 @@ func binarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 	}
 
 	return bottom
+}
+
+func wrapperDeploy(
+	owner *bind.TransactOpts,
+	ec *ethclient.Client,
+	chainID int64,
+	link, linkEthFeed, coordinator common.Address,
+) (common.Address, uint64) {
+	address, tx, _, err := vrfv2_wrapper.DeployVRFV2Wrapper(owner, ec,
+		link,
+		linkEthFeed,
+		coordinator)
+	helpers.PanicErr(err)
+
+	confirmContractDeployed(context.Background(), ec, tx, chainID)
+	fmt.Printf("VRFV2Wrapper address: %s\n", address)
+
+	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(address, ec)
+	helpers.PanicErr(err)
+
+	subID, err := wrapper.SUBSCRIPTIONID(nil)
+	helpers.PanicErr(err)
+
+	return address, subID
+}
+
+func wrapperConfigure(
+	owner *bind.TransactOpts,
+	ec *ethclient.Client,
+	chainID int64,
+	wrapperAddress common.Address,
+	gasOverhead, premiumPercentage uint,
+	keyHash string,
+	maxNumWords uint,
+) {
+	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(wrapperAddress, ec)
+	helpers.PanicErr(err)
+
+	tx, err := wrapper.SetConfig(
+		owner,
+		uint32(gasOverhead),
+		uint8(premiumPercentage),
+		common.HexToHash(keyHash),
+		uint8(maxNumWords))
+	helpers.PanicErr(err)
+	confirmTXMined(context.Background(), ec, tx, chainID)
+}
+
+func wrapperConsumerDeploy(
+	owner *bind.TransactOpts,
+	ec *ethclient.Client,
+	chainID int64,
+	link, wrapper common.Address,
+) common.Address {
+	address, tx, _, err := vrfv2_wrapper_consumer_example.DeployVRFV2WrapperConsumerExample(owner, ec,
+		link,
+		wrapper)
+	helpers.PanicErr(err)
+
+	confirmContractDeployed(context.Background(), ec, tx, chainID)
+	fmt.Printf("VRFV2WrapperConsumerExample address: %s\n", address)
+	return address
 }

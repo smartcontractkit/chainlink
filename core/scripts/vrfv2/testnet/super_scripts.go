@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -111,7 +112,7 @@ func deployUniverse(e environment) {
 	eoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
 
 	fmt.Println("\nFunding subscription...")
-	eoaFundSubscription(e, *coordinator, *linkAddress, subscriptionBalance, subID)
+	eoaFundSubscription(e, coordinator.Address(), common.HexToAddress(*linkAddress), subscriptionBalance, subID)
 
 	fmt.Println("\nSubscribed and funded, retrieving subscription from deployed contract...")
 	s, err := coordinator.GetSubscription(nil, subID)
