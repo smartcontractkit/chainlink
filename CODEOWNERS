@@ -36,10 +36,12 @@
 
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
-/contracts/**/Keeper* @smartcontractkit/keepers
+/contracts/**/*Keeper* @smartcontractkit/keepers
+/contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
 /integration-tests/ @kalverra
+/integration-tests/**/*keeper* @smartcontractkit/keepers
 
 # Misc
 /core/store @archseer @samsondav @jmank88
