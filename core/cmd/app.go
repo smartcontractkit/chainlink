@@ -999,7 +999,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "track",
-					Usage:  "Tracks a new forwarder addr storing eoa and dest addresses",
+					Usage:  "Tracks a new forwarder addr storing the sender externally-owned-account address and destination contract address",
 					Action: client.TrackForwarder,
 					Flags: []cli.Flag{
 						cli.Int64Flag{

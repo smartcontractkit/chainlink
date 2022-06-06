@@ -15,7 +15,7 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CreateForwarder(addr common.Address, eoa_addr common.Address, dest_addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
+	CreateForwarder(addr common.Address, eoaAddr common.Address, destAddr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
 	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, error)
 	DeleteForwarder(id int32) error
@@ -33,9 +33,9 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
 }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
-func (o *orm) CreateForwarder(addr common.Address, eoa_addr common.Address, dest_addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error) {
+func (o *orm) CreateForwarder(addr common.Address, eoaAddr common.Address, destAddr common.Address, evmChainId utils.Big) (fwd Forwarder, err error) {
 	sql := `INSERT INTO evm_forwarders (address, eoa, dest, evm_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, now(), now()) RETURNING *`
-	err = o.q.Get(&fwd, sql, addr, eoa_addr, dest_addr, evmChainId)
+	err = o.q.Get(&fwd, sql, addr, eoaAddr, destAddr, evmChainId)
 	return fwd, err
 }
 
