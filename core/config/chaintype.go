@@ -20,6 +20,16 @@ func (c ChainType) IsValid() bool {
 	return false
 }
 
+// IsOptimismClone returns true if chain is Optimism or a clone
+func (c ChainType) IsOptimismClone() bool {
+	switch c {
+	case ChainMetis, ChainOptimism:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsL2 returns true if this chain is a Layer 2 chain. Notably the block numbers
 // used for log searching are different from calling block.number
 func (c ChainType) IsL2() bool {
