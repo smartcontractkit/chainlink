@@ -116,6 +116,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true, "Parity"},
 			{"gas price too low", true, "Arbitrum"},
+			{"FeeTooLow", true, "Nethermind"},
+			{"FeeTooLowToCompete", true, "Nethermind"},
 		}
 
 		for _, test := range tests {
@@ -182,25 +184,37 @@ func Test_Eth_Errors(t *testing.T) {
 
 	t.Run("Optimism Fees errors", func(t *testing.T) {
 		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsFeeTooHigh())
-		assert.False(t, err.IsFeeTooLow())
+		assert.True(t, err.IsOptimismFeeTooHigh())
+		assert.False(t, err.IsOptimismFeeTooLow())
 		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsFeeTooHigh())
-		assert.False(t, err.IsFeeTooLow())
+		assert.True(t, err.IsOptimismFeeTooHigh())
+		assert.False(t, err.IsOptimismFeeTooLow())
 
 		err = evmclient.NewSendErrorS("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
-		assert.False(t, err.IsFeeTooHigh())
-		assert.True(t, err.IsFeeTooLow())
+		assert.False(t, err.IsOptimismFeeTooHigh())
+		assert.True(t, err.IsOptimismFeeTooLow())
 		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
-		assert.False(t, err.IsFeeTooHigh())
-		assert.True(t, err.IsFeeTooLow())
+		assert.False(t, err.IsOptimismFeeTooHigh())
+		assert.True(t, err.IsOptimismFeeTooLow())
 
-		assert.False(t, randomError.IsFeeTooHigh())
-		assert.False(t, randomError.IsFeeTooLow())
+		assert.False(t, randomError.IsOptimismFeeTooHigh())
+		assert.False(t, randomError.IsOptimismFeeTooLow())
 		// Nil
 		err = evmclient.NewSendError(nil)
-		assert.False(t, err.IsFeeTooHigh())
-		assert.False(t, err.IsFeeTooLow())
+		assert.False(t, err.IsOptimismFeeTooHigh())
+		assert.False(t, err.IsOptimismFeeTooLow())
+	})
+
+	t.Run("Metis gas price errors", func(t *testing.T) {
+		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		assert.True(t, err.IsOptimismFeeTooLow())
+		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		assert.True(t, err.IsOptimismFeeTooLow())
+
+		assert.False(t, randomError.IsOptimismFeeTooLow())
+		// Nil
+		err = evmclient.NewSendError(nil)
+		assert.False(t, err.IsOptimismFeeTooLow())
 	})
 
 	t.Run("moonriver errors", func(t *testing.T) {
