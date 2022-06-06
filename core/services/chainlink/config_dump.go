@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -28,26 +29,22 @@ import (
 func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error) {
 	var c Config
 
-	if err := c.loadChainsAndNodes(ctx, app.Chains); err != nil {
-		return "", err
+	if app != nil {
+		if err := c.loadChainsAndNodes(ctx, app.Chains); err != nil {
+			return "", err
+		}
 	}
 
 	c.loadLegacyEVMEnv()
 
 	c.loadLegacyCoreEnv()
 
-	b, err := toml.Marshal(c)
-	if err != nil {
-		return "", err
-	}
-
-	return string(b), nil
+	return prettyPrint(c)
 }
 
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
-//TODO doc
 func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
-	{
+	if chains.EVM != nil {
 		dbChains, _, err := chains.EVM.Index(0, -1)
 		if err != nil {
 			return err
@@ -69,7 +66,7 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 		}
 	}
 
-	{
+	if chains.Solana != nil {
 		dbChains, _, err := chains.Solana.Index(0, -1)
 		if err != nil {
 			return err
@@ -91,7 +88,7 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 		}
 	}
 
-	{
+	if chains.Terra != nil {
 		dbChains, _, err := chains.Terra.Index(0, -1)
 		if err != nil {
 			return err
@@ -117,7 +114,6 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 }
 
 // loadLegacyEVMEnv reads legacy ETH/EVM global overrides from the environment and updates all EVM chains.
-//TODO test
 func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewBool("BalanceMonitorEnabled").ParsePtr(); e != nil {
 		for i := range c.EVM {
@@ -138,6 +134,11 @@ func (c *Config) loadLegacyEVMEnv() {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
 			c.EVM[i].BlockEmissionIdleWarningThreshold = d
+		}
+	}
+	if e := envvar.NewString("ChainType").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].ChainType = e
 		}
 	}
 	if e := envvar.NewDuration("EthTxReaperInterval").ParsePtr(); e != nil {
@@ -421,7 +422,6 @@ func (c *Config) loadLegacyEVMEnv() {
 }
 
 // loadLegacyCoreEnv loads Core values from legacy environment variables.
-//TODO test
 func (c *Config) loadLegacyCoreEnv() {
 	c.Dev = envvar.NewBool("Dev").ParsePtr()
 	c.ExplorerURL = envURL("ExplorerURL")
@@ -452,6 +452,15 @@ func (c *Config) loadLegacyCoreEnv() {
 			URL:              envURL("DatabaseBackupDir"),
 		},
 	}
+	if isZeroPtr(c.Database.Lock) {
+		c.Database.Lock = nil
+	}
+	if isZeroPtr(c.Database.Backup) {
+		c.Database.Backup = nil
+	}
+	if isZeroPtr(c.Database) {
+		c.Database = nil
+	}
 
 	c.TelemetryIngress = &config.TelemetryIngress{
 		UniConn:      envvar.NewBool("TelemetryIngressUniConn").ParsePtr(),
@@ -464,6 +473,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		SendTimeout:  envDuration("TelemetryIngressSendTimeout"),
 		UseBatchSend: envvar.NewBool("TelemetryIngressUseBatchSend").ParsePtr(),
 	}
+	if isZeroPtr(c.TelemetryIngress) {
+		c.TelemetryIngress = nil
+	}
 
 	c.Log = &config.Log{
 		JSONConsole:    envvar.JSONConsole.ParsePtr(),
@@ -474,6 +486,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		FileMaxAgeDays: envvar.LogFileMaxAge.ParsePtr(),
 		FileMaxBackups: envvar.LogFileMaxBackups.ParsePtr(),
 		UnixTS:         envvar.LogUnixTS.ParsePtr(),
+	}
+	if isZeroPtr(c.Log) {
+		c.Log = nil
 	}
 
 	c.WebServer = &config.WebServer{
@@ -501,6 +516,18 @@ func (c *Config) loadLegacyCoreEnv() {
 			ForceRedirect: envvar.NewBool("TLSRedirect").ParsePtr(),
 		},
 	}
+	if isZeroPtr(c.WebServer.MFA) {
+		c.WebServer.MFA = nil
+	}
+	if isZeroPtr(c.WebServer.RateLimit) {
+		c.WebServer.RateLimit = nil
+	}
+	if isZeroPtr(c.WebServer.TLS) {
+		c.WebServer.TLS = nil
+	}
+	if isZeroPtr(c.WebServer) {
+		c.WebServer = nil
+	}
 
 	c.FeatureFeedsManager = envvar.NewBool("FeatureFeedsManager").ParsePtr()
 	c.FeatureUICSAKeys = envvar.NewBool("FeatureUICSAKeys").ParsePtr()
@@ -514,10 +541,16 @@ func (c *Config) loadLegacyCoreEnv() {
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
 	}
+	if isZeroPtr(c.JobPipeline) {
+		c.JobPipeline = nil
+	}
 
 	c.FluxMonitor = &config.FluxMonitor{
 		DefaultTransactionQueueDepth: envvar.NewUint32("FMDefaultTransactionQueueDepth").ParsePtr(),
 		SimulateTransactions:         envvar.NewBool("FMSimulateTransactions").ParsePtr(),
+	}
+	if isZeroPtr(c.FluxMonitor) {
+		c.FluxMonitor = nil
 	}
 
 	c.FeatureOffchainReporting2 = envvar.NewBool("FeatureOffchainReporting2").ParsePtr()
@@ -530,6 +563,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
 		MonitoringEndpoint:                 envvar.NewString("OCR2MonitoringEndpoint").ParsePtr(),
+	}
+	if isZeroPtr(c.OCR2) {
+		c.OCR2 = nil
 	}
 
 	c.FeatureOffchainReporting = envvar.NewBool("FeatureOffchainReporting").ParsePtr()
@@ -544,6 +580,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
 		TraceLogging:                 envvar.NewBool("OCRTraceLogging").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
+	}
+	if isZeroPtr(c.OCR) {
+		c.OCR = nil
 	}
 
 	c.P2P = &config.P2P{
@@ -581,6 +620,15 @@ func (c *Config) loadLegacyCoreEnv() {
 			}
 		}
 	}
+	if isZeroPtr(c.P2P.V1) {
+		c.P2P.V1 = nil
+	}
+	if isZeroPtr(c.P2P.V2) {
+		c.P2P.V2 = nil
+	}
+	if isZeroPtr(c.P2P) {
+		c.P2P = nil
+	}
 
 	c.Keeper = &config.Keeper{
 		CheckUpkeepGasPriceFeatureEnabled: envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
@@ -596,6 +644,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		TurnLookBack:                      envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
 		TurnFlagEnabled:                   envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
 	}
+	if isZeroPtr(c.Keeper) {
+		c.Keeper = nil
+	}
 
 	c.AutoPprof = &config.AutoPprof{
 		Enabled:              envvar.NewBool("AutoPprofEnabled").ParsePtr(),
@@ -610,6 +661,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		MutexProfileFraction: envvar.NewInt64("AutoPprofMutexProfileFraction").ParsePtr(),
 		MemThreshold:         envvar.New("AutoPprofMemThreshold", parse.FileSize).ParsePtr(),
 		GoroutineThreshold:   envvar.NewInt64("AutoPprofGoroutineThreshold").ParsePtr(),
+	}
+	if isZeroPtr(c.AutoPprof) {
+		c.AutoPprof = nil
 	}
 }
 
@@ -660,4 +714,25 @@ func envBig(s string) *utils.Big {
 		err = b.UnmarshalText([]byte(s))
 		return
 	}).ParsePtr()
+}
+
+var multiLineBreak = regexp.MustCompile("(\n){2,}")
+
+//TODO hopefully not really necessary...
+func prettyPrint(c Config) (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	// remove runs of line breaks
+	s := multiLineBreak.ReplaceAllLiteralString(string(b), "\n")
+	// restore them preceding keys
+	s = strings.Replace(s, "\n[", "\n\n[", -1)
+	s = strings.TrimPrefix(s, "\n")
+	return s, nil
+}
+
+func isZeroPtr[T comparable](p *T) bool {
+	var t T
+	return p == nil || *p == t
 }

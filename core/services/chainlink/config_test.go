@@ -5,8 +5,6 @@ import (
 	"math"
 	"math/big"
 	"net"
-	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -775,22 +773,6 @@ func mustIP(s string) *net.IP {
 		panic(err)
 	}
 	return &ip
-}
-
-var multiLineBreak = regexp.MustCompile("(\n){2,}")
-
-//TODO hopefully not really necessary...
-func prettyPrint(c Config) (string, error) {
-	b, err := toml.Marshal(c)
-	if err != nil {
-		return "", err
-	}
-	// remove runs of line breaks
-	s := multiLineBreak.ReplaceAllLiteralString(string(b), "\n")
-	// restore them preceding keys
-	s = strings.Replace(s, "\n[", "\n\n[", -1)
-	s = strings.TrimPrefix(s, "\n")
-	return s, nil
 }
 
 func ptr[T any](v T) *T {
