@@ -2,10 +2,8 @@ package smoke_test
 
 //revive:disable:dot-imports
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -150,27 +148,30 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	})
 
 	Describe("with VRF job", func() {
-		It("randomness is fulfilled", func() {
-			words := uint32(10)
-			keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
-			Expect(err).ShouldNot(HaveOccurred())
-			err = consumer.RequestRandomness(keyHash, 1, 1, 300000, words)
-			Expect(err).ShouldNot(HaveOccurred())
+		// This test is disabled until sc-43033 is fixed
+		/*
+			It("randomness is fulfilled", func() {
+				words := uint32(10)
+				keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
+				Expect(err).ShouldNot(HaveOccurred())
+				err = consumer.RequestRandomness(keyHash, 1, 1, 300000, words)
+				Expect(err).ShouldNot(HaveOccurred())
 
-			timeout := time.Minute * 2
+				timeout := time.Minute * 2
 
-			Eventually(func(g Gomega) {
-				jobRuns, err := cls[0].ReadRunsByJob(job.Data.ID)
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(len(jobRuns.Data)).Should(BeNumerically("==", 1))
-				randomness, err := consumer.GetAllRandomWords(context.Background(), int(words))
-				g.Expect(err).ShouldNot(HaveOccurred())
-				for _, w := range randomness {
-					log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-					g.Expect(w.Uint64()).Should(Not(BeNumerically("==", 0)), "Expected the VRF job give an answer other than 0")
-				}
-			}, timeout, "1s").Should(Succeed())
-		})
+				Eventually(func(g Gomega) {
+					jobRuns, err := cls[0].ReadRunsByJob(job.Data.ID)
+					g.Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(len(jobRuns.Data)).Should(BeNumerically("==", 1))
+					randomness, err := consumer.GetAllRandomWords(context.Background(), int(words))
+					g.Expect(err).ShouldNot(HaveOccurred())
+					for _, w := range randomness {
+						log.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+						g.Expect(w.Uint64()).Should(Not(BeNumerically("==", 0)), "Expected the VRF job give an answer other than 0")
+					}
+				}, timeout, "1s").Should(Succeed())
+			})
+		*/
 	})
 
 	AfterEach(func() {
