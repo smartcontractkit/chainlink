@@ -46,9 +46,14 @@ const (
 	TransactionAlreadyInMempool
 	TerminallyUnderpriced
 	InsufficientEth
-	TooExpensive
-	FeeTooLow
-	FeeTooHigh
+	TxFeeExceedsCap
+	// Note: OptimismFeeTooLow/OptimismFeeTooHigh have a very specific meaning
+	// specific to Optimism and clones. Do not implement this for non-L2
+	// chains. This is potentially confusing because some RPC nodes e.g.
+	// Nethermind implement an error called `FeeTooLow` which has distinct
+	// meaning from this one.
+	OptimismFeeTooLow
+	OptimismFeeTooHigh
 	TransactionAlreadyMined
 	Fatal
 )
@@ -77,7 +82,7 @@ var geth = ClientErrors{
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
-	TooExpensive:                      regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)$`),
+	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	Fatal:                             gethFatal,
 }
 
@@ -95,8 +100,12 @@ var arbitrum = ClientErrors{
 }
 
 var optimism = ClientErrors{
-	FeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
-	FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
+	OptimismFeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
+	OptimismFeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
+}
+
+var metis = ClientErrors{
+	OptimismFeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
 }
 
 // Substrate (Moonriver)
@@ -118,15 +127,13 @@ var nethermind = ClientErrors{
 	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce$`),
 
 	// FeeTooLow/FeeTooLowToCompete: Fee paid by this transaction is not enough to be accepted in the mempool.
-	FeeTooLow: regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)$`),
 
 	// AlreadyKnown: A transaction with the same hash has already been added to the pool in the past.
 	// OwnNonceAlreadyUsed: A transaction with same nonce has been signed locally already and is awaiting in the pool.
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
-	// The TooExpensive filter uses InsufficientFunds: https://github.com/NethermindEth/nethermind/blob/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters/TooExpensiveTxFilter.cs
-	TooExpensive:    regexp.MustCompile(`(: |^)InsufficientFunds$`),
 	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds$`),
 	Fatal:           nethermindFatal,
 }
@@ -139,7 +146,7 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate, avalanche, nethermind, harmony}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -191,22 +198,22 @@ func (s *SendError) IsInsufficientEth() bool {
 	return s.is(InsufficientEth)
 }
 
-// IsTooExpensive returns true if the transaction and gas price are combined in
+// IsTxFeeExceedsCap returns true if the transaction and gas price are combined in
 // some way that makes the total transaction too expensive for the eth node to
 // accept at all. No amount of retrying at this or higher gas prices can ever
 // succeed.
-func (s *SendError) IsTooExpensive() bool {
-	return s.is(TooExpensive)
+func (s *SendError) IsTxFeeExceedsCap() bool {
+	return s.is(TxFeeExceedsCap)
 }
 
-// IsFeeTooLow is an optimism-specific error returned when total fee is too low
-func (s *SendError) IsFeeTooLow() bool {
-	return s.is(FeeTooLow)
+// IsOptimismFeeTooLow is an optimism-specific error returned when total fee is too low
+func (s *SendError) IsOptimismFeeTooLow() bool {
+	return s.is(OptimismFeeTooLow)
 }
 
-// IsFeeTooHigh is an optimism-specific error returned when total fee is too high
-func (s *SendError) IsFeeTooHigh() bool {
-	return s.is(FeeTooHigh)
+// IsOptimismFeeTooHigh is an optimism-specific error returned when total fee is too high
+func (s *SendError) IsOptimismFeeTooHigh() bool {
+	return s.is(OptimismFeeTooHigh)
 }
 
 func NewFatalSendError(e error) *SendError {

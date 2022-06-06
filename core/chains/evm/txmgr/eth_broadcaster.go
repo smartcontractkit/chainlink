@@ -396,7 +396,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	cancel()
 
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
-	if sendError.IsTooExpensive() {
+	if sendError.IsTxFeeExceedsCap() {
 		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"ethTxID", etx.ID,
 			"err", sendError,
@@ -464,9 +464,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		return eb.tryAgainBumpingGas(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 	}
 
-	// Optimism-specific cases
-	if sendError.IsFeeTooLow() || sendError.IsFeeTooHigh() {
-		return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
+	// Optimism/Metis-specific cases
+	if sendError.IsOptimismFeeTooLow() || sendError.IsOptimismFeeTooHigh() {
+		if eb.ChainKeyStore.config.ChainType().IsOptimismClone() {
+			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
+		}
+		return errors.Wrap(sendError, "this error type only handled for Optimism and clones")
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -642,7 +645,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}
-	lgr.Warnw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
+	lgr.Warnw("Optimism/Metis rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }
