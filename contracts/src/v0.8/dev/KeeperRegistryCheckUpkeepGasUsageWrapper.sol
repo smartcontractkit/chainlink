@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.13;
 
-import {KeeperRegistryExecutableInterface} from "../KeeperRegistry.sol";
-import "../ConfirmedOwner.sol";
+import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
+import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 
 /**
  * @notice This contract serves as a wrapper around a keeper registry's checkUpkeep function.

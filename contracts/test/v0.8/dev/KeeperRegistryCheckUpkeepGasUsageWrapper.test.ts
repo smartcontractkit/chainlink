@@ -117,7 +117,7 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
       await registryMockContract.mock.checkUpkeep
         .withArgs(upkeepId, keeperAddresses[nextKeeperIndex])
         .returns(
-          '0x' /* performData */,
+          '0xabcd' /* performData */,
           BigNumber.from(1000) /* maxLinkPayment */,
           BigNumber.from(2000) /* gasLimit */,
           BigNumber.from(3000) /* adjustedGasWei */,
@@ -131,7 +131,7 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
       assert.isTrue(response[0], 'The checkUpkeepSuccess should be true')
       assert.equal(
         response[1],
-        '0x',
+        '0xabcd',
         'The performData should be forwarded correctly',
       )
       assert.isTrue(
