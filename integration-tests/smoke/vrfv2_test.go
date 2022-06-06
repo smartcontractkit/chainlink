@@ -129,7 +129,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 					Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 					CoordinatorAddress:       coordinator.Address(),
 					FromAddress:              oracleAddr,
-					EVMChainID:               "1337",
+					EVMChainID:               nets.Default.GetChainID().String(),
 					MinIncomingConfirmations: 1,
 					PublicKey:                pubKeyCompressed,
 					ExternalJobID:            jobUUID.String(),
