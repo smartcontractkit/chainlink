@@ -74,9 +74,13 @@ In order to run the Chainlink node you must have access to a running Ethereum no
 Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
 Ethereum node versions currently tested and supported:
 
+[Officially supported]
 - [Parity/Openethereum](https://github.com/openethereum/openethereum)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
 - [Nethermind](https://github.com/NethermindEth/nethermind)
+
+[Unofficially supported]
+- [Besu](https://github.com/hyperledger/besu)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
