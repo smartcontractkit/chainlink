@@ -1,4 +1,4 @@
-package csakey
+package vrfkey
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 )
 
-func TestCSAKeys_ExportImport(t *testing.T) {
+func TestVRFKeys_ExportImport(t *testing.T) {
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 

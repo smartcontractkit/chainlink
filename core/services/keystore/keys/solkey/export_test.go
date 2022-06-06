@@ -1,4 +1,4 @@
-package csakey
+package solkey
 
 import (
 	"testing"
@@ -6,12 +6,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 )
 
-func TestCSAKeys_ExportImport(t *testing.T) {
+func TestSolanaKeys_ExportImport(t *testing.T) {
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 
 func createKey() (keys.KeyType, error) {
-	return NewV2()
+	return New()
 }
 
 func decryptKey(keyJSON []byte, password string) (keys.KeyType, error) {
