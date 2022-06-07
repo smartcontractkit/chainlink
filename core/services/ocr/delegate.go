@@ -142,13 +142,11 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 	}
 
-	if concreteSpec.P2PV2Bootstrappers != nil {
-		v2Bootstrappers = concreteSpec.P2PBootstrapPeers
-	} else {
-		v2Bootstrappers, err = chain.Config().P2PV2Bootstrappers()
-		if err != nil {
-			return nil, err
-		}
+	v2Bootstrappers, err := ocrcommon.ParseBootstrapPeers(concreteSpec.P2PV2Bootstrappers)
+	if err != nil {
+		return nil, err
+	} else if len(v2Bootstrappers) == 0 {
+		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
 	}
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
@@ -166,7 +164,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			V1Bootstrappers:       v1BootstrapPeers,
-			V2Bootstrappers:       v2BootstrapPeers,
+			V2Bootstrappers:       v2Bootstrappers,
 			ContractConfigTracker: tracker,
 			Database:              ocrDB,
 			LocalConfig:           lc,
@@ -189,7 +187,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
 		//   node config or in job spec
 		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV1 {
-			if len(v2BootstrapPeers) < 1 {
+			if len(v2Bootstrappers) < 1 {
 				return nil, errors.New("Need at least one v2 bootstrap peer defined")
 			}
 		}
@@ -263,7 +261,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
-			V2Bootstrappers:              v2BootstrapPeers,
+			V2Bootstrappers:              v2Bootstrappers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String()),
 			ConfigOverrider:              configOverrider,
 		})
