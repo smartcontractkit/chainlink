@@ -61,7 +61,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.2
+        uses: smartcontractkit/ctf-ci-e2e-action@c41712a31b46f55328c312d049b017ff576485ab
         with:
           test_command_to_run: make test_smoke args="-nodes=10"
           test_download_vendor_packages_command: make gomod
