@@ -417,15 +417,13 @@ func getKeeperSuite(
 						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
 					}, "1m", "1s").Should(Succeed())
 
-					// While we registered the new upkeep, the initial upkeeps that were created first should have
-					// kept performing and hence their counters should be larger than what they were before.
-					for i := 0; i < len(upkeepIDs); i++ {
-						currentCounter, err := consumers[i].Counter(context.Background())
-						Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						log.Info().Int64("Upkeep counter", currentCounter.Int64()).Msg("Upkeep cancelled")
-
-						Expect(initialCounters[i].Int64() <= currentCounter.Int64()).To(BeTrue())
-					}
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							currentCounter, err := consumers[i].Counter(context.Background())
+							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							Expect(initialCounters[i].Int64() < currentCounter.Int64()).To(BeTrue())
+						}
+					}, "1m", "1s").Should(Succeed())
 
 					// Test that we can also cancel the newly registered upkeep.
 					err := registry.CancelUpkeep(newUpkeepID)
