@@ -73,7 +73,7 @@ func setup(t *testing.T) (
 	estimator := new(gasmocks.Estimator)
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, Mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
 	estimator.On("GetDynamicFee", mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
 		FeeCap: assets.GWei(60),
 		TipCap: assets.GWei(60),

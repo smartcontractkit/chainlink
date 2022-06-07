@@ -123,7 +123,7 @@ func (*l2SuggestedEstimator) BumpDynamicFee(_ DynamicFee, _ uint64, _ *big.Int) 
 	return
 }
 
-func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = l2GasLimit
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
@@ -150,6 +150,9 @@ func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ..
 	})
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
+	}
+	if gasPrice != nil {
+		gasPrice = capGasPrice(gasPrice, maxGasPriceWei, o.config)
 	}
 	return
 }

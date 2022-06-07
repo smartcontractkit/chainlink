@@ -188,7 +188,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		assert.Nil(t, gas.GetLatestBaseFee(bhe))
 
-		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
+		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100, maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 
@@ -214,7 +214,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
 
-		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
+		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100, maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 
@@ -261,7 +261,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
 
-		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
+		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100, maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 
@@ -1569,6 +1569,75 @@ func TestBlockHistoryEstimator_EIP1559Block_Unmarshal(t *testing.T) {
 	assert.Nil(t, block.Transactions[3].GasPrice)
 	assert.Equal(t, 21000, int(block.Transactions[3].GasLimit))
 	assert.Equal(t, "0x13d4ecea98e37359e63e39e350ed0b1456e1acbf985eb8d4a0ef0e89a705c10d", block.Transactions[3].Hash.String())
+}
+
+func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
+	t.Parallel()
+
+	cfg := newConfigWithEIP1559DynamicFeesDisabled(t)
+
+	maxGasPrice := big.NewInt(1000000)
+	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+	cfg.On("EvmEIP1559DynamicFees").Return(false)
+	cfg.On("EvmGasLimitMultiplier").Return(float32(1))
+	cfg.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+
+	bhe := newBlockHistoryEstimator(t, nil, cfg)
+
+	blocks := []gas.Block{
+		{
+			Number:       0,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1000),
+		},
+		{
+			Number:       1,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1200),
+		},
+	}
+
+	gas.SetRollingBlockHistory(bhe, blocks)
+	bhe.Recalculate(cltest.Head(1))
+	gas.SimulateStart(bhe)
+
+	t.Run("if gas price is lower than global max and user specified max gas price", func(t *testing.T) {
+		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, maxGasPrice)
+		require.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(1000), fee)
+		assert.Equal(t, 10000, int(limit))
+	})
+
+	t.Run("if gas price is higher than user-specified max", func(t *testing.T) {
+		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, big.NewInt(800))
+		require.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(800), fee)
+		assert.Equal(t, 10000, int(limit))
+	})
+
+	cfg = newConfigWithEIP1559DynamicFeesDisabled(t)
+	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+	cfg.On("EvmEIP1559DynamicFees").Return(false)
+	cfg.On("EvmGasLimitMultiplier").Return(float32(1))
+	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(700))
+	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+	bhe = newBlockHistoryEstimator(t, nil, cfg)
+	gas.SetRollingBlockHistory(bhe, blocks)
+	bhe.Recalculate(cltest.Head(1))
+	gas.SimulateStart(bhe)
+
+	t.Run("if gas price is higher than global max", func(t *testing.T) {
+		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, maxGasPrice)
+		require.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(700), fee)
+		assert.Equal(t, 10000, int(limit))
+	})
+
+	cfg.AssertExpectations(t)
 }
 
 func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
