@@ -74,17 +74,19 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # solana:
-  #   name: Solana Tests
-  #   needs: [changes, build-chainlink]
-  #   if: ${{ needs.changes.outputs.src == 'true' }}
-  #   uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
-  #   with:
-  #     repo_name: smartcontractkit/chainlink-solana
-  #     ref: develop
-  #     cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
-  #     cl_image: latest.${{ github.sha }}
-  #   secrets:
-  #     QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-  #     QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-  #     QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  solana:
+    name: Solana Tests
+    needs: [changes, build-chainlink]
+    if: ${{ needs.changes.outputs.src == 'true' }}
+    uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
+    with:
+      repo_name: smartcontractkit/chainlink-solana
+      ref: develop
+      cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
+      cl_image: latest.${{ github.sha }}
+    secrets:
+      QA_AWS_ACCESS_KEY_ID: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
+      QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
