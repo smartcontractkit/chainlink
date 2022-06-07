@@ -117,20 +117,20 @@ func (_m *Estimator) GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (ga
 	return r0, r1, r2
 }
 
-// GetLegacyGas provides a mock function with given fields: calldata, gasLimit, opts
-func (_m *Estimator) GetLegacyGas(calldata []byte, gasLimit uint64, opts ...gas.Opt) (*big.Int, uint64, error) {
+// GetLegacyGas provides a mock function with given fields: calldata, gasLimit, maxGasPriceWei, opts
+func (_m *Estimator) GetLegacyGas(calldata []byte, gasLimit uint64, maxGasPriceWei *big.Int, opts ...gas.Opt) (*big.Int, uint64, error) {
 	_va := make([]interface{}, len(opts))
 	for _i := range opts {
 		_va[_i] = opts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, calldata, gasLimit)
+	_ca = append(_ca, calldata, gasLimit, maxGasPriceWei)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func([]byte, uint64, ...gas.Opt) *big.Int); ok {
-		r0 = rf(calldata, gasLimit, opts...)
+	if rf, ok := ret.Get(0).(func([]byte, uint64, *big.Int, ...gas.Opt) *big.Int); ok {
+		r0 = rf(calldata, gasLimit, maxGasPriceWei, opts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
@@ -138,15 +138,15 @@ func (_m *Estimator) GetLegacyGas(calldata []byte, gasLimit uint64, opts ...gas.
 	}
 
 	var r1 uint64
-	if rf, ok := ret.Get(1).(func([]byte, uint64, ...gas.Opt) uint64); ok {
-		r1 = rf(calldata, gasLimit, opts...)
+	if rf, ok := ret.Get(1).(func([]byte, uint64, *big.Int, ...gas.Opt) uint64); ok {
+		r1 = rf(calldata, gasLimit, maxGasPriceWei, opts...)
 	} else {
 		r1 = ret.Get(1).(uint64)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func([]byte, uint64, ...gas.Opt) error); ok {
-		r2 = rf(calldata, gasLimit, opts...)
+	if rf, ok := ret.Get(2).(func([]byte, uint64, *big.Int, ...gas.Opt) error); ok {
+		r2 = rf(calldata, gasLimit, maxGasPriceWei, opts...)
 	} else {
 		r2 = ret.Error(2)
 	}

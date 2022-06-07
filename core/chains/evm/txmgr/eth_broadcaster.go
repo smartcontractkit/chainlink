@@ -286,8 +286,8 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		}
 		n++
 		var a EthTxAttempt
+		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 		if eb.config.EvmEIP1559DynamicFees() {
-			keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit, keySpecificMaxGasPriceWei)
 			if err != nil {
 				return errors.Wrap(err, "failed to get dynamic gas fee")
@@ -297,7 +297,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 				return errors.Wrap(err, "processUnstartedEthTxs failed")
 			}
 		} else {
-			gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit)
+			gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
 			if err != nil {
 				return errors.Wrap(err, "failed to estimate gas")
 			}
@@ -644,7 +644,8 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 	if attempt.TxType == 0x2 {
 		return errors.Errorf("AssumptionViolation: re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug.", sendError.Error())
 	}
-	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, gas.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}

@@ -22,11 +22,44 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 
-		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000)
+		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, big.NewInt(42), gasPrice)
+
+		config.AssertExpectations(t)
+	})
+
+	t.Run("GetLegacyGas returns user specified maximum gas price", func(t *testing.T) {
+		config := new(mocks.Config)
+		f := gas.NewFixedPriceEstimator(config, logger.TestLogger(t))
+
+		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(35))
+
+		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000, big.NewInt(30))
+		require.NoError(t, err)
+		assert.Equal(t, 110000, int(gasLimit))
+		assert.Equal(t, big.NewInt(30), gasPrice)
+
+		config.AssertExpectations(t)
+	})
+
+	t.Run("GetLegacyGas returns global maximum gas price", func(t *testing.T) {
+		config := new(mocks.Config)
+		f := gas.NewFixedPriceEstimator(config, logger.TestLogger(t))
+
+		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(20))
+
+		gasPrice, gasLimit, err := f.GetLegacyGas(nil, 100000, big.NewInt(30))
+		require.NoError(t, err)
+		assert.Equal(t, 110000, int(gasLimit))
+		assert.Equal(t, big.NewInt(20), gasPrice)
 
 		config.AssertExpectations(t)
 	})
