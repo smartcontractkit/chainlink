@@ -39,7 +39,7 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	case chaintype.Terra:
 		return newTerraKeyBundle()
 	case chaintype.Starknet:
-		return newStarknetKeyBundle()
+		return newKeyBundle(chaintype.Starknet, newStarknetKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -54,7 +54,7 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	case chaintype.Terra:
 		return mustNewTerraKeyBundleInsecure(reader)
 	case chaintype.Starknet:
-		return mustNewStarknetKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.Starknet, newStarknetKeyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -106,7 +106,7 @@ func (raw Raw) Key() KeyBundle {
 		result := mustNewTerraKeyFromRaw(raw)
 		return &result
 	case chaintype.Starknet:
-		result := mustNewStarknetKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &starknetKeyring{})
 		return &result
 	default:
 		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
