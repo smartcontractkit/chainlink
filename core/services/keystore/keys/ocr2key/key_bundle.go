@@ -33,11 +33,11 @@ var curve = secp256k1.S256()
 func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:
-		return newEVMKeyBundle()
+		return newKeyBundle(chaintype.EVM, newEVMKeyring)
 	case chaintype.Solana:
-		return newSolanaKeyBundle()
+		return newKeyBundle(chaintype.Solana, newSolanaKeyring)
 	case chaintype.Terra:
-		return newTerraKeyBundle()
+		return newKeyBundle(chaintype.Terra, newTerraKeyring)
 	case chaintype.Starknet:
 		return newKeyBundle(chaintype.Starknet, newStarknetKeyring)
 	}
@@ -48,11 +48,11 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle {
 	switch chainType {
 	case chaintype.EVM:
-		return mustNewEVMKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.EVM, newEVMKeyring, reader)
 	case chaintype.Solana:
-		return mustNewSolanaKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
 	case chaintype.Terra:
-		return mustNewTerraKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.Terra, newTerraKeyring, reader)
 	case chaintype.Starknet:
 		return mustNewKeyBundleInsecure(chaintype.Starknet, newStarknetKeyring, reader)
 	}
@@ -97,13 +97,13 @@ func (raw Raw) Key() KeyBundle {
 	}
 	switch temp.ChainType {
 	case chaintype.EVM:
-		result := mustNewEVMKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &evmKeyring{})
 		return &result
 	case chaintype.Solana:
-		result := mustNewSolanaKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &solanaKeyring{})
 		return &result
 	case chaintype.Terra:
-		result := mustNewTerraKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &terraKeyring{})
 		return &result
 	case chaintype.Starknet:
 		result := mustNewKeyFromRaw(raw, &starknetKeyring{})

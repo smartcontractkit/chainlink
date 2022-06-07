@@ -28,9 +28,17 @@ type (
 		ChainType       chaintype.ChainType
 		OffchainKeyring []byte
 		Keyring         []byte
+
+		// old chain specific format for migrating
+		EVMKeyring    []byte `json:",omitempty"`
+		SolanaKeyring []byte `json:",omitempty"`
+		TerraKeyring  []byte `json:",omitempty"`
 	}
 )
 
+var _ KeyBundle = &keyBundle[*evmKeyring]{}
+var _ KeyBundle = &keyBundle[*solanaKeyring]{}
+var _ KeyBundle = &keyBundle[*terraKeyring]{}
 var _ KeyBundle = &keyBundle[*starknetKeyring]{}
 
 func newKeyBundle[K keyring](chain chaintype.ChainType, newKeyring func(material io.Reader) (K, error)) (*keyBundle[K], error) {
@@ -124,10 +132,15 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 	if err != nil {
 		return err
 	}
+	if err = rawKeyData.Migrate(); err != nil {
+		return err
+	}
+
 	err = kb.OffchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}
+
 	err = kb.keyring.unmarshal(rawKeyData.Keyring)
 	if err != nil {
 		return err
@@ -143,4 +156,21 @@ func (kb *keyBundle[K]) Raw() Raw {
 		panic(err)
 	}
 	return b
+}
+
+// migration code
+func (kbraw *keyBundleRawData) Migrate() error {
+	// if key is not stored in Keyring param, use EVM, Solana, Terra as Keyring
+	// for migrating, key will only be marshalled into Keyring
+	if len(kbraw.Keyring) == 0 {
+		if len(kbraw.EVMKeyring) != 0 {
+			kbraw.Keyring = kbraw.EVMKeyring
+		} else if len(kbraw.SolanaKeyring) != 0 {
+			kbraw.Keyring = kbraw.SolanaKeyring
+		} else if len(kbraw.TerraKeyring) != 0 {
+			kbraw.Keyring = kbraw.TerraKeyring
+		}
+	}
+
+	return nil
 }
