@@ -5,7 +5,8 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      src: ${{ steps.changes.outputs.src }}
+      src: 'true'
+      # src: ${{ steps.changes.outputs.src }}
     steps:
       - uses: dorny/paths-filter@v2
         id: changes
