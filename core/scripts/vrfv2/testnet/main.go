@@ -927,6 +927,7 @@ func main() {
 		cmd := flag.NewFlagSet("wrapper-configure", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
+		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
 		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
 		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
@@ -935,6 +936,7 @@ func main() {
 		wrapperConfigure(owner, ec, chainID,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
+			*coordinatorGasOverhead,
 			*wrapperPremiumPercentage,
 			*keyHash,
 			*maxNumWords)
@@ -968,6 +970,7 @@ func main() {
 		linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
+		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
 		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
 		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
@@ -988,6 +991,7 @@ func main() {
 		wrapperConfigure(owner, ec, chainID,
 			wrapper,
 			*wrapperGasOverhead,
+			*coordinatorGasOverhead,
 			*wrapperPremiumPercentage,
 			*keyHash,
 			*maxNumWords)

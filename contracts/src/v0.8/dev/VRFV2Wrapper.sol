@@ -52,15 +52,17 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   // charges.
   uint32 private s_fulfillmentFlatFeeLinkPPM;
 
-  // s_gasAfterPaymentCalculation is the gas used to cover oracle payment after calculating the
-  // payment in VRFCoordinatorV2.
-  uint32 private s_gasAfterPaymentCalculation;
-
   // Other configuration
 
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
+
+  // s_coordinatorGasOverhead reflects the gas overhead of the coordinator's fulfillRandomWords
+  // function. The cost for this gas is billed to the subscription, and must therefor be included
+  // in the pricing for wrapped requests. This includes the gas costs of proof verification and
+  // payment calculation in the coordinator.
+  uint32 private s_coordinatorGasOverhead;
 
   // s_wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
   // indicates no premium. A value of 15 indicates a 15 percent premium.
@@ -106,24 +108,29 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @param _wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
    *        function.
    *
+   * @param _coordinatorGasOverhead reflects the gas overhead of the coordinator's
+   *        fulfillRandomWords function.
+   *
    * @param _wrapperPremiumPercentage is the premium ratio in percentage for wrapper requests.
    *
    * @param _keyHash to use for requesting randomness.
    */
   function setConfig(
     uint32 _wrapperGasOverhead,
+    uint32 _coordinatorGasOverhead,
     uint8 _wrapperPremiumPercentage,
     bytes32 _keyHash,
     uint8 _maxNumWords
   ) external onlyOwner {
     s_wrapperGasOverhead = _wrapperGasOverhead;
+    s_coordinatorGasOverhead = _coordinatorGasOverhead;
     s_wrapperPremiumPercentage = _wrapperPremiumPercentage;
     s_keyHash = _keyHash;
     s_maxNumWords = _maxNumWords;
     s_configured = true;
 
     // Get other configuration from coordinator
-    (, , s_stalenessSeconds, s_gasAfterPaymentCalculation) = COORDINATOR.getConfig();
+    (, , s_stalenessSeconds, ) = COORDINATOR.getConfig();
     s_fallbackWeiPerUnitLink = COORDINATOR.getFallbackWeiPerUnitLink();
     (s_fulfillmentFlatFeeLinkPPM, , , , , , , , ) = COORDINATOR.getFeeConfig();
   }
@@ -140,11 +147,11 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
    *         charges.
    *
-   * @return gasAfterPaymentCalculation is the gas used to cover oracle payment after calculating
-   *         the payment in VRFCoordinatorV2.
-   *
    * @return wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
    *         function. The cost for this gas is passed to the user.
+   *
+   * @return coordinatorGasOverhead reflects the gas overhead of the coordinator's
+   *         fulfillRandomWords function.
    *
    * @return wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
    *         indicates no premium. A value of 15 indicates a 15 percent premium.
@@ -152,8 +159,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @return keyHash is the key hash to use when requesting randomness. Fees are paid based on
    *         current gas fees, so this should be set to the highest gas lane on the network.
    *
-   * @return maxNumWords is the key hash to use when requesting randomness. Fees are paid based on
-   *         current gas fees, so this should be set to the highest gas lane on the network.
+   * @return maxNumWords is the max number of words that can be requested in a single wrapped VRF
+   *         request.
    */
   function getConfig()
     external
@@ -162,8 +169,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       int256 fallbackWeiPerUnitLink,
       uint32 stalenessSeconds,
       uint32 fulfillmentFlatFeeLinkPPM,
-      uint32 gasAfterPaymentCalculation,
       uint32 wrapperGasOverhead,
+      uint32 coordinatorGasOverhead,
       uint8 wrapperPremiumPercentage,
       bytes32 keyHash,
       uint8 maxNumWords
@@ -173,8 +180,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       s_fallbackWeiPerUnitLink,
       s_stalenessSeconds,
       s_fulfillmentFlatFeeLinkPPM,
-      s_gasAfterPaymentCalculation,
       s_wrapperGasOverhead,
+      s_coordinatorGasOverhead,
       s_wrapperPremiumPercentage,
       s_keyHash,
       s_maxNumWords
@@ -225,7 +232,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
   ) internal view returns (uint256) {
-    uint256 baseFee = (1e18 * _requestGasPrice * (_gas + s_wrapperGasOverhead)) / uint256(_weiPerUnitLink);
+    uint256 baseFee = (1e18 * _requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead)) /
+      uint256(_weiPerUnitLink);
 
     uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
 

@@ -274,7 +274,7 @@ func wrapperConfigure(
 	ec *ethclient.Client,
 	chainID int64,
 	wrapperAddress common.Address,
-	gasOverhead, premiumPercentage uint,
+	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 ) {
@@ -283,7 +283,8 @@ func wrapperConfigure(
 
 	tx, err := wrapper.SetConfig(
 		owner,
-		uint32(gasOverhead),
+		uint32(wrapperGasOverhead),
+		uint32(coordinatorGasOverhead),
 		uint8(premiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords))

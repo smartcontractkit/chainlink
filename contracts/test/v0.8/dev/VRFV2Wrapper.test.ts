@@ -29,6 +29,7 @@ describe('VRFV2Wrapper', () => {
   //   - 10 words requested
   //   - Refund issued to consumer
   const wrapperGasOverhead = BigNumber.from(60_000)
+  const coordinatorGasOverhead = BigNumber.from(52_000)
   const wrapperPremiumPercentage = 10
   const maxNumWords = 10
   const weiPerUnitLink = pointZeroZeroThreeLink
@@ -55,12 +56,13 @@ describe('VRFV2Wrapper', () => {
   const calculatePrice = (
     gasLimit: BigNumberish,
     _wrapperGasOverhead: BigNumberish = wrapperGasOverhead,
+    _coordinatorGasOverhead: BigNumberish = coordinatorGasOverhead,
     _gasPriceWei: BigNumberish = oneHundredGwei,
     _weiPerUnitLink: BigNumberish = weiPerUnitLink,
     _wrapperPremium: BigNumberish = wrapperPremiumPercentage,
     _flatFee: BigNumberish = flatFee,
   ): BigNumber => {
-    const totalGas = BigNumber.from(0).add(gasLimit).add(_wrapperGasOverhead)
+    const totalGas = BigNumber.from(0).add(gasLimit).add(_wrapperGasOverhead).add(_coordinatorGasOverhead)
     const baseFee = BigNumber.from('1000000000000000000')
       .mul(_gasPriceWei)
       .mul(totalGas)
@@ -147,6 +149,7 @@ describe('VRFV2Wrapper', () => {
         .connect(owner)
         .setConfig(
           wrapperGasOverhead,
+          coordinatorGasOverhead,
           wrapperPremiumPercentage,
           toBytes32String('keyHash'),
           maxNumWords,
@@ -171,48 +174,52 @@ describe('VRFV2Wrapper', () => {
       const result = calculatePrice(
         100_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         fiftyGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('3033333333333333332'), result)
+      bigNumEquals(BigNumber.from('3986666666666666666'), result)
     })
 
     it('can calculate price at 50 gwei, 200k limit', async () => {
       const result = calculatePrice(
         200_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         fiftyGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('4866666666666666666'), result)
+      bigNumEquals(BigNumber.from('5820000000000000000'), result)
     })
 
     it('can calculate price at 100 gwei, 100k limit', async () => {
       const result = calculatePrice(
         200_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         oneHundredGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('9633333333333333332'), result)
+      bigNumEquals(BigNumber.from('11540000000000000000'), result)
     })
 
     it('can calculate price at 100 gwei, 100k limit, 25% premium', async () => {
       const result = calculatePrice(
         200_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         oneHundredGwei,
         weiPerUnitLink,
         25,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('10933333333333333332'), result)
+      bigNumEquals(BigNumber.from('13100000000000000000'), result)
     })
   })
 
@@ -224,9 +231,9 @@ describe('VRFV2Wrapper', () => {
       bigNumEquals(BigNumber.from('4000000000000000'), resp[0]) // fallbackWeiPerUnitLink
       bigNumEquals(2_700, resp[1]) // stalenessSeconds
       bigNumEquals(BigNumber.from('100000'), resp[2]) // fulfillmentFlatFeeLinkPPM
-      bigNumEquals(33285, resp[3]) // gasAfterPaymentCalculation
-      bigNumEquals(wrapperGasOverhead, resp[4])
-      bigNumEquals(10, resp[5])
+      bigNumEquals(wrapperGasOverhead, resp[3])
+      bigNumEquals(coordinatorGasOverhead, resp[4])
+      bigNumEquals(wrapperPremiumPercentage, resp[5])
       assert.equal(resp[6], toBytes32String('keyHash'))
       bigNumEquals(10, resp[7])
     })
@@ -237,6 +244,7 @@ describe('VRFV2Wrapper', () => {
       await expect(
         wrapper.connect(owner).setConfig(
           140_000, // wrapperGasOverhead
+          195_000, // coordinatorGasOverhead
           9, // wrapperPremiumPercentage
           toBytes32String('keyHash2'), // keyHash
           9, // maxNumWords
@@ -247,8 +255,8 @@ describe('VRFV2Wrapper', () => {
       bigNumEquals(BigNumber.from('4000000000000000'), resp[0]) // fallbackWeiPerUnitLink
       bigNumEquals(2_700, resp[1]) // stalenessSeconds
       bigNumEquals(BigNumber.from('100000'), resp[2]) // fulfillmentFlatFeeLinkPPM
-      bigNumEquals(33285, resp[3]) // gasAfterPaymentCalculation
-      bigNumEquals(140_000, resp[4]) // wrapperGasOverhead
+      bigNumEquals(140_000, resp[3]) // wrapperGasOverhead
+      bigNumEquals(195_000, resp[4]) // coordinatorGasOverhead
       bigNumEquals(9, resp[5]) // wrapperPremiumPercentage
       assert.equal(resp[6], toBytes32String('keyHash2')) // keyHash
       bigNumEquals(9, resp[7]) // maxNumWords
@@ -258,6 +266,7 @@ describe('VRFV2Wrapper', () => {
       await expect(
         wrapper.connect(requester).setConfig(
           10_000, // wrapperGasOverhead
+          10_000, // coordinatorGasOverhead
           10, // wrapperPremiumPercentage
           toBytes32String('keyHash'), // keyHash
           10, // maxNumWords
@@ -275,6 +284,7 @@ describe('VRFV2Wrapper', () => {
       const expected = calculatePrice(
         100_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         fiftyGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
@@ -291,6 +301,7 @@ describe('VRFV2Wrapper', () => {
       const expected = calculatePrice(
         100_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         oneHundredGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
@@ -307,6 +318,7 @@ describe('VRFV2Wrapper', () => {
       const expected = calculatePrice(
         200_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         oneHundredGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
@@ -332,6 +344,7 @@ describe('VRFV2Wrapper', () => {
       const expected = calculatePrice(
         100_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         fiftyGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
@@ -348,6 +361,7 @@ describe('VRFV2Wrapper', () => {
       const expected = calculatePrice(
         100_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         oneHundredGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
@@ -364,6 +378,7 @@ describe('VRFV2Wrapper', () => {
       const expected = calculatePrice(
         200_000,
         wrapperGasOverhead,
+        coordinatorGasOverhead,
         oneHundredGwei,
         weiPerUnitLink,
         wrapperPremiumPercentage,
