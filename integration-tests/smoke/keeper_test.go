@@ -401,12 +401,11 @@ func getKeeperSuite(
 						}
 					}, "1m", "1s").Should(Succeed())
 
-					newConsumers, newUpkeepIDs := actions.RegisterNewUpkeeps(contractDeployer, networks, linkToken,
+					newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, networks, linkToken,
 						registry, registrar, upkeepGasLimit, 1)
 
 					// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
 					newUpkeep := newConsumers[0]
-					newUpkeepID := newUpkeepIDs[0]
 
 					// Test that the newly registered upkeep is also performing.
 					Eventually(func(g Gomega) {
@@ -423,27 +422,6 @@ func getKeeperSuite(
 							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 							Expect(initialCounters[i].Int64() < currentCounter.Int64()).To(BeTrue())
 						}
-					}, "1m", "1s").Should(Succeed())
-
-					// Test that we can also cancel the newly registered upkeep.
-					err := registry.CancelUpkeep(newUpkeepID)
-					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
-					err = networks.Default.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for "+
-						"newly registered upkeep to be cancelled")
-
-					// Obtain the amount of times the new upkeep has been executed so far
-					counterAfterCancellation, err := newUpkeep.Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
-
-					// Make sure the counter stays constant because we cancelled the newly registered upkeep.
-					Consistently(func(g Gomega) {
-						latestCounter, err := newUpkeep.Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						g.Expect(latestCounter.Int64()).Should(Equal(counterAfterCancellation.Int64()),
-							"Expected consumer counter to remain constant at %d, but got %d",
-							counterAfterCancellation.Int64(), latestCounter.Int64())
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
