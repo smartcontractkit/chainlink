@@ -1,17 +1,14 @@
 package ocr2key
 
 import (
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
@@ -56,30 +53,6 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewTerraKeyBundleInsecure(reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
-}
-
-// NewKeyBundleFromOCR1Key gets the key bundle from an OCR1 key
-func NewKeyBundleFromOCR1Key(v1key ocrkey.KeyV2) (evmKeyBundle, error) {
-	onChainKeyRing := evmKeyring{
-		privateKey: ecdsa.PrivateKey(*v1key.OnChainSigning),
-	}
-	offChainKeyRing := OffchainKeyring{
-		signingKey:    ed25519.PrivateKey(*v1key.OffChainSigning),
-		encryptionKey: *v1key.OffChainEncryption,
-	}
-	k := evmKeyBundle{
-		keyBundleBase: keyBundleBase{
-			chainType:       chaintype.EVM,
-			OffchainKeyring: offChainKeyRing,
-		},
-		evmKeyring: onChainKeyRing,
-	}
-	marshalledPrivK, err := k.Marshal()
-	if err != nil {
-		return evmKeyBundle{}, err
-	}
-	k.id = sha256.Sum256(marshalledPrivK)
-	return k, nil
 }
 
 var _ fmt.GoStringer = &keyBundleBase{}
