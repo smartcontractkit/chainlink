@@ -90,7 +90,7 @@ var (
 		FluxMonitor:        1,
 		OffchainReporting:  1,
 		OffchainReporting2: 1,
-		Keeper:             3,
+		Keeper:             1,
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
