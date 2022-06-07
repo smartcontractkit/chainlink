@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKeyV2_RawPrivateKey(t *testing.T) {
+func TestCSAKeyV2_RawPrivateKey(t *testing.T) {
 	_, privKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -20,7 +20,7 @@ func TestKeyV2_RawPrivateKey(t *testing.T) {
 	assert.Equal(t, privateKey.String(), privateKey.GoString())
 }
 
-func TestKeyV2_FromRawPrivateKey(t *testing.T) {
+func TestCSAKeyV2_FromRawPrivateKey(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -33,7 +33,7 @@ func TestKeyV2_FromRawPrivateKey(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", pubKey), keyV2.String())
 }
 
-func TestKeyV2_NewV2(t *testing.T) {
+func TestCSAKeyV2_NewV2(t *testing.T) {
 	keyV2, err := NewV2()
 	require.NoError(t, err)
 

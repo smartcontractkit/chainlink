@@ -3,6 +3,7 @@ package keys
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,10 +28,11 @@ func RunKeyExportImportTestcase(t *testing.T, createKey CreateKeyFunc, decrypt D
 
 	json, err := key.ToEncryptedJSON("password", utils.DefaultScryptParams)
 	require.NoError(t, err)
-	require.NotEmpty(t, json)
+
+	assert.NotEmpty(t, json)
 
 	imported, err := decrypt(json, "password")
 	require.NoError(t, err)
 
-	require.Equal(t, key.String(), imported.String())
+	assert.Equal(t, key.String(), imported.String())
 }
