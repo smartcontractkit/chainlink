@@ -413,7 +413,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 }
 
 func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/config/dump")
+	resp, err := cli.HTTP.Get("/v2/config/v2")
 	if err != nil {
 		return cli.errorOut(err)
 	}

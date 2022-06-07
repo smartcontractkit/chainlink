@@ -69,12 +69,34 @@ var (
 				Nodes: []evmcfg.Node{
 					{
 						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						WSURL: mustURL("wss://web.socket/mainnet"),
 					},
 					{
 						Name:     ptr("secondary"),
 						HTTPURL:  mustURL("http://broadcast.mirror"),
 						SendOnly: ptr(true),
+					},
+				}},
+			{
+				ChainID: utils.NewBigI(42),
+				Chain: evmcfg.Chain{
+					GasPriceDefault: utils.NewBigI(math.MaxInt64),
+				},
+				Nodes: []evmcfg.Node{
+					{
+						Name:  ptr("primary"),
+						WSURL: mustURL("wss://web.socket/test"),
+					},
+				}},
+			{
+				ChainID: utils.NewBigI(137),
+				Chain: evmcfg.Chain{
+					GasEstimatorMode: ptr("FixedPrice"),
+				},
+				Nodes: []evmcfg.Node{
+					{
+						Name:  ptr("primary"),
+						WSURL: mustURL("wss://web.socket/test"),
 					},
 				}},
 		},
@@ -85,7 +107,16 @@ var (
 					MaxRetries: ptr[int64](12),
 				},
 				Nodes: []solcfg.Node{
-					{Name: "primary", URL: mustURL("http://solana.com")},
+					{Name: "primary", URL: mustURL("http://mainnet.solana.com")},
+				},
+			},
+			{
+				ChainID: "testnet",
+				Chain: solcfg.Chain{
+					OCR2CachePollPeriod: models.MustNewDuration(time.Minute),
+				},
+				Nodes: []solcfg.Node{
+					{Name: "primary", URL: mustURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -96,9 +127,16 @@ var (
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
 				Nodes: []tercfg.Node{
-					{Name: "primary", TendermintURL: mustURL("http://solana.com")},
+					{Name: "primary", TendermintURL: mustURL("http://columbus.terra.com")},
+				}},
+			{
+				ChainID: "Bombay-12",
+				Chain: tercfg.Chain{
+					BlocksUntilTxTimeout: ptr[int64](20),
 				},
-			},
+				Nodes: []tercfg.Node{
+					{Name: "primary", TendermintURL: mustURL("http://bombay.terra.com")},
+				}},
 		},
 	}
 )
@@ -216,7 +254,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.JobPipeline = &config.JobPipeline{
-		HTTPRequestMaxSizeBytes:   ptr[int64](67),
+		HTTPRequestMaxSize:        ptr[utils.FileSize](100 * utils.MB),
 		DefaultHTTPRequestTimeout: models.MustNewDuration(time.Minute),
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
@@ -274,18 +312,18 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Keeper = &config.Keeper{
-		CheckUpkeepGasPriceFeatureEnabled: ptr(true),
-		DefaultTransactionQueueDepth:      ptr[uint32](17),
-		GasPriceBufferPercent:             ptr[uint32](12),
-		GasTipCapBufferPercent:            ptr[uint32](43),
-		BaseFeeBufferPercent:              ptr[uint32](89),
-		MaximumGracePeriod:                ptr[int64](31),
-		RegistryCheckGasOverhead:          utils.NewBigI(90),
-		RegistryPerformGasOverhead:        utils.NewBig(new(big.Int).SetUint64(math.MaxUint64)),
-		RegistrySyncInterval:              models.MustNewDuration(time.Hour),
-		RegistrySyncUpkeepQueueSize:       ptr[uint32](31),
-		TurnLookBack:                      ptr[int64](91),
-		TurnFlagEnabled:                   ptr(true),
+		DefaultTransactionQueueDepth: ptr[uint32](17),
+		GasPriceBufferPercent:        ptr[uint32](12),
+		GasTipCapBufferPercent:       ptr[uint32](43),
+		BaseFeeBufferPercent:         ptr[uint32](89),
+		MaximumGracePeriod:           ptr[int64](31),
+		RegistryCheckGasOverhead:     utils.NewBigI(90),
+		RegistryPerformGasOverhead:   utils.NewBig(new(big.Int).SetUint64(math.MaxUint64)),
+		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
+		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
+		TurnLookBack:                 ptr[int64](91),
+		TurnFlagEnabled:              ptr(true),
+		UpkeepCheckGasPriceEnabled:   ptr(true),
 	}
 	full.AutoPprof = &config.AutoPprof{
 		Enabled:              ptr(true),
@@ -553,7 +591,7 @@ SimulateTransactions = true
 [JobPipeline]
 DefaultHTTPRequestTimeout = '1m0s'
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSizeBytes = 67
+HTTPRequestMaxSize = '100.00mb'
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
@@ -609,7 +647,6 @@ ListenAddresses = ['foo', 'bar']
 `},
 		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `
 [Keeper]
-CheckUpkeepGasPriceFeatureEnabled = true
 DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
@@ -621,6 +658,7 @@ RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
+UpkeepCheckGasPriceEnabled = true
 `},
 		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `
 [AutoPprof]

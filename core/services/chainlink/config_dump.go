@@ -567,13 +567,16 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.JobPipeline = &config.JobPipeline{
-		HTTPRequestMaxSizeBytes:   envvar.NewInt64("DefaultHTTPLimit").ParsePtr(),
 		DefaultHTTPRequestTimeout: envDuration("DefaultHTTPTimeout"),
 		ExternalInitiatorsEnabled: envvar.NewBool("FeatureExternalInitiators").ParsePtr(),
 		MaxRunDuration:            envDuration("JobPipelineMaxRunDuration"),
 		ReaperInterval:            envDuration("JobPipelineReaperInterval"),
 		ReaperThreshold:           envDuration("JobPipelineReaperThreshold"),
 		ResultWriteQueueDepth:     envvar.NewUint32("JobPipelineResultWriteQueueDepth").ParsePtr(),
+	}
+	if p := envvar.NewInt64("DefaultHTTPLimit").ParsePtr(); p != nil {
+		b := utils.FileSize(*p)
+		c.JobPipeline.HTTPRequestMaxSize = &b
 	}
 	if isZeroPtr(c.JobPipeline) {
 		c.JobPipeline = nil
@@ -663,18 +666,18 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.Keeper = &config.Keeper{
-		CheckUpkeepGasPriceFeatureEnabled: envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
-		DefaultTransactionQueueDepth:      envvar.NewUint32("KeeperDefaultTransactionQueueDepth").ParsePtr(),
-		GasPriceBufferPercent:             envvar.NewUint32("KeeperGasPriceBufferPercent").ParsePtr(),
-		GasTipCapBufferPercent:            envvar.NewUint32("KeeperGasTipCapBufferPercent").ParsePtr(),
-		BaseFeeBufferPercent:              envvar.NewUint32("KeeperBaseFeeBufferPercent").ParsePtr(),
-		MaximumGracePeriod:                envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
-		RegistryCheckGasOverhead:          envBig("KeeperRegistryCheckGasOverhead"),
-		RegistryPerformGasOverhead:        envBig("KeeperRegistryPerformGasOverhead"),
-		RegistrySyncInterval:              envDuration("KeeperRegistrySyncInterval"),
-		RegistrySyncUpkeepQueueSize:       envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
-		TurnLookBack:                      envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
-		TurnFlagEnabled:                   envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
+		DefaultTransactionQueueDepth: envvar.NewUint32("KeeperDefaultTransactionQueueDepth").ParsePtr(),
+		GasPriceBufferPercent:        envvar.NewUint32("KeeperGasPriceBufferPercent").ParsePtr(),
+		GasTipCapBufferPercent:       envvar.NewUint32("KeeperGasTipCapBufferPercent").ParsePtr(),
+		BaseFeeBufferPercent:         envvar.NewUint32("KeeperBaseFeeBufferPercent").ParsePtr(),
+		MaximumGracePeriod:           envvar.NewInt64("KeeperMaximumGracePeriod").ParsePtr(),
+		RegistryCheckGasOverhead:     envBig("KeeperRegistryCheckGasOverhead"),
+		RegistryPerformGasOverhead:   envBig("KeeperRegistryPerformGasOverhead"),
+		RegistrySyncInterval:         envDuration("KeeperRegistrySyncInterval"),
+		RegistrySyncUpkeepQueueSize:  envvar.KeeperRegistrySyncUpkeepQueueSize.ParsePtr(),
+		TurnLookBack:                 envvar.NewInt64("KeeperTurnLookBack").ParsePtr(),
+		TurnFlagEnabled:              envvar.NewBool("KeeperTurnFlagEnabled").ParsePtr(),
+		UpkeepCheckGasPriceEnabled:   envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled").ParsePtr(),
 	}
 	if isZeroPtr(c.Keeper) {
 		c.Keeper = nil

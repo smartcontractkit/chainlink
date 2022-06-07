@@ -30,12 +30,28 @@ FinalityDepth = 26
 
 [[EVM.Nodes]]
 Name = 'primary'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/mainnet'
 
 [[EVM.Nodes]]
 Name = 'secondary'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
+
+[[EVM]]
+ChainID = '42'
+GasPriceDefault = '9223372036854775807'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
+
+[[EVM]]
+ChainID = '137'
+GasEstimatorMode = 'FixedPrice'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
 
 [[Solana]]
 ChainID = 'mainnet'
@@ -43,7 +59,15 @@ MaxRetries = 12
 
 [[Solana.Nodes]]
 Name = 'primary'
-URL = 'http://solana.com'
+URL = 'http://mainnet.solana.com'
+
+[[Solana]]
+ChainID = 'testnet'
+OCR2CachePollPeriod = '1m0s'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://testnet.solana.com'
 
 [[Terra]]
 ChainID = 'Columbus-5'
@@ -51,4 +75,12 @@ MaxMsgsPerBatch = 13
 
 [[Terra.Nodes]]
 Name = 'primary'
-TendermintURL = 'http://solana.com'
+TendermintURL = 'http://columbus.terra.com'
+
+[[Terra]]
+ChainID = 'Bombay-12'
+BlocksUntilTxTimeout = 20
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://bombay.terra.com'

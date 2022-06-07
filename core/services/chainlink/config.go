@@ -14,12 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Config is TODO doc
+// Config is the root type used for TOML configuration.
 //
 // When adding a new field:
 // 	- consider including a unit suffix with the field name
 // 	- TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
-//	implementing encoding.TextMarshaler/TextUnmarshaler
+//	implementing encoding.TextMarshaler/TextUnmarshaler, like utils.Big and decimal.Decimal
+//  - std lib types that don't implement encoding.TextMarshaler/TextUnmarshaler (time.Duration, url.URL, big.Int) won't
+//   work as expected, and require wrapper types. See models.Duration, models.URL, utils.Big.
 type Config struct {
 	config.Core
 

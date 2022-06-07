@@ -87,7 +87,7 @@ KeyPath = 'tls/key/path'
 [JobPipeline]
 DefaultHTTPRequestTimeout = '1m0s'
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSizeBytes = 67
+HTTPRequestMaxSize = '100.00mb'
 MaxRunDuration = '1h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
@@ -143,7 +143,6 @@ DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 
 [Keeper]
-CheckUpkeepGasPriceFeatureEnabled = true
 DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
@@ -155,6 +154,7 @@ RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
 TurnFlagEnabled = true
+UpkeepCheckGasPriceEnabled = true
 
 [AutoPprof]
 Enabled = true

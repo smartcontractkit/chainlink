@@ -161,7 +161,7 @@ type WebServerTLS struct {
 type JobPipeline struct {
 	DefaultHTTPRequestTimeout *models.Duration
 	ExternalInitiatorsEnabled *bool
-	HTTPRequestMaxSizeBytes   *int64
+	HTTPRequestMaxSize        *utils.FileSize
 	MaxRunDuration            *models.Duration
 	ReaperInterval            *models.Duration
 	ReaperThreshold           *models.Duration
@@ -243,18 +243,18 @@ type P2PV2 struct {
 }
 
 type Keeper struct {
-	CheckUpkeepGasPriceFeatureEnabled *bool
-	DefaultTransactionQueueDepth      *uint32
-	GasPriceBufferPercent             *uint32
-	GasTipCapBufferPercent            *uint32
-	BaseFeeBufferPercent              *uint32
-	MaximumGracePeriod                *int64
-	RegistryCheckGasOverhead          *utils.Big
-	RegistryPerformGasOverhead        *utils.Big
-	RegistrySyncInterval              *models.Duration
-	RegistrySyncUpkeepQueueSize       *uint32
-	TurnLookBack                      *int64
-	TurnFlagEnabled                   *bool
+	DefaultTransactionQueueDepth *uint32
+	GasPriceBufferPercent        *uint32
+	GasTipCapBufferPercent       *uint32
+	BaseFeeBufferPercent         *uint32
+	MaximumGracePeriod           *int64
+	RegistryCheckGasOverhead     *utils.Big
+	RegistryPerformGasOverhead   *utils.Big
+	RegistrySyncInterval         *models.Duration
+	RegistrySyncUpkeepQueueSize  *uint32
+	TurnLookBack                 *int64
+	TurnFlagEnabled              *bool
+	UpkeepCheckGasPriceEnabled   *bool
 }
 
 type AutoPprof struct {
