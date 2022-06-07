@@ -21,7 +21,7 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver 
 	return &headSaver{
 		orm:    orm,
 		config: config,
-		logger: lggr.Named(logger.HeadSaver),
+		logger: lggr.Named("HeadSaver"),
 		heads:  NewHeads(),
 	}
 }
