@@ -142,8 +142,14 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 	}
 
-	// OCR1 job spec does not support overriding v2 bootstrap nodes, they must be set in env var
-	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
+	if concreteSpec.P2PV2Bootstrappers != nil {
+		v2Bootstrappers = concreteSpec.P2PBootstrapPeers
+	} else {
+		v2Bootstrappers, err = chain.Config().P2PV2Bootstrappers()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
@@ -172,11 +178,17 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		bootstrapperCtx := job.NewServiceAdapter(bootstrapper)
 		services = append(services, bootstrapperCtx)
 	} else {
-		if peerWrapper.Config().P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 {
+		// In V1 or V1V2 mode, p2pv1BootstrapPeers must be defined either in
+		//   node config or in job spec
+		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV2 {
 			if len(v1BootstrapPeers) < 1 {
 				return nil, errors.New("Need at least one v1 bootstrap peer defined")
 			}
-		} else {
+		}
+
+		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
+		//   node config or in job spec
+		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV1 {
 			if len(v2BootstrapPeers) < 1 {
 				return nil, errors.New("Need at least one v2 bootstrap peer defined")
 			}
