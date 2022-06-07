@@ -3,10 +3,11 @@ package ocr2key
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestExport(t *testing.T) {
@@ -26,6 +27,7 @@ func TestExport(t *testing.T) {
 			ej, err := ToEncryptedJSON(kb, "blah", utils.FastScryptParams)
 			require.NoError(t, err)
 			kbAfter, err := FromEncryptedJSON(ej, "blah")
+			require.NoError(t, err)
 			assert.Equal(t, kbAfter.ID(), kb.ID())
 			assert.Equal(t, kbAfter.PublicKey(), kb.PublicKey())
 			assert.Equal(t, kbAfter.OffchainPublicKey(), kb.OffchainPublicKey())

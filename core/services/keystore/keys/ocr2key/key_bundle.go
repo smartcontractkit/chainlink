@@ -10,10 +10,11 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 //nolint
@@ -36,13 +37,13 @@ var curve = secp256k1.S256()
 func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:
-		return newKeyBundle(chaintype.EVM, newEVMKeyring)
+		return newKeyBundleRand(chaintype.EVM, newEVMKeyring)
 	case chaintype.Solana:
-		return newKeyBundle(chaintype.Solana, newSolanaKeyring)
+		return newKeyBundleRand(chaintype.Solana, newSolanaKeyring)
 	case chaintype.Terra:
-		return newKeyBundle(chaintype.Terra, newTerraKeyring)
+		return newKeyBundleRand(chaintype.Terra, newTerraKeyring)
 	case chaintype.Starknet:
-		return newKeyBundle(chaintype.Starknet, newStarknetKeyring)
+		return newKeyBundleRand(chaintype.Starknet, newStarknetKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -116,7 +117,7 @@ func (kb keyBundleBase) GoString() string {
 //nolint
 type Raw []byte
 
-func (raw Raw) Key() KeyBundle {
+func (raw Raw) Key() (kb KeyBundle) {
 	var temp struct{ ChainType chaintype.ChainType }
 	err := json.Unmarshal(raw, &temp)
 	if err != nil {
@@ -124,20 +125,20 @@ func (raw Raw) Key() KeyBundle {
 	}
 	switch temp.ChainType {
 	case chaintype.EVM:
-		result := mustNewKeyFromRaw(raw, &evmKeyring{})
-		return &result
+		kb = newKeyBundle(new(evmKeyring))
 	case chaintype.Solana:
-		result := mustNewKeyFromRaw(raw, &solanaKeyring{})
-		return &result
+		kb = newKeyBundle(new(solanaKeyring))
 	case chaintype.Terra:
-		result := mustNewKeyFromRaw(raw, &terraKeyring{})
-		return &result
+		kb = newKeyBundle(new(terraKeyring))
 	case chaintype.Starknet:
-		result := mustNewKeyFromRaw(raw, &starknetKeyring{})
-		return &result
+		kb = newKeyBundle(new(starknetKeyring))
 	default:
 		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
 	}
+	if err := kb.Unmarshal(raw); err != nil {
+		panic(err)
+	}
+	return
 }
 
 // type is added to the beginning of the passwords for OCR key bundles,

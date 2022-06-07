@@ -8,8 +8,9 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 )
 
 type (
@@ -41,7 +42,11 @@ var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*terraKeyring]{}
 var _ KeyBundle = &keyBundle[*starknetKeyring]{}
 
-func newKeyBundle[K keyring](chain chaintype.ChainType, newKeyring func(material io.Reader) (K, error)) (*keyBundle[K], error) {
+func newKeyBundle[K keyring](key K) *keyBundle[K] {
+	return &keyBundle[K]{keyring: key}
+}
+
+func newKeyBundleRand[K keyring](chain chaintype.ChainType, newKeyring func(material io.Reader) (K, error)) (*keyBundle[K], error) {
 	return newKeyBundleFrom(chain, newKeyring, cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
 }
 
@@ -75,17 +80,6 @@ func newKeyBundleFrom[K keyring](chain chaintype.ChainType, newKeyring func(mate
 	}
 	k.id = sha256.Sum256(marshalledPrivK)
 	return &k, nil
-}
-
-func mustNewKeyFromRaw[K keyring](raw []byte, key K) keyBundle[K] {
-	// offchain private key 64 bytes || offchain encryption key 32 bytes || onchain 32 bytes private key
-	var kb keyBundle[K]
-	kb.keyring = key
-	err := kb.Unmarshal(raw)
-	if err != nil {
-		panic(err)
-	}
-	return kb
 }
 
 func (kb *keyBundle[K]) MaxSignatureLength() int {

@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 )
 
 type (
@@ -52,7 +53,8 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		// test Unmarshal with old raw bundle
-		bundle := mustNewKeyFromRaw[*evmKeyring](bundleBytes, &evmKeyring{})
+		bundle := newKeyBundle(&evmKeyring{})
+		require.NoError(t, bundle.Unmarshal(bundleBytes))
 		newBundleBytes, err := bundle.Marshal()
 		require.NoError(t, err)
 
@@ -81,7 +83,8 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		// test Unmarshal with old raw bundle
-		bundle := mustNewKeyFromRaw[*solanaKeyring](bundleBytes, &solanaKeyring{})
+		bundle := newKeyBundle(&solanaKeyring{})
+		require.NoError(t, bundle.Unmarshal(bundleBytes))
 		newBundleBytes, err := bundle.Marshal()
 		require.NoError(t, err)
 
@@ -110,7 +113,8 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		// test Unmarshal with old raw bundle
-		bundle := mustNewKeyFromRaw[*terraKeyring](bundleBytes, &terraKeyring{})
+		bundle := newKeyBundle(&terraKeyring{})
+		require.NoError(t, bundle.Unmarshal(bundleBytes))
 		newBundleBytes, err := bundle.Marshal()
 		require.NoError(t, err)
 
