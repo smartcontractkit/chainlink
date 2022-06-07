@@ -44,7 +44,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 		key := mustNewTerraKeyFromRaw(rawKey)
 		return &key, nil
 	case chaintype.Starknet:
-		key := mustNewStarknetKeyFromRaw(rawKey)
+		key := mustNewKeyFromRaw[*starknetKeyring](rawKey, &starknetKeyring{})
 		return &key, nil
 	default:
 		return nil, chaintype.NewErrInvalidChainType(export.ChainType)
