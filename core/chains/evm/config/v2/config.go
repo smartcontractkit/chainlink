@@ -53,10 +53,6 @@ type Chain struct {
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
 
-	NodeNoNewHeadsThreshold  *models.Duration
-	NodePollFailureThreshold *uint32
-	NodePollInterval         *models.Duration
-
 	NonceAutoSync *bool
 
 	OCRContractConfirmations              *uint16
@@ -76,8 +72,10 @@ type Chain struct {
 	UseForwarders *bool
 
 	BlockHistoryEstimator *BlockHistoryEstimator
-	
+
 	KeySpecific []KeySpecific `toml:",omitempty"`
+
+	NodePool *NodePool
 }
 
 type BlockHistoryEstimator struct {
@@ -91,6 +89,12 @@ type BlockHistoryEstimator struct {
 type KeySpecific struct {
 	Key            *ethkey.EIP55Address
 	MaxGasPriceWei *utils.Big
+}
+
+type NodePool struct {
+	NoNewHeadsThreshold  *models.Duration
+	PollFailureThreshold *uint32
+	PollInterval         *models.Duration
 }
 
 func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
@@ -216,7 +220,9 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	}
 	c.MinimumContractPayment = cfg.MinimumContractPayment
 	c.OCRObservationTimeout = cfg.OCRObservationTimeout
-	c.NodeNoNewHeadsThreshold = cfg.NodeNoNewHeadsThreshold
+	if cfg.NodeNoNewHeadsThreshold != nil {
+		c.NodePool = &NodePool{NoNewHeadsThreshold: cfg.NodeNoNewHeadsThreshold}
+	}
 	return nil
 }
 

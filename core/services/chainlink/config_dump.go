@@ -3,6 +3,7 @@ package chainlink
 import (
 	"context"
 	"encoding/csv"
+	"fmt"
 	"net"
 	"os"
 	"regexp"
@@ -222,18 +223,32 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewDuration("NodeNoNewHeadsThreshold").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].NodeNoNewHeadsThreshold = d
+			if c.EVM[i].NodePool == nil {
+				c.EVM[i].NodePool = &evmcfg.NodePool{}
+			}
+			c.EVM[i].NodePool.NoNewHeadsThreshold = d
 		}
 	}
 	if e := envvar.NewUint32("NodePollFailureThreshold").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].NodePollFailureThreshold = e
+			if c.EVM[i].NodePool == nil {
+				c.EVM[i].NodePool = &evmcfg.NodePool{}
+			}
+			c.EVM[i].NodePool.PollFailureThreshold = e
 		}
 	}
 	if e := envvar.NewDuration("NodePollInterval").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].NodePollInterval = d
+			if c.EVM[i].NodePool == nil {
+				c.EVM[i].NodePool = &evmcfg.NodePool{}
+			}
+			c.EVM[i].NodePool.PollInterval = d
+		}
+	}
+	for i := range c.EVM {
+		if isZeroPtr(c.EVM[i].NodePool) {
+			c.EVM[i].NodePool = nil
 		}
 	}
 	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
@@ -394,6 +409,11 @@ func (c *Config) loadLegacyEVMEnv() {
 			}
 		}
 	}
+	for i := range c.EVM {
+		if isZeroPtr(c.EVM[i].BlockHistoryEstimator) {
+			c.EVM[i].BlockHistoryEstimator = nil
+		}
+	}
 	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].GasBumpTxDepth = e
@@ -427,16 +447,31 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.ExplorerURL = envURL("ExplorerURL")
 	c.InsecureFastScrypt = envvar.NewBool("InsecureFastScrypt").ParsePtr()
 	c.ReaperExpiration = envDuration("ReaperExpiration")
-	c.Root = envvar.RootDir.ParsePtr()
+	c.RootDir = envvar.RootDir.ParsePtr()
 	c.ShutdownGracePeriod = envDuration("ShutdownGracePeriod")
 
+	c.Feature = &config.Feature{
+		FeedsManager:       envvar.NewBool("FeatureFeedsManager").ParsePtr(),
+		UICSAKeys:          envvar.NewBool("FeatureUICSAKeys").ParsePtr(),
+		OffchainReporting2: envvar.NewBool("FeatureOffchainReporting2").ParsePtr(),
+		OffchainReporting:  envvar.NewBool("FeatureOffchainReporting").ParsePtr(),
+	}
+	if isZeroPtr(c.Feature) {
+		c.Feature = nil
+	}
+
 	c.Database = &config.Database{
-		ListenerMaxReconnectDuration:  envDuration("DatabaseListenerMaxReconnectDuration"),
-		ListenerMinReconnectInterval:  envDuration("DatabaseListenerMinReconnectInterval"),
+		DefaultIdleInTxSessionTimeout: mustParseDuration(os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")),
+		DefaultLockTimeout:            mustParseDuration(os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")),
+		DefaultQueryTimeout:           mustParseDuration(os.Getenv("DATABASE_DEFAULT_QUERY_TIMEOUT")),
 		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
 		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
+		Listener: &config.DatabaseListener{
+			MaxReconnectDuration: envDuration("DatabaseListenerMaxReconnectDuration"),
+			MinReconnectInterval: envDuration("DatabaseListenerMinReconnectInterval"),
+		},
 		Lock: &config.DatabaseLock{
 			Mode:                  envvar.NewString("DatabaseLockingMode").ParsePtr(),
 			AdvisoryCheckInterval: envDuration("AdvisoryLockCheckInterval"),
@@ -451,6 +486,9 @@ func (c *Config) loadLegacyCoreEnv() {
 			OnVersionUpgrade: envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
 			URL:              envURL("DatabaseBackupDir"),
 		},
+	}
+	if isZeroPtr(c.Database.Listener) {
+		c.Database.Listener = nil
 	}
 	if isZeroPtr(c.Database.Lock) {
 		c.Database.Lock = nil
@@ -478,14 +516,13 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.Log = &config.Log{
-		JSONConsole:    envvar.JSONConsole.ParsePtr(),
-		FileDir:        envvar.NewString("LogFileDir").ParsePtr(),
-		Level:          envvar.LogLevel.ParsePtr(),
-		SQL:            envvar.NewBool("LogSQL").ParsePtr(),
-		FileMaxSize:    envvar.LogFileMaxSize.ParsePtr(),
-		FileMaxAgeDays: envvar.LogFileMaxAge.ParsePtr(),
-		FileMaxBackups: envvar.LogFileMaxBackups.ParsePtr(),
-		UnixTS:         envvar.LogUnixTS.ParsePtr(),
+		DatabaseQueries: envvar.NewBool("LogSQL").ParsePtr(),
+		FileDir:         envvar.NewString("LogFileDir").ParsePtr(),
+		FileMaxSize:     envvar.LogFileMaxSize.ParsePtr(),
+		FileMaxAgeDays:  envvar.LogFileMaxAge.ParsePtr(),
+		FileMaxBackups:  envvar.LogFileMaxBackups.ParsePtr(),
+		JSONConsole:     envvar.JSONConsole.ParsePtr(),
+		UnixTS:          envvar.LogUnixTS.ParsePtr(),
 	}
 	if isZeroPtr(c.Log) {
 		c.Log = nil
@@ -529,9 +566,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		c.WebServer = nil
 	}
 
-	c.FeatureFeedsManager = envvar.NewBool("FeatureFeedsManager").ParsePtr()
-	c.FeatureUICSAKeys = envvar.NewBool("FeatureUICSAKeys").ParsePtr()
-
 	c.JobPipeline = &config.JobPipeline{
 		HTTPRequestMaxSizeBytes:   envvar.NewInt64("DefaultHTTPLimit").ParsePtr(),
 		DefaultHTTPRequestTimeout: envDuration("DefaultHTTPTimeout"),
@@ -553,7 +587,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		c.FluxMonitor = nil
 	}
 
-	c.FeatureOffchainReporting2 = envvar.NewBool("FeatureOffchainReporting2").ParsePtr()
 	c.OCR2 = &config.OCR2{
 		ContractConfirmations:              envvar.NewUint32("OCR2ContractConfirmations").ParsePtr(),
 		BlockchainTimeout:                  envDuration("OCR2BlockchainTimeout"),
@@ -568,7 +601,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		c.OCR2 = nil
 	}
 
-	c.FeatureOffchainReporting = envvar.NewBool("FeatureOffchainReporting").ParsePtr()
 	c.OCR = &config.OCR{
 		ObservationTimeout:           envDuration("OCRObservationTimeout"),
 		BlockchainTimeout:            envDuration("OCRBlockchainTimeout"),
@@ -665,6 +697,19 @@ func (c *Config) loadLegacyCoreEnv() {
 	if isZeroPtr(c.AutoPprof) {
 		c.AutoPprof = nil
 	}
+
+	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
+		c.Sentry = &config.Sentry{DSN: &dsn}
+		if debug := os.Getenv("SENTRY_DEBUG") == "true"; debug {
+			c.Sentry.Debug = &debug
+		}
+		if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
+			c.Sentry.Environment = &env
+		}
+		if env := os.Getenv("SENTRY_RELEASE"); env != "" {
+			c.Sentry.Release = &env
+		}
+	}
 }
 
 func first[T any](es ...*envvar.EnvVar[T]) *T {
@@ -735,4 +780,15 @@ func prettyPrint(c Config) (string, error) {
 func isZeroPtr[T comparable](p *T) bool {
 	var t T
 	return p == nil || *p == t
+}
+
+func mustParseDuration(s string) *models.Duration {
+	if s == "" {
+		return nil
+	}
+	d, err := models.ParseDuration(s)
+	if err != nil {
+		panic(fmt.Sprintf("invalid duration %s: %v", s, err))
+	}
+	return &d
 }

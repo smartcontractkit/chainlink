@@ -2,21 +2,28 @@ Dev = true
 ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 ReaperExpiration = '168h0m0s'
-Root = 'test/root/dir'
+RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
-FeatureFeedsManager = true
-FeatureUICSAKeys = true
-FeatureLogPoller = true
-FeatureOffchainReporting2 = true
-FeatureOffchainReporting = true
+
+[Feature]
+FeedsManager = true
+LogPoller = true
+OffchainReporting2 = true
+OffchainReporting = true
+UICSAKeys = true
 
 [Database]
-ListenerMaxReconnectDuration = '1m0s'
-ListenerMinReconnectInterval = '5m0s'
+DefaultIdleInTxSessionTimeout = '1m0s'
+DefaultLockTimeout = '1h0m0s'
+DefaultQueryTimeout = '1s'
 MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 TriggerFallbackDBPollInterval = '2m0s'
+
+[Database.Listener]
+MaxReconnectDuration = '1m0s'
+MinReconnectInterval = '5m0s'
 
 [Database.Lock]
 Mode = 'advisory'
@@ -44,12 +51,12 @@ SendTimeout = '5s'
 UseBatchSend = true
 
 [Log]
-JSONConsole = true
+DatabaseQueries = true
 FileDir = 'log/file/dir'
-SQL = true
 FileMaxSize = '100.00gb'
 FileMaxAgeDays = 17
 FileMaxBackups = 9
+JSONConsole = true
 UnixTS = true
 
 [WebServer]
@@ -163,6 +170,12 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
+[Sentry]
+Debug = true
+DSN = 'sentry-dsn'
+Environment = 'dev'
+Release = 'v1.2.3'
+
 [[EVM]]
 ChainID = '1'
 BalanceMonitorEnabled = true
@@ -195,9 +208,6 @@ MaxQueuedTransactions = 99
 MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9223372036854775807'
-NodeNoNewHeadsThreshold = '1m0s'
-NodePollFailureThreshold = 5
-NodePollInterval = '1m0s'
 NonceAutoSync = true
 OCRContractConfirmations = 11
 OCRContractTransmitterTransmitTimeout = '1m0s'
@@ -222,6 +232,11 @@ TransactionPercentile = 15
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 MaxGasPriceWei = '79228162514264337593543950335'
+
+[EVM.NodePool]
+NoNewHeadsThreshold = '1m0s'
+PollFailureThreshold = 5
+PollInterval = '1m0s'
 
 [[EVM.Nodes]]
 Name = 'foo'

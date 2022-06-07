@@ -13,7 +13,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -34,13 +33,13 @@ var (
 	multiChainTOML string
 	multiChain     = Config{
 		Core: config.Core{
-			Root: ptr("my/root/dir"),
+			RootDir: ptr("my/root/dir"),
 
 			Database: &config.Database{
 				TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
 			},
 			Log: &config.Log{
-				Level: ptr(zapcore.WarnLevel),
+				JSONConsole: ptr(true),
 			},
 			JobPipeline: &config.JobPipeline{
 				DefaultHTTPRequestTimeout: models.MustNewDuration(30 * time.Second),
@@ -126,28 +125,36 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: config.Core{
-			Dev:                       ptr(true),
-			ExplorerURL:               mustURL("http://explorer.url"),
-			InsecureFastScrypt:        ptr(true),
-			ReaperExpiration:          models.MustNewDuration(7 * 24 * time.Hour),
-			Root:                      ptr("test/root/dir"),
-			ShutdownGracePeriod:       models.MustNewDuration(10 * time.Second),
-			FeatureFeedsManager:       ptr(true),
-			FeatureUICSAKeys:          ptr(true),
-			FeatureLogPoller:          ptr(true),
-			FeatureOffchainReporting2: ptr(true),
-			FeatureOffchainReporting:  ptr(true),
+			Dev:                 ptr(true),
+			ExplorerURL:         mustURL("http://explorer.url"),
+			InsecureFastScrypt:  ptr(true),
+			ReaperExpiration:    models.MustNewDuration(7 * 24 * time.Hour),
+			RootDir:             ptr("test/root/dir"),
+			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
 		},
 	}
 
 	full := global
+	full.Feature = &config.Feature{
+		FeedsManager:       ptr(true),
+		LogPoller:          ptr(true),
+		OffchainReporting2: ptr(true),
+		OffchainReporting:  ptr(true),
+		UICSAKeys:          ptr(true),
+	}
 	full.Database = &config.Database{
-		ListenerMaxReconnectDuration:  models.MustNewDuration(time.Minute),
-		ListenerMinReconnectInterval:  models.MustNewDuration(5 * time.Minute),
+		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
+		DefaultLockTimeout:            models.MustNewDuration(time.Hour),
+		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
+
 		MigrateOnStartup:              ptr(true),
 		ORMMaxIdleConns:               ptr[int64](7),
 		ORMMaxOpenConns:               ptr[int64](13),
 		TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
+		Listener: &config.DatabaseListener{
+			MaxReconnectDuration: models.MustNewDuration(time.Minute),
+			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
+		},
 		Lock: &config.DatabaseLock{
 			Mode:                  ptr("advisory"),
 			AdvisoryCheckInterval: models.MustNewDuration(5 * time.Minute),
@@ -175,13 +182,13 @@ func TestConfig_Marshal(t *testing.T) {
 		UseBatchSend: ptr(true),
 	}
 	full.Log = &config.Log{
-		JSONConsole:    ptr(true),
-		FileDir:        ptr("log/file/dir"),
-		SQL:            ptr(true),
-		FileMaxSize:    ptr[utils.FileSize](100 * utils.GB),
-		FileMaxAgeDays: ptr[int64](17),
-		FileMaxBackups: ptr[int64](9),
-		UnixTS:         ptr(true),
+		JSONConsole:     ptr(true),
+		FileDir:         ptr("log/file/dir"),
+		DatabaseQueries: ptr(true),
+		FileMaxSize:     ptr[utils.FileSize](100 * utils.GB),
+		FileMaxAgeDays:  ptr[int64](17),
+		FileMaxBackups:  ptr[int64](9),
+		UnixTS:          ptr(true),
 	}
 	full.WebServer = &config.WebServer{
 		AllowOrigins:     ptr("*"),
@@ -294,6 +301,12 @@ func TestConfig_Marshal(t *testing.T) {
 		MemThreshold:         ptr[utils.FileSize](utils.GB),
 		GoroutineThreshold:   ptr[int64](999),
 	}
+	full.Sentry = &config.Sentry{
+		Debug:       ptr(true),
+		DSN:         ptr("sentry-dsn"),
+		Environment: ptr("dev"),
+		Release:     ptr("v1.2.3"),
+	}
 	full.EVM = []EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
@@ -347,10 +360,7 @@ func TestConfig_Marshal(t *testing.T) {
 				MinIncomingConfirmations: ptr[uint32](13),
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
 
-				NonceAutoSync:            ptr(true),
-				NodeNoNewHeadsThreshold:  &minute,
-				NodePollFailureThreshold: ptr[uint32](5),
-				NodePollInterval:         &minute,
+				NonceAutoSync: ptr(true),
 
 				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
 
@@ -366,6 +376,12 @@ func TestConfig_Marshal(t *testing.T) {
 				TxReaperThreshold:      &minute,
 				TxResendAfterThreshold: &hour,
 				UseForwarders:          ptr(true),
+
+				NodePool: &evmcfg.NodePool{
+					NoNewHeadsThreshold:  &minute,
+					PollFailureThreshold: ptr[uint32](5),
+					PollInterval:         &minute,
+				},
 			},
 			Nodes: []evmcfg.Node{
 				{
@@ -441,22 +457,30 @@ func TestConfig_Marshal(t *testing.T) {
 ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 ReaperExpiration = '168h0m0s'
-Root = 'test/root/dir'
+RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
-FeatureFeedsManager = true
-FeatureUICSAKeys = true
-FeatureLogPoller = true
-FeatureOffchainReporting2 = true
-FeatureOffchainReporting = true
+`},
+		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `
+[Feature]
+FeedsManager = true
+LogPoller = true
+OffchainReporting2 = true
+OffchainReporting = true
+UICSAKeys = true
 `},
 		{"Database", Config{Core: config.Core{Database: full.Database}}, `
 [Database]
-ListenerMaxReconnectDuration = '1m0s'
-ListenerMinReconnectInterval = '5m0s'
+DefaultIdleInTxSessionTimeout = '1m0s'
+DefaultLockTimeout = '1h0m0s'
+DefaultQueryTimeout = '1s'
 MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 TriggerFallbackDBPollInterval = '2m0s'
+
+[Database.Listener]
+MaxReconnectDuration = '1m0s'
+MinReconnectInterval = '5m0s'
 
 [Database.Lock]
 Mode = 'advisory'
@@ -486,12 +510,12 @@ UseBatchSend = true
 `},
 		{"Log", Config{Core: config.Core{Log: full.Log}}, `
 [Log]
-JSONConsole = true
+DatabaseQueries = true
 FileDir = 'log/file/dir'
-SQL = true
 FileMaxSize = '100.00gb'
 FileMaxAgeDays = 17
 FileMaxBackups = 9
+JSONConsole = true
 UnixTS = true
 `},
 		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `
@@ -613,7 +637,14 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 `},
-		{"evm", Config{EVM: full.EVM}, `
+		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `
+[Sentry]
+Debug = true
+DSN = 'sentry-dsn'
+Environment = 'dev'
+Release = 'v1.2.3'
+`},
+		{"EVM", Config{EVM: full.EVM}, `
 [[EVM]]
 ChainID = '1'
 BalanceMonitorEnabled = true
@@ -646,9 +677,6 @@ MaxQueuedTransactions = 99
 MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9223372036854775807'
-NodeNoNewHeadsThreshold = '1m0s'
-NodePollFailureThreshold = 5
-NodePollInterval = '1m0s'
 NonceAutoSync = true
 OCRContractConfirmations = 11
 OCRContractTransmitterTransmitTimeout = '1m0s'
@@ -674,6 +702,11 @@ TransactionPercentile = 15
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 MaxGasPriceWei = '79228162514264337593543950335'
 
+[EVM.NodePool]
+NoNewHeadsThreshold = '1m0s'
+PollFailureThreshold = 5
+PollInterval = '1m0s'
+
 [[EVM.Nodes]]
 Name = 'foo'
 WSURL = 'wss://web.socket/test'
@@ -689,7 +722,7 @@ Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
-		{"solana", Config{Solana: full.Solana}, `
+		{"Solana", Config{Solana: full.Solana}, `
 [[Solana]]
 ChainID = 'mainnet'
 Enabled = false
@@ -716,7 +749,7 @@ URL = 'http://solana.foo'
 Name = 'bar'
 URL = 'http://solana.bar'
 `},
-		{"terra", Config{Terra: full.Terra}, `
+		{"Terra", Config{Terra: full.Terra}, `
 [[Terra]]
 ChainID = 'Bombay-12'
 BlockRate = '1m0s'

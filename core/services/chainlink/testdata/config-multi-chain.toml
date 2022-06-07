@@ -1,10 +1,10 @@
-Root = 'my/root/dir'
+RootDir = 'my/root/dir'
 
 [Database]
 TriggerFallbackDBPollInterval = '2m0s'
 
 [Log]
-Level = 'warn'
+JSONConsole = true
 
 [JobPipeline]
 DefaultHTTPRequestTimeout = '30s'

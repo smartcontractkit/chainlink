@@ -4,7 +4,6 @@ import (
 	"net"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -20,8 +19,10 @@ type Core struct {
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	ReaperExpiration    *models.Duration
-	Root                *string
+	RootDir             *string
 	ShutdownGracePeriod *models.Duration
+
+	Feature *Feature
 
 	Database *Database
 
@@ -31,27 +32,21 @@ type Core struct {
 
 	WebServer *WebServer
 
-	//TODO feature table?
-	FeatureFeedsManager *bool
-	FeatureUICSAKeys    *bool
-
-	FeatureLogPoller *bool
-
 	JobPipeline *JobPipeline
 
 	FluxMonitor *FluxMonitor
 
-	FeatureOffchainReporting2 *bool
-	OCR2                      *OCR2
+	OCR2 *OCR2
 
-	FeatureOffchainReporting *bool
-	OCR                      *OCR
+	OCR *OCR
 
 	P2P *P2P
 
 	Keeper *Keeper
 
 	AutoPprof *AutoPprof
+
+	Sentry *Sentry
 }
 
 type Secrets struct {
@@ -61,17 +56,33 @@ type Secrets struct {
 	//TODO more?
 }
 
+type Feature struct {
+	FeedsManager       *bool
+	LogPoller          *bool
+	OffchainReporting2 *bool
+	OffchainReporting  *bool
+	UICSAKeys          *bool
+}
+
 type Database struct {
-	ListenerMaxReconnectDuration  *models.Duration
-	ListenerMinReconnectInterval  *models.Duration
+	DefaultIdleInTxSessionTimeout *models.Duration
+	DefaultLockTimeout            *models.Duration
+	DefaultQueryTimeout           *models.Duration
 	MigrateOnStartup              *bool
 	ORMMaxIdleConns               *int64
 	ORMMaxOpenConns               *int64
 	TriggerFallbackDBPollInterval *models.Duration
 
+	Listener *DatabaseListener
+
 	Lock *DatabaseLock
 
 	Backup *DatabaseBackup
+}
+
+type DatabaseListener struct {
+	MaxReconnectDuration *models.Duration
+	MinReconnectInterval *models.Duration
 }
 
 type DatabaseLock struct {
@@ -103,14 +114,13 @@ type TelemetryIngress struct {
 }
 
 type Log struct {
-	JSONConsole    *bool
-	FileDir        *string
-	Level          *zapcore.Level //TODO is this actually an exceptional case to leave as env var?
-	SQL            *bool
-	FileMaxSize    *utils.FileSize
-	FileMaxAgeDays *int64
-	FileMaxBackups *int64
-	UnixTS         *bool
+	DatabaseQueries *bool
+	FileDir         *string
+	FileMaxSize     *utils.FileSize
+	FileMaxAgeDays  *int64
+	FileMaxBackups  *int64
+	JSONConsole     *bool
+	UnixTS          *bool
 }
 
 type WebServer struct {
@@ -260,4 +270,11 @@ type AutoPprof struct {
 	MutexProfileFraction *int64 // runtime.SetMutexProfileFraction
 	MemThreshold         *utils.FileSize
 	GoroutineThreshold   *int64
+}
+
+type Sentry struct {
+	Debug       *bool
+	DSN         *string
+	Environment *string
+	Release     *string
 }

@@ -204,7 +204,7 @@ func MakeDuration(d time.Duration) (Duration, error) {
 	return Duration{d: d}, nil
 }
 
-func MakeDurationFromString(s string) (Duration, error) {
+func ParseDuration(s string) (Duration, error) {
 	d, err := time.ParseDuration(s)
 	if err != nil {
 		return Duration{}, err
