@@ -35,13 +35,13 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 	}
 	switch export.ChainType {
 	case chaintype.EVM:
-		key := mustNewEVMKeyFromRaw(rawKey)
+		key := mustNewKeyFromRaw[*evmKeyring](rawKey, &evmKeyring{})
 		return &key, nil
 	case chaintype.Solana:
-		key := mustNewSolanaKeyFromRaw(rawKey)
+		key := mustNewKeyFromRaw[*solanaKeyring](rawKey, &solanaKeyring{})
 		return &key, nil
 	case chaintype.Terra:
-		key := mustNewTerraKeyFromRaw(rawKey)
+		key := mustNewKeyFromRaw[*terraKeyring](rawKey, &terraKeyring{})
 		return &key, nil
 	case chaintype.Starknet:
 		key := mustNewKeyFromRaw[*starknetKeyring](rawKey, &starknetKeyring{})

@@ -36,11 +36,11 @@ var curve = secp256k1.S256()
 func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:
-		return newEVMKeyBundle()
+		return newKeyBundle(chaintype.EVM, newEVMKeyring)
 	case chaintype.Solana:
-		return newSolanaKeyBundle()
+		return newKeyBundle(chaintype.Solana, newSolanaKeyring)
 	case chaintype.Terra:
-		return newTerraKeyBundle()
+		return newKeyBundle(chaintype.Terra, newTerraKeyring)
 	case chaintype.Starknet:
 		return newKeyBundle(chaintype.Starknet, newStarknetKeyring)
 	}
@@ -51,11 +51,11 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle {
 	switch chainType {
 	case chaintype.EVM:
-		return mustNewEVMKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.EVM, newEVMKeyring, reader)
 	case chaintype.Solana:
-		return mustNewSolanaKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
 	case chaintype.Terra:
-		return mustNewTerraKeyBundleInsecure(reader)
+		return mustNewKeyBundleInsecure(chaintype.Terra, newTerraKeyring, reader)
 	case chaintype.Starknet:
 		return mustNewKeyBundleInsecure(chaintype.Starknet, newStarknetKeyring, reader)
 	}
@@ -63,7 +63,7 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 }
 
 // NewKeyBundleFromOCR1Key gets the key bundle from an OCR1 key
-func NewKeyBundleFromOCR1Key(v1key ocrkey.KeyV2) (evmKeyBundle, error) {
+func NewKeyBundleFromOCR1Key(v1key ocrkey.KeyV2) (keyBundle[*evmKeyring], error) {
 	onChainKeyRing := evmKeyring{
 		privateKey: ecdsa.PrivateKey(*v1key.OnChainSigning),
 	}
@@ -71,16 +71,16 @@ func NewKeyBundleFromOCR1Key(v1key ocrkey.KeyV2) (evmKeyBundle, error) {
 		signingKey:    ed25519.PrivateKey(*v1key.OffChainSigning),
 		encryptionKey: *v1key.OffChainEncryption,
 	}
-	k := evmKeyBundle{
+	k := keyBundle[*evmKeyring]{
 		keyBundleBase: keyBundleBase{
 			chainType:       chaintype.EVM,
 			OffchainKeyring: offChainKeyRing,
 		},
-		evmKeyring: onChainKeyRing,
+		keyring: &onChainKeyRing,
 	}
 	marshalledPrivK, err := k.Marshal()
 	if err != nil {
-		return evmKeyBundle{}, err
+		return keyBundle[*evmKeyring]{}, err
 	}
 	k.id = sha256.Sum256(marshalledPrivK)
 	return k, nil
@@ -124,13 +124,13 @@ func (raw Raw) Key() KeyBundle {
 	}
 	switch temp.ChainType {
 	case chaintype.EVM:
-		result := mustNewEVMKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &evmKeyring{})
 		return &result
 	case chaintype.Solana:
-		result := mustNewSolanaKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &solanaKeyring{})
 		return &result
 	case chaintype.Terra:
-		result := mustNewTerraKeyFromRaw(raw)
+		result := mustNewKeyFromRaw(raw, &terraKeyring{})
 		return &result
 	case chaintype.Starknet:
 		result := mustNewKeyFromRaw(raw, &starknetKeyring{})
