@@ -30,8 +30,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600
       - name: Login to Amazon ECR
         id: login-ecr
@@ -45,7 +45,7 @@ jobs:
           file: core/chainlink.Dockerfile
           # comma separated like: KEY1=VAL1,KEY2=VAL2,...
           build-args: COMMIT_SHA=${{ github.sha }}
-          tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
+          tags: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
   smoke:
     environment: integration
@@ -65,12 +65,12 @@ jobs:
           test_command_to_run: make test_smoke args="-nodes=10"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
-          cl_repo: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+          cl_repo: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
-          QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   solana:
@@ -84,6 +84,6 @@ jobs:
       cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
       cl_image: latest.${{ github.sha }}
     secrets:
-      QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
