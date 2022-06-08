@@ -19,6 +19,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -289,7 +290,7 @@ func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, origin
 	var priceByIncrement = new(big.Int)
 	priceByIncrement.Add(originalGasPrice, cfg.EvmGasBumpWei())
 
-	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
+	bumpedGasPrice := bigmath.Max(priceByPercentage, priceByIncrement)
 	if currentGasPrice != nil {
 		if currentGasPrice.Cmp(maxGasPrice) > 0 {
 			// Shouldn't happen because the estimator should not be allowed to
@@ -314,13 +315,6 @@ func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, origin
 	return bumpedGasPrice, nil
 }
 
-func max(a, b *big.Int) *big.Int {
-	if a.Cmp(b) >= 0 {
-		return a
-	}
-	return b
-}
-
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
 func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap *big.Int, currentBaseFee *big.Int, originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
 	bumped, err = bumpDynamicFee(config, lggr, currentTipCap, currentBaseFee, originalFee)
@@ -343,7 +337,7 @@ func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap 
 // See: https://github.com/ethereum/go-ethereum/issues/24284
 func bumpDynamicFee(cfg Config, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFee DynamicFee) (bumpedFee DynamicFee, err error) {
 	maxGasPrice := cfg.EvmMaxGasPriceWei()
-	baselineTipCap := max(originalFee.TipCap, cfg.EvmGasTipCapDefault())
+	baselineTipCap := bigmath.Max(originalFee.TipCap, cfg.EvmGasTipCapDefault())
 
 	bumpedTipCap := increaseByPercentageOrIncrement(baselineTipCap, cfg.EvmGasBumpPercent(), cfg.EvmGasBumpWei())
 
@@ -377,7 +371,7 @@ func bumpDynamicFee(cfg Config, lggr logger.SugaredLogger, currentTipCap, curren
 			lggr.Warnf("Ignoring current base fee of %s which is greater than max gas price of %s", currentBaseFee.String(), maxGasPrice.String())
 		} else {
 			currentFeeCap := calcFeeCap(currentBaseFee, cfg, bumpedTipCap)
-			bumpedFeeCap = max(bumpedFeeCap, currentFeeCap)
+			bumpedFeeCap = bigmath.Max(bumpedFeeCap, currentFeeCap)
 		}
 	}
 
@@ -395,7 +389,7 @@ func increaseByPercentageOrIncrement(original *big.Int, percentage uint16, incre
 
 	incrementBump := new(big.Int).Add(original, increment)
 
-	return max(percentageBump, incrementBump)
+	return bigmath.Max(percentageBump, incrementBump)
 }
 
 func increaseByPercentage(original *big.Int, percentage uint16) (bumped *big.Int) {
