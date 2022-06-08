@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
 //go:generate mockery --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -200,13 +201,6 @@ func (lp *logPoller) run() {
 	}
 }
 
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func convertLogs(chainID *big.Int, logs []types.Log) []Log {
 	var lgs []Log
 	for _, l := range logs {
@@ -241,7 +235,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 			logs []types.Log
 			err  error
 		)
-		to := min(from+lp.backfillBatchSize-1, end)
+		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
 		// Retry forever to query for logs,
 		// unblocked by resolving node connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
