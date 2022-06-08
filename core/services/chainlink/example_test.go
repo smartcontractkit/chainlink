@@ -1,5 +1,3 @@
-// Note: These tests are isolated in a separate package and never run in parallel, since they modify they environment.
-
 package chainlink_test
 
 import (
