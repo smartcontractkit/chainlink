@@ -27,8 +27,9 @@ contract KeeperRegistryCheckUpkeepGasUsageWrapper is ConfirmedOwner {
   /**
    * @notice This function is called by monitoring service to estimate how much gas checkUpkeep functions will consume.
    * @param id identifier of the upkeep to check
+   * @param from the address to simulate performing the upkeep from
    */
-  function measureCheckGas(uint256 id)
+  function measureCheckGas(uint256 id, address from)
     external
     returns (
       bool,
@@ -36,15 +37,6 @@ contract KeeperRegistryCheckUpkeepGasUsageWrapper is ConfirmedOwner {
       uint256
     )
   {
-    (, , , , address lastKeeper, , , ) = i_keeperRegistry.getUpkeep(id);
-    (, , address[] memory keepers) = i_keeperRegistry.getState();
-
-    uint256 index = block.number % keepers.length;
-    address from = keepers[index];
-    if (from == lastKeeper) {
-      from = keepers[(index + 1) % keepers.length];
-    }
-
     uint256 startGas = gasleft();
     try i_keeperRegistry.checkUpkeep(id, from) returns (
       bytes memory performData,
