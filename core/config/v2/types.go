@@ -61,7 +61,6 @@ type Feature struct {
 	LogPoller          *bool
 	OffchainReporting2 *bool
 	OffchainReporting  *bool
-	UICSAKeys          *bool
 }
 
 type Database struct {
@@ -71,7 +70,6 @@ type Database struct {
 	MigrateOnStartup              *bool
 	ORMMaxIdleConns               *int64
 	ORMMaxOpenConns               *int64
-	TriggerFallbackDBPollInterval *models.Duration
 
 	Listener *DatabaseListener
 
@@ -81,8 +79,9 @@ type Database struct {
 }
 
 type DatabaseListener struct {
-	MaxReconnectDuration *models.Duration
-	MinReconnectInterval *models.Duration
+	MaxReconnectDuration          *models.Duration
+	MinReconnectInterval          *models.Duration
+	TriggerFallbackDBPollInterval *models.Duration
 }
 
 type DatabaseLock struct {
@@ -124,12 +123,12 @@ type Log struct {
 }
 
 type WebServer struct {
-	AllowOrigins     *string
-	ExternalURL      *models.URL
-	HTTPWriteTimeout *models.Duration
-	HTTPPort         *uint16
-	SecureCookies    *bool
-	SessionTimeout   *models.Duration
+	AllowOrigins      *string
+	BridgeResponseURL *models.URL
+	HTTPWriteTimeout  *models.Duration
+	HTTPPort          *uint16
+	SecureCookies     *bool
+	SessionTimeout    *models.Duration
 
 	MFA *WebServerMFA
 

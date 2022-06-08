@@ -1,6 +1,8 @@
 RootDir = 'my/root/dir'
 
 [Database]
+
+[Database.Listener]
 TriggerFallbackDBPollInterval = '2m0s'
 
 [Log]

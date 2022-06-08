@@ -10,7 +10,6 @@ FeedsManager = true
 LogPoller = true
 OffchainReporting2 = true
 OffchainReporting = true
-UICSAKeys = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -19,11 +18,11 @@ DefaultQueryTimeout = '1s'
 MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
-TriggerFallbackDBPollInterval = '2m0s'
 
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
 MinReconnectInterval = '5m0s'
+TriggerFallbackDBPollInterval = '2m0s'
 
 [Database.Lock]
 Mode = 'advisory'
@@ -61,7 +60,7 @@ UnixTS = true
 
 [WebServer]
 AllowOrigins = '*'
-ExternalURL = 'https://bridge.response'
+BridgeResponseURL = 'https://bridge.response'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
@@ -181,7 +180,6 @@ ChainID = '1'
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
 EIP1559DynamicFees = true
 FinalityDepth = 42
@@ -196,9 +194,6 @@ GasLimitMultiplier = '1.234'
 GasPriceDefault = '9223372036854775807'
 GasTipCapDefault = '2'
 GasTipCapMinimum = '1'
-HeadTrackerHistoryDepth = 15
-HeadTrackerMaxBufferSize = 17
-HeadTrackerSamplingInterval = '1h0m0s'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
@@ -228,6 +223,12 @@ BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '1h0m0s'
+HistoryDepth = 15
+MaxBufferSize = 17
+SamplingInterval = '1h0m0s'
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

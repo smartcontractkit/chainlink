@@ -131,12 +131,6 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].BlockBackfillSkip = e
 		}
 	}
-	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
-		d := models.MustNewDuration(*e)
-		for i := range c.EVM {
-			c.EVM[i].BlockEmissionIdleWarningThreshold = d
-		}
-	}
 	if e := envvar.NewString("ChainType").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].ChainType = e
@@ -165,20 +159,38 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].FinalityDepth = e
 		}
 	}
+	if e := envvar.NewDuration("BlockEmissionIdleWarningThreshold").ParsePtr(); e != nil {
+		d := models.MustNewDuration(*e)
+		for i := range c.EVM {
+			if c.EVM[i].HeadTracker == nil {
+				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
+			}
+			c.EVM[i].HeadTracker.BlockEmissionIdleWarningThreshold = d
+		}
+	}
 	if e := envvar.NewUint32("EvmHeadTrackerHistoryDepth").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].HeadTrackerHistoryDepth = e
+			if c.EVM[i].HeadTracker == nil {
+				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
+			}
+			c.EVM[i].HeadTracker.HistoryDepth = e
 		}
 	}
 	if e := envvar.NewUint32("EvmHeadTrackerMaxBufferSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].HeadTrackerMaxBufferSize = e
+			if c.EVM[i].HeadTracker == nil {
+				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
+			}
+			c.EVM[i].HeadTracker.MaxBufferSize = e
 		}
 	}
 	if e := envvar.NewDuration("EvmHeadTrackerSamplingInterval").ParsePtr(); e != nil {
 		d := models.MustNewDuration(*e)
 		for i := range c.EVM {
-			c.EVM[i].HeadTrackerSamplingInterval = d
+			if c.EVM[i].HeadTracker == nil {
+				c.EVM[i].HeadTracker = &evmcfg.HeadTracker{}
+			}
+			c.EVM[i].HeadTracker.SamplingInterval = d
 		}
 	}
 	if e := envvar.NewUint32("EvmLogBackfillBatchSize").ParsePtr(); e != nil {
@@ -452,7 +464,6 @@ func (c *Config) loadLegacyCoreEnv() {
 
 	c.Feature = &config.Feature{
 		FeedsManager:       envvar.NewBool("FeatureFeedsManager").ParsePtr(),
-		UICSAKeys:          envvar.NewBool("FeatureUICSAKeys").ParsePtr(),
 		OffchainReporting2: envvar.NewBool("FeatureOffchainReporting2").ParsePtr(),
 		OffchainReporting:  envvar.NewBool("FeatureOffchainReporting").ParsePtr(),
 	}
@@ -467,10 +478,10 @@ func (c *Config) loadLegacyCoreEnv() {
 		MigrateOnStartup:              envvar.NewBool("MigrateDatabase").ParsePtr(),
 		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
-		TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
 		Listener: &config.DatabaseListener{
-			MaxReconnectDuration: envDuration("DatabaseListenerMaxReconnectDuration"),
-			MinReconnectInterval: envDuration("DatabaseListenerMinReconnectInterval"),
+			MaxReconnectDuration:          envDuration("DatabaseListenerMaxReconnectDuration"),
+			MinReconnectInterval:          envDuration("DatabaseListenerMinReconnectInterval"),
+			TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
 		},
 		Lock: &config.DatabaseLock{
 			Mode:                  envvar.NewString("DatabaseLockingMode").ParsePtr(),
@@ -529,12 +540,12 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.WebServer = &config.WebServer{
-		AllowOrigins:     envvar.NewString("AllowOrigins").ParsePtr(),
-		ExternalURL:      envURL("BridgeResponseURL"),
-		HTTPWriteTimeout: envDuration("HTTPServerWriteTimeout"),
-		HTTPPort:         envvar.NewUint16("Port").ParsePtr(),
-		SecureCookies:    envvar.NewBool("SecureCookies").ParsePtr(),
-		SessionTimeout:   envDuration("SessionTimeout"),
+		AllowOrigins:      envvar.NewString("AllowOrigins").ParsePtr(),
+		BridgeResponseURL: envURL("BridgeResponseURL"),
+		HTTPWriteTimeout:  envDuration("HTTPServerWriteTimeout"),
+		HTTPPort:          envvar.NewUint16("Port").ParsePtr(),
+		SecureCookies:     envvar.NewBool("SecureCookies").ParsePtr(),
+		SessionTimeout:    envDuration("SessionTimeout"),
 		MFA: &config.WebServerMFA{
 			RPID:     envvar.NewString("RPID").ParsePtr(),
 			RPOrigin: envvar.NewString("RPOrigin").ParsePtr(),

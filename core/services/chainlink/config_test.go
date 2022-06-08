@@ -36,7 +36,9 @@ var (
 			RootDir: ptr("my/root/dir"),
 
 			Database: &config.Database{
-				TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
+				Listener: &config.DatabaseListener{
+					TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
+				},
 			},
 			Log: &config.Log{
 				JSONConsole: ptr(true),
@@ -178,20 +180,19 @@ func TestConfig_Marshal(t *testing.T) {
 		LogPoller:          ptr(true),
 		OffchainReporting2: ptr(true),
 		OffchainReporting:  ptr(true),
-		UICSAKeys:          ptr(true),
 	}
 	full.Database = &config.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
 		DefaultLockTimeout:            models.MustNewDuration(time.Hour),
 		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
 
-		MigrateOnStartup:              ptr(true),
-		ORMMaxIdleConns:               ptr[int64](7),
-		ORMMaxOpenConns:               ptr[int64](13),
-		TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
+		MigrateOnStartup: ptr(true),
+		ORMMaxIdleConns:  ptr[int64](7),
+		ORMMaxOpenConns:  ptr[int64](13),
 		Listener: &config.DatabaseListener{
-			MaxReconnectDuration: models.MustNewDuration(time.Minute),
-			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
+			MaxReconnectDuration:          models.MustNewDuration(time.Minute),
+			MinReconnectInterval:          models.MustNewDuration(5 * time.Minute),
+			TriggerFallbackDBPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
 		Lock: &config.DatabaseLock{
 			Mode:                  ptr("advisory"),
@@ -229,12 +230,12 @@ func TestConfig_Marshal(t *testing.T) {
 		UnixTS:          ptr(true),
 	}
 	full.WebServer = &config.WebServer{
-		AllowOrigins:     ptr("*"),
-		ExternalURL:      mustURL("https://bridge.response"),
-		HTTPWriteTimeout: models.MustNewDuration(time.Minute),
-		HTTPPort:         ptr[uint16](56),
-		SecureCookies:    ptr(true),
-		SessionTimeout:   models.MustNewDuration(time.Hour),
+		AllowOrigins:      ptr("*"),
+		BridgeResponseURL: mustURL("https://bridge.response"),
+		HTTPWriteTimeout:  models.MustNewDuration(time.Minute),
+		HTTPPort:          ptr[uint16](56),
+		SecureCookies:     ptr(true),
+		SessionTimeout:    models.MustNewDuration(time.Hour),
 		MFA: &config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -349,10 +350,9 @@ func TestConfig_Marshal(t *testing.T) {
 		{
 			ChainID: utils.NewBigI(1),
 			Chain: evmcfg.Chain{
-				BalanceMonitorEnabled:             ptr(true),
-				BlockBackfillDepth:                ptr[uint32](100),
-				BlockBackfillSkip:                 ptr(true),
-				BlockEmissionIdleWarningThreshold: &hour,
+				BalanceMonitorEnabled: ptr(true),
+				BlockBackfillDepth:    ptr[uint32](100),
+				BlockBackfillSkip:     ptr(true),
 				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimator{
 					BatchSize:                 ptr[uint32](17),
 					BlockDelay:                ptr[uint16](10),
@@ -375,10 +375,6 @@ func TestConfig_Marshal(t *testing.T) {
 				GasPriceDefault:    utils.NewBigI(math.MaxInt64),
 				GasTipCapDefault:   utils.NewBigI(2),
 				GasTipCapMinimum:   utils.NewBigI(1),
-
-				HeadTrackerHistoryDepth:     ptr[uint32](15),
-				HeadTrackerMaxBufferSize:    ptr[uint32](17),
-				HeadTrackerSamplingInterval: &hour,
 
 				KeySpecific: []evmcfg.KeySpecific{
 					{
@@ -414,6 +410,13 @@ func TestConfig_Marshal(t *testing.T) {
 				TxReaperThreshold:      &minute,
 				TxResendAfterThreshold: &hour,
 				UseForwarders:          ptr(true),
+
+				HeadTracker: &evmcfg.HeadTracker{
+					BlockEmissionIdleWarningThreshold: &hour,
+					HistoryDepth:                      ptr[uint32](15),
+					MaxBufferSize:                     ptr[uint32](17),
+					SamplingInterval:                  &hour,
+				},
 
 				NodePool: &evmcfg.NodePool{
 					NoNewHeadsThreshold:  &minute,
@@ -504,7 +507,6 @@ FeedsManager = true
 LogPoller = true
 OffchainReporting2 = true
 OffchainReporting = true
-UICSAKeys = true
 `},
 		{"Database", Config{Core: config.Core{Database: full.Database}}, `
 [Database]
@@ -514,11 +516,11 @@ DefaultQueryTimeout = '1s'
 MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
-TriggerFallbackDBPollInterval = '2m0s'
 
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
 MinReconnectInterval = '5m0s'
+TriggerFallbackDBPollInterval = '2m0s'
 
 [Database.Lock]
 Mode = 'advisory'
@@ -559,7 +561,7 @@ UnixTS = true
 		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `
 [WebServer]
 AllowOrigins = '*'
-ExternalURL = 'https://bridge.response'
+BridgeResponseURL = 'https://bridge.response'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
@@ -688,7 +690,6 @@ ChainID = '1'
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
-BlockEmissionIdleWarningThreshold = '1h0m0s'
 ChainType = 'Optimism'
 EIP1559DynamicFees = true
 FinalityDepth = 42
@@ -703,9 +704,6 @@ GasLimitMultiplier = '1.234'
 GasPriceDefault = '9223372036854775807'
 GasTipCapDefault = '2'
 GasTipCapMinimum = '1'
-HeadTrackerHistoryDepth = 15
-HeadTrackerMaxBufferSize = 17
-HeadTrackerSamplingInterval = '1h0m0s'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
@@ -735,6 +733,12 @@ BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '1h0m0s'
+HistoryDepth = 15
+MaxBufferSize = 17
+SamplingInterval = '1h0m0s'
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

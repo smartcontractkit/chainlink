@@ -15,10 +15,9 @@ import (
 )
 
 type Chain struct {
-	BalanceMonitorEnabled             *bool
-	BlockBackfillDepth                *uint32
-	BlockBackfillSkip                 *bool
-	BlockEmissionIdleWarningThreshold *models.Duration
+	BalanceMonitorEnabled *bool
+	BlockBackfillDepth    *uint32
+	BlockBackfillSkip     *bool
 
 	ChainType            *string
 	EIP1559DynamicFees   *bool
@@ -37,10 +36,6 @@ type Chain struct {
 	GasPriceDefault    *utils.Big
 	GasTipCapDefault   *utils.Big
 	GasTipCapMinimum   *utils.Big
-
-	HeadTrackerHistoryDepth     *uint32
-	HeadTrackerMaxBufferSize    *uint32
-	HeadTrackerSamplingInterval *models.Duration
 
 	LinkContractAddress  *ethkey.EIP55Address
 	LogBackfillBatchSize *uint32
@@ -73,6 +68,8 @@ type Chain struct {
 
 	BlockHistoryEstimator *BlockHistoryEstimator
 
+	HeadTracker *HeadTracker
+
 	KeySpecific []KeySpecific `toml:",omitempty"`
 
 	NodePool *NodePool
@@ -89,6 +86,13 @@ type BlockHistoryEstimator struct {
 type KeySpecific struct {
 	Key            *ethkey.EIP55Address
 	MaxGasPriceWei *utils.Big
+}
+
+type HeadTracker struct {
+	BlockEmissionIdleWarningThreshold *models.Duration
+	HistoryDepth                      *uint32
+	MaxBufferSize                     *uint32
+	SamplingInterval                  *models.Duration
 }
 
 type NodePool struct {
@@ -149,14 +153,25 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	c.GasTipCapDefault = cfg.EvmGasTipCapDefault
 	c.GasTipCapMinimum = cfg.EvmGasTipCapMinimum
 	if cfg.EvmHeadTrackerHistoryDepth.Valid {
+		if c.HeadTracker == nil {
+			c.HeadTracker = &HeadTracker{}
+		}
 		v := uint32(cfg.EvmHeadTrackerHistoryDepth.Int64)
-		c.HeadTrackerHistoryDepth = &v
+		c.HeadTracker.HistoryDepth = &v
 	}
 	if cfg.EvmHeadTrackerMaxBufferSize.Valid {
+		if c.HeadTracker == nil {
+			c.HeadTracker = &HeadTracker{}
+		}
 		v := uint32(cfg.EvmHeadTrackerMaxBufferSize.Int64)
-		c.HeadTrackerMaxBufferSize = &v
+		c.HeadTracker.MaxBufferSize = &v
 	}
-	c.HeadTrackerSamplingInterval = cfg.EvmHeadTrackerSamplingInterval
+	if i := cfg.EvmHeadTrackerSamplingInterval; i != nil {
+		if c.HeadTracker == nil {
+			c.HeadTracker = &HeadTracker{}
+		}
+		c.HeadTracker.SamplingInterval = cfg.EvmHeadTrackerSamplingInterval
+	}
 	if cfg.EvmLogBackfillBatchSize.Valid {
 		v := uint32(cfg.EvmLogBackfillBatchSize.Int64)
 		c.LogBackfillBatchSize = &v
