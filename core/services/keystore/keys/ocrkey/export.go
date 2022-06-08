@@ -1,26 +1,23 @@
 package ocrkey
 
 import (
-	"encoding/json"
-
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const keyTypeIdentifier = "OCR"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
-	var export EncryptedOCRKeyExport
-	if err := json.Unmarshal(keyJSON, &export); err != nil {
-		return KeyV2{}, err
-	}
-	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
-	if err != nil {
-		return KeyV2{}, errors.Wrap(err, "failed to decrypt OCR key")
-	}
-	key := Raw(privKey).Key()
-	return key, nil
+	return keys.FromEncryptedJSON(
+		keyTypeIdentifier,
+		keyJSON,
+		password,
+		adulteratedPassword,
+		func(_ EncryptedOCRKeyExport, rawPrivKey []byte) (KeyV2, error) {
+			return Raw(rawPrivKey).Key(), nil
+		},
+	)
 }
 
 type EncryptedOCRKeyExport struct {
@@ -32,25 +29,29 @@ type EncryptedOCRKeyExport struct {
 	Crypto                keystore.CryptoJSON   `json:"crypto"`
 }
 
+func (x EncryptedOCRKeyExport) GetCrypto() keystore.CryptoJSON {
+	return x.Crypto
+}
+
 func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	cryptoJSON, err := keystore.EncryptDataV3(
+	return keys.ToEncryptedJSON(
+		keyTypeIdentifier,
 		key.Raw(),
-		[]byte(adulteratedPassword(password)),
-		scryptParams.N,
-		scryptParams.P,
+		key,
+		password,
+		scryptParams,
+		adulteratedPassword,
+		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) (EncryptedOCRKeyExport, error) {
+			return EncryptedOCRKeyExport{
+				KeyType:               id,
+				ID:                    key.ID(),
+				OnChainSigningAddress: key.OnChainSigning.Address(),
+				OffChainPublicKey:     key.OffChainSigning.PublicKey(),
+				ConfigPublicKey:       key.PublicKeyConfig(),
+				Crypto:                cryptoJSON,
+			}, nil
+		},
 	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Eth key")
-	}
-	encryptedOCRKExport := EncryptedOCRKeyExport{
-		KeyType:               keyTypeIdentifier,
-		ID:                    key.ID(),
-		OnChainSigningAddress: key.OnChainSigning.Address(),
-		OffChainPublicKey:     key.OffChainSigning.PublicKey(),
-		ConfigPublicKey:       key.PublicKeyConfig(),
-		Crypto:                cryptoJSON,
-	}
-	return json.Marshal(encryptedOCRKExport)
 }
 
 func adulteratedPassword(password string) string {
