@@ -72,7 +72,7 @@ jobs:
           QA_AWS_ACCESS_KEY_ID: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
           QA_AWS_SECRET_KEY: ${{ secrets.QA_AWS_SECRET_KEY }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.OLD_QA_AWS_ROLE }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
   solana:
@@ -89,5 +89,5 @@ jobs:
       QA_AWS_ACCESS_KEY_ID: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
       QA_AWS_SECRET_KEY: ${{ secrets.QA_AWS_SECRET_KEY }}
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.OLD_QA_AWS_ROLE }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
