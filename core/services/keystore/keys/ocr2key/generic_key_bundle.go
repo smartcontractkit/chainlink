@@ -37,11 +37,6 @@ type (
 	}
 )
 
-var _ KeyBundle = &keyBundle[*evmKeyring]{}
-var _ KeyBundle = &keyBundle[*solanaKeyring]{}
-var _ KeyBundle = &keyBundle[*terraKeyring]{}
-var _ KeyBundle = &keyBundle[*starknetKeyring]{}
-
 func newKeyBundle[K keyring](key K) *keyBundle[K] {
 	return &keyBundle[K]{keyring: key}
 }

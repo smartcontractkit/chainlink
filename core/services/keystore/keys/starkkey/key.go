@@ -14,7 +14,7 @@ import (
 
 var curve = weierstrass.Stark()
 
-// Raw represents the ETH private key
+// Raw represents the Stark private key
 type Raw []byte
 
 // Key gets the Key

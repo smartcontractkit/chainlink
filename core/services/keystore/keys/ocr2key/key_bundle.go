@@ -27,6 +27,12 @@ type KeyBundle interface {
 	OnChainPublicKey() string
 }
 
+// check generic keybundle for each chain conforms to KeyBundle interface
+var _ KeyBundle = &keyBundle[*evmKeyring]{}
+var _ KeyBundle = &keyBundle[*solanaKeyring]{}
+var _ KeyBundle = &keyBundle[*terraKeyring]{}
+var _ KeyBundle = &keyBundle[*starknetKeyring]{}
+
 var curve = secp256k1.S256()
 
 // New returns key bundle based on the chain type
