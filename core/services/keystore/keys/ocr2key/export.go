@@ -42,7 +42,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 		kb = newKeyBundle(new(solanaKeyring))
 	case chaintype.Terra:
 		kb = newKeyBundle(new(terraKeyring))
-	case chaintype.Starknet:
+	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starknetKeyring))
 	default:
 		return nil, chaintype.NewErrInvalidChainType(export.ChainType)

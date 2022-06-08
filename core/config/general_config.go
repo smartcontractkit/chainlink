@@ -60,7 +60,7 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
-	StarknetEnabled() bool
+	StarkNetEnabled() bool
 }
 
 type GeneralOnlyConfig interface {
@@ -763,9 +763,9 @@ func (c *generalConfig) TerraEnabled() bool {
 	return c.viper.GetBool(envvar.Name("TerraEnabled"))
 }
 
-// StarknetEnabled allows Starknet to be used
-func (c *generalConfig) StarknetEnabled() bool {
-	return c.viper.GetBool(envvar.Name("StarknetEnabled"))
+// StarkNetEnabled allows StarkNet to be used
+func (c *generalConfig) StarkNetEnabled() bool {
+	return c.viper.GetBool(envvar.Name("StarkNetEnabled"))
 }
 
 // P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol

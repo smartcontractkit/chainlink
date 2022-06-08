@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func NewStarknetKeysController(app chainlink.Application) KeysController {
-	return NewKeysController[starkkey.Key, presenters.StarknetKeyResource](app.GetKeyStore().Starknet(), app.GetLogger(),
-		"starknetKey", presenters.NewStarknetKeyResource, presenters.NewStarknetKeyResources)
+func NewStarkNetKeysController(app chainlink.Application) KeysController {
+	return NewKeysController[starkkey.Key, presenters.StarkNetKeyResource](app.GetKeyStore().StarkNet(), app.GetLogger(),
+		"starknetKey", presenters.NewStarkNetKeyResource, presenters.NewStarkNetKeyResources)
 }

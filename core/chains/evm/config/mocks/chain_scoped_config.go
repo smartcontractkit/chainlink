@@ -4001,8 +4001,8 @@ func (_m *ChainScopedConfig) SolanaNodes() string {
 	return r0
 }
 
-// StarknetEnabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) StarknetEnabled() bool {
+// StarkNetEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) StarkNetEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool

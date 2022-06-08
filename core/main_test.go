@@ -204,7 +204,7 @@ func ExampleRun_keys() {
 	//    ocr2      Remote commands for administering the node's off chain reporting keys
 	//    solana    Remote commands for administering the node's Solana keys
 	//    terra     Remote commands for administering the node's Terra keys
-	//    starknet  Remote commands for administering the node's Starknet keys
+	//    starknet  Remote commands for administering the node's StarkNet keys
 	//    dkgsign   Remote commands for administering the node's DKGSign keys
 	//    vrf       Remote commands for administering the node's vrf keys
 	//
@@ -356,17 +356,17 @@ func ExampleRun_keys_starknet() {
 	run("keys", "starknet", "--help")
 	// Output:
 	// NAME:
-	//    core.test keys starknet - Remote commands for administering the node's Starknet keys
+	//    core.test keys starknet - Remote commands for administering the node's StarkNet keys
 	//
 	// USAGE:
 	//    core.test keys starknet command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a Starknet key
-	//    import  Import Starknet key from keyfile
-	//    export  Export Starknet key to keyfile
-	//    delete  Delete Starknet key if present
-	//    list    List the Starknet keys
+	//    create  Create a StarkNet key
+	//    import  Import StarkNet key from keyfile
+	//    export  Export StarkNet key to keyfile
+	//    delete  Delete StarkNet key if present
+	//    list    List the StarkNet keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help

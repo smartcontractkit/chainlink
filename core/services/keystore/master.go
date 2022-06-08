@@ -42,7 +42,7 @@ type Master interface {
 	P2P() P2P
 	Solana() Solana
 	Terra() Terra
-	Starknet() Starknet
+	StarkNet() StarkNet
 	VRF() VRF
 	Unlock(password string) error
 	Migrate(vrfPassword string, f DefaultEVMChainIDFunc) error
@@ -84,7 +84,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 		p2p:        newP2PKeyStore(km),
 		solana:     newSolanaKeyStore(km),
 		terra:      newTerraKeyStore(km),
-		starknet:   newStarknetKeyStore(km),
+		starknet:   newStarkNetKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		dkgSign:    newDKGSignKeyStore(km),
 	}
@@ -122,7 +122,7 @@ func (ks *master) Terra() Terra {
 	return ks.terra
 }
 
-func (ks *master) Starknet() Starknet {
+func (ks *master) StarkNet() StarkNet {
 	return ks.starknet
 }
 
@@ -330,7 +330,7 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 	case terrakey.Key:
 		return "Terra", nil
 	case starkkey.Key:
-		return "Starknet", nil
+		return "StarkNet", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	case dkgsignkey.Key:

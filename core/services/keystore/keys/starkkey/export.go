@@ -8,24 +8,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const keyTypeIdentifier = "Starknet"
+const keyTypeIdentifier = "StarkNet"
 
 // FromEncryptedJSON gets key from json and password
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
-	var export EncryptedStarknetKeyExport
+	var export EncryptedStarkNetKeyExport
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
 		return Key{}, err
 	}
 	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
 	if err != nil {
-		return Key{}, errors.Wrap(err, "failed to decrypt Starknet key")
+		return Key{}, errors.Wrap(err, "failed to decrypt StarkNet key")
 	}
 	key := Raw(privKey).Key()
 	return key, nil
 }
 
-// EncryptedStarknetKeyExport represents the Starknet encrypted key
-type EncryptedStarknetKeyExport struct {
+// EncryptedStarkNetKeyExport represents the StarkNet encrypted key
+type EncryptedStarkNetKeyExport struct {
 	KeyType   string              `json:"keyType"`
 	PublicKey string              `json:"publicKey"`
 	Crypto    keystore.CryptoJSON `json:"crypto"`
@@ -40,14 +40,14 @@ func (key Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams)
 		scryptParams.P,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Starknet key")
+		return nil, errors.Wrapf(err, "could not encrypt StarkNet key")
 	}
-	encryptedStarknetKeyExport := EncryptedStarknetKeyExport{
+	encryptedStarkNetKeyExport := EncryptedStarkNetKeyExport{
 		KeyType:   keyTypeIdentifier,
 		PublicKey: key.PublicKeyStr(),
 		Crypto:    cryptoJSON,
 	}
-	return json.Marshal(encryptedStarknetKeyExport)
+	return json.Marshal(encryptedStarkNetKeyExport)
 }
 
 func adulteratedPassword(password string) string {

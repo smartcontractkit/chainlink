@@ -8,9 +8,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 )
 
-//go:generate mockery --name Starknet --output ./mocks/ --case=underscore --filename starknet.go
+//go:generate mockery --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
 
-type Starknet interface {
+type StarkNet interface {
 	Get(id string) (starkkey.Key, error)
 	GetAll() ([]starkkey.Key, error)
 	Create() (starkkey.Key, error)
@@ -25,9 +25,9 @@ type starknet struct {
 	*keyManager
 }
 
-var _ Starknet = &starknet{}
+var _ StarkNet = &starknet{}
 
-func newStarknetKeyStore(km *keyManager) *starknet {
+func newStarkNetKeyStore(km *keyManager) *starknet {
 	return &starknet{
 		km,
 	}
@@ -48,7 +48,7 @@ func (ks *starknet) GetAll() (keys []starkkey.Key, _ error) {
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	for _, key := range ks.keyRing.Starknet {
+	for _, key := range ks.keyRing.StarkNet {
 		keys = append(keys, key)
 	}
 	return keys, nil
@@ -73,7 +73,7 @@ func (ks *starknet) Add(key starkkey.Key) error {
 	if ks.isLocked() {
 		return ErrLocked
 	}
-	if _, found := ks.keyRing.Starknet[key.ID()]; found {
+	if _, found := ks.keyRing.StarkNet[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
 	return ks.safeAddKey(key)
@@ -101,9 +101,9 @@ func (ks *starknet) Import(keyJSON []byte, password string) (starkkey.Key, error
 	}
 	key, err := starkkey.FromEncryptedJSON(keyJSON, password)
 	if err != nil {
-		return starkkey.Key{}, errors.Wrap(err, "StarknetKeyStore#ImportKey failed to decrypt key")
+		return starkkey.Key{}, errors.Wrap(err, "StarkNetKeyStore#ImportKey failed to decrypt key")
 	}
-	if _, found := ks.keyRing.Starknet[key.ID()]; found {
+	if _, found := ks.keyRing.StarkNet[key.ID()]; found {
 		return starkkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
 	return key, ks.keyManager.safeAddKey(key)
@@ -128,7 +128,7 @@ func (ks *starknet) EnsureKey() error {
 	if ks.isLocked() {
 		return ErrLocked
 	}
-	if len(ks.keyRing.Starknet) > 0 {
+	if len(ks.keyRing.StarkNet) > 0 {
 		return nil
 	}
 
@@ -137,19 +137,19 @@ func (ks *starknet) EnsureKey() error {
 		return err
 	}
 
-	ks.logger.Infof("Created Starknet key with ID %s", key.ID())
+	ks.logger.Infof("Created StarkNet key with ID %s", key.ID())
 
 	return ks.safeAddKey(key)
 }
 
 var (
-	ErrNoStarknetKey = errors.New("no starknet keys exist")
+	ErrNoStarkNetKey = errors.New("no starknet keys exist")
 )
 
 func (ks *starknet) getByID(id string) (starkkey.Key, error) {
-	key, found := ks.keyRing.Starknet[id]
+	key, found := ks.keyRing.StarkNet[id]
 	if !found {
-		return starkkey.Key{}, KeyNotFoundError{ID: id, KeyType: "Starknet"}
+		return starkkey.Key{}, KeyNotFoundError{ID: id, KeyType: "StarkNet"}
 	}
 	return key, nil
 }

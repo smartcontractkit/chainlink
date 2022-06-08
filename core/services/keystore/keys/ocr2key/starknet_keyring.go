@@ -24,7 +24,7 @@ type starknetKeyring struct {
 	privateKey starksig.PrivateKey
 }
 
-func newStarknetKeyring(material io.Reader) (*starknetKeyring, error) {
+func newStarkNetKeyring(material io.Reader) (*starknetKeyring, error) {
 	privKey, err := starksig.GenerateKey(starkCurve, material)
 	if err != nil {
 		return nil, err

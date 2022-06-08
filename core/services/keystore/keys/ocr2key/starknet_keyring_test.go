@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStarknetKeyring_Sign_Verify(t *testing.T) {
-	kr1, err := newStarknetKeyring(cryptorand.Reader)
+func TestStarkNetKeyring_Sign_Verify(t *testing.T) {
+	kr1, err := newStarkNetKeyring(cryptorand.Reader)
 	require.NoError(t, err)
-	kr2, err := newStarknetKeyring(cryptorand.Reader)
+	kr2, err := newStarkNetKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	ctx := ocrtypes.ReportContext{}
 	report := ocrtypes.Report{
@@ -49,8 +49,8 @@ func TestStarknetKeyring_Sign_Verify(t *testing.T) {
 	})
 }
 
-func TestStarknetKeyring_Marshal(t *testing.T) {
-	kr1, err := newStarknetKeyring(cryptorand.Reader)
+func TestStarkNetKeyring_Marshal(t *testing.T) {
+	kr1, err := newStarkNetKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.marshal()
 	require.NoError(t, err)
