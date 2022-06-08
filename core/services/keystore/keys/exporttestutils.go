@@ -26,7 +26,7 @@ func RunKeyExportImportTestcase(t *testing.T, createKey CreateKeyFunc, decrypt D
 	key, err := createKey()
 	require.NoError(t, err)
 
-	json, err := key.ToEncryptedJSON("password", utils.DefaultScryptParams)
+	json, err := key.ToEncryptedJSON("password", utils.FastScryptParams)
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, json)
