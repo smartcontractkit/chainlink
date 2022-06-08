@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -33,22 +34,23 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to decrypt OCR key")
 	}
+	var kb KeyBundle
 	switch export.ChainType {
 	case chaintype.EVM:
-		key := mustNewKeyFromRaw[*evmKeyring](rawKey, &evmKeyring{})
-		return &key, nil
+		kb = newKeyBundle(new(evmKeyring))
 	case chaintype.Solana:
-		key := mustNewKeyFromRaw[*solanaKeyring](rawKey, &solanaKeyring{})
-		return &key, nil
+		kb = newKeyBundle(new(solanaKeyring))
 	case chaintype.Terra:
-		key := mustNewKeyFromRaw[*terraKeyring](rawKey, &terraKeyring{})
-		return &key, nil
+		kb = newKeyBundle(new(terraKeyring))
 	case chaintype.Starknet:
-		key := mustNewKeyFromRaw[*starknetKeyring](rawKey, &starknetKeyring{})
-		return &key, nil
+		kb = newKeyBundle(new(starknetKeyring))
 	default:
 		return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 	}
+	if err := kb.Unmarshal(rawKey); err != nil {
+		return nil, err
+	}
+	return kb, nil
 }
 
 // ToEncryptedJSON returns encrypted JSON representing key
