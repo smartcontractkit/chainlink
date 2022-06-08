@@ -151,8 +151,9 @@ func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, maxGasP
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
 	}
-	if gasPrice != nil {
-		gasPrice = capGasPrice(gasPrice, maxGasPriceWei, o.config)
+	// For L2 chains (e.g. Optimism), submitting a transaction that is not priced high enough can cause the node to get permanently stuck
+	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
+		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
 	}
 	return
 }

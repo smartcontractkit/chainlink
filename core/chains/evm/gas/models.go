@@ -82,13 +82,13 @@ type Estimator interface {
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
 	GetLegacyGas(calldata []byte, gasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)
 	// Increases gas price and/or limit for non-EIP1559 transactions
-	// if the bumped gas fee is greater than maxGasPriceWei, the method throws an exception
+	// if the bumped gas fee is greater than maxGasPriceWei, the method throws an error
 	BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error)
 	// Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
 	GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error)
 	// Increases gas price and/or limit for non-EIP1559 transactions
-	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method throws an exception
+	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method throws an error
 	BumpDynamicFee(original DynamicFee, gasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
 }
 
