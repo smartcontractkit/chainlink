@@ -79,9 +79,9 @@ type Database struct {
 }
 
 type DatabaseListener struct {
-	MaxReconnectDuration          *models.Duration
-	MinReconnectInterval          *models.Duration
-	TriggerFallbackDBPollInterval *models.Duration
+	MaxReconnectDuration *models.Duration
+	MinReconnectInterval *models.Duration
+	FallbackPollInterval *models.Duration
 }
 
 type DatabaseLock struct {

@@ -28,7 +28,7 @@ URL = 'db/backup'
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
 MinReconnectInterval = '10s'
-TriggerFallbackDBPollInterval = '10s'
+FallbackPollInterval = '10s'
 
 [Database.Lock]
 Mode = 'advisory'

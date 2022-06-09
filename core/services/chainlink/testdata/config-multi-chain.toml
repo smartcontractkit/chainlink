@@ -3,7 +3,7 @@ RootDir = 'my/root/dir'
 [Database]
 
 [Database.Listener]
-TriggerFallbackDBPollInterval = '2m0s'
+FallbackPollInterval = '2m0s'
 
 [Log]
 JSONConsole = true

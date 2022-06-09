@@ -479,9 +479,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		ORMMaxIdleConns:               envvar.NewInt64("ORMMaxIdleConns").ParsePtr(),
 		ORMMaxOpenConns:               envvar.NewInt64("ORMMaxOpenConns").ParsePtr(),
 		Listener: &config.DatabaseListener{
-			MaxReconnectDuration:          envDuration("DatabaseListenerMaxReconnectDuration"),
-			MinReconnectInterval:          envDuration("DatabaseListenerMinReconnectInterval"),
-			TriggerFallbackDBPollInterval: envDuration("TriggerFallbackDBPollInterval"),
+			MaxReconnectDuration: envDuration("DatabaseListenerMaxReconnectDuration"),
+			MinReconnectInterval: envDuration("DatabaseListenerMinReconnectInterval"),
+			FallbackPollInterval: envDuration("TriggerFallbackDBPollInterval"),
 		},
 		Lock: &config.DatabaseLock{
 			Mode:                  envvar.NewString("DatabaseLockingMode").ParsePtr(),
