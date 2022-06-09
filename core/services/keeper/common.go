@@ -1,8 +1,10 @@
 package keeper
 
 import (
+	"math/big"
 	"time"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -13,6 +15,7 @@ var Registry1_2ABI = evmtypes.MustGetABI(keeper_registry_wrapper1_2.KeeperRegist
 
 type Config interface {
 	EvmEIP1559DynamicFees() bool
+	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
