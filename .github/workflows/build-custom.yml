@@ -57,12 +57,6 @@ on:
         required: false
         type: string
     secrets:
-      AWS_ACCESS_KEY_ID:
-        required: true
-        description: The AWS access key id to use
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-        description: The AWS secret key to use
       AWS_REGION:
         required: true
         description: The AWS region to use
@@ -79,6 +73,10 @@ jobs:
   build-chainlink:
     name: Build Chainlink Image
     runs-on: ubuntu-latest
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
     env:
       GOPRIVATE: github.com/smartcontractkit/chainlink-starknet,github.com/smartcontractkit/atlas
       GH_ACCESS_TOKEN: ${{ secrets.QA_PRIVATE_GHA_PULL }}
@@ -135,8 +133,6 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600

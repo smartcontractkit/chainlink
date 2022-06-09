@@ -10,6 +10,9 @@ on:
 jobs:
   build-chainlink:
     environment: integration
+    permissions:
+      id-token: write
+      contents: read
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     steps:
@@ -18,10 +21,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600
       - name: Login to Amazon ECR
         id: login-ecr
