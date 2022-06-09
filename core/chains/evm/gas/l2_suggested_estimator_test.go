@@ -20,7 +20,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 	t.Parallel()
 
 	config := new(mocks.Config)
-	client := new(mocks.RPCClient)
+	client := new(mocks.OptimismRPCClient)
 	maxGasPrice := big.NewInt(100)
 	config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 	o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
@@ -49,7 +49,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 
 	t.Run("gas price is lower than user specified max gas price", func(t *testing.T) {
 		config := new(mocks.Config)
-		client := new(mocks.RPCClient)
+		client := new(mocks.OptimismRPCClient)
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
@@ -69,7 +69,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 
 	t.Run("gas price is lower than global max gas price", func(t *testing.T) {
 		config := new(mocks.Config)
-		client := new(mocks.RPCClient)
+		client := new(mocks.OptimismRPCClient)
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
@@ -93,7 +93,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 
 	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
-		client := new(mocks.RPCClient)
+		client := new(mocks.OptimismRPCClient)
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 

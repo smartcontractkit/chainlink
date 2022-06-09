@@ -134,7 +134,7 @@ func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 	return
 }
 
-func (o *optimismEstimator) GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *optimismEstimator) GetLegacyGas(calldata []byte, gasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
 		for _, opt := range opts {
@@ -157,21 +157,25 @@ func (o *optimismEstimator) GetLegacyGas(calldata []byte, gasLimit uint64, opts 
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
 	}
+	// For L2 chains (e.g. Optimism), submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
+	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
+		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
+	}
 	return
 }
 
-func (o *optimismEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, gasLimit uint64, err error) {
+func (o *optimismEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64, _ *big.Int) (gasPrice *big.Int, gasLimit uint64, err error) {
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 
 func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (*optimismEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*optimismEstimator) GetDynamicFee(gasLimit uint64, _ *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")
 	return
 }
 
-func (o *optimismEstimator) BumpDynamicFee(original DynamicFee, gasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (o *optimismEstimator) BumpDynamicFee(original DynamicFee, gasLimit uint64, _ *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")
 	return
 }
@@ -299,17 +303,17 @@ func (o *optimism2Estimator) refreshPrice() (t *time.Timer) {
 
 func (o *optimism2Estimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (*optimism2Estimator) GetDynamicFee(_ uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*optimism2Estimator) GetDynamicFee(_ uint64, _ *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")
 	return
 }
 
-func (*optimism2Estimator) BumpDynamicFee(_ DynamicFee, _ uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*optimism2Estimator) BumpDynamicFee(_ DynamicFee, _ uint64, _ *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")
 	return
 }
 
-func (o *optimism2Estimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *optimism2Estimator) GetLegacyGas(_ []byte, l2GasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = l2GasLimit
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
@@ -337,10 +341,14 @@ func (o *optimism2Estimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...O
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
 	}
+	// For L2 chains (e.g. Optimism), submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
+	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
+		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
+	}
 	return
 }
 
-func (o *optimism2Estimator) BumpLegacyGas(_ *big.Int, _ uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *optimism2Estimator) BumpLegacyGas(_ *big.Int, _ uint64, _ *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 

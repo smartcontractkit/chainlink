@@ -331,6 +331,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			baseFeePerGas := utils.NewBig(big.NewInt(0).Mul(gasPrice, big.NewInt(2)))
 
 			ethTxCreated := cltest.NewAwaiter()
+
 			txm.On("CreateEthTransaction",
 				mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
 			).
@@ -340,7 +341,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
+			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 			registryMock.MockMatchedResponse(
 				"checkUpkeep",
 				func(callArgs ethereum.CallMsg) bool {
@@ -354,18 +355,13 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				},
 				checkUpkeepResponse,
 			)
-			registryMock.MockMatchedResponse(
-				"performUpkeep",
-				func(callArgs ethereum.CallMsg) bool { return true },
-				checkPerformResponse,
-			)
 
 			head := newHead()
 			head.BaseFeePerGas = baseFeePerGas
 
 			executer.OnNewLongestChain(context.Background(), &head)
 			ethTxCreated.AwaitOrFail(t)
-			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
+			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 			require.Len(t, runs, 1)
 			assert.False(t, runs[0].HasErrors())
 			assert.False(t, runs[0].HasFatalErrors())
@@ -378,7 +374,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		t.Run("EIP1559", func(t *testing.T) {
 			estimator := new(gasmocks.Estimator)
 			estimator.Test(t)
-			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(100000000000000)).Return(gas.DynamicFee{
+			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(5000000000000)).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
 				TipCap: assets.GWei(60),
 			}, uint64(60), nil)
@@ -388,7 +384,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		t.Run("non-EIP1559", func(t *testing.T) {
 			estimator := new(gasmocks.Estimator)
 			estimator.Test(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint64(0), nil)
+			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(5000000000000)).Return(assets.GWei(60), uint64(0), nil)
 			runTest(t, estimator, false)
 		})
 	})
