@@ -34,6 +34,7 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
+	t.Skip("requires terrad")
 	cfg, db := heavyweight.FullTestDBNoFixtures(t, "terra_txm")
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
