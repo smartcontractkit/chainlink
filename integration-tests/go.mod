@@ -8,8 +8,8 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.26.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.2.5-0.20220525185348-60420e40b745
-	github.com/smartcontractkit/helmenv v1.2.2
+	github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220609190857-0876e7358baa
+	github.com/smartcontractkit/helmenv v1.2.3
 )
 
 require (
@@ -79,7 +79,7 @@ require (
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -155,11 +155,11 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.0 // indirect
 	helm.sh/helm/v3 v3.9.0 // indirect
 	k8s.io/api v0.24.0 // indirect
 	k8s.io/apiextensions-apiserver v0.24.0 // indirect
-	k8s.io/apimachinery v0.24.0 // indirect
+	k8s.io/apimachinery v0.24.1 // indirect
 	k8s.io/apiserver v0.24.0 // indirect
 	k8s.io/cli-runtime v0.24.0 // indirect
 	k8s.io/client-go v0.24.0 // indirect
