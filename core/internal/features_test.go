@@ -958,7 +958,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	t.Parallel()
 
 	var initialDefaultGasPrice int64 = 5000000000
-
+	maxGasPrice := big.NewInt(50000000000)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
@@ -1037,7 +1037,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
 	estimator := chain.TxManager().GetGasEstimator()
-	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000)
+	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
@@ -1059,7 +1059,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
-		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
+		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 		require.NoError(t, err)
 		return gasPrice.String()
 	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
