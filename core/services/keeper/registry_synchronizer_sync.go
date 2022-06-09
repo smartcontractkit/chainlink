@@ -25,6 +25,7 @@ func (rs *RegistrySynchronizer) fullSync() {
 		rs.logger.Error(errors.Wrap(err, "failed to sync upkeeps during fullSyncing registry"))
 		return
 	}
+	rs.logger.Debugf("fullSyncing registry successful %s", contractAddress.Hex())
 }
 
 func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
