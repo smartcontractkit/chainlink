@@ -71,11 +71,11 @@ type Database struct {
 	ORMMaxIdleConns               *int64
 	ORMMaxOpenConns               *int64
 
+	Backup *DatabaseBackup
+
 	Listener *DatabaseListener
 
 	Lock *DatabaseLock
-
-	Backup *DatabaseBackup
 }
 
 type DatabaseListener struct {

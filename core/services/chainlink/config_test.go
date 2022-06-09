@@ -517,6 +517,13 @@ MigrateOnStartup = true
 ORMMaxIdleConns = 7
 ORMMaxOpenConns = 13
 
+[Database.Backup]
+Dir = 'test/backup/dir'
+Frequency = '1h0m0s'
+Mode = 'full'
+OnVersionUpgrade = true
+URL = 'http://test.back.up/fake'
+
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
 MinReconnectInterval = '5m0s'
@@ -528,13 +535,6 @@ AdvisoryCheckInterval = '5m0s'
 AdvisoryID = 345982730592843
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
-
-[Database.Backup]
-Dir = 'test/backup/dir'
-Frequency = '1h0m0s'
-Mode = 'full'
-OnVersionUpgrade = true
-URL = 'http://test.back.up/fake'
 `},
 		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `
 [TelemetryIngress]

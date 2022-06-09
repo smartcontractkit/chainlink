@@ -18,6 +18,13 @@ MigrateOnStartup = false
 ORMMaxIdleConns = 5
 ORMMaxOpenConns = 12
 
+[Database.Backup]
+Dir = 'db/backup'
+Frequency = '10m0s'
+Mode = 'lite'
+OnVersionUpgrade = false
+URL = 'db/backup'
+
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
 MinReconnectInterval = '10s'
@@ -28,13 +35,6 @@ Mode = 'advisory'
 AdvisoryCheckInterval = '5s'
 LeaseDuration = '5s'
 LeaseRefreshInterval = '2s'
-
-[Database.Backup]
-Dir = 'db/backup'
-Frequency = '10m0s'
-Mode = 'lite'
-OnVersionUpgrade = false
-URL = 'db/backup'
 
 [TelemetryIngress]
 UniConn = false
