@@ -74,7 +74,7 @@ func (e *EnvVar[T]) ParsePtr() *T {
 	}
 	v, invalid, err := e.ParseFrom(os.Getenv)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(e.envVarName, err)
 	}
 	if invalid != "" {
 		return nil
