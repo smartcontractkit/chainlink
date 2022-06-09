@@ -67,8 +67,8 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
-      - name: Install terrad
-        run: ./tools/ci/install_terrad
+      # - name: Install terrad
+      #   run: ./tools/ci/install_terrad
       - name: Install solana cli
         run: ./tools/ci/install_solana
       - name: Setup DB
