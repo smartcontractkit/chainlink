@@ -47,7 +47,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.2
+        uses: smartcontractkit/ctf-ci-e2e-action@41848377703354a32d355d3f2f7cb3b9e3049b8c
         with:
           test_command_to_run: make test_perf args="--procs=10 --focus=${{ github.event.inputs.focus }}"
           test_download_vendor_packages_command: make gomod
@@ -56,11 +56,9 @@ jobs:
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/performance/logs
           publish_report_paths: ./tests-perf-report.xml
-          QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish pprof artifacts
         if: ${{ success() }}
