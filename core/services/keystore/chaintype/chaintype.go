@@ -24,14 +24,14 @@ const (
 type ChainTypes []ChainType
 
 func (c ChainTypes) String() (out string) {
+	var sb strings.Builder
 	for i, chain := range c {
-		prefix := ", "
-		if i == 0 {
-			prefix = ""
+		if i != 0 {
+			sb.WriteString(", ")
 		}
-		out += prefix + string(chain)
+		sb.WriteString(string(chain))
 	}
-	return
+	return sb.String()
 }
 
 // SupportedChainTypes contain all chains that are supported
