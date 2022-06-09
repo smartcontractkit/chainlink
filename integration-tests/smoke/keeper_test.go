@@ -250,7 +250,7 @@ func getKeeperSuite(
 
 					// Now set BCPT to be low, so keepers change turn frequently
 					lowBcpt := defaultRegistryConfig
-					lowBcpt.BlockCountPerTurn = big.NewInt(5)
+					lowBcpt.BlockCountPerTurn = big.NewInt(3)
 					err = registry.SetConfig(lowBcpt)
 					Expect(err).ShouldNot(HaveOccurred(), "Registry config should be be set successfully")
 					err = networks.Default.WaitForEvents()
@@ -267,7 +267,7 @@ func getKeeperSuite(
 
 						log.Info().Str("keeper", latestKeeper).Msg("New keeper performed upkeep")
 						keepersPerformed = append(keepersPerformed, latestKeeper)
-					}, "1m", "1s").Should(Succeed())
+					}, "2m", "1s").Should(Succeed())
 				})
 			}
 
