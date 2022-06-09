@@ -88,7 +88,7 @@ type Estimator interface {
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
 	GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error)
 	// Increases gas price and/or limit for non-EIP1559 transactions
-	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method throws an error
+	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	BumpDynamicFee(original DynamicFee, gasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
 }
 
