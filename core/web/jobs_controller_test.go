@@ -183,7 +183,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "keeper",
 			toml: `
                                   type                        = "keeper"
-                                  schemaVersion               = 3
+                                  schemaVersion               = 1
                                   name                        = "example keeper spec"
                                   contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
                                   fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
