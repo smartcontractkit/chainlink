@@ -42,7 +42,7 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 	}
 	for i := 0; i < numSignatures; i++ {
 		rand := mrand.New(mrand.NewSource(0))
-		msg, err := crand.Int(rand, maxUint256)
+		msg, err := crand.Int(rand, u256Cardinality)
 		require.NoError(t, err)
 		kp := secp256k1.Generate(randomStream)
 		sig, err := Sign(kp.Private, msg)
