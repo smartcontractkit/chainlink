@@ -170,7 +170,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, 1, len(keys))
 	})
 
-	t.Run("V1 keys as V2", func(t *testing.T) {
+	t.Run("returns V1 keys as V2", func(t *testing.T) {
 		defer reset()
 		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM csa_keys")))
 
@@ -180,12 +180,10 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		err = utils.JustError(db.Exec(`INSERT INTO csa_keys (public_key, encrypted_private_key, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())`, k.PublicKey, k.EncryptedPrivateKey))
 		require.NoError(t, err)
 
-		t.Run("returns V1 keys as V2", func(t *testing.T) {
-			keys, err := ks.GetV1KeysAsV2()
-			require.NoError(t, err)
+		keys, err := ks.GetV1KeysAsV2()
+		require.NoError(t, err)
 
-			assert.Len(t, keys, 1)
-			assert.Equal(t, fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", keys[0].PublicKey), keys[0].GoString())
-		})
+		assert.Len(t, keys, 1)
+		assert.Equal(t, fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", keys[0].PublicKey), keys[0].GoString())
 	})
 }
