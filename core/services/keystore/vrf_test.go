@@ -169,7 +169,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 		})
 	})
 
-	t.Run("V1 keys as V2", func(t *testing.T) {
+	t.Run("returns V1 keys as V2", func(t *testing.T) {
 		defer reset()
 		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_vrf_keys")))
 
