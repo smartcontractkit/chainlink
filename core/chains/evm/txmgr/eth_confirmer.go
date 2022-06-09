@@ -1016,11 +1016,12 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 
 func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
+	keySpecificMaxGasPriceWei := ec.config.KeySpecificMaxGasPriceWei(previousAttempt.EthTx.FromAddress)
 	switch previousAttempt.TxType {
 	case 0x0: // Legacy
 		var bumpedGasPrice *big.Int
 		var bumpedGasLimit uint64
-		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit)
+		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
@@ -1030,7 +1031,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 		var bumpedFee gas.DynamicFee
 		var bumpedGasLimit uint64
 		original := previousAttempt.DynamicFee()
-		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit)
+		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.lggr.Debugw("Rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
