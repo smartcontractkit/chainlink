@@ -29,12 +29,14 @@ This will prevent application boot in a future version of Chainlink.
 
 - The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
 
-### Added 
+### Added
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
 - In job pipeline (direct request) the three new block variables are exposed:
   - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
   - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
   - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
+- New optional Splunk logger added
+  - to opt in to receiving audit log events over HEC of actions performed within the node, set the `SPLUNK_URL` and `SPLUNK_TOKEN` environment variables accordingly. `SPLUNK_URL` is in the format of 'https://xxxxx.splunkcloud.com/services/collector'
 - `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
 
 `foo [type=ethtx failOnRevert=true ...]`
@@ -56,7 +58,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Removed
 
 - The `Optimism` OVM 1.0 `GAS_ESTIMATOR_MODE` has been removed.
-- 
+-
 ## [1.4.1] - 2022-05-11
 
 ### Fixed
