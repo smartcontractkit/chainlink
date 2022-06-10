@@ -420,35 +420,12 @@ func getKeeperSuite(
 						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
 					}, "1m", "1s").Should(Succeed())
 
-					// While we registered the new upkeep, the initial upkeeps that were created first should have
-					// kept performing and hence their counters should be larger than what they were before.
-					for i := 0; i < len(upkeepIDs); i++ {
-						currentCounter, err := consumers[i].Counter(context.Background())
-						Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						log.Info().Int64("Upkeep counter", currentCounter.Int64()).Msg("Upkeep cancelled")
-
-						Expect(initialCounters[i].Int64() <= currentCounter.Int64()).To(BeTrue())
-					}
-
-					// Test that we can also cancel the newly registered upkeep.
-					err := registry.CancelUpkeep(newUpkeepID)
-					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
-					err = networks.Default.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Error encountered when waiting for "+
-						"newly registered upkeep to be cancelled")
-
-					// Obtain the amount of times the new upkeep has been executed so far
-					counterAfterCancellation, err := newUpkeep.Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					log.Info().Int64("Upkeep counter", counterAfterCancellation.Int64()).Msg("Upkeep cancelled")
-
-					// Make sure the counter stays constant because we cancelled the newly registered upkeep.
-					Consistently(func(g Gomega) {
-						latestCounter, err := newUpkeep.Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						g.Expect(latestCounter.Int64()).Should(Equal(counterAfterCancellation.Int64()),
-							"Expected consumer counter to remain constant at %d, but got %d",
-							counterAfterCancellation.Int64(), latestCounter.Int64())
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							currentCounter, err := consumers[i].Counter(context.Background())
+							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							Expect(initialCounters[i].Int64() < currentCounter.Int64()).To(BeTrue())
+						}
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
