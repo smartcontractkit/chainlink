@@ -1087,8 +1087,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 	if sendError.IsTerminallyUnderpriced() {
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in ethBroadcaster.
-		//
-		// It could conceivably happen if the remote eth node changed its configuration.
+		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
 		replacementAttempt, err := ec.bumpGas(attempt)
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
