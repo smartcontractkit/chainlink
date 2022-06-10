@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -15,92 +12,12 @@ import (
 
 var _ Logger = &zapLogger{}
 
-// zapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
-type zapLoggerConfig struct {
-	zap.Config
-	local          Config
-	diskLogLevel   zap.AtomicLevel
-	diskStats      utils.DiskStatsProvider
-	diskPollConfig zapDiskPollConfig
-
-	// This is for tests only
-	testDiskLogLvlChan chan zapcore.Level
-}
-
 type zapLogger struct {
 	*zap.SugaredLogger
-	config            zapLoggerConfig
-	name              string
-	fields            []interface{}
-	callerSkip        int
-	pollDiskSpaceStop chan struct{}
-	pollDiskSpaceDone chan struct{}
-}
-
-func (cfg zapLoggerConfig) newLogger(cores ...zapcore.Core) (Logger, func() error, error) {
-	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
-
-	newCore, errWriter, err := cfg.newCore()
-	if err != nil {
-		return nil, nil, err
-	}
-	cores = append(cores, newCore)
-	if cfg.local.DebugLogsToDisk() {
-		diskCore, diskErr := cfg.newDiskCore()
-		if diskErr != nil {
-			return nil, nil, diskErr
-		}
-		cores = append(cores, diskCore)
-	}
-
-	core := zapcore.NewTee(cores...)
-	lggr := &zapLogger{
-		config:            cfg,
-		pollDiskSpaceStop: make(chan struct{}),
-		pollDiskSpaceDone: make(chan struct{}),
-		SugaredLogger:     zap.New(core, zap.ErrorOutput(errWriter)).Sugar(),
-	}
-
-	if cfg.local.DebugLogsToDisk() {
-		go lggr.pollDiskSpace()
-	}
-
-	var once sync.Once
-	close := func() error {
-		once.Do(func() {
-			if cfg.local.DebugLogsToDisk() {
-				close(lggr.pollDiskSpaceStop)
-				<-lggr.pollDiskSpaceDone
-			}
-		})
-
-		return lggr.Sync()
-	}
-
-	return lggr, close, err
-}
-
-func (cfg zapLoggerConfig) newCore() (zapcore.Core, zapcore.WriteSyncer, error) {
-	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local))
-
-	sink, closeOut, err := zap.Open(cfg.OutputPaths...)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	errSink, _, err := zap.Open(cfg.ErrorOutputPaths...)
-	if err != nil {
-		closeOut()
-		return nil, nil, err
-	}
-
-	if cfg.Level == (zap.AtomicLevel{}) {
-		return nil, nil, errors.New("missing Level")
-	}
-
-	filteredLogLevels := zap.LevelEnablerFunc(cfg.Level.Enabled)
-
-	return zapcore.NewCore(encoder, sink, filteredLogLevels), errSink, nil
+	level      zap.AtomicLevel
+	name       string
+	fields     []interface{}
+	callerSkip int
 }
 
 func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
@@ -116,7 +33,7 @@ func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
 }
 
 func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
-	l.config.Level.SetLevel(lvl)
+	l.level.SetLevel(lvl)
 }
 
 func (l *zapLogger) With(args ...interface{}) Logger {
