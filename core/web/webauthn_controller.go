@@ -1,12 +1,14 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -84,6 +86,15 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
+
+	// Forward registered credentials for audit logs
+	credj, err := json.Marshal(credential)
+	if err != nil {
+		c.App.GetLogger().Errorf("error in Marshal credentials: %s", err)
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
+		return
+	}
+	c.App.GetLogger().Auditf(logger.AUTH_2FA_ENROLLED, map[string]interface{}{"email": user.Email, "credential": string(credj)})
 
 	ctx.String(http.StatusOK, "{}")
 }

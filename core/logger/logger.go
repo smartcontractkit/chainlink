@@ -78,6 +78,11 @@ type Logger interface {
 	// exit uncleanly
 	Fatal(args ...interface{})
 
+	// The .Audit function here is specific to the SplunkLogger implementation
+	// It is added to the interface to ensure that audit logs are sent regardless of log level.
+	// All other Logger implementations should continue the pattern of propogating wrapped logger calls
+	Auditf(eventID string, data map[string]interface{})
+
 	Tracef(format string, values ...interface{})
 	Debugf(format string, values ...interface{})
 	Infof(format string, values ...interface{})
@@ -113,6 +118,20 @@ type Logger interface {
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
 	Recover(panicErr interface{})
+}
+
+type Config struct {
+	LogLevel       zapcore.Level
+	Dir            string
+	JsonConsole    bool
+	UnixTS         bool
+	FileMaxSizeMB  int
+	FileMaxAgeDays int
+	FileMaxBackups int // files
+	Hostname       string
+	ChainlinkDev   bool
+	SplunkToken    string // enables splunk logging if not empty
+	SplunkURL      string
 }
 
 // Constants for service names for package specific logging configuration
@@ -213,6 +232,25 @@ func NewLogger() (Logger, func() error) {
 		}
 	}
 
+	// Set Splunk values in Config if any defined in env
+	c.SplunkToken = os.Getenv("SPLUNK_TOKEN")
+	if c.SplunkToken != "" {
+		c.SplunkURL = os.Getenv("SPLUNK_URL")
+		if c.SplunkURL == "" {
+			errString := "Misconfigured Splunk environment variables set. SPLUNK_URL is required if SPLUNK_TOKEN is not empty, unset the SPLUNK_URL environment variable or set SPLUNK_TOKEN to enable Splunk audit logging."
+			parseErrs = append(parseErrs, errString)
+			c.SplunkToken = ""
+		}
+	}
+
+	c.ChainlinkDev = os.Getenv("CHAINLINK_DEV") == "true"
+	hostname, err := os.Hostname()
+	if err != nil {
+		errString := fmt.Sprintf("Error get hostname for Logger config: %s", err)
+		parseErrs = append(parseErrs, errString)
+	}
+	c.Hostname = hostname
+
 	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
@@ -226,16 +264,6 @@ func NewLogger() (Logger, func() error) {
 		l.Warn(msg)
 	}
 	return l.Named(verShaNameStatic()), close
-}
-
-type Config struct {
-	LogLevel       zapcore.Level
-	Dir            string
-	JsonConsole    bool
-	UnixTS         bool
-	FileMaxSizeMB  int
-	FileMaxAgeDays int
-	FileMaxBackups int // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -252,8 +280,14 @@ func (c *Config) New() (Logger, func() error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// If Splunk logging is enabled (token set), extend/wrap the logger with a splunkLogger instance
+	if c.SplunkToken != "" {
+		l = newSplunkLogger(l, c.SplunkToken, c.SplunkURL, c.Hostname, c.ChainlinkDev)
+	}
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), close
+	l = newPrometheusLogger(l)
+	return l, close
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -179,5 +180,6 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
+	prc.App.GetLogger().Auditf(logger.UNAUTHED_RUN_RESUMED, map[string]interface{}{"runID": c.Param("runID")})
 	c.Status(http.StatusOK)
 }

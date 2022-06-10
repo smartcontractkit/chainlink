@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -43,6 +44,12 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ctrl.App.GetLogger().Auditf(logger.CSA_KEY_CREATED, map[string]interface{}{
+		"CSAPublicKey": key.PublicKey,
+		"CSVersion":    key.Version,
+	})
+
 	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKeys")
 }
 
@@ -62,6 +69,11 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	ctrl.App.GetLogger().Auditf(logger.CSA_KEY_IMPORTED, map[string]interface{}{
+		"CSAPublicKey": key.PublicKey,
+		"CSVersion":    key.Version,
+	})
+
 	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKey")
 }
 
@@ -77,5 +89,7 @@ func (ctrl *CSAKeysController) Export(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ctrl.App.GetLogger().Auditf(logger.CSA_KEY_EXPORTED, map[string]interface{}{"keyID": keyID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

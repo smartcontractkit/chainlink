@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type ChainsController interface {
@@ -30,16 +32,18 @@ type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struc
 	errNotEnabled error
 	parseChainID  func(string) (I, error)
 	newResource   func(chains.DBChain[I, C]) R
+	lggr          logger.Logger
 }
 
 func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.DBChainSet[I, C], errNotEnabled error,
-	parseChainID func(string) (I, error), newResource func(chains.DBChain[I, C]) R) *chainsController[I, C, R] {
+	parseChainID func(string) (I, error), newResource func(chains.DBChain[I, C]) R, lggr logger.Logger) *chainsController[I, C, R] {
 	return &chainsController[I, C, R]{
 		resourceName:  prefix + "_chain",
 		chainSet:      chainSet,
 		errNotEnabled: errNotEnabled,
 		parseChainID:  parseChainID,
 		newResource:   newResource,
+		lggr:          lggr,
 	}
 }
 
@@ -90,6 +94,9 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
+
+	chainj, _ := json.Marshal(chain)
+	cc.lggr.Auditf(logger.CHAIN_ADDED, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponseWithStatus(c, cc.newResource(chain), cc.resourceName, http.StatusCreated)
 }
@@ -145,6 +152,9 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 		return
 	}
 
+	chainj, _ := json.Marshal(chain)
+	cc.lggr.Auditf(logger.CHAIN_SPEC_UPDATED, map[string]interface{}{"chain": chainj})
+
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
 }
 
@@ -166,6 +176,8 @@ func (cc *chainsController[I, C, R]) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	cc.lggr.Auditf(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, cc.resourceName, http.StatusNoContent)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -88,6 +89,16 @@ func (cc *LogController) Patch(c *gin.Context) {
 		},
 		ServiceName: svcs,
 		LogLevel:    lvls,
+	}
+
+	cc.App.GetLogger().Auditf(logger.GLOBAL_LOG_LEVEL_SET, map[string]interface{}{"logLevel": request.Level})
+
+	if request.Level == "debug" {
+		if request.SqlEnabled != nil && *request.SqlEnabled {
+			cc.App.GetLogger().Auditf(logger.CONFIG_SQL_LOGGING_ENABLED, map[string]interface{}{})
+		} else {
+			cc.App.GetLogger().Auditf(logger.CONFIG_SQL_LOGGING_DISABLED, map[string]interface{}{})
+		}
 	}
 
 	jsonAPIResponse(c, response, "log")

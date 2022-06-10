@@ -87,6 +87,10 @@ func (s *sentryLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }
 
+func (s *sentryLogger) Auditf(eventID string, data map[string]interface{}) {
+	s.h.Auditf(eventID, data)
+}
+
 func (s *sentryLogger) Trace(args ...interface{}) {
 	s.h.Trace(args...)
 }

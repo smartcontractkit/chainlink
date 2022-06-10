@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -84,6 +85,12 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		return
 	}
 
+	eic.App.GetLogger().Auditf(logger.EXTERNAL_INITIATOR_CREATED, map[string]interface{}{
+		"externalInitiatorID":   ei.ID,
+		"externalInitiatorName": ei.Name,
+		"externalInitiatorURL":  ei.URL,
+	})
+
 	resp := presenters.NewExternalInitiatorAuthentication(*ei, *eia)
 	jsonAPIResponseWithStatus(c, resp, "external initiator authentication", http.StatusCreated)
 }
@@ -101,5 +108,6 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 		return
 	}
 
+	eic.App.GetLogger().Auditf(logger.EXTERNAL_INITIATOR_DELETED, map[string]interface{}{"name": name})
 	jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
 }

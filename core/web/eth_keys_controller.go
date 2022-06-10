@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -131,6 +132,11 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
+	ekc.App.GetLogger().Auditf(logger.ETH_KEY_CREATED, map[string]interface{}{
+		"ethPublicKey": key.Address,
+		"ethID":        key.ID(),
+	})
+
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusCreated)
 }
 
@@ -180,6 +186,11 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ekc.App.GetLogger().Auditf(logger.ETH_KEY_UPDATED, map[string]interface{}{
+		"ethPublicKey": key.Address,
+		"ethID":        key.ID(),
+	})
 
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
 }
@@ -232,6 +243,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
+	ekc.App.GetLogger().Auditf(logger.ETH_KEY_DELETED, map[string]interface{}{"id": keyID})
 	jsonAPIResponse(c, r, "account")
 }
 
@@ -279,6 +291,11 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	ekc.App.GetLogger().Auditf(logger.ETH_KEY_IMPORTED, map[string]interface{}{
+		"ethPublicKey": key.Address,
+		"ethID":        key.ID(),
+	})
+
 	jsonAPIResponse(c, r, "account")
 }
 
@@ -293,6 +310,8 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ekc.App.GetLogger().Auditf(logger.ETH_KEY_EXPORTED, map[string]interface{}{"address": address})
 	c.Data(http.StatusOK, MediaType, bytes)
 }
 

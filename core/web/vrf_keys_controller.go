@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -36,6 +37,12 @@ func (vrfkc *VRFKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	vrfkc.App.GetLogger().Auditf(logger.VRF_KEY_CREATED, map[string]interface{}{
+		"vrfPublicKey":        pk.PublicKey,
+		"vrfID":               pk.ID(),
+		"vrfPublicKeyAddress": pk.PublicKey.Address(),
+	})
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(pk, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -55,6 +62,8 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	vrfkc.App.GetLogger().Auditf(logger.VRF_KEY_DELETED, map[string]interface{}{"id": keyID})
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -76,6 +85,10 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	vrfkc.App.GetLogger().Auditf(logger.VRF_KEY_IMPORTED, map[string]interface{}{
+		"vrfID":        key.ID(),
+		"vrfPublicKey": key.PublicKey,
+	})
 	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
@@ -94,5 +107,6 @@ func (vrfkc *VRFKeysController) Export(c *gin.Context) {
 		return
 	}
 
+	vrfkc.App.GetLogger().Auditf(logger.VRF_KEY_EXPORTED, map[string]interface{}{"keyID": keyID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -22,6 +23,7 @@ type ConfigController struct {
 func (cc *ConfigController) Show(c *gin.Context) {
 	cw := config.NewConfigPrinter(cc.App.GetConfig())
 
+	cc.App.GetLogger().Auditf(logger.ENV_NONCRITICAL_ENV_DUMPED, map[string]interface{}{})
 	jsonAPIResponse(c, cw, "config")
 }
 
@@ -85,5 +87,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 			To:   request.EvmGasPriceDefault.String(),
 		}, EVMChainID: utils.NewBig(chain.ID()),
 	}
+
+	cc.App.GetLogger().Auditf(logger.CONFIG_UPDATED, map[string]interface{}{"configResponse": response})
 	jsonAPIResponse(c, response, "config")
 }

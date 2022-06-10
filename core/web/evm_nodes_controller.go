@@ -28,5 +28,7 @@ func NewEVMNodesController(app chainlink.Application) NodesController {
 				HTTPURL:    request.HTTPURL,
 				SendOnly:   request.SendOnly,
 			}, nil
-		})
+		},
+		app.GetLogger(),
+	)
 }

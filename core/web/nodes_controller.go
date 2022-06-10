@@ -8,6 +8,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type NodesController interface {
@@ -25,6 +26,7 @@ type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
 	errNotEnabled error
 	newResource   func(N) R
 	createNode    func(*gin.Context) (N, error)
+	lggr          logger.Logger
 }
 
 func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
@@ -33,6 +35,7 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 	parseChainID func(string) (I, error),
 	newResource func(N) R,
 	createNode func(*gin.Context) (N, error),
+	lggr logger.Logger,
 ) NodesController {
 	return &nodesController[I, N, R]{
 		nodeSet:       nodeSet,
@@ -40,6 +43,7 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 		parseChainID:  parseChainID,
 		newResource:   newResource,
 		createNode:    createNode,
+		lggr:          lggr,
 	}
 }
 
@@ -95,6 +99,8 @@ func (n *nodesController[I, N, R]) Create(c *gin.Context) {
 		return
 	}
 
+	n.lggr.Auditf(logger.CHAIN_RPC_NODE_ADDED, map[string]interface{}{})
+
 	jsonAPIResponse(c, n.newResource(node), "node")
 }
 
@@ -116,6 +122,8 @@ func (n *nodesController[I, N, R]) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	n.lggr.Auditf(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
 }

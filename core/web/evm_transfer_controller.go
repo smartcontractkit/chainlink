@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -62,6 +63,10 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return
 	}
+
+	tc.App.GetLogger().Auditf(logger.ETH_TRANSACTION_CREATED, map[string]interface{}{
+		"ethTX": etx,
+	})
 
 	jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
 }

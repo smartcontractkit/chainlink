@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -156,6 +158,9 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
+	jbj, _ := json.Marshal(jb)
+	jc.App.GetLogger().Auditf(logger.JOB_CREATED, map[string]interface{}{"job": string(jbj)})
+
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
 
@@ -174,14 +179,13 @@ func (jc *JobsController) Delete(c *gin.Context) {
 	err = jc.App.DeleteJob(c.Request.Context(), j.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
-
 		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
-
 		return
 	}
 
+	jc.App.GetLogger().Auditf(logger.JOB_DELETED, map[string]interface{}{"id": j.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

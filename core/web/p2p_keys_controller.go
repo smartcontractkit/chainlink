@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -37,6 +38,13 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_CREATED, map[string]interface{}{
+		"p2pPublicKey": key.PublicKeyHex(),
+		"p2pID":        key.ID(),
+		"p2pPeerID":    key.PeerID(),
+		"p2pType":      key.Type(),
+	})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -60,6 +68,8 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_DELETED, map[string]interface{}{"id": keyID})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -81,6 +91,12 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_IMPORTED, map[string]interface{}{
+		"p2pPublicKey": key.PublicKeyHex(),
+		"p2pID":        key.ID(),
+		"p2pPeerID":    key.PeerID(),
+		"p2pType":      key.Type(),
+	})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -103,5 +119,6 @@ func (p2pkc *P2PKeysController) Export(c *gin.Context) {
 		return
 	}
 
+	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_EXPORTED, map[string]interface{}{"keyID": keyID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

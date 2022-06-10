@@ -132,10 +132,12 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(sr.Email, user.Email) {
+		o.lggr.Auditf(logger.AUTH_LOGIN_FAILED_EMAIL, map[string]interface{}{"email": sr.Email})
 		return "", errors.New("Invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		o.lggr.Auditf(logger.AUTH_LOGIN_FAILED_PASSWORD, map[string]interface{}{"email": sr.Email})
 		return "", errors.New("Invalid password")
 	}
 
@@ -152,6 +154,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
 		_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
+		o.lggr.Auditf(logger.AUTH_LOGIN_SUCCESS_NO_2FA, map[string]interface{}{"email": sr.Email})
 		return session.ID, err
 	}
 
@@ -182,6 +185,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
+		o.lggr.Auditf(logger.AUTH_LOGIN_FAILED_2FA, map[string]interface{}{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
 		return "", errors.New("MFA Error")
 	}
@@ -190,7 +194,19 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	// This is a success so we can create the sessions
 	session := NewSession()
 	_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
-	return session.ID, err
+	if err != nil {
+		return "", err
+	}
+
+	// Forward registered credentials for audit logs
+	uwasj, err := json.Marshal(uwas)
+	if err != nil {
+		lggr.Errorf("error in Marshal credentials: %s", err)
+		return "", err
+	}
+	o.lggr.Auditf(logger.AUTH_LOGIN_SUCCESS_WITH_2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
+
+	return session.ID, nil
 }
 
 const constantTimeEmailLength = 256

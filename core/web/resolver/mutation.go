@@ -1,8 +1,11 @@
 package resolver
 
+// TODO: Andrew backup and revert this whole file
+
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -94,6 +98,13 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.BRIDGE_CREATED, map[string]interface{}{
+		"bridgeName":                   bta.Name,
+		"bridgeConfirmations":          bta.Confirmations,
+		"bridgeMinimumContractPayment": bta.MinimumContractPayment,
+		"bridgeURL":                    bta.URL,
+	})
+
 	return NewCreateBridgePayload(*bt, bta.IncomingToken), nil
 }
 
@@ -110,6 +121,11 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.CSA_KEY_CREATED, map[string]interface{}{
+		"CSAPublicKey": key.PublicKey,
+		"CSVersion":    key.Version,
+	})
 
 	return NewCreateCSAKeyPayload(&key, nil), nil
 }
@@ -129,6 +145,8 @@ func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.CSA_KEY_DELETED, map[string]interface{}{"id": args.ID})
 
 	return NewDeleteCSAKeyPayload(key, nil), nil
 }
@@ -220,6 +238,9 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
+	fmj, _ := json.Marshal(ccfg)
+	r.App.GetLogger().Auditf(logger.FEEDS_MAN_CHAIN_CONFIG_CREATED, map[string]interface{}{"feedsManager": fmj})
+
 	return NewCreateFeedsManagerChainConfigPayload(ccfg, nil, nil), nil
 }
 
@@ -253,6 +274,8 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.FEEDS_MAN_CHAIN_CONFIG_DELETED, map[string]interface{}{"id": args.ID})
 
 	return NewDeleteFeedsManagerChainConfigPayload(ccfg, nil), nil
 }
@@ -335,6 +358,9 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
+	fmj, _ := json.Marshal(ccfg)
+	r.App.GetLogger().Auditf(logger.FEEDS_MAN_CHAIN_CONFIG_UPDATED, map[string]interface{}{"feedsManager": fmj})
+
 	return NewUpdateFeedsManagerChainConfigPayload(ccfg, nil, nil), nil
 }
 
@@ -382,6 +408,9 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 
 		return nil, err
 	}
+
+	mgrj, _ := json.Marshal(mgr)
+	r.App.GetLogger().Auditf(logger.FEEDS_MAN_CREATED, map[string]interface{}{"mgrj": mgrj})
 
 	return NewCreateFeedsManagerPayload(mgr, nil, nil), nil
 }
@@ -445,6 +474,13 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.BRIDGE_UPDATED, map[string]interface{}{
+		"bridgeName":                   bridge.Name,
+		"bridgeConfirmations":          bridge.Confirmations,
+		"bridgeMinimumContractPayment": bridge.MinimumContractPayment,
+		"bridgeURL":                    bridge.URL,
+	})
+
 	return NewUpdateBridgePayload(&bridge, nil), nil
 }
 
@@ -496,6 +532,9 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	mgrj, _ := json.Marshal(mgr)
+	r.App.GetLogger().Auditf(logger.FEEDS_MAN_UPDATED, map[string]interface{}{"mgrj": mgrj})
+
 	return NewUpdateFeedsManagerPayload(mgr, nil, nil), nil
 }
 
@@ -508,6 +547,11 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 	if err != nil {
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.OCR_KEY_BUNDLE_CREATED, map[string]interface{}{
+		"ocrKeyBundleID":                      key.ID(),
+		"ocrKeyBundlePublicKeyAddressOnChain": key.PublicKeyAddressOnChain(),
+	})
 
 	return NewCreateOCRKeyBundlePayload(&key), nil
 }
@@ -527,6 +571,7 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.OCR_KEY_BUNDLE_DELETED, map[string]interface{}{"id": args.ID})
 	return NewDeleteOCRKeyBundlePayloadResolver(deletedKey, nil), nil
 }
 
@@ -547,6 +592,16 @@ func (r *Resolver) CreateNode(ctx context.Context, args struct {
 	if err != nil {
 		return nil, err
 	}
+
+	wsURL, _ := url.Parse(args.Input.WSURL.String) // Forward only RPC host to logs
+	httpURL, _ := url.Parse(args.Input.HTTPURL.String)
+	r.App.GetLogger().Auditf(logger.CHAIN_RPC_NODE_ADDED, map[string]interface{}{
+		"chainNodeName":             args.Input.Name,
+		"chainNodeEvmChainID":       args.Input.EVMChainID,
+		"chainNodeRPCWebSocketHost": wsURL.Host,
+		"chainNodeRPCHTTPHost":      httpURL.Host,
+		"chainNodeSendOnly":         args.Input.SendOnly,
+	})
 
 	return NewCreateNodePayloadResolver(&node), nil
 }
@@ -584,6 +639,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.CHAIN_RPC_NODE_DELETED, map[string]interface{}{"id": id})
 	return NewDeleteNodePayloadResolver(&node, nil), nil
 }
 
@@ -621,6 +677,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.BRIDGE_DELETED, map[string]interface{}{"name": bt.Name})
 	return NewDeleteBridgePayload(&bt, nil), nil
 }
 
@@ -633,6 +690,13 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 	if err != nil {
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.P2P_KEY_CREATED, map[string]interface{}{
+		"p2pPublicKey": key.PublicKeyHex(),
+		"p2pID":        key.ID(),
+		"p2pPeerID":    key.PeerID(),
+		"p2pType":      key.Type(),
+	})
 
 	return NewCreateP2PKeyPayload(key), nil
 }
@@ -657,6 +721,7 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.P2P_KEY_DELETED, map[string]interface{}{"id": args.ID})
 	return NewDeleteP2PKeyPayload(key, nil), nil
 }
 
@@ -669,6 +734,12 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 	if err != nil {
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.VRF_KEY_CREATED, map[string]interface{}{
+		"vrfPublicKey":        key.PublicKey,
+		"vrfID":               key.ID(),
+		"vrfPublicKeyAddress": key.PublicKey.Address(),
+	})
 
 	return NewCreateVRFKeyPayloadResolver(key), nil
 }
@@ -688,6 +759,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.VRF_KEY_DELETED, map[string]interface{}{"id": args.ID})
 	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
 }
 
@@ -725,6 +797,9 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 		}
 	}
 
+	specj, _ := json.Marshal(spec)
+	r.App.GetLogger().Auditf(logger.JOB_PROPOSAL_SPEC_APPROVED, map[string]interface{}{"spec": specj})
+
 	return NewApproveJobProposalSpecPayload(spec, err), nil
 }
 
@@ -757,6 +832,9 @@ func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 		}
 	}
 
+	specj, _ := json.Marshal(spec)
+	r.App.GetLogger().Auditf(logger.JOB_PROPOSAL_SPEC_CANCELED, map[string]interface{}{"spec": specj})
+
 	return NewCancelJobProposalSpecPayload(spec, err), nil
 }
 
@@ -788,6 +866,9 @@ func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 			return nil, err
 		}
 	}
+
+	specj, _ := json.Marshal(spec)
+	r.App.GetLogger().Auditf(logger.JOB_PROPOSAL_SPEC_REJECTED, map[string]interface{}{"spec": specj})
 
 	return NewRejectJobProposalSpecPayload(spec, err), nil
 }
@@ -824,6 +905,9 @@ func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args str
 		}
 	}
 
+	specj, _ := json.Marshal(spec)
+	r.App.GetLogger().Auditf(logger.JOB_PROPOSAL_SPEC_UPDATED, map[string]interface{}{"spec": specj})
+
 	return NewUpdateJobProposalSpecDefinitionPayload(spec, err), nil
 }
 
@@ -845,6 +929,8 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	}
 
 	if !utils.CheckPasswordHash(args.Input.OldPassword, dbUser.HashedPassword) {
+		r.App.GetLogger().Auditf(logger.PASSWORD_RESET_ATTEMPT_FAILED_MISMATCH, map[string]interface{}{"user": dbUser.Email})
+
 		return NewUpdatePasswordPayload(nil, map[string]string{
 			"oldPassword": "old password does not match",
 		}), nil
@@ -859,6 +945,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, failedPasswordUpdateError{}
 	}
 
+	r.App.GetLogger().Auditf(logger.PASSWORD_RESET_SUCCESS, map[string]interface{}{"user": dbUser.Email})
 	return NewUpdatePasswordPayload(session.User, nil), nil
 }
 
@@ -870,6 +957,12 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 	}
 
 	r.App.GetConfig().SetLogSQL(args.Input.Enabled)
+
+	if args.Input.Enabled {
+		r.App.GetLogger().Auditf(logger.CONFIG_SQL_LOGGING_ENABLED, map[string]interface{}{})
+	} else {
+		r.App.GetLogger().Auditf(logger.CONFIG_SQL_LOGGING_DISABLED, map[string]interface{}{})
+	}
 
 	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
 }
@@ -887,6 +980,8 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	}
 
 	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+		r.App.GetLogger().Auditf(logger.API_TOKEN_CREATE_ATTEMPT_PASSWORD_MISMATCH, map[string]interface{}{"user": dbUser.Email})
+
 		return NewCreateAPITokenPayload(nil, map[string]string{
 			"password": "incorrect password",
 		}), nil
@@ -897,6 +992,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.API_TOKEN_CREATED, map[string]interface{}{"user": dbUser.Email})
 	return NewCreateAPITokenPayload(newToken, nil), nil
 }
 
@@ -913,6 +1009,8 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	}
 
 	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+		r.App.GetLogger().Auditf(logger.API_TOKEN_DELETE_ATTEMPT_PASSWORD_MISMATCH, map[string]interface{}{"user": dbUser.Email})
+
 		return NewDeleteAPITokenPayload(nil, map[string]string{
 			"password": "incorrect password",
 		}), nil
@@ -922,6 +1020,8 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	if err != nil {
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.API_TOKEN_DELETED, map[string]interface{}{"user": dbUser.Email})
 
 	return NewDeleteAPITokenPayload(&auth.Token{
 		AccessKey: dbUser.TokenKey.String,
@@ -971,6 +1071,9 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 	if err != nil {
 		return nil, err
 	}
+
+	chainj, _ := json.Marshal(chain)
+	r.App.GetLogger().Auditf(logger.CHAIN_ADDED, map[string]interface{}{"chain": chainj})
 
 	return NewCreateChainPayload(&chain, nil), nil
 }
@@ -1024,6 +1127,9 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	chainj, _ := json.Marshal(chain)
+	r.App.GetLogger().Auditf(logger.CHAIN_SPEC_UPDATED, map[string]interface{}{"chainj": chainj})
+
 	return NewUpdateChainPayload(&chain, nil, nil), nil
 }
 
@@ -1054,6 +1160,7 @@ func (r *Resolver) DeleteChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
 	return NewDeleteChainPayload(&chain, nil), nil
 }
 
@@ -1119,6 +1226,9 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	jbj, _ := json.Marshal(jb)
+	r.App.GetLogger().Auditf(logger.JOB_CREATED, map[string]interface{}{"job": string(jbj)})
+
 	return NewCreateJobPayload(r.App, &jb, nil), nil
 }
 
@@ -1152,6 +1262,7 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.JOB_DELETED, map[string]interface{}{"id": args.ID})
 	return NewDeleteJobPayload(r.App, &j, nil), nil
 }
 
@@ -1185,6 +1296,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.JOB_ERROR_DISMISSED, map[string]interface{}{"id": args.ID})
 	return NewDismissJobErrorPayload(&specErr, nil), nil
 }
 
@@ -1214,6 +1326,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.JOB_RUN_SET, map[string]interface{}{"jobID": args.ID, "jobRunID": jobRunID, "planRunID": plnRun})
 	return NewRunJobPayload(&plnRun, r.App, nil), nil
 }
 
@@ -1238,6 +1351,7 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.GLOBAL_LOG_LEVEL_SET, map[string]interface{}{"logLevel": args.Level})
 	return NewSetGlobalLogLevelPayload(args.Level, nil), nil
 }
 
@@ -1255,6 +1369,15 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received
 		return nil, err
 	}
+
+	r.App.GetLogger().Auditf(logger.OCR2_KEY_BUNDLE_CREATED, map[string]interface{}{
+		"ocrKeyID":                        key.ID(),
+		"ocrKeyChainType":                 key.ChainType(),
+		"ocrKeyConfigEncryptionPublicKey": key.ConfigEncryptionPublicKey(),
+		"ocrKeyOffchainPublicKey":         key.OffchainPublicKey(),
+		"ocrKeyMaxSignatureLength":        key.MaxSignatureLength(),
+		"ocrKeyPublicKey":                 key.PublicKey(),
+	})
 
 	return NewCreateOCR2KeyBundlePayload(&key), nil
 }
@@ -1278,5 +1401,6 @@ func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	r.App.GetLogger().Auditf(logger.OCR2_KEY_BUNDLE_DELETED, map[string]interface{}{"id": id})
 	return NewDeleteOCR2KeyBundlePayloadResolver(&key, nil), nil
 }

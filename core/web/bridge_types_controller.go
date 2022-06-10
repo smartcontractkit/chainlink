@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -96,6 +97,13 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		resource := presenters.NewBridgeResource(*bt)
 		resource.IncomingToken = bta.IncomingToken
 
+		btc.App.GetLogger().Auditf(logger.BRIDGE_CREATED, map[string]interface{}{
+			"bridgeName":                   bta.Name,
+			"bridgeConfirmations":          bta.Confirmations,
+			"bridgeMinimumContractPayment": bta.MinimumContractPayment,
+			"bridgeURL":                    bta.URL,
+		})
+
 		jsonAPIResponse(c, resource, "bridge")
 	}
 }
@@ -170,6 +178,13 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
+	btc.App.GetLogger().Auditf(logger.BRIDGE_UPDATED, map[string]interface{}{
+		"bridgeName":                   bt.Name,
+		"bridgeConfirmations":          bt.Confirmations,
+		"bridgeMinimumContractPayment": bt.MinimumContractPayment,
+		"bridgeURL":                    bt.URL,
+	})
+
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }
 
@@ -206,6 +221,8 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to delete bridge: %+v", err))
 		return
 	}
+
+	btc.App.GetLogger().Auditf(logger.BRIDGE_DELETED, map[string]interface{}{"name": name})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

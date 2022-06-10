@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -35,6 +36,11 @@ func (ocrkc *OCRKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ocrkc.App.GetLogger().Auditf(logger.OCR_KEY_BUNDLE_CREATED, map[string]interface{}{
+		"ocrKeyBundleID":                      key.ID(),
+		"ocrKeyBundlePublicKeyAddressOnChain": key.PublicKeyAddressOnChain(),
+	})
 	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
 }
 
@@ -54,6 +60,8 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	ocrkc.App.GetLogger().Auditf(logger.OCR_KEY_BUNDLE_DELETED, map[string]interface{}{"id": id})
 	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
 }
 
@@ -75,6 +83,12 @@ func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 		return
 	}
 
+	ocrkc.App.GetLogger().Auditf(logger.OCR_KEY_BUNDLE_IMPORTED, map[string]interface{}{
+		"OCRID":                      encryptedOCRKeyBundle.GetID(),
+		"OCRPublicKeyAddressOnChain": encryptedOCRKeyBundle.PublicKeyAddressOnChain(),
+		"OCRPublicKeyOffChain":       encryptedOCRKeyBundle.PublicKeyOffChain(),
+	})
+
 	jsonAPIResponse(c, encryptedOCRKeyBundle, "offChainReportingKeyBundle")
 }
 
@@ -92,5 +106,6 @@ func (ocrkc *OCRKeysController) Export(c *gin.Context) {
 		return
 	}
 
+	ocrkc.App.GetLogger().Auditf(logger.OCR_KEY_BUNDLE_EXPORTED, map[string]interface{}{"keyID": stringID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }
