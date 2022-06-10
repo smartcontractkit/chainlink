@@ -2190,7 +2190,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	cfg := configtest.NewTestGeneralConfig(t)
 	borm := cltest.NewTxmORM(t, db, cfg)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(500)
@@ -2200,32 +2199,104 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	keys := []ethkey.State{state, otherKey}
 
+	// Use a mock keystore for this test
 	kst := new(ksmocks.Eth)
 	kst.Test(t)
-	// Use a mock keystore for this test
-	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, kst, keys, nil)
+
 	currentHead := int64(30)
+	oldEnough := 5
 	nonce := int64(0)
 
-	originalBroadcastAt := time.Unix(1616509100, 0)
-	etx := cltest.MustInsertUnconfrimedEthTxWithAttemptState(t, borm, nonce, fromAddress, txmgr.EthTxAttemptInProgress, originalBroadcastAt)
-	require.Equal(t, originalBroadcastAt, *etx.BroadcastAt)
-	nonce++
-	attempt := etx.EthTxAttempts[0]
-	signedTx, err := attempt.GetSignedTx()
-	require.NoError(t, err)
+	t.Run("terminally underpriced transaction with in_progress attempt is retried with more gas", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, kst, keys, nil)
 
-	t.Run("terminally underpriced transactions are retried with more gas", func(t *testing.T) {
+		originalBroadcastAt := time.Unix(1616509100, 0)
+		etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, borm, nonce, fromAddress, txmgr.EthTxAttemptInProgress, originalBroadcastAt)
+		require.Equal(t, originalBroadcastAt, *etx.BroadcastAt)
+		nonce++
+		attempt := etx.EthTxAttempts[0]
+		signedTx, err := attempt.GetSignedTx()
+		require.NoError(t, err)
+
 		// Fail the first time with terminally underpriced.
 		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
 			errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
 		).Once()
 		// Succeed the second time after bumping gas.
-		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil)
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
 		kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Return(
 			signedTx, nil,
-		)
+		).Once()
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+
+		ethClient.AssertExpectations(t)
+	})
+
+	realKst := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in legacy mode", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, kst, keys, nil)
+
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, nonce, fromAddress)
+		nonce++
+		legacyAttempt := etx.EthTxAttempts[0]
+		require.NoError(t, db.Get(&legacyAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, legacyAttempt.ID))
+
+		// Fail a few times with terminally underpriced
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
+			errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
+		).Times(3)
+		// Succeed the second time after bumping gas.
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		signedLegacyTx := new(types.Transaction)
+		kst.On("SignTx", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Type() == 0x0 && tx.Nonce() == uint64(*etx.Nonce)
+		}), mock.Anything).Return(
+			signedLegacyTx, nil,
+		).Run(func(args mock.Arguments) {
+			unsignedLegacyTx := args.Get(1).(*types.Transaction)
+			// Use the real keystore to do the actual signing
+			thisSignedLegacyTx, err := realKst.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
+			require.NoError(t, err)
+			*signedLegacyTx = *thisSignedLegacyTx
+		}).Times(4) // 3 failures 1 success
+		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in EIP-1559 mode", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, kst, keys, nil)
+
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, borm, nonce, fromAddress)
+		nonce++
+		dxFeeAttempt := etx.EthTxAttempts[0]
+		require.NoError(t, db.Get(&dxFeeAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, dxFeeAttempt.ID))
+
+		// Fail a few times with terminally underpriced
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
+			errors.New("transaction underpriced"),
+		).Times(3)
+		// Succeed the second time after bumping gas.
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
+		signedDxFeeTx := new(types.Transaction)
+		kst.On("SignTx", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Type() == 0x2 && tx.Nonce() == uint64(*etx.Nonce)
+		}), mock.Anything).Return(
+			signedDxFeeTx, nil,
+		).Run(func(args mock.Arguments) {
+			unsignedDxFeeTx := args.Get(1).(*types.Transaction)
+			// Use the real keystore to do the actual signing
+			thisSignedDxFeeTx, err := realKst.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
+			require.NoError(t, err)
+			*signedDxFeeTx = *thisSignedDxFeeTx
+		}).Times(4) // 3 failures 1 success
+		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+
+		ethClient.AssertExpectations(t)
 	})
 }
 
