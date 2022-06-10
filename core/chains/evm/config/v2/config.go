@@ -28,7 +28,7 @@ type Chain struct {
 	GasBumpThreshold   *utils.Big
 	GasBumpTxDepth     *uint16
 	GasBumpWei         *utils.Big
-	GasEstimatorMode   *string //TODO strict type?
+	GasEstimatorMode   *string
 	GasFeeCapDefault   *utils.Big
 	GasLimitDefault    *utils.Big
 	GasLimitMultiplier *decimal.Decimal

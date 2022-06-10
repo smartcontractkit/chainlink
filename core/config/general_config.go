@@ -1153,8 +1153,6 @@ var (
 	DatabaseBackupModeFull DatabaseBackupMode = "full"
 )
 
-//TODO textunmarshaller for validation?
-
 func parseDatabaseBackupMode(s string) (DatabaseBackupMode, error) {
 	switch DatabaseBackupMode(s) {
 	case DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull:

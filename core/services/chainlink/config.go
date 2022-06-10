@@ -1,14 +1,18 @@
 package chainlink
 
 import (
+	"strings"
+
+	"github.com/pelletier/go-toml/v2"
+
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	solcfg "github.com/smartcontractkit/chainlink/core/chains/solana/config"
-	tercfg "github.com/smartcontractkit/chainlink/core/chains/terra/config"
 	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -32,9 +36,23 @@ type Config struct {
 	Terra []TerraConfig `toml:",omitempty"`
 }
 
+// TOMLString returns a pretty-printed TOML encoded string, with extra line breaks removed.
+func (c *Config) TOMLString() (string, error) {
+	b, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	// remove runs of line breaks
+	s := multiLineBreak.ReplaceAllLiteralString(string(b), "\n")
+	// restore them preceding keys
+	s = strings.Replace(s, "\n[", "\n\n[", -1)
+	s = strings.TrimPrefix(s, "\n")
+	return s, nil
+}
+
 type EVMConfig struct {
 	ChainID *utils.Big
-	Enabled *bool // TODO or find a way to output toml comments....
+	Enabled *bool
 	evmcfg.Chain
 	Nodes []evmcfg.Node
 }

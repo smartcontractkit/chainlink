@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//TODO doc
+// Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
 	Dev                 *bool
@@ -53,7 +53,7 @@ type Secrets struct {
 	DatabaseURL       *models.URL
 	ExplorerAccessKey string `toml:",omitempty"`
 	ExplorerSecret    string `toml:",omitempty"`
-	//TODO more?
+	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
 }
 
 type Feature struct {

@@ -115,6 +115,7 @@ DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
+TraceLogging = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 
 [P2P]
@@ -177,6 +178,7 @@ Release = 'v1.2.3'
 
 [[EVM]]
 ChainID = '1'
+Enabled = false
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -284,6 +286,7 @@ URL = 'http://solana.bar'
 
 [[Terra]]
 ChainID = 'Bombay-12'
+Enabled = true
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'

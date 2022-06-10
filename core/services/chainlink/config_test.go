@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,12 +15,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
-	solcfg "github.com/smartcontractkit/chainlink/core/chains/solana/config"
-	tercfg "github.com/smartcontractkit/chainlink/core/chains/terra/config"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -109,16 +113,16 @@ var (
 					MaxRetries: ptr[int64](12),
 				},
 				Nodes: []solcfg.Node{
-					{Name: "primary", URL: mustURL("http://mainnet.solana.com")},
+					{Name: "primary", URL: relayutils.MustParseURL("http://mainnet.solana.com")},
 				},
 			},
 			{
 				ChainID: "testnet",
 				Chain: solcfg.Chain{
-					OCR2CachePollPeriod: models.MustNewDuration(time.Minute),
+					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
 				Nodes: []solcfg.Node{
-					{Name: "primary", URL: mustURL("http://testnet.solana.com")},
+					{Name: "primary", URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -129,7 +133,7 @@ var (
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
 				Nodes: []tercfg.Node{
-					{Name: "primary", TendermintURL: mustURL("http://columbus.terra.com")},
+					{Name: "primary", TendermintURL: relayutils.MustParseURL("http://columbus.terra.com")},
 				}},
 			{
 				ChainID: "Bombay-12",
@@ -137,7 +141,7 @@ var (
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
 				Nodes: []tercfg.Node{
-					{Name: "primary", TendermintURL: mustURL("http://bombay.terra.com")},
+					{Name: "primary", TendermintURL: relayutils.MustParseURL("http://bombay.terra.com")},
 				}},
 		},
 	}
@@ -286,6 +290,7 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		MonitoringEndpoint:           ptr("test-monitor"),
 		SimulateTransactions:         ptr(true),
+		TraceLogging:                 ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 	}
 	full.P2P = &config.P2P{
@@ -349,6 +354,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.EVM = []EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
+			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				BalanceMonitorEnabled: ptr(true),
 				BlockBackfillDepth:    ptr[uint32](100),
@@ -449,43 +455,44 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: "mainnet",
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
-				BalancePollPeriod:   models.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:   models.MustNewDuration(time.Second),
-				OCR2CachePollPeriod: models.MustNewDuration(time.Minute),
-				OCR2CacheTTL:        models.MustNewDuration(time.Hour),
-				TxTimeout:           models.MustNewDuration(time.Hour),
-				TxRetryTimeout:      models.MustNewDuration(time.Minute),
-				TxConfirmTimeout:    models.MustNewDuration(time.Second),
+				BalancePollPeriod:   relayutils.MustNewDuration(time.Minute),
+				ConfirmPollPeriod:   relayutils.MustNewDuration(time.Second),
+				OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
+				OCR2CacheTTL:        relayutils.MustNewDuration(time.Hour),
+				TxTimeout:           relayutils.MustNewDuration(time.Hour),
+				TxRetryTimeout:      relayutils.MustNewDuration(time.Minute),
+				TxConfirmTimeout:    relayutils.MustNewDuration(time.Second),
 				SkipPreflight:       ptr(true),
 				Commitment:          ptr("banana"),
 				MaxRetries:          ptr[int64](7),
 			},
 			Nodes: []solcfg.Node{
-				{Name: "primary", URL: mustURL("http://solana.web")},
-				{Name: "foo", URL: mustURL("http://solana.foo")},
-				{Name: "bar", URL: mustURL("http://solana.bar")},
+				{Name: "primary", URL: relayutils.MustParseURL("http://solana.web")},
+				{Name: "foo", URL: relayutils.MustParseURL("http://solana.foo")},
+				{Name: "bar", URL: relayutils.MustParseURL("http://solana.bar")},
 			},
 		},
 	}
 	full.Terra = []TerraConfig{
 		{
 			ChainID: "Bombay-12",
+			Enabled: ptr(true),
 			Chain: tercfg.Chain{
-				BlockRate:             models.MustNewDuration(time.Minute),
+				BlockRate:             relayutils.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout:  ptr[int64](12),
-				ConfirmPollPeriod:     models.MustNewDuration(time.Second),
+				ConfirmPollPeriod:     relayutils.MustNewDuration(time.Second),
 				FallbackGasPriceULuna: mustDecimal("0.001"),
-				FCDURL:                mustURL("http://terra.com"),
+				FCDURL:                relayutils.MustParseURL("http://terra.com"),
 				GasLimitMultiplier:    mustDecimal("1.2"),
 				MaxMsgsPerBatch:       ptr[int64](17),
-				OCR2CachePollPeriod:   models.MustNewDuration(time.Minute),
-				OCR2CacheTTL:          models.MustNewDuration(time.Hour),
-				TxMsgTimeout:          models.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:   relayutils.MustNewDuration(time.Minute),
+				OCR2CacheTTL:          relayutils.MustNewDuration(time.Hour),
+				TxMsgTimeout:          relayutils.MustNewDuration(time.Second),
 			},
 			Nodes: []tercfg.Node{
-				{Name: "primary", TendermintURL: mustURL("http://tender.mint")},
-				{Name: "foo", TendermintURL: mustURL("http://foo.url")},
-				{Name: "bar", TendermintURL: mustURL("http://bar.web")},
+				{Name: "primary", TendermintURL: relayutils.MustParseURL("http://tender.mint")},
+				{Name: "foo", TendermintURL: relayutils.MustParseURL("http://foo.url")},
+				{Name: "bar", TendermintURL: relayutils.MustParseURL("http://bar.web")},
 			},
 		},
 	}
@@ -611,6 +618,7 @@ DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
+TraceLogging = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
 		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
@@ -689,6 +697,7 @@ Release = 'v1.2.3'
 		{"EVM", Config{EVM: full.EVM}, `
 [[EVM]]
 ChainID = '1'
+Enabled = false
 BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -798,6 +807,7 @@ URL = 'http://solana.bar'
 		{"Terra", Config{Terra: full.Terra}, `
 [[Terra]]
 ChainID = 'Bombay-12'
+Enabled = true
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
@@ -825,18 +835,35 @@ TendermintURL = 'http://bar.web'
 		{"multi-chain", multiChain, multiChainTOML},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			s, err := prettyPrint(tt.config)
+			s, err := tt.config.TOMLString()
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
 
 			var got Config
-			require.NoError(t, toml.Unmarshal([]byte(s), &got))
+			d := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields()
+			require.NoError(t, d.Decode(&got))
 			assert.Equal(t, tt.config, got)
 		})
 	}
 }
 
-//TODO TestConfig_Unmarshal
+func TestConfig_full(t *testing.T) {
+	var got Config
+	d := toml.NewDecoder(strings.NewReader(fullTOML)).DisallowUnknownFields()
+	require.NoError(t, d.Decode(&got))
+	// Except for some EVM node fields.
+	for c := range got.EVM {
+		for n := range got.EVM[c].Nodes {
+			if got.EVM[c].Nodes[n].WSURL == nil {
+				got.EVM[c].Nodes[n].WSURL = new(models.URL)
+			}
+			if got.EVM[c].Nodes[n].SendOnly == nil {
+				got.EVM[c].Nodes[n].SendOnly = ptr(true)
+			}
+		}
+	}
+	cfgtest.AssertFieldsNotNil(t, got)
+}
 
 func mustURL(s string) *models.URL {
 	var u models.URL

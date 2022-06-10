@@ -40,7 +40,7 @@ func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error)
 
 	c.loadLegacyCoreEnv()
 
-	return prettyPrint(c)
+	return c.TOMLString()
 }
 
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.

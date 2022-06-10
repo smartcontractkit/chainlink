@@ -54,9 +54,9 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-relay v0.0.0-20220516224734-c4759cac049a
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220519124030-06ae6d2fe754
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220517130712-37c2baa48d68
+	github.com/smartcontractkit/chainlink-relay v0.1.1-0.20220610150550-c783cf974bee
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220610230107-7a4ee8b6dba5 //TODO update to develop
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220610230305-ad17126beeda
 	github.com/smartcontractkit/libocr v0.0.0-20220512162406-9e4afd8896f3
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -65,7 +65,7 @@ require (
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.2
 	github.com/tendermint/tendermint v0.34.15
-	github.com/terra-money/core v0.5.14
+	github.com/terra-money/core v0.5.20
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.9.3
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
@@ -92,7 +92,7 @@ require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/99designs/keyring v1.1.6 // indirect
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d // indirect
-	github.com/CosmWasm/wasmvm v0.16.3 // indirect
+	github.com/CosmWasm/wasmvm v0.16.6 // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect

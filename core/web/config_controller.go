@@ -32,7 +32,7 @@ func (cc *ConfigController) Dump(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, tomlStr, "config") //TODO different resource name?
+	jsonAPIResponse(c, tomlStr, "config")
 }
 
 type configPatchRequest struct {

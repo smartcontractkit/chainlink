@@ -17,24 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
-func TestConfig_loadChainsAndNodes(t *testing.T) {
-	//TODO
-}
-
-func TestConfig_loadLegacyEVMEnv(t *testing.T) {
-	//TODO
-}
-
-func TestConfig_loadLegacyCoreEnv(t *testing.T) {
-	//TODO
-}
-
 //go:embed testdata/dump/*.toml
 //go:embed testdata/dump/*.env
 var dumpTestFiles embed.FS
 
 func TestChainlinkApplication_ConfigDump(t *testing.T) {
-	//TODO add db later - EVM_NODES insufficient...
 	fes, err := dumpTestFiles.ReadDir("testdata/dump")
 	require.NoError(t, err)
 	for _, fe := range fes {
@@ -51,6 +38,8 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 
 			env, err := dumpTestFiles.ReadFile(filepath.Join("testdata/dump", name) + ".env")
 			require.NoError(t, err)
+
+			//TODO look for optional db file https://app.shortcut.com/chainlinklabs/story/33621/create-config-dump-functionality
 
 			os.Clearenv()
 
