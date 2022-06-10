@@ -405,12 +405,11 @@ func getKeeperSuite(
 						}
 					}, "1m", "1s").Should(Succeed())
 
-					newConsumers, newUpkeepIDs := actions.RegisterNewUpkeeps(contractDeployer, networks, linkToken,
+					newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, networks, linkToken,
 						registry, registrar, upkeepGasLimit, 1)
 
 					// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
 					newUpkeep := newConsumers[0]
-					newUpkeepID := newUpkeepIDs[0]
 
 					// Test that the newly registered upkeep is also performing.
 					Eventually(func(g Gomega) {
