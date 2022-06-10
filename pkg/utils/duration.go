@@ -19,6 +19,14 @@ func NewDuration(d time.Duration) (Duration, error) {
 	return Duration{d: d}, nil
 }
 
+func MustNewDuration(d time.Duration) *Duration {
+	rv, err := NewDuration(d)
+	if err != nil {
+		panic(err)
+	}
+	return &rv
+}
+
 func (d Duration) Duration() time.Duration {
 	return d.d
 }
