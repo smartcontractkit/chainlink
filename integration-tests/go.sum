@@ -1526,6 +1526,8 @@ github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220603081116-
 github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220603081116-bdf186252995/go.mod h1:piESTIOlUWHyux8/g+Y5c8zKbbqZXbRecpKOS+XRU/I=
 github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220607140626-3a306f407c01 h1:0sjN3mOHk44yucHOAiLk1nNjOkmRDPqkZg7t8VqO1rU=
 github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220607140626-3a306f407c01/go.mod h1:dFHDbUFL4v0zrP699MUV86OWrxy8vsT5c/GIQ3LpvvQ=
+github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220609194427-c4ff01bf747d h1:KbC/p+4dvosvAi+Ey2K+4nGZbV6XtNDPmhiv/cNuFyY=
+github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220609194427-c4ff01bf747d/go.mod h1:dFHDbUFL4v0zrP699MUV86OWrxy8vsT5c/GIQ3LpvvQ=
 github.com/smartcontractkit/helmenv v1.2.2 h1:jP6dHikMXEg90h4PiH1o3DxrC9YncRnXpEx2NFL9FF4=
 github.com/smartcontractkit/helmenv v1.2.2/go.mod h1:hZDi/s7pBOdkdTQRh9X3tiQy1IYF7t/0mYd8gaFWNqE=
 github.com/smartcontractkit/helmenv v1.2.3/go.mod h1:hZDi/s7pBOdkdTQRh9X3tiQy1IYF7t/0mYd8gaFWNqE=

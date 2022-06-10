@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.26.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220607140626-3a306f407c01
+	github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220609194427-c4ff01bf747d
 	github.com/smartcontractkit/helmenv v1.2.3
 )
 
