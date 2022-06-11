@@ -90,6 +90,10 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
+	case job.DKG:
+		return nil
+	case job.VRFOCR2:
+		return nil
 	case "":
 		return errors.New("no plugin specified")
 	default:

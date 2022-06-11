@@ -1,5 +1,7 @@
 package relay
 
+import relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 type Network string
 
 var (
@@ -12,3 +14,17 @@ var (
 		Terra:  {},
 	}
 )
+
+type VRFRelayer interface {
+	relaytypes.Relayer
+	NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (DKGProvider, error)
+	NewVRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (VRFProvider, error)
+}
+
+type DKGProvider interface {
+	relaytypes.Plugin
+}
+
+type VRFProvider interface {
+	relaytypes.Plugin
+}
