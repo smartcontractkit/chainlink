@@ -276,6 +276,10 @@ type OCR2PluginType string
 const (
 	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
+
+	// DKG refers to the distributed key generation process
+	// as part of threshold VRF.
+	DKG OCR2PluginType = "dkg"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
