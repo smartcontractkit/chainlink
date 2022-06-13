@@ -32,7 +32,7 @@ func TestOCRKey_ConfigPublicKey(t *testing.T) {
 		pk := ConfigPublicKey(k.PublicKeyConfig())
 
 		k2 := MustNewV2XXXTestingOnly(big.NewInt(2))
-		err := pk.Scan(k2)
+		err := pk.Scan(k2.PublicKeyConfig())
 		require.NoError(t, err)
 
 		assert.Equal(t, k2.ID(), pk.Raw())
