@@ -27,14 +27,16 @@ contract OptimismSequencerUptimeFeed is
   /// @dev Round info (for uptime history)
   struct Round {
     bool status;
-    uint64 timestamp;
+    uint64 startedAt;
+    uint64 updatedAt;
   }
 
   /// @dev Packed state struct to save sloads
   struct FeedState {
     uint80 latestRoundId;
     bool latestStatus;
-    uint64 latestTimestamp;
+    uint64 startedAt;
+    uint64 updatedAt;
   }
 
   /// @notice Sender is not the L2 messenger
@@ -45,6 +47,8 @@ contract OptimismSequencerUptimeFeed is
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
   event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
+  /// @dev Emitted when a updateStatus is called without the status changing
+  event RoundUpdated(int256 status, uint64 updatedAt);
 
   uint8 public constant override decimals = 0;
   string public constant override description = "L2 Sequencer Uptime Status Feed";
@@ -53,7 +57,7 @@ contract OptimismSequencerUptimeFeed is
   /// @dev L1 address
   address private s_l1Sender;
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
-  FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, latestTimestamp: 0});
+  FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, startedAt: 0, updatedAt: 0});
   mapping(uint80 => Round) private s_rounds;
 
   IL2CrossDomainMessenger private immutable s_l2CrossDomainMessenger;
@@ -133,21 +137,35 @@ contract OptimismSequencerUptimeFeed is
    *
    * @param roundId The round ID to record
    * @param status Sequencer status
-   * @param timestamp Block timestamp of status update
+   * @param timestamp The L1 block timestamp of status update
    */
   function recordRound(
     uint80 roundId,
     bool status,
     uint64 timestamp
   ) private {
-    Round memory nextRound = Round(status, timestamp);
-    FeedState memory feedState = FeedState(roundId, status, timestamp);
+    uint64 recordedAt = uint64(block.timestamp);
+    Round memory nextRound = Round(status, timestamp, recordedAt);
+    FeedState memory feedState = FeedState(roundId, status, timestamp, recordedAt);
 
     s_rounds[roundId] = nextRound;
     s_feedState = feedState;
 
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(getStatusAnswer(status), roundId, timestamp);
+  }
+
+  /**
+   * @notice Helper function to update when a round was last updated
+   *
+   * @param roundId The round ID to update
+   * @param status Sequencer status
+   */
+  function updateRound(uint80 roundId, bool status) private {
+    uint64 updatedAt = uint64(block.timestamp);
+    s_rounds[roundId].updatedAt = updatedAt;
+    s_feedState.updatedAt = updatedAt;
+    emit RoundUpdated(getStatusAnswer(status), updatedAt);
   }
 
   /**
@@ -166,14 +184,18 @@ contract OptimismSequencerUptimeFeed is
     }
 
     // Ignore if status did not change or latest recorded timestamp is newer
-    if (feedState.latestStatus == status || feedState.latestTimestamp > timestamp) {
-      emit UpdateIgnored(feedState.latestStatus, feedState.latestTimestamp, status, timestamp);
+    if (feedState.startedAt > timestamp) {
+      emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
       return;
     }
 
     // Prepare a new round with updated status
-    feedState.latestRoundId += 1;
-    recordRound(feedState.latestRoundId, status, timestamp);
+    if (feedState.latestStatus == status) {
+      updateRound(feedState.latestRoundId, status);
+    } else {
+      feedState.latestRoundId += 1;
+      recordRound(feedState.latestRoundId, status, timestamp);
+    }
   }
 
   /// @inheritdoc AggregatorInterface
@@ -185,7 +207,7 @@ contract OptimismSequencerUptimeFeed is
   /// @inheritdoc AggregatorInterface
   function latestTimestamp() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
-    return feedState.latestTimestamp;
+    return feedState.startedAt;
   }
 
   /// @inheritdoc AggregatorInterface
@@ -206,7 +228,7 @@ contract OptimismSequencerUptimeFeed is
   /// @inheritdoc AggregatorInterface
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
     if (isValidRound(roundId)) {
-      return s_rounds[uint80(roundId)].timestamp;
+      return s_rounds[uint80(roundId)].startedAt;
     }
 
     revert NoDataPresent();
@@ -229,9 +251,9 @@ contract OptimismSequencerUptimeFeed is
     if (isValidRound(_roundId)) {
       Round memory round = s_rounds[_roundId];
       answer = getStatusAnswer(round.status);
-      startedAt = uint256(round.timestamp);
+      startedAt = uint256(round.startedAt);
       roundId = _roundId;
-      updatedAt = startedAt;
+      updatedAt = uint256(round.updatedAt);
       answeredInRound = roundId;
     } else {
       revert NoDataPresent();
@@ -256,8 +278,8 @@ contract OptimismSequencerUptimeFeed is
 
     roundId = feedState.latestRoundId;
     answer = getStatusAnswer(feedState.latestStatus);
-    startedAt = feedState.latestTimestamp;
-    updatedAt = startedAt;
+    startedAt = feedState.startedAt;
+    updatedAt = feedState.updatedAt;
     answeredInRound = roundId;
   }
 }

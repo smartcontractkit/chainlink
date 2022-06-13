@@ -91,6 +91,52 @@ describe('OptimismSequencerUptimeFeed', () => {
       ).to.be.revertedWith('InvalidSender')
     })
 
+    it(`should update status when status has not changed and incoming timestamp is the same as latest`, async () => {
+      const timestamp = await optimismUptimeFeed.latestTimestamp()
+      let tx = await optimismUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, timestamp)
+      await expect(tx)
+        .to.emit(optimismUptimeFeed, 'AnswerUpdated')
+        .withArgs(1, 2 /** roundId */, timestamp)
+      expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
+
+      const latestRoundBeforeUpdate = await optimismUptimeFeed.latestRoundData()
+
+      tx = await optimismUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, timestamp.add(200))
+
+      // Submit another status update with the same status
+      const currentBlock = await ethers.provider.getBlockNumber()
+      const latestBlock = await ethers.provider.getBlock(currentBlock)
+
+      await expect(tx)
+        .to.emit(optimismUptimeFeed, 'RoundUpdated')
+        .withArgs(1, latestBlock.timestamp)
+      expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
+      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
+
+      // Verify that latest round has been properly updated
+      const latestRoundDataAfterUpdate =
+        await optimismUptimeFeed.latestRoundData()
+      expect(latestRoundDataAfterUpdate.roundId).to.equal(
+        latestRoundBeforeUpdate.roundId,
+      )
+      expect(latestRoundDataAfterUpdate.answer).to.equal(
+        latestRoundBeforeUpdate.answer,
+      )
+      expect(latestRoundDataAfterUpdate.startedAt).to.equal(
+        latestRoundBeforeUpdate.startedAt,
+      )
+      expect(latestRoundDataAfterUpdate.answeredInRound).to.equal(
+        latestRoundBeforeUpdate.answeredInRound,
+      )
+      expect(latestRoundDataAfterUpdate.updatedAt).to.equal(
+        latestBlock.timestamp,
+      )
+    })
+
     it(`should update status when status has changed and incoming timestamp is newer than the latest`, async () => {
       let timestamp = await optimismUptimeFeed.latestTimestamp()
       let tx = await optimismUptimeFeed
@@ -100,15 +146,6 @@ describe('OptimismSequencerUptimeFeed', () => {
         .to.emit(optimismUptimeFeed, 'AnswerUpdated')
         .withArgs(1, 2 /** roundId */, timestamp)
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
-
-      // Submit another status update, same status, newer timestamp, should ignore
-      tx = await optimismUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, timestamp.add(1000))
-      await expect(tx).not.to.emit(optimismUptimeFeed, 'AnswerUpdated')
-      await expect(tx).to.emit(optimismUptimeFeed, 'UpdateIgnored')
-      expect(await optimismUptimeFeed.latestAnswer()).to.equal('1')
-      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
 
       // Submit another status update, different status, newer timestamp should update
       timestamp = timestamp.add(2000)
@@ -131,15 +168,6 @@ describe('OptimismSequencerUptimeFeed', () => {
         .to.emit(optimismUptimeFeed, 'AnswerUpdated')
         .withArgs(1, 2 /** roundId */, timestamp)
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
-
-      // Submit another status update, same status, same timestamp, should ignore
-      tx = await optimismUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, timestamp)
-      await expect(tx).not.to.emit(optimismUptimeFeed, 'AnswerUpdated')
-      await expect(tx).to.emit(optimismUptimeFeed, 'UpdateIgnored')
-      expect(await optimismUptimeFeed.latestAnswer()).to.equal('1')
-      expect(await optimismUptimeFeed.latestTimestamp()).to.equal(timestamp)
 
       // Submit another status update, different status, same timestamp should update
       tx = await optimismUptimeFeed
@@ -182,7 +210,6 @@ describe('OptimismSequencerUptimeFeed', () => {
       expect(roundId).to.equal(1)
       expect(answer).to.equal(0)
       expect(answeredInRound).to.equal(roundId)
-      expect(startedAt).to.equal(updatedAt) // startedAt = updatedAt = timestamp
 
       // Submit status update with different status and newer timestamp, should update
       const timestamp = (startedAt as BigNumber).add(1000)
@@ -195,7 +222,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       expect(answer).to.equal(1)
       expect(answeredInRound).to.equal(roundId)
       expect(startedAt).to.equal(timestamp)
-      expect(updatedAt).to.equal(startedAt)
+      expect(updatedAt).to.equal(updatedAt)
 
       // Check that last round is still returning the correct data
       ;[roundId, answer, startedAt, updatedAt, answeredInRound] =
@@ -203,7 +230,8 @@ describe('OptimismSequencerUptimeFeed', () => {
       expect(roundId).to.equal(1)
       expect(answer).to.equal(0)
       expect(answeredInRound).to.equal(roundId)
-      expect(startedAt).to.equal(updatedAt)
+      expect(startedAt).to.equal(startedAt)
+      expect(updatedAt).to.equal(updatedAt)
 
       // Assert latestRoundData corresponds to latest round id
       expect(await optimismUptimeFeed.getRoundData(2)).to.deep.equal(
@@ -279,7 +307,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert no update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        30853,
+        38594,
         gasUsedDeviation,
       )
 
@@ -292,7 +320,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        58390,
+        60170,
         gasUsedDeviation,
       )
     })

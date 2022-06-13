@@ -105,23 +105,38 @@ describe('OptimismValidator', () => {
   })
 
   describe('#validate', () => {
-    it('does not update the status when there is no status change', async () => {
-      await optimismValidator.addAccess(eoaValidator.address)
-      await expect(
-        optimismValidator.connect(eoaValidator).validate(0, 0, 0, 0),
-      ).not.to.emit(mockOptimismL1CrossDomainMessenger, 'SentMessage')
-    })
-
     it('reverts if called by account with no access', async () => {
       await expect(
         optimismValidator.connect(eoaValidator).validate(0, 0, 1, 1),
       ).to.be.revertedWith('No access')
     })
 
-    it('post sequencer offline', async () => {
+    it('posts sequencer status when there is not status change', async () => {
       await optimismValidator.addAccess(eoaValidator.address)
 
       const now = Math.ceil(Date.now() / 1000) + 5000
+      await ethers.provider.send('evm_setNextBlockTimestamp', [now])
+      const sequencerStatusRecorderCallData =
+        optimismUptimeFeedFactory.interface.encodeFunctionData('updateStatus', [
+          false,
+          now,
+        ])
+
+      await expect(optimismValidator.connect(eoaValidator).validate(0, 0, 0, 0))
+        .to.emit(mockOptimismL1CrossDomainMessenger, 'SentMessage')
+        .withArgs(
+          L2_SEQ_STATUS_RECORDER_ADDRESS,
+          optimismValidator.address,
+          sequencerStatusRecorderCallData,
+          0,
+          GAS_LIMIT,
+        )
+    })
+
+    it('post sequencer offline', async () => {
+      await optimismValidator.addAccess(eoaValidator.address)
+
+      const now = Math.ceil(Date.now() / 1000) + 10000
       await ethers.provider.send('evm_setNextBlockTimestamp', [now])
       const sequencerStatusRecorderCallData =
         optimismUptimeFeedFactory.interface.encodeFunctionData('updateStatus', [
