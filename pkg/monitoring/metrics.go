@@ -456,7 +456,7 @@ func (d *defaultMetrics) Cleanup(
 			},
 		},
 		{
-			"feed_contract_transmissions_failed",
+			"feed_contract_transactions_failed",
 			feedContractTransactionsSucceeded.MetricVec,
 			prometheus.Labels{
 				"contract_address": contractAddress,
