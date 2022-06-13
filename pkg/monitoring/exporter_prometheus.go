@@ -92,11 +92,6 @@ func (p *prometheusExporter) Export(_ context.Context, data interface{}) {
 	}
 }
 
-func toFloat64(bignum *big.Int) float64 {
-	val, _ := new(big.Float).SetInt(bignum).Float64()
-	return val
-}
-
 func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 	p.updateLabels(prometheusLabels{
 		sender: string(envelope.Transmitter),
@@ -118,7 +113,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
 	)
-	linkAvailableForPayment, _ := new(big.Float).SetInt(envelope.LinkAvailableForPayment).Float64()
+	linkAvailableForPayment := toFloat64(envelope.LinkAvailableForPayment)
 	p.metrics.SetLinkAvailableForPayment(
 		linkAvailableForPayment,
 		p.feedConfig.GetID(),
@@ -407,4 +402,9 @@ func getOracleName(account types.Account, nodes []NodeConfig) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func toFloat64(bignum *big.Int) float64 {
+	val, _ := new(big.Float).SetInt(bignum).Float64()
+	return val
 }
