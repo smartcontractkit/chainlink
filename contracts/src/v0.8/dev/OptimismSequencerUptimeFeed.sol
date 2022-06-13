@@ -183,13 +183,12 @@ contract OptimismSequencerUptimeFeed is
       revert InvalidSender();
     }
 
-    // Ignore if status did not change or latest recorded timestamp is newer
+    // Ignore if latest recorded timestamp is newer
     if (feedState.startedAt > timestamp) {
       emit UpdateIgnored(feedState.latestStatus, feedState.startedAt, status, timestamp);
       return;
     }
 
-    // Prepare a new round with updated status
     if (feedState.latestStatus == status) {
       updateRound(feedState.latestRoundId, status);
     } else {
