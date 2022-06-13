@@ -31,10 +31,12 @@ func TestOCRKey_ConfigPublicKey(t *testing.T) {
 	t.Run("updates current instance by scanning another instance", func(t *testing.T) {
 		pk := ConfigPublicKey(k.PublicKeyConfig())
 
-		k2 := MustNewV2XXXTestingOnly(big.NewInt(2))
-		err := pk.Scan(k2.PublicKeyConfig())
+		k2 := MustNewV2XXXTestingOnly(big.NewInt(1))
+		pk2 := ConfigPublicKey(k2.PublicKeyConfig())
+
+		err := pk.Scan(pk2[:])
 		require.NoError(t, err)
 
-		assert.Equal(t, k2.ID(), pk.Raw())
+		assert.Equal(t, pk2.Raw(), pk.Raw())
 	})
 }
