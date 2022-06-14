@@ -61,7 +61,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@f8fb1000b7978b136097e3e15e7b06182c5399ee
+        uses: smartcontractkit/ctf-ci-e2e-action@a36d4d3dbd0f0b4a3fe453b77035a0c720f5e40f
         with:
           test_command_to_run: make test_smoke args="-nodes=15"
           test_download_vendor_packages_command: make gomod
@@ -69,10 +69,10 @@ jobs:
           cl_repo: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
+          token: ${{ secrets.GITHUB_TOKEN }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}          
 
   solana:
     name: Solana Tests
