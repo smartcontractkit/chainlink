@@ -12,7 +12,7 @@ type StarkNetKeyResource struct {
 
 // GetName implements the api2go EntityNamer interface
 func (StarkNetKeyResource) GetName() string {
-	return "encryptedSolanaKeys"
+	return "encryptedStarkNetKeys"
 }
 
 func NewStarkNetKeyResource(key starkkey.Key) *StarkNetKeyResource {
