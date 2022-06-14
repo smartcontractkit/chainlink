@@ -60,6 +60,7 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
+	StarknetEnabled() bool
 }
 
 type GeneralOnlyConfig interface {
@@ -742,6 +743,11 @@ func (c *generalConfig) EVMEnabled() bool {
 // SolanaEnabled allows Solana to be used
 func (c *generalConfig) SolanaEnabled() bool {
 	return c.viper.GetBool(envvar.Name("SolanaEnabled"))
+}
+
+// StarknetEnabled allows Starknet to be used
+func (c *generalConfig) StarknetEnabled() bool {
+	return c.viper.GetBool(envvar.Name("StarknetEnabled"))
 }
 
 // TerraEnabled allows Terra to be used

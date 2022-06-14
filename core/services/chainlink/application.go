@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/pkg/relay"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -149,9 +151,10 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM    evm.ChainSet
-	Solana solana.ChainSet // nil if disabled
-	Terra  terra.ChainSet  // nil if disabled
+	EVM      evm.ChainSet
+	Solana   solana.ChainSet   // nil if disabled
+	Terra    terra.ChainSet    // nil if disabled
+	Starknet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -163,6 +166,9 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	}
 	if c.Terra != nil {
 		s = append(s, c.Terra)
+	}
+	if c.Starknet != nil {
+		s = append(s, c.Starknet)
 	}
 	return
 }
@@ -352,6 +358,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
 			relayers[relay.Terra] = terraRelayer
 			subservices = append(subservices, terraRelayer)
+		}
+		if cfg.StarknetEnabled() {
+			starknetRelayer := pkgstarknet.NewRelayer(globalLogger.Named("Starknet.Relayer"), chains.Starknet)
+			relayers[relay.Starknet] = starknetRelayer
+			subservices = append(subservices, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
