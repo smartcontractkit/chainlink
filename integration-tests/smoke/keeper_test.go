@@ -475,7 +475,7 @@ func getKeeperSuite(
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 						g.Expect(counter.Int64()).Should(Equal(int64(0)),
 							"Expected consumer counter to remain zero, but got %d", counter.Int64())
-					}, "45s", "1s").Should(Succeed())
+					}, "30s", "1s").Should(Succeed())
 
 					// Create a new request for the register where we actually fund the upkeep with proper funds
 					req, err = registrar.EncodeRegisterRequest(
@@ -505,7 +505,7 @@ func getKeeperSuite(
 						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
-					}, "45s", "1s").Should(Succeed())
+					}, "30s", "1s").Should(Succeed())
 				})
 			}
 		})
