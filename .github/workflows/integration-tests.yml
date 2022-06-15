@@ -51,6 +51,8 @@ jobs:
   smoke:
     environment: integration
     permissions:
+      checks: write
+      pull-requests: write
       id-token: write
       contents: read
     name: ETH Smoke Tests
