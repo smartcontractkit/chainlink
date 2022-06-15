@@ -74,7 +74,7 @@ jobs:
           publish_check_name: EVM Smoke Test Results
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}          
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
   solana:
     name: Solana Tests
