@@ -431,8 +431,7 @@ func getKeeperSuite(
 			}
 
 			if testToRun == AddFundsToUpkeepTest {
-				It("registers a new upkeep which is underfunded (and hence doesn't get executed initially), "+
-					"then adds funds and watches it perform", func() {
+				It("adds funds to a new underfunded upkeep", func() {
 					listOfNewUpkeeps := actions.DeployKeeperConsumers(contractDeployer, networks, 1)
 					newUpkeep := listOfNewUpkeeps[0]
 					newUpkeepAddress := listOfNewUpkeeps[0].Address()
