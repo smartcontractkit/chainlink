@@ -63,7 +63,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@d2fbb275861612bddcdd65324701d732bb82c577
+        uses: smartcontractkit/ctf-ci-e2e-action@e015966b5d2a3ff70bd2d3ffa0f05bd8e02d7e83
         with:
           test_command_to_run: make test_smoke args="-nodes=15"
           test_download_vendor_packages_command: make gomod
@@ -71,6 +71,7 @@ jobs:
           cl_repo: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
+          publish_check_name: EVM Smoke Test Results
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}          
