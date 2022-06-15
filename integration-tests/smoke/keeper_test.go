@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,18 +41,19 @@ const (
 
 const upkeepGasLimit = uint32(2500000)
 
-var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
-var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
-var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
-var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
-var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
-var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
-var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
-var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
+//var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+//var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+//var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
+//var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
+//var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
+//var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
+//var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
+//var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
+//var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
+//var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
 var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
-var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
+
+//var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -543,7 +545,7 @@ func getKeeperSuite(
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
 							initialCounters[i] = counter
-							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
 							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 						}
@@ -559,23 +561,20 @@ func getKeeperSuite(
 					var payees = make([]string, len(keepers)-1)
 					for i := 0; i < len(payees); i++ {
 						payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
-						Expect(err).ShouldNot(HaveOccurred(), "Shouldn't have error when building the payee list")
+						Expect(err).ShouldNot(HaveOccurred(), "Shouldn't encounter error when building the payee list")
 					}
 
 					err = registry.SetKeepers(newKeeperList, payees)
-					Expect(err).ShouldNot(HaveOccurred(), "Encountered error when removing one keeper from the keepers list")
+					Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new Keepers")
 					err = networks.Default.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Waiting for deployment shouldn't fail")
-					log.Info().Msg("Removed keeper at address " + keepers[0] + " from the list of Keepers")
-
-					keepers, err = registry.GetKeeperList(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of keepers")
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+					log.Info().Msg("Successfully removed keeper at address " + keepers[0] + " from the list of Keepers")
 
 					// The upkeeps should still perform and their counters should have increased compared to the first check
 					Eventually(func(g Gomega) {
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
-							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
 							g.Expect(counter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
 								"Expected consumer counter to be greater than initial counter which was %d, "+
 									"but got %d", initialCounters[i], counter.Int64())
