@@ -77,7 +77,6 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
   solana:
-    environment: integration
     permissions:
       checks: write
       pull-requests: write
@@ -92,7 +91,3 @@ jobs:
       ref: develop
       cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
       cl_image: latest.${{ github.sha }}
-    secrets:
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
