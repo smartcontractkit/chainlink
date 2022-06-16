@@ -517,12 +517,11 @@ func getKeeperSuite(
 					var initialCounters = make([]*big.Int, len(upkeepIDs))
 					// Make sure the upkeeps are running before we remove a keeper
 					Eventually(func(g Gomega) {
-						for i := 0; i < len(upkeepIDs); i++ {
-							counter, err := consumers[i].Counter(context.Background())
-							initialCounters[i] = counter
-							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
-							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
-								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+						for upkeepID := 0; upkeepID < len(upkeepIDs); upkeepID++ {
+							counter, err := consumers[upkeepID].Counter(context.Background())
+							initialCounters[upkeepID] = counter
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(upkeepID))
+							g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %d", counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 
@@ -533,7 +532,7 @@ func getKeeperSuite(
 					newKeeperList := keepers[1:]
 
 					// Construct the addresses of the payees required by the SetKeepers function
-					var payees = make([]string, len(keepers)-1)
+					payees := make([]string, len(keepers)-1)
 					for i := 0; i < len(payees); i++ {
 						payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
 						Expect(err).ShouldNot(HaveOccurred(), "Shouldn't encounter error when building the payee list")
@@ -550,9 +549,8 @@ func getKeeperSuite(
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
-							g.Expect(counter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
-								"Expected consumer counter to be greater than initial counter which was %d, "+
-									"but got %d", initialCounters[i], counter.Int64())
+							g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
+								"than initial counter which was %d, but got %d", initialCounters[i], counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
