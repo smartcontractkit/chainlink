@@ -146,6 +146,10 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 	if err != nil {
 		return nil, err
 	} else if len(v2Bootstrappers) == 0 {
+		// ParseBootstrapPeers() does not distinguish between no p2pv2Bootstrappers field
+		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
+		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
+		//  in P2PV2_BOOTSTRAPPERS config var.  Only a non-empty list will override the default list.
 		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
 	}
 

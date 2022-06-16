@@ -49,7 +49,9 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 - `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
 
-- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified
+-  with P2PV2_BOOTSTRAPPERS config param
+
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
