@@ -77,6 +77,12 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
   solana:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
     name: Solana Tests
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
