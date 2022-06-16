@@ -15,6 +15,7 @@ import { useChainsQuery } from 'src/hooks/queries/useChainsQuery'
 import { useEVMAccountsQuery } from 'src/hooks/queries/useEVMAccountsQuery'
 import { useP2PKeysQuery } from 'src/hooks/queries/useP2PKeysQuery'
 import { useOCRKeysQuery } from 'src/hooks/queries/useOCRKeysQuery'
+import { useOCR2KeysQuery } from 'src/hooks/queries/useOCR2KeysQuery'
 
 type Props = {
   cfg: FeedsManager_ChainConfigFields | null
@@ -46,6 +47,10 @@ export const EditSupportedChainDialog = ({
     fetchPolicy: 'cache-and-network',
   })
 
+  const { data: ocr2KeysData } = useOCR2KeysQuery({
+    fetchPolicy: 'cache-and-network',
+  })
+
   if (!cfg) {
     return null
   }
@@ -61,7 +66,11 @@ export const EditSupportedChainDialog = ({
     ocr1Multiaddr: cfg.ocr1JobConfig.multiaddr,
     ocr1P2PPeerID: cfg.ocr1JobConfig.p2pPeerID,
     ocr1KeyBundleID: cfg.ocr1JobConfig.keyBundleID,
-    ocr2Enabled: false,
+    ocr2Enabled: cfg.ocr2JobConfig.enabled,
+    ocr2IsBootstrap: cfg.ocr2JobConfig.isBootstrap,
+    ocr2Multiaddr: cfg.ocr2JobConfig.multiaddr,
+    ocr2P2PPeerID: cfg.ocr2JobConfig.p2pPeerID,
+    ocr2KeyBundleID: cfg.ocr2JobConfig.keyBundleID,
   }
 
   const chainIDs: string[] = chainData
@@ -71,6 +80,7 @@ export const EditSupportedChainDialog = ({
   const accounts = accountData ? accountData.ethKeys.results : []
   const p2pKeys = p2pKeysData ? p2pKeysData.p2pKeys.results : []
   const ocrKeys = ocrKeysData ? ocrKeysData.ocrKeyBundles.results : []
+  const ocr2Keys = ocr2KeysData ? ocr2KeysData.ocr2KeyBundles.results : [] 
 
   return (
     <Dialog onClose={onClose} open={open} disableBackdropClick>
@@ -87,6 +97,7 @@ export const EditSupportedChainDialog = ({
           accounts={accounts}
           p2pKeys={p2pKeys}
           ocrKeys={ocrKeys}
+          ocr2Keys={ocr2Keys}
           editing
         />
       </DialogContent>

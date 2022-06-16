@@ -213,7 +213,13 @@ export const SupportedChainsCard = withStyles(styles)(
                 values.ocr1P2PPeerID !== '' ? values.ocr1P2PPeerID : null,
               ocr1KeyBundleID:
                 values.ocr1KeyBundleID != '' ? values.ocr1KeyBundleID : null,
-              ocr2Enabled: false, // We don't want to support OCR2 in the UI yet.
+              ocr2Enabled: values.ocr2Enabled, 
+              ocr2Multiaddr:
+                values.ocr2Multiaddr !== '' ? values.ocr2Multiaddr : null,
+              ocr2P2PPeerID:
+                values.ocr2P2PPeerID !== '' ? values.ocr2P2PPeerID : null,
+              ocr2KeyBundleID:
+                values.ocr2KeyBundleID != '' ? values.ocr2KeyBundleID : null,
             },
           },
         })
@@ -277,7 +283,13 @@ export const SupportedChainsCard = withStyles(styles)(
                 values.ocr1P2PPeerID !== '' ? values.ocr1P2PPeerID : null,
               ocr1KeyBundleID:
                 values.ocr1KeyBundleID != '' ? values.ocr1KeyBundleID : null,
-              ocr2Enabled: false, // We don't want to support OCR2 in the UI yet.
+              ocr2Enabled: values.ocr2Enabled, 
+              ocr2Multiaddr:
+                values.ocr2Multiaddr !== '' ? values.ocr2Multiaddr : null,
+              ocr2P2PPeerID:
+                values.ocr2P2PPeerID !== '' ? values.ocr2P2PPeerID : null,
+              ocr2KeyBundleID:
+                values.ocr2KeyBundleID != '' ? values.ocr2KeyBundleID : null,
             },
           },
         })
