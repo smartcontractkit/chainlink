@@ -60,5 +60,7 @@ package.json @smartcontractkit/prodsec-public
 yarn.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/prodsec-public
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
