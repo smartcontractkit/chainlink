@@ -521,7 +521,7 @@ func getKeeperSuite(
 							counter, err := consumers[upkeepID].Counter(context.Background())
 							initialCounters[upkeepID] = counter
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(upkeepID))
-							g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %d", counter)
+							g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 
@@ -550,7 +550,7 @@ func getKeeperSuite(
 							counter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
 							g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
-								"than initial counter which was %d, but got %d", initialCounters[i], counter)
+								"than initial counter which was %s, but got %s", initialCounters[i], counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
