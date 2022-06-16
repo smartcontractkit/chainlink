@@ -1,11 +1,11 @@
 import React from 'react'
 import {
-    Field,
-    FieldAttributes,
-    Form,
-    Formik,
-    FormikHelpers,
-    useFormikContext,
+  Field,
+  FieldAttributes,
+  Form,
+  Formik,
+  FormikHelpers,
+  useFormikContext,
 } from 'formik'
 import { CheckboxWithLabel, TextField } from 'formik-material-ui'
 import * as Yup from 'yup'
@@ -15,117 +15,116 @@ import Grid from '@material-ui/core/Grid'
 import MenuItem from '@material-ui/core/MenuItem'
 import Paper from '@material-ui/core/Paper'
 import {
-    createStyles,
-    Theme,
-    WithStyles,
-    withStyles,
+  createStyles,
+  Theme,
+  WithStyles,
+  withStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 
 export type FormValues = {
-    chainID: string
-    chainType: string
-    accountAddr: string
-    adminAddr: string
-    fluxMonitorEnabled: boolean
-    ocr1Enabled: boolean
-    ocr1IsBootstrap: boolean
-    ocr1Multiaddr ? : string | null
-    ocr1P2PPeerID ? : string | null
-    ocr1KeyBundleID ? : string | null
-    ocr2Enabled: boolean
-    ocr2IsBootstrap: boolean
-    ocr2Multiaddr ? : string | null
-    ocr2P2PPeerID ? : string | null
-    ocr2KeyBundleID ? : string | null
+  chainID: string
+  chainType: string
+  accountAddr: string
+  adminAddr: string
+  fluxMonitorEnabled: boolean
+  ocr1Enabled: boolean
+  ocr1IsBootstrap: boolean
+  ocr1Multiaddr?: string | null
+  ocr1P2PPeerID?: string | null
+  ocr1KeyBundleID?: string | null
+  ocr2Enabled: boolean
+  ocr2IsBootstrap: boolean
+  ocr2Multiaddr?: string | null
+  ocr2P2PPeerID?: string | null
+  ocr2KeyBundleID?: string | null
 }
 
-
 const ValidationSchema = Yup.object().shape({
-    chainID: Yup.string().required('Required'),
-    chainType: Yup.string().required('Required'),
-    accountAddr: Yup.string().required('Required'),
-    adminAddr: Yup.string().required('Required'),
-    ocr1Multiaddr: Yup.string()
-        .when(['ocr1Enabled', 'ocr1IsBootstrap'], {
-            is: (enabled: boolean, isBootstrap: boolean) => enabled && isBootstrap,
-            then: Yup.string().required('Required').nullable(),
-        })
-        .nullable(),
-    ocr1P2PPeerID: Yup.string()
-        .when(['ocr1Enabled', 'ocr1IsBootstrap'], {
-            is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
-            then: Yup.string().required('Required').nullable(),
-        })
-        .nullable(),
-    ocr1KeyBundleID: Yup.string()
-        .when(['ocr1Enabled', 'ocr1IsBootstrap'], {
-            is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
-            then: Yup.string().required('Required').nullable(),
-        })
-        .nullable(),
-    ocr2Multiaddr: Yup.string()
-        .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
-            is: (enabled: boolean, isBootstrap: boolean) => enabled && isBootstrap,
-            then: Yup.string().required('Required').nullable(),
-        })
-        .nullable(),
-    ocr2P2PPeerID: Yup.string()
-        .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
-            is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
-            then: Yup.string().required('Required').nullable(),
-        })
-        .nullable(),
-    ocr2KeyBundleID: Yup.string()
-        .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
-            is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
-            then: Yup.string().required('Required').nullable(),
-        })
-        .nullable(),
+  chainID: Yup.string().required('Required'),
+  chainType: Yup.string().required('Required'),
+  accountAddr: Yup.string().required('Required'),
+  adminAddr: Yup.string().required('Required'),
+  ocr1Multiaddr: Yup.string()
+    .when(['ocr1Enabled', 'ocr1IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr1P2PPeerID: Yup.string()
+    .when(['ocr1Enabled', 'ocr1IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr1KeyBundleID: Yup.string()
+    .when(['ocr1Enabled', 'ocr1IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr2Multiaddr: Yup.string()
+    .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr2P2PPeerID: Yup.string()
+    .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr2KeyBundleID: Yup.string()
+    .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
 })
 
 const styles = (theme: Theme) => {
-    return createStyles({
-        supportedJobOptionsPaper: {
-            padding: theme.spacing.unit * 2,
-        },
-    })
+  return createStyles({
+    supportedJobOptionsPaper: {
+      padding: theme.spacing.unit * 2,
+    },
+  })
 }
 
-export interface Props extends WithStyles < typeof styles > {
-    editing ? : boolean
-    initialValues: FormValues
-    innerRef ? : any
-    onSubmit: (
-            values: FormValues,
-            formikHelpers: FormikHelpers < FormValues > ,
-        ) => void | Promise < any >
-        chainIDs: string[]
-    accounts: ReadonlyArray < EthKeysPayload_ResultsFields >
-        p2pKeys: ReadonlyArray < P2PKeysPayload_ResultsFields >
-        ocrKeys: ReadonlyArray < OcrKeyBundlesPayload_ResultsFields >
-        ocr2Keys: ReadonlyArray < Ocr2KeyBundlesPayload_ResultsFields >
-        showSubmit ? : boolean
+export interface Props extends WithStyles<typeof styles> {
+  editing?: boolean
+  initialValues: FormValues
+  innerRef?: any
+  onSubmit: (
+    values: FormValues,
+    formikHelpers: FormikHelpers<FormValues>,
+  ) => void | Promise<any>
+  chainIDs: string[]
+  accounts: ReadonlyArray<EthKeysPayload_ResultsFields>
+  p2pKeys: ReadonlyArray<P2PKeysPayload_ResultsFields>
+  ocrKeys: ReadonlyArray<OcrKeyBundlesPayload_ResultsFields>
+  ocr2Keys: ReadonlyArray<Ocr2KeyBundlesPayload_ResultsFields>
+  showSubmit?: boolean
 }
 
 // ChainConfigurationForm is used to create/edit the supported chain
 // configurations for the Feeds Manager.
 export const ChainConfigurationForm = withStyles(styles)(
-    ({
-        classes,
-        editing = false,
-        innerRef,
-        initialValues,
-        onSubmit,
-        chainIDs = [],
-        accounts = [],
-        p2pKeys = [],
-        ocrKeys = [],
-        ocr2Keys = [],
-        showSubmit = false,
-    }: Props) => {
-        return (
-            <Formik
+  ({
+    classes,
+    editing = false,
+    innerRef,
+    initialValues,
+    onSubmit,
+    chainIDs = [],
+    accounts = [],
+    p2pKeys = [],
+    ocrKeys = [],
+    ocr2Keys = [],
+    showSubmit = false,
+  }: Props) => {
+    return (
+      <Formik
         innerRef={innerRef}
         initialValues={initialValues}
         validationSchema={ValidationSchema}
@@ -419,12 +418,15 @@ export const ChainConfigurationForm = withStyles(styles)(
                                   }}
                                 >
                                   {ocr2Keys
-                                    .filter((key) => values.chainType === key.chainType)
+                                    .filter(
+                                      (key) =>
+                                        values.chainType === key.chainType,
+                                    )
                                     .map((key) => (
-                                    <MenuItem key={key.id} value={key.id}>
-                                      {key.id}
-                                    </MenuItem>
-                                  ))}
+                                      <MenuItem key={key.id} value={key.id}>
+                                        {key.id}
+                                      </MenuItem>
+                                    ))}
                                 </Field>
                               </Grid>
                             </>
@@ -452,28 +454,28 @@ export const ChainConfigurationForm = withStyles(styles)(
           )
         }}
       </Formik>
-        )
-    },
+    )
+  },
 )
 
 // A custom account address field which clears the input based on the chain id
 // value changoing
-const AccountAddrField = (props: FieldAttributes < any > ) => {
-    const {
-        values: { chainID, accountAddr },
-        setFieldValue,
-    } = useFormikContext < FormValues > ()
+const AccountAddrField = (props: FieldAttributes<any>) => {
+  const {
+    values: { chainID, accountAddr },
+    setFieldValue,
+  } = useFormikContext<FormValues>()
 
-    const prevChainID = React.useRef < string > ()
-    React.useEffect(() => {
-        prevChainID.current = chainID
-    }, [chainID])
+  const prevChainID = React.useRef<string>()
+  React.useEffect(() => {
+    prevChainID.current = chainID
+  }, [chainID])
 
-    React.useEffect(() => {
-        if (chainID !== prevChainID.current) {
-            setFieldValue(props.name, '')
-        }
-    }, [chainID, setFieldValue, accountAddr, props.name])
+  React.useEffect(() => {
+    if (chainID !== prevChainID.current) {
+      setFieldValue(props.name, '')
+    }
+  }, [chainID, setFieldValue, accountAddr, props.name])
 
-    return <Field {...props} />
+  return <Field {...props} />
 }

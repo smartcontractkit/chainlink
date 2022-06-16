@@ -80,7 +80,7 @@ export const EditSupportedChainDialog = ({
   const accounts = accountData ? accountData.ethKeys.results : []
   const p2pKeys = p2pKeysData ? p2pKeysData.p2pKeys.results : []
   const ocrKeys = ocrKeysData ? ocrKeysData.ocrKeyBundles.results : []
-  const ocr2Keys = ocr2KeysData ? ocr2KeysData.ocr2KeyBundles.results : [] 
+  const ocr2Keys = ocr2KeysData ? ocr2KeysData.ocr2KeyBundles.results : []
 
   return (
     <Dialog onClose={onClose} open={open} disableBackdropClick>

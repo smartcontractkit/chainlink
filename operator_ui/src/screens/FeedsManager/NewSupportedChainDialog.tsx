@@ -8,8 +8,8 @@ import DialogTitle from '@material-ui/core/DialogTitle'
 import Typography from '@material-ui/core/Typography'
 
 import {
-  ChainConfigurationForm,
-  Props as FormProps,
+    ChainConfigurationForm,
+    Props as FormProps,
 } from 'src/components/Form/ChainConfigurationForm'
 import { useChainsQuery } from 'src/hooks/queries/useChainsQuery'
 import { useEVMAccountsQuery } from 'src/hooks/queries/useEVMAccountsQuery'
@@ -18,62 +18,62 @@ import { useOCRKeysQuery } from 'src/hooks/queries/useOCRKeysQuery'
 import { useOCR2KeysQuery } from 'src/hooks/queries/useOCR2KeysQuery'
 
 type Props = {
-  open: boolean
-  onClose: () => void
-} & Pick<FormProps, 'onSubmit'>
+        open: boolean
+        onClose: () => void
+    } & Pick < FormProps, 'onSubmit' >
 
-export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
-  const formRef = React.useRef()
+    export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
+        const formRef = React.useRef()
 
-  const { data: chainData } = useChainsQuery({
-    fetchPolicy: 'network-only',
-  })
+        const { data: chainData } = useChainsQuery({
+            fetchPolicy: 'network-only',
+        })
 
-  const { data: accountData } = useEVMAccountsQuery({
-    fetchPolicy: 'cache-and-network',
-  })
+        const { data: accountData } = useEVMAccountsQuery({
+            fetchPolicy: 'cache-and-network',
+        })
 
-  const { data: p2pKeysData } = useP2PKeysQuery({
-    fetchPolicy: 'cache-and-network',
-  })
+        const { data: p2pKeysData } = useP2PKeysQuery({
+            fetchPolicy: 'cache-and-network',
+        })
 
-  const { data: ocrKeysData } = useOCRKeysQuery({
-    fetchPolicy: 'cache-and-network',
-  })
+        const { data: ocrKeysData } = useOCRKeysQuery({
+            fetchPolicy: 'cache-and-network',
+        })
 
-  const { data: ocr2KeysData } = useOCR2KeysQuery({
-    fetchPolicy: 'cache-and-network',
-  })
+        const { data: ocr2KeysData } = useOCR2KeysQuery({
+            fetchPolicy: 'cache-and-network',
+        })
 
-  const initialValues = {
-    chainID: '',
-    chainType: 'EVM',
-    accountAddr: '',
-    adminAddr: '',
-    fluxMonitorEnabled: false,
-    ocr1Enabled: false,
-    ocr1IsBootstrap: false,
-    ocr1Multiaddr: '',
-    ocr1P2PPeerID: '',
-    ocr1KeyBundleID: '',
-    ocr2Enabled: false,
-    ocr2IsBootstrap: false,
-    ocr2Multiaddr: '',
-    ocr2P2PPeerID: '',
-    ocr2KeyBundleID: '',
-  }
+        const initialValues = {
+            chainID: '',
+            chainType: 'EVM',
+            accountAddr: '',
+            adminAddr: '',
+            fluxMonitorEnabled: false,
+            ocr1Enabled: false,
+            ocr1IsBootstrap: false,
+            ocr1Multiaddr: '',
+            ocr1P2PPeerID: '',
+            ocr1KeyBundleID: '',
+            ocr2Enabled: false,
+            ocr2IsBootstrap: false,
+            ocr2Multiaddr: '',
+            ocr2P2PPeerID: '',
+            ocr2KeyBundleID: '',
+        }
 
-  const chainIDs: string[] = chainData
-    ? chainData.chains.results.map((c) => c.id)
-    : []
+        const chainIDs: string[] = chainData ?
+            chainData.chains.results.map((c) => c.id) :
+            []
 
-  const accounts = accountData ? accountData.ethKeys.results : []
-  const p2pKeys = p2pKeysData ? p2pKeysData.p2pKeys.results : []
-  const ocrKeys = ocrKeysData ? ocrKeysData.ocrKeyBundles.results : []
-  const ocr2Keys = ocr2KeysData ? ocr2KeysData.ocr2KeyBundles.results : []
+        const accounts = accountData ? accountData.ethKeys.results : []
+        const p2pKeys = p2pKeysData ? p2pKeysData.p2pKeys.results : []
+        const ocrKeys = ocrKeysData ? ocrKeysData.ocrKeyBundles.results : []
+        const ocr2Keys = ocr2KeysData ? ocr2KeysData.ocr2KeyBundles.results : []
 
-  return (
-    <Dialog onClose={onClose} open={open} disableBackdropClick>
+        return (
+            <Dialog onClose={onClose} open={open} disableBackdropClick>
       <DialogTitle disableTypography>
         <Typography variant="body2">New Supported Chain</Typography>
       </DialogTitle>
@@ -103,5 +103,5 @@ export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
         </Button>
       </DialogActions>
     </Dialog>
-  )
-}
+        )
+    }
