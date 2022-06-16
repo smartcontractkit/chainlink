@@ -15,12 +15,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
-	cfg := newZapConfigTest()
+	cfg := newZapConfigBase()
 	ll, invalid := envvar.LogLevel.Parse()
 	assert.Empty(t, invalid)
 
@@ -39,8 +38,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	assert.NoError(t, err)
 
 	pollCfg := newDiskPollConfig(1 * time.Second)
-	zapCfg := zapLoggerConfig{
-		Config: cfg,
+	zapCfg := zapDiskLoggerConfig{
 		local: Config{
 			Dir:            logsDir,
 			FileMaxAgeDays: 0,
@@ -48,7 +46,6 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			FileMaxSizeMB:  int(logFileSize / utils.MB),
 		},
 		diskPollConfig: pollCfg,
-		diskLogLevel:   zap.NewAtomicLevelAt(zapcore.DebugLevel),
 	}
 
 	t.Run("on logger creation", func(t *testing.T) {
@@ -69,7 +66,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr, close, err := zapCfg.newLogger()
+		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
 		defer close()
 
@@ -103,7 +100,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr, close, err := zapCfg.newLogger()
+		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
 		defer close()
 
@@ -137,7 +134,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr, close, err := zapCfg.newLogger()
+		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
 		defer close()
 
@@ -187,7 +184,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
 
-		lggr, close, err := zapCfg.newLogger()
+		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
 		defer close()
 

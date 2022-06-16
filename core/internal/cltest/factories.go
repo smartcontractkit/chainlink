@@ -181,7 +181,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm txm
 	return etx
 }
 
-func MustInsertUnconfrimedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...interface{}) txmgr.EthTx {
+func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress common.Address, txAttemptState txmgr.EthTxAttemptState, opts ...interface{}) txmgr.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
