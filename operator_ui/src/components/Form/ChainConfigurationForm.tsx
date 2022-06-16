@@ -34,6 +34,10 @@ export type FormValues = {
   ocr1P2PPeerID?: string | null
   ocr1KeyBundleID?: string | null
   ocr2Enabled: boolean
+  ocr2IsBootstrap: boolean
+  ocr2Multiaddr?: string | null
+  ocr2P2PPeerID?: string | null
+  ocr2KeyBundleID?: string | null
 }
 
 const ValidationSchema = Yup.object().shape({
@@ -293,6 +297,104 @@ export const ChainConfigurationForm = withStyles(styles)(
                                   FormHelperTextProps={{
                                     'data-testid':
                                       'ocr1KeyBundleID-helper-text',
+                                  }}
+                                >
+                                  {ocrKeys.map((key) => (
+                                    <MenuItem key={key.id} value={key.id}>
+                                      {key.id}
+                                    </MenuItem>
+                                  ))}
+                                </Field>
+                              </Grid>
+                            </>
+                          )}
+                        </>
+                      </Grid>
+                    </Paper>
+                  )}
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Field
+                    component={CheckboxWithLabel}
+                    name="ocr2Enabled"
+                    type="checkbox"
+                    Label={{
+                      label: 'OCR2',
+                    }}
+                  />
+
+                  {values.ocr2Enabled && (
+                    <Paper className={classes.supportedJobOptionsPaper}>
+                      <Grid container spacing={8}>
+                        <>
+                          <Grid item xs={12}>
+                            <Field
+                              component={CheckboxWithLabel}
+                              name="ocr2IsBootstrap"
+                              type="checkbox"
+                              Label={{
+                                label:
+                                  'Is this node running as a bootstrap peer?',
+                              }}
+                            />
+                          </Grid>
+
+                          {values.ocr2IsBootstrap ? (
+                            <Grid item xs={12}>
+                              <Field
+                                component={TextField}
+                                id="ocr2Multiaddr"
+                                name="ocr2Multiaddr"
+                                label="Multiaddr"
+                                required
+                                fullWidth
+                                helperText="The OCR2 Multiaddr which oracles use to query for network information"
+                                FormHelperTextProps={{
+                                  'data-testid': 'ocr2Multiaddr-helper-text',
+                                }}
+                              />
+                            </Grid>
+                          ) : (
+                            <>
+                              <Grid item xs={12} md={6}>
+                                <Field
+                                  component={TextField}
+                                  id="ocr2P2PPeerID"
+                                  name="ocr2P2PPeerID"
+                                  label="Peer ID"
+                                  select
+                                  required
+                                  fullWidth
+                                  helperText="The Peer ID used for this chain"
+                                  FormHelperTextProps={{
+                                    'data-testid': 'ocr2P2PPeerID-helper-text',
+                                  }}
+                                >
+                                  {p2pKeys.map((key) => (
+                                    <MenuItem
+                                      key={key.peerID}
+                                      value={key.peerID}
+                                    >
+                                      {key.peerID}
+                                    </MenuItem>
+                                  ))}
+                                </Field>
+                              </Grid>
+
+                              <Grid item xs={12} md={6}>
+                                <Field
+                                  component={TextField}
+                                  id="ocr2KeyBundleID"
+                                  name="ocr2KeyBundleID"
+                                  label="Key Bundle ID"
+                                  select
+                                  required
+                                  fullWidth
+                                  helperText="The OCR2 Key Bundle ID used for this chain"
+                                  FormHelperTextProps={{
+                                    'data-testid':
+                                      'ocr2KeyBundleID-helper-text',
                                   }}
                                 >
                                   {ocrKeys.map((key) => (
