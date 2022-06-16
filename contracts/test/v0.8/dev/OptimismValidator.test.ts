@@ -53,11 +53,6 @@ describe('OptimismValidator', () => {
       L2_SEQ_STATUS_RECORDER_ADDRESS,
       GAS_LIMIT,
     )
-    // Transfer some ETH to the OptimismValidator contract
-    await deployer.sendTransaction({
-      to: optimismValidator.address,
-      value: ethers.utils.parseEther('1.0'),
-    })
   })
 
   describe('#setGasLimit', () => {
@@ -67,40 +62,6 @@ describe('OptimismValidator', () => {
       await tx.wait()
       const currentGasLimit = await optimismValidator.getGasLimit()
       expect(currentGasLimit).to.equal(newGasLimit)
-    })
-  })
-
-  describe('#withdrawFunds', () => {
-    it('reverts if called by non owner', async () => {
-      const refundAddr = eoaValidator.address
-      await expect(
-        optimismValidator.connect(eoaValidator).withdrawFundsTo(refundAddr),
-      ).to.be.revertedWith('Only callable by owner')
-    })
-
-    it('successfully withdraws funds', async () => {
-      const refundAddr = deployer.address
-      const priorBalance = await ethers.provider.getBalance(refundAddr)
-      await optimismValidator.connect(deployer).withdrawFunds()
-      const currentBalance = await ethers.provider.getBalance(refundAddr)
-      expect(currentBalance.gte(priorBalance)).to.equal(true)
-    })
-  })
-
-  describe('#withdrawFundsTo', () => {
-    it('reverts if called by non owner', async () => {
-      const refundAddr = eoaValidator.address
-      await expect(
-        optimismValidator.connect(eoaValidator).withdrawFundsTo(refundAddr),
-      ).to.be.revertedWith('Only callable by owner')
-    })
-
-    it('successfully withdraws funds', async () => {
-      const refundAddr = deployer.address
-      const priorBalance = await ethers.provider.getBalance(refundAddr)
-      await optimismValidator.connect(deployer).withdrawFundsTo(refundAddr)
-      const currentBalance = await ethers.provider.getBalance(refundAddr)
-      expect(currentBalance.gte(priorBalance)).to.equal(true)
     })
   })
 
