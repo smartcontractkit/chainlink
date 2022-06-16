@@ -93,8 +93,6 @@ jobs:
       cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
       cl_image: latest.${{ github.sha }}
     secrets:
-      QA_AWS_ACCESS_KEY_ID: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
-      QA_AWS_SECRET_KEY: ${{ secrets.QA_AWS_SECRET_KEY }}
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.OLD_QA_AWS_ROLE }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
