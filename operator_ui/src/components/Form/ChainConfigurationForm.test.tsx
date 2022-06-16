@@ -22,6 +22,9 @@ describe('ChainConfigurationForm', () => {
       ocr1P2PPeerID: '',
       ocr1KeyBundleID: '',
       ocr2Enabled: false,
+      ocr2Multiaddr: '',
+      ocr2P2PPeerID: '',
+      ocr2KeyBundleID: '',
     }
 
     render(
@@ -32,6 +35,7 @@ describe('ChainConfigurationForm', () => {
         chainIDs={[]}
         p2pKeys={[]}
         ocrKeys={[]}
+        ocr2Keys={[]}
         showSubmit
       />,
     )
@@ -63,6 +67,10 @@ describe('ChainConfigurationForm', () => {
       ocr1P2PPeerID: '',
       ocr1KeyBundleID: '',
       ocr2Enabled: false,
+      ocr2IsBootstrap: false,
+      ocr2Multiaddr: '',
+      ocr2P2PPeerID: '',
+      ocr2KeyBundleID: '',
     }
 
     render(
@@ -73,6 +81,7 @@ describe('ChainConfigurationForm', () => {
         chainIDs={[]}
         p2pKeys={[]}
         ocrKeys={[]}
+        ocr2Keys={[]}
         showSubmit
       />,
     )

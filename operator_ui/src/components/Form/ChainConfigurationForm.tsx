@@ -63,6 +63,24 @@ const ValidationSchema = Yup.object().shape({
       then: Yup.string().required('Required').nullable(),
     })
     .nullable(),
+  ocr2Multiaddr: Yup.string()
+    .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr2P2PPeerID: Yup.string()
+    .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
+  ocr2KeyBundleID: Yup.string()
+    .when(['ocr2Enabled', 'ocr2IsBootstrap'], {
+      is: (enabled: boolean, isBootstrap: boolean) => enabled && !isBootstrap,
+      then: Yup.string().required('Required').nullable(),
+    })
+    .nullable(),
 })
 
 const styles = (theme: Theme) => {
@@ -85,6 +103,7 @@ export interface Props extends WithStyles<typeof styles> {
   accounts: ReadonlyArray<EthKeysPayload_ResultsFields>
   p2pKeys: ReadonlyArray<P2PKeysPayload_ResultsFields>
   ocrKeys: ReadonlyArray<OcrKeyBundlesPayload_ResultsFields>
+  ocr2Keys: ReadonlyArray<OcrKeyBundlesPayload_ResultsFields>
   showSubmit?: boolean
 }
 
@@ -101,6 +120,7 @@ export const ChainConfigurationForm = withStyles(styles)(
     accounts = [],
     p2pKeys = [],
     ocrKeys = [],
+    ocr2Keys = [],
     showSubmit = false,
   }: Props) => {
     return (
@@ -397,7 +417,7 @@ export const ChainConfigurationForm = withStyles(styles)(
                                       'ocr2KeyBundleID-helper-text',
                                   }}
                                 >
-                                  {ocrKeys.map((key) => (
+                                  {ocr2Keys.map((key) => (
                                     <MenuItem key={key.id} value={key.id}>
                                       {key.id}
                                     </MenuItem>
