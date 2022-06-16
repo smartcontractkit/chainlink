@@ -141,7 +141,7 @@ describe('ChainConfigurationForm', () => {
       />,
     )
 
-    userEvent.click(getByRole('checkbox', { name: 'OCR' }))
+    userEvent.click(getByRole('checkbox', { name: 'OCR2' }))
     userEvent.click(getByRole('button', { name: /submit/i }))
 
     expect(await findByTestId('ocr2P2PPeerID-helper-text')).toHaveTextContent(
