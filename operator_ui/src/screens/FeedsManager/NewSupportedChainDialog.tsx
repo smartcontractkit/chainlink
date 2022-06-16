@@ -45,8 +45,6 @@ export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
     fetchPolicy: 'cache-and-network',
   })
 
-  console.log(ocr2KeysData)
-
   const initialValues = {
     chainID: '',
     chainType: 'EVM',
