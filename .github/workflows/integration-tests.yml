@@ -16,6 +16,7 @@ jobs:
               - '**/*go.sum'
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
+
   build-chainlink:
     environment: integration
     permissions:
@@ -48,6 +49,7 @@ jobs:
           build-args: COMMIT_SHA=${{ github.sha }}
           tags: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
+
   smoke:
     environment: integration
     permissions:
@@ -91,3 +93,8 @@ jobs:
       ref: develop
       cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
       cl_image: latest.${{ github.sha }}
+      token: ${{ secrets.GITHUB_TOKEN }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
