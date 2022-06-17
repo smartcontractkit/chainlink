@@ -65,6 +65,7 @@ type OCRSpec {
     observationTimeout: String
     observationTimeoutEnv: Boolean!
     p2pBootstrapPeers: [String!]
+    p2pv2Bootstrappers: [String!]
     transmitterAddress: String
     databaseTimeout: String!
     databaseTimeoutEnv: Boolean!
