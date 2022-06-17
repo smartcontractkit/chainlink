@@ -63,11 +63,6 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			nets.Default.ParallelTransactions(true)
 		})
 
-		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(cls, nets.Default, big.NewFloat(3))
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-
 		By("Deploying VRF contracts", func() {
 			lt, err = cd.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred())
