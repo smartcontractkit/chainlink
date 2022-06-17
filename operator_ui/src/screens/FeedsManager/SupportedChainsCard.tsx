@@ -214,6 +214,7 @@ export const SupportedChainsCard = withStyles(styles)(
               ocr1KeyBundleID:
                 values.ocr1KeyBundleID != '' ? values.ocr1KeyBundleID : null,
               ocr2Enabled: values.ocr2Enabled,
+              ocr2IsBootstrap: values.ocr2IsBootstrap,
               ocr2Multiaddr:
                 values.ocr2Multiaddr !== '' ? values.ocr2Multiaddr : null,
               ocr2P2PPeerID:
@@ -284,6 +285,7 @@ export const SupportedChainsCard = withStyles(styles)(
               ocr1KeyBundleID:
                 values.ocr1KeyBundleID != '' ? values.ocr1KeyBundleID : null,
               ocr2Enabled: values.ocr2Enabled,
+              ocr2IsBootstrap: values.ocr2IsBootstrap,
               ocr2Multiaddr:
                 values.ocr2Multiaddr !== '' ? values.ocr2Multiaddr : null,
               ocr2P2PPeerID:
