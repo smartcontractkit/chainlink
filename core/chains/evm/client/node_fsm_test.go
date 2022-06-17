@@ -147,7 +147,9 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		m.AssertNotCalled(t)
 		n.setState(NodeStateDialed)
 		n.transitionToInvalidChainID(m.Fn)
-		m.AssertCalled(t)
+		n.setState(NodeStateOutOfSync)
+		n.transitionToInvalidChainID(m.Fn)
+		m.AssertNumberOfCalls(t, 2)
 	})
 	t.Run("transitionToInvalidChainID unsubscribes everything", func(t *testing.T) {
 		m := new(fnMock)
