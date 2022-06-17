@@ -122,29 +122,30 @@ const (
 )
 
 type splunkLogger struct {
-	logger      Logger
-	splunkToken string
-	splunkURL   string
-	developFlag bool
-	hostname    string
-	localIP     string
+	logger          Logger
+	splunkToken     string
+	splunkURL       string
+	environmentName string
+	hostname        string
+	localIP         string
 }
 
-func newSplunkLogger(logger Logger, splunkToken string, splunkURL string, hostname string, chainlinkDev bool) Logger {
+func newSplunkLogger(logger Logger, splunkToken string, splunkURL string, hostname string, environment string) Logger {
 	// Initialize and return Splunk logger struct with required state for HEC calls
 	return &splunkLogger{
-		logger:      logger.Named("Splunk"),
-		splunkToken: splunkToken,
-		splunkURL:   splunkURL,
-		developFlag: chainlinkDev,
-		hostname:    hostname,
-		localIP:     getLocalIP(),
+		logger:          logger.Helper(1),
+		splunkToken:     splunkToken,
+		splunkURL:       splunkURL,
+		environmentName: environment,
+		hostname:        hostname,
+		localIP:         getLocalIP(),
 	}
 }
 
-func (l *splunkLogger) Auditf(eventID string, data map[string]interface{}) {
+func (l *splunkLogger) Audit(eventID string, data map[string]interface{}) {
 	// goroutine to async POST to splunk HTTP Event Collector (HEC)
 	go l.postLogToSplunk(eventID, data)
+	l.logger.Audit(eventID, data)
 }
 
 // getLocalIP returns the first non- loopback local IP of the host
@@ -165,17 +166,12 @@ func getLocalIP() string {
 }
 
 func (l *splunkLogger) postLogToSplunk(eventID string, data map[string]interface{}) {
-	env := "production"
-	if l.developFlag {
-		env = "develop"
-	}
-
 	// Splunk JSON data
 	splunkLog := map[string]interface{}{
 		"eventID":  eventID,
 		"hostname": l.hostname,
 		"localIP":  l.localIP,
-		"env":      env,
+		"env":      l.environmentName,
 	}
 	if len(data) != 0 {
 		splunkLog["data"] = data
@@ -192,50 +188,166 @@ func (l *splunkLogger) postLogToSplunk(eventID string, data map[string]interface
 	req.Header.Add("Authorization", "Splunk "+l.splunkToken)
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		fmt.Printf("Error sending log to Splunk: %v\n", err)
+		l.logger.Errorw("Failed to send audit log to Splunk", "err", err, "splunkLog", splunkLog)
 	}
 	if resp.StatusCode != 200 {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Printf("Error reading errored Splunk webhook response body: %v\n", err)
+			l.logger.Errorw("Error reading errored Splunk webhook response body", "err", err, "splunkLog", splunkLog)
 		}
-		fmt.Printf("Error sending log to Splunk\nstatus code: %d\nbody: %s", resp.StatusCode, string(bodyBytes))
+		l.logger.Errorw("Error sending log to Splunk", "statusCode", resp.StatusCode, "bodyString", string(bodyBytes))
 	}
 }
 
-// The Splunk logger should be the bottom of the nested logs, stub all other calls
-func (l *splunkLogger) With(args ...interface{}) Logger                    { return l }
-func (l *splunkLogger) Named(name string) Logger                           { return l }
-func (l *splunkLogger) NewRootLogger(lvl zapcore.Level) (Logger, error)    { return l, nil }
-func (l *splunkLogger) SetLogLevel(_ zapcore.Level)                        {}
-func (l *splunkLogger) Trace(args ...interface{})                          {}
-func (l *splunkLogger) Info(args ...interface{})                           {}
-func (l *splunkLogger) Debug(args ...interface{})                          {}
-func (l *splunkLogger) Warn(args ...interface{})                           {}
-func (l *splunkLogger) Error(args ...interface{})                          {}
-func (l *splunkLogger) Critical(args ...interface{})                       {}
-func (l *splunkLogger) Panic(args ...interface{})                          {}
-func (l *splunkLogger) Fatal(args ...interface{})                          {}
-func (l *splunkLogger) Tracef(format string, values ...interface{})        {}
-func (l *splunkLogger) Debugf(format string, values ...interface{})        {}
-func (l *splunkLogger) Infof(format string, values ...interface{})         {}
-func (l *splunkLogger) Warnf(format string, values ...interface{})         {}
-func (l *splunkLogger) Errorf(format string, values ...interface{})        {}
-func (l *splunkLogger) Criticalf(format string, values ...interface{})     {}
-func (l *splunkLogger) Panicf(format string, values ...interface{})        {}
-func (l *splunkLogger) Fatalf(format string, values ...interface{})        {}
-func (l *splunkLogger) Tracew(msg string, keysAndValues ...interface{})    {}
-func (l *splunkLogger) Debugw(msg string, keysAndValues ...interface{})    {}
-func (l *splunkLogger) Infow(msg string, keysAndValues ...interface{})     {}
-func (l *splunkLogger) Warnw(msg string, keysAndValues ...interface{})     {}
-func (l *splunkLogger) Errorw(msg string, keysAndValues ...interface{})    {}
-func (l *splunkLogger) Criticalw(msg string, keysAndValues ...interface{}) {}
-func (l *splunkLogger) Panicw(msg string, keysAndValues ...interface{})    {}
-func (l *splunkLogger) Fatalw(msg string, keysAndValues ...interface{})    {}
-func (l *splunkLogger) WarnIf(err error, msg string)                       {}
-func (l *splunkLogger) ErrorIf(err error, msg string)                      {}
-func (l *splunkLogger) PanicIf(err error, msg string)                      {}
-func (l *splunkLogger) ErrorIfClosing(io.Closer, string)                   {}
-func (l *splunkLogger) Sync() error                                        { return nil }
-func (l *splunkLogger) Helper(skip int) Logger                             { return l }
-func (l *splunkLogger) Recover(panicErr interface{})                       {}
+func (l *splunkLogger) With(args ...interface{}) Logger {
+	return &splunkLogger{
+		logger:          l.logger.With(args...),
+		splunkToken:     l.splunkToken,
+		splunkURL:       l.splunkURL,
+		environmentName: l.environmentName,
+		hostname:        l.hostname,
+		localIP:         getLocalIP(),
+	}
+}
+
+func (l *splunkLogger) Named(name string) Logger {
+	return &splunkLogger{
+		logger:          l.logger.Named(name),
+		splunkToken:     l.splunkToken,
+		splunkURL:       l.splunkURL,
+		environmentName: l.environmentName,
+		hostname:        l.hostname,
+		localIP:         getLocalIP(),
+	}
+}
+
+func (l *splunkLogger) SetLogLevel(level zapcore.Level) {
+	l.logger.SetLogLevel(level)
+}
+
+func (l *splunkLogger) Trace(args ...interface{}) {
+	l.logger.Trace(args...)
+}
+
+func (l *splunkLogger) Debug(args ...interface{}) {
+	l.logger.Debug(args...)
+}
+
+func (l *splunkLogger) Info(args ...interface{}) {
+	l.logger.Info(args...)
+}
+
+func (l *splunkLogger) Warn(args ...interface{}) {
+	l.logger.Warn(args...)
+}
+
+func (l *splunkLogger) Error(args ...interface{}) {
+	l.logger.Error(args...)
+}
+
+func (l *splunkLogger) Critical(args ...interface{}) {
+	l.logger.Critical(args...)
+}
+
+func (l *splunkLogger) Panic(args ...interface{}) {
+	l.logger.Panic(args...)
+}
+
+func (l *splunkLogger) Fatal(args ...interface{}) {
+	l.logger.Fatal(args...)
+}
+
+func (l *splunkLogger) Tracef(format string, values ...interface{}) {
+	l.logger.Tracef(format, values...)
+}
+
+func (l *splunkLogger) Debugf(format string, values ...interface{}) {
+	l.logger.Debugf(format, values...)
+}
+
+func (l *splunkLogger) Infof(format string, values ...interface{}) {
+	l.logger.Infof(format, values...)
+}
+
+func (l *splunkLogger) Warnf(format string, values ...interface{}) {
+	l.logger.Warnf(format, values...)
+}
+
+func (l *splunkLogger) Errorf(format string, values ...interface{}) {
+	l.logger.Errorf(format, values...)
+}
+
+func (l *splunkLogger) Criticalf(format string, values ...interface{}) {
+	l.logger.Criticalf(format, values...)
+}
+
+func (l *splunkLogger) Panicf(format string, values ...interface{}) {
+	l.logger.Panicf(format, values...)
+}
+
+func (l *splunkLogger) Fatalf(format string, values ...interface{}) {
+	l.logger.Fatalf(format, values...)
+}
+
+func (l *splunkLogger) Tracew(msg string, keysAndValues ...interface{}) {
+	l.logger.Tracew(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Debugw(msg string, keysAndValues ...interface{}) {
+	l.logger.Debugw(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Infow(msg string, keysAndValues ...interface{}) {
+	l.logger.Infow(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Warnw(msg string, keysAndValues ...interface{}) {
+	l.logger.Warnw(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Errorw(msg string, keysAndValues ...interface{}) {
+	l.logger.Errorw(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Criticalw(msg string, keysAndValues ...interface{}) {
+	l.logger.Criticalw(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Panicw(msg string, keysAndValues ...interface{}) {
+	l.logger.Panicw(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) Fatalw(msg string, keysAndValues ...interface{}) {
+	l.logger.Fatalw(msg, keysAndValues...)
+}
+
+func (l *splunkLogger) ErrorIf(err error, msg string) {
+	if err != nil {
+		l.logger.Errorw(msg, "err", err)
+	}
+}
+
+func (l *splunkLogger) ErrorIfClosing(c io.Closer, name string) {
+	if err := c.Close(); err != nil {
+		l.logger.Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
+	}
+}
+
+func (l *splunkLogger) Sync() error {
+	return l.logger.Sync()
+}
+
+func (l *splunkLogger) Helper(add int) Logger {
+	return &splunkLogger{
+		logger:          l.logger.Helper(add),
+		splunkToken:     l.splunkToken,
+		splunkURL:       l.splunkURL,
+		environmentName: l.environmentName,
+		hostname:        l.hostname,
+		localIP:         getLocalIP(),
+	}
+}
+
+func (l *splunkLogger) Recover(panicErr interface{}) {
+	l.logger.Recover(panicErr)
+}

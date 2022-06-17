@@ -59,7 +59,7 @@ func (cc *EVMForwardersController) Create(c *gin.Context) {
 		return
 	}
 
-	cc.App.GetLogger().Auditf(logger.FORWARDER_CREATED, map[string]interface{}{
+	cc.App.GetLogger().Audit(logger.FORWARDER_CREATED, map[string]interface{}{
 		"forwarderID":         fwd.ID,
 		"forwarderAddress":    fwd.Address,
 		"forwarderEVMChainID": fwd.EVMChainID,
@@ -83,6 +83,6 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return
 	}
 
-	cc.App.GetLogger().Auditf(logger.FORWARDER_DELETED, map[string]interface{}{"id": id})
+	cc.App.GetLogger().Audit(logger.FORWARDER_DELETED, map[string]interface{}{"id": id})
 	jsonAPIResponseWithStatus(c, nil, "forwarder", http.StatusNoContent)
 }

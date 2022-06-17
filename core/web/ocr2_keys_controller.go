@@ -44,7 +44,7 @@ func (ocr2kc *OCR2KeysController) Create(c *gin.Context) {
 		return
 	}
 
-	ocr2kc.App.GetLogger().Auditf(logger.OCR2_KEY_BUNDLE_CREATED, map[string]interface{}{
+	ocr2kc.App.GetLogger().Audit(logger.OCR2_KEY_BUNDLE_CREATED, map[string]interface{}{
 		"ocr2KeyID":                        key.ID(),
 		"ocr2KeyChainType":                 key.ChainType(),
 		"ocr2KeyConfigEncryptionPublicKey": key.ConfigEncryptionPublicKey(),
@@ -71,7 +71,7 @@ func (ocr2kc *OCR2KeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	ocr2kc.App.GetLogger().Auditf(logger.OCR2_KEY_BUNDLE_DELETED, map[string]interface{}{"id": id})
+	ocr2kc.App.GetLogger().Audit(logger.OCR2_KEY_BUNDLE_DELETED, map[string]interface{}{"id": id})
 	jsonAPIResponse(c, presenters.NewOCR2KeysBundleResource(key), "offChainReporting2KeyBundle")
 }
 
@@ -93,7 +93,7 @@ func (ocr2kc *OCR2KeysController) Import(c *gin.Context) {
 		return
 	}
 
-	ocr2kc.App.GetLogger().Auditf(logger.OCR2_KEY_BUNDLE_IMPORTED, map[string]interface{}{
+	ocr2kc.App.GetLogger().Audit(logger.OCR2_KEY_BUNDLE_IMPORTED, map[string]interface{}{
 		"ocr2KeyID":                        keyBundle.ID(),
 		"ocr2KeyChainType":                 keyBundle.ChainType(),
 		"ocr2KeyConfigEncryptionPublicKey": keyBundle.ConfigEncryptionPublicKey(),
@@ -119,6 +119,6 @@ func (ocr2kc *OCR2KeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ocr2kc.App.GetLogger().Auditf(logger.OCR2_KEY_BUNDLE_EXPORTED, map[string]interface{}{"keyID": stringID})
+	ocr2kc.App.GetLogger().Audit(logger.OCR2_KEY_BUNDLE_EXPORTED, map[string]interface{}{"keyID": stringID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

@@ -39,7 +39,7 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_CREATED, map[string]interface{}{
+	p2pkc.App.GetLogger().Audit(logger.P2P_KEY_CREATED, map[string]interface{}{
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pID":        key.ID(),
 		"p2pPeerID":    key.PeerID(),
@@ -69,7 +69,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_DELETED, map[string]interface{}{"id": keyID})
+	p2pkc.App.GetLogger().Audit(logger.P2P_KEY_DELETED, map[string]interface{}{"id": keyID})
 	jsonAPIResponse(c, presenters.NewP2PKeyResource(key), "p2pKey")
 }
 
@@ -91,7 +91,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_IMPORTED, map[string]interface{}{
+	p2pkc.App.GetLogger().Audit(logger.P2P_KEY_IMPORTED, map[string]interface{}{
 		"p2pPublicKey": key.PublicKeyHex(),
 		"p2pID":        key.ID(),
 		"p2pPeerID":    key.PeerID(),
@@ -119,6 +119,6 @@ func (p2pkc *P2PKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetLogger().Auditf(logger.P2P_KEY_EXPORTED, map[string]interface{}{"keyID": keyID})
+	p2pkc.App.GetLogger().Audit(logger.P2P_KEY_EXPORTED, map[string]interface{}{"keyID": keyID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

@@ -81,7 +81,7 @@ type Logger interface {
 	// The .Audit function here is specific to the SplunkLogger implementation
 	// It is added to the interface to ensure that audit logs are sent regardless of log level.
 	// All other Logger implementations should continue the pattern of propogating wrapped logger calls
-	Auditf(eventID string, data map[string]interface{})
+	Audit(eventID string, data map[string]interface{})
 
 	Tracef(format string, values ...interface{})
 	Debugf(format string, values ...interface{})
@@ -270,12 +270,16 @@ func (c *Config) New() (Logger, func() error) {
 		log.Fatal(err)
 	}
 
-	// If Splunk logging is enabled (token set), extend/wrap the logger with a splunkLogger instance
-	if c.SplunkToken != "" {
-		l = newSplunkLogger(l, c.SplunkToken, c.SplunkURL, c.Hostname, c.ChainlinkDev)
-	}
 	l = newSentryLogger(l)
 	l = newPrometheusLogger(l)
+	// If Splunk logging is enabled (token set), extend/wrap the logger with a splunkLogger instance
+	if c.SplunkToken != "" {
+		env := "production"
+		if c.ChainlinkDev {
+			env = "develop"
+		}
+		l = newSplunkLogger(l, c.SplunkToken, c.SplunkURL, c.Hostname, env)
+	}
 	return l, close
 }
 

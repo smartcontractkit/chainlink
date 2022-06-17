@@ -23,7 +23,7 @@ type ConfigController struct {
 func (cc *ConfigController) Show(c *gin.Context) {
 	cw := config.NewConfigPrinter(cc.App.GetConfig())
 
-	cc.App.GetLogger().Auditf(logger.ENV_NONCRITICAL_ENV_DUMPED, map[string]interface{}{})
+	cc.App.GetLogger().Audit(logger.ENV_NONCRITICAL_ENV_DUMPED, map[string]interface{}{})
 	jsonAPIResponse(c, cw, "config")
 }
 
@@ -88,6 +88,6 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		}, EVMChainID: utils.NewBig(chain.ID()),
 	}
 
-	cc.App.GetLogger().Auditf(logger.CONFIG_UPDATED, map[string]interface{}{"configResponse": response})
+	cc.App.GetLogger().Audit(logger.CONFIG_UPDATED, map[string]interface{}{"configResponse": response})
 	jsonAPIResponse(c, response, "config")
 }

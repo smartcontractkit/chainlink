@@ -99,7 +99,7 @@ func (n *nodesController[I, N, R]) Create(c *gin.Context) {
 		return
 	}
 
-	n.lggr.Auditf(logger.CHAIN_RPC_NODE_ADDED, map[string]interface{}{})
+	n.lggr.Audit(logger.CHAIN_RPC_NODE_ADDED, map[string]interface{}{})
 
 	jsonAPIResponse(c, n.newResource(node), "node")
 }
@@ -123,7 +123,7 @@ func (n *nodesController[I, N, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	n.lggr.Auditf(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
+	n.lggr.Audit(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
 }

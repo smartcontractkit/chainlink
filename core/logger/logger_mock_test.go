@@ -14,8 +14,8 @@ type MockLogger struct {
 	mock.Mock
 }
 
-// Auditf provides a mock function with given fields: eventID, data
-func (_m *MockLogger) Auditf(eventID string, data map[string]interface{}) {
+// Audit provides a mock function with given fields: eventID, data
+func (_m *MockLogger) Audit(eventID string, data map[string]interface{}) {
 	_m.Called(eventID, data)
 }
 

@@ -111,7 +111,7 @@ func (tc *TerraTransfersController) Create(c *gin.Context) {
 	resource.TxHash = msg.TxHash
 	resource.State = string(msg.State)
 
-	tc.App.GetLogger().Auditf(logger.TERRA_TRANSACTION_CREATED, map[string]interface{}{
+	tc.App.GetLogger().Audit(logger.TERRA_TRANSACTION_CREATED, map[string]interface{}{
 		"terraTransactionResource": resource,
 	})
 

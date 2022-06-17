@@ -96,7 +96,7 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 	}
 
 	chainj, _ := json.Marshal(chain)
-	cc.lggr.Auditf(logger.CHAIN_ADDED, map[string]interface{}{"chain": chainj})
+	cc.lggr.Audit(logger.CHAIN_ADDED, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponseWithStatus(c, cc.newResource(chain), cc.resourceName, http.StatusCreated)
 }
@@ -153,7 +153,7 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 	}
 
 	chainj, _ := json.Marshal(chain)
-	cc.lggr.Auditf(logger.CHAIN_SPEC_UPDATED, map[string]interface{}{"chain": chainj})
+	cc.lggr.Audit(logger.CHAIN_SPEC_UPDATED, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
 }
@@ -177,7 +177,7 @@ func (cc *chainsController[I, C, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	cc.lggr.Auditf(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
+	cc.lggr.Audit(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, cc.resourceName, http.StatusNoContent)
 }

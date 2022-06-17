@@ -86,8 +86,8 @@ func (s *prometheusLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }
 
-func (s *prometheusLogger) Auditf(eventID string, data map[string]interface{}) {
-	s.h.Auditf(eventID, data)
+func (s *prometheusLogger) Audit(eventID string, data map[string]interface{}) {
+	s.h.Audit(eventID, data)
 }
 
 func (s *prometheusLogger) Trace(args ...interface{}) {

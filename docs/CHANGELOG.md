@@ -36,7 +36,7 @@ This will prevent application boot in a future version of Chainlink.
   - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
   - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
 - New optional Splunk logger added
-  - to opt in to receiving audit log events over HEC of actions performed within the node, set the `SPLUNK_URL` and `SPLUNK_TOKEN` environment variables accordingly. `SPLUNK_URL` is in the format of 'https://xxxxx.splunkcloud.com/services/collector'
+  - To opt in to receiving audit log events over HEC of actions performed within the node, set the `SPLUNK_URL` and `SPLUNK_TOKEN` environment variables accordingly. `SPLUNK_URL` is in the format of 'https://xxxxx.splunkcloud.com/services/collector'
 - `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
 
 `foo [type=ethtx failOnRevert=true ...]`

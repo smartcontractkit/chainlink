@@ -43,7 +43,7 @@ func (l *zapLogger) With(args ...interface{}) Logger {
 	return &newLogger
 }
 
-func (l *zapLogger) Auditf(eventID string, data map[string]interface{}) { /* STUB */ }
+func (l *zapLogger) Audit(eventID string, data map[string]interface{}) { /* STUB */ }
 
 // copyFields returns a copy of fields with add appended.
 func copyFields(fields []interface{}, add ...interface{}) []interface{} {
