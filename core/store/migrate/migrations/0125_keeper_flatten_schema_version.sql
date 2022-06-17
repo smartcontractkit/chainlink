@@ -1,22 +1,5 @@
 -- +goose Up
 UPDATE pipeline_specs
-SET dot_dag_source = ''
-WHERE id IN (
-    SELECT pipeline_spec_id
-    FROM jobs
-    WHERE type = 'keeper' AND schema_version = 4
-);
-
-UPDATE jobs
-SET schema_version = 5
-WHERE type = 'keeper' AND schema_version = 4;
-
--- +goose Down
-UPDATE jobs
-SET schema_version = 4
-WHERE type = 'keeper' AND schema_version = 5;
-
-UPDATE pipeline_specs
 SET dot_dag_source = 'encode_check_upkeep_tx   [type=ethabiencode
                           abi="checkUpkeep(uint256 id, address from)"
                           data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
@@ -59,5 +42,14 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 WHERE id IN (
     SELECT pipeline_spec_id
     FROM jobs
-    WHERE type = 'keeper' AND schema_version = 4
+    WHERE type = 'keeper'
 );
+
+UPDATE jobs
+SET schema_version = 1
+WHERE type = 'keeper';
+
+-- +goose Down
+UPDATE jobs
+SET schema_version = 4
+WHERE type = 'keeper';

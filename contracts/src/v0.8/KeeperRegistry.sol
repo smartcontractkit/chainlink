@@ -652,10 +652,6 @@ contract KeeperRegistry is
     ) revert MigrationNotPermitted();
     if (s_transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
-    address admin = s_upkeep[ids[0]].admin;
-    bool isOwner = msg.sender == owner();
-    if (msg.sender != admin && !isOwner) revert OnlyCallableByOwnerOrAdmin();
-
     uint256 id;
     Upkeep memory upkeep;
     uint256 totalBalanceRemaining;
@@ -664,7 +660,7 @@ contract KeeperRegistry is
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      if (upkeep.admin != admin) revert OnlyCallableByAdmin();
+      if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
       if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
