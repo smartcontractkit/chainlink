@@ -6,12 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
@@ -155,13 +156,33 @@ observationSource = """
 			},
 		},
 		{
-			name: "invalid peer address",
+			name: "invalid v1 bootstrap peer address",
 			toml: `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/invalid/peer/address"]
+isBootstrapPeer    = false
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid v2 bootstrapper address",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+p2pv2Bootstrappers = ["invalid bootstrapper /#@ address"]
 isBootstrapPeer    = false
 observationSource = """
 blah
@@ -179,6 +200,9 @@ schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+p2pv2Bootstrappers = [
+"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+]
 isBootstrapPeer    = false
 blockchainTimeout  = "0s"
 observationSource = """
@@ -197,6 +221,9 @@ schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+p2pv2Bootstrappers = [
+"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+]
 isBootstrapPeer    = false
 databaseTimeout  = "0s"
 observationSource = """
@@ -269,11 +296,12 @@ schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
+p2pv2Bootstrappers = []
 isBootstrapPeer    = true
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, "toml error on load: (8, 23): invalid escape sequence: \\2")
+				require.EqualError(t, err, "toml error on load: (9, 23): invalid escape sequence: \\2")
 			},
 		},
 		{
