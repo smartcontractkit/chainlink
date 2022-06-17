@@ -196,15 +196,15 @@ func ExampleRun_keys() {
 	//    core.test keys command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    eth     Remote commands for administering the node's Ethereum keys
-	//    p2p     Remote commands for administering the node's p2p keys
-	//    csa     Remote commands for administering the node's CSA keys
-	//    ocr     Remote commands for administering the node's legacy off chain reporting keys
-	//    ocr2    Remote commands for administering the node's off chain reporting keys
-	//    solana  Remote commands for administering the node's Solana keys
-	//    terra   Remote commands for administering the node's Terra keys
+	//    eth      Remote commands for administering the node's Ethereum keys
+	//    p2p      Remote commands for administering the node's p2p keys
+	//    csa      Remote commands for administering the node's CSA keys
+	//    ocr      Remote commands for administering the node's legacy off chain reporting keys
+	//    ocr2     Remote commands for administering the node's off chain reporting keys
+	//    solana   Remote commands for administering the node's Solana keys
+	//    terra    Remote commands for administering the node's Terra keys
 	//    dkgsign  Remote commands for administering the node's DKGSign keys
-	//    vrf     Remote commands for administering the node's vrf keys
+	//    vrf      Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
