@@ -61,6 +61,7 @@ const JOB_PAYLOAD__SPEC = gql`
       observationTimeout
       observationTimeoutEnv
       p2pBootstrapPeers
+      p2pv2Bootstrappers
       transmitterAddress
     }
     ... on OCR2Spec {

@@ -30,6 +30,7 @@ contractAddress    = "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
+p2pv2Bootstrappers = []
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
@@ -98,6 +99,7 @@ p2pPeerID          = "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
+p2pv2Bootstrappers = []
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
@@ -168,6 +170,7 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OCROracleSpec{
 		P2PBootstrapPeers:                      pq.StringArray{},
+		P2PV2Bootstrappers:                     pq.StringArray{},
 		ObservationTimeout:                     models.Interval(10 * time.Second),
 		BlockchainTimeout:                      models.Interval(20 * time.Second),
 		ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
@@ -226,6 +229,9 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	var ocrspec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
 	require.NoError(t, err)
+	if ocrspec.P2PV2Bootstrappers == nil {
+		ocrspec.P2PV2Bootstrappers = pq.StringArray{}
+	}
 	jb.OCROracleSpec = &ocrspec
 
 	return &jb
