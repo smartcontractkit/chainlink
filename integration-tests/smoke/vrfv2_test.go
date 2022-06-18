@@ -63,11 +63,6 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			nets.Default.ParallelTransactions(true)
 		})
 
-		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(cls, nets.Default, big.NewFloat(3))
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-
 		By("Deploying VRF contracts", func() {
 			lt, err = cd.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred())
@@ -149,7 +144,8 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 	})
 
-	Describe("with VRF job", func() {
+	// This test is disabled until sc-43033 is fixed. To re-enable replace PDescribe with Describe
+	PDescribe("with VRF job", func() {
 		It("randomness is fulfilled", func() {
 			words := uint32(10)
 			keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
