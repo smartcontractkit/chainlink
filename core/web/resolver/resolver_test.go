@@ -8,7 +8,6 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/gqltesting"
-	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
@@ -76,7 +75,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	t.Helper()
 
 	var (
-		app        = &coremocks.Application{}
+		app        = coremocks.NewApplication(t)
 		rootSchema = graphql.MustParseSchema(
 			schema.MustGetRootSchema(),
 			&Resolver{App: app},
@@ -85,59 +84,30 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	)
 
 	// Setup mocks
-	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
-		bridgeORM:   &bridgeORMMocks.ORM{},
+		bridgeORM:   bridgeORMMocks.NewORM(t),
 		evmORM:      evmtest.NewMockORM(nil, nil),
-		jobORM:      &jobORMMocks.ORM{},
-		feedsSvc:    &feedsMocks.Service{},
-		sessionsORM: &sessionsMocks.ORM{},
-		pipelineORM: &pipelineMocks.ORM{},
-		cfg:         &configMocks.GeneralConfig{},
-		scfg:        &evmConfigMocks.ChainScopedConfig{},
-		ocr:         &keystoreMocks.OCR{},
-		ocr2:        &keystoreMocks.OCR2{},
-		csa:         &keystoreMocks.CSA{},
-		keystore:    &keystoreMocks.Master{},
-		ethKs:       &keystoreMocks.Eth{},
-		p2p:         &keystoreMocks.P2P{},
-		vrf:         &keystoreMocks.VRF{},
-		solana:      &keystoreMocks.Solana{},
-		chain:       &evmORMMocks.Chain{},
-		chainSet:    &evmORMMocks.ChainSet{},
-		ethClient:   &evmORMMocks.Client{},
-		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
-		balM:        &evmORMMocks.BalanceMonitor{},
-		txmORM:      &txmgrMocks.ORM{},
+		jobORM:      jobORMMocks.NewORM(t),
+		feedsSvc:    feedsMocks.NewService(t),
+		sessionsORM: sessionsMocks.NewORM(t),
+		pipelineORM: pipelineMocks.NewORM(t),
+		cfg:         configMocks.NewGeneralConfig(t),
+		scfg:        evmConfigMocks.NewChainScopedConfig(t),
+		ocr:         keystoreMocks.NewOCR(t),
+		ocr2:        keystoreMocks.NewOCR2(t),
+		csa:         keystoreMocks.NewCSA(t),
+		keystore:    keystoreMocks.NewMaster(t),
+		ethKs:       keystoreMocks.NewEth(t),
+		p2p:         keystoreMocks.NewP2P(t),
+		vrf:         keystoreMocks.NewVRF(t),
+		solana:      keystoreMocks.NewSolana(t),
+		chain:       evmORMMocks.NewChain(t),
+		chainSet:    evmORMMocks.NewChainSet(t),
+		ethClient:   evmORMMocks.NewClient(t),
+		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
+		balM:        evmORMMocks.NewBalanceMonitor(t),
+		txmORM:      txmgrMocks.NewORM(t),
 	}
-
-	// Assert expectations for any mocks that we set up
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			app,
-			m.bridgeORM,
-			m.jobORM,
-			m.sessionsORM,
-			m.pipelineORM,
-			m.feedsSvc,
-			m.cfg,
-			m.scfg,
-			m.ocr,
-			m.ocr2,
-			m.csa,
-			m.keystore,
-			m.ethKs,
-			m.p2p,
-			m.vrf,
-			m.solana,
-			m.chain,
-			m.chainSet,
-			m.ethClient,
-			m.eIMgr,
-			m.balM,
-			m.txmORM,
-		)
-	})
 
 	f := &gqlTestFramework{
 		t:          t,
