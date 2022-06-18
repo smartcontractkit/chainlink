@@ -53,7 +53,7 @@ jobs:
     # in order for this logic to work
     - name: Software Composition Analysis with Black Duck
       if: ${{steps.prescription.outputs.scaScan == 'true' }}
-      uses: blackducksoftware/github-action@9ea442b34409737f64743781e9adc71fd8e17d38
+      uses: blackducksoftware/github-action@ee439f7006341cae20e03b4c88c6a1f29919f90e
       with:
          args: '--blackduck.url="${{ secrets.BLACKDUCK_URL}}" --blackduck.api.token="${{ secrets.BLACKDUCK_TOKEN}}" --detect.tools="SIGNATURE_SCAN,DETECTOR"'
     
