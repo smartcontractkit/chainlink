@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -619,13 +618,7 @@ func (d *defaultMetrics) Cleanup(
 			},
 		},
 	} {
-		if !metric.vec.Delete(metric.labels) {
-			errArgs := []interface{}{}
-			for key, value := range metric.labels {
-				errArgs = append(errArgs, key, value)
-			}
-			d.log.Errorw(fmt.Sprintf("unable to delete metric '%s'", metric.name), errArgs...)
-		}
+		metric.vec.Delete(metric.labels)
 	}
 }
 
