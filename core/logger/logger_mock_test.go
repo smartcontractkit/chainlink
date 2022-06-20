@@ -5,9 +5,10 @@ package logger
 import (
 	io "io"
 
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
+	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
 
 	mock "github.com/stretchr/testify/mock"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
