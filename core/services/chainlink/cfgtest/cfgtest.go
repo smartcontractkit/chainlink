@@ -69,7 +69,7 @@ var (
 func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 	t.Helper()
 	k := val.Kind()
-	switch k {
+	switch k { //nolint:exhaustive
 	case reflect.Ptr, reflect.Map, reflect.Slice:
 		if val.IsNil() {
 			return fmt.Errorf("%s: nil", key)

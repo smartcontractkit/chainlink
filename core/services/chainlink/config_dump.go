@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -776,20 +775,6 @@ func envBig(s string) *utils.Big {
 }
 
 var multiLineBreak = regexp.MustCompile("(\n){2,}")
-
-//TODO hopefully not really necessary...
-func prettyPrint(c Config) (string, error) {
-	b, err := toml.Marshal(c)
-	if err != nil {
-		return "", err
-	}
-	// remove runs of line breaks
-	s := multiLineBreak.ReplaceAllLiteralString(string(b), "\n")
-	// restore them preceding keys
-	s = strings.Replace(s, "\n[", "\n\n[", -1)
-	s = strings.TrimPrefix(s, "\n")
-	return s, nil
-}
 
 func isZeroPtr[T comparable](p *T) bool {
 	var t T
