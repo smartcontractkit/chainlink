@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -132,7 +132,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(logger.ETH_KEY_CREATED, map[string]interface{}{
+	ekc.App.GetLogger().Audit(audit.ETHKeyCreated, map[string]interface{}{
 		"ethPublicKey": key.Address,
 		"ethID":        key.ID(),
 	})
@@ -187,7 +187,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(logger.ETH_KEY_UPDATED, map[string]interface{}{
+	ekc.App.GetLogger().Audit(audit.ETHKeyUpdated, map[string]interface{}{
 		"ethPublicKey": key.Address,
 		"ethID":        key.ID(),
 	})
@@ -243,7 +243,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(logger.ETH_KEY_DELETED, map[string]interface{}{"id": keyID})
+	ekc.App.GetLogger().Audit(audit.ETHKeyDeleted, map[string]interface{}{"id": keyID})
 	jsonAPIResponse(c, r, "account")
 }
 
@@ -291,7 +291,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(logger.ETH_KEY_IMPORTED, map[string]interface{}{
+	ekc.App.GetLogger().Audit(audit.ETHKeyImported, map[string]interface{}{
 		"ethPublicKey": key.Address,
 		"ethID":        key.ID(),
 	})
@@ -311,7 +311,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(logger.ETH_KEY_EXPORTED, map[string]interface{}{"address": address})
+	ekc.App.GetLogger().Audit(audit.ETHKeyExported, map[string]interface{}{"address": address})
 	c.Data(http.StatusOK, MediaType, bytes)
 }
 

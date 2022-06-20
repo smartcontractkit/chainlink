@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -64,7 +64,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	tc.App.GetLogger().Audit(logger.ETH_TRANSACTION_CREATED, map[string]interface{}{
+	tc.App.GetLogger().Audit(audit.EthTransactionCreated, map[string]interface{}{
 		"ethTX": etx,
 	})
 

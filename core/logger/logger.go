@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -81,7 +82,7 @@ type Logger interface {
 	// The .Audit function here is specific to the SplunkLogger implementation
 	// It is added to the interface to ensure that audit logs are sent regardless of log level.
 	// All other Logger implementations should continue the pattern of propogating wrapped logger calls
-	Audit(eventID string, data map[string]interface{})
+	Audit(eventID audit.EventID, data map[string]interface{})
 
 	Tracef(format string, values ...interface{})
 	Debugf(format string, values ...interface{})
@@ -118,20 +119,6 @@ type Logger interface {
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
 	Recover(panicErr interface{})
-}
-
-type Config struct {
-	LogLevel       zapcore.Level
-	Dir            string
-	JsonConsole    bool
-	UnixTS         bool
-	FileMaxSizeMB  int
-	FileMaxAgeDays int
-	FileMaxBackups int // files
-	Hostname       string
-	ChainlinkDev   bool
-	SplunkToken    string // enables splunk logging if not empty
-	SplunkURL      string
 }
 
 // newZapConfigProd returns a new production zap.Config.
@@ -254,6 +241,20 @@ func NewLogger() (Logger, func() error) {
 		l.Warn(msg)
 	}
 	return l.Named(verShaNameStatic()), close
+}
+
+type Config struct {
+	LogLevel       zapcore.Level
+	Dir            string
+	JsonConsole    bool
+	UnixTS         bool
+	FileMaxSizeMB  int
+	FileMaxAgeDays int
+	FileMaxBackups int // files
+	Hostname       string
+	ChainlinkDev   bool
+	SplunkToken    string // enables splunk logging if not empty
+	SplunkURL      string
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.

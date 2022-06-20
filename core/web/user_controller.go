@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsession "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -43,7 +43,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		c.App.GetLogger().Audit(logger.PASSWORD_RESET_ATTEMPT_FAILED_MISMATCH, map[string]interface{}{"user": user.Email})
+		c.App.GetLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]interface{}{"user": user.Email})
 		jsonAPIError(ctx, http.StatusConflict, errors.New("old password does not match"))
 		return
 	}
@@ -52,7 +52,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	c.App.GetLogger().Audit(logger.PASSWORD_RESET_SUCCESS, map[string]interface{}{"user": user.Email})
+	c.App.GetLogger().Audit(audit.PasswordResetSuccess, map[string]interface{}{"user": user.Email})
 	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
@@ -70,7 +70,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 		return
 	}
 	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
-		c.App.GetLogger().Audit(logger.API_TOKEN_CREATE_ATTEMPT_PASSWORD_MISMATCH, map[string]interface{}{"user": user.Email})
+		c.App.GetLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
@@ -80,7 +80,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 		return
 	}
 
-	c.App.GetLogger().Audit(logger.API_TOKEN_CREATED, map[string]interface{}{"user": user.Email})
+	c.App.GetLogger().Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
 	jsonAPIResponseWithStatus(ctx, newToken, "auth_token", http.StatusCreated)
 }
 
@@ -98,7 +98,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 		return
 	}
 	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
-		c.App.GetLogger().Audit(logger.API_TOKEN_DELETE_ATTEMPT_PASSWORD_MISMATCH, map[string]interface{}{"user": user.Email})
+		c.App.GetLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
@@ -107,7 +107,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 		return
 	}
 	{
-		c.App.GetLogger().Audit(logger.API_TOKEN_DELETED, map[string]interface{}{"user": user.Email})
+		c.App.GetLogger().Audit(audit.APITokenDeleted, map[string]interface{}{"user": user.Email})
 		jsonAPIResponseWithStatus(ctx, nil, "auth_token", http.StatusNoContent)
 	}
 }

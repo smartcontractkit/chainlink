@@ -10,6 +10,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -87,7 +88,7 @@ func (s *sentryLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }
 
-func (s *sentryLogger) Audit(eventID string, data map[string]interface{}) {
+func (s *sentryLogger) Audit(eventID audit.EventID, data map[string]interface{}) {
 	s.h.Audit(eventID, data)
 }
 

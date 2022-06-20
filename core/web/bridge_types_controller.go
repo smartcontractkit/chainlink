@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -97,7 +97,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		resource := presenters.NewBridgeResource(*bt)
 		resource.IncomingToken = bta.IncomingToken
 
-		btc.App.GetLogger().Audit(logger.BRIDGE_CREATED, map[string]interface{}{
+		btc.App.GetLogger().Audit(audit.BridgeCreated, map[string]interface{}{
 			"bridgeName":                   bta.Name,
 			"bridgeConfirmations":          bta.Confirmations,
 			"bridgeMinimumContractPayment": bta.MinimumContractPayment,
@@ -178,7 +178,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
-	btc.App.GetLogger().Audit(logger.BRIDGE_UPDATED, map[string]interface{}{
+	btc.App.GetLogger().Audit(audit.BridgeUpdated, map[string]interface{}{
 		"bridgeName":                   bt.Name,
 		"bridgeConfirmations":          bt.Confirmations,
 		"bridgeMinimumContractPayment": bt.MinimumContractPayment,
@@ -222,7 +222,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 
-	btc.App.GetLogger().Audit(logger.BRIDGE_DELETED, map[string]interface{}{"name": name})
+	btc.App.GetLogger().Audit(audit.BridgeDeleted, map[string]interface{}{"name": name})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

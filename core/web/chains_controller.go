@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 )
 
 type ChainsController interface {
@@ -96,7 +97,7 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 	}
 
 	chainj, _ := json.Marshal(chain)
-	cc.lggr.Audit(logger.CHAIN_ADDED, map[string]interface{}{"chain": chainj})
+	cc.lggr.Audit(audit.ChainAdded, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponseWithStatus(c, cc.newResource(chain), cc.resourceName, http.StatusCreated)
 }
@@ -153,7 +154,7 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 	}
 
 	chainj, _ := json.Marshal(chain)
-	cc.lggr.Audit(logger.CHAIN_SPEC_UPDATED, map[string]interface{}{"chain": chainj})
+	cc.lggr.Audit(audit.ChainSpecUpdated, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
 }
@@ -177,7 +178,7 @@ func (cc *chainsController[I, C, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	cc.lggr.Audit(logger.CHAIN_DELETED, map[string]interface{}{"id": id})
+	cc.lggr.Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, cc.resourceName, http.StatusNoContent)
 }

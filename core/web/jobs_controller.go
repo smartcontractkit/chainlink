@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -159,7 +159,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 
 	jbj, _ := json.Marshal(jb)
-	jc.App.GetLogger().Audit(logger.JOB_CREATED, map[string]interface{}{"job": string(jbj)})
+	jc.App.GetLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
 
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
@@ -186,6 +186,6 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jc.App.GetLogger().Audit(logger.JOB_DELETED, map[string]interface{}{"id": j.ID})
+	jc.App.GetLogger().Audit(audit.JobDeleted, map[string]interface{}{"id": j.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

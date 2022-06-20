@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -84,7 +84,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	sc.App.GetLogger().Audit(logger.AUTH_SESSION_DELETED, map[string]interface{}{"removedSessionID": sessionID})
+	sc.App.GetLogger().Audit(audit.AuthSessionDeleted, map[string]interface{}{"sessionID": sessionID})
 	jsonAPIResponse(c, Session{Authenticated: false}, "session")
 }
 

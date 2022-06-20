@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
@@ -133,12 +134,12 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(sr.Email, user.Email) {
-		o.lggr.Audit(logger.AUTH_LOGIN_FAILED_EMAIL, map[string]interface{}{"email": sr.Email})
+		o.lggr.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
 		return "", errors.New("Invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		o.lggr.Audit(logger.AUTH_LOGIN_FAILED_PASSWORD, map[string]interface{}{"email": sr.Email})
+		o.lggr.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
 		return "", errors.New("Invalid password")
 	}
 
@@ -155,7 +156,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
 		_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
-		o.lggr.Audit(logger.AUTH_LOGIN_SUCCESS_NO_2FA, map[string]interface{}{"email": sr.Email})
+		o.lggr.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
 		return session.ID, err
 	}
 
@@ -186,7 +187,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
-		o.lggr.Audit(logger.AUTH_LOGIN_FAILED_2FA, map[string]interface{}{"email": sr.Email, "error": err})
+		o.lggr.Audit(audit.AuthLoginFailed2FA, map[string]interface{}{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
 		return "", errors.New("MFA Error")
 	}
@@ -205,7 +206,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		lggr.Errorf("error in Marshal credentials: %s", err)
 		return "", err
 	}
-	o.lggr.Audit(logger.AUTH_LOGIN_SUCCESS_WITH_2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
+	o.lggr.Audit(audit.AuthLoginSuccessWith2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
 
 	return session.ID, nil
 }

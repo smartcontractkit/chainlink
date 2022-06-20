@@ -13,7 +13,7 @@ import (
 	solanaGo "github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	solanamodels "github.com/smartcontractkit/chainlink/core/store/models/solana"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -111,7 +111,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	resource.From = tr.From.String()
 	resource.To = tr.To.String()
 
-	tc.App.GetLogger().Audit(logger.SOLANA_TRANSACTION_CREATED, map[string]interface{}{
+	tc.App.GetLogger().Audit(audit.SolanaTransactionCreated, map[string]interface{}{
 		"solanaTransactionResource": resource,
 	})
 	jsonAPIResponse(c, resource, "solana_tx")
