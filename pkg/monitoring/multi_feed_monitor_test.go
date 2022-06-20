@@ -291,11 +291,11 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		LOOP:
 			for {
 				select {
-				case _ = <-exporterFactory1.data:
+				case <-exporterFactory1.data:
 					atomic.AddInt64(&countMessages, 1)
-				case _ = <-exporterFactory2.data:
+				case <-exporterFactory2.data:
 					atomic.AddInt64(&countMessages, 1)
-				case _ = <-exporterFactory3.data:
+				case <-exporterFactory3.data:
 					atomic.AddInt64(&countMessages, 1)
 				case <-ctx.Done():
 					break LOOP
