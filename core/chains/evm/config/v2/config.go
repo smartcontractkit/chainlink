@@ -1,10 +1,10 @@
 package v2
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -191,7 +191,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg.FlagsContractAddress.Valid {
 		s := cfg.FlagsContractAddress.String
 		if !common.IsHexAddress(s) {
-			return fmt.Errorf("invalid FlagsContractAddress: %s", s)
+			return errors.Errorf("invalid FlagsContractAddress: %s", s)
 		}
 		a := common.HexToAddress(s)
 		v := ethkey.EIP55AddressFromAddress(a)
@@ -202,7 +202,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	}
 	for s, kcfg := range cfg.KeySpecific {
 		if !common.IsHexAddress(s) {
-			return fmt.Errorf("invalid address KeySpecific: %s", s)
+			return errors.Errorf("invalid address KeySpecific: %s", s)
 		}
 		a := common.HexToAddress(s)
 		v := ethkey.EIP55AddressFromAddress(a)
@@ -214,7 +214,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg.LinkContractAddress.Valid {
 		s := cfg.LinkContractAddress.String
 		if !common.IsHexAddress(s) {
-			return fmt.Errorf("invalid LinkContractAddress: %s", s)
+			return errors.Errorf("invalid LinkContractAddress: %s", s)
 		}
 		a := common.HexToAddress(s)
 		v := ethkey.EIP55AddressFromAddress(a)
@@ -223,7 +223,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg.OperatorFactoryAddress.Valid {
 		s := cfg.OperatorFactoryAddress.String
 		if !common.IsHexAddress(s) {
-			return fmt.Errorf("invalid OperatorFactoryAddress: %s", s)
+			return errors.Errorf("invalid OperatorFactoryAddress: %s", s)
 		}
 		a := common.HexToAddress(s)
 		v := ethkey.EIP55AddressFromAddress(a)
