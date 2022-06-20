@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 type Monitor struct {
@@ -142,13 +142,11 @@ func NewMonitor(
 func (m Monitor) Run() {
 	rootCtx, cancel := context.WithCancel(m.RootContext)
 	defer cancel()
-	wg := &sync.WaitGroup{}
+	var subs utils.Subprocesses
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		m.RDDPoller.Run(rootCtx)
-	}()
+	})
 
 	// Instrument all source factories
 	instrumentedSourceFactories := []SourceFactory{}
@@ -165,25 +163,19 @@ func (m Monitor) Run() {
 		100, // bufferCapacity for source pollers
 	)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		m.Manager.Run(rootCtx, func(localCtx context.Context, data RDDData) {
 			m.ChainMetrics.SetNewFeedConfigsDetected(float64(len(data.Feeds)))
 			monitor.Run(localCtx, data)
 		})
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		m.HTTPServer.Run(rootCtx)
-	}()
+	})
 
 	// Handle signals from the OS
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		osSignalsCh := make(chan os.Signal, 1)
 		signal.Notify(osSignalsCh, syscall.SIGINT, syscall.SIGTERM)
 		var sig os.Signal
@@ -193,7 +185,7 @@ func (m Monitor) Run() {
 			cancel()
 		case <-rootCtx.Done():
 		}
-	}()
+	})
 
-	wg.Wait()
+	subs.Wait()
 }

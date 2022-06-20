@@ -3,9 +3,9 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 type MultiFeedMonitor interface {
@@ -44,8 +44,8 @@ type multiFeedMonitor struct {
 
 // Run should be executed as a goroutine.
 func (m *multiFeedMonitor) Run(ctx context.Context, data RDDData) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	var subs utils.Subprocesses
+	defer subs.Wait()
 
 FEED_LOOP:
 	for _, feedConfig := range data.Feeds {
@@ -94,12 +94,11 @@ FEED_LOOP:
 			continue FEED_LOOP
 		}
 		// Run poller goroutines.
-		wg.Add(len(pollers))
 		for _, poller := range pollers {
-			go func(poller Poller) {
-				defer wg.Done()
+			poller := poller
+			subs.Go(func() {
 				poller.Run(ctx)
-			}(poller)
+			})
 		}
 		// Run feed monitor.
 		feedMonitor := NewFeedMonitor(
@@ -107,10 +106,8 @@ FEED_LOOP:
 			pollers,
 			exporters,
 		)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			feedMonitor.Run(ctx)
-		}()
+		})
 	}
 }

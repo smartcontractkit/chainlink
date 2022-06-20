@@ -5,7 +5,8 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"sync"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 // HTTPServer is the HTTP interface exposed by every monitoring.
@@ -40,22 +41,20 @@ func (h *httpServer) Handle(path string, handler http.Handler) {
 
 // Run should be executed as a goroutine
 func (h *httpServer) Run(ctx context.Context) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	var subs utils.Subprocesses
+	defer subs.Wait()
+	subs.Go(func() {
 		h.log.Debugw("starting HTTP server")
 		if err := h.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			h.log.Fatalw("failed to start HTTP server", "address", h.addr, "error", err)
 		} else {
 			h.log.Infow("HTTP server stopped")
 		}
-	}()
-	wg.Add(1)
-	defer wg.Done()
-	<-ctx.Done()
-	if err := h.server.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		h.log.Errorw("failed to shut HTTP server down", "error", err)
-	}
+	})
+	subs.Go(func() {
+		<-ctx.Done()
+		if err := h.server.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			h.log.Errorw("failed to shut HTTP server down", "error", err)
+		}
+	})
 }

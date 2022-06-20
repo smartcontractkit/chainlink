@@ -2,11 +2,11 @@ package monitoring
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 // Results:
@@ -28,8 +28,8 @@ import (
 //    19083	     61491 ns/op	   75157 B/op	     723 allocs/op
 
 func BenchmarkMultiFeedMonitor(b *testing.B) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	var subs utils.Subprocesses
+	defer subs.Wait()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,11 +73,9 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 		},
 		100, // bufferCapacity for source pollers
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		monitor.Run(ctx, RDDData{feeds, nodes})
-	}()
+	})
 
 	envelope, err := generateEnvelope()
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,7 +42,7 @@ type managerImpl struct {
 func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 	var localCtx context.Context
 	var localCtxCancel context.CancelFunc
-	var localWg *sync.WaitGroup
+	var localSubs *utils.Subprocesses
 	for {
 		select {
 		case rawData := <-m.rddPoller.Updates():
@@ -64,24 +65,22 @@ func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 			}
 			m.log.Infow("change in feeds configuration detected", "feeds", fmt.Sprintf("%#v", updatedData))
 			// Terminate previous managed function if not the first run.
-			if localCtxCancel != nil && localWg != nil {
+			if localCtxCancel != nil && localSubs != nil {
 				localCtxCancel()
-				localWg.Wait()
+				localSubs.Wait()
 			}
 			// Start new managed function
 			localCtx, localCtxCancel = context.WithCancel(backgroundCtx)
-			localWg = &sync.WaitGroup{}
-			localWg.Add(1)
-			go func() {
-				defer localWg.Done()
+			localSubs = &utils.Subprocesses{}
+			localSubs.Go(func() {
 				managed(localCtx, updatedData)
-			}()
+			})
 		case <-backgroundCtx.Done():
 			if localCtxCancel != nil {
 				localCtxCancel()
 			}
-			if localWg != nil {
-				localWg.Wait()
+			if localSubs != nil {
+				localSubs.Wait()
 			}
 			m.log.Infow("manager stopped")
 			return

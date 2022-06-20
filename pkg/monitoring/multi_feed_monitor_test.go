@@ -3,12 +3,12 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -20,9 +20,9 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	// corresponding exporter message is consumed in the same goroutine.
 	defer goleak.VerifyNone(t)
 
+	var subs utils.Subprocesses
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	wg := &sync.WaitGroup{}
 
 	cfg := config.Config{}
 	chainCfg := fakeChainConfig{}
@@ -61,11 +61,9 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
 		100, // bufferCapacity for source pollers
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		monitor.Run(ctx, RDDData{feeds, nodes})
-	}()
+	})
 
 	count := 0
 	messages := []producerMessage{}
@@ -97,7 +95,7 @@ LOOP:
 		}
 	}
 
-	wg.Wait()
+	subs.Wait()
 	require.Equal(t, 10, count, "should only be able to do initial read of the chain")
 	require.Equal(t, 20, len(messages))
 }
@@ -105,9 +103,9 @@ LOOP:
 func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
+	var subs utils.Subprocesses
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	wg := &sync.WaitGroup{}
 
 	cfg := config.Config{}
 	chainCfg := fakeChainConfig{}
@@ -146,11 +144,9 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
 		100, // bufferCapacity for source pollers
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		monitor.Run(ctx, RDDData{feeds, nodes})
-	}()
+	})
 
 	var count int64 = 0
 	messages := []producerMessage{}
@@ -158,9 +154,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	envelope, err := generateEnvelope()
 	require.NoError(t, err)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 	LOOP:
 		for {
 			select {
@@ -172,10 +166,8 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 				break LOOP
 			}
 		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	subs.Go(func() {
 	LOOP:
 		for {
 			select {
@@ -185,9 +177,9 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 				break LOOP
 			}
 		}
-	}()
+	})
 
-	wg.Wait()
+	subs.Wait()
 	require.Equal(t, int64(10), count, "should only be able to do initial reads of the chain")
 	require.Equal(t, 20, len(messages))
 }
@@ -243,7 +235,7 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		feeds := []FeedConfig{generateFeedConfig()}
 		nodes := []NodeConfig{generateNodeConfig()}
 
-		wg := &sync.WaitGroup{}
+		var subs utils.Subprocesses
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 
 		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan interface{})}
@@ -265,18 +257,15 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		envelope, err := generateEnvelope()
 		require.NoError(t, err)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			monitor.Run(ctx, RDDData{feeds, nodes})
-		}()
+		})
 
-		wg.Add(2)
 		for _, factory := range []*fakeRandomDataSourceFactory{
 			sourceFactory1, sourceFactory3,
 		} {
-			go func(factory *fakeRandomDataSourceFactory) {
-				defer wg.Done()
+			factory := factory
+			subs.Go(func() {
 				for i := 0; i < 10; i++ {
 					select {
 					case factory.updates <- envelope:
@@ -284,12 +273,10 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 						return
 					}
 				}
-			}(factory)
+			})
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			for i := 0; i < 10; i++ {
 				select {
 				case sourceFactory2.updates <- envelope:
@@ -297,12 +284,10 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 					return
 				}
 			}
-		}()
+		})
 
 		var countMessages int64 = 0
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 		LOOP:
 			for {
 				select {
@@ -316,11 +301,11 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 					break LOOP
 				}
 			}
-		}()
+		})
 
 		<-time.After(100 * time.Millisecond)
 		cancel()
-		wg.Wait()
+		subs.Wait()
 
 		// Two sources produce 10 messages each (the third source is broken) and two exporters ingest each message.
 		require.GreaterOrEqual(t, countMessages, int64(10*2*2))

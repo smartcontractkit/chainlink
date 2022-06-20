@@ -3,9 +3,9 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 type Pipeline struct {
@@ -69,12 +69,11 @@ func (k *kafkaExporter) Export(_ context.Context, data interface{}) {
 	}
 	key := k.feedConfig.GetContractAddressBytes()
 
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-	wg.Add(len(k.pipelines))
+	var subs utils.Subprocesses
+	defer subs.Wait()
 	for _, pipeline := range k.pipelines {
-		go func(pipeline Pipeline) {
-			defer wg.Done()
+		pipeline := pipeline
+		subs.Go(func() {
 			envelopeMapping, err := pipeline.Mapper(envelope, k.chainConfig, k.feedConfig)
 			if err != nil {
 				k.log.Errorw("failed to map envelope", "error", err, "topic", pipeline.Topic)
@@ -89,7 +88,7 @@ func (k *kafkaExporter) Export(_ context.Context, data interface{}) {
 				k.log.Errorw("failed to publish encoded payload to Kafka", "payload", envelopeMapping, "error", err)
 				return
 			}
-		}(pipeline)
+		})
 	}
 }
 
