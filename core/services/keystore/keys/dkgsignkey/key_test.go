@@ -4,12 +4,13 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestNew(t *testing.T) {
-	key, err := NewV2()
+	key, err := New()
 	assert.NoError(t, err)
 	assert.NotNil(t, key.privateKey)
 	assert.NotNil(t, key.PublicKey)

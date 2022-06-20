@@ -51,9 +51,9 @@ func (d *dkgSign) Create() (dkgsignkey.Key, error) {
 	if d.isLocked() {
 		return dkgsignkey.Key{}, ErrLocked
 	}
-	key, err := dkgsignkey.NewV2()
+	key, err := dkgsignkey.New()
 	if err != nil {
-		return dkgsignkey.Key{}, errors.Wrap(err, "dkgsignkey NewV2()")
+		return dkgsignkey.Key{}, errors.Wrap(err, "dkgsignkey New()")
 	}
 	return key, d.safeAddKey(key)
 }
@@ -85,9 +85,9 @@ func (d *dkgSign) EnsureKey() error {
 		return nil
 	}
 
-	key, err := dkgsignkey.NewV2()
+	key, err := dkgsignkey.New()
 	if err != nil {
-		return errors.Wrap(err, "dkgsignkey NewV2()")
+		return errors.Wrap(err, "dkgsignkey New()")
 	}
 
 	d.logger.Infof("Created DKGSign key with ID %s", key.ID())

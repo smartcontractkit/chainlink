@@ -3,13 +3,14 @@ package keystore_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_DKGSignKeyStore_E2E(t *testing.T) {
@@ -70,7 +71,7 @@ func Test_DKGSignKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		newKey, err := dkgsignkey.NewV2()
+		newKey, err := dkgsignkey.New()
 		require.NoError(t, err)
 		err = ks.Add(newKey)
 		require.NoError(t, err)
@@ -89,7 +90,7 @@ func Test_DKGSignKeyStore_E2E(t *testing.T) {
 	t.Run("adds an externally created key/ensures it already exists", func(t *testing.T) {
 		defer reset()
 
-		newKey, err := dkgsignkey.NewV2()
+		newKey, err := dkgsignkey.New()
 		assert.NoError(t, err)
 		err = ks.Add(newKey)
 		assert.NoError(t, err)

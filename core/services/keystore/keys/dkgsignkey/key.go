@@ -39,8 +39,8 @@ type Key struct {
 	PublicKey      kyber.Point
 }
 
-// NewV2 creates a new DKGSign key
-func NewV2() (Key, error) {
+// New creates a new DKGSign key
+func New() (Key, error) {
 	privateKey := suite.Scalar().Pick(suite.RandomStream())
 	return keyFromScalar(privateKey)
 }
