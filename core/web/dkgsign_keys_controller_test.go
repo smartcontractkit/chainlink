@@ -52,8 +52,16 @@ func TestDKGSignKeysController_Create_HappyPath(t *testing.T) {
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
-	assert.Equal(t, keys[1].ID(), resource.ID)
-	assert.Equal(t, keys[1].PublicKeyString(), resource.PublicKey)
+	// the order in which keys are returned by GetAll is non-deterministic
+	// due to map iteration non-determinism.
+	found := false
+	for _, key := range keys {
+		if key.ID() == resource.ID {
+			assert.Equal(t, key.PublicKeyString(), resource.PublicKey)
+			found = true
+		}
+	}
+	assert.True(t, found)
 
 	_, err = keyStore.DKGSign().Get(resource.ID)
 	assert.NoError(t, err)
