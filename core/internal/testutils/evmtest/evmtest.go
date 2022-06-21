@@ -294,6 +294,7 @@ type MockEth struct {
 	EthClient       *evmMocks.Client
 	CheckFilterLogs func(int64, int64)
 
+	subsMu           sync.RWMutex
 	subs             []*evmMocks.Subscription
 	errChs           []chan error
 	subscribeCalls   atomic.Int32
@@ -327,12 +328,16 @@ func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 			m.unsubscribeCalls.Inc()
 			close(errCh)
 		}).Return().Maybe()
+	m.subsMu.Lock()
 	m.subs = append(m.subs, sub)
 	m.errChs = append(m.errChs, errCh)
+	m.subsMu.Unlock()
 	return sub
 }
 
 func (m *MockEth) SubsErr(err error) {
+	m.subsMu.Lock()
+	defer m.subsMu.Unlock()
 	for _, errCh := range m.errChs {
 		errCh <- err
 	}
