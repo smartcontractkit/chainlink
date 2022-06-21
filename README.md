@@ -74,9 +74,13 @@ In order to run the Chainlink node you must have access to a running Ethereum no
 Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
 Ethereum node versions currently tested and supported:
 
+[Officially supported]
 - [Parity/Openethereum](https://github.com/openethereum/openethereum)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
 - [Nethermind](https://github.com/NethermindEth/nethermind)
+
+[Unofficially supported]
+- [Besu](https://github.com/hyperledger/besu)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
@@ -183,7 +187,7 @@ go test ./...
 
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
 - The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
-- The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
+- The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
 
 #### Race Detector
 

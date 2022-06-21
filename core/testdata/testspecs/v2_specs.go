@@ -202,7 +202,7 @@ func (os KeeperSpec) Toml() string {
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
-schemaVersion   		 	= 3
+schemaVersion   		 	= 1
 name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
@@ -442,6 +442,7 @@ externalJobID      =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
+p2pv2Bootstrappers = []
 isBootstrapPeer    = false
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 monitoringEndpoint = "chain.link:4321"

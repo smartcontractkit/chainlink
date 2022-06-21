@@ -16,12 +16,12 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   uint256 private s_keeperIndex;
   uint256 private s_interval;
   uint256 private s_timestamp;
-  KeeperRegistryInterface private immutable i_keeperRegistry;
+  KeeperRegistryExecutableInterface private immutable i_keeperRegistry;
 
   /**
    * @param keeperRegistry address of a keeper registry
    */
-  constructor(KeeperRegistryInterface keeperRegistry, uint256 interval) ConfirmedOwner(msg.sender) {
+  constructor(KeeperRegistryExecutableInterface keeperRegistry, uint256 interval) ConfirmedOwner(msg.sender) {
     i_keeperRegistry = keeperRegistry;
     s_timestamp = block.timestamp;
     s_interval = interval;
@@ -52,7 +52,7 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
   /**
    * @return the keeper registry
    */
-  function getKeeperRegistry() external view returns (KeeperRegistryInterface) {
+  function getKeeperRegistry() external view returns (KeeperRegistryExecutableInterface) {
     return i_keeperRegistry;
   }
 

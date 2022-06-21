@@ -183,7 +183,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "keeper",
 			toml: `
                                   type                        = "keeper"
-                                  schemaVersion               = 3
+                                  schemaVersion               = 1
                                   name                        = "example keeper spec"
                                   contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
                                   fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
@@ -538,7 +538,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
-	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
 	jb.OCROracleSpec.TransmitterAddress = &app.Key.Address
