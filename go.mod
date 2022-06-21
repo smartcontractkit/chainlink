@@ -43,7 +43,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.19.0
-	github.com/pelletier/go-toml v1.9.4
+	github.com/pelletier/go-toml v1.9.5
 	github.com/pelletier/go-toml/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
