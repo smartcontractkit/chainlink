@@ -151,7 +151,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		} else if latestHead == nil {
 			b.logger.Warnw("initial check for latest head failed, head was unexpectedly nil")
 		} else {
-			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
+			b.logger.Debugw("Got latest head", "baseFeePerGas", latestHead.BaseFeePerGas, "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
 			b.setLatestBaseFee(latestHead.BaseFeePerGas)
 			b.FetchBlocksAndRecalculate(fetchCtx, latestHead)
 		}

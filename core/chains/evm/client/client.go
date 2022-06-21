@@ -137,8 +137,9 @@ func (client *client) NodeStates() (states map[int32]string) {
 
 // CallArgs represents the data used to call the balance method of a contract.
 // "To" is the address of the ERC contract. "Data" is the message sent
-// to the contract.
+// to the contract. "From" is the sender address.
 type CallArgs struct {
+	From common.Address `json:"from"`
 	To   common.Address `json:"to"`
 	Data hexutil.Bytes  `json:"data"`
 }

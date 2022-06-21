@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -49,13 +50,15 @@ type Runner interface {
 }
 
 type runner struct {
-	orm             ORM
-	config          Config
-	chainSet        evm.ChainSet
-	ethKeyStore     ETHKeyStore
-	vrfKeyStore     VRFKeyStore
-	runReaperWorker utils.SleeperTask
-	lggr            logger.Logger
+	orm                    ORM
+	config                 Config
+	chainSet               evm.ChainSet
+	ethKeyStore            ETHKeyStore
+	vrfKeyStore            VRFKeyStore
+	runReaperWorker        utils.SleeperTask
+	lggr                   logger.Logger
+	httpClient             *http.Client
+	unrestrictedHTTPClient *http.Client
 
 	// test helper
 	runFinished func(*Run)
@@ -95,17 +98,19 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger) *runner {
+func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
-		orm:         orm,
-		config:      config,
-		chainSet:    chainSet,
-		ethKeyStore: ethks,
-		vrfKeyStore: vrfks,
-		chStop:      make(chan struct{}),
-		wgDone:      sync.WaitGroup{},
-		runFinished: func(*Run) {},
-		lggr:        lggr.Named("PipelineRunner"),
+		orm:                    orm,
+		config:                 config,
+		chainSet:               chainSet,
+		ethKeyStore:            ethks,
+		vrfKeyStore:            vrfks,
+		chStop:                 make(chan struct{}),
+		wgDone:                 sync.WaitGroup{},
+		runFinished:            func(*Run) {},
+		lggr:                   lggr.Named("PipelineRunner"),
+		httpClient:             httpClient,
+		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
@@ -205,10 +210,7 @@ func (r *runner) ExecuteRun(
 		return run, nil, err
 	}
 
-	taskRunResults, err := r.run(ctx, pipeline, &run, vars, l)
-	if err != nil {
-		return run, nil, err
-	}
+	taskRunResults := r.run(ctx, pipeline, &run, vars, l)
 
 	if run.Pending {
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
@@ -230,9 +232,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		switch task.Type() {
 		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
+			task.(*HTTPTask).httpClient = r.httpClient
+			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).queryer = r.orm.GetQ()
+			// URL is "safe" because it comes from the node's own database. We
+			// must use the unrestrictedHTTPClient because some node operators
+			// may run external adapters on their own hardware
+			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config
@@ -258,13 +266,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 	return pipeline, nil
 }
 
-func (r *runner) run(
-	ctx context.Context,
-	pipeline *Pipeline,
-	run *Run,
-	vars Vars,
-	l logger.Logger,
-) (TaskRunResults, error) {
+func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars, l logger.Logger) TaskRunResults {
 	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
 	l.Debug("Initiating tasks for pipeline run of spec")
 
@@ -304,7 +306,8 @@ func (r *runner) run(
 
 	// if the run is suspended, awaiting resumption
 	run.Pending = scheduler.pending
-	run.FailEarly = scheduler.exiting
+	// scheduler.exiting = we had an error and the task was marked to failEarly
+	run.FailSilently = scheduler.exiting
 	run.State = RunStatusSuspended
 
 	if !scheduler.pending {
@@ -372,7 +375,7 @@ func (r *runner) run(
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	return taskRunResults, nil
+	return taskRunResults
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
@@ -454,7 +457,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
-	if run.FailEarly {
+	if run.FailSilently {
 		return 0, finalResult, nil
 	}
 
@@ -508,13 +511,11 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 
 	for {
-		if _, err = r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l); err != nil {
-			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
-		}
+		r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
 
 		if preinsert {
-			// if run failed and it's failEarly, skip StoreRun and instead delete all trace of it
-			if run.FailEarly {
+			// FailSilently = run failed and task was marked failEarly. skip StoreRun and instead delete all trace of it
+			if run.FailSilently {
 				if err = r.orm.DeleteRun(run.ID); err != nil {
 					return false, errors.Wrap(err, "Run")
 				}
@@ -537,7 +538,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				return false, errors.Wrapf(err, "a run without async returned as pending")
 			}
 			// don't insert if we exited early
-			if run.FailEarly {
+			if run.FailSilently {
 				return false, nil
 			}
 
@@ -568,8 +569,9 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 		// start the runner again
 		go func() {
 			if _, err := r.Run(context.Background(), &run, r.lggr, false, nil); err != nil {
-				r.lggr.Errorw("Resume", "err", err)
+				r.lggr.Errorw("Resume run failure", "err", err)
 			}
+			r.lggr.Debug("Resume run success")
 		}()
 	}
 	return nil

@@ -349,7 +349,7 @@ observationTimeout = "10s"
         ocrKeyBundleID:
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
         monitoringEndpoint: 'https://monitoring.endpoint',
-        p2pBootstrapPeers: [
+        p2pv2Bootstrappers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
         relay: 'evm',
@@ -383,7 +383,7 @@ contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
 ocrKeyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
 monitoringEndpoint = "https://monitoring.endpoint"
-p2pBootstrapPeers = [
+p2pv2Bootstrappers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
 relay = "evm"

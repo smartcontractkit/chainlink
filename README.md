@@ -74,9 +74,13 @@ In order to run the Chainlink node you must have access to a running Ethereum no
 Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
 Ethereum node versions currently tested and supported:
 
+[Officially supported]
 - [Parity/Openethereum](https://github.com/openethereum/openethereum)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
 - [Nethermind](https://github.com/NethermindEth/nethermind)
+
+[Unofficially supported]
+- [Besu](https://github.com/hyperledger/besu)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
@@ -184,6 +188,22 @@ go test ./...
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
 - The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
+
+#### Race Detector
+
+As of Go 1.1, the runtime includes a data race detector, enabled with the `-race` flag. This is used in CI via the 
+`tools/bin/go_core_race_tests` script. If the action detects a race, the artifact on the summary page will include 
+`race.*` files with detailed stack traces. 
+
+> _**It will not issue false positives, so take its warnings seriously.**_
+
+For local, targeted race detection, you can run:
+```bash
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 10
+GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 100 -run TestFooBar/sub_test 
+```
+
+https://go.dev/doc/articles/race_detector
 
 #### Fuzz tests
 

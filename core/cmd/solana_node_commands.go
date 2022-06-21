@@ -1,16 +1,11 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"net/url"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -60,67 +55,26 @@ func (ps SolanaNodePresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// IndexSolanaNodes returns all Solana nodes.
-func (cli *Client) IndexSolanaNodes(c *cli.Context) (err error) {
-	return cli.getPage("/v2/nodes/solana", c.Int("page"), &SolanaNodePresenters{})
-}
+func NewSolanaNodeClient(c *Client) NodeClient {
+	createNode := func(c *cli.Context) (node db.Node, err error) {
+		node.Name = c.String("name")
+		node.SolanaChainID = c.String("chain-id")
+		node.SolanaURL = c.String("url")
 
-// CreateSolanaNode adds a new node to the nodelink node
-func (cli *Client) CreateSolanaNode(c *cli.Context) (err error) {
-	name := c.String("name")
-	chainID := c.String("chain-id")
-	urlStr := c.String("url")
-
-	if name == "" {
-		return cli.errorOut(errors.New("missing --name"))
-	}
-	if chainID == "" {
-		return cli.errorOut(errors.New("missing --chain-id"))
-	}
-
-	if _, err2 := url.Parse(urlStr); err2 != nil {
-		return cli.errorOut(errors.Errorf("invalid url: %v", err2))
-	}
-
-	params := db.NewNode{
-		Name:          name,
-		SolanaChainID: chainID,
-		SolanaURL:     urlStr,
-	}
-
-	body, err := json.Marshal(params)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post("/v2/nodes/solana", bytes.NewBuffer(body))
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+		if node.Name == "" {
+			err = errors.New("missing --name")
+			return
 		}
-	}()
+		if node.SolanaChainID == "" {
+			err = errors.New("missing --chain-id")
+			return
+		}
 
-	return cli.renderAPIResponse(resp, &SolanaNodePresenter{})
-}
-
-// RemoveSolanaNode removes a specific Solana Node by name.
-func (cli *Client) RemoveSolanaNode(c *cli.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the id of the node to be removed"))
+		if _, err2 := url.Parse(node.SolanaURL); err2 != nil {
+			err = errors.Errorf("invalid url: %v", err2)
+			return
+		}
+		return
 	}
-	nodeID := c.Args().First()
-	resp, err := cli.HTTP.Delete("/v2/nodes/solana/" + nodeID)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	fmt.Printf("Node %v deleted\n", c.Args().First())
-	return nil
+	return newNodeClient[db.Node, SolanaNodePresenter, SolanaNodePresenters](c, "solana", createNode)
 }

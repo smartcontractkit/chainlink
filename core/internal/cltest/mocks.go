@@ -357,8 +357,8 @@ func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error)
 	return user, orm.CreateUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, sessions.SessionRequest{})
+func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient {
+	return cmd.NewAuthenticatedHTTPClient(lggr, cfg, MockCookieAuthenticator{SessionID: sessionID}, sessions.SessionRequest{})
 }
 
 type MockCookieAuthenticator struct {

@@ -49,7 +49,6 @@ type (
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -299,6 +298,7 @@ const (
 	TaskTypeMerge            TaskType = "merge"
 	TaskTypeLowercase        TaskType = "lowercase"
 	TaskTypeUppercase        TaskType = "uppercase"
+	TaskTypeConditional      TaskType = "conditional"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -379,6 +379,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:
 		task = &UppercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeConditional:
+		task = &ConditionalTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

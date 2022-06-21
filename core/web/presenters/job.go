@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -178,9 +178,9 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
 	ContractID                        string                 `json:"contractID"`
-	Relay                             types.Network          `json:"relay"`
+	Relay                             relay.Network          `json:"relay"`
 	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray         `json:"p2pBootstrapPeers"`
+	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
 	TransmitterID                     null.String            `json:"transmitterID"`
 	ObservationTimeout                models.Interval        `json:"observationTimeout"`
@@ -198,7 +198,7 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		ContractID:                        spec.ContractID,
 		Relay:                             spec.Relay,
 		RelayConfig:                       spec.RelayConfig,
-		P2PBootstrapPeers:                 spec.P2PBootstrapPeers,
+		P2PV2Bootstrappers:                spec.P2PV2Bootstrappers,
 		OCRKeyBundleID:                    spec.OCRKeyBundleID,
 		TransmitterID:                     spec.TransmitterID,
 		BlockchainTimeout:                 spec.BlockchainTimeout,
@@ -345,7 +345,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
 	ContractID                             string                 `json:"contractID"`
-	Relay                                  types.Network          `json:"relay"`
+	Relay                                  relay.Network          `json:"relay"`
 	RelayConfig                            map[string]interface{} `json:"relayConfig"`
 	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
 	ContractConfigTrackerSubscribeInterval models.Interval        `json:"contractConfigTrackerSubscribeInterval"`

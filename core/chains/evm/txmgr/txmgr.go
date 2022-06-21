@@ -11,18 +11,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -45,6 +45,7 @@ type Config interface {
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
 	EvmNonceAutoSync() bool
+	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
@@ -101,6 +102,7 @@ type Txm struct {
 
 	reaper      *Reaper
 	ethResender *EthResender
+	fwdMgr      *forwarders.FwdMgr
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -108,7 +110,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *Txm {
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller logpoller.LogPoller) *Txm {
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
@@ -143,6 +145,11 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
+	}
+	if cfg.EvmUseForwarders() {
+		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
+	} else {
+		b.logger.Info("EvmForwardManager: Disabled")
 	}
 
 	return &b
@@ -188,6 +195,12 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			b.ethResender.Start()
 		}
 
+		if b.fwdMgr != nil {
+			if err = b.fwdMgr.Start(); err != nil {
+				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
+			}
+		}
+
 		return nil
 	})
 }
@@ -201,6 +214,11 @@ func (b *Txm) Close() (merr error) {
 		}
 		if b.ethResender != nil {
 			b.ethResender.Stop()
+		}
+		if b.fwdMgr != nil {
+			if err := b.fwdMgr.Stop(); err != nil {
+				return errors.Wrap(err, "Txm: failed to stop EVMForwarderManager")
+			}
 		}
 
 		b.wg.Wait()
@@ -288,6 +306,8 @@ type NewTx struct {
 	GasLimit       uint64
 	Meta           *EthTxMeta
 
+	// Pipeline variables - if you aren't calling this from ethtx task within
+	// the pipeline, you don't need these variables
 	MinConfirmations  null.Uint32
 	PipelineTaskRunID *uuid.UUID
 
@@ -300,6 +320,15 @@ type NewTx struct {
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
+	if b.config.EvmUseForwarders() {
+		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
+		if fwdErr == nil {
+			newTx.ToAddress = fwdAddr
+			newTx.EncodedPayload = fwdPayload
+		} else {
+			b.logger.Infof("Skipping using forwarders: %s", fwdErr.Error())
+		}
+	}
 
 	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
@@ -404,24 +433,7 @@ func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction
 	if err = signedTx.EncodeRLP(rlp); err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
-	var hash common.Hash
-	hash, err = signedTxHash(signedTx, c.config.ChainType())
-	if err != nil {
-		return hash, nil, err
-	}
-	return hash, rlp.Bytes(), nil
-}
-
-func signedTxHash(signedTx *gethTypes.Transaction, chainType config.ChainType) (hash common.Hash, err error) {
-	if chainType == config.ChainExChain {
-		hash, err = exchainutils.LegacyHash(signedTx)
-		if err != nil {
-			return hash, errors.Wrap(err, "error getting signed tx hash from exchain")
-		}
-	} else {
-		hash = signedTx.Hash()
-	}
-	return hash, nil
+	return signedTx.Hash(), rlp.Bytes(), nil
 }
 
 // send broadcasts the transaction to the ethereum network, writes any relevant

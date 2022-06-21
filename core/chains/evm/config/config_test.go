@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -54,10 +55,10 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
 		})
 		t.Run("is not allowed to set gas price to above EvmMaxGasPriceWei", func(t *testing.T) {
-			assert.Equal(t, big.NewInt(5000000000000), cfg.EvmMaxGasPriceWei())
+			assert.Equal(t, big.NewInt(100000000000000), cfg.EvmMaxGasPriceWei())
 
 			err := cfg.SetEvmGasPriceDefault(big.NewInt(999999999999999))
-			assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 5000000000000")
+			assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 100000000000000")
 
 			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
 		})
@@ -66,13 +67,13 @@ func TestChainScopedConfig(t *testing.T) {
 	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
 		addr := testutils.NewAddress()
 		randomOtherAddr := testutils.NewAddress()
-		randomOtherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBigI(rand.Int63())}
+		otherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBig(assets.GWei(850))}
 		evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
-			cfg.KeySpecific[randomOtherAddr.Hex()] = randomOtherKeySpecific
+			cfg.KeySpecific[randomOtherAddr.Hex()] = otherKeySpecific
 		})
 
 		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, big.NewInt(5000000000000), cfg.KeySpecificMaxGasPriceWei(addr))
+			assert.Equal(t, big.NewInt(100000000000000), cfg.KeySpecificMaxGasPriceWei(addr))
 		})
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
@@ -83,8 +84,8 @@ func TestChainScopedConfig(t *testing.T) {
 
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
-		t.Run("uses key-specific override value when that is set", func(t *testing.T) {
-			val := utils.NewBigI(rand.Int63())
+		t.Run("uses key-specific override value when set", func(t *testing.T) {
+			val := utils.NewBig(assets.GWei(250))
 			keySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: val}
 			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.KeySpecific[addr.Hex()] = keySpecific
@@ -92,11 +93,50 @@ func TestChainScopedConfig(t *testing.T) {
 
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
-		t.Run("uses global value when that is set", func(t *testing.T) {
+		t.Run("uses key-specific override value when set and lower than chain specific config", func(t *testing.T) {
+			keySpecificPrice := utils.NewBig(assets.GWei(900))
+			chainSpecificPrice := utils.NewBig(assets.GWei(1200))
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.EvmMaxGasPriceWei = chainSpecificPrice
+				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
+			})
+
+			assert.Equal(t, keySpecificPrice.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+		t.Run("uses chain-specific value when higher than key-specific value", func(t *testing.T) {
+			keySpecificPrice := utils.NewBig(assets.GWei(1400))
+			chainSpecificPrice := utils.NewBig(assets.GWei(1200))
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.EvmMaxGasPriceWei = chainSpecificPrice
+				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
+			})
+
+			assert.Equal(t, chainSpecificPrice.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+		t.Run("uses key-specific override value when set and lower than global config", func(t *testing.T) {
+			keySpecificPrice := utils.NewBig(assets.GWei(900))
+			gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1200)
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
+			})
+
+			assert.Equal(t, keySpecificPrice.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+		t.Run("uses global value when higher than key-specific value", func(t *testing.T) {
+			keySpecificPrice := utils.NewBig(assets.GWei(1400))
+			gcfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1200)
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.KeySpecific[addr.Hex()] = evmtypes.ChainCfg{EvmMaxGasPriceWei: keySpecificPrice}
+			})
+
+			assert.Equal(t, gcfg.Overrides.GlobalEvmMaxGasPriceWei.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+		t.Run("uses global value when there is no key-specific price", func(t *testing.T) {
 			val := big.NewInt(rand.Int63())
+			unsetAddr := testutils.NewAddress()
 			gcfg.Overrides.GlobalEvmMaxGasPriceWei = val
 
-			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(unsetAddr).String())
 		})
 	})
 
@@ -119,6 +159,28 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg.Overrides.LinkContractAddress = null.StringFrom(val)
 
 			assert.Equal(t, val, cfg.LinkContractAddress())
+		})
+	})
+
+	t.Run("OperatorFactoryAddress", func(t *testing.T) {
+		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
+			assert.Equal(t, "", cfg.OperatorFactoryAddress())
+		})
+
+		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
+			val := testutils.NewAddress().String()
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.OperatorFactoryAddress = null.StringFrom(val)
+			})
+
+			assert.Equal(t, val, cfg.OperatorFactoryAddress())
+		})
+
+		t.Run("uses global value when that is set", func(t *testing.T) {
+			val := testutils.NewAddress().String()
+			gcfg.Overrides.OperatorFactoryAddress = null.StringFrom(val)
+
+			assert.Equal(t, val, cfg.OperatorFactoryAddress())
 		})
 	})
 }

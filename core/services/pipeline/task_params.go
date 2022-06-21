@@ -63,12 +63,57 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 			return nil
 		}
 	case *ObjectParam:
-		if v.Type == StringType {
+		if v != nil && v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
 	}
 	return errors.Wrapf(ErrBadInput, "expected string, got %T", val)
+}
+
+func (s *StringParam) String() string {
+	if s == nil {
+		return ""
+	}
+	return string(*s)
+}
+
+type StringSliceParam []string
+
+func (s *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
+	var ssp StringSliceParam
+	switch v := val.(type) {
+	case nil:
+		ssp = nil
+	case string:
+		return s.UnmarshalPipelineParam([]byte(v))
+
+	case []byte:
+		var theSlice []string
+		err := json.Unmarshal(v, &theSlice)
+		if err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+		*s = StringSliceParam(theSlice)
+		return nil
+	case []string:
+		ssp = v
+	case []interface{}:
+		return s.UnmarshalPipelineParam(SliceParam(v))
+	case SliceParam:
+		for _, x := range v {
+			var s StringParam
+			err := s.UnmarshalPipelineParam(x)
+			if err != nil {
+				return err
+			}
+			ssp = append(ssp, s.String())
+		}
+	default:
+		return errors.Wrapf(ErrBadInput, "expected string slice, got %T", val)
+	}
+	*s = ssp
+	return nil
 }
 
 type BytesParam []byte
@@ -123,16 +168,34 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case uint64:
 		*u = Uint64Param(v)
 	case int:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int8:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int16:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int32:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case int64:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case float64: // when decoding from db: JSON numbers are floats
+		if v < 0 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to Uint64Param", v)
+		}
 		*u = Uint64Param(v)
 	case string:
 		n, err := strconv.ParseUint(v, 10, 64)
@@ -141,7 +204,7 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 		}
 		*u = Uint64Param(n)
 	default:
-		return errors.Wrapf(ErrBadInput, "expected unsiend integer, got %T", val)
+		return errors.Wrapf(ErrBadInput, "expected unsigned integer, got %T", val)
 	}
 	return nil
 }
@@ -173,16 +236,34 @@ func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case uint64:
 		n = v
 	case int:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int8:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int16:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int32:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case int64:
+		if v < 0 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case float64: // when decoding from db: JSON numbers are floats
+		if v < 0 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to uint64", v)
+		}
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
@@ -321,9 +402,14 @@ func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
 	if v, ok := val.(ObjectParam); ok && v.Type == DecimalType {
 		*d = v.DecimalValue
 		return nil
-	} else if v, ok := val.(*ObjectParam); ok && v.Type == DecimalType {
-		*d = v.DecimalValue
-		return nil
+	} else if v, ok := val.(*ObjectParam); ok {
+		if v == nil {
+			return errors.Wrap(ErrBadInput, "nil ObjectParam")
+		}
+		if v.Type == DecimalType {
+			*d = v.DecimalValue
+			return nil
+		}
 	}
 	x, err := utils.ToDecimal(val)
 	if err != nil {
@@ -364,10 +450,14 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		return a.UnmarshalPipelineParam([]byte(v))
 	case []byte:
-		if utils.HasHexPrefix(string(v)) && len(v) == 42 {
-			*a = AddressParam(common.HexToAddress(string(v)))
-			return nil
-		} else if len(v) == 20 {
+		switch len(v) {
+		case 42:
+			bs, err := utils.TryParseHex(string(v))
+			if err == nil {
+				*a = AddressParam(common.BytesToAddress(bs))
+				return nil
+			}
+		case 20:
 			copy((*a)[:], v)
 			return nil
 		}
@@ -415,7 +505,7 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 		}
 
 	case *ObjectParam:
-		if v.Type == MapType {
+		if v != nil && v.Type == MapType {
 			*m = v.MapValue
 			return nil
 		}
@@ -675,7 +765,14 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 	case int64:
 		n = big.NewInt(int64(v))
 	case float64: // when decoding from db: JSON numbers are floats
-		n = big.NewInt(0).SetUint64(uint64(v))
+		if v < math.MinInt64 || v > math.MaxUint64 {
+			return errors.Wrapf(ErrBadInput, "cannot cast %v to u/int64", v)
+		}
+		if v < 0 {
+			n = big.NewInt(int64(v))
+		} else {
+			n = big.NewInt(0).SetUint64(uint64(v))
+		}
 	case string:
 		if strings.TrimSpace(v) == "" {
 			*p = MaybeBigIntParam{n: nil}

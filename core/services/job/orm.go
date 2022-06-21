@@ -28,7 +28,7 @@ import (
 	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -66,6 +66,9 @@ type ORM interface {
 
 	FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error)
 	FindPipelineRunByID(id int64) (pipeline.Run, error)
+
+	FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error)
+	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 }
 
 type orm struct {
@@ -226,17 +229,17 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				switch jb.OCR2OracleSpec.Relay {
-				case relaytypes.EVM:
+				case relay.EVM:
 					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-				case relaytypes.Solana:
+				case relay.Solana:
 					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
-				case relaytypes.Terra:
+				case relay.Terra:
 					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
@@ -259,10 +262,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
@@ -579,7 +582,7 @@ type DRSpecConfig interface {
 }
 
 func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
-	// Take the larger of the global vs specific.
+	// Take the largest of the global vs specific.
 	// Note that the v2 vrf requests specify their own confirmation requirements.
 	// We wait for max(minIncomingConfirmations, request required confs) to be safe.
 	minIncomingConfirmations := cfg.MinIncomingConfirmations()
@@ -597,8 +600,9 @@ func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
 }
 
 func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
+	// Same as for VRF, take the largest of the global vs specific.
 	minIncomingConfirmations := cfg.MinIncomingConfirmations()
-	if drs.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
+	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < minIncomingConfirmations {
 		drs.MinIncomingConfirmationsEnv = true
 		drs.MinIncomingConfirmations = null.Uint32From(minIncomingConfirmations)
 	}
@@ -698,6 +702,38 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	return
 }
 
+// FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
+func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := "SELECT * FROM jobs WHERE id = $1 LIMIT 1"
+		err = tx.Get(&jb, stmt, id)
+		if err != nil {
+			return errors.Wrap(err, "failed to load job")
+		}
+
+		if err = LoadAllJobTypes(tx, &jb); err != nil {
+			return errors.Wrap(err, "failed to load job types")
+		}
+
+		return nil
+	}, pg.OptReadOnlyTx())
+	if err != nil {
+		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
+	}
+
+	return jb, o.LoadEnvConfigVars(&jb)
+}
+
+// FindSpecErrorsByJobIDs returns all jobs spec errors by jobs IDs
+func (o *orm) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError, error) {
+	stmt := `SELECT * FROM job_spec_errors WHERE job_id = ANY($1);`
+
+	var specErrs []SpecError
+	err := o.q.WithOpts(qopts...).Select(&specErrs, stmt, ids)
+
+	return specErrs, errors.Wrap(err, "FindSpecErrorsByJobIDs failed")
+}
+
 func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) (jb Job, err error) {
 	err = o.findJob(&jb, "external_job_id", externalJobID, qopts...)
 	return
@@ -726,7 +762,7 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 		return err
 	})
 
-	return jobID, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return jobID, errors.Wrap(err, "FindJobIDByAddress failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
@@ -804,7 +840,7 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 		return err
 	})
 
-	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 // FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
@@ -825,7 +861,7 @@ LIMIT $3
 		return err
 	})
 
-	return ids, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return ids, errors.Wrap(err, "PipelineRunsByJobIDs failed")
 }
 
 // FindPipelineRunsByIDs returns pipeline runs with the ids.
@@ -846,7 +882,7 @@ WHERE id = ANY($1)
 		return err
 	})
 
-	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+	return runs, errors.Wrap(err, "FindPipelineRunsByIDs failed")
 }
 
 // FindPipelineRunByID returns pipeline run with the id.
@@ -924,20 +960,19 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var args []interface{}
-		var where string
+		var filter string
 		if jobID != nil {
-			where = " WHERE jobs.id = $1"
+			filter = "JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = $1" // TODO:  add support for more than 1 jobID?
 			args = append(args, *jobID)
 		}
-		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id%s`, where)
+		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
 		if err = tx.QueryRowx(sql, args...).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
 
-		sql = fmt.Sprintf(`SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id%s
+		sql = fmt.Sprintf(`SELECT pipeline_runs.* FROM pipeline_runs %s
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC
-		OFFSET $%d LIMIT $%d
-		;`, where, len(args)+1, len(args)+2)
+		OFFSET $%d LIMIT $%d;`, filter, len(args)+1, len(args)+2)
 
 		if err = tx.Select(&runs, sql, append(args, offset, size)...); err != nil {
 			return errors.Wrap(err, "error loading runs")

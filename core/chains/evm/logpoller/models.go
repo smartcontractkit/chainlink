@@ -32,3 +32,11 @@ type Log struct {
 	Data        []byte
 	CreatedAt   time.Time
 }
+
+func (l *Log) GetTopics() []common.Hash {
+	var tps []common.Hash
+	for _, topic := range l.Topics {
+		tps = append(tps, common.BytesToHash(topic))
+	}
+	return tps
+}
