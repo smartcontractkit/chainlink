@@ -126,9 +126,9 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		}
 
 		// Create authenticated client
-		remoteNodeURL, err := url.Parse(startedNode.url)
-		if err != nil {
-			log.Fatal(err)
+		remoteNodeURL, parseErr := url.Parse(startedNode.url)
+		if parseErr != nil {
+			log.Fatal(parseErr)
 		}
 		c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
 		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
