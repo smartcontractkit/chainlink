@@ -122,6 +122,7 @@ func (l *Link) UnmarshalJSON(data []byte) error {
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (l *Link) UnmarshalText(text []byte) error {
+	//TODO support scaling w/ suffix like wei?
 	if _, ok := l.SetString(string(text), 10); !ok {
 		return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
 	}

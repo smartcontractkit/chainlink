@@ -274,17 +274,17 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.New("EvmGasBumpThreshold", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpThreshold = utils.NewBig(*e)
+			c.EVM[i].GasBumpThreshold = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasBumpWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpWei = utils.NewBig(*e)
+			c.EVM[i].GasBumpWei = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasFeeCapDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasFeeCapDefault = utils.NewBig(*e)
+			c.EVM[i].GasFeeCapDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasLimitDefault", parse.BigInt).ParsePtr(); e != nil {
@@ -304,27 +304,27 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.New("EvmGasPriceDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasPriceDefault = utils.NewBig(*e)
+			c.EVM[i].GasPriceDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasTipCapDefault = utils.NewBig(*e)
+			c.EVM[i].GasTipCapDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapMinimum", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasTipCapMinimum = utils.NewBig(*e)
+			c.EVM[i].GasTipCapMinimum = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxGasPriceWei = utils.NewBig(*e)
+			c.EVM[i].MaxGasPriceWei = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMinGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MinGasPriceWei = utils.NewBig(*e)
+			c.EVM[i].MinGasPriceWei = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.NewString("GasEstimatorMode").ParsePtr(); e != nil {

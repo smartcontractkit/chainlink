@@ -26,26 +26,26 @@ type Chain struct {
 	FlagsContractAddress *ethkey.EIP55Address
 
 	GasBumpPercent     *uint16
-	GasBumpThreshold   *utils.Big
+	GasBumpThreshold   *utils.Wei
 	GasBumpTxDepth     *uint16
-	GasBumpWei         *utils.Big
+	GasBumpWei         *utils.Wei
 	GasEstimatorMode   *string
-	GasFeeCapDefault   *utils.Big
+	GasFeeCapDefault   *utils.Wei
 	GasLimitDefault    *utils.Big
 	GasLimitMultiplier *decimal.Decimal
 	GasLimitTransfer   *utils.Big
-	GasPriceDefault    *utils.Big
-	GasTipCapDefault   *utils.Big
-	GasTipCapMinimum   *utils.Big
+	GasPriceDefault    *utils.Wei
+	GasTipCapDefault   *utils.Wei
+	GasTipCapMinimum   *utils.Wei
 
 	LinkContractAddress  *ethkey.EIP55Address
 	LogBackfillBatchSize *uint32
 	LogPollInterval      *models.Duration
 
-	MaxGasPriceWei           *utils.Big
+	MaxGasPriceWei           *utils.Wei
 	MaxInFlightTransactions  *uint32
 	MaxQueuedTransactions    *uint32
-	MinGasPriceWei           *utils.Big
+	MinGasPriceWei           *utils.Wei
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
 
@@ -141,8 +141,8 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := uint16(cfg.EvmGasBumpTxDepth.Int64)
 		c.GasBumpTxDepth = &v
 	}
-	c.GasBumpWei = cfg.EvmGasBumpWei
-	c.GasFeeCapDefault = cfg.EvmGasFeeCapDefault
+	c.GasBumpWei = cfg.EvmGasBumpWei.Wei()
+	c.GasFeeCapDefault = cfg.EvmGasFeeCapDefault.Wei()
 	if cfg.EvmGasLimitDefault.Valid {
 		c.GasLimitDefault = utils.NewBigI(cfg.EvmGasLimitDefault.Int64)
 	}
@@ -150,9 +150,9 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := decimal.NewFromFloat(cfg.EvmGasLimitMultiplier.Float64)
 		c.GasLimitMultiplier = &v
 	}
-	c.GasPriceDefault = cfg.EvmGasPriceDefault
-	c.GasTipCapDefault = cfg.EvmGasTipCapDefault
-	c.GasTipCapMinimum = cfg.EvmGasTipCapMinimum
+	c.GasPriceDefault = cfg.EvmGasPriceDefault.Wei()
+	c.GasTipCapDefault = cfg.EvmGasTipCapDefault.Wei()
+	c.GasTipCapMinimum = cfg.EvmGasTipCapMinimum.Wei()
 	if cfg.EvmHeadTrackerHistoryDepth.Valid {
 		if c.HeadTracker == nil {
 			c.HeadTracker = &HeadTracker{}
@@ -178,7 +178,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.LogBackfillBatchSize = &v
 	}
 	c.LogPollInterval = cfg.EvmLogPollInterval
-	c.MaxGasPriceWei = cfg.EvmMaxGasPriceWei
+	c.MaxGasPriceWei = cfg.EvmMaxGasPriceWei.Wei()
 	if cfg.EvmNonceAutoSync.Valid {
 		c.NonceAutoSync = &cfg.EvmNonceAutoSync.Bool
 	}
