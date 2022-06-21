@@ -603,7 +603,6 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
-
 		})
 
 		AfterEach(func() {

@@ -265,6 +265,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	p2pBootstrapPeers  = [
 		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 	]
+	p2pv2Bootstrappers = []
 	keyBundleID        = "%s"
 	transmitterAddress = "%s"
 	observationSource = """
