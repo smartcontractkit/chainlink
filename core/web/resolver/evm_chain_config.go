@@ -470,7 +470,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.EthTxReaperThreshold != nil {
-		d, err := models.MakeDurationFromString(*input.EthTxReaperThreshold)
+		d, err := models.ParseDuration(*input.EthTxReaperThreshold)
 		if err != nil {
 			inputErrs["EthTxReaperThreshold"] = "invalid value"
 		} else {
@@ -479,7 +479,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.EthTxResendAfterThreshold != nil {
-		d, err := models.MakeDurationFromString(*input.EthTxResendAfterThreshold)
+		d, err := models.ParseDuration(*input.EthTxResendAfterThreshold)
 		if err != nil {
 			inputErrs["EthTxResendAfterThreshold"] = "invalid value"
 		} else {
@@ -556,7 +556,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.EvmHeadTrackerSamplingInterval != nil {
-		d, err := models.MakeDurationFromString(*input.EvmHeadTrackerSamplingInterval)
+		d, err := models.ParseDuration(*input.EvmHeadTrackerSamplingInterval)
 		if err != nil {
 			inputErrs["EvmHeadTrackerSamplingInterval"] = "invalid value"
 		} else {
@@ -611,7 +611,7 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	}
 
 	if input.OCRObservationTimeout != nil {
-		d, err := models.MakeDurationFromString(*input.OCRObservationTimeout)
+		d, err := models.ParseDuration(*input.OCRObservationTimeout)
 		if err != nil {
 			inputErrs["MinimumContractPayment"] = "invalid value"
 		} else {
