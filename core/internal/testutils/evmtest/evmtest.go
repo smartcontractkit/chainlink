@@ -303,6 +303,8 @@ type MockEth struct {
 
 func (m *MockEth) AssertExpectations(t *testing.T) {
 	m.EthClient.AssertExpectations(t)
+	m.subsMu.RLock()
+	defer m.subsMu.RUnlock()
 	for _, sub := range m.subs {
 		sub.AssertExpectations(t)
 	}
