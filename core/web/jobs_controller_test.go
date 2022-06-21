@@ -538,7 +538,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
-	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
 	jb.OCROracleSpec.TransmitterAddress = &app.Key.Address
