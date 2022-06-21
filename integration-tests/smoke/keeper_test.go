@@ -43,21 +43,20 @@ const (
 
 const upkeepGasLimit = uint32(2500000)
 
-//var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-//var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-//var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
-//var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
-//var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
-//var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
-//var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
-//var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
-//var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
-//var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
-//var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
-//var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
+var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
+var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
+var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
+var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
+var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
+var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
+var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
 var _ = Describe("Keeper v1.1 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, PauseRegistryTest))
-
-//var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest))
+var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -604,6 +603,7 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
+
 		})
 
 		AfterEach(func() {
