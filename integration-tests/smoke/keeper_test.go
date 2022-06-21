@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -579,7 +578,7 @@ func getKeeperSuite(
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
 					// Just to make sure, give the registry a bit of time to finish the pausing operation
-					time.Sleep(5 * time.Second)
+					//time.Sleep(5 * time.Second)
 
 					// Remember how many times each upkeep performed once the registry was paused
 					var countersAfterPause = make([]*big.Int, len(upkeepIDs))
@@ -603,7 +602,6 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
-
 		})
 
 		AfterEach(func() {
