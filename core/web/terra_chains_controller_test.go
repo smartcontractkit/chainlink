@@ -12,6 +12,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -33,17 +33,17 @@ func Test_TerraChainsController_Create(t *testing.T) {
 
 	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
-	minute := models.MustMakeDuration(time.Minute)
-	body, err := json.Marshal(web.CreateTerraChainRequest{
-		ID: newChainId,
-		Config: db.ChainCfg{
+	minute, err := utils.NewDuration(time.Minute)
+	require.NoError(t, err)
+	body, err := json.Marshal(web.NewCreateChainRequest(
+		newChainId,
+		&db.ChainCfg{
 			BlocksUntilTxTimeout:  null.IntFrom(1),
 			ConfirmPollPeriod:     &minute,
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 			MaxMsgsPerBatch:       null.IntFrom(10),
-		},
-	})
+		}))
 	require.NoError(t, err)
 
 	resp, cleanup := controller.client.Post("/v2/chains/terra", bytes.NewReader(body))
@@ -51,7 +51,7 @@ func Test_TerraChainsController_Create(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	chainSet := controller.app.GetChains().Terra
-	dbChain, err := chainSet.ORM().Chain(newChainId)
+	dbChain, err := chainSet.Show(newChainId)
 	require.NoError(t, err)
 
 	resource := presenters.TerraChainResource{}
@@ -140,16 +140,16 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	controller := setupTerraChainsControllerTest(t)
 
-	newChains := []web.CreateTerraChainRequest{
+	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				FallbackGasPriceULuna: null.StringFrom("9.999"),
 			},
 		},
 		{
 			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
-			Config: db.ChainCfg{
+			Config: &db.ChainCfg{
 				GasLimitMultiplier: null.FloatFrom(1.55555),
 			},
 		},
@@ -160,7 +160,7 @@ func Test_TerraChainsController_Index(t *testing.T) {
 		terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
 			ID:      ch.ID,
 			Enabled: true,
-			Cfg:     ch.Config,
+			Cfg:     *ch.Config,
 		})
 	}
 
@@ -210,9 +210,9 @@ func Test_TerraChainsController_Index(t *testing.T) {
 func Test_TerraChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateTerraChainRequest{
+	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
-		Config: db.ChainCfg{
+		Config: &db.ChainCfg{
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 		},
@@ -308,7 +308,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 	}
 	terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 
-	_, countBefore, err := controller.app.Chains.Terra.ORM().Chains(0, 10)
+	_, countBefore, err := controller.app.Chains.Terra.Index(0, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, countBefore)
 
@@ -317,7 +317,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-		_, countAfter, err := controller.app.Chains.Terra.ORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Terra.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, countAfter)
 	})
@@ -329,11 +329,11 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-		_, countAfter, err := controller.app.Chains.Terra.ORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Terra.Index(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, countAfter)
 
-		_, err = controller.app.Chains.Terra.ORM().Chain(chain.ID)
+		_, err = controller.app.Chains.Terra.Show(chain.ID)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, sql.ErrNoRows))

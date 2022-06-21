@@ -124,13 +124,16 @@ export const SpecsView = withStyles(styles)(
               >
                 Reject
               </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => openConfirmationDialog('approve', specID)}
-              >
-                Approve
-              </Button>
+
+              {latestSpec.id === specID && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => openConfirmationDialog('approve', specID)}
+                >
+                  Approve
+                </Button>
+              )}
             </>
           )
         case 'APPROVED':
@@ -143,6 +146,10 @@ export const SpecsView = withStyles(styles)(
             </Button>
           )
         case 'CANCELLED':
+          if (latestSpec.id !== specID) {
+            return null
+          }
+
           return (
             <Button
               variant="contained"

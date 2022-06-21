@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"math"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum"
@@ -36,7 +37,8 @@ type GasEstimator interface {
 }
 
 var (
-	_ Task = (*EstimateGasLimitTask)(nil)
+	_                    Task = (*EstimateGasLimitTask)(nil)
+	ErrInvalidMultiplier      = errors.New("Invalid multiplier")
 )
 
 func (t *EstimateGasLimitTask) Type() TaskType {
@@ -82,9 +84,13 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
+	newExp := int64(gasLimitDecimal.Exponent()) + int64(multiplier.Decimal().Exponent())
+	if newExp > math.MaxInt32 || newExp < math.MinInt32 {
+		return Result{Error: ErrMultiplyOverlow}, retryableRunInfo()
+	}
 	gasLimitWithMultiplier := gasLimitDecimal.Mul(multiplier.Decimal()).Truncate(0).BigInt()
 	if !gasLimitWithMultiplier.IsUint64() {
-		return Result{Error: errors.New("Invalid multiplier")}, retryableRunInfo()
+		return Result{Error: ErrInvalidMultiplier}, retryableRunInfo()
 	}
 	gasLimitFinal := gasLimitWithMultiplier.Uint64()
 	if gasLimitFinal > maximumGasLimit {

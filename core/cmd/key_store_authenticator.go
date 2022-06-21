@@ -2,13 +2,18 @@ package cmd
 
 import (
 	"fmt"
-	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	ErrPasswordWhitespace  = errors.New("leading/trailing whitespace detected in password")
+	ErrEmptyPasswordInFile = errors.New("detected empty password in password file")
 )
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -22,12 +27,24 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
-	password, err := passwordFromFile(c.String("password"))
+	// If empty filename is provided, the password will be empty and err will be nil.
+	passwordFile := c.String("password")
+	password, err := passwordFromFile(passwordFile)
 	if err != nil {
 		return errors.Wrap(err, "error reading password from file")
 	}
-	passwordProvided := len(password) != 0
-	if passwordProvided {
+	if strings.TrimSpace(password) != password {
+		return ErrPasswordWhitespace
+	}
+	if len(passwordFile) != 0 && len(password) == 0 {
+		return ErrEmptyPasswordInFile
+	}
+	if len(password) != 0 {
+		// Because we fixed password requirements to have 3+ symbols,
+		// to not break backward compatibility we enforce this only for empty key stores.
+		if err = auth.validatePasswordStrength(password); err != nil && isEmpty {
+			return err
+		}
 		return keyStore.Unlock(password)
 	}
 	interactive := auth.Prompter.IsTerminal()
@@ -45,60 +62,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 }
 
 func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(password string) error {
-	// Password policy:
-	//
-	// Must be longer than 12 characters
-	// Must comprise at least 3 of:
-	//     lowercase characters
-	//     uppercase characters
-	//     numbers
-	//     symbols
-	// Must not comprise:
-	//     A user's API email
-	//     More than three identical consecutive characters
-
-	var (
-		lowercase = regexp.MustCompile("[a-z]")
-		uppercase = regexp.MustCompile("[A-Z]")
-		numbers   = regexp.MustCompile("[0-9]")
-		symbols   = regexp.MustCompile(`[!@#$%^&*()-=_+\[\]\\|;:'",<.>/?~` + "`]")
-	)
-
-	var merr error
-	if len(password) <= 12 {
-		merr = multierr.Append(merr, fmt.Errorf("must be longer than 12 characters"))
-	}
-	if len(lowercase.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 lowercase characters"))
-	}
-	if len(uppercase.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 uppercase characters"))
-	}
-	if len(numbers.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 numbers"))
-	}
-	if len(symbols.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 symbols"))
-	}
-	var c byte
-	var instances int
-	for i := 0; i < len(password); i++ {
-		if password[i] == c {
-			instances++
-		} else {
-			instances = 1
-		}
-		if instances > 3 {
-			merr = multierr.Append(merr, fmt.Errorf("must not contain more than 3 identical consecutive characters"))
-			break
-		}
-		c = password[i]
-	}
-
-	if merr != nil {
-		merr = fmt.Errorf("password does not meet the requirements.\n%+v", merr)
-	}
-	return merr
+	return utils.VerifyPasswordComplexity(password)
 }
 
 func (auth TerminalKeyStoreAuthenticator) promptExistingPassword() string {
@@ -109,9 +73,11 @@ func (auth TerminalKeyStoreAuthenticator) promptExistingPassword() string {
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword() (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
-		err := auth.validatePasswordStrength(password)
-		if err != nil {
-			return password, err
+		if err := auth.validatePasswordStrength(password); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(password) != password {
+			return "", ErrPasswordWhitespace
 		}
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")

@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"math"
 	"math/big"
 	"net/url"
 	"testing"
@@ -20,17 +21,23 @@ import (
 func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
+	var nilObjectParam *pipeline.ObjectParam
+
 	tests := []struct {
 		name     string
 		input    interface{}
 		expected interface{}
 		err      error
 	}{
+		// valid
 		{"string", "foo bar baz", pipeline.StringParam("foo bar baz"), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.StringParam("foo bar baz"), nil},
-		{"int", 12345, pipeline.StringParam(""), pipeline.ErrBadInput},
 		{"*object", mustNewObjectParam(t, `boz bar bap`), pipeline.StringParam("boz bar bap"), nil},
 		{"object", *mustNewObjectParam(t, `boz bar bap`), pipeline.StringParam("boz bar bap"), nil},
+		// invalid
+		{"int", 12345, pipeline.StringParam(""), pipeline.ErrBadInput},
+		{"nil", nil, pipeline.StringParam(""), pipeline.ErrBadInput},
+		{"nil ObjectParam", nilObjectParam, pipeline.StringParam(""), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -44,6 +51,45 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 			require.Equal(t, test.expected, p)
 		})
 	}
+}
+
+func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+
+	expected := pipeline.StringSliceParam{"foo", "bar", "baz"}
+
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected interface{}
+		err      error
+	}{
+		{"json", `[ "foo", "bar", "baz" ]`, expected, nil},
+		{"[]string", []string{"foo", "bar", "baz"}, expected, nil},
+		{"[]interface{} with strings", []interface{}{"foo", "bar", "baz"}, expected, nil},
+		{"[]interface{} with []byte", []interface{}{[]byte("foo"), []byte("bar"), []byte("baz")}, expected, nil},
+		{"SliceParam", pipeline.SliceParam([]interface{}{"foo", "bar", "baz"}), expected, nil},
+
+		{"nil", nil, pipeline.StringSliceParam(nil), nil},
+
+		{"bad json", `[ "foo", 1, false ]`, nil, pipeline.ErrBadInput},
+		{"[]interface{} with bad types", []interface{}{123, true}, nil, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var p pipeline.StringSliceParam
+			err := p.UnmarshalPipelineParam(test.input)
+			require.Equal(t, test.err, errors.Cause(err))
+			if test.expected != nil {
+				require.Equal(t, test.expected, p)
+			}
+		})
+	}
+
 }
 
 func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
@@ -107,6 +153,8 @@ func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
 		{"43-char []byte with 0x", []byte("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefd"), nil, pipeline.ErrBadInput},
 		{"42-char []byte without 0x", []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefde"), nil, pipeline.ErrBadInput},
 		{"40-char []byte without 0x", []byte("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"), nil, pipeline.ErrBadInput},
+
+		{"42-char string with 0x but wrong characters", "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadzzzz", nil, pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -142,7 +190,6 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		{"[]interface{} with common.Address", []interface{}{addr1, addr2}, expected, nil},
 		{"[]interface{} with strings", []interface{}{addr1.String(), addr2.String()}, expected, nil},
 		{"[]interface{} with []byte", []interface{}{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
-		{"[]interface{} with []byte", []interface{}{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
 		{"nil", nil, pipeline.AddressSliceParam(nil), nil},
 
 		{"bad json", `[ "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "0xcafebabecafebabecafebabecafebabecafebabe" ]`, nil, pipeline.ErrBadInput},
@@ -173,6 +220,7 @@ func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 		expected interface{}
 		err      error
 	}{
+		// positive
 		{"string", "123", pipeline.Uint64Param(123), nil},
 		{"int", int(123), pipeline.Uint64Param(123), nil},
 		{"int8", int8(123), pipeline.Uint64Param(123), nil},
@@ -185,18 +233,29 @@ func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 		{"uint32", uint32(123), pipeline.Uint64Param(123), nil},
 		{"uint64", uint64(123), pipeline.Uint64Param(123), nil},
 		{"float64", float64(123), pipeline.Uint64Param(123), nil},
+		// negative
 		{"bool", true, pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"negative int", int(-123), pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"negative int8", int8(-123), pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"negative int16", int16(-123), pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"negative int32", int32(-123), pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"negative int64", int64(-123), pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"negative float64", float64(-123), pipeline.Uint64Param(0), pipeline.ErrBadInput},
+		{"out of bounds float64", math.MaxFloat64, pipeline.Uint64Param(0), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
 		test := test
+
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			var p pipeline.Uint64Param
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
-			require.Equal(t, test.expected, p)
+			if test.err == nil {
+				require.Equal(t, test.expected, p)
+			}
 		})
 	}
 }
@@ -210,6 +269,7 @@ func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 		expected interface{}
 		err      error
 	}{
+		// positive
 		{"string", "123", pipeline.NewMaybeUint64Param(123, true), nil},
 		{"int", int(123), pipeline.NewMaybeUint64Param(123, true), nil},
 		{"int8", int8(123), pipeline.NewMaybeUint64Param(123, true), nil},
@@ -222,19 +282,30 @@ func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 		{"uint32", uint32(123), pipeline.NewMaybeUint64Param(123, true), nil},
 		{"uint64", uint64(123), pipeline.NewMaybeUint64Param(123, true), nil},
 		{"float64", float64(123), pipeline.NewMaybeUint64Param(123, true), nil},
-		{"bool", true, pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
 		{"empty string", "", pipeline.NewMaybeUint64Param(0, false), nil},
+		// negative
+		{"bool", true, pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"negative int", int(-123), pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"negative int8", int8(-123), pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"negative int16", int16(-123), pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"negative int32", int32(-123), pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"negative int64", int64(-123), pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"negative float64", float64(-123), pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
+		{"out of bounds float64", math.MaxFloat64, pipeline.NewMaybeUint64Param(0, false), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
 		test := test
+
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			var p pipeline.MaybeUint64Param
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
-			require.Equal(t, test.expected, p)
+			if err == nil {
+				require.Equal(t, test.expected, p)
+			}
 		})
 	}
 }
@@ -252,6 +323,7 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 		expected interface{}
 		err      error
 	}{
+		// positive
 		{"string", "123", fromInt(123), nil},
 		{"empty string", "", pipeline.NewMaybeBigIntParam(nil), nil},
 		{"nil", nil, pipeline.NewMaybeBigIntParam(nil), nil},
@@ -267,18 +339,25 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 		{"uint32", uint32(123), fromInt(123), nil},
 		{"uint64", uint64(123), fromInt(123), nil},
 		{"float64", float64(123), fromInt(123), nil},
+		{"float64", float64(-123), fromInt(-123), nil},
+		// negative
 		{"bool", true, pipeline.NewMaybeBigIntParam(nil), pipeline.ErrBadInput},
+		{"negative out of bound float64", -math.MaxFloat64, pipeline.NewMaybeBigIntParam(nil), pipeline.ErrBadInput},
+		{"positive out of bound float64", math.MaxFloat64, pipeline.NewMaybeBigIntParam(nil), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
 		test := test
+
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			var p pipeline.MaybeBigIntParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
-			require.Equal(t, test.expected, p)
+			if test.err == nil {
+				require.Equal(t, test.expected, p)
+			}
 		})
 	}
 }
@@ -360,6 +439,7 @@ func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
+	var nilObjectParam *pipeline.ObjectParam
 	d := decimal.NewFromFloat(123.45)
 	dNull := decimal.Decimal{}
 
@@ -369,11 +449,15 @@ func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 		expected interface{}
 		err      error
 	}{
+		// valid
 		{"string", "123.45", pipeline.DecimalParam(d), nil},
 		{"float32", float32(123.45), pipeline.DecimalParam(d), nil},
 		{"float64", float64(123.45), pipeline.DecimalParam(d), nil},
-		{"bool", false, pipeline.DecimalParam(dNull), pipeline.ErrBadInput},
 		{"object", mustNewObjectParam(t, 123.45), pipeline.DecimalParam(d), nil},
+		// invalid
+		{"bool", false, pipeline.DecimalParam(dNull), pipeline.ErrBadInput},
+		{"nil", nil, pipeline.DecimalParam(dNull), pipeline.ErrBadInput},
+		{"nil ObjectParam", nilObjectParam, pipeline.DecimalParam(dNull), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -422,6 +506,8 @@ func TestURLParam_UnmarshalPipelineParam(t *testing.T) {
 func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
+	var nilObjectParam *pipeline.ObjectParam
+
 	inputStr := `
     {
         "chain": {"abc": "def"},
@@ -457,13 +543,16 @@ func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
 		expected interface{}
 		err      error
 	}{
+		// valid
 		{"from string", inputStr, expected, nil},
 		{"from []byte", []byte(inputStr), expected, nil},
 		{"from map", inputMap, expected, nil},
 		{"from nil", nil, pipeline.MapParam(nil), nil},
 		{"from *object", mustNewObjectParam(t, inputMap), expected, nil},
 		{"from object", *mustNewObjectParam(t, inputMap), expected, nil},
+		// invalid
 		{"wrong type", 123, pipeline.MapParam(nil), pipeline.ErrBadInput},
+		{"nil ObjectParam", nilObjectParam, pipeline.MapParam(nil), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {

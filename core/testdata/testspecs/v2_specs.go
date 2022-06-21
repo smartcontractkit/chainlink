@@ -110,7 +110,7 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-p2pBootstrapPeers = []
+p2pv2Bootstrappers = []
 relay = "solana"
 pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
@@ -130,7 +130,7 @@ schemaVersion = 1
 name = "local testing job"
 contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 isBootstrapPeer = false
-p2pBootstrapPeers = []
+p2pv2Bootstrappers = []
 relay = "terra"
 transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
 observationSource = """
@@ -187,6 +187,7 @@ type KeeperSpecParams struct {
 	FromAddress              string
 	EvmChainID               int
 	MinIncomingConfirmations int
+	ObservationSource        string
 }
 
 type KeeperSpec struct {
@@ -201,48 +202,19 @@ func (os KeeperSpec) Toml() string {
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
-schemaVersion   		 	= 3
+schemaVersion   		 	= 1
 name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
 minIncomingConfirmations	= %d
 externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
-
-
-observationSource = """
-encode_check_upkeep_tx   [type=ethabiencode
-                          abi="checkUpkeep(uint256 id, address from)"
-                          data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
-check_upkeep_tx          [type=ethcall
-                          failEarly=true
-                          extractRevertReason=true
-                          evmChainID="$(jobSpec.evmChainID)"
-                          contract="$(jobSpec.contractAddress)"
-                          gas="$(jobSpec.checkUpkeepGasLimit)"
-                          gasPrice="$(jobSpec.gasPrice)"
-                          gasTipCap="$(jobSpec.gasTipCap)"
-                          gasFeeCap="$(jobSpec.gasFeeCap)"
-                          data="$(encode_check_upkeep_tx)"]
-decode_check_upkeep_tx   [type=ethabidecode
-                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
-encode_perform_upkeep_tx [type=ethabiencode
-                          abi="performUpkeep(uint256 id, bytes calldata performData)"
-                          data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
-perform_upkeep_tx        [type=ethtx
-                          minConfirmations=0
-                          to="$(jobSpec.contractAddress)"
-                          from="[$(jobSpec.fromAddress)]"
-                          evmChainID="$(jobSpec.evmChainID)"
-                          data="$(encode_perform_upkeep_tx)"
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
-"""
+observationSource = """%s"""
 `
+	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations, escapedObvSource),
 	}
 }
 

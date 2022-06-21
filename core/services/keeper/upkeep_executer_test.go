@@ -57,7 +57,6 @@ func setup(t *testing.T) (
 	keeper.ORM,
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	cfg.Overrides.KeeperTurnLookBack = null.IntFrom(0)
 	cfg.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
@@ -79,7 +78,7 @@ func setup(t *testing.T) (
 		TipCap: assets.GWei(60),
 	}, uint64(60), nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
@@ -104,6 +103,12 @@ var checkUpkeepResponse = struct {
 	GasLimit:       big.NewInt(2_000_000),
 	GasWei:         big.NewInt(0), // doesn't matter
 	LinkEth:        big.NewInt(0), // doesn't matter
+}
+
+var checkPerformResponse = struct {
+	Success bool
+}{
+	Success: true,
 }
 
 func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
@@ -132,7 +137,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
@@ -141,11 +146,16 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			},
 			checkUpkeepResponse,
 		)
+		registryMock.MockMatchedResponse(
+			"performUpkeep",
+			func(callArgs ethereum.CallMsg) bool { return true },
+			checkPerformResponse,
+		)
 
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), &head)
 		ethTxCreated.AwaitOrFail(t)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
 		assert.False(t, runs[0].HasFatalErrors())
@@ -175,7 +185,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 			registryMock.MockMatchedResponse(
 				"checkUpkeep",
 				func(callArgs ethereum.CallMsg) bool {
@@ -189,13 +199,18 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				},
 				checkUpkeepResponse,
 			)
+			registryMock.MockMatchedResponse(
+				"performUpkeep",
+				func(callArgs ethereum.CallMsg) bool { return true },
+				checkPerformResponse,
+			)
 
 			head := newHead()
 			head.BaseFeePerGas = baseFeePerGas
 
 			executer.OnNewLongestChain(context.Background(), &head)
 			ethTxCreated.AwaitOrFail(t)
-			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 			require.Len(t, runs, 1)
 			assert.False(t, runs[0].HasErrors())
 			assert.False(t, runs[0].HasFatalErrors())
@@ -225,7 +240,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
@@ -234,10 +249,15 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			},
 			checkUpkeepResponse,
 		)
+		registryMock.MockMatchedResponse(
+			"performUpkeep",
+			func(callArgs ethereum.CallMsg) bool { return true },
+			checkPerformResponse,
+		)
 
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), &head)
-		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.True(t, runs[0].HasErrors())
 		assert.True(t, runs[0].HasFatalErrors())
@@ -262,7 +282,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		ethMock.AssertExpectations(t)
 	})
 
-	t.Run("triggers exactly one upkeep if heads are skipped but later heads arrive within range", func(t *testing.T) {
+	t.Run("triggers if heads are skipped but later heads arrive within range", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t)
 
 		etxs := []cltest.Awaiter{
@@ -277,42 +297,23 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Return(txmgr.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
-
+		registryMock.MockMatchedResponse(
+			"performUpkeep",
+			func(callArgs ethereum.CallMsg) bool { return true },
+			checkPerformResponse,
+		)
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
 		head := cltest.Head(36)
 
 		executer.OnNewLongestChain(context.Background(), head)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
 		etxs[0].AwaitOrFail(t)
 		waitLastRunHeight(t, db, upkeep, 36)
-
-		// heads 37, 38 etc do nothing
-		for i := 37; i < 40; i++ {
-			head = cltest.Head(i)
-			executer.OnNewLongestChain(context.Background(), head)
-		}
-
-		// head 40 triggers a new run
-		head = cltest.Head(40)
-
-		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.NewTx) bool { return newTx.GasLimit == gasLimit }),
-		).
-			Once().
-			Return(txmgr.EthTx{}, nil).
-			Run(func(mock.Arguments) { etxs[1].ItHappened() })
-
-		executer.OnNewLongestChain(context.Background(), head)
-		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		require.Len(t, runs, 2)
-		assert.False(t, runs[1].HasErrors())
-		etxs[1].AwaitOrFail(t)
-		waitLastRunHeight(t, db, upkeep, 40)
 
 		ethMock.AssertExpectations(t)
 	})
@@ -325,7 +326,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t)
 
 	wasCalled := atomic.NewBool(false)
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)
 	})

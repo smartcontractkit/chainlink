@@ -4,24 +4,24 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 // The Median struct holds parameters needed to run a Median plugin.
 type Median struct {
 	jb             job.Job
-	ocr2Provider   types.OCR2ProviderCtx
+	ocr2Provider   types.MedianProvider
 	pipelineRunner pipeline.Runner
 	runResults     chan pipeline.Run
 	lggr           logger.Logger
@@ -33,7 +33,7 @@ type Median struct {
 var _ plugins.OraclePlugin = &Median{}
 
 // NewMedian parses the arguments and returns a new Median struct.
-func NewMedian(jb job.Job, ocr2Provider types.OCR2ProviderCtx, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (*Median, error) {
+func NewMedian(jb job.Job, ocr2Provider types.MedianProvider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (*Median, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {

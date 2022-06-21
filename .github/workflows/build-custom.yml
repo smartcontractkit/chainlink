@@ -18,6 +18,11 @@ on:
         required: false
         default: main
         type: string
+      dep_starknet_sha:
+        description: chainlink-starknet commit or branch
+        required: false
+        default: main
+        type: string
   workflow_call:
     inputs:
       cl_repo:
@@ -38,6 +43,10 @@ on:
         required: false
         description: chainlink-terra commit or branch
         type: string
+      dep_starknet_sha:
+        required: false
+        description: chainlink-starknet commit or branch
+        type: string
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -54,10 +63,16 @@ on:
       QA_KUBECONFIG:
         required: true
         description: The kubernetes configuation to use
+      QA_PRIVATE_GHA_PULL:
+        required: false
+        description: Token to pull private repos
 jobs:
   build-chainlink:
     name: Build Chainlink Image
     runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/smartcontractkit/chainlink-starknet
+      GH_ACCESS_TOKEN: ${{ secrets.QA_PRIVATE_GHA_PULL }}
     steps:
       - name: Checkout Chainlink repo
         uses: actions/checkout@v2
@@ -67,6 +82,8 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: ^1.18
+      - name: Replace GHA URL
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: Replace Solana deps manual flow
         if: ${{ github.event.inputs.dep_solana_sha }}
         run: |
@@ -75,6 +92,10 @@ jobs:
         if: ${{ github.event.inputs.dep_terra_sha }}
         run: |
           go get github.com/smartcontractkit/chainlink-terra@${{ github.event.inputs.dep_terra_sha }}
+      - name: Replace StarkNet deps manual flow
+        if: ${{ github.event.inputs.dep_starknet_sha }}
+        run: |
+          go get github.com/smartcontractkit/chainlink-starknet@${{ github.event.inputs.dep_starknet_sha }}
       - name: Replace Solana deps workflow_call
         if: ${{ inputs.dep_solana_sha }}
         run: |
@@ -83,6 +104,10 @@ jobs:
         if: ${{ inputs.dep_terra_sha }}
         run: |
           go get github.com/smartcontractkit/chainlink-terra@${{ inputs.dep_terra_sha }}
+      - name: Replace StarkNET deps workflow_call
+        if: ${{ inputs.dep_starknet_sha }}
+        run: |
+          go get github.com/smartcontractkit/chainlink-starknet@${{ inputs.dep_starknet_sha }}
       - name: Tidy
         run: |
           go mod tidy

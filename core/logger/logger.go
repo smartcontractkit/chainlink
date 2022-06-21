@@ -32,6 +32,8 @@ func init() {
 	}
 }
 
+//go:generate mockery --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
 //
@@ -60,10 +62,6 @@ type Logger interface {
 	//   a := l.Named("a") // logger=a
 	//   b := a.Named("b") // logger=a.b
 	Named(name string) Logger
-
-	// NewRootLogger creates a new root Logger with an independent log level
-	// unaffected by upstream calls to SetLogLevel.
-	NewRootLogger(lvl zapcore.Level) (Logger, error)
 
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
@@ -126,14 +124,6 @@ const (
 	FluxMonitor     = "FluxMonitor"
 	Keeper          = "Keeper"
 )
-
-func GetLogServices() []string {
-	return []string{
-		HeadTracker,
-		FluxMonitor,
-		Keeper,
-	}
-}
 
 // newZapConfigProd returns a new production zap.Config.
 func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {

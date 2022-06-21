@@ -33,9 +33,10 @@ func TestValidatedKeeperSpec(t *testing.T) {
 			name: "valid job spec",
 			args: args{
 				tomlString: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-					Name:            "example keeper spec",
-					ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
-					FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+					Name:              "example keeper spec",
+					ContractAddress:   "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+					FromAddress:       "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+					ObservationSource: ExpectedObservationSource,
 				}).Toml(),
 			},
 			want: want{
@@ -53,7 +54,7 @@ func TestValidatedKeeperSpec(t *testing.T) {
 			args: args{
 				tomlString: `
 type            			= "keeper"
-schemaVersion   			= 3
+schemaVersion   			= 1
 name            			= "example keeper spec"
 contractAddress 			= "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress     			= "0xa8037A20989AFcBC51798de9762b351D63ff462e"
@@ -72,7 +73,7 @@ check_upkeep_tx          [type=ethcall
                           gasTipCap="$(jobSpec.gasTipCap)"
                           gasFeeCap="$(jobSpec.gasFeeCap)"
                           extractRevertReason=true
-													evmChainID="$(jobSpec.evmChainID)"
+                          evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode
@@ -80,15 +81,27 @@ decode_check_upkeep_tx   [type=ethabidecode
 encode_perform_upkeep_tx [type=ethabiencode
                           abi="performUpkeep(uint256 id, bytes calldata performData)"
                           data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
+simulate_perform_upkeep_tx  [type=ethcall
+                          extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
+                          contract="$(jobSpec.contractAddress)"
+                          from="$(jobSpec.fromAddress)"
+                          gas="$(jobSpec.performUpkeepGasLimit)"
+                          data="$(encode_perform_upkeep_tx)"]
+decode_check_perform_tx  [type=ethabidecode
+                          abi="bool success"]
+check_success            [type=conditional
+                          failEarly=true
+                          data="$(decode_check_perform_tx.success)"]
 perform_upkeep_tx        [type=ethtx
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
                           from="[$(jobSpec.fromAddress)]"
                           evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.prettyID)}"]
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx
 """
 `,
 			},
@@ -107,7 +120,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 			args: args{
 				tomlString: `
 type            = "keeper"
-schemaVersion   = 3
+schemaVersion   = 1
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
@@ -136,7 +149,7 @@ perform_upkeep_tx        [type=ethtx
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
                           data="$(encode_perform_upkeep_tx)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.prettyID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `,

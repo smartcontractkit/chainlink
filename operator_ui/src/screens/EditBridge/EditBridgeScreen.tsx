@@ -58,10 +58,6 @@ export const EditBridgeScreen = () => {
     },
   )
 
-  React.useEffect(() => {
-    document.title = 'New Bridge'
-  }, [])
-
   if (loading) {
     return <Loading />
   }

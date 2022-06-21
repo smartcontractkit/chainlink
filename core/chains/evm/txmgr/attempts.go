@@ -124,6 +124,7 @@ func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit 
 	attempt.Hash = hash
 	attempt.TxType = 0
 	attempt.ChainSpecificGasLimit = gasLimit
+	attempt.EthTx = etx
 
 	return attempt, nil
 }
@@ -154,6 +155,7 @@ func (c *ChainKeyStore) newSignedAttempt(etx EthTx, tx *types.Transaction) (atte
 	attempt.State = EthTxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.EthTxID = etx.ID
+	attempt.EthTx = etx
 	attempt.Hash = hash
 
 	return attempt, nil

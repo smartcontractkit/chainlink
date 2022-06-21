@@ -50,8 +50,8 @@ type chain struct {
 }
 
 // NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain types.Chain, orm types.ORM, lggr logger.Logger) (*chain, error) {
-	cfg := terra.NewConfig(dbchain.Cfg, lggr)
+func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain types.DBChain, orm types.ORM, lggr logger.Logger) (*chain, error) {
+	cfg := terra.NewConfig(*dbchain.Cfg, lggr)
 	lggr = lggr.With("terraChainID", dbchain.ID)
 	var ch = chain{
 		id:   dbchain.ID,
@@ -85,8 +85,8 @@ func (c *chain) Config() terra.Config {
 	return c.cfg
 }
 
-func (c *chain) UpdateConfig(cfg db.ChainCfg) {
-	c.cfg.Update(cfg)
+func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
+	c.cfg.Update(*cfg)
 }
 
 func (c *chain) TxManager() terra.TxManager {

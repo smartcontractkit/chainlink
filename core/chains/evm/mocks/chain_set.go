@@ -7,6 +7,7 @@ import (
 	big "math/big"
 
 	evm "github.com/smartcontractkit/chainlink/core/chains/evm"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -20,18 +21,18 @@ type ChainSet struct {
 }
 
 // Add provides a mock function with given fields: ctx, id, config
-func (_m *ChainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error) {
+func (_m *ChainSet) Add(ctx context.Context, id utils.Big, config *types.ChainCfg) (types.DBChain, error) {
 	ret := _m.Called(ctx, id, config)
 
-	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, types.ChainCfg) types.Chain); ok {
+	var r0 types.DBChain
+	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, *types.ChainCfg) types.DBChain); ok {
 		r0 = rf(ctx, id, config)
 	} else {
-		r0 = ret.Get(0).(types.Chain)
+		r0 = ret.Get(0).(types.DBChain)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, types.ChainCfg) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, *types.ChainCfg) error); ok {
 		r1 = rf(ctx, id, config)
 	} else {
 		r1 = ret.Error(1)
@@ -85,19 +86,40 @@ func (_m *ChainSet) Close() error {
 }
 
 // Configure provides a mock function with given fields: ctx, id, enabled, config
-func (_m *ChainSet) Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config *types.ChainCfg) (types.DBChain, error) {
 	ret := _m.Called(ctx, id, enabled, config)
 
-	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, bool, types.ChainCfg) types.Chain); ok {
+	var r0 types.DBChain
+	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, *types.ChainCfg) types.DBChain); ok {
 		r0 = rf(ctx, id, enabled, config)
 	} else {
-		r0 = ret.Get(0).(types.Chain)
+		r0 = ret.Get(0).(types.DBChain)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, bool, types.ChainCfg) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, bool, *types.ChainCfg) error); ok {
 		r1 = rf(ctx, id, enabled, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// CreateNode provides a mock function with given fields: ctx, data
+func (_m *ChainSet) CreateNode(ctx context.Context, data types.Node) (types.Node, error) {
+	ret := _m.Called(ctx, data)
+
+	var r0 types.Node
+	if rf, ok := ret.Get(0).(func(context.Context, types.Node) types.Node); ok {
+		r0 = rf(ctx, data)
+	} else {
+		r0 = ret.Get(0).(types.Node)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, types.Node) error); ok {
+		r1 = rf(ctx, data)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -126,6 +148,20 @@ func (_m *ChainSet) Default() (evm.Chain, error) {
 	}
 
 	return r0, r1
+}
+
+// DeleteNode provides a mock function with given fields: ctx, id
+func (_m *ChainSet) DeleteNode(ctx context.Context, id int32) error {
+	ret := _m.Called(ctx, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Get provides a mock function with given fields: id
@@ -269,6 +305,36 @@ func (_m *ChainSet) Healthy() error {
 	return r0
 }
 
+// Index provides a mock function with given fields: offset, limit
+func (_m *ChainSet) Index(offset int, limit int) ([]types.DBChain, int, error) {
+	ret := _m.Called(offset, limit)
+
+	var r0 []types.DBChain
+	if rf, ok := ret.Get(0).(func(int, int) []types.DBChain); ok {
+		r0 = rf(offset, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.DBChain)
+		}
+	}
+
+	var r1 int
+	if rf, ok := ret.Get(1).(func(int, int) int); ok {
+		r1 = rf(offset, limit)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(int, int) error); ok {
+		r2 = rf(offset, limit)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // ORM provides a mock function with given fields:
 func (_m *ChainSet) ORM() types.ORM {
 	ret := _m.Called()
@@ -300,17 +366,38 @@ func (_m *ChainSet) Ready() error {
 }
 
 // Remove provides a mock function with given fields: id
-func (_m *ChainSet) Remove(id *big.Int) error {
+func (_m *ChainSet) Remove(id utils.Big) error {
 	ret := _m.Called(id)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
+	if rf, ok := ret.Get(0).(func(utils.Big) error); ok {
 		r0 = rf(id)
 	} else {
 		r0 = ret.Error(0)
 	}
 
 	return r0
+}
+
+// Show provides a mock function with given fields: id
+func (_m *ChainSet) Show(id utils.Big) (types.DBChain, error) {
+	ret := _m.Called(id)
+
+	var r0 types.DBChain
+	if rf, ok := ret.Get(0).(func(utils.Big) types.DBChain); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(types.DBChain)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(utils.Big) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Start provides a mock function with given fields: _a0
