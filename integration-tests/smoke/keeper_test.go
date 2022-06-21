@@ -54,7 +54,6 @@ var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(
 var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
 var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
 var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
-var _ = Describe("Keeper v1.1 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, PauseRegistryTest))
 var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -577,14 +576,9 @@ func getKeeperSuite(
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
-					// Just to make sure, give the registry a bit of time to finish the pausing operation
-					//time.Sleep(5 * time.Second)
-
-					// Remember how many times each upkeep performed once the registry was paused
+					// Store how many times each upkeep performed once the registry was successfully paused
 					var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 					for i := 0; i < len(upkeepIDs); i++ {
-						// Obtain the amount of times the upkeep has been executed so far,
-						// after the registry has been successfully paused
 						countersAfterPause[i], err = consumers[i].Counter(context.Background())
 						Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
 					}
