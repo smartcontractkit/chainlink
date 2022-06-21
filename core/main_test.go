@@ -157,6 +157,7 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
+	//    dump         Dump a TOML file equivalent to the current environment and database configuration
 	//    list         Show the node's environment variables
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
