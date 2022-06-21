@@ -524,8 +524,7 @@ func getKeeperSuite(
 							counter, err := consumers[upkeepID].Counter(context.Background())
 							initialCounters[upkeepID] = counter
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(upkeepID))
-							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
-								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+							g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 
@@ -539,7 +538,7 @@ func getKeeperSuite(
 					payees := make([]string, len(keepers)-1)
 					for i := 0; i < len(payees); i++ {
 						payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
-						Expect(err).ShouldNot(HaveOccurred(), "Failed to build the payee list")
+						Expect(err).ShouldNot(HaveOccurred(), "Shouldn't encounter error when building the payee list")
 					}
 
 					err = registry.SetKeepers(newKeeperList, payees)
@@ -553,9 +552,8 @@ func getKeeperSuite(
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
-							g.Expect(counter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
-								"Expected consumer counter to be greater than initial counter which "+
-									"was %d, but got %d", initialCounters[i], counter)
+							g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
+								"than initial counter which was %s, but got %s", initialCounters[i], counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
@@ -605,6 +603,7 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
+
 		})
 
 		AfterEach(func() {
