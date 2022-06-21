@@ -64,7 +64,7 @@ func (k Key) GoString() string {
 
 // String returns the string representation of this key
 func (k Key) String() string {
-	return fmt.Sprintf("DKGSignKeyV2{PrivateKey: <redacted>, PublicKey: %s", k.PublicKey)
+	return fmt.Sprintf("DKGSignKey{PrivateKey: <redacted>, PublicKey: %s", k.PublicKey)
 }
 
 // ID returns the ID of this key

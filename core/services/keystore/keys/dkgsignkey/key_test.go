@@ -21,10 +21,10 @@ func TestStringers(t *testing.T) {
 	key := MustNewXXXTestingOnly(big.NewInt(1337))
 	assert.Equal(t, "becd7a86af89b2f3ffd11fabe897de820b74cd2956c6e047a14e35d090ade17d", key.PublicKeyString())
 	assert.Equal(t,
-		"DKGSignKeyV2{PrivateKey: <redacted>, PublicKey: becd7a86af89b2f3ffd11fabe897de820b74cd2956c6e047a14e35d090ade17d",
+		"DKGSignKey{PrivateKey: <redacted>, PublicKey: becd7a86af89b2f3ffd11fabe897de820b74cd2956c6e047a14e35d090ade17d",
 		key.String())
 	assert.Equal(t,
-		"DKGSignKeyV2{PrivateKey: <redacted>, PublicKey: becd7a86af89b2f3ffd11fabe897de820b74cd2956c6e047a14e35d090ade17d",
+		"DKGSignKey{PrivateKey: <redacted>, PublicKey: becd7a86af89b2f3ffd11fabe897de820b74cd2956c6e047a14e35d090ade17d",
 		key.GoString())
 	assert.Equal(t,
 		"becd7a86af89b2f3ffd11fabe897de820b74cd2956c6e047a14e35d090ade17d",

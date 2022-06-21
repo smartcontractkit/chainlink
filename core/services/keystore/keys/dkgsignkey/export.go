@@ -11,7 +11,7 @@ import (
 
 const keyTypeIdentifier = "DKGSign"
 
-// FromEncryptedJSON returns a dkgsignkey.KeyV2 from encrypted data in go-ethereum keystore format.
+// FromEncryptedJSON returns a dkgsignkey.Key from encrypted data in go-ethereum keystore format.
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 	var export EncryptedDKGSignKeyExport
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
