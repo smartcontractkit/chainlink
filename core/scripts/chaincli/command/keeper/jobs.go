@@ -15,6 +15,6 @@ var jobCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
-		hdlr.DeployKeepers(cmd.Context())
+		hdlr.CreateJob(cmd.Context())
 	},
 }
