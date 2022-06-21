@@ -7,11 +7,6 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -529,7 +524,8 @@ func getKeeperSuite(
 							counter, err := consumers[upkeepID].Counter(context.Background())
 							initialCounters[upkeepID] = counter
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(upkeepID))
-							g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
+							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 						}
 					}, "1m", "1s").Should(Succeed())
 
@@ -543,7 +539,7 @@ func getKeeperSuite(
 					payees := make([]string, len(keepers)-1)
 					for i := 0; i < len(payees); i++ {
 						payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
-						Expect(err).ShouldNot(HaveOccurred(), "Shouldn't encounter error when building the payee list")
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to build the payee list")
 					}
 
 					err = registry.SetKeepers(newKeeperList, payees)
@@ -557,8 +553,9 @@ func getKeeperSuite(
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
-							g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
-								"than initial counter which was %s, but got %s", initialCounters[i], counter)
+							g.Expect(counter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+								"Expected consumer counter to be greater than initial counter which "+
+									"was %d, but got %d", initialCounters[i], counter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
@@ -566,86 +563,44 @@ func getKeeperSuite(
 
 			if testToRun == PauseRegistryTest {
 				It("pauses the registry and makes sure that the upkeeps are no longer performed", func() {
-					var initialCounters = make([]*big.Int, len(upkeepIDs))
-
-					// Observe that the upkeeps which are initially registered are performing and
-					// store the value of their initial counters in order to compare later on after we pause the registry.
+					// Observe that the upkeeps which are initially registered are performing
 					Eventually(func(g Gomega) {
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(context.Background())
-							initialCounters[i] = counter
-							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
 							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
-								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
-							log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
+								"Expected consumer counter to be greater than 0, but got %d")
 						}
 					}, "1m", "1s").Should(Succeed())
 
-					// Pause the registry...how do I pause the registry?
-					//client, err := ethclient.Dial("https://rinkeby.infura.io")
-					//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when setting up the client")
-					//privateKey, err := crypto.HexToECDSA("fad9c8855b740a0b7ed4c221dbad0f33a83a49cad6b3fe8d5817ac83d38b6a19")
-					//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when generating the private key")
-					//
-					//publicKey := privateKey.Public()
-					//publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-					//if !ok {
-					//	log.Fatal()
-					//}
-					//
-					//fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-					//nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-					//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when obtaining the nonce")
-					//
-					//gasPrice, err := client.SuggestGasPrice(context.Background())
-					//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when suggesting the gas price")
-					//
-					//auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1))
-					//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when binding")
-					//auth.Nonce = big.NewInt(int64(nonce))
-					//auth.Value = big.NewInt(0)     // in wei
-					//auth.GasLimit = uint64(300000) // in units
-					//auth.GasPrice = gasPrice
-
-					//fmt.Println("--------------------------------------------")
-					//transactor, err :=
-					//	ethereum.NewKeeperRegistryTransactor(common.HexToAddress(registry.Address()), nil)
-
-					//var opts *bind.TransactOpts
-					//opts.From = common.HexToAddress(networks.Default.GetDefaultWallet().Address())
-					//transaction, err := transactor.Pause(opts)
-
-					//fmt.Println(transaction)
-					//Expect(err).ShouldNot(HaveOccurred(), "Error encountered when pausing the registry")
-
-					// Create the ethereumRegistry
-					key, err := crypto.GenerateKey()
-					user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-					registryAddress := common.BytesToAddress([]byte(registry.Address()))
-					simulatedBackend := backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, uint64(upkeepGasLimit))
-					ethereumRegistry, err := ethereum.NewKeeperRegistry(registryAddress, simulatedBackend)
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to create the instance of the registry on ethereum")
+					// Pause the registry
+					err := registry.Pause()
+					Expect(err).ShouldNot(HaveOccurred(), "Could not pause the registry")
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
-					// We need to create a keeperRegistrySession and assign values to it
-					var keeperRegistrySession *ethereum.KeeperRegistrySession
-					keeperRegistrySession.Contract = ethereumRegistry
+					var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 
-					_, err = keeperRegistrySession.Pause()
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to pause the registry")
-					err = networks.Default.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+					for i := 0; i < len(upkeepIDs); i++ {
+						// Obtain the amount of times the upkeep has been executed so far,
+						// after the registry has been successfully paused
+						countersAfterPause[i], err = consumers[i].Counter(context.Background())
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+					}
 
-					// After we paused the registry, the counters of all the upkeeps should stay constant because
-					// they are no longer getting serviced.
+					// After we paused the registry, the counters of all the upkeeps should stay constant
+					// because they are no longer getting serviced
 					Consistently(func(g Gomega) {
 						for i := 0; i < len(upkeepIDs); i++ {
 							latestCounter, err := consumers[i].Counter(context.Background())
-							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-							g.Expect(latestCounter.Int64()).Should(Equal(initialCounters[i].Int64()),
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+
+							fmt.Println("latest counter is " + strconv.Itoa(int(latestCounter.Int64())) +
+								" and initial counter is " + strconv.Itoa(int(countersAfterPause[i].Int64())))
+
+							g.Expect(latestCounter.Int64()).Should(Equal(countersAfterPause[i].Int64()),
 								"Expected consumer counter to remain constant at %d, but got %d",
-								initialCounters[i].Int64(), latestCounter.Int64())
+								countersAfterPause[i], latestCounter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
