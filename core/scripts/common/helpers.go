@@ -1,11 +1,100 @@
 package common
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"math/big"
+	"os"
+	"strconv"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/shopspring/decimal"
 )
+
+type Environment struct {
+	Owner   *bind.TransactOpts
+	Ec      *ethclient.Client
+	ChainID int64
+}
+
+func SetupEnv() Environment {
+	ethURL, set := os.LookupEnv("ETH_URL")
+	if !set {
+		panic("need eth url")
+	}
+
+	chainIDEnv, set := os.LookupEnv("ETH_CHAIN_ID")
+	if !set {
+		panic("need chain ID")
+	}
+
+	accountKey, set := os.LookupEnv("ACCOUNT_KEY")
+	if !set {
+		panic("need account key")
+	}
+
+	if len(os.Args) < 2 {
+		fmt.Println("expected subcommand")
+		os.Exit(1)
+	}
+
+	ec, err := ethclient.Dial(ethURL)
+	PanicErr(err)
+
+	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
+	PanicErr(err)
+
+	// Owner key. Make sure it has eth
+	b, err := hex.DecodeString(accountKey)
+	PanicErr(err)
+	d := new(big.Int).SetBytes(b)
+
+	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
+	privateKey := ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: crypto.S256(),
+			X:     pkX,
+			Y:     pkY,
+		},
+		D: d,
+	}
+	owner, err := bind.NewKeyedTransactorWithChainID(&privateKey, big.NewInt(chainID))
+	PanicErr(err)
+	// Explicitly set gas price to ensure non-eip 1559
+	gp, err := ec.SuggestGasPrice(context.Background())
+	PanicErr(err)
+	owner.GasPrice = gp
+	gasLimit, set := os.LookupEnv("GAS_LIMIT")
+	if set {
+		parsedGasLimit, err := strconv.ParseUint(gasLimit, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Failure while parsing GAS_LIMIT: %s", gasLimit))
+		}
+		owner.GasLimit = parsedGasLimit
+	}
+
+	// the execution environment for the scripts
+	return Environment{owner, ec, chainID}
+
+	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
+	//
+	//block, err := ec.BlockNumber(context.Background())
+	//helpers.PanicErr(err)
+	//
+	//nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
+	//helpers.PanicErr(err)
+	//
+	//owner.Nonce = big.NewInt(int64(nonce))
+	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+}
 
 // PanicErr panic if error detected
 func PanicErr(err error) {
@@ -72,4 +161,46 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	}
 
 	return fmt.Sprintf(fmtURL, txHash.String())
+}
+
+func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) {
+	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
+	receipt, err := bind.WaitMined(context, client, transaction)
+	PanicErr(err)
+	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber, "\nGas Used: ", receipt.GasUsed)
+}
+
+func ConfirmContractDeployed(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64) (address common.Address) {
+	fmt.Println("Executing contract deployment, TX:", ExplorerLink(chainID, transaction.Hash()))
+	contractAddress, err := bind.WaitDeployed(context, client, transaction)
+	PanicErr(err)
+	fmt.Println("Contract Address:", contractAddress.String())
+	return contractAddress
+}
+
+func ParseIntSlice(arg string) (ret []*big.Int) {
+	parts := strings.Split(arg, ",")
+	ret = []*big.Int{}
+	for _, part := range parts {
+		ret = append(ret, decimal.RequireFromString(part).BigInt())
+	}
+	return ret
+}
+
+func ParseAddressSlice(arg string) (ret []common.Address) {
+	parts := strings.Split(arg, ",")
+	ret = []common.Address{}
+	for _, part := range parts {
+		ret = append(ret, common.HexToAddress(part))
+	}
+	return
+}
+
+func ParseHashSlice(arg string) (ret []common.Hash) {
+	parts := strings.Split(arg, ",")
+	ret = []common.Hash{}
+	for _, part := range parts {
+		ret = append(ret, common.HexToHash(part))
+	}
+	return
 }

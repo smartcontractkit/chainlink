@@ -87,6 +87,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+require github.com/smartcontractkit/ocr2vrf v0.0.0-20220621010714-4100b0eaea89 // indirect
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
