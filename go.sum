@@ -1959,6 +1959,8 @@ github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36/go.mod h1:qquS7H2ETYDSzmZmsNcYeQr4kOMmfDxCthBIFE2Xa88=
 github.com/smartcontractkit/libocr v0.0.0-20220512162406-9e4afd8896f3 h1:SpaPYF6Yf/9D4Ilj6S9Yti5kMMe86xlliWQpGwaAFok=
 github.com/smartcontractkit/libocr v0.0.0-20220512162406-9e4afd8896f3/go.mod h1:tHNcoCeQdbRfjvVZjvd3n8yNTKUdnM+NmlWgSHhfceY=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20220621025357-4e7ffb3fbe46 h1:1yUQFiV+/aHeYhy37G2cQO/KESDnqgkihGfnWAC8jc8=
+github.com/smartcontractkit/ocr2vrf v0.0.0-20220621025357-4e7ffb3fbe46/go.mod h1:jRJ/UoepRcASUNlfykfMPXpvigLCry2e5Ezavtpbhzk=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16 h1:k+E0RKzVSG1QpxXakNUtcGUhq4ZMe0MAJ5Awg/l9oSc=
