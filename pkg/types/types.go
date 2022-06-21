@@ -57,3 +57,20 @@ type MedianProvider interface {
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
 }
+
+// OCR2VRFRelayer contains the relayer and instantiating functions for OCR2VRF providers.
+type OCR2VRFRelayer interface {
+	Relayer
+	NewDKGProvider(rargs RelayArgs, transmitterID string) (DKGProvider, error)
+	NewOCR2VRFProvider(rargs RelayArgs, transmitterID string) (OCR2VRFProvider, error)
+}
+
+// DKGProvider provides all components needed for a DKG plugin.
+type DKGProvider interface {
+	Plugin
+}
+
+// OCR2VRFProvider provides all components needed for a OCR2VRF plugin.
+type OCR2VRFProvider interface {
+	Plugin
+}
