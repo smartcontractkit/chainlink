@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"gopkg.in/guregu/null.v4"
 )
 
 // Corresponds with models.d.ts PipelineRun
@@ -19,7 +20,7 @@ type PipelineRunResource struct {
 	Inputs       pipeline.JSONSerializable `json:"inputs"`
 	TaskRuns     []PipelineTaskRunResource `json:"taskRuns"`
 	CreatedAt    time.Time                 `json:"createdAt"`
-	FinishedAt   time.Time                 `json:"finishedAt"`
+	FinishedAt   null.Time                 `json:"finishedAt"`
 	PipelineSpec PipelineSpec              `json:"pipelineSpec"`
 }
 
@@ -51,7 +52,7 @@ func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunReso
 		Inputs:       pr.Inputs,
 		TaskRuns:     trs,
 		CreatedAt:    pr.CreatedAt,
-		FinishedAt:   pr.FinishedAt.ValueOrZero(),
+		FinishedAt:   pr.FinishedAt,
 		PipelineSpec: NewPipelineSpec(&pr.PipelineSpec),
 	}
 }
@@ -60,7 +61,7 @@ func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunReso
 type PipelineTaskRunResource struct {
 	Type       pipeline.TaskType `json:"type"`
 	CreatedAt  time.Time         `json:"createdAt"`
-	FinishedAt time.Time         `json:"finishedAt"`
+	FinishedAt null.Time         `json:"finishedAt"`
 	Output     *string           `json:"output"`
 	Error      *string           `json:"error"`
 	DotID      string            `json:"dotId"`
@@ -85,7 +86,7 @@ func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 	return PipelineTaskRunResource{
 		Type:       tr.Type,
 		CreatedAt:  tr.CreatedAt,
-		FinishedAt: tr.FinishedAt.ValueOrZero(),
+		FinishedAt: tr.FinishedAt,
 		Output:     output,
 		Error:      error,
 		DotID:      tr.GetDotID(),
