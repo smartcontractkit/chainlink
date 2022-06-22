@@ -129,7 +129,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	}, nil
 }
 
-func getContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
 	transmitterAddress := common.HexToAddress(transmitterID)
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
@@ -151,7 +151,7 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := getContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
 	if err != nil {
 		return nil, err
 	}
@@ -210,12 +210,12 @@ type dkgProvider struct {
 
 var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
 
-func (c *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.DKGProvider, error) {
-	configWatcher, err := newConfigProvider(c.lggr, c.chainSet, rargs)
+func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.DKGProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := getContractTransmitter(c.lggr, rargs, transmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, transmitterID, configWatcher)
 	if err != nil {
 		return nil, err
 	}
@@ -236,12 +236,12 @@ type vrfProvider struct {
 
 var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
 
-func (c *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.OCR2VRFProvider, error) {
-	configWatcher, err := newConfigProvider(c.lggr, c.chainSet, rargs)
+func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.OCR2VRFProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := getContractTransmitter(c.lggr, rargs, transmitterID, configWatcher)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, transmitterID, configWatcher)
 	if err != nil {
 		return nil, err
 	}

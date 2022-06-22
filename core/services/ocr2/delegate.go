@@ -172,7 +172,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		ocr2Provider = dkgProvider
-		pluginOracle, err = dkg.NewDKG(lggr)
+		pluginOracle, err = dkg.NewDKG(lggr.Named("DKG"))
 	case job.OCR2VRF:
 		ocr2vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
 			types.RelayArgs{
@@ -185,7 +185,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, err2
 		}
 		ocr2Provider = ocr2vrfProvider
-		pluginOracle, err = ocr2vrf.NewOCR2VRF(lggr)
+		pluginOracle, err = ocr2vrf.NewOCR2VRF(lggr.Named("OCR2VRF"))
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
