@@ -452,7 +452,7 @@ func getKeeperSuite(
 					Eventually(func(g Gomega) {
 						for i := 0; i < len(upkeepIDs); i++ {
 							currentCounter, err := consumers[i].Counter(context.Background())
-							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 							g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
 								"Expected counter to have increased from initial value of %s, but got %s",
 								initialCounters[i], currentCounter)
