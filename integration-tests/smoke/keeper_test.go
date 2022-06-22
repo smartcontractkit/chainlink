@@ -462,7 +462,6 @@ func getKeeperSuite(
 								Int64("Upkeep counter", currentCounter.Int64()).
 								Int64("initial counter", initialCounters[i].Int64()).
 								Msg("Num Upkeeps performed")
-							Expect(initialCounters[i].Int64() < currentCounter.Int64()).To(BeTrue())
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
