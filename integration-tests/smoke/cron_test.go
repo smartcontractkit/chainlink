@@ -3,16 +3,18 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/helmenv/environment"
 )
 
 var _ = Describe("Cronjob suite @cron", func() {
@@ -20,39 +22,36 @@ var _ = Describe("Cronjob suite @cron", func() {
 		err           error
 		job           *client.Job
 		chainlinkNode client.Chainlink
-		mockserver    *client.MockserverClient
+		ms            *client.MockserverClient
 		e             *environment.Environment
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			e, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(
-					config.ChainlinkVals(),
-					"chainlink-cron-core-ci",
-					config.GethNetworks()...,
-				),
-			)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
-			err = e.ConnectAll()
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to all nodes shouldn't fail")
+			e = environment.New(nil).
+				AddHelm(mockservercfg.New(nil)).
+				AddHelm(mockserver.New(nil)).
+				AddHelm(ethereum.New(nil)).
+				AddHelm(chainlink.New(0, nil))
+			err = e.Run()
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
 			cls, err := client.ConnectChainlinkNodes(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			mockserver, err = client.ConnectMockServer(e)
+			ms, err = client.ConnectMockServer(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver client shouldn't fail")
 			chainlinkNode = cls[0]
 		})
 
 		By("Adding cron job to a node", func() {
-			err = mockserver.SetValuePath("/variable", 5)
+			err = ms.SetValuePath("/variable", 5)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting value path in mockserver shouldn't fail")
 
 			bta := client.BridgeTypeAttributes{
 				Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
-				URL:         fmt.Sprintf("%s/variable", mockserver.Config.ClusterURL),
+				URL:         fmt.Sprintf("%s/variable", ms.Config.ClusterURL),
 				RequestData: "{}",
 			}
 			err = chainlinkNode.CreateBridge(&bta)
@@ -83,10 +82,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
-			networkRegistry := blockchain.NewDefaultNetworkRegistry()
-			networks, err := networkRegistry.GetNetworks(e)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			err = actions.TeardownSuite(e, networks, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil)
+			err = actions.TeardownSuite(e, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})
