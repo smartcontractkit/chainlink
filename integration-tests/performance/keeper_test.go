@@ -91,6 +91,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				linkToken,
 				contractDeployer,
 				networks,
+				big.NewInt(9e18),
 			)
 			consumer = consumers[0]
 			registry = r
