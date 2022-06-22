@@ -1,4 +1,4 @@
-package vrf
+package ocr2vrf
 
 import (
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -7,25 +7,25 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-type VRFContainer struct {
+type OCR2VRFContainer struct {
 	logger logger.Logger
 }
 
-var _ plugins.OraclePlugin = &VRFContainer{}
+var _ plugins.OraclePlugin = &OCR2VRFContainer{}
 
-func NewVRF(l logger.Logger) (*VRFContainer, error) {
-	return &VRFContainer{
+func NewOCR2VRF(l logger.Logger) (*OCR2VRFContainer, error) {
+	return &OCR2VRFContainer{
 		logger: l,
 	}, nil
 }
 
-func (d *VRFContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
-	return VRFFactory{
+func (d *OCR2VRFContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
+	return OCR2VRFFactory{
 		logger: d.logger,
 	}, nil
 
 }
 
-func (d *VRFContainer) GetServices() ([]job.ServiceCtx, error) {
+func (d *OCR2VRFContainer) GetServices() ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{}, nil
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -174,7 +174,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		ocr2Provider = dkgProvider
 		pluginOracle, err = dkg.NewDKG(lggr)
 	case job.OCR2VRF:
-		vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
+		ocr2vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
@@ -184,8 +184,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		ocr2Provider = vrfProvider
-		pluginOracle, err = vrf.NewVRF(lggr)
+		ocr2Provider = ocr2vrfProvider
+		pluginOracle, err = ocr2vrf.NewOCR2VRF(lggr)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
