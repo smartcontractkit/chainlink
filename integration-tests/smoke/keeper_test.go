@@ -438,7 +438,9 @@ func getKeeperSuite(
 						for i := 0; i < len(upkeepIDs); i++ {
 							currentCounter, err := consumers[i].Counter(context.Background())
 							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-							Expect(initialCounters[i].Int64() < currentCounter.Int64()).To(BeTrue())
+							g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+								"Expected counter to have increased from initial value of %s, but got %s",
+								initialCounters[i], currentCounter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
