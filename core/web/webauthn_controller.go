@@ -28,7 +28,7 @@ func NewWebAuthnController(app chainlink.Application) WebAuthnController {
 
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	orm := c.App.SessionORM()
-	user, err := orm.FindUser()
+	user, err := orm.FindUser("TODO: Andrew")
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
@@ -56,7 +56,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	orm := c.App.SessionORM()
-	user, err := orm.FindUser()
+	user, err := orm.FindUser("TODO: Andrew")
 	if err != nil {
 		c.App.GetLogger().Errorf("error finding user: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))

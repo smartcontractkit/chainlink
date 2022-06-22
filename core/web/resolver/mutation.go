@@ -55,7 +55,7 @@ type createBridgeInput struct {
 
 // CreateBridge creates a new bridge.
 func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBridgeInput }) (*CreateBridgePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +98,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 }
 
 func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -117,7 +117,7 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteCSAKeyPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
@@ -155,7 +155,7 @@ type createFeedsManagerChainConfigInput struct {
 func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
 	Input *createFeedsManagerChainConfigInput
 }) (*CreateFeedsManagerChainConfigPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -226,7 +226,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struct {
 	ID string
 }) (*DeleteFeedsManagerChainConfigPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -277,7 +277,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	ID    string
 	Input *updateFeedsManagerChainConfigInput
 }) (*UpdateFeedsManagerChainConfigPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -347,7 +347,7 @@ type createFeedsManagerInput struct {
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 	Input *createFeedsManagerInput
 }) (*CreateFeedsManagerPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -397,7 +397,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input updateBridgeInput
 }) (*UpdateBridgePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -458,7 +458,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input *updateFeedsManagerInput
 }) (*UpdateFeedsManagerPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -500,7 +500,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 }
 
 func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundlePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -515,7 +515,7 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 	ID string
 }) (*DeleteOCRKeyBundlePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
@@ -533,7 +533,7 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 func (r *Resolver) CreateNode(ctx context.Context, args struct {
 	Input *types.NewNode
 }) (*CreateNodePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -554,7 +554,7 @@ func (r *Resolver) CreateNode(ctx context.Context, args struct {
 func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteNodePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -590,7 +590,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteBridgePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -625,7 +625,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 }
 
 func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -640,7 +640,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteP2PKeyPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
@@ -661,7 +661,7 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 }
 
 func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -676,7 +676,7 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteVRFKeyPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
@@ -696,7 +696,7 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 	ID    graphql.ID
 	Force *bool
 }) (*ApproveJobProposalSpecPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -732,7 +732,7 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*CancelJobProposalSpecPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -764,7 +764,7 @@ func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*RejectJobProposalSpecPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -797,7 +797,7 @@ func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args str
 	ID    graphql.ID
 	Input *struct{ Definition string }
 }) (*UpdateJobProposalSpecDefinitionPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -839,7 +839,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, errors.New("couldn't retrieve user session")
 	}
 
-	dbUser, err := r.App.SessionORM().FindUser()
+	dbUser, err := r.App.SessionORM().FindUser(session.User.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -865,7 +865,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 	Input struct{ Enabled bool }
 }) (*SetSQLLoggingPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
@@ -881,7 +881,13 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	dbUser, err := r.App.SessionORM().FindUser()
+	// TODO: Andrew - get current user here - different implementation for GraphQL mutations
+	// sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	// if !ok {
+	// 	jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+	// 	return
+	// }
+	dbUser, err := r.App.SessionORM().FindUser("")
 	if err != nil {
 		return nil, err
 	}
@@ -907,7 +913,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	dbUser, err := r.App.SessionORM().FindUser()
+	dbUser, err := r.App.SessionORM().FindUser("TODO: Andrew")
 	if err != nil {
 		return nil, err
 	}
@@ -935,7 +941,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		KeySpecificConfigs []*KeySpecificChainConfigInput
 	}
 }) (*CreateChainPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -983,7 +989,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		KeySpecificConfigs []*KeySpecificChainConfigInput
 	}
 }) (*UpdateChainPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1030,7 +1036,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 func (r *Resolver) DeleteChain(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteChainPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1062,7 +1068,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		TOML string
 	}
 }) (*CreateJobPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1125,7 +1131,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteJobPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1158,7 +1164,7 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DismissJobErrorPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1191,7 +1197,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 func (r *Resolver) RunJob(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*RunJobPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEditMinimal(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1220,7 +1226,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 	Level LogLevel
 }) (*SetGlobalLogLevelPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1245,7 +1251,7 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 	ChainType OCR2ChainType
 }) (*CreateOCR2KeyBundlePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -1263,7 +1269,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteOCR2KeyBundlePayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
+	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 

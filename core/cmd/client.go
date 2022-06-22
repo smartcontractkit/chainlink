@@ -621,8 +621,8 @@ func NewPromptingSessionRequestBuilder(prompter Prompter) SessionRequestBuilder 
 }
 
 func (p promptingSessionRequestBuilder) Build(string) (sessions.SessionRequest, error) {
-	email := p.prompter.Prompt("Enter email: ")
-	pwd := p.prompter.PasswordPrompt("Enter password: ")
+	email := "test-API@test.com" // p.prompter.Prompt("Enter email: ")
+	pwd := "p4SsW0rD1!@#_"       //p.prompter.PasswordPrompt("Enter password: ")
 	return sessions.SessionRequest{Email: email, Password: pwd}, nil
 }
 
@@ -658,7 +658,11 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
 func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
+	fmt.Printf("DEBUG: (t *promptingAPIInitializer) Initialize\n")
+
+	// TODO: Andrew get email from prompter instead, see core/cmd/client.go
+	// TODO prompt for email (or load from disk - then password) (but each time CLI runs?? lame)
+	if user, err := orm.FindUser("test-API@test.com"); err == nil {
 		return user, err
 	}
 
@@ -667,11 +671,14 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 	}
 
 	for {
-		email := t.prompter.Prompt("Enter API Email: ")
-		pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+		// email := t.prompter.Prompt("Enter API Email: ")
+		email := "test-API@test.com"
+		// pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+		pwd := "p4SsW0rD1!@#_" // Test dev, faster
+		fmt.Printf("DEBUG Initialize: %s %s\n\n", email, pwd)
 		user, err := sessions.NewUser(email, pwd)
 		if err != nil {
-			fmt.Println("Error creating API user: ", err)
+			fmt.Println("DEBUG: Error creating API user: ", err)
 			continue
 		}
 		if err = orm.CreateUser(&user); err != nil {
@@ -693,7 +700,9 @@ func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
 }
 
 func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
+	fmt.Printf("DEBUG: (f fileAPIInitializer) Initialize\n")
+	// TODO: Andrew get email from prompter instead, see core/cmd/client.go
+	if user, err := orm.FindUser("test-API@test.com"); err == nil {
 		return user, err
 	}
 

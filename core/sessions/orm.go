@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	FindUser() (User, error)
+	FindUser(email string) (User, error)
 	AuthorizedUserWithSession(sessionID string) (User, error)
 	DeleteUser() error
 	DeleteUserSession(sessionID string) error
@@ -52,28 +53,40 @@ func NewORM(db *sqlx.DB, sessionDuration time.Duration, lggr logger.Logger) ORM 
 	return &orm{db, sessionDuration, lggr.Named("SessionsORM")}
 }
 
-// FindUser will return the one API user, or an error.
-func (o *orm) FindUser() (User, error) {
-	return o.findUser()
+// FindUser will attempt to return an API user by email.
+func (o *orm) FindUser(email string) (User, error) {
+	return o.findUser(email)
 }
 
-func (o *orm) findUser() (user User, err error) {
-	sql := "SELECT * FROM users ORDER BY created_at desc LIMIT 1"
-	err = o.db.Get(&user, sql)
+func (o *orm) findUser(email string) (user User, err error) {
+	sql := "SELECT * FROM users WHERE email = $1 ORDER BY created_at desc LIMIT 1"
+	err = o.db.Get(&user, sql, email)
 	return
 }
 
-// AuthorizedUserWithSession will return the one API user if the Session ID exists
-// and hasn't expired, and update session's LastUsed field.
+// AuthorizedUserWithSession will return the API user associated with the Session ID if it
+// exists and hasn't expired, and update session's LastUsed field.
 func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 	if len(sessionID) == 0 {
 		return User{}, errors.New("Session ID cannot be empty")
 	}
 
+	// First find user based on session token
+	var email *string
+	if err := o.db.Get(&email, "SELECT email FROM sessions WHERE id = $1", sessionID); err != nil {
+		return User{}, err
+	}
+	user, err := o.FindUser(*email)
+	if err != nil {
+		return User{}, err
+	}
+
+	// Sesssion valid and tied to user, update last_used
 	result, err := o.db.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
 	if err != nil {
 		return User{}, err
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return User{}, err
@@ -81,7 +94,8 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 	if rowsAffected == 0 {
 		return User{}, sql.ErrNoRows
 	}
-	return o.FindUser()
+
+	return user, nil
 }
 
 // DeleteUser will delete the API User in the db.
@@ -93,7 +107,7 @@ func (o *orm) DeleteUser() error {
 			return err
 		}
 
-		_, err := tx.Exec("DELETE FROM sessions")
+		_, err := tx.Exec("DELETE FROM sessions") // TODO: Andrew - parameterize with WHERE user
 		return err
 	})
 }
@@ -123,7 +137,7 @@ func (o *orm) GetUserWebAuthn(email string) ([]WebAuthn, error) {
 // the hashed API User password in the db. Also will check WebAuthn if it's
 // enabled for that user.
 func (o *orm) CreateSession(sr SessionRequest) (string, error) {
-	user, err := o.FindUser()
+	user, err := o.FindUser(sr.Email)
 	if err != nil {
 		return "", err
 	}
@@ -152,7 +166,8 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if len(uwas) == 0 {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
-		_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
+		fmt.Printf("DEBUG: GOT HERE %#v, \nemail %#v\n \n", session, user)
+		_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 		return session.ID, err
 	}
 
@@ -190,8 +205,12 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	lggr.Infof("User passed MFA authentication and login will proceed")
 	// This is a success so we can create the sessions
 	session := NewSession()
-	_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
-	return session.ID, err
+	_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+	if err != nil {
+		return "", err
+	}
+
+	return session.ID, nil
 }
 
 const constantTimeEmailLength = 256
@@ -213,8 +232,9 @@ func (o *orm) ClearNonCurrentSessions(sessionID string) error {
 
 // Creates creates the user.
 func (o *orm) CreateUser(user *User) error {
-	sql := "INSERT INTO users (email, hashed_password, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *"
-	return o.db.Get(user, sql, user.Email, user.HashedPassword)
+	fmt.Printf("DEBUG (o *orm) CreateUser: %#v %s\n\n", user, UserRoleView)
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	return o.db.Get(user, sql, user.Email, user.HashedPassword, UserRoleView)
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.

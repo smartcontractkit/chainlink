@@ -28,6 +28,24 @@ type UpdatePasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+// Create creates a new API user with provided context arugments.
+func (c *UserController) Create(ctx *gin.Context) {
+	// TODO: Andrew - STUB
+	return
+}
+
+// Update changes an API user's role.
+func (c *UserController) Update(ctx *gin.Context) {
+	// TODO: Andrew - STUB
+	return
+}
+
+// Delete deletes an API user and any sessions by email
+func (c *UserController) Delete(ctx *gin.Context) {
+	// TODO: Andrew - STUB
+	return
+}
+
 // UpdatePassword changes the password for the current User.
 func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	var request UpdatePasswordRequest
@@ -36,7 +54,12 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.SessionORM().FindUser()
+	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	if !ok {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		return
+	}
+	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
@@ -61,7 +84,12 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.SessionORM().FindUser()
+	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	if !ok {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		return
+	}
+	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
@@ -87,7 +115,12 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.SessionORM().FindUser()
+	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	if !ok {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		return
+	}
+	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return

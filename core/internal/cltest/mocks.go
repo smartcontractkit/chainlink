@@ -349,7 +349,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 }
 
 func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
+	if user, err := orm.FindUser("user@chainlink.test"); err == nil {
 		return user, err
 	}
 	m.Count++

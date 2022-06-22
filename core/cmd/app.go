@@ -113,6 +113,27 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:  "users",
+					Usage: "Create, edit permissions, or delete API users",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new API user",
+							Action: client.CreateUser,
+						},
+						{
+							Name:   "update",
+							Usage:  "Updates an API user, changing email, password, or role",
+							Action: client.EditUser,
+						},
+						{
+							Name:   "delete",
+							Usage:  "Deletes an API user",
+							Action: client.DeleteUser,
+						},
+					},
+				},
 			},
 		},
 

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/contrib/sessions"
@@ -39,7 +40,7 @@ const (
 type Authenticator interface {
 	AuthorizedUserWithSession(sessionID string) (clsessions.User, error)
 	FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error)
-	FindUser() (clsessions.User, error)
+	FindUser(email string) (clsessions.User, error)
 }
 
 // authMethod defines a method which can be used to authenticate a request. This
@@ -78,14 +79,15 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		Secret:    c.GetHeader(APISecret),
 	}
 
-	user, err := authr.FindUser()
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return auth.ErrorAuthFailed
-		}
-
-		return err
-	}
+	// TODO: Andrew - this actually may not be needed anymore
+	// user, err := authr.FindUser("TODO: Andrew")
+	// if err != nil {
+	// 	if errors.Is(err, sql.ErrNoRows) {
+	// 		return auth.ErrorAuthFailed
+	// 	}
+	// 	return err
+	// }
+	var user clsessions.User
 
 	ok, err := clsessions.AuthenticateUserByToken(token, &user)
 	if err != nil {
@@ -138,10 +140,12 @@ var _ authMethod = AuthenticateExternalInitiator
 // Authenticate is middleware which authenticates the request by attempting to
 // authenticate using all the provided methods.
 func Authenticate(store Authenticator, methods ...authMethod) gin.HandlerFunc {
+	fmt.Printf("DEBUG - Authenticate\n")
 	return func(c *gin.Context) {
 		var err error
 		for _, method := range methods {
 			err = method(c, store)
+			fmt.Printf("DEBUG - Authenticate tried method: %v, err: %s\n", method, err)
 			if !errors.Is(err, auth.ErrorAuthFailed) {
 				break
 			}
@@ -178,4 +182,60 @@ func GetAuthenticatedExternalInitiator(c *gin.Context) (*bridges.ExternalInitiat
 	}
 
 	return obj.(*bridges.ExternalInitiator), ok
+}
+
+// RequiresEditMinimalRole extracts the user object from the context, and asserts the the user's role is at least
+// 'edit_minimal'
+func RequiresEditMinimalRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			return
+		}
+		if user.Role == clsessions.UserRoleView {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			return
+		}
+		handler(c)
+	}
+}
+
+// RequiresEditRole extracts the user object from the context, and asserts the the user's role is at least
+// 'edit'
+func RequiresEditRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			return
+		}
+		if user.Role == clsessions.UserRoleView || user.Role == clsessions.UserRoleEditMinimal {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			return
+		}
+		handler(c)
+	}
+}
+
+// RequiresAdminRole extracts the user object from the context, and asserts the the user's role is 'admin'
+func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			return
+		}
+		if user.Role != clsessions.UserRoleAdmin {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			return
+		}
+		handler(c)
+	}
 }

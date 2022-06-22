@@ -18,12 +18,20 @@ import (
 type User struct {
 	Email             string
 	HashedPassword    string
+	Role              string
 	CreatedAt         time.Time
 	TokenKey          null.String
 	TokenSalt         null.String
 	TokenHashedSecret null.String
 	UpdatedAt         time.Time
 }
+
+const (
+	UserRoleAdmin       = "admin"
+	UserRoleEdit        = "edit"
+	UserRoleEditMinimal = "edit_minimal"
+	UserRoleView        = "view"
+)
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
 var emailRegexp = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
@@ -72,6 +80,7 @@ type SessionRequest struct {
 // Session holds the unique id for the authenticated session.
 type Session struct {
 	ID        string    `json:"id"`
+	Email     string    `json:"email"`
 	LastUsed  time.Time `json:"lastUsed"`
 	CreatedAt time.Time `json:"createdAt"`
 }

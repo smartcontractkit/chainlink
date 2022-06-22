@@ -33,6 +33,14 @@ func (ctrl *CSAKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/csa"
 func (ctrl *CSAKeysController) Create(c *gin.Context) {
+	// TODO: Andrew - wrapper middleware that filters view/edit/admin, separate from graphql mutation pattern
+	// user, err := ctrl.App.SessionORM().FindUser()
+	// if err != nil {
+	// 	jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+	// 	return
+	// }
+	// fmt.Printf("DEBUG: user %#v\n", user)
+
 	key, err := ctrl.App.GetKeyStore().CSA().Create()
 	if err != nil {
 		if errors.Is(err, keystore.ErrCSAKeyExists) {

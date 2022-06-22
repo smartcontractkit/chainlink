@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 
@@ -20,7 +22,7 @@ type GQLSession struct {
 // to validate whether it requires an authenticated user.
 //
 // We currently only support GQL authentication by session cookie.
-func AuthenticateGQL(authenticator Authenticator) gin.HandlerFunc {
+func AuthenticateGQL(authenticator Authenticator, lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		sessionID, ok := session.Get(SessionIDKey).(string)
@@ -30,6 +32,7 @@ func AuthenticateGQL(authenticator Authenticator) gin.HandlerFunc {
 
 		user, err := authenticator.AuthorizedUserWithSession(sessionID)
 		if err != nil {
+			lggr.Errorf("Failed call to AuthorizedUserWithSession, unable to get user", "err", err)
 			return
 		}
 
@@ -53,6 +56,9 @@ func SetGQLAuthenticatedSession(ctx context.Context, user clsessions.User, sessi
 // GetGQLAuthenticatedSession extracts the authentication session from a context.
 func GetGQLAuthenticatedSession(ctx context.Context) (*GQLSession, bool) {
 	obj := ctx.Value(sessionUserKey{})
+	if obj == nil {
+		return nil, false
+	}
 
 	session, ok := obj.(*GQLSession)
 

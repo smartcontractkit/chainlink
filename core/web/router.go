@@ -84,7 +84,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	guiAssetRoutes(engine, config, app.GetLogger())
 
 	api.POST("/query",
-		auth.AuthenticateGQL(app.SessionORM()),
+		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger()),
 		loader.Middleware(app),
 		graphqlHandler(app),
 	)
@@ -232,6 +232,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	))
 	{
 		uc := UserController{app}
+		authv2.POST("/users", auth.RequiresAdminRole(uc.Create))
+		authv2.PATCH("/users", auth.RequiresAdminRole(uc.Update))
+		authv2.DELETE("/users", auth.RequiresAdminRole(uc.Delete))
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
@@ -242,27 +245,27 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		eia := ExternalInitiatorsController{app}
 		authv2.GET("/external_initiators", paginatedRequest(eia.Index))
-		authv2.POST("/external_initiators", eia.Create)
-		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
+		authv2.POST("/external_initiators", auth.RequiresEditRole(eia.Create))
+		authv2.DELETE("/external_initiators/:Name", auth.RequiresEditRole(eia.Destroy))
 
 		bt := BridgeTypesController{app}
 		authv2.GET("/bridge_types", paginatedRequest(bt.Index))
-		authv2.POST("/bridge_types", bt.Create)
+		authv2.POST("/bridge_types", auth.RequiresEditRole(bt.Create))
 		authv2.GET("/bridge_types/:BridgeName", bt.Show)
-		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
-		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
+		authv2.PATCH("/bridge_types/:BridgeName", auth.RequiresEditRole(bt.Update))
+		authv2.DELETE("/bridge_types/:BridgeName", auth.RequiresEditRole(bt.Destroy))
 
 		ets := EVMTransfersController{app}
-		authv2.POST("/transfers", ets.Create)
-		authv2.POST("/transfers/evm", ets.Create)
+		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
+		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
 		tts := TerraTransfersController{app}
-		authv2.POST("/transfers/terra", tts.Create)
+		authv2.POST("/transfers/terra", auth.RequiresAdminRole(tts.Create))
 		sts := SolanaTransfersController{app}
-		authv2.POST("/transfers/solana", sts.Create)
+		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
-		authv2.PATCH("/config", cc.Patch)
+		authv2.PATCH("/config", auth.RequiresAdminRole(cc.Patch))
 		authv2.GET("/config/v2", cc.Dump)
 
 		tas := TxAttemptsController{app}
@@ -276,42 +279,42 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/transactions/:TxHash", txs.Show)
 
 		rc := ReplayController{app}
-		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
+		authv2.POST("/replay_from_block/:number", auth.RequiresEditMinimalRole(rc.ReplayFromBlock))
 
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
-		authv2.POST("/keys/csa", csakc.Create)
-		authv2.POST("/keys/csa/import", csakc.Import)
-		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+		authv2.POST("/keys/csa", auth.RequiresEditRole(csakc.Create))
+		authv2.POST("/keys/csa/import", auth.RequiresAdminRole(csakc.Import))
+		authv2.POST("/keys/csa/export/:ID", auth.RequiresAdminRole(csakc.Export))
 
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
-		authv2.POST("/keys/eth", ekc.Create)
-		authv2.PUT("/keys/eth/:keyID", ekc.Update)
-		authv2.DELETE("/keys/eth/:keyID", ekc.Delete)
-		authv2.POST("/keys/eth/import", ekc.Import)
-		authv2.POST("/keys/eth/export/:address", ekc.Export)
+		authv2.POST("/keys/eth", auth.RequiresEditRole(ekc.Create))
+		authv2.PUT("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Update))
+		authv2.DELETE("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Delete))
+		authv2.POST("/keys/eth/import", auth.RequiresAdminRole(ekc.Import))
+		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
 
 		ocrkc := OCRKeysController{app}
 		authv2.GET("/keys/ocr", ocrkc.Index)
-		authv2.POST("/keys/ocr", ocrkc.Create)
-		authv2.DELETE("/keys/ocr/:keyID", ocrkc.Delete)
-		authv2.POST("/keys/ocr/import", ocrkc.Import)
-		authv2.POST("/keys/ocr/export/:ID", ocrkc.Export)
+		authv2.POST("/keys/ocr", auth.RequiresEditRole(ocrkc.Create))
+		authv2.DELETE("/keys/ocr/:keyID", auth.RequiresAdminRole(ocrkc.Delete))
+		authv2.POST("/keys/ocr/import", auth.RequiresAdminRole(ocrkc.Import))
+		authv2.POST("/keys/ocr/export/:ID", auth.RequiresAdminRole(ocrkc.Export))
 
 		ocr2kc := OCR2KeysController{app}
 		authv2.GET("/keys/ocr2", ocr2kc.Index)
-		authv2.POST("/keys/ocr2/:chainType", ocr2kc.Create)
-		authv2.DELETE("/keys/ocr2/:keyID", ocr2kc.Delete)
-		authv2.POST("/keys/ocr2/import", ocr2kc.Import)
-		authv2.POST("/keys/ocr2/export/:ID", ocr2kc.Export)
+		authv2.POST("/keys/ocr2/:chainType", auth.RequiresEditRole(ocr2kc.Create))
+		authv2.DELETE("/keys/ocr2/:keyID", auth.RequiresAdminRole(ocr2kc.Delete))
+		authv2.POST("/keys/ocr2/import", auth.RequiresAdminRole(ocr2kc.Import))
+		authv2.POST("/keys/ocr2/export/:ID", auth.RequiresAdminRole(ocr2kc.Export))
 
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)
-		authv2.POST("/keys/p2p", p2pkc.Create)
-		authv2.DELETE("/keys/p2p/:keyID", p2pkc.Delete)
-		authv2.POST("/keys/p2p/import", p2pkc.Import)
-		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
+		authv2.POST("/keys/p2p", auth.RequiresEditRole(p2pkc.Create))
+		authv2.DELETE("/keys/p2p/:keyID", auth.RequiresAdminRole(p2pkc.Delete))
+		authv2.POST("/keys/p2p/import", auth.RequiresAdminRole(p2pkc.Import))
+		authv2.POST("/keys/p2p/export/:ID", auth.RequiresAdminRole(p2pkc.Export))
 
 		for _, keys := range []struct {
 			path string
@@ -322,24 +325,24 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"dkgsign", NewDKGSignKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)
-			authv2.POST("/keys/"+keys.path, keys.kc.Create)
-			authv2.DELETE("/keys/"+keys.path+"/:keyID", keys.kc.Delete)
-			authv2.POST("/keys/"+keys.path+"/import", keys.kc.Import)
-			authv2.POST("/keys/"+keys.path+"/export/:ID", keys.kc.Export)
+			authv2.POST("/keys/"+keys.path, auth.RequiresEditRole(keys.kc.Create))
+			authv2.DELETE("/keys/"+keys.path+"/:keyID", auth.RequiresAdminRole(keys.kc.Delete))
+			authv2.POST("/keys/"+keys.path+"/import", auth.RequiresAdminRole(keys.kc.Import))
+			authv2.POST("/keys/"+keys.path+"/export/:ID", auth.RequiresAdminRole(keys.kc.Export))
 		}
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
-		authv2.POST("/keys/vrf", vrfkc.Create)
-		authv2.DELETE("/keys/vrf/:keyID", vrfkc.Delete)
-		authv2.POST("/keys/vrf/import", vrfkc.Import)
-		authv2.POST("/keys/vrf/export/:keyID", vrfkc.Export)
+		authv2.POST("/keys/vrf", auth.RequiresEditRole(vrfkc.Create))
+		authv2.DELETE("/keys/vrf/:keyID", auth.RequiresAdminRole(vrfkc.Delete))
+		authv2.POST("/keys/vrf/import", auth.RequiresAdminRole(vrfkc.Import))
+		authv2.POST("/keys/vrf/export/:keyID", auth.RequiresAdminRole(vrfkc.Export))
 
 		jc := JobsController{app}
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)
-		authv2.POST("/jobs", jc.Create)
-		authv2.DELETE("/jobs/:ID", jc.Delete)
+		authv2.POST("/jobs", auth.RequiresEditRole(jc.Create))
+		authv2.DELETE("/jobs/:ID", auth.RequiresEditRole(jc.Delete))
 
 		// PipelineRunsController
 		authv2.GET("/pipeline/runs", paginatedRequest(prc.Index))
@@ -351,11 +354,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/features", fc.Index)
 
 		// PipelineJobSpecErrorsController
-		authv2.DELETE("/pipeline/job_spec_errors/:ID", psec.Destroy)
+		authv2.DELETE("/pipeline/job_spec_errors/:ID", auth.RequiresEditRole(psec.Destroy))
 
 		lgc := LogController{app}
 		authv2.GET("/log", lgc.Get)
-		authv2.PATCH("/log", lgc.Patch)
+		authv2.PATCH("/log", auth.RequiresAdminRole(lgc.Patch))
 
 		chains := authv2.Group("chains")
 		for _, chain := range []struct {
@@ -367,10 +370,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"terra", NewTerraChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
-			chains.POST(chain.path, chain.cc.Create)
+			chains.POST(chain.path, auth.RequiresEditRole(chain.cc.Create))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
-			chains.PATCH(chain.path+"/:ID", chain.cc.Update)
-			chains.DELETE(chain.path+"/:ID", chain.cc.Delete)
+			chains.PATCH(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Update))
+			chains.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.cc.Delete))
 		}
 
 		nodes := authv2.Group("nodes")
@@ -390,14 +393,14 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			}
 			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
 			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
-			nodes.POST(chain.path, chain.nc.Create)
-			nodes.DELETE(chain.path+"/:ID", chain.nc.Delete)
+			nodes.POST(chain.path, auth.RequiresEditRole(chain.nc.Create))
+			nodes.DELETE(chain.path+"/:ID", auth.RequiresEditRole(chain.nc.Delete))
 		}
 
 		efc := EVMForwardersController{app}
 		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
-		authv2.POST("/nodes/evm/forwarders", efc.Create)
-		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
+		authv2.POST("/nodes/evm/forwarders", auth.RequiresEditRole(efc.Create))
+		authv2.DELETE("/nodes/evm/forwarders/:fwdID", auth.RequiresEditRole(efc.Delete))
 
 		build_info := BuildInfoController{app}
 		authv2.GET("/build_info", build_info.Show)
@@ -413,7 +416,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		auth.AuthenticateBySession,
 	))
 	userOrEI.GET("/ping", ping.Show)
-	userOrEI.POST("/jobs/:ID/runs", prc.Create)
+	userOrEI.POST("/jobs/:ID/runs", auth.RequiresEditMinimalRole(prc.Create))
 }
 
 // This is higher because it serves main.js and any static images. There are
