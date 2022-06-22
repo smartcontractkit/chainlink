@@ -38,8 +38,10 @@ const (
 	PerformanceCounter
 )
 
-const upkeepGasLimit = uint32(2500000)
-const defaultLinkFunds int64 = 9e18
+const (
+	defaultUpkeepGasLimit = uint32(2500000)
+	defaultLinkFunds      = int64(9e18)
+)
 
 var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
 var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
@@ -149,7 +151,7 @@ func getKeeperSuite(
 						registryVersion,
 						registryConfig,
 						10,
-						upkeepGasLimit,
+						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
 						networks,
@@ -159,15 +161,16 @@ func getKeeperSuite(
 					registry, registrar, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
 						registryVersion,
 						10,
-						upkeepGasLimit,
+						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
 						networks,
 						&registryConfig,
+						linkFundsForEachUpkeep,
 						10000,   // How many blocks this upkeep will be eligible from first upkeep block
 						5,       // Interval of blocks that upkeeps are expected to be performed
 						100000,  // How much gas should be burned on checkUpkeep() calls
-						4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than upkeepGasLimit
+						4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 					)
 				}
 			})
@@ -331,7 +334,7 @@ func getKeeperSuite(
 					consumerPerformance := consumersPerformance[0]
 					upkeepID := upkeepIDs[0]
 
-					// Initially performGas is set higher than upkeepGasLimit, so no upkeep should be performed
+					// Initially performGas is set higher than defaultUpkeepGasLimit, so no upkeep should be performed
 					Consistently(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
@@ -412,7 +415,7 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 
 					newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, networks, linkToken,
-						registry, registrar, upkeepGasLimit, 1)
+						registry, registrar, defaultUpkeepGasLimit, 1)
 
 					// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
 					newUpkeep := newConsumers[0]
