@@ -197,6 +197,11 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for the node's configuration",
 			Subcommands: []cli.Command{
 				{
+					Name:   "dump",
+					Usage:  "Dump a TOML file equivalent to the current environment and database configuration",
+					Action: client.ConfigDump,
+				},
+				{
 					Name:   "list",
 					Usage:  "Show the node's environment variables",
 					Action: client.GetConfiguration,
@@ -588,6 +593,7 @@ func NewApp(client *Client) *cli.App {
 
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("Terra", NewTerraKeysClient(client)),
+				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
 
 				{
 					Name:  "vrf",
