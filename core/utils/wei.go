@@ -148,41 +148,44 @@ func (w *Wei) UnmarshalText(b []byte) error {
 	s := string(b)
 	for _, suf := range []string{
 		teth, geth, meth, keth, eth,
-		milli,
-		micro,
+		milli, micro,
 		gwei, mwei, kwei, wei,
 	} {
-		if strings.HasSuffix(s, suf) {
-			t := strings.TrimSuffix(s, suf)
-			if strings.HasSuffix(t, " ") {
-				t = t[:len(t)-1]
-			}
-			d, err := decimal.NewFromString(t)
-			if err != nil {
-				return err
-			}
-			se := suffixExp(suf)
-			if d.IsInteger() {
-				m := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(se)), nil)
-				*w = (Wei)(*new(big.Int).Mul(d.BigInt(), m))
-				return nil
-			}
-			e := d.Exponent()
-			if se+e < 0 {
-				return errors.Errorf("too small: %s", s)
-			}
-			*w = (Wei)(*d.Mul(decimal.NewFromBigInt(big.NewInt(10), se+e)).BigInt())
+		if !strings.HasSuffix(s, suf) {
+			continue
+		}
+		t := strings.TrimSuffix(s, suf)
+		if strings.HasSuffix(t, " ") {
+			t = t[:len(t)-1]
+		}
+		d, err := decimal.NewFromString(t)
+		if err != nil {
+			return errors.Wrapf(err, "unable to parse %q", s)
+		}
+		se := suffixExp(suf)
+		if d.IsInteger() {
+			m := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(se)), nil)
+			*w = (Wei)(*new(big.Int).Mul(d.BigInt(), m))
 			return nil
 		}
+
+		d = d.Mul(decimal.New(1, se))
+		if !d.IsInteger() {
+			err := errors.New("maximum precision is wei")
+			return errors.Wrapf(err, "unable to parse %q", s)
+		}
+		*w = (Wei)(*d.BigInt())
+		return nil
+
 	}
 	// no suffix?
 	d, err := decimal.NewFromString(s)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "unable to parse %q", s)
 	}
 	if d.IsInteger() {
 		*w = (Wei)(*d.BigInt())
 		return nil
 	}
-	return errors.Errorf("unable to parse: %s", s)
+	return errors.Errorf("unable to parse %q", s)
 }

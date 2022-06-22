@@ -1,7 +1,7 @@
 ChainID = '3'
 EIP1559DynamicFees = true
 LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 
 [BlockHistoryEstimator]
 BatchSize = 4

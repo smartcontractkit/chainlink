@@ -457,7 +457,7 @@ GasBumpWei = '100'
 # An important point to note is that the Chainlink node does _not_ ship with built-in support for go-ethereum's `estimateGas` call. This is for several reasons, including security and reliability. We have found empirically that it is not generally safe to rely on the remote ETH node's idea of what gas price should be.
 GasEstimatorMode = 'BlockHistory' # Default
 # GasFeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
-GasFeeCapDefault = '9223372036854775807'
+GasFeeCapDefault = '9.223372036854775807 ether'
 # GasLimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 # Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
 GasLimitDefault = '12'
@@ -472,7 +472,7 @@ GasLimitTransfer = '100'
 # (Only applies to legacy transactions)
 #
 # Can be used with the `chainlink setgasprice` to be updated while the node is still running.
-GasPriceDefault = '9223372036854775807'
+GasPriceDefault = '9.223372036854775807 ether'
 # GasTipCapDefault is the default gas tip to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
 #
 # (Only applies to EIP-1559 transactions)
@@ -485,7 +485,7 @@ LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m'
 # MaxGasPriceWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
-MaxGasPriceWei = '281474976710655'
+MaxGasPriceWei = '281.474976710655 micro'
 # MaxInFlightTransactions controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
 #
 # The default is set conservatively at 16 because this is a pessimistic minimum that both geth and parity will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
@@ -516,7 +516,7 @@ MaxQueuedTransactions = 99
 # ```
 MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9223372036854775807'
+MinimumContractPayment = '9.223372036854775807 link'
 # NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 NonceAutoSync = false # Default
 OCRContractConfirmations = 11
@@ -575,7 +575,7 @@ SamplingInterval = '1h' # Example
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
-MaxGasPriceWei = '79228162514264337593543950335'
+MaxGasPriceWei = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 # NoNewHeadsThreshold controls how long to wait after receiving no new heads before marking the node as out-of-sync.

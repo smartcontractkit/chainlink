@@ -5,10 +5,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/assets"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 )
 
 func TestAssets_NewLinkAndString(t *testing.T) {
@@ -287,4 +289,40 @@ func TestAssets_EthCmpEth(t *testing.T) {
 
 	eth3 := assets.NewEth(321)
 	assert.Zero(t, eth3.Cmp(eth2))
+}
+
+func TestLink(t *testing.T) {
+	for _, tt := range []struct {
+		input string
+		exp   string
+	}{
+		{"0", "0"},
+		{"1", "1"},
+		{"1 juels", "1"},
+		{"100000000000", "100000000000"},
+		{"0.0000001 link", "100000000000"},
+		{"1000000000000", "0.000001 link"},
+		{"100000000000000", "0.0001 link"},
+		{"0.0001 link", "0.0001 link"},
+		{"10000000000000000", "0.01 link"},
+		{"0.01 link", "0.01 link"},
+		{"100000000000000000", "0.1 link"},
+		{"0.1 link", "0.1 link"},
+		{"1.0 link", "1 link"},
+		{"1000000000000000000", "1 link"},
+		{"1000000000000000000 juels", "1 link"},
+		{"1100000000000000000", "1.1 link"},
+		{"1.1link", "1.1 link"},
+		{"1.1 link", "1.1 link"},
+		//TODO more cases, errors
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			var l assets.Link
+			err := l.UnmarshalText([]byte(tt.input))
+			require.NoError(t, err)
+			b, err := l.MarshalText()
+			require.NoError(t, err)
+			assert.Equal(t, tt.exp, string(b))
+		})
+	}
 }

@@ -86,7 +86,7 @@ type BlockHistoryEstimator struct {
 
 type KeySpecific struct {
 	Key            *ethkey.EIP55Address
-	MaxGasPriceWei *utils.Big //TODO strict type, drop Wei suffix?
+	MaxGasPriceWei *utils.Wei
 }
 
 type HeadTracker struct {
@@ -209,7 +209,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := ethkey.EIP55AddressFromAddress(a)
 		c.KeySpecific = append(c.KeySpecific, KeySpecific{
 			Key:            &v,
-			MaxGasPriceWei: kcfg.EvmMaxGasPriceWei,
+			MaxGasPriceWei: kcfg.EvmMaxGasPriceWei.Wei(),
 		})
 	}
 	if cfg.LinkContractAddress.Valid {

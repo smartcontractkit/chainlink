@@ -1,7 +1,7 @@
 ChainID = '1'
 EIP1559DynamicFees = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 
 [BlockHistoryEstimator]

@@ -1231,22 +1231,22 @@ GasBumpThreshold = 15
 GasBumpTxDepth = 6
 GasBumpWei = '100'
 GasEstimatorMode = 'BlockHistory' # Default
-GasFeeCapDefault = '9223372036854775807'
+GasFeeCapDefault = '9.223372036854775807 ether'
 GasLimitDefault = '12'
 GasLimitMultiplier = '1.234'
 GasLimitTransfer = '100'
-GasPriceDefault = '9223372036854775807'
+GasPriceDefault = '9.223372036854775807 ether'
 GasTipCapDefault = '2'
 GasTipCapMinimum = '1'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m'
-MaxGasPriceWei = '281474976710655'
+MaxGasPriceWei = '281.474976710655 micro'
 MaxInFlightTransactions = 19
 MaxQueuedTransactions = 99
 MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9223372036854775807'
+MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = false # Default
 OCRContractConfirmations = 11
 OCRContractTransmitterTransmitTimeout = '1m'
@@ -1288,7 +1288,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1346,7 +1346,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1403,7 +1403,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1460,7 +1460,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1518,7 +1518,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1575,7 +1575,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '0'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '1000000000000000'
+MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1632,7 +1632,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '0'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '1000000000000000'
+MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1689,7 +1689,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '100000000000000000'
+MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1747,7 +1747,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '2s'
@@ -1803,7 +1803,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1859,7 +1859,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1917,7 +1917,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -1975,7 +1975,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2032,7 +2032,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '2s'
@@ -2089,7 +2089,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 5000
 MinGasPriceWei = '30 gwei'
 MinIncomingConfirmations = 5
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2146,7 +2146,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2203,7 +2203,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2260,7 +2260,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2317,7 +2317,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2375,7 +2375,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 micro'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2432,7 +2432,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2489,7 +2489,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2546,7 +2546,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 5000
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 5
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2604,7 +2604,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 micro'
 MinIncomingConfirmations = 3
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 1
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2661,7 +2661,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2718,7 +2718,7 @@ MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
 MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 1
-MinimumContractPayment = '10000000000000'
+MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
 OCRContractConfirmations = 4
 OCRContractTransmitterTransmitTimeout = '10s'
@@ -2892,7 +2892,7 @@ An important point to note is that the Chainlink node does _not_ ship with built
 
 ### GasFeeCapDefault<a id='EVM-GasFeeCapDefault'></a>
 ```toml
-GasFeeCapDefault = '9223372036854775807'
+GasFeeCapDefault = '9.223372036854775807 ether'
 ```
 GasFeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
 
@@ -2919,7 +2919,7 @@ GasLimitTransfer is the gas limit used for an ordinary ETH transfer.
 
 ### GasPriceDefault<a id='EVM-GasPriceDefault'></a>
 ```toml
-GasPriceDefault = '9223372036854775807'
+GasPriceDefault = '9.223372036854775807 ether'
 ```
 GasPriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
 
@@ -2963,7 +2963,7 @@ LogPollInterval = '1m'
 
 ### MaxGasPriceWei<a id='EVM-MaxGasPriceWei'></a>
 ```toml
-MaxGasPriceWei = '281474976710655'
+MaxGasPriceWei = '281.474976710655 micro'
 ```
 MaxGasPriceWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
 
@@ -3016,7 +3016,7 @@ MinIncomingConfirmations = 13
 
 ### MinimumContractPayment<a id='EVM-MinimumContractPayment'></a>
 ```toml
-MinimumContractPayment = '9223372036854775807'
+MinimumContractPayment = '9.223372036854775807 link'
 ```
 
 
@@ -3198,7 +3198,7 @@ SamplingInterval = '1h' # Example
 ```toml
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
-MaxGasPriceWei = '79228162514264337593543950335'
+MaxGasPriceWei = '79.228162514264337593543950335 gether'
 ```
 
 
@@ -3210,7 +3210,7 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 
 ### MaxGasPriceWei<a id='EVM-KeySpecific-MaxGasPriceWei'></a>
 ```toml
-MaxGasPriceWei = '79228162514264337593543950335'
+MaxGasPriceWei = '79.228162514264337593543950335 gether'
 ```
 
 

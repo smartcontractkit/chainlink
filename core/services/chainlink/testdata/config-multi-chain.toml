@@ -41,7 +41,7 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
-GasPriceDefault = '9223372036854775807'
+GasPriceDefault = '9.223372036854775807 ether'
 
 [[EVM.Nodes]]
 Name = 'primary'

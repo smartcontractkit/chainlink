@@ -86,7 +86,7 @@ var (
 			{
 				ChainID: utils.NewBigI(42),
 				Chain: evmcfg.Chain{
-					GasPriceDefault: utils.NewBigI(math.MaxInt64),
+					GasPriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
 				},
 				Nodes: []evmcfg.Node{
 					{
@@ -372,22 +372,22 @@ func TestConfig_Marshal(t *testing.T) {
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasBumpPercent:     ptr[uint16](10),
-				GasBumpThreshold:   utils.NewBigI(6),
+				GasBumpThreshold:   utils.NewBigI(6).Wei(),
 				GasBumpTxDepth:     ptr[uint16](6),
-				GasBumpWei:         utils.NewBigI(100),
+				GasBumpWei:         utils.NewBigI(100).Wei(),
 				GasEstimatorMode:   ptr("L2Suggested"),
-				GasFeeCapDefault:   utils.NewBigI(math.MaxInt64),
+				GasFeeCapDefault:   utils.NewBigI(math.MaxInt64).Wei(),
 				GasLimitDefault:    utils.NewBigI(12),
 				GasLimitMultiplier: mustDecimal("1.234"),
 				GasLimitTransfer:   utils.NewBigI(100),
-				GasPriceDefault:    utils.NewBigI(math.MaxInt64),
-				GasTipCapDefault:   utils.NewBigI(2),
-				GasTipCapMinimum:   utils.NewBigI(1),
+				GasPriceDefault:    utils.NewBigI(math.MaxInt64).Wei(),
+				GasTipCapDefault:   utils.NewBigI(2).Wei(),
+				GasTipCapMinimum:   utils.NewBigI(1).Wei(),
 
 				KeySpecific: []evmcfg.KeySpecific{
 					{
 						Key:            mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
-						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
+						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
 					},
 				},
 
@@ -395,10 +395,10 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize: ptr[uint32](17),
 				LogPollInterval:      &minute,
 
-				MaxGasPriceWei:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")),
+				MaxGasPriceWei:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
 				MaxInFlightTransactions:  ptr[uint32](19),
 				MaxQueuedTransactions:    ptr[uint32](99),
-				MinGasPriceWei:           utils.NewBigI(13),
+				MinGasPriceWei:           utils.NewBigI(13).Wei(),
 				MinIncomingConfirmations: ptr[uint32](13),
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
 
@@ -710,22 +710,22 @@ GasBumpThreshold = '6'
 GasBumpTxDepth = 6
 GasBumpWei = '100'
 GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '9223372036854775807'
+GasFeeCapDefault = '9.223372036854775807 ether'
 GasLimitDefault = '12'
 GasLimitMultiplier = '1.234'
 GasLimitTransfer = '100'
-GasPriceDefault = '9223372036854775807'
+GasPriceDefault = '9.223372036854775807 ether'
 GasTipCapDefault = '2'
 GasTipCapMinimum = '1'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxGasPriceWei = '281474976710655'
+MaxGasPriceWei = '281.474976710655 micro'
 MaxInFlightTransactions = 19
 MaxQueuedTransactions = 99
 MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9223372036854775807'
+MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 OCRContractConfirmations = 11
 OCRContractTransmitterTransmitTimeout = '1m0s'
@@ -755,7 +755,7 @@ SamplingInterval = '1h0m0s'
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
-MaxGasPriceWei = '79228162514264337593543950335'
+MaxGasPriceWei = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 NoNewHeadsThreshold = '1m0s'
@@ -842,7 +842,9 @@ TendermintURL = 'http://bar.web'
 			var got Config
 			d := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields()
 			require.NoError(t, d.Decode(&got))
-			assert.Equal(t, tt.config, got)
+			ts, err := got.TOMLString()
+			require.NoError(t, err)
+			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
 		})
 	}
 }

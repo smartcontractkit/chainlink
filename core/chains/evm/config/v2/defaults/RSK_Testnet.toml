@@ -4,5 +4,5 @@ LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 MaxGasPriceWei = '50 gwei'
 GasFeeCapDefault = '100 mwei'
 MinGasPriceWei = 0
-MinimumContractPayment = '1000000000000000'
+MinimumContractPayment = '0.001 link'
 LogPollInterval = '30s'

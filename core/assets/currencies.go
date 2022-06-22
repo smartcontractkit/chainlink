@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -98,8 +99,13 @@ func (l *Link) Text(base int) string {
 	return (*big.Int)(l).Text(base)
 }
 
+var linkFmtThreshold = (*Link)(new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil))
+
 // MarshalText implements the encoding.TextMarshaler interface.
 func (l *Link) MarshalText() ([]byte, error) {
+	if l.Cmp(linkFmtThreshold) >= 0 {
+		return []byte(fmt.Sprintf("%s link", decimal.NewFromBigInt(l.ToInt(), -18))), nil
+	}
 	return (*big.Int)(l).MarshalText()
 }
 
@@ -122,9 +128,32 @@ func (l *Link) UnmarshalJSON(data []byte) error {
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (l *Link) UnmarshalText(text []byte) error {
-	//TODO support scaling w/ suffix like wei?
-	if _, ok := l.SetString(string(text), 10); !ok {
-		return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
+	s := string(text)
+	if strings.HasSuffix(s, "link") {
+		t := strings.TrimSuffix(s, "link")
+		if strings.HasSuffix(t, " ") {
+			t = t[:len(t)-1]
+		}
+		d, err := decimal.NewFromString(t)
+		if err != nil {
+			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
+		}
+		d = d.Mul(decimal.New(1, 18))
+		if !d.IsInteger() {
+			err := errors.New("maximum precision is juels")
+			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
+		}
+		l.Set((*Link)(d.Rat().Num()))
+		return nil
+	}
+	if strings.HasSuffix(s, "juels") {
+		s = strings.TrimSuffix(s, "juels")
+		if strings.HasSuffix(s, " ") {
+			s = s[:len(s)-1]
+		}
+	}
+	if _, ok := l.SetString(s, 10); !ok {
+		return errors.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
 	}
 	return nil
 }
