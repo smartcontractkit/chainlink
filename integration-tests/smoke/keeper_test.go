@@ -29,6 +29,7 @@ const (
 	RegisterUpkeepTest
 	AddFundsToUpkeepTest
 	RemovingKeeperTest
+	PauseRegistryTest
 )
 
 type KeeperConsumerContracts int32
@@ -55,6 +56,7 @@ var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(
 var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
 var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
 var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -510,6 +512,45 @@ func getKeeperSuite(
 							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
 							g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
 								"than initial counter which was %s, but got %s", initialCounters[i], counter)
+						}
+					}, "1m", "1s").Should(Succeed())
+				})
+			}
+
+			if testToRun == PauseRegistryTest {
+				It("pauses the registry and makes sure that the upkeeps are no longer performed", func() {
+					// Observe that the upkeeps which are initially registered are performing
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							counter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+								"Expected consumer counter to be greater than 0, but got %d")
+						}
+					}, "1m", "1s").Should(Succeed())
+
+					// Pause the registry
+					err := registry.Pause()
+					Expect(err).ShouldNot(HaveOccurred(), "Could not pause the registry")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+
+					// Store how many times each upkeep performed once the registry was successfully paused
+					var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+					for i := 0; i < len(upkeepIDs); i++ {
+						countersAfterPause[i], err = consumers[i].Counter(context.Background())
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+					}
+
+					// After we paused the registry, the counters of all the upkeeps should stay constant
+					// because they are no longer getting serviced
+					Consistently(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							latestCounter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+							g.Expect(latestCounter.Int64()).Should(Equal(countersAfterPause[i].Int64()),
+								"Expected consumer counter to remain constant at %d, but got %d",
+								countersAfterPause[i].Int64(), latestCounter.Int64())
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
