@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.26.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.2.6-0.20220621203249-54a025f59d71
+	github.com/smartcontractkit/chainlink-testing-framework v1.2.7-0.20220622132536-ed866846d8f3
 	github.com/smartcontractkit/helmenv v1.2.3
 )
 
@@ -175,3 +175,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/vlad/chainlink-testing-framework
