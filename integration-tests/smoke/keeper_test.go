@@ -3,7 +3,6 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strconv"
 
@@ -40,20 +39,20 @@ const (
 )
 
 const upkeepGasLimit = uint32(2500000)
+const defaultLinkFunds int64 = 9e18
 
-//var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-//var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-//var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
-//var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
-//var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
-//var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
-//var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
-//var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest))
-var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
-
-//var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest))
-//var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
-//var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest))
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -86,6 +85,7 @@ func getKeeperSuite(
 	registryConfig contracts.KeeperRegistrySettings,
 	consumerContract KeeperConsumerContracts,
 	testToRun KeeperTests,
+	linkFundsForEachUpkeep *big.Int,
 ) func() {
 	return func() {
 		var (
@@ -153,6 +153,7 @@ func getKeeperSuite(
 						linkToken,
 						contractDeployer,
 						networks,
+						linkFundsForEachUpkeep,
 					)
 				case PerformanceCounter:
 					registry, registrar, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
@@ -437,85 +438,33 @@ func getKeeperSuite(
 
 			if testToRun == AddFundsToUpkeepTest {
 				It("adds funds to a new underfunded upkeep", func() {
-					listOfNewUpkeeps := actions.DeployKeeperConsumers(contractDeployer, networks, 1)
-					newUpkeep := listOfNewUpkeeps[0]
-					newUpkeepAddress := listOfNewUpkeeps[0].Address()
+					// Since the upkeep is currently underfunded, check that it doesn't get executed
+					Consistently(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						g.Expect(counter.Int64()).Should(Equal(int64(0)),
+							"Expected consumer counter to remain zero, but got %d", counter.Int64())
+					}, "1m", "1s").Should(Succeed())
 
-					req, err := registrar.EncodeRegisterRequest(
-						fmt.Sprintf("upkeep_%d", len(upkeepIDs)),
-						[]byte("0x1234"),
-						newUpkeepAddress,
-						upkeepGasLimit,
-						networks.Default.GetDefaultWallet().Address(),
-						[]byte("0x"),
-						big.NewInt(1),
-						0,
-					)
-					Expect(err).ShouldNot(HaveOccurred(), "Could not encode first register request")
-
-					// We want the new upkeep to be initially underfunded, so just transfer a minuscule amount of LINK
-					tx, err := linkToken.TransferAndCall(registrar.Address(), big.NewInt(1), req)
-					Expect(err).ShouldNot(HaveOccurred(), "Could not transfer small amount of LINK")
+					// Grant permission to the registry to fund the upkeep
+					err = linkToken.Approve(registry.Address(), big.NewInt(9e18))
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to approve")
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
-					receipt, err := networks.Default.GetTxReceipt(tx.Hash())
-					Expect(err).ShouldNot(HaveOccurred(), "Could not obtain transaction receipt")
-
-					var upkeepID *big.Int
-					for _, rawLog := range receipt.Logs {
-						parsedUpkeepId, err := registry.ParseUpkeepIdFromRegisteredLog(rawLog)
-						if err == nil {
-							upkeepID = parsedUpkeepId
-							break
-						}
-					}
-					Expect(upkeepID).ShouldNot(BeNil(), "Upkeep ID not found after registration")
-					log.Info().Msg("Successfully registered new upkeep with ID " + upkeepID.String())
-
-					//// Since the upkeep is currently underfunded, check that it doesn't get executed for a while
-					//Consistently(func(g Gomega) {
-					//	counter, err := newUpkeep.Counter(context.Background())
-					//	g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					//	g.Expect(counter.Int64()).Should(Equal(int64(0)),
-					//		"Expected consumer counter to remain zero, but got %d", counter.Int64())
-					//}, "30s", "1s").Should(Succeed())
-
 					// Add funds to the upkeep whose ID we know from above
-					err = registry.AddUpkeepFunds(big.NewInt(7), big.NewInt(100))
+					err = registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
 					Expect(err).ShouldNot(HaveOccurred(), "Could not fund upkeep")
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
-					// Create a new request for the register where we actually fund the upkeep with proper funds
-					//req, err = registrar.EncodeRegisterRequest(
-					//	fmt.Sprintf("upkeep_%d", len(upkeepIDs)),
-					//	[]byte("0x1234"),
-					//	newUpkeepAddress,
-					//	upkeepGasLimit,
-					//	networks.Default.GetDefaultWallet().Address(),
-					//	[]byte("0x"),
-					//	big.NewInt(9e18),
-					//	0,
-					//)
-					//Expect(err).ShouldNot(HaveOccurred(), "Could not encode second register request")
-					//
-					//// Transfer the funds to the newly registered upkeep
-					//tx, err = linkToken.TransferAndCall(registrar.Address(), big.NewInt(9e18), req)
-					//Expect(err).ShouldNot(HaveOccurred(), "Failed to fund the upkeep with LINK")
-					//err = networks.Default.WaitForEvents()
-					//Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
-					//
-					//log.Info().Msg("Successfully funded the new upkeep")
-
 					// Now the new upkeep should be performing because we added enough funds
 					Eventually(func(g Gomega) {
-						counter, err := newUpkeep.Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Couldn't retrieve the new upkeep's counter")
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve the consumer's counter")
 						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
-						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
-					}, "30s", "1s").Should(Succeed())
+					}, "1m", "1s").Should(Succeed())
 				})
 			}
 
