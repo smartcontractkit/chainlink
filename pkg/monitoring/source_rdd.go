@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"go.uber.org/multierr"
 )
 
@@ -46,13 +47,11 @@ func NewRDDSource(
 }
 
 func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	var subs utils.Subprocesses
 	data := RDDData{}
 	dataMu := &sync.Mutex{}
 	var dataErr error
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		feeds, feedsErr := r.fetchFeeds(ctx)
 		dataMu.Lock()
 		defer dataMu.Unlock()
@@ -61,9 +60,8 @@ func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
 		} else {
 			data.Feeds = feeds
 		}
-	}()
-	go func() {
-		defer wg.Done()
+	})
+	subs.Go(func() {
 		nodes, nodesErr := r.fetchNodes(ctx)
 		dataMu.Lock()
 		defer dataMu.Unlock()
@@ -72,8 +70,8 @@ func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
 		} else {
 			data.Nodes = nodes
 		}
-	}()
-	wg.Wait()
+	})
+	subs.Wait()
 	return data, dataErr
 }
 

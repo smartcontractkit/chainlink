@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -25,7 +26,7 @@ func TestManager(t *testing.T) {
 		defer goleak.VerifyNone(t)
 
 		var goRoutineCounter int64 = 0
-		wg := &sync.WaitGroup{}
+		var subs utils.Subprocesses
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
@@ -33,36 +34,30 @@ func TestManager(t *testing.T) {
 			numPollerUpdates,
 			make(chan interface{}),
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			poller.Run(ctx)
-		}()
+		})
 
 		manager := NewManager(
 			newNullLogger(),
 			poller,
 		)
 		managed := func(ctx context.Context, _ RDDData) {
-			localWg := &sync.WaitGroup{}
-			defer localWg.Wait()
-			localWg.Add(numGoroutinesPerManaged)
+			var localSubs utils.Subprocesses
+			defer localSubs.Wait()
 			for i := 0; i < numGoroutinesPerManaged; i++ {
-				go func(i int, ctx context.Context) {
-					defer localWg.Done()
+				localSubs.Go(func() {
 					atomic.AddInt64(&goRoutineCounter, 1)
 					<-ctx.Done()
 					atomic.AddInt64(&goRoutineCounter, -1)
-				}(i, ctx)
+				})
 			}
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		subs.Go(func() {
 			manager.Run(ctx, managed)
-		}()
+		})
 
-		wg.Wait()
+		subs.Wait()
 		require.Equal(t, int64(0), goRoutineCounter, "all child goroutines are gone")
 	})
 
@@ -85,12 +80,10 @@ func TestManager(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		var subs utils.Subprocesses
+		subs.Go(func() {
 			manager.Run(ctx, managedFunc)
-		}()
+		})
 
 		// The rdd poller returns the same feed configs three times!
 		for i := 0; i < 3; i++ {
@@ -101,7 +94,7 @@ func TestManager(t *testing.T) {
 		}
 
 		cancel()
-		wg.Wait()
+		subs.Wait()
 
 		require.Equal(t, countManagedFuncExecutions, uint64(1))
 	})

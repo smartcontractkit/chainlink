@@ -71,7 +71,7 @@ func TestSchemaRegistry(t *testing.T) {
 		srURL := os.Getenv("SCHEMA_REGISTRY_URL")
 		srUsername := os.Getenv("SCHEMA_REGISTRY_USERNAME")
 		srPassword := os.Getenv("SCHEMA_REGISTRY_PASSWORD")
-		registry := NewSchemaRegistry(config.SchemaRegistry{srURL, srUsername, srPassword}, newNullLogger())
+		registry := NewSchemaRegistry(config.SchemaRegistry{URL: srURL, Username: srUsername, Password: srPassword}, newNullLogger())
 
 		t.Run("EnsureSchema", func(t *testing.T) {
 			defer func() {

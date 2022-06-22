@@ -2,11 +2,11 @@ package monitoring
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 // This benchmark measures how many messages end up in the kafka client given
@@ -26,8 +26,8 @@ import (
 // (3 feb 2022
 //   59468	     23180 ns/op	    5921 B/op	      61 allocs/op
 func BenchmarkManager(b *testing.B) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	var subs utils.Subprocesses
+	defer subs.Wait()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -89,17 +89,13 @@ func BenchmarkManager(b *testing.B) {
 	}
 	_ = envelope
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		rddPoller.Run(ctx)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	subs.Go(func() {
 		manager.Run(ctx, monitor.Run)
-	}()
+	})
 
 	b.ReportAllocs()
 	b.ResetTimer()
