@@ -115,7 +115,7 @@ func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmmocks.Client
 }
 
 func keyNameForTest(t *testing.T) string {
-	return fmt.Sprintf("%s_test_key.json", t.Name())
+	return fmt.Sprintf("%s/%s_test_key.json", t.TempDir(), t.Name())
 }
 
 func deleteKeyExportFile(t *testing.T) {
