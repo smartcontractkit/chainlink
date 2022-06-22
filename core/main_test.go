@@ -157,6 +157,7 @@ func ExampleRun_config() {
 	//    core.test config command [command options] [arguments...]
 	//
 	// COMMANDS:
+	//    dump         Dump a TOML file equivalent to the current environment and database configuration
 	//    list         Show the node's environment variables
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
@@ -196,14 +197,15 @@ func ExampleRun_keys() {
 	//    core.test keys command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    eth     Remote commands for administering the node's Ethereum keys
-	//    p2p     Remote commands for administering the node's p2p keys
-	//    csa     Remote commands for administering the node's CSA keys
-	//    ocr     Remote commands for administering the node's legacy off chain reporting keys
-	//    ocr2    Remote commands for administering the node's off chain reporting keys
-	//    solana  Remote commands for administering the node's Solana keys
-	//    terra   Remote commands for administering the node's Terra keys
-	//    vrf     Remote commands for administering the node's vrf keys
+	//    eth      Remote commands for administering the node's Ethereum keys
+	//    p2p      Remote commands for administering the node's p2p keys
+	//    csa      Remote commands for administering the node's CSA keys
+	//    ocr      Remote commands for administering the node's legacy off chain reporting keys
+	//    ocr2     Remote commands for administering the node's off chain reporting keys
+	//    solana   Remote commands for administering the node's Solana keys
+	//    terra    Remote commands for administering the node's Terra keys
+	//    dkgsign  Remote commands for administering the node's DKGSign keys
+	//    vrf      Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -364,6 +366,26 @@ func ExampleRun_keys_vrf() {
 	//    export  Export VRF key to keyfile
 	//    delete  Archive or delete VRF key from memory and the database, if present. Note that jobs referencing the removed key will also be removed.
 	//    list    List the VRF keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_dkgsign() {
+	run("keys", "dkgsign", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys dkgsign - Remote commands for administering the node's DKGSign keys
+	//
+	// USAGE:
+	//    core.test keys dkgsign command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a DKGSign key
+	//    import  Import DKGSign key from keyfile
+	//    export  Export DKGSign key to keyfile
+	//    delete  Delete DKGSign key if present
+	//    list    List the DKGSign keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help

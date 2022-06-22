@@ -66,7 +66,7 @@ var (
 		FluxMonitor:        true,
 		OffchainReporting:  false, // bootstrap jobs do not require it
 		OffchainReporting2: false, // bootstrap jobs do not require it
-		Keeper:             true,
+		Keeper:             false, // observationSource is injected in the upkeep executor
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
@@ -140,14 +140,14 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
 }
 
-// The external job ID (UUID) can be encoded into a log topic (32 bytes)
+// ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
-// The external job ID (UUID) can also be encoded into a log topic (32 bytes)
+// ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
@@ -206,6 +206,7 @@ type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	P2PV2Bootstrappers                        pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
@@ -513,5 +514,6 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		ContractConfigConfirmations:       s.ContractConfigConfirmations,
 		CreatedAt:                         s.CreatedAt,
 		UpdatedAt:                         s.UpdatedAt,
+		P2PV2Bootstrappers:                pq.StringArray{},
 	}
 }

@@ -2,8 +2,10 @@ package assets_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 
 	"github.com/stretchr/testify/assert"
@@ -144,4 +146,145 @@ func TestAssets_Eth_UnmarshalJsonError(t *testing.T) {
 
 	err = json.Unmarshal([]byte(`1`), &eth)
 	assert.Equal(t, assets.ErrNoQuotesForCurrency, err)
+}
+
+func TestAssets_LinkToInt(t *testing.T) {
+	t.Parallel()
+
+	link := assets.NewLinkFromJuels(0)
+	assert.Equal(t, big.NewInt(0), link.ToInt())
+
+	link = assets.NewLinkFromJuels(123)
+	assert.Equal(t, big.NewInt(123), link.ToInt())
+}
+
+func TestAssets_LinkToHash(t *testing.T) {
+	t.Parallel()
+
+	link := assets.NewLinkFromJuels(123)
+	expected := common.BigToHash((*big.Int)(link))
+	assert.Equal(t, expected, link.ToHash())
+}
+
+func TestAssets_LinkSetLink(t *testing.T) {
+	t.Parallel()
+
+	link1 := assets.NewLinkFromJuels(123)
+	link2 := assets.NewLinkFromJuels(321)
+	link3 := link1.Set(link2)
+	assert.Equal(t, link3, link2)
+}
+
+func TestAssets_LinkCmpLink(t *testing.T) {
+	t.Parallel()
+
+	link1 := assets.NewLinkFromJuels(123)
+	link2 := assets.NewLinkFromJuels(321)
+	assert.NotZero(t, link1.Cmp(link2))
+
+	link3 := assets.NewLinkFromJuels(321)
+	assert.Zero(t, link3.Cmp(link2))
+}
+
+func TestAssets_LinkAddLink(t *testing.T) {
+	t.Parallel()
+
+	link1 := assets.NewLinkFromJuels(123)
+	link2 := assets.NewLinkFromJuels(321)
+	sum := assets.NewLinkFromJuels(123 + 321)
+	assert.Equal(t, sum, link1.Add(link1, link2))
+}
+
+func TestAssets_LinkText(t *testing.T) {
+	t.Parallel()
+
+	link := assets.NewLinkFromJuels(123)
+	assert.Equal(t, "123", link.Text(10))
+	assert.Equal(t, "7b", link.Text(16))
+}
+
+func TestAssets_LinkIsZero(t *testing.T) {
+	t.Parallel()
+
+	link := assets.NewLinkFromJuels(123)
+	assert.False(t, link.IsZero())
+
+	link = assets.NewLinkFromJuels(0)
+	assert.True(t, link.IsZero())
+}
+
+func TestAssets_LinkSymbol(t *testing.T) {
+	t.Parallel()
+
+	link := assets.NewLinkFromJuels(123)
+	assert.Equal(t, "LINK", link.Symbol())
+}
+
+func TestAssets_LinkScanValue(t *testing.T) {
+	t.Parallel()
+
+	link := assets.NewLinkFromJuels(123)
+	v, err := link.Value()
+	assert.NoError(t, err)
+
+	link2 := assets.NewLinkFromJuels(0)
+	err = link2.Scan(v)
+	assert.NoError(t, err)
+	assert.Equal(t, link2, link)
+
+	err = link2.Scan("123")
+	assert.NoError(t, err)
+	assert.Equal(t, link2, link)
+
+	err = link2.Scan([]uint8{'1', '2', '3'})
+	assert.NoError(t, err)
+	assert.Equal(t, link2, link)
+
+	assert.ErrorContains(t, link2.Scan([]uint8{'x'}), "unable to set string")
+	assert.ErrorContains(t, link2.Scan("123.56"), "unable to set string")
+	assert.ErrorContains(t, link2.Scan(1.5), "unable to convert")
+	assert.ErrorContains(t, link2.Scan(int64(123)), "unable to convert")
+}
+
+func TestAssets_NewEth(t *testing.T) {
+	t.Parallel()
+
+	ethRef := assets.NewEth(123)
+	ethVal := assets.NewEthValue(123)
+	ethStr, err := assets.NewEthValueS(ethRef.String())
+	assert.NoError(t, err)
+	assert.Equal(t, *ethRef, ethVal)
+	assert.Equal(t, *ethRef, ethStr)
+}
+
+func TestAssets_EthSymbol(t *testing.T) {
+	t.Parallel()
+
+	eth := assets.NewEth(123)
+	assert.Equal(t, "ETH", eth.Symbol())
+}
+
+func TestAssets_EthScanValue(t *testing.T) {
+	t.Parallel()
+
+	eth := assets.NewEth(123)
+	v, err := eth.Value()
+	assert.NoError(t, err)
+
+	eth2 := assets.NewEth(0)
+	err = eth2.Scan(v)
+	assert.NoError(t, err)
+
+	assert.Equal(t, eth, eth2)
+}
+
+func TestAssets_EthCmpEth(t *testing.T) {
+	t.Parallel()
+
+	eth1 := assets.NewEth(123)
+	eth2 := assets.NewEth(321)
+	assert.NotZero(t, eth1.Cmp(eth2))
+
+	eth3 := assets.NewEth(321)
+	assert.Zero(t, eth3.Cmp(eth2))
 }
