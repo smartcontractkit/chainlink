@@ -259,11 +259,10 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			Name:                     fmt.Sprintf("keeper job - registry %s", registryAddr),
-			ContractAddress:          registryAddr,
-			FromAddress:              nodeAddr,
-			EvmChainID:               int(k.cfg.ChainID),
-			MinIncomingConfirmations: 1,
+			Name:            fmt.Sprintf("keeper job - registry %s", registryAddr),
+			ContractAddress: registryAddr,
+			FromAddress:     nodeAddr,
+			EvmChainID:      int(k.cfg.ChainID),
 		}).Toml(),
 	})
 	if err != nil {
