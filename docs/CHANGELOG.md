@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Chainlink will now fail to boot if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
 ```
 Must be longer than 12 characters
 Must comprise at least 3 of:
