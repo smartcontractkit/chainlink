@@ -90,7 +90,7 @@ var (
 		FluxMonitor:        1,
 		OffchainReporting:  1,
 		OffchainReporting2: 1,
-		Keeper:             3,
+		Keeper:             1,
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
@@ -206,6 +206,7 @@ type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	P2PV2Bootstrappers                        pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
@@ -276,6 +277,10 @@ type OCR2PluginType string
 const (
 	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
+
+	DKG OCR2PluginType = "dkg"
+
+	OCR2VRF OCR2PluginType = "ocr2vrf"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -513,5 +518,6 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		ContractConfigConfirmations:       s.ContractConfigConfirmations,
 		CreatedAt:                         s.CreatedAt,
 		UpdatedAt:                         s.UpdatedAt,
+		P2PV2Bootstrappers:                pq.StringArray{},
 	}
 }

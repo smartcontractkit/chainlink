@@ -33,6 +33,7 @@ yarndep: ## Ensure all yarn dependencies are installed.
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	mkdir -p $(GOBIN)
+	rm -f $(GOBIN)/chainlink
 	cp $< $(GOBIN)/chainlink
 
 chainlink: operator-ui ## Build the chainlink binary.
@@ -41,6 +42,7 @@ chainlink: operator-ui ## Build the chainlink binary.
 .PHONY: chainlink-build
 chainlink-build: ## Build & install the chainlink binary.
 	go build $(GOFLAGS) -o chainlink ./core/
+	rm -f $(GOBIN)/chainlink
 	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
@@ -58,7 +60,7 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and their go wrappers.
+go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
 

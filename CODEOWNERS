@@ -22,7 +22,7 @@
 /core/services/pipeline @spooktheducks @connorwstein @archseer @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
-/core/services/vrf @connorwstein @Nic0s @makramkd
+/core/services/vrf @connorwstein @makramkd
 /core/services/webhook @spooktheducks @archseer
 
 # API
@@ -60,5 +60,7 @@ package.json @smartcontractkit/prodsec-public
 yarn.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/prodsec-public
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public

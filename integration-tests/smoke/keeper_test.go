@@ -4,6 +4,7 @@ package smoke
 import (
 	"context"
 	"math/big"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,10 @@ const (
 	BcptTest
 	PerformSimulationTest
 	CheckPerformGasLimitTest
+	RegisterUpkeepTest
+	AddFundsToUpkeepTest
+	RemovingKeeperTest
+	PauseRegistryTest
 )
 
 type KeeperConsumerContracts int32
@@ -34,12 +39,24 @@ const (
 	PerformanceCounter
 )
 
-var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest))
-var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest))
-var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest))
-var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest))
-var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest))
+const (
+	defaultUpkeepGasLimit = uint32(2500000)
+	defaultLinkFunds      = int64(9e18)
+)
+
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
@@ -72,6 +89,7 @@ func getKeeperSuite(
 	registryConfig contracts.KeeperRegistrySettings,
 	consumerContract KeeperConsumerContracts,
 	testToRun KeeperTests,
+	linkFundsForEachUpkeep *big.Int,
 ) func() {
 	return func() {
 		var (
@@ -79,6 +97,7 @@ func getKeeperSuite(
 			networks             *blockchain.Networks
 			contractDeployer     contracts.ContractDeployer
 			registry             contracts.KeeperRegistry
+			registrar            contracts.UpkeepRegistrar
 			consumers            []contracts.KeeperConsumer
 			consumersPerformance []contracts.KeeperConsumerPerformance
 			upkeepIDs            []*big.Int
@@ -93,6 +112,8 @@ func getKeeperSuite(
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["MIN_INCOMING_CONFIRMATIONS"] = "1"
 				// Turn on buddy turn taking algo
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_FLAG_ENABLED"] = "true"
+				// Since this is a simulated chain, block numbers start from 0, we can't look back
+				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_LOOK_BACK"] = "0"
 
 				env, err = environment.DeployOrLoadEnvironment(
 					environment.NewChainlinkConfig(
@@ -130,28 +151,30 @@ func getKeeperSuite(
 
 				switch consumerContract {
 				case BasicCounter:
-					registry, consumers, upkeepIDs = actions.DeployKeeperContracts(
+					registry, registrar, consumers, upkeepIDs = actions.DeployKeeperContracts(
 						registryVersion,
 						registryConfig,
 						10,
-						uint32(2500000), //upkeepGasLimit
+						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
 						networks,
+						linkFundsForEachUpkeep,
 					)
 				case PerformanceCounter:
-					registry, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
+					registry, registrar, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
 						registryVersion,
 						10,
-						uint32(2500000), //upkeepGasLimit
+						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
 						networks,
 						&registryConfig,
+						linkFundsForEachUpkeep,
 						10000,   // How many blocks this upkeep will be eligible from first upkeep block
 						5,       // Interval of blocks that upkeeps are expected to be performed
 						100000,  // How much gas should be burned on checkUpkeep() calls
-						4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than upkeepGasLimit
+						4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
 					)
 				}
 			})
@@ -215,10 +238,15 @@ func getKeeperSuite(
 
 					// Wait for upkeep to be performed twice by different keepers (buddies)
 					Eventually(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+
 						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
 						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 
 						latestKeeper := upkeepInfo.LastKeeper
+						log.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
 						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
 						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
 
@@ -258,10 +286,15 @@ func getKeeperSuite(
 
 					// Expect a new keeper to perform
 					Eventually(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+
 						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
 						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 
 						latestKeeper := upkeepInfo.LastKeeper
+						log.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
 						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
 						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
 
@@ -315,7 +348,7 @@ func getKeeperSuite(
 					consumerPerformance := consumersPerformance[0]
 					upkeepID := upkeepIDs[0]
 
-					// Initially performGas is set higher than upkeepGasLimit, so no upkeep should be performed
+					// Initially performGas is set higher than defaultUpkeepGasLimit, so no upkeep should be performed
 					Consistently(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
@@ -346,15 +379,18 @@ func getKeeperSuite(
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for SetCheckGasToBurn tx")
 
-					// Get existing performed count, expect it to remain constant
+					// Get existing performed count
 					existingCnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 					log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
+
+					// In most cases count should remain constant, but there might be a straggling perform tx which
+					// gets committed later. Hence we check that the upkeep count does not increase by more than 1
 					Consistently(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 						g.Expect(cnt.Int64()).Should(
-							Equal(existingCnt.Int64()),
+							BeNumerically("<=", existingCnt.Int64()+1),
 							"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
@@ -367,13 +403,182 @@ func getKeeperSuite(
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
 
-					// Upkeep should start performing again
+					// Upkeep should start performing again, and it should get regularly performed
 					Eventually(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-						g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()),
+						g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()+1),
 							"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 						)
+					}, "1m", "1s").Should(Succeed())
+				})
+			}
+
+			if testToRun == RegisterUpkeepTest {
+				It("registers a new upkeep after the initial one was already registered and watches all of them perform", func() {
+					var initialCounters = make([]*big.Int, len(upkeepIDs))
+
+					// Observe that the upkeeps which are initially registered are performing and
+					// store the value of their initial counters in order to compare later on that the value increased.
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							counter, err := consumers[i].Counter(context.Background())
+							initialCounters[i] = counter
+							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+							log.Info().
+								Int64("Upkeep counter", counter.Int64()).
+								Int64("Upkeep ID", int64(i)).
+								Msg("Upkeeps performed")
+						}
+					}, "1m", "1s").Should(Succeed())
+
+					newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, networks, linkToken,
+						registry, registrar, defaultUpkeepGasLimit, 1)
+
+					// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
+					newUpkeep := newConsumers[0]
+
+					// Test that the newly registered upkeep is also performing.
+					Eventually(func(g Gomega) {
+						counter, err := newUpkeep.Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling newly deployed upkeep's counter shouldn't fail")
+						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+							"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
+					}, "1m", "1s").Should(Succeed())
+
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							currentCounter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+
+							log.Info().
+								Int64("Upkeep ID", int64(i)).
+								Int64("Upkeep counter", currentCounter.Int64()).
+								Int64("initial counter", initialCounters[i].Int64()).
+								Msg("Num Upkeeps performed")
+
+							g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+								"Expected counter to have increased from initial value of %s, but got %s",
+								initialCounters[i], currentCounter)
+						}
+					}, "1m", "1s").Should(Succeed())
+				})
+			}
+
+			if testToRun == AddFundsToUpkeepTest {
+				It("adds funds to a new underfunded upkeep", func() {
+					// Since the upkeep is currently underfunded, check that it doesn't get executed
+					Consistently(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						g.Expect(counter.Int64()).Should(Equal(int64(0)),
+							"Expected consumer counter to remain zero, but got %d", counter.Int64())
+					}, "1m", "1s").Should(Succeed())
+
+					// Grant permission to the registry to fund the upkeep
+					err = linkToken.Approve(registry.Address(), big.NewInt(9e18))
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to approve")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+
+					// Add funds to the upkeep whose ID we know from above
+					err = registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
+					Expect(err).ShouldNot(HaveOccurred(), "Could not fund upkeep")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+
+					// Now the new upkeep should be performing because we added enough funds
+					Eventually(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve the consumer's counter")
+						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+							"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+					}, "1m", "1s").Should(Succeed())
+				})
+			}
+
+			if testToRun == RemovingKeeperTest {
+				It("removes one keeper and makes sure the upkeeps are not affected by this and still perform", func() {
+					var initialCounters = make([]*big.Int, len(upkeepIDs))
+					// Make sure the upkeeps are running before we remove a keeper
+					Eventually(func(g Gomega) {
+						for upkeepID := 0; upkeepID < len(upkeepIDs); upkeepID++ {
+							counter, err := consumers[upkeepID].Counter(context.Background())
+							initialCounters[upkeepID] = counter
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(upkeepID))
+							g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
+						}
+					}, "1m", "1s").Should(Succeed())
+
+					keepers, err := registry.GetKeeperList(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of keepers")
+
+					// Remove the first keeper from the list
+					newKeeperList := keepers[1:]
+
+					// Construct the addresses of the payees required by the SetKeepers function
+					payees := make([]string, len(keepers)-1)
+					for i := 0; i < len(payees); i++ {
+						payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
+						Expect(err).ShouldNot(HaveOccurred(), "Shouldn't encounter error when building the payee list")
+					}
+
+					err = registry.SetKeepers(newKeeperList, payees)
+					Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new Keepers")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+					log.Info().Msg("Successfully removed keeper at address " + keepers[0] + " from the list of Keepers")
+
+					// The upkeeps should still perform and their counters should have increased compared to the first check
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							counter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
+							g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
+								"than initial counter which was %s, but got %s", initialCounters[i], counter)
+						}
+					}, "1m", "1s").Should(Succeed())
+				})
+			}
+
+			if testToRun == PauseRegistryTest {
+				It("pauses the registry and makes sure that the upkeeps are no longer performed", func() {
+					// Observe that the upkeeps which are initially registered are performing
+					Eventually(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							counter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+								"Expected consumer counter to be greater than 0, but got %d")
+						}
+					}, "1m", "1s").Should(Succeed())
+
+					// Pause the registry
+					err := registry.Pause()
+					Expect(err).ShouldNot(HaveOccurred(), "Could not pause the registry")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
+
+					// Store how many times each upkeep performed once the registry was successfully paused
+					var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+					for i := 0; i < len(upkeepIDs); i++ {
+						countersAfterPause[i], err = consumers[i].Counter(context.Background())
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+					}
+
+					// After we paused the registry, the counters of all the upkeeps should stay constant
+					// because they are no longer getting serviced
+					Consistently(func(g Gomega) {
+						for i := 0; i < len(upkeepIDs); i++ {
+							latestCounter, err := consumers[i].Counter(context.Background())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+							g.Expect(latestCounter.Int64()).Should(Equal(countersAfterPause[i].Int64()),
+								"Expected consumer counter to remain constant at %d, but got %d",
+								countersAfterPause[i].Int64(), latestCounter.Int64())
+						}
 					}, "1m", "1s").Should(Succeed())
 				})
 			}

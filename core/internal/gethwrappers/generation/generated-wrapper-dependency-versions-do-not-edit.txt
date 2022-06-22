@@ -12,8 +12,9 @@ cron_upkeep_wrapper: ../../../contracts/solc/v0.8.6/CronUpkeep.abi - b1257293e00
 derived_price_feed_wrapper: ../../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../../contracts/solc/v0.8.6/DerivedPriceFeed.bin c8542e6c850c2d0fffb79a7f7213dc927ec64e6ddd54e1224cb2fb4a13aabdd0
 flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
+gas_wrapper: ../../../contracts/solc/v0.8.13/KeeperRegistryCheckUpkeepGasUsageWrapper.abi ../../../contracts/solc/v0.8.13/KeeperRegistryCheckUpkeepGasUsageWrapper.bin 6c95c7e84792cc55c49a56bfc89e78c3a5e98a3daa9fd2a567f10235089069fc
 keeper_registry_wrapper1_1: ../../../contracts/solc/v0.7/KeeperRegistry1_1.abi ../../../contracts/solc/v0.7/KeeperRegistry1_1.bin 6ce079f2738f015f7374673a2816e8e9787143d00b780ea7652c8aa9ad9e1e20
-keeper_registry_wrapper1_2: ../../../contracts/solc/v0.8.13/KeeperRegistry.abi ../../../contracts/solc/v0.8.13/KeeperRegistry.bin 47c94e4c1a234d18c325088a3d47abf47cdafd186206ce62a4e8c9b3d55fe5a0
+keeper_registry_wrapper1_2: ../../../contracts/solc/v0.8.13/KeeperRegistry.abi ../../../contracts/solc/v0.8.13/KeeperRegistry.bin 16ed9683aef568c62fb412cac99de8f9b92551865a132a6537bd9e685bb7257c
 keepers_vrf_consumer: ../../../contracts/solc/v0.8.13/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.13/KeepersVRFConsumer.bin af566adbbc552d6607f57b407adbb96097d929525cef9fe80c1eb2b52ee70be8
 log_emitter: ../../../contracts/solc/v0.8.6/LogEmitter.abi ../../../contracts/solc/v0.8.6/LogEmitter.bin 375488d19b6ee1c180d42048be10abea9146e2a58347fd180358850d435cb854
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba

@@ -546,7 +546,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chBlock := make(chan struct{})
 
 	estimator := new(gasmocks.Estimator)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Return(assets.GWei(32), uint64(500), nil).Run(func(_ mock.Arguments) {
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, evmcfg.KeySpecificMaxGasPriceWei(fromAddress)).Return(assets.GWei(32), uint64(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
 		<-chBlock
 	})
@@ -1443,7 +1443,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(insufficientEthError)).Once()
 
 		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
-		require.EqualError(t, err, "processUnstartedEthTxs failed: insufficient funds for transfer")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient funds for transfer")
 
 		// Check it was saved correctly with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)

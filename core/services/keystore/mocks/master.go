@@ -28,6 +28,22 @@ func (_m *Master) CSA() keystore.CSA {
 	return r0
 }
 
+// DKGSign provides a mock function with given fields:
+func (_m *Master) DKGSign() keystore.DKGSign {
+	ret := _m.Called()
+
+	var r0 keystore.DKGSign
+	if rf, ok := ret.Get(0).(func() keystore.DKGSign); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.DKGSign)
+		}
+	}
+
+	return r0
+}
+
 // Eth provides a mock function with given fields:
 func (_m *Master) Eth() keystore.Eth {
 	ret := _m.Called()
