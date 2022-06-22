@@ -81,6 +81,7 @@ Ethereum node versions currently tested and supported:
 
 [Unofficially supported]
 - [Besu](https://github.com/hyperledger/besu)
+- [Erigon](https://github.com/ledgerwatch/erigon)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 

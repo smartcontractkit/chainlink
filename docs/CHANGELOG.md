@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Chainlink will now fail to boot if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+
 ```
 Must be longer than 12 characters
 Must comprise at least 3 of:
@@ -23,7 +24,9 @@ Must not comprise:
 	More than three identical consecutive characters
 	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 ```
+
 For backward compatibility all insecure passwords will continue to work, however in a future version of Chainlink insecure passwords will prevent application boot. To bypass this check at your own risk, you may set `SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true`.
+
 - `MIN_OUTGOING_CONFIRMATIONS` has been removed and no longer has any effect. `EVM_FINALITY_DEPTH` is now used as the default for `ethtx` confirmations instead. You may override this on a per-task basis by setting `minConfirmations` in the task definition e.g. `foo [type=ethtx minConfirmations=42 ...]`. NOTE: This may have a minor impact on performance on very high throughput chains. If you don't care about reporting task status in the UI, it is recommended to set `minConfirmations=0` in your job specs. For more details, see the [relevant section of the performance tuning guide](https://www.notion.so/chainlink/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c#e9998c2f722540b597301a640f53cfd4).
 - The following ENV variables have been deprecated, and will be removed in a future release: `INSECURE_SKIP_VERIFY`, `CLIENT_NODE_URL`, `ADMIN_CREDENTIALS_FILE`. These vars only applied to Chainlink when running in client mode and have been replaced by command line args, notably: `--insecure-skip-verify`, `--remote-node-url URL` and `--admin-credentials-file FILE` respectively. More information can be found by running `./chainlink --help`.
 
@@ -50,6 +53,9 @@ If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on 
 If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
 
 - `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
+
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
+
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
