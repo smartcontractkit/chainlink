@@ -20,7 +20,6 @@ import (
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -211,7 +210,7 @@ type dkgProvider struct {
 
 var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
 
-func (c *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relay.DKGProvider, error) {
+func (c *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.DKGProvider, error) {
 	configWatcher, err := newConfigProvider(c.lggr, c.chainSet, rargs)
 	if err != nil {
 		return nil, err
@@ -237,7 +236,7 @@ type vrfProvider struct {
 
 var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
 
-func (c *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relay.OCR2VRFProvider, error) {
+func (c *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.OCR2VRFProvider, error) {
 	configWatcher, err := newConfigProvider(c.lggr, c.chainSet, rargs)
 	if err != nil {
 		return nil, err
