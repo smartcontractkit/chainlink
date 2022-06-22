@@ -1263,9 +1263,7 @@ UseForwarders = false # Default
 ```
 EVM defaults depend on ChainID:
 
-#### EVM 1
-
-<details><summary>Ethereum Mainnet</summary><p>
+<details><summary>Ethereum Mainnet (1)<a id='EVM-1'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = true
@@ -1327,9 +1325,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 3
-
-<details><summary>Ethereum Ropsten</summary><p>
+<details><summary>Ethereum Ropsten (3)<a id='EVM-3'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = true
@@ -1390,9 +1386,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 4
-
-<details><summary>Ethereum Rinkeby</summary><p>
+<details><summary>Ethereum Rinkeby (4)<a id='EVM-4'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1453,9 +1447,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 5
-
-<details><summary>Ethereum Goerli</summary><p>
+<details><summary>Ethereum Goerli (5)<a id='EVM-5'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1516,9 +1508,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 10
-
-<details><summary>Optimism Mainnet</summary><p>
+<details><summary>Optimism Mainnet (10)<a id='EVM-10'></a></summary><p>
 
 ```toml
 ChainType = 'optimism'
@@ -1580,9 +1570,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 30
-
-<details><summary>RSK Mainnet</summary><p>
+<details><summary>RSK Mainnet (30)<a id='EVM-30'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1643,9 +1631,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 31
-
-<details><summary>RSK Testnet</summary><p>
+<details><summary>RSK Testnet (31)<a id='EVM-31'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1706,9 +1692,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 42
-
-<details><summary>Ethereum Kovan</summary><p>
+<details><summary>Ethereum Kovan (42)<a id='EVM-42'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1770,9 +1754,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 56
-
-<details><summary>BSC Mainnet</summary><p>
+<details><summary>BSC Mainnet (56)<a id='EVM-56'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1833,9 +1815,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 65
-
-<details><summary>OKX Testnet</summary><p>
+<details><summary>OKX Testnet (65)<a id='EVM-65'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1895,9 +1875,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 66
-
-<details><summary>OKX Mainnet</summary><p>
+<details><summary>OKX Mainnet (66)<a id='EVM-66'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -1957,9 +1935,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 69
-
-<details><summary>Optimism Kovan</summary><p>
+<details><summary>Optimism Kovan (69)<a id='EVM-69'></a></summary><p>
 
 ```toml
 ChainType = 'optimism'
@@ -2021,9 +1997,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 100
-
-<details><summary>xDai Mainnet</summary><p>
+<details><summary>xDai Mainnet (100)<a id='EVM-100'></a></summary><p>
 
 ```toml
 ChainType = 'xdai'
@@ -2085,9 +2059,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 128
-
-<details><summary>Heco Mainnet</summary><p>
+<details><summary>Heco Mainnet (128)<a id='EVM-128'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2148,9 +2120,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 137
-
-<details><summary>Polygon Mainnet</summary><p>
+<details><summary>Polygon Mainnet (137)<a id='EVM-137'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2211,9 +2181,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 250
-
-<details><summary>Fantom Mainnet</summary><p>
+<details><summary>Fantom Mainnet (250)<a id='EVM-250'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2274,9 +2242,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 588
-
-<details><summary>Metis Rinkeby</summary><p>
+<details><summary>Metis Rinkeby (588)<a id='EVM-588'></a></summary><p>
 
 ```toml
 ChainType = 'metis'
@@ -2337,9 +2303,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 1088
-
-<details><summary>Metis Mainnet</summary><p>
+<details><summary>Metis Mainnet (1088)<a id='EVM-1088'></a></summary><p>
 
 ```toml
 ChainType = 'metis'
@@ -2400,9 +2364,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 4002
-
-<details><summary>Fantom Testnet</summary><p>
+<details><summary>Fantom Testnet (4002)<a id='EVM-4002'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2463,9 +2425,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 42161
-
-<details><summary>Arbitrum Mainnet</summary><p>
+<details><summary>Arbitrum Mainnet (42161)<a id='EVM-42161'></a></summary><p>
 
 ```toml
 ChainType = 'arbitrum'
@@ -2527,9 +2487,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 43113
-
-<details><summary>Avalance Fuji</summary><p>
+<details><summary>Avalance Fuji (43113)<a id='EVM-43113'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2590,9 +2548,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 43114
-
-<details><summary>Avalance Mainnet</summary><p>
+<details><summary>Avalance Mainnet (43114)<a id='EVM-43114'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2653,9 +2609,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 80001
-
-<details><summary>Polygon Mumbai</summary><p>
+<details><summary>Polygon Mumbai (80001)<a id='EVM-80001'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2716,9 +2670,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 421611
-
-<details><summary>Arbitrum Rinkeby</summary><p>
+<details><summary>Arbitrum Rinkeby (421611)<a id='EVM-421611'></a></summary><p>
 
 ```toml
 ChainType = 'arbitrum'
@@ -2780,9 +2732,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 1666600000
-
-<details><summary>Harmony Mainnet</summary><p>
+<details><summary>Harmony Mainnet (1666600000)<a id='EVM-1666600000'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2843,9 +2793,7 @@ PollInterval = '10s'
 
 </p></details>
 
-#### EVM 1666700000
-
-<details><summary>Harmony Testnet</summary><p>
+<details><summary>Harmony Testnet (1666700000)<a id='EVM-1666700000'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
