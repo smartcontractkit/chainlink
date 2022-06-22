@@ -362,15 +362,18 @@ func getKeeperSuite(
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for SetCheckGasToBurn tx")
 
-					// Get existing performed count, expect it to remain constant
+					// Get existing performed count
 					existingCnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 					log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
+
+					// In most cases count should remain constant, but there might be a straggling perform tx which
+					// gets committed later. Hence we check that the upkeep count does not increase by more than 1
 					Consistently(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 						g.Expect(cnt.Int64()).Should(
-							Equal(existingCnt.Int64()),
+							BeNumerically("<=", existingCnt.Int64()+1),
 							"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
@@ -383,11 +386,11 @@ func getKeeperSuite(
 					err = networks.Default.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error waiting for set config tx")
 
-					// Upkeep should start performing again
+					// Upkeep should start performing again, and it should get regularly performed
 					Eventually(func(g Gomega) {
 						cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-						g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()),
+						g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()+1),
 							"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 						)
 					}, "1m", "1s").Should(Succeed())
