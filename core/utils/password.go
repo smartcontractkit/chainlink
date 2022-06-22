@@ -1,81 +1,51 @@
 package utils
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
-	"unicode"
+	"strings"
 
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
+// Note that adding an entropy requirement wouldn't add much, since a 16
+// character password already has an entropy score of 75 even if it's all
+// lowercase characters
 const PasswordComplexityRequirements = `
-Must be longer than 12 characters
-Must comprise at least 3 of:
-	lowercase characters
-	uppercase characters
-	numbers
-	symbols
+Must have a length of 16-50 characters
 Must not comprise:
-	More than three identical consecutive characters
 	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
+	A user's API email
 `
 
-var (
-	lowercase = regexp.MustCompile("[a-z]")
-	uppercase = regexp.MustCompile("[A-Z]")
-	numbers   = regexp.MustCompile("[0-9]")
+const MinRequiredLen = 16
 
-	ErrPasswordMinLength     = errors.New("must be longer than 12 characters")
-	ErrPasswordMinLowercase  = errors.New("must contain at least 3 lowercase characters")
-	ErrPasswordMinUppercase  = errors.New("must contain at least 3 uppercase characters")
-	ErrPasswordMinNumbers    = errors.New("must contain at least 3 numbers")
-	ErrPasswordMinSymbols    = errors.New("must contain at least 3 symbols")
-	ErrPasswordRepeatedChars = errors.New("must not contain more than 3 identical consecutive characters")
+var LeadingWhitespace = regexp.MustCompile(`^\s+`)
+var TrailingWhitespace = regexp.MustCompile(`\s+$`)
+
+var (
+	ErrPasswordMinLength = errors.Errorf("must be longer than %d characters", MinRequiredLen)
+	ErrWhitespace        = errors.New("must not contain leading or trailing whitespace characters")
 )
 
-func countSymbols(password string) (count int) {
-	for _, r := range password {
-		if unicode.IsPunct(r) || unicode.IsSymbol(r) {
-			count++
-		}
+func VerifyPasswordComplexity(password string, disallowedStrings ...string) (merr error) {
+	if LeadingWhitespace.MatchString(password) || TrailingWhitespace.MatchString(password) {
+		merr = multierr.Append(merr, ErrWhitespace)
 	}
-	return
-}
 
-func VerifyPasswordComplexity(password string) (merr error) {
-	if len(password) <= 12 {
+	if len(password) < MinRequiredLen {
 		merr = multierr.Append(merr, ErrPasswordMinLength)
 	}
-	if len(lowercase.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, ErrPasswordMinLowercase)
-	}
-	if len(uppercase.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, ErrPasswordMinUppercase)
-	}
-	if len(numbers.FindAllString(password, -1)) < 3 {
-		merr = multierr.Append(merr, ErrPasswordMinNumbers)
-	}
-	if countSymbols(password) < 3 {
-		merr = multierr.Append(merr, ErrPasswordMinSymbols)
-	}
-	var c byte
-	var instances int
-	for i := 0; i < len(password); i++ {
-		if password[i] == c {
-			instances++
-		} else {
-			instances = 1
+
+	for _, s := range disallowedStrings {
+		if strings.Contains(strings.ToLower(password), strings.ToLower(s)) {
+			merr = multierr.Append(merr, errors.Errorf("password may not contain: %q", s))
 		}
-		if instances > 3 {
-			merr = multierr.Append(merr, ErrPasswordRepeatedChars)
-			break
-		}
-		c = password[i]
 	}
 
 	if merr != nil {
-		merr = fmt.Errorf("password does not meet the requirements.\n%+v", merr)
+		merr = fmt.Errorf("password does not meet the requirements: %s", merr.Error())
 	}
 
 	return
