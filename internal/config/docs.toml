@@ -383,7 +383,6 @@ Release = 'v1.2.3'
 [[EVM]]
 ChainID = '1'
 Enabled = true # Default
-BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -532,6 +531,10 @@ TxReaperThreshold = '1m'
 TxResendAfterThreshold = '1h'
 # UseForwarders enables or disables sending transactions through forwarder contracts.
 UseForwarders = false # Default
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 17
 
 # These settings allow you to configure how your node calculates gas prices. In most cases, leaving these values at their defaults should give good results.
 [EVM.BlockHistoryEstimator]

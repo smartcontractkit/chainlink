@@ -86,9 +86,6 @@ func (c *Chain) SetDefaults(chainID *utils.Big) {
 }
 
 func (c *Chain) SetFrom(f *Chain) {
-	if v := f.BalanceMonitorEnabled; v != nil {
-		c.BalanceMonitorEnabled = v
-	}
 	if v := f.BlockBackfillDepth; v != nil {
 		c.BlockBackfillDepth = v
 	}
@@ -208,6 +205,17 @@ func (c *Chain) SetFrom(f *Chain) {
 	}
 	if v := f.UseForwarders; v != nil {
 		c.UseForwarders = v
+	}
+	if b := f.BalanceMonitor; b != nil {
+		if c.BalanceMonitor == nil {
+			c.BalanceMonitor = &BalanceMonitor{}
+		}
+		if v := b.Enabled; v != nil {
+			c.BalanceMonitor.Enabled = v
+		}
+		if v := b.BlockDelay; v != nil {
+			c.BalanceMonitor.BlockDelay = v
+		}
 	}
 	if b := f.BlockHistoryEstimator; b != nil {
 		if c.BlockHistoryEstimator == nil {

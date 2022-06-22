@@ -356,9 +356,12 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
-				BalanceMonitorEnabled: ptr(true),
-				BlockBackfillDepth:    ptr[uint32](100),
-				BlockBackfillSkip:     ptr(true),
+				BalanceMonitor: &evmcfg.BalanceMonitor{
+					Enabled:    ptr(true),
+					BlockDelay: ptr[uint16](17),
+				},
+				BlockBackfillDepth: ptr[uint32](100),
+				BlockBackfillSkip:  ptr(true),
 				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimator{
 					BatchSize:                 ptr[uint32](17),
 					BlockDelay:                ptr[uint16](10),
@@ -698,7 +701,6 @@ Release = 'v1.2.3'
 [[EVM]]
 ChainID = '1'
 Enabled = false
-BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -739,6 +741,10 @@ TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
 UseForwarders = true
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 17
 
 [EVM.BlockHistoryEstimator]
 BatchSize = 17

@@ -179,7 +179,6 @@ Release = 'v1.2.3'
 [[EVM]]
 ChainID = '1'
 Enabled = false
-BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -220,6 +219,10 @@ TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
 UseForwarders = true
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 17
 
 [EVM.BlockHistoryEstimator]
 BatchSize = 17

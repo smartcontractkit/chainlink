@@ -1,5 +1,4 @@
 ChainID = '137'
-#BalanceMonitorBlockDelay = 13
 FinalityDepth = 500
 GasBumpThreshold = 5
 GasBumpWei = '20 gwei'
@@ -11,6 +10,9 @@ TxResendAfterThreshold = '1m'
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 MinIncomingConfirmations = 5
 LogPollInterval = '1s'
+
+[BalanceMonitor]
+BlockDelay = 13
 
 [BlockHistoryEstimator]
 BlockDelay = 10

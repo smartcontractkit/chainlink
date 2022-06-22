@@ -117,7 +117,10 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewBool("BalanceMonitorEnabled").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].BalanceMonitorEnabled = e
+			if c.EVM[i].BalanceMonitor == nil {
+				c.EVM[i].BalanceMonitor = &evmcfg.BalanceMonitor{}
+			}
+			c.EVM[i].BalanceMonitor.Enabled = e
 		}
 	}
 	if e := envvar.NewUint32("BlockBackfillDepth").ParsePtr(); e != nil {

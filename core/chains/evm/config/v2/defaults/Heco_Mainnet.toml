@@ -1,5 +1,4 @@
 ChainID = '128'
-#BalanceMonitorBlockDelay = 2
 TxResendAfterThreshold = '1m'
 FinalityDepth = 50
 GasBumpThreshold = 5
@@ -12,6 +11,9 @@ OCRDatabaseTimeout = '2s'
 OCRContractTransmitterTransmitTimeout = '2s'
 OCRObservationGracePeriod = '500ms'
 LogPollInterval = '3s'
+
+[BalanceMonitor]
+BlockDelay = 2
 
 [BlockHistoryEstimator]
 BlockDelay = 2

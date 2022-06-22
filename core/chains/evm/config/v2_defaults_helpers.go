@@ -23,7 +23,6 @@ func V2Defaults() map[int64]v2.Chain {
 
 func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	c := v2.Chain{
-		BalanceMonitorEnabled:                 ptr(set.balanceMonitorEnabled),
 		BlockBackfillDepth:                    nil,
 		BlockBackfillSkip:                     nil,
 		ChainType:                             ptr(string(set.chainType)),
@@ -64,6 +63,10 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 		TxReaperThreshold:                     models.MustNewDuration(set.ethTxReaperThreshold),
 		TxResendAfterThreshold:                models.MustNewDuration(set.ethTxResendAfterThreshold),
 		UseForwarders:                         ptr(set.useForwarders),
+		BalanceMonitor: &v2.BalanceMonitor{
+			Enabled:    ptr(set.balanceMonitorEnabled),
+			BlockDelay: ptr(set.balanceMonitorBlockDelay),
+		},
 		BlockHistoryEstimator: &v2.BlockHistoryEstimator{
 			BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
 			BlockDelay:                ptr(set.blockHistoryEstimatorBlockDelay),
@@ -86,6 +89,9 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	}
 	if *c.ChainType == "" {
 		c.ChainType = nil
+	}
+	if isZeroPtr(c.BalanceMonitor) {
+		c.BalanceMonitor = nil
 	}
 	if isZeroPtr(c.BlockHistoryEstimator) {
 		c.BlockHistoryEstimator = nil

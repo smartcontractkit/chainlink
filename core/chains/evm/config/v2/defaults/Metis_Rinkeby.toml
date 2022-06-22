@@ -1,12 +1,14 @@
 ChainID = '588'
 ChainType = 'metis'
-#BalanceMonitorBlockDelay = 0
 FinalityDepth = 1
 GasBumpThreshold = 0
 GasEstimatorMode = 'L2Suggested'
 MinIncomingConfirmations = 1
 MinGasPriceWei = '0'
 OCRContractConfirmations = 1
+
+[BalanceMonitor]
+BlockDelay = 0
 
 [BlockHistoryEstimator]
 BlockHistorySize = 0

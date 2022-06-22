@@ -15,8 +15,6 @@ import (
 )
 
 type Chain struct {
-	BalanceMonitorEnabled *bool
-	//TODO BalanceMonitorBlockDelay
 	BlockBackfillDepth *uint32
 	BlockBackfillSkip  *bool
 
@@ -67,6 +65,8 @@ type Chain struct {
 
 	UseForwarders *bool
 
+	BalanceMonitor *BalanceMonitor
+
 	BlockHistoryEstimator *BlockHistoryEstimator
 
 	HeadTracker *HeadTracker
@@ -74,6 +74,11 @@ type Chain struct {
 	KeySpecific []KeySpecific `toml:",omitempty"`
 
 	NodePool *NodePool
+}
+
+type BalanceMonitor struct {
+	Enabled    *bool
+	BlockDelay *uint16
 }
 
 type BlockHistoryEstimator struct {

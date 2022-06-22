@@ -25,6 +25,7 @@
 - [AutoPprof](#AutoPprof)
 - [Sentry](#Sentry)
 - [EVM](#EVM)
+	- [BalanceMonitor](#EVM-BalanceMonitor)
 	- [BlockHistoryEstimator](#EVM-BlockHistoryEstimator)
 	- [HeadTracker](#EVM-HeadTracker)
 	- [KeySpecific](#EVM-KeySpecific)
@@ -1219,7 +1220,6 @@ Release = 'v1.2.3'
 [[EVM]]
 ChainID = '1'
 Enabled = true # Default
-BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
@@ -1265,7 +1265,6 @@ EVM defaults depend on ChainID:
 <details><summary>1) Ethereum Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = true
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1301,6 +1300,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1323,7 +1326,6 @@ PollInterval = '10s'
 <details><summary>3) Ethereum Ropsten</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = true
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1358,6 +1360,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1380,7 +1386,6 @@ PollInterval = '10s'
 <details><summary>4) Ethereum Rinkeby</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1415,6 +1420,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1437,7 +1446,6 @@ PollInterval = '10s'
 <details><summary>5) Ethereum Goerli</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1472,6 +1480,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1494,7 +1506,6 @@ PollInterval = '10s'
 <details><summary>10) Optimism Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'optimism'
 EIP1559DynamicFees = false
 FinalityDepth = 1
@@ -1530,6 +1541,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '15s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1552,7 +1567,6 @@ PollInterval = '10s'
 <details><summary>30) RSK Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1587,6 +1601,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1609,7 +1627,6 @@ PollInterval = '10s'
 <details><summary>31) RSK Testnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1644,6 +1661,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1666,7 +1687,6 @@ PollInterval = '10s'
 <details><summary>42) Ethereum Kovan</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1702,6 +1722,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1724,7 +1748,6 @@ PollInterval = '10s'
 <details><summary>56) BSC Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1759,6 +1782,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 2
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 2
@@ -1781,7 +1808,6 @@ PollInterval = '10s'
 <details><summary>65) OKX Testnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1814,6 +1840,10 @@ TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
 
 [BlockHistoryEstimator]
 BatchSize = 4
@@ -1837,7 +1867,6 @@ PollInterval = '10s'
 <details><summary>66) OKX Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -1871,6 +1900,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1893,7 +1926,6 @@ PollInterval = '10s'
 <details><summary>69) Optimism Kovan</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'optimism'
 EIP1559DynamicFees = false
 FinalityDepth = 1
@@ -1929,6 +1961,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '15s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -1951,7 +1987,6 @@ PollInterval = '10s'
 <details><summary>100) xDai Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'xdai'
 EIP1559DynamicFees = false
 FinalityDepth = 50
@@ -1987,6 +2022,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2009,7 +2048,6 @@ PollInterval = '10s'
 <details><summary>128) Heco Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -2044,6 +2082,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 2
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 2
@@ -2066,7 +2108,6 @@ PollInterval = '10s'
 <details><summary>137) Polygon Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 500
 GasBumpPercent = 20
@@ -2101,6 +2142,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 13
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 10
@@ -2123,7 +2168,6 @@ PollInterval = '10s'
 <details><summary>250) Fantom Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -2158,6 +2202,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2180,7 +2228,6 @@ PollInterval = '10s'
 <details><summary>588) Metis Rinkeby</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'metis'
 EIP1559DynamicFees = false
 FinalityDepth = 1
@@ -2214,6 +2261,10 @@ TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
 
 [BlockHistoryEstimator]
 BatchSize = 4
@@ -2237,7 +2288,6 @@ PollInterval = '10s'
 <details><summary>1088) Metis Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'metis'
 EIP1559DynamicFees = false
 FinalityDepth = 1
@@ -2272,6 +2322,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2294,7 +2348,6 @@ PollInterval = '10s'
 <details><summary>4002) Fantom Testnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -2329,6 +2382,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2351,7 +2408,6 @@ PollInterval = '10s'
 <details><summary>42161) Arbitrum Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'arbitrum'
 EIP1559DynamicFees = false
 FinalityDepth = 50
@@ -2387,6 +2443,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2409,7 +2469,6 @@ PollInterval = '10s'
 <details><summary>43113) Avalance Fuji</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 1
 GasBumpPercent = 20
@@ -2444,6 +2503,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 2
@@ -2466,7 +2529,6 @@ PollInterval = '10s'
 <details><summary>43114) Avalance Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 1
 GasBumpPercent = 20
@@ -2501,6 +2563,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 2
@@ -2523,7 +2589,6 @@ PollInterval = '10s'
 <details><summary>80001) Polygon Mumbai</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 500
 GasBumpPercent = 20
@@ -2558,6 +2623,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 13
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 10
@@ -2580,7 +2649,6 @@ PollInterval = '10s'
 <details><summary>421611) Arbitrum Rinkeby</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 ChainType = 'arbitrum'
 EIP1559DynamicFees = false
 FinalityDepth = 50
@@ -2616,6 +2684,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2638,7 +2710,6 @@ PollInterval = '10s'
 <details><summary>1666600000) Harmony Mainnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -2673,6 +2744,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2695,7 +2770,6 @@ PollInterval = '10s'
 <details><summary>1666700000) Harmony Testnet</summary><p>
 
 ```toml
-BalanceMonitorEnabled = true
 EIP1559DynamicFees = false
 FinalityDepth = 50
 GasBumpPercent = 20
@@ -2730,6 +2804,10 @@ TxReaperThreshold = '168h0m0s'
 TxResendAfterThreshold = '1m0s'
 UseForwarders = false
 
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
 [BlockHistoryEstimator]
 BatchSize = 4
 BlockDelay = 1
@@ -2760,12 +2838,6 @@ ChainID = '1'
 ### Enabled<a id='EVM-Enabled'></a>
 ```toml
 Enabled = true # Default
-```
-
-
-### BalanceMonitorEnabled<a id='EVM-BalanceMonitorEnabled'></a>
-```toml
-BalanceMonitorEnabled = true
 ```
 
 
@@ -3097,6 +3169,26 @@ TxResendAfterThreshold = '1h'
 UseForwarders = false # Default
 ```
 UseForwarders enables or disables sending transactions through forwarder contracts.
+
+## EVM.BalanceMonitor<a id='EVM-BalanceMonitor'></a>
+```toml
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 17
+```
+
+
+### Enabled<a id='EVM-BalanceMonitor-Enabled'></a>
+```toml
+Enabled = true
+```
+
+
+### BlockDelay<a id='EVM-BalanceMonitor-BlockDelay'></a>
+```toml
+BlockDelay = 17
+```
+
 
 ## EVM.BlockHistoryEstimator<a id='EVM-BlockHistoryEstimator'></a>
 ```toml
