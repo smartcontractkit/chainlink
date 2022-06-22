@@ -92,7 +92,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		}
 	case job.DKG:
 		return nil
-	case job.VRFOCR2:
+	case job.OCR2VRF:
 		return nil
 	case "":
 		return errors.New("no plugin specified")

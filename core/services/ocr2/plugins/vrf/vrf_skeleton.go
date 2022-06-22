@@ -16,17 +16,15 @@ type VRFFactory struct {
 }
 
 func (fac VRFFactory) NewReportingPlugin(configuration types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	return &VRF{
-			fac.logger,
-		}, types.ReportingPluginInfo{
-			Name:          "VRF",
-			UniqueReports: false,
-			Limits: types.ReportingPluginLimits{
-				MaxQueryLength:       0,      // arbitrary
-				MaxObservationLength: 100000, // arbitrary
-				MaxReportLength:      100000, // arbitrary
-			},
-		}, nil
+	return &VRF{logger: fac.logger}, types.ReportingPluginInfo{
+		Name:          "VRF",
+		UniqueReports: false,
+		Limits: types.ReportingPluginLimits{
+			MaxQueryLength:       0,      // arbitrary
+			MaxObservationLength: 100000, // arbitrary
+			MaxReportLength:      100000, // arbitrary
+		},
+	}, nil
 }
 
 type VRF struct {

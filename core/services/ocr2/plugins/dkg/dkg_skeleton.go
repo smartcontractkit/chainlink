@@ -16,17 +16,15 @@ type DKGFactory struct {
 }
 
 func (fac DKGFactory) NewReportingPlugin(configuration types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	return &DKG{
-			fac.logger,
-		}, types.ReportingPluginInfo{
-			Name:          "DKG",
-			UniqueReports: false,
-			Limits: types.ReportingPluginLimits{
-				MaxQueryLength:       0,      // arbitrary
-				MaxObservationLength: 100000, // arbitrary
-				MaxReportLength:      100000, // arbitrary
-			},
-		}, nil
+	return &DKG{logger: fac.logger}, types.ReportingPluginInfo{
+		Name:          "DKG",
+		UniqueReports: false,
+		Limits: types.ReportingPluginLimits{
+			MaxQueryLength:       0,      // arbitrary
+			MaxObservationLength: 100000, // arbitrary
+			MaxReportLength:      100000, // arbitrary
+		},
+	}, nil
 }
 
 type DKG struct {

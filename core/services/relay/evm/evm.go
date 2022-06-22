@@ -193,15 +193,15 @@ func (p *medianProvider) MedianContract() median.MedianContract {
 	return p.medianContract
 }
 
-// Relayer with added DDKG provider function.
-type vrfRelayer struct {
+// Relayer with added DKG and OCR2VRF provider functions.
+type ocr2vrfRelayer struct {
 	*Relayer
 }
 
-var _ relay.VRFRelayer = (*vrfRelayer)(nil)
+var _ relaytypes.OCR2VRFRelayer = (*ocr2vrfRelayer)(nil)
 
-func NewVRFRelayer(relayer interface{}) relay.VRFRelayer {
-	return &vrfRelayer{relayer.(*Relayer)}
+func NewOCR2VRFRelayer(relayer interface{}) relaytypes.OCR2VRFRelayer {
+	return &ocr2vrfRelayer{relayer.(*Relayer)}
 }
 
 type dkgProvider struct {
@@ -209,9 +209,9 @@ type dkgProvider struct {
 	contractTransmitter *ContractTransmitter
 }
 
-var _ relay.DKGProvider = (*dkgProvider)(nil)
+var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
 
-func (c *vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relay.DKGProvider, error) {
+func (c *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relay.DKGProvider, error) {
 	configWatcher, err := newConfigProvider(c.lggr, c.chainSet, rargs)
 	if err != nil {
 		return nil, err
@@ -235,9 +235,9 @@ type vrfProvider struct {
 	contractTransmitter *ContractTransmitter
 }
 
-var _ relay.DKGProvider = (*dkgProvider)(nil)
+var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
 
-func (c *vrfRelayer) NewVRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relay.VRFProvider, error) {
+func (c *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relay.OCR2VRFProvider, error) {
 	configWatcher, err := newConfigProvider(c.lggr, c.chainSet, rargs)
 	if err != nil {
 		return nil, err

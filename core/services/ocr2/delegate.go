@@ -161,7 +161,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
 	case job.DKG:
-		dkgProvider, err2 := evmrelay.NewVRFRelayer(relayer).NewDKGProvider(
+		dkgProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewDKGProvider(
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
@@ -173,8 +173,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 		ocr2Provider = dkgProvider
 		pluginOracle, err = dkg.NewDKG(lggr)
-	case job.VRFOCR2:
-		vrfProvider, err2 := evmrelay.NewVRFRelayer(relayer).NewVRFProvider(
+	case job.OCR2VRF:
+		vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,

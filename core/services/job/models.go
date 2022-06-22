@@ -280,7 +280,7 @@ const (
 
 	DKG OCR2PluginType = "dkg"
 
-	VRFOCR2 OCR2PluginType = "vrf"
+	OCR2VRF OCR2PluginType = "ocr2vrf"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
