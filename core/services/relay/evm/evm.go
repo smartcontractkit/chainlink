@@ -8,14 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
-
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -130,25 +129,29 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	}, nil
 }
 
-func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
-	if err != nil {
-		return nil, err
-	}
-	transmitterAddress := common.HexToAddress(pargs.TransmitterID)
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher) (*ContractTransmitter, error) {
+	transmitterAddress := common.HexToAddress(transmitterID)
 	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, configWatcher.chain.Config().OCRDefaultTransactionQueueDepth())
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCRSimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
-	contractTransmitter, err := NewOCRContractTransmitter(
+	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
 		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, configWatcher.chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
 		configWatcher.chain.LogPoller(),
-		r.lggr,
+		lggr,
 	)
+}
+
+func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	if err != nil {
+		return nil, err
+	}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
 	if err != nil {
 		return nil, err
 	}
@@ -187,4 +190,67 @@ func (p *medianProvider) ReportCodec() median.ReportCodec {
 
 func (p *medianProvider) MedianContract() median.MedianContract {
 	return p.medianContract
+}
+
+// Relayer with added DKG and OCR2VRF provider functions.
+type ocr2vrfRelayer struct {
+	*Relayer
+}
+
+var _ relaytypes.OCR2VRFRelayer = (*ocr2vrfRelayer)(nil)
+
+func NewOCR2VRFRelayer(relayer interface{}) relaytypes.OCR2VRFRelayer {
+	return &ocr2vrfRelayer{relayer.(*Relayer)}
+}
+
+type dkgProvider struct {
+	*configWatcher
+	contractTransmitter *ContractTransmitter
+}
+
+var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
+
+func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.DKGProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	if err != nil {
+		return nil, err
+	}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, transmitterID, configWatcher)
+	if err != nil {
+		return nil, err
+	}
+	return &dkgProvider{
+		configWatcher:       configWatcher,
+		contractTransmitter: contractTransmitter,
+	}, nil
+}
+
+func (c *dkgProvider) ContractTransmitter() types.ContractTransmitter {
+	return c.contractTransmitter
+}
+
+type vrfProvider struct {
+	*configWatcher
+	contractTransmitter *ContractTransmitter
+}
+
+var _ relaytypes.DKGProvider = (*dkgProvider)(nil)
+
+func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, transmitterID string) (relaytypes.OCR2VRFProvider, error) {
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	if err != nil {
+		return nil, err
+	}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, transmitterID, configWatcher)
+	if err != nil {
+		return nil, err
+	}
+	return &dkgProvider{
+		configWatcher:       configWatcher,
+		contractTransmitter: contractTransmitter,
+	}, nil
+}
+
+func (c *vrfProvider) ContractTransmitter() types.ContractTransmitter {
+	return c.contractTransmitter
 }
