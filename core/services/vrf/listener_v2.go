@@ -764,9 +764,10 @@ func (lsn *listenerV2) processRequestsPerSub(
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
-						RequestID: &requestID,
-						MaxLink:   &maxLinkString,
-						SubID:     &p.req.req.SubId,
+						RequestID:     &requestID,
+						MaxLink:       &maxLinkString,
+						SubID:         &p.req.req.SubId,
+						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
