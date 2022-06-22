@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.1]
 
+### Fixed
+
+- Fix rare out-of-sync to invalid-chain-id transaction
+- Fix key-specific max gas limits for gas estimator and ensure we do not bump gas beyond key-specific limits
+
 ## [1.5.0] - 2022-06-21
 
 ### Changed
