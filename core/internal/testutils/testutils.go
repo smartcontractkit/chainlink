@@ -32,7 +32,7 @@ import (
 
 const (
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password = "16charlengthp4SsW0rD1!@#_"
 )
 
 // FixtureChainID matches the chain always added by fixtures.sql
