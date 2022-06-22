@@ -109,6 +109,8 @@ func getKeeperSuite(
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["MIN_INCOMING_CONFIRMATIONS"] = "1"
 				// Turn on buddy turn taking algo
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_FLAG_ENABLED"] = "true"
+				// Since this is a simulated chain, block numbers start from 0, we can't look back 
+				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_LOOK_BACK"] = "0"
 
 				env, err = environment.DeployOrLoadEnvironment(
 					environment.NewChainlinkConfig(
