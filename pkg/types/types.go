@@ -35,6 +35,8 @@ type Relayer interface {
 	Service
 	NewConfigProvider(rargs RelayArgs) (ConfigProvider, error)
 	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
+	NewDKGProvider(rargs RelayArgs, transmitterID string) (DKGProvider, error)
+	NewOCR2VRFProvider(rargs RelayArgs, transmitterID string) (OCR2VRFProvider, error)
 }
 
 // The bootstrap jobs only watch config.
@@ -56,13 +58,6 @@ type MedianProvider interface {
 	Plugin
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
-}
-
-// OCR2VRFRelayer contains the relayer and instantiating functions for OCR2VRF providers.
-type OCR2VRFRelayer interface {
-	Relayer
-	NewDKGProvider(rargs RelayArgs, transmitterID string) (DKGProvider, error)
-	NewOCR2VRFProvider(rargs RelayArgs, transmitterID string) (OCR2VRFProvider, error)
 }
 
 // DKGProvider provides all components needed for a DKG plugin.
