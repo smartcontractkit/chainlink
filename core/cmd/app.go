@@ -594,6 +594,7 @@ func NewApp(client *Client) *cli.App {
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("Terra", NewTerraKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
+				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
 
 				{
 					Name:  "vrf",
