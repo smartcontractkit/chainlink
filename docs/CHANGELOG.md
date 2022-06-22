@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix rare out-of-sync to invalid-chain-id transaction
 - Fix key-specific max gas limits for gas estimator and ensure we do not bump gas beyond key-specific limits
+- Fix EVM_FINALITY_DEPTH => ETH_FINALITY_DEPTH
 
 ## [1.5.0] - 2022-06-21
 
