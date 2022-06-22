@@ -1222,43 +1222,43 @@ ChainID = '1'
 Enabled = true # Default
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
-ChainType = 'Optimism'
+ChainType = 'Optimism' # Example
 EIP1559DynamicFees = false # Default
-FinalityDepth = 42
+FinalityDepth = 50 # Default
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
-GasBumpPercent = 10
-GasBumpThreshold = 15
-GasBumpTxDepth = 6
-GasBumpWei = '100'
+GasBumpPercent = 20 # Default
+GasBumpThreshold = 3 # Default
+GasBumpTxDepth = 10 # Default
+GasBumpWei = '5 gwei' # Default
 GasEstimatorMode = 'BlockHistory' # Default
-GasFeeCapDefault = '9.223372036854775807 ether'
-GasLimitDefault = '12'
-GasLimitMultiplier = '1.234'
-GasLimitTransfer = '100'
-GasPriceDefault = '9.223372036854775807 ether'
-GasTipCapDefault = '2'
-GasTipCapMinimum = '1'
-LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
-LogBackfillBatchSize = 17
-LogPollInterval = '1m'
-MaxGasPriceWei = '281.474976710655 micro'
-MaxInFlightTransactions = 19
-MaxQueuedTransactions = 99
-MinGasPriceWei = '13'
-MinIncomingConfirmations = 13
-MinimumContractPayment = '9.223372036854775807 link'
-NonceAutoSync = false # Default
-OCRContractConfirmations = 11
-OCRContractTransmitterTransmitTimeout = '1m'
-OCRDatabaseTimeout = '1s'
-OCRObservationGracePeriod = '1s'
+GasFeeCapDefault = '100 gwei' # Default
+GasLimitDefault = '500000' # Default
+GasLimitMultiplier = '1.0' # Default
+GasLimitTransfer = '21000' # Default
+GasPriceDefault = '20 gwei' # Default
+GasTipCapDefault = '1 wei' # Default
+GasTipCapMinimum = '1 wei' # Default
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
+LogBackfillBatchSize = 100 # Default
+LogPollInterval = '15s' # Default
+MaxGasPriceWei = '100 micro' # Default
+MaxInFlightTransactions = 16 # Default
+MaxQueuedTransactions = 250 # Default
+MinGasPriceWei = '1 gwei' # Default
+MinIncomingConfirmations = 3 # Default
+MinimumContractPayment = '10000000000000 juels' # Default
+NonceAutoSync = true # Default
+OCRContractConfirmations = 4 # Default
+OCRContractTransmitterTransmitTimeout = '10s' # Default
+OCRDatabaseTimeout = '10s' # Default
+OCRObservationGracePeriod = '1s' # Default
 OCRObservationTimeout = '1m'
 OCR2ContractConfirmations = 7
-OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
-RPCDefaultBatchSize = 17
-TxReaperInterval = '1m'
-TxReaperThreshold = '1m'
-TxResendAfterThreshold = '1h'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
+RPCDefaultBatchSize = 100 # Default
+TxReaperInterval = '1h' # Default
+TxReaperThreshold = '168h' # Default
+TxResendAfterThreshold = '1m' # Default
 UseForwarders = false # Default
 ```
 EVM defaults depend on ChainID:
@@ -2487,7 +2487,7 @@ PollInterval = '10s'
 
 </p></details>
 
-<details><summary>Avalance Fuji (43113)<a id='EVM-43113'></a></summary><p>
+<details><summary>Avalanche Fuji (43113)<a id='EVM-43113'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2548,7 +2548,7 @@ PollInterval = '10s'
 
 </p></details>
 
-<details><summary>Avalance Mainnet (43114)<a id='EVM-43114'></a></summary><p>
+<details><summary>Avalanche Mainnet (43114)<a id='EVM-43114'></a></summary><p>
 
 ```toml
 EIP1559DynamicFees = false
@@ -2881,7 +2881,7 @@ BlockBackfillSkip = true
 
 ### ChainType<a id='EVM-ChainType'></a>
 ```toml
-ChainType = 'Optimism'
+ChainType = 'Optimism' # Example
 ```
 
 
@@ -2936,7 +2936,7 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 
 ### FinalityDepth<a id='EVM-FinalityDepth'></a>
 ```toml
-FinalityDepth = 42
+FinalityDepth = 50 # Default
 ```
 
 
@@ -2950,25 +2950,25 @@ FlagsContractAddress can optionally point to a [Flags contract](../contracts/src
 
 ### GasBumpPercent<a id='EVM-GasBumpPercent'></a>
 ```toml
-GasBumpPercent = 10
+GasBumpPercent = 20 # Default
 ```
 GasBumpPercent is the percentage by which to bump gas on a transaction that has exceeded `GasBumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
 
 ### GasBumpThreshold<a id='EVM-GasBumpThreshold'></a>
 ```toml
-GasBumpThreshold = 15
+GasBumpThreshold = 3 # Default
 ```
 GasBumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
 
 ### GasBumpTxDepth<a id='EVM-GasBumpTxDepth'></a>
 ```toml
-GasBumpTxDepth = 6
+GasBumpTxDepth = 10 # Default
 ```
 GasBumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all).
 
 ### GasBumpWei<a id='EVM-GasBumpWei'></a>
 ```toml
-GasBumpWei = '100'
+GasBumpWei = '5 gwei' # Default
 ```
 GasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 
@@ -2990,20 +2990,20 @@ An important point to note is that the Chainlink node does _not_ ship with built
 
 ### GasFeeCapDefault<a id='EVM-GasFeeCapDefault'></a>
 ```toml
-GasFeeCapDefault = '9.223372036854775807 ether'
+GasFeeCapDefault = '100 gwei' # Default
 ```
 GasFeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
 
 ### GasLimitDefault<a id='EVM-GasLimitDefault'></a>
 ```toml
-GasLimitDefault = '12'
+GasLimitDefault = '500000' # Default
 ```
 GasLimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
 
 ### GasLimitMultiplier<a id='EVM-GasLimitMultiplier'></a>
 ```toml
-GasLimitMultiplier = '1.234'
+GasLimitMultiplier = '1.0' # Default
 ```
 GasLimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 
@@ -3011,13 +3011,13 @@ This factor is always applied, so includes Optimism L2 transactions which uses a
 
 ### GasLimitTransfer<a id='EVM-GasLimitTransfer'></a>
 ```toml
-GasLimitTransfer = '100'
+GasLimitTransfer = '21000' # Default
 ```
 GasLimitTransfer is the gas limit used for an ordinary ETH transfer.
 
 ### GasPriceDefault<a id='EVM-GasPriceDefault'></a>
 ```toml
-GasPriceDefault = '9.223372036854775807 ether'
+GasPriceDefault = '20 gwei' # Default
 ```
 GasPriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
 
@@ -3027,7 +3027,7 @@ Can be used with the `chainlink setgasprice` to be updated while the node is sti
 
 ### GasTipCapDefault<a id='EVM-GasTipCapDefault'></a>
 ```toml
-GasTipCapDefault = '2'
+GasTipCapDefault = '1 wei' # Default
 ```
 GasTipCapDefault is the default gas tip to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
 
@@ -3035,7 +3035,7 @@ GasTipCapDefault is the default gas tip to use when submitting transactions to t
 
 ### GasTipCapMinimum<a id='EVM-GasTipCapMinimum'></a>
 ```toml
-GasTipCapMinimum = '1'
+GasTipCapMinimum = '1 wei' # Default
 ```
 GasTipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 
@@ -3043,31 +3043,31 @@ Only applies to EIP-1559 transactions)
 
 ### LinkContractAddress<a id='EVM-LinkContractAddress'></a>
 ```toml
-LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 ```
 
 
 ### LogBackfillBatchSize<a id='EVM-LogBackfillBatchSize'></a>
 ```toml
-LogBackfillBatchSize = 17
+LogBackfillBatchSize = 100 # Default
 ```
 
 
 ### LogPollInterval<a id='EVM-LogPollInterval'></a>
 ```toml
-LogPollInterval = '1m'
+LogPollInterval = '15s' # Default
 ```
 
 
 ### MaxGasPriceWei<a id='EVM-MaxGasPriceWei'></a>
 ```toml
-MaxGasPriceWei = '281.474976710655 micro'
+MaxGasPriceWei = '100 micro' # Default
 ```
 MaxGasPriceWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
 
 ### MaxInFlightTransactions<a id='EVM-MaxInFlightTransactions'></a>
 ```toml
-MaxInFlightTransactions = 19
+MaxInFlightTransactions = 16 # Default
 ```
 MaxInFlightTransactions controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
 
@@ -3077,7 +3077,7 @@ The default is set conservatively at 16 because this is a pessimistic minimum th
 
 ### MaxQueuedTransactions<a id='EVM-MaxQueuedTransactions'></a>
 ```toml
-MaxQueuedTransactions = 99
+MaxQueuedTransactions = 250 # Default
 ```
 MaxQueuedTransactions is the maximum number of unbroadcast transactions per key that are allowed to be enqueued before jobs will start failing and rejecting send of any further transactions. This represents a sanity limit and generally indicates a problem with your ETH node (transactions are not getting mined).
 
@@ -3089,7 +3089,7 @@ In deployments with very high burst rates, or on chains with large re-orgs, you 
 
 ### MinGasPriceWei<a id='EVM-MinGasPriceWei'></a>
 ```toml
-MinGasPriceWei = '13'
+MinGasPriceWei = '1 gwei' # Default
 ```
 MinGasPriceWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
 
@@ -3108,43 +3108,43 @@ GasEstimatorMode = 'FixedPrice'
 
 ### MinIncomingConfirmations<a id='EVM-MinIncomingConfirmations'></a>
 ```toml
-MinIncomingConfirmations = 13
+MinIncomingConfirmations = 3 # Default
 ```
 
 
 ### MinimumContractPayment<a id='EVM-MinimumContractPayment'></a>
 ```toml
-MinimumContractPayment = '9.223372036854775807 link'
+MinimumContractPayment = '10000000000000 juels' # Default
 ```
 
 
 ### NonceAutoSync<a id='EVM-NonceAutoSync'></a>
 ```toml
-NonceAutoSync = false # Default
+NonceAutoSync = true # Default
 ```
 NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 
 ### OCRContractConfirmations<a id='EVM-OCRContractConfirmations'></a>
 ```toml
-OCRContractConfirmations = 11
+OCRContractConfirmations = 4 # Default
 ```
 
 
 ### OCRContractTransmitterTransmitTimeout<a id='EVM-OCRContractTransmitterTransmitTimeout'></a>
 ```toml
-OCRContractTransmitterTransmitTimeout = '1m'
+OCRContractTransmitterTransmitTimeout = '10s' # Default
 ```
 
 
 ### OCRDatabaseTimeout<a id='EVM-OCRDatabaseTimeout'></a>
 ```toml
-OCRDatabaseTimeout = '1s'
+OCRDatabaseTimeout = '10s' # Default
 ```
 
 
 ### OCRObservationGracePeriod<a id='EVM-OCRObservationGracePeriod'></a>
 ```toml
-OCRObservationGracePeriod = '1s'
+OCRObservationGracePeriod = '1s' # Default
 ```
 
 
@@ -3162,31 +3162,31 @@ OCR2ContractConfirmations = 7
 
 ### OperatorFactoryAddress<a id='EVM-OperatorFactoryAddress'></a>
 ```toml
-OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 ```
 
 
 ### RPCDefaultBatchSize<a id='EVM-RPCDefaultBatchSize'></a>
 ```toml
-RPCDefaultBatchSize = 17
+RPCDefaultBatchSize = 100 # Default
 ```
 
 
 ### TxReaperInterval<a id='EVM-TxReaperInterval'></a>
 ```toml
-TxReaperInterval = '1m'
+TxReaperInterval = '1h' # Default
 ```
 
 
 ### TxReaperThreshold<a id='EVM-TxReaperThreshold'></a>
 ```toml
-TxReaperThreshold = '1m'
+TxReaperThreshold = '168h' # Default
 ```
 
 
 ### TxResendAfterThreshold<a id='EVM-TxResendAfterThreshold'></a>
 ```toml
-TxResendAfterThreshold = '1h'
+TxResendAfterThreshold = '1m' # Default
 ```
 
 
@@ -3199,44 +3199,44 @@ UseForwarders enables or disables sending transactions through forwarder contrac
 ## EVM.BalanceMonitor<a id='EVM-BalanceMonitor'></a>
 ```toml
 [EVM.BalanceMonitor]
-Enabled = true
-BlockDelay = 17
+Enabled = true # Default
+BlockDelay = 1 # Default
 ```
 
 
 ### Enabled<a id='EVM-BalanceMonitor-Enabled'></a>
 ```toml
-Enabled = true
+Enabled = true # Default
 ```
 
 
 ### BlockDelay<a id='EVM-BalanceMonitor-BlockDelay'></a>
 ```toml
-BlockDelay = 17
+BlockDelay = 1 # Default
 ```
 
 
 ## EVM.BlockHistoryEstimator<a id='EVM-BlockHistoryEstimator'></a>
 ```toml
 [EVM.BlockHistoryEstimator]
-BatchSize = 17
-BlockDelay = 10
-BlockHistorySize = 12
+BatchSize = 4 # Default
+BlockDelay = 1 # Default
+BlockHistorySize = 8 # Default
 EIP1559FeeCapBufferBlocks = 13
-TransactionPercentile = 15
+TransactionPercentile = 60 # Default
 ```
 These settings allow you to configure how your node calculates gas prices. In most cases, leaving these values at their defaults should give good results.
 
 ### BatchSize<a id='EVM-BlockHistoryEstimator-BatchSize'></a>
 ```toml
-BatchSize = 17
+BatchSize = 4 # Default
 ```
 BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
 If the `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` environment variable is set to 0, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE.
 
 ### BlockDelay<a id='EVM-BlockHistoryEstimator-BlockDelay'></a>
 ```toml
-BlockDelay = 10
+BlockDelay = 1 # Default
 ```
 BlockDelay controls the number of blocks that the block history estimator trails behind head.
 For example, if this is set to 3, and we receive block 10, block history estimator will fetch block 7.
@@ -3248,7 +3248,7 @@ available from the connected node via RPC, due to race conditions in the code of
 
 ### BlockHistorySize<a id='EVM-BlockHistoryEstimator-BlockHistorySize'></a>
 ```toml
-BlockHistorySize = 12
+BlockHistorySize = 8 # Default
 ```
 BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
 
@@ -3264,7 +3264,7 @@ Only applies to EIP-1559 transactions)
 
 ### TransactionPercentile<a id='EVM-BlockHistoryEstimator-TransactionPercentile'></a>
 ```toml
-TransactionPercentile = 15
+TransactionPercentile = 60 # Default
 ```
 TransactionPercentile specifies gas price to choose. E.g. if the block history contains four transactions with gas prices `[100, 200, 300, 400]` then picking 25 for this number will give a value of 200. If the calculated gas price is higher than `GasPriceDefault` then the higher price will be used as the base price for new transactions.
 
@@ -3281,54 +3281,54 @@ Setting it lower will tend to set lower gas prices.
 ## EVM.HeadTracker<a id='EVM-HeadTracker'></a>
 ```toml
 [EVM.HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m' # Example
-HistoryDepth = 15 # Example
-MaxBufferSize = 17 # Example
-SamplingInterval = '1h' # Example
+BlockEmissionIdleWarningThreshold = '1m' # Default
+HistoryDepth = 100 # Default
+MaxBufferSize = 3 # Default
+SamplingInterval = '1s' # Default
 ```
 
 
 ### BlockEmissionIdleWarningThreshold<a id='EVM-HeadTracker-BlockEmissionIdleWarningThreshold'></a>
 ```toml
-BlockEmissionIdleWarningThreshold = '1m' # Example
+BlockEmissionIdleWarningThreshold = '1m' # Default
 ```
 BlockEmissionIdleWarningThreshold will cause Chainlink to log warnings if this duration is exceeded without any new blocks being emitted.
 
 ### HistoryDepth<a id='EVM-HeadTracker-HistoryDepth'></a>
 ```toml
-HistoryDepth = 15 # Example
+HistoryDepth = 100 # Default
 ```
 
 
 ### MaxBufferSize<a id='EVM-HeadTracker-MaxBufferSize'></a>
 ```toml
-MaxBufferSize = 17 # Example
+MaxBufferSize = 3 # Default
 ```
 
 
 ### SamplingInterval<a id='EVM-HeadTracker-SamplingInterval'></a>
 ```toml
-SamplingInterval = '1h' # Example
+SamplingInterval = '1s' # Default
 ```
 
 
 ## EVM.KeySpecific<a id='EVM-KeySpecific'></a>
 ```toml
 [[EVM.KeySpecific]]
-Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
-MaxGasPriceWei = '79.228162514264337593543950335 gether'
+Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+MaxGasPriceWei = '79 gwei' # Example
 ```
 
 
 ### Key<a id='EVM-KeySpecific-Key'></a>
 ```toml
-Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
+Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
 
 
 ### MaxGasPriceWei<a id='EVM-KeySpecific-MaxGasPriceWei'></a>
 ```toml
-MaxGasPriceWei = '79.228162514264337593543950335 gether'
+MaxGasPriceWei = '79 gwei' # Example
 ```
 
 
