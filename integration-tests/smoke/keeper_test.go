@@ -453,15 +453,16 @@ func getKeeperSuite(
 						for i := 0; i < len(upkeepIDs); i++ {
 							currentCounter, err := consumers[i].Counter(context.Background())
 							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-							g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
-								"Expected counter to have increased from initial value of %s, but got %s",
-								initialCounters[i], currentCounter)
 
 							log.Info().
 								Int64("Upkeep ID", int64(i)).
 								Int64("Upkeep counter", currentCounter.Int64()).
 								Int64("initial counter", initialCounters[i].Int64()).
 								Msg("Num Upkeeps performed")
+
+							g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+								"Expected counter to have increased from initial value of %s, but got %s",
+								initialCounters[i], currentCounter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})
