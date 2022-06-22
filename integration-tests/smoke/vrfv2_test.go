@@ -149,7 +149,6 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 	})
 
-	// This test is disabled until sc-43033 is fixed. To re-enable replace PDescribe with Describe
 	Describe("with VRF job", func() {
 		It("randomness is fulfilled", func() {
 			words := uint32(10)
