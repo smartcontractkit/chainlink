@@ -33,7 +33,7 @@ func testLogger(tb testing.TB, core zapcore.Core) SugaredLogger {
 	if core != nil {
 		opts = append(opts, zaptest.WrapOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 			return zapcore.NewTee(c, core)
-		})))
+		}), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)))
 	}
 	l := &zapLogger{
 		level:         a,
