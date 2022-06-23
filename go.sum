@@ -1951,6 +1951,8 @@ github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink-relay v0.1.1 h1:KyijJdddcG81o+5beo/RQQJvvSwl8uW9yaKeCTl5HnQ=
 github.com/smartcontractkit/chainlink-relay v0.1.1/go.mod h1:iQnEkkbWn1mhF3X6qdh8Lgl5emLsJzwxFGd1C7xCcaM=
+github.com/smartcontractkit/chainlink-relay v0.1.2-0.20220621201358-49e57dd1264e h1:VHFViIWBAIUHzvPcLncMLVvjrFQFP7rLhwQIuKfMrgs=
+github.com/smartcontractkit/chainlink-relay v0.1.2-0.20220621201358-49e57dd1264e/go.mod h1:iQnEkkbWn1mhF3X6qdh8Lgl5emLsJzwxFGd1C7xCcaM=
 github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f h1:AU7txeWBig9u4g61g+wBp9x9x6W4XxjeEqr98Dkn5L4=
 github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f/go.mod h1:/zlfKf+rNUF/jXr6IbNiPqkUaA1jWKnxP9prFiI/Cek=
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36 h1:6EPAlhBCu3+k7wdIqmhdEn7ul2IzoqYGhE/cmctd8JQ=

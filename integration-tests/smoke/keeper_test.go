@@ -97,7 +97,7 @@ func getKeeperSuite(
 			networks             *blockchain.Networks
 			contractDeployer     contracts.ContractDeployer
 			registry             contracts.KeeperRegistry
-			registrar            contracts.UpkeepRegistrar
+			registrar            contracts.KeeperRegistrar
 			consumers            []contracts.KeeperConsumer
 			consumersPerformance []contracts.KeeperConsumerPerformance
 			upkeepIDs            []*big.Int
@@ -112,6 +112,8 @@ func getKeeperSuite(
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["MIN_INCOMING_CONFIRMATIONS"] = "1"
 				// Turn on buddy turn taking algo
 				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_FLAG_ENABLED"] = "true"
+				// Since this is a simulated chain, block numbers start from 0, we can't look back
+				config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["KEEPER_TURN_LOOK_BACK"] = "0"
 
 				env, err = environment.DeployOrLoadEnvironment(
 					environment.NewChainlinkConfig(
@@ -137,7 +139,7 @@ func getKeeperSuite(
 			})
 
 			By("Funding Chainlink nodes", func() {
-				txCost, err := networks.Default.EstimateCostForChainlinkOperations(10)
+				txCost, err := networks.Default.EstimateCostForChainlinkOperations(1000)
 				Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
 				err = actions.FundChainlinkNodes(chainlinkNodes, networks.Default, txCost)
 				Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
@@ -236,10 +238,15 @@ func getKeeperSuite(
 
 					// Wait for upkeep to be performed twice by different keepers (buddies)
 					Eventually(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+
 						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
 						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 
 						latestKeeper := upkeepInfo.LastKeeper
+						log.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
 						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
 						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
 
@@ -279,10 +286,15 @@ func getKeeperSuite(
 
 					// Expect a new keeper to perform
 					Eventually(func(g Gomega) {
+						counter, err := consumers[0].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+
 						upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
 						g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
 
 						latestKeeper := upkeepInfo.LastKeeper
+						log.Info().Str("keeper", latestKeeper).Msg("last keeper to perform upkeep")
 						g.Expect(latestKeeper).ShouldNot(Equal(actions.ZeroAddress.String()), "Last keeper should be non zero")
 						g.Expect(latestKeeper).ShouldNot(BeElementOf(keepersPerformed), "A new keeper node should perform this upkeep")
 
@@ -415,7 +427,10 @@ func getKeeperSuite(
 							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 							g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 								"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
-							log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
+							log.Info().
+								Int64("Upkeep counter", counter.Int64()).
+								Int64("Upkeep ID", int64(i)).
+								Msg("Upkeeps performed")
 						}
 					}, "1m", "1s").Should(Succeed())
 
@@ -437,8 +452,17 @@ func getKeeperSuite(
 					Eventually(func(g Gomega) {
 						for i := 0; i < len(upkeepIDs); i++ {
 							currentCounter, err := consumers[i].Counter(context.Background())
-							Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-							Expect(initialCounters[i].Int64() < currentCounter.Int64()).To(BeTrue())
+							g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+
+							log.Info().
+								Int64("Upkeep ID", int64(i)).
+								Int64("Upkeep counter", currentCounter.Int64()).
+								Int64("initial counter", initialCounters[i].Int64()).
+								Msg("Num Upkeeps performed")
+
+							g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+								"Expected counter to have increased from initial value of %s, but got %s",
+								initialCounters[i], currentCounter)
 						}
 					}, "1m", "1s").Should(Succeed())
 				})

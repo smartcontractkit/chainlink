@@ -46,6 +46,8 @@ func TestTestLogger(t *testing.T) {
 	assert.Equal(t, serviceMessage, log.Message)
 	assert.Equal(t, fmt.Sprintf("%s.%s.%s", verShaNameStatic(), testName, serviceName), log.LoggerName)
 	assert.Equal(t, value, log.ContextMap()[key])
+	assert.Contains(t, log.Caller.String(), "core/logger/test_logger_test.go")
+	assert.Equal(t, log.Caller.Line, 40)
 
 	const (
 		workerName           = "WorkerName"
