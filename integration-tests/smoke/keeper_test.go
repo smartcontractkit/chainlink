@@ -42,8 +42,9 @@ const (
 )
 
 const (
-	defaultUpkeepGasLimit = uint32(2500000)
-	defaultLinkFunds      = int64(9e18)
+	defaultUpkeepGasLimit  = uint32(2500000)
+	defaultLinkFunds       = int64(9e18)
+	defaultUpkeepsToDeploy = 10
 )
 
 //var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
@@ -157,7 +158,7 @@ func getKeeperSuite(
 					registry, registrar, consumers, upkeepIDs = actions.DeployKeeperContracts(
 						registryVersion,
 						registryConfig,
-						10,
+						defaultUpkeepsToDeploy,
 						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
@@ -167,7 +168,7 @@ func getKeeperSuite(
 				case PerformanceCounter:
 					registry, registrar, consumersPerformance, upkeepIDs = actions.DeployPerformanceKeeperContracts(
 						registryVersion,
-						10,
+						defaultUpkeepsToDeploy,
 						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
@@ -592,7 +593,7 @@ func getKeeperSuite(
 					secondRegistry, _, _, _ := actions.DeployKeeperContracts(
 						registryVersion,
 						registryConfig,
-						10,
+						defaultUpkeepsToDeploy,
 						defaultUpkeepGasLimit,
 						linkToken,
 						contractDeployer,
@@ -619,6 +620,17 @@ func getKeeperSuite(
 						g.Expect(counterBeforeMigration.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
 					}, "1m", "1s").Should(Succeed())
+
+					upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), big.NewInt(0))
+					Expect(err).ShouldNot(HaveOccurred(), "Couldn't retrieve upkeep info")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for upkeep info retrieval")
+
+					// Grant permission to the registry to fund the upkeep
+					err = linkToken.Approve(registry.Address(), upkeepInfo.Balance)
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to approve")
+					err = networks.Default.WaitForEvents()
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
 					// Migrate the upkeep with ID 0 from the first to the second registry
 					err = registry.Migrate([]*big.Int{big.NewInt(0)}, common.HexToAddress(secondRegistry.Address()))
