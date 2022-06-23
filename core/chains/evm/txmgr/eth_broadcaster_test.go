@@ -1443,7 +1443,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(insufficientEthError)).Once()
 
 		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
-		require.EqualError(t, err, "processUnstartedEthTxs failed: insufficient funds for transfer")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient funds for transfer")
 
 		// Check it was saved correctly with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
