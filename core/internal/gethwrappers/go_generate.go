@@ -20,7 +20,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/AuthorizedForwarder.abi ../../../contracts/solc/v0.7/AuthorizedForwarder.bin AuthorizedForwarder authorized_forwarder
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/AuthorizedReceiver.abi ../../../contracts/solc/v0.7/AuthorizedReceiver.bin AuthorizedReceiver authorized_receiver
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../../contracts/solc/v0.8.6/BatchBlockhashStore.bin BatchBlockhashStore batch_blockhash_store
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/BatchVRFCoordinatorV2.abi ../../../contracts/solc/v0.8.15/BatchVRFCoordinatorV2.bin BatchVRFCoordinatorV2 batch_vrf_coordinator_v2
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.abi ../../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.bin BatchVRFCoordinatorV2 batch_vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/KeeperRegistry1_1.abi ../../../contracts/solc/v0.7/KeeperRegistry1_1.bin KeeperRegistry keeper_registry_wrapper1_1
@@ -28,9 +28,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/UpkeepCounter.abi ../../../contracts/solc/v0.7/UpkeepCounter.bin UpkeepCounter upkeep_counter_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - CronUpkeepFactory cron_upkeep_factory_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/CronUpkeep.abi - CronUpkeep cron_upkeep_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/KeeperRegistry.abi ../../../contracts/solc/v0.8.15/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper1_2
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/TypeAndVersionInterface.abi ../../../contracts/solc/v0.8.15/TypeAndVersionInterface.bin TypeAndVersionInterface type_and_version_interface_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/KeeperRegistryCheckUpkeepGasUsageWrapper.abi ../../../contracts/solc/v0.8.15/KeeperRegistryCheckUpkeepGasUsageWrapper.bin KeeperRegistryCheckUpkeepGasUsageWrapper gas_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeeperRegistry.abi ../../../contracts/solc/v0.8.6/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper1_2
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/TypeAndVersionInterface.abi ../../../contracts/solc/v0.8.6/TypeAndVersionInterface.bin TypeAndVersionInterface type_and_version_interface_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.abi ../../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.bin KeeperRegistryCheckUpkeepGasUsageWrapper gas_wrapper
 
 // v0.8.6 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFConsumer.abi ../../../contracts/solc/v0.8.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
@@ -56,7 +56,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin VRFV2RevertingExample vrfv2_reverting_example
 
 // Keepers X VRF v2
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.15/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer
 
 // Aggregators
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
