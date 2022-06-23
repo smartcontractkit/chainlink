@@ -139,7 +139,7 @@ func getKeeperSuite(
 			})
 
 			By("Funding Chainlink nodes", func() {
-				txCost, err := networks.Default.EstimateCostForChainlinkOperations(10)
+				txCost, err := networks.Default.EstimateCostForChainlinkOperations(1000)
 				Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
 				err = actions.FundChainlinkNodes(chainlinkNodes, networks.Default, txCost)
 				Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
