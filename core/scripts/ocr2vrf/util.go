@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -19,6 +18,8 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/gethwrappers/vrf"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 func deployDKG(e helpers.Environment) common.Address {
@@ -63,7 +64,7 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 		signingKeyBytes, err := hex.DecodeString(signingKey)
 		helpers.PanicErr(err)
 		signingKeyPoint := ed25519Suite.Point()
-		signingKeyPoint.UnmarshalBinary(signingKeyBytes)
+		helpers.PanicErr(signingKeyPoint.UnmarshalBinary(signingKeyBytes))
 		signingKeys = append(signingKeys, signingKeyPoint)
 	}
 
@@ -73,7 +74,7 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 		encryptionKeyBytes, err := hex.DecodeString(encryptionKey)
 		helpers.PanicErr(err)
 		encryptionKeyPoint := altbn128Suite.G1().Point()
-		encryptionKeyPoint.UnmarshalBinary(encryptionKeyBytes)
+		helpers.PanicErr(encryptionKeyPoint.UnmarshalBinary(encryptionKeyBytes))
 		encryptionKeys = append(encryptionKeys, encryptionKeyPoint)
 	}
 
@@ -83,6 +84,9 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 	helpers.PanicErr(err)
 	onchainConfig, err := dkg.OnchainConfig(dkg.KeyID(keyIDBytes))
 	helpers.PanicErr(err)
+
+	fmt.Println("dkg offchain config:", hex.EncodeToString(offchainConfig))
+	fmt.Println("dkg onchain config:", hex.EncodeToString(onchainConfig))
 
 	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		c.deltaProgress,
@@ -182,6 +186,6 @@ func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
 	if len(decoded) != 32 {
 		panic(fmt.Sprintf("expected value to be 32 bytes but received %d bytes", len(decoded)))
 	}
-	copy(byteArray[:], val)
+	copy(byteArray[:], decoded)
 	return
 }
