@@ -107,7 +107,7 @@ FeedsManager enables the experimental feeds manager service.
 ```toml
 LogPoller = false # Default
 ```
-
+Enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
 
 ### OffchainReporting2<a id='Feature-OffchainReporting2'></a>
 ```toml
@@ -137,19 +137,19 @@ ORMMaxOpenConns = 20 # Default
 ```toml
 DefaultIdleInTxSessionTimeout = '1m'
 ```
-
+Database queries will timeout if they are idle in transaction for this duration or longer.
 
 ### DefaultLockTimeout<a id='Database-DefaultLockTimeout'></a>
 ```toml
 DefaultLockTimeout = '1h'
 ```
-
+Database queries will timeout if they are stuck waiting to take a lock for this duration or longer.
 
 ### DefaultQueryTimeout<a id='Database-DefaultQueryTimeout'></a>
 ```toml
 DefaultQueryTimeout = '1s'
 ```
-
+Database queries expected to return quickly will timeout after exceeding this duration.
 
 ### MigrateOnStartup<a id='Database-MigrateOnStartup'></a>
 ```toml
@@ -208,7 +208,7 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 ```toml
 OnVersionUpgrade = true
 ```
-
+If enabled, Chainlink will automatically take a backup of the database before running migrations when you are upgrading to a new version.
 
 ### URL<a id='Database-Backup-URL'></a>
 ```toml
@@ -1192,28 +1192,30 @@ Release = 'v1.2.3'
 
 
 ### Debug<a id='Sentry-Debug'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+
 ```toml
 Debug = false # Default
 ```
-
+Enable printing of Sentry SDK debug messages.
 
 ### DSN<a id='Sentry-DSN'></a>
 ```toml
 DSN = 'sentry-dsn'
 ```
-
+If provided, events will be sent to this Sentry data source name. Sentry is completely disabled if this is left blank.
 
 ### Environment<a id='Sentry-Environment'></a>
 ```toml
 Environment = 'dev'
 ```
-
+If provided, this will override the Sentry environment to the given value. Otherwise autodetects between dev/prod.
 
 ### Release<a id='Sentry-Release'></a>
 ```toml
 Release = 'v1.2.3'
 ```
-
+If provided, this will override the Sentry release to the given value. Otherwise uses the compiled-in version number.
 
 ## EVM<a id='EVM'></a>
 ```toml
@@ -2859,7 +2861,7 @@ PollInterval = '10s'
 ```toml
 ChainID = '1'
 ```
-
+The chain ID of this EVM chain. Mandatory.
 
 ### Enabled<a id='EVM-Enabled'></a>
 ```toml
@@ -2868,22 +2870,24 @@ Enabled = true # Default
 
 
 ### BlockBackfillDepth<a id='EVM-BlockBackfillDepth'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+
 ```toml
 BlockBackfillDepth = 100
 ```
-
+BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
 
 ### BlockBackfillSkip<a id='EVM-BlockBackfillSkip'></a>
 ```toml
 BlockBackfillSkip = true
 ```
-
+BlockBackfillSkip enables skipping of very long backfills.
 
 ### ChainType<a id='EVM-ChainType'></a>
 ```toml
 ChainType = 'Optimism' # Example
 ```
-
+ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 
 ### EIP1559DynamicFees<a id='EVM-EIP1559DynamicFees'></a>
 ```toml
@@ -2938,7 +2942,26 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 ```toml
 FinalityDepth = 50 # Default
 ```
+EvmFinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
+BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
+There is not a large performance penalty to setting this relatively high (on the order of hundreds)
+It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
+If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
+Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 
+Special cases:
+ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
+ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
+
+Examples:
+
+Transaction sending:
+A transaction is sent at block height 42
+
+ETH_FINALITY_DEPTH is set to 5
+A re-org occurs at height 44 starting at block 41, transaction is marked for rebroadcast
+A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
+A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
 
 ### FlagsContractAddress<a id='EVM-FlagsContractAddress'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -3045,19 +3068,21 @@ Only applies to EIP-1559 transactions)
 ```toml
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 ```
-
+The address of the canonical ERC-677 LINK token contract on the given chain. Note that this is usually autodetected from chain ID.
 
 ### LogBackfillBatchSize<a id='EVM-LogBackfillBatchSize'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+
 ```toml
 LogBackfillBatchSize = 100 # Default
 ```
-
+EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
 
 ### LogPollInterval<a id='EVM-LogPollInterval'></a>
 ```toml
 LogPollInterval = '15s' # Default
 ```
-
+Works in conjunction with FeatureLogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate. Not necessary to set unless you know exactly what you are doing.
 
 ### MaxGasPriceWei<a id='EVM-MaxGasPriceWei'></a>
 ```toml
@@ -3110,13 +3135,13 @@ GasEstimatorMode = 'FixedPrice'
 ```toml
 MinIncomingConfirmations = 3 # Default
 ```
-
+Minimum required confirmations before a log event will be consumed.
 
 ### MinimumContractPayment<a id='EVM-MinimumContractPayment'></a>
 ```toml
 MinimumContractPayment = '10000000000000 juels' # Default
 ```
-
+Minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 
 ### NonceAutoSync<a id='EVM-NonceAutoSync'></a>
 ```toml
@@ -3164,31 +3189,31 @@ OCR2ContractConfirmations = 7
 ```toml
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 ```
-
+The address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 
 ### RPCDefaultBatchSize<a id='EVM-RPCDefaultBatchSize'></a>
 ```toml
 RPCDefaultBatchSize = 100 # Default
 ```
-
+Default batch size for batched RPC calls.
 
 ### TxReaperInterval<a id='EVM-TxReaperInterval'></a>
 ```toml
 TxReaperInterval = '1h' # Default
 ```
-
+TxReaperInterval controls how often the EthTx reaper will run.
 
 ### TxReaperThreshold<a id='EVM-TxReaperThreshold'></a>
 ```toml
 TxReaperThreshold = '168h' # Default
 ```
-
+TxReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
 
 ### TxResendAfterThreshold<a id='EVM-TxResendAfterThreshold'></a>
 ```toml
 TxResendAfterThreshold = '1m' # Default
 ```
-
+TxResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 
 ### UseForwarders<a id='EVM-UseForwarders'></a>
 ```toml
@@ -3208,13 +3233,18 @@ BlockDelay = 1 # Default
 ```toml
 Enabled = true # Default
 ```
-
+Enabled balance monitoring for all keys.
 
 ### BlockDelay<a id='EVM-BalanceMonitor-BlockDelay'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+
 ```toml
 BlockDelay = 1 # Default
 ```
-
+EvmBalanceMonitorBlockDelay is the number of blocks that the balance monitor
+trails behind head. This is required when load balancing across multiple nodes
+announce a new head, then route a request to a different node which does not
+have this head yet.
 
 ## EVM.BlockHistoryEstimator<a id='EVM-BlockHistoryEstimator'></a>
 ```toml
@@ -3307,10 +3337,12 @@ MaxBufferSize = 3 # Default
 
 
 ### SamplingInterval<a id='EVM-HeadTracker-SamplingInterval'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+
 ```toml
 SamplingInterval = '1s' # Default
 ```
-
+SamplingInterval means that head tracker callbacks will at maximum be made once in every window of this duration. This is a performance optimisation for fast chains. Set to 0 to disable sampling entirely.
 
 ## EVM.KeySpecific<a id='EVM-KeySpecific'></a>
 ```toml
