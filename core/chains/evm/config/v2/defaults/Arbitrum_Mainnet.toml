@@ -12,3 +12,9 @@ OCRContractConfirmations = 1
 
 [BlockHistoryEstimator]
 BlockHistorySize = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0'
+
+[NodePool]
+NoNewHeadsThreshold = '0'

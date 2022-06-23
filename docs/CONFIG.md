@@ -1557,13 +1557,13 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 10
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -1808,7 +1808,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -1990,7 +1990,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2113,7 +2113,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2174,7 +2174,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2229,13 +2229,13 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2290,13 +2290,13 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2351,13 +2351,13 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2412,13 +2412,13 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2474,13 +2474,13 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2535,13 +2535,13 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2596,13 +2596,13 @@ BlockHistorySize = 24
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2663,7 +2663,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2719,13 +2719,13 @@ BlockHistorySize = 0
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2780,13 +2780,13 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```
@@ -2841,13 +2841,13 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 ```

@@ -26,9 +26,9 @@ OCRContractTransmitterTransmitTimeout = '10s'
 OCRDatabaseTimeout = '10s'
 OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
-TxReaperInterval = '1h0m0s'
-TxReaperThreshold = '168h0m0s'
-TxResendAfterThreshold = '1m0s'
+TxReaperInterval = '1h'
+TxReaperThreshold = '168h'
+TxResendAfterThreshold = '1m'
 UseForwarders = false
 
 [BalanceMonitor]
@@ -42,12 +42,12 @@ BlockHistorySize = 8
 TransactionPercentile = 60
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '1m0s'
+BlockEmissionIdleWarningThreshold = '1m'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '3m0s'
+NoNewHeadsThreshold = '3m'
 PollFailureThreshold = 5
 PollInterval = '10s'

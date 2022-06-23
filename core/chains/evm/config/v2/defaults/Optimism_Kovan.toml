@@ -12,10 +12,13 @@ OCRContractConfirmations = 1
 [BalanceMonitor]
 BlockDelay = 0
 
-[HeadTracker]
-HistoryDepth = 10
-SamplingInterval = '1s'
-BlockEmissionIdleWarningThreshold = '30m'
-
 [BlockHistoryEstimator]
 BlockHistorySize = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '30m'
+HistoryDepth = 10
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0'

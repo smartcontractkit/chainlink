@@ -4,3 +4,9 @@ MaxGasPriceWei = '0.2 milli'
 LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 MinIncomingConfirmations = 3
 LogPollInterval = '1s'
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+
+[NodePool]
+NoNewHeadsThreshold = '30s'

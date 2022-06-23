@@ -24,3 +24,6 @@ BlockEmissionIdleWarningThreshold = '15s'
 HistoryDepth = 100
 SamplingInterval = '1s'
 
+[NodePool]
+NoNewHeadsThreshold = '30s'
+

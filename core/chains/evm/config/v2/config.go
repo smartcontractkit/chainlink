@@ -49,6 +49,7 @@ type Chain struct {
 
 	NonceAutoSync *bool
 
+	//TODO nbd group for now
 	OCRContractConfirmations              *uint16
 	OCRContractTransmitterTransmitTimeout *models.Duration
 	OCRDatabaseTimeout                    *models.Duration

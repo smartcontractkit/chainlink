@@ -3,3 +3,9 @@ LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
 GasPriceDefault = '5 gwei'
 MinIncomingConfirmations = 1
 LogPollInterval = '2s'
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+
+[NodePool]
+NoNewHeadsThreshold = '30s'

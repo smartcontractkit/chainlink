@@ -12,3 +12,9 @@ LogPollInterval = '3s'
 [BlockHistoryEstimator]
 BlockHistorySize = 24
 BlockDelay = 2
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+
+[NodePool]
+NoNewHeadsThreshold = '30s'

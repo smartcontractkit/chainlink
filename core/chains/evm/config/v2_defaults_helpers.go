@@ -21,6 +21,10 @@ func V2Defaults() map[int64]v2.Chain {
 	return m
 }
 
+func V2Fallback() v2.Chain {
+	return v2Defaults(fallbackDefaultSet)
+}
+
 func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	c := v2.Chain{
 		BlockBackfillDepth:                    nil,
