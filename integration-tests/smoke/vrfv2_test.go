@@ -74,10 +74,15 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			consumer, err = cd.DeployVRFConsumerV2(lt.Address(), coordinator.Address())
 			Expect(err).ShouldNot(HaveOccurred())
+			err = actions.FundChainlinkNodes(cls, nets.Default, big.NewFloat(.1))
+			Expect(err).ShouldNot(HaveOccurred())
 			err = nets.Default.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
 
-			err = lt.Transfer(consumer.Address(), big.NewInt(0).Mul(big.NewInt(1e4), big.NewInt(1e18)))
+			// https://docs.chain.link/docs/chainlink-vrf/#subscription-limits
+			linkFunding := big.NewInt(100)
+
+			err = lt.Transfer(consumer.Address(), big.NewInt(0).Mul(linkFunding, big.NewInt(1e18)))
 			Expect(err).ShouldNot(HaveOccurred())
 			err = coordinator.SetConfig(
 				1,
@@ -100,7 +105,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			err = nets.Default.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
 
-			err = consumer.CreateFundedSubscription(big.NewInt(0).Mul(big.NewInt(30), big.NewInt(1e18)))
+			err = consumer.CreateFundedSubscription(big.NewInt(0).Mul(linkFunding, big.NewInt(1e18)))
 			Expect(err).ShouldNot(HaveOccurred())
 			err = nets.Default.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
@@ -124,7 +129,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 					Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 					CoordinatorAddress:       coordinator.Address(),
 					FromAddress:              oracleAddr,
-					EVMChainID:               "1337",
+					EVMChainID:               fmt.Sprint(nets.Default.GetNetworkConfig().ChainID),
 					MinIncomingConfirmations: 1,
 					PublicKey:                pubKeyCompressed,
 					ExternalJobID:            jobUUID.String(),
@@ -144,8 +149,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 	})
 
-	// This test is disabled until sc-43033 is fixed. To re-enable replace PDescribe with Describe
-	PDescribe("with VRF job", func() {
+	Describe("with VRF job", func() {
 		It("randomness is fulfilled", func() {
 			words := uint32(10)
 			keyHash, err := coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
