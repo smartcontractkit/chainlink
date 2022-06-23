@@ -4,7 +4,6 @@ import (
 	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -24,12 +23,16 @@ import (
 
 type ORM interface {
 	FindUser(email string) (User, error)
+	FindUserByAPIToken(apiToken string) (User, error)
+	ListUsers() ([]User, error)
 	AuthorizedUserWithSession(sessionID string) (User, error)
-	DeleteUser() error
+	DeleteUser(email string) error
 	DeleteUserSession(sessionID string) error
+	DeleteSessionByUser(email string) error
 	CreateSession(sr SessionRequest) (string, error)
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
+	UpdateUser(email string, user *User) error
 	SetAuthToken(user *User, token *auth.Token) error
 	CreateAndSetAuthToken(user *User) (*auth.Token, error)
 	DeleteAuthToken(user *User) error
@@ -58,9 +61,23 @@ func (o *orm) FindUser(email string) (User, error) {
 	return o.findUser(email)
 }
 
+// FindUserByAPIToken will attempt to return an API user by email.
+func (o *orm) FindUserByAPIToken(apiToken string) (user User, err error) {
+	sql := "SELECT * FROM users WHERE token_key = $1"
+	err = o.db.Get(&user, sql, apiToken)
+	return
+}
+
 func (o *orm) findUser(email string) (user User, err error) {
-	sql := "SELECT * FROM users WHERE email = $1 ORDER BY created_at desc LIMIT 1"
+	sql := "SELECT * FROM users WHERE email = $1"
 	err = o.db.Get(&user, sql, email)
+	return
+}
+
+// ListUsers will load and return all user rows from the db.
+func (o *orm) ListUsers() (users []User, err error) {
+	sql := "SELECT * FROM users ORDER BY role ASC;"
+	err = o.db.Select(&users, sql)
 	return
 }
 
@@ -98,23 +115,28 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 	return user, nil
 }
 
-// DeleteUser will delete the API User in the db.
-func (o *orm) DeleteUser() error {
+// DeleteUser will delete an API User and sessions by email.
+func (o *orm) DeleteUser(email string) error {
 	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
 	return pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
-		if _, err := tx.Exec("DELETE FROM users"); err != nil {
+		if _, err := tx.Exec("DELETE FROM sessions WHERE email = $1", email); err != nil {
 			return err
 		}
-
-		_, err := tx.Exec("DELETE FROM sessions") // TODO: Andrew - parameterize with WHERE user
+		_, err := tx.Exec("DELETE FROM users WHERE email = $1", email)
 		return err
 	})
 }
 
-// DeleteUserSession will erase the session ID for the sole API User.
+// DeleteUserSession will delete a session by ID.
 func (o *orm) DeleteUserSession(sessionID string) error {
 	_, err := o.db.Exec("DELETE FROM sessions WHERE id = $1", sessionID)
+	return err
+}
+
+// DeleteSessionByUser clears all sessions tied to a specific user email.
+func (o *orm) DeleteSessionByUser(email string) error {
+	_, err := o.db.Exec("DELETE FROM sessions WHERE email = $1", email)
 	return err
 }
 
@@ -166,7 +188,6 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if len(uwas) == 0 {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
-		fmt.Printf("DEBUG: GOT HERE %#v, \nemail %#v\n \n", session, user)
 		_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 		return session.ID, err
 	}
@@ -230,11 +251,16 @@ func (o *orm) ClearNonCurrentSessions(sessionID string) error {
 	return err
 }
 
-// Creates creates the user.
+// CreateUser creates a new API user
 func (o *orm) CreateUser(user *User) error {
-	fmt.Printf("DEBUG (o *orm) CreateUser: %#v %s\n\n", user, UserRoleView)
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	return o.db.Get(user, sql, user.Email, user.HashedPassword, UserRoleView)
+	return o.db.Get(user, sql, user.Email, user.HashedPassword, user.Role)
+}
+
+// UpdateUser overwrites key fields of the user specified by email using new values present in the passed user struct.
+func (o *orm) UpdateUser(email string, user *User) error {
+	sql := "UPDATE users SET email = $1, hashed_password = $2, role = $3, updated_at = now() WHERE email = $4 RETURNING *"
+	return o.db.Get(user, sql, user.Email, user.HashedPassword, user.Role, email)
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.

@@ -8,13 +8,11 @@ ALTER TABLE users ADD role user_roles NOT NULL DEFAULT 'view';
 
 -- Update sessions table include email column to key on user tied to session
 ALTER TABLE sessions ADD email text NOT NULL;
-ALTER TABLE sessions ADD CONSTRAINT fk_email FOREIGN KEY(email) REFERENCES users(email);
+ALTER TABLE sessions ADD CONSTRAINT sessions_fk_email FOREIGN KEY(email) REFERENCES users(email);
 
 -- +goose Down
+
+ALTER TABLE users DROP COLUMN role;
 DROP TYPE user_roles;
 
-ALTER TABLE users
-  DROP COLUMN user_roles;
-
-ALTER TABLE sessions
-  DROP COLUMN email;
+ALTER TABLE sessions DROP COLUMN email;

@@ -621,8 +621,8 @@ func NewPromptingSessionRequestBuilder(prompter Prompter) SessionRequestBuilder 
 }
 
 func (p promptingSessionRequestBuilder) Build(string) (sessions.SessionRequest, error) {
-	email := "test-API@test.com" // p.prompter.Prompt("Enter email: ")
-	pwd := "p4SsW0rD1!@#_"       //p.prompter.PasswordPrompt("Enter password: ")
+	email := p.prompter.Prompt("Enter email: ")
+	pwd := p.prompter.PasswordPrompt("Enter password: ")
 	return sessions.SessionRequest{Email: email, Password: pwd}, nil
 }
 
@@ -648,44 +648,59 @@ type APIInitializer interface {
 
 type promptingAPIInitializer struct {
 	prompter Prompter
+	lggr     logger.Logger
 }
 
 // NewPromptingAPIInitializer creates a concrete instance of APIInitializer
 // that uses the terminal to solicit credentials from the user.
-func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
-	return &promptingAPIInitializer{prompter: prompter}
+func NewPromptingAPIInitializer(prompter Prompter, lggr logger.Logger) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter, lggr: lggr}
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
 func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	fmt.Printf("DEBUG: (t *promptingAPIInitializer) Initialize\n")
-
-	// TODO: Andrew get email from prompter instead, see core/cmd/client.go
-	// TODO prompt for email (or load from disk - then password) (but each time CLI runs?? lame)
-	if user, err := orm.FindUser("test-API@test.com"); err == nil {
-		return user, err
+	// Load list of users to determine which to assume, or if a user needs to be created
+	dbUsers, err := orm.ListUsers()
+	if err != nil {
+		return sessions.User{}, err
 	}
 
-	if !t.prompter.IsTerminal() {
-		return sessions.User{}, ErrorNoAPICredentialsAvailable
-	}
-
-	for {
-		// email := t.prompter.Prompt("Enter API Email: ")
-		email := "test-API@test.com"
-		// pwd := t.prompter.PasswordPrompt("Enter API Password: ")
-		pwd := "p4SsW0rD1!@#_" // Test dev, faster
-		fmt.Printf("DEBUG Initialize: %s %s\n\n", email, pwd)
-		user, err := sessions.NewUser(email, pwd)
-		if err != nil {
-			fmt.Println("DEBUG: Error creating API user: ", err)
-			continue
+	// If there are no users in the database, prompt for initial admin user creation
+	if len(dbUsers) == 0 {
+		if !t.prompter.IsTerminal() {
+			return sessions.User{}, ErrorNoAPICredentialsAvailable
 		}
-		if err = orm.CreateUser(&user); err != nil {
-			fmt.Println("Error creating API user: ", err)
+
+		for {
+			email := t.prompter.Prompt("Enter API Email: ")
+			pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+			// On a fresh DB, create an admin user
+
+			user, err := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
+			if err != nil {
+				t.lggr.Errorf("Error creating API user: ", err, "err")
+				continue
+			}
+			if err = orm.CreateUser(&user); err != nil {
+				t.lggr.Errorf("Error creating API user: ", err, "err")
+			}
+			return user, err
 		}
-		return user, err
 	}
+
+	// Attempt to contextually return the correct admin user, CLI access here implies admin
+	if adminUser := attemptAssumeAdminUser(dbUsers, orm, t.lggr); adminUser != nil {
+		return *adminUser, nil
+	}
+
+	// Otherwise, multiple admin users exist, prompt for which to use
+	email := t.prompter.Prompt("Enter email of API user account to assume: ")
+	user, err := orm.FindUser(email)
+
+	if err != nil {
+		return sessions.User{}, err
+	}
+	return user, nil
 }
 
 type fileAPIInitializer struct {
@@ -700,22 +715,68 @@ func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
 }
 
 func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	fmt.Printf("DEBUG: (f fileAPIInitializer) Initialize\n")
-	// TODO: Andrew get email from prompter instead, see core/cmd/client.go
-	if user, err := orm.FindUser("test-API@test.com"); err == nil {
-		return user, err
-	}
-
 	request, err := credentialsFromFile(f.file, f.lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
 
-	user, err := sessions.NewUser(request.Email, request.Password)
+	// Load list of users to determine which to assume, or if a user needs to be created
+	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return user, err
+		return sessions.User{}, err
 	}
-	return user, orm.CreateUser(&user)
+
+	// If there are no users in the database, create initial admin user from session request from file creds
+	if len(dbUsers) == 0 {
+		user, err := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
+		if err != nil {
+			return user, err
+		}
+		return user, orm.CreateUser(&user)
+	}
+
+	// Attempt to contextually return the correct admin user, CLI access here implies admin
+	if adminUser := attemptAssumeAdminUser(dbUsers, orm, f.lggr); adminUser != nil {
+		return *adminUser, nil
+	}
+
+	// Otherwise, multiple admin users exist, attempt to load email specified in session request
+	user, err := orm.FindUser(request.Email)
+	if err != nil {
+		return sessions.User{}, err
+	}
+	return user, nil
+}
+
+func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) *sessions.User {
+	if len(users) == 0 {
+		return nil
+	}
+
+	// If there is only a single DB user, select it within the context of CLI
+	if len(users) == 1 {
+		lggr.Infof("Defaulted to assume single DB API User", "email", users[0].Email)
+		return &users[0]
+	}
+
+	// If there is only one admin user, use it within the context of CLI
+	var singleAdmin *sessions.User
+	for _, user := range users {
+		if user.Role == sessions.UserRoleAdmin {
+			// If multiple admin users found, don't use assume any and clear to continue to prompt
+			if singleAdmin != nil {
+				singleAdmin = nil
+				break
+			}
+			singleAdmin = &user
+		}
+	}
+	if singleAdmin != nil {
+		lggr.Infof("Defaulted to assume single DB admin API User", "email", users[0].Email)
+		return singleAdmin
+	}
+
+	return nil
 }
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")

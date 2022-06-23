@@ -123,13 +123,27 @@ func (_m *ORM) DeleteAuthToken(user *sessions.User) error {
 	return r0
 }
 
-// DeleteUser provides a mock function with given fields:
-func (_m *ORM) DeleteUser() error {
-	ret := _m.Called()
+// DeleteSessionByUser provides a mock function with given fields: email
+func (_m *ORM) DeleteSessionByUser(email string) error {
+	ret := _m.Called(email)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(email)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteUser provides a mock function with given fields: email
+func (_m *ORM) DeleteUser(email string) error {
+	ret := _m.Called(email)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(email)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -174,20 +188,41 @@ func (_m *ORM) FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiato
 	return r0, r1
 }
 
-// FindUser provides a mock function with given fields:
-func (_m *ORM) FindUser() (sessions.User, error) {
-	ret := _m.Called()
+// FindUser provides a mock function with given fields: email
+func (_m *ORM) FindUser(email string) (sessions.User, error) {
+	ret := _m.Called(email)
 
 	var r0 sessions.User
-	if rf, ok := ret.Get(0).(func() sessions.User); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) sessions.User); ok {
+		r0 = rf(email)
 	} else {
 		r0 = ret.Get(0).(sessions.User)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindUserByAPIToken provides a mock function with given fields: apiToken
+func (_m *ORM) FindUserByAPIToken(apiToken string) (sessions.User, error) {
+	ret := _m.Called(apiToken)
+
+	var r0 sessions.User
+	if rf, ok := ret.Get(0).(func(string) sessions.User); ok {
+		r0 = rf(apiToken)
+	} else {
+		r0 = ret.Get(0).(sessions.User)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(apiToken)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -211,6 +246,29 @@ func (_m *ORM) GetUserWebAuthn(email string) ([]sessions.WebAuthn, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListUsers provides a mock function with given fields:
+func (_m *ORM) ListUsers() ([]sessions.User, error) {
+	ret := _m.Called()
+
+	var r0 []sessions.User
+	if rf, ok := ret.Get(0).(func() []sessions.User); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]sessions.User)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -276,6 +334,20 @@ func (_m *ORM) SetPassword(user *sessions.User, newPassword string) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*sessions.User, string) error); ok {
 		r0 = rf(user, newPassword)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateUser provides a mock function with given fields: email, user
+func (_m *ORM) UpdateUser(email string, user *sessions.User) error {
+	ret := _m.Called(email, user)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, *sessions.User) error); ok {
+		r0 = rf(email, user)
 	} else {
 		r0 = ret.Error(0)
 	}

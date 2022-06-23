@@ -232,9 +232,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	))
 	{
 		uc := UserController{app}
+		authv2.GET("/users", auth.RequiresAdminRole(uc.Index))
 		authv2.POST("/users", auth.RequiresAdminRole(uc.Create))
 		authv2.PATCH("/users", auth.RequiresAdminRole(uc.Update))
-		authv2.DELETE("/users", auth.RequiresAdminRole(uc.Delete))
+		authv2.DELETE("/users/:email", auth.RequiresAdminRole(uc.Delete))
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)

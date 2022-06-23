@@ -114,23 +114,74 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:   "logout",
+					Usage:  "Delete any local sessions",
+					Action: client.Logout,
+				},
+				{
 					Name:  "users",
 					Usage: "Create, edit permissions, or delete API users",
 					Subcommands: cli.Commands{
 						{
+							Name:   "list",
+							Usage:  "Lists all API users and their roles",
+							Action: client.ListUsers,
+						},
+						{
 							Name:   "create",
 							Usage:  "Create a new API user",
 							Action: client.CreateUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "Email of new user to create",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "role",
+									Usage:    "Permission level of new user. Options: 'admin', 'edit', 'edit_minimal', 'view'.",
+									Required: true,
+								},
+							},
 						},
 						{
 							Name:   "update",
-							Usage:  "Updates an API user, changing email, password, or role",
+							Usage:  "Updates an API user. email, password, and role can be updated",
 							Action: client.EditUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "email of user to be editted",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "newemail",
+									Usage:    "optional new email to set for user",
+									Required: false,
+								},
+								cli.StringFlag{
+									Name:     "newrole",
+									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'edit_minimal', 'view'.",
+									Required: false,
+								},
+								cli.BoolFlag{
+									Name:     "promptnewpassword",
+									Usage:    "optional flag to prompt and set new password for a user",
+									Required: false,
+								},
+							},
 						},
 						{
 							Name:   "delete",
-							Usage:  "Deletes an API user",
+							Usage:  "Delete an API user",
 							Action: client.DeleteUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "Email of API user to delete",
+									Required: true,
+								},
+							},
 						},
 					},
 				},

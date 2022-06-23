@@ -42,28 +42,66 @@ const (
 )
 
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
-func NewUser(email, plainPwd string) (User, error) {
-	if len(email) == 0 {
-		return User{}, errors.New("Must enter an email")
+func NewUser(email, plainPwd, role string) (User, error) {
+	if err := ValidateEmail(email); err != nil {
+		return User{}, err
 	}
 
-	if !emailRegexp.MatchString(email) {
-		return User{}, errors.New("Invalid email format")
-	}
-
-	if len(plainPwd) < 8 || len(plainPwd) > MaxBcryptPasswordLength {
-		return User{}, fmt.Errorf("must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
-	}
-
-	pwd, err := utils.HashPassword(plainPwd)
+	pwd, err := ValidateAndHashPassword(plainPwd)
 	if err != nil {
+		return User{}, err
+	}
+
+	if err := ValidateUserRole(role); err != nil {
 		return User{}, err
 	}
 
 	return User{
 		Email:          email,
 		HashedPassword: pwd,
+		Role:           role,
 	}, nil
+}
+
+// ValidateEmail is the single point of logic for user email validations
+func ValidateEmail(email string) error {
+	if len(email) == 0 {
+		return errors.New("Must enter an email")
+	}
+	if !emailRegexp.MatchString(email) {
+		return errors.New("Invalid email format")
+	}
+	return nil
+}
+
+// ValidateAndHashPassword is the single point of logic for user password validations
+func ValidateAndHashPassword(plainPwd string) (string, error) {
+	if len(plainPwd) < 8 || len(plainPwd) > MaxBcryptPasswordLength {
+		return "", fmt.Errorf("must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
+	}
+
+	pwd, err := utils.HashPassword(plainPwd)
+	if err != nil {
+		return "", err
+	}
+
+	return pwd, nil
+}
+
+// ValidateUserRole is the single point of logic for user role validations
+func ValidateUserRole(role string) error {
+	if role != UserRoleAdmin && role != UserRoleEdit && role != UserRoleEditMinimal && role != UserRoleView {
+		errStr := fmt.Sprintf(
+			"Invalid role: %s. Allowed roles: '%s', '%s', '%s', '%s'.",
+			role,
+			UserRoleAdmin,
+			UserRoleEdit,
+			UserRoleEditMinimal,
+			UserRoleView,
+		)
+		return fmt.Errorf(errStr)
+	}
+	return nil
 }
 
 // SessionRequest encapsulates the fields needed to generate a new SessionID,

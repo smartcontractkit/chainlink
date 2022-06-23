@@ -48,13 +48,11 @@ func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(password stri
 }
 
 func (auth TerminalKeyStoreAuthenticator) promptExistingPassword() string {
-	// password := auth.Prompter.PasswordPrompt("Enter key store password:")
-	password := "p4SsW0rD1!@#_"
+	password := auth.Prompter.PasswordPrompt("Enter key store password:")
 	return password
 }
 
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword() (string, error) {
-	return "p4SsW0rD1!@#_", nil
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
 		err := auth.validatePasswordStrength(password)

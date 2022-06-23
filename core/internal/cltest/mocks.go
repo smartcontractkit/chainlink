@@ -324,7 +324,7 @@ func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
 func MustRandomUser(t testing.TB) sessions.User {
 	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
-	r, err := sessions.NewUser(email, Password)
+	r, err := sessions.NewUser(email, Password, sessions.UserRoleAdmin)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)
 	}
@@ -332,7 +332,7 @@ func MustRandomUser(t testing.TB) sessions.User {
 }
 
 func MustNewUser(t *testing.T, email, password string) sessions.User {
-	r, err := sessions.NewUser(email, password)
+	r, err := sessions.NewUser(email, password, sessions.UserRoleAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}

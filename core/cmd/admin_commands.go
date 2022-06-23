@@ -1,38 +1,33 @@
 package cmd
 
 import (
-	"net/url"
-	"time"
+	"bytes"
+	"encoding/json"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
-	"gopkg.in/guregu/null.v4"
 )
 
 type AdminUsersPresenter struct {
-	Email     string
-	Role      string
-	CreatedAt time.Time
-	TokenKey  null.String
-	UpdatedAt time.Time
-}
-
-func (p *AdminUsersPresenter) ToRow() []string {
-	hasToken := "false"
-	if p.TokenKey.Valid {
-		hasToken = "true"
-	}
-	return []string{
-		p.Email,
-		p.Role,
-		hasToken,
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
-	}
+	JAID
+	presenters.UserResource
 }
 
 var adminUsersTableHeaders = []string{"Email", "Role", "Has API token", "Created At", "Updated at"}
+
+func (p *AdminUsersPresenter) ToRow() []string {
+	row := []string{
+		p.ID,
+		p.Role,
+		p.HasActiveApiToken,
+		p.CreatedAt.String(),
+		p.UpdatedAt.String(),
+	}
+	return row
+}
 
 // RenderTable implements TableRenderer
 func (p *AdminUsersPresenter) RenderTable(rt RendererTable) error {
@@ -53,107 +48,112 @@ func (ps AdminUsersPresenters) RenderTable(rt RendererTable) error {
 		rows = append(rows, p.ToRow())
 	}
 
+	if _, err := rt.Write([]byte("Users\n")); err != nil {
+		return err
+	}
 	renderList(adminUsersTableHeaders, rows, rt.Writer)
 
-	return nil
+	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-// ListUsers renders the active account address with its ETH & LINK balance
+// ListUsers renders all API users and their roles
 func (cli *Client) ListUsers(c *cli.Context) (err error) {
-	// TODO: Andrew - STUBBED
-	return nil
+	resp, err := cli.HTTP.Get("/v2/users/", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &AdminUsersPresenters{})
 }
 
 // CreateUser creates a new user by prompting for email, password, and role
 func (cli *Client) CreateUser(c *cli.Context) (err error) {
-	createUrl := url.URL{
-		Path: "/v2/users",
-	}
-	query := createUrl.Query()
+	pwd := cli.PasswordPrompter.Prompt()
 
-	if c.IsSet("email") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("email", c.String("email"))
-	}
-	if c.IsSet("password") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("password", c.String("password"))
-	}
-	if c.IsSet("role") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("role", c.String("role"))
+	request := struct {
+		Email    string `json:"email"`
+		Role     string `json:"role"`
+		Password string `json:"password"`
+	}{
+		Email:    c.String("email"),
+		Role:     c.String("role"),
+		Password: pwd,
 	}
 
-	createUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Post(createUrl.String(), nil)
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	response, err := cli.HTTP.Post("/v2/users", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
+		if cerr := response.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &AdminUsersPresenter{}, "User created successfully.")
+	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully created new API user")
 }
 
 // EditUser can change a user's email, password, and role
 func (cli *Client) EditUser(c *cli.Context) (err error) {
-	createUrl := url.URL{
-		Path: "/v2/users",
-	}
-	query := createUrl.Query()
-
-	if c.IsSet("email") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("email", c.String("email"))
-	}
-	if c.IsSet("password") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("password", c.String("password"))
-	}
-	if c.IsSet("role") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("role", c.String("role"))
+	// Prompt for new password to set on specified user if flag is set
+	pwd := ""
+	if c.IsSet("promptnewpassword") {
+		pwd = cli.PasswordPrompter.Prompt()
 	}
 
-	createUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Patch(createUrl.String(), nil)
+	request := struct {
+		Email       string `json:"email"`
+		NewEmail    string `json:"newEmail"`
+		NewRole     string `json:"newRole"`
+		NewPassword string `json:"newPassword"`
+	}{
+		Email:       c.String("email"),
+		NewEmail:    c.String("newemail"),
+		NewRole:     c.String("newrole"),
+		NewPassword: pwd,
+	}
+
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	response, err := cli.HTTP.Patch("/v2/users", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
+		if cerr := response.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &AdminUsersPresenter{}, "User updated successfully.")
+	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully updated API user")
 }
 
-// DeleteUser can change a user's email, password, and role
+// DeleteUser deletes an API user by email
 func (cli *Client) DeleteUser(c *cli.Context) (err error) {
-	createUrl := url.URL{
-		Path: "/v2/users",
-	}
-	query := createUrl.Query()
-
-	if c.IsSet("email") {
-		// TODO: Andrew - from cli prompter, p.prompter.Prompt("Enter email: ") - see core/cmd/client.go
-		query.Set("email", c.String("email"))
-	}
-
-	createUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Delete(createUrl.String())
+	response, err := cli.HTTP.Delete(fmt.Sprintf("/v2/users/%s", c.String("email")))
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
+		if cerr := response.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &AdminUsersPresenter{}, "User updated successfully.")
+	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully deleted API user")
 }

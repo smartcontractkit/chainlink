@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgconn"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -28,22 +29,179 @@ type UpdatePasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
-// Create creates a new API user with provided context arugments.
-func (c *UserController) Create(ctx *gin.Context) {
-	// TODO: Andrew - STUB
-	return
+// Index lists all API users
+func (c *UserController) Index(ctx *gin.Context) {
+	users, err := c.App.SessionORM().ListUsers()
+	if err != nil {
+		c.App.GetLogger().Errorf("Unable to list users", "err", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	jsonAPIResponse(ctx, presenters.NewUserResources(users), "users")
 }
 
-// Update changes an API user's role.
+// Create creates a new API user with provided context arugments.
+func (c *UserController) Create(ctx *gin.Context) {
+	type newUserRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+
+	var request newUserRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	user, err := clsession.NewUser(request.Email, request.Password, request.Role)
+	if err != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("error creating API user: %s", err))
+		return
+	}
+	if err = c.App.SessionORM().CreateUser(&user); err != nil {
+		// If this is a duplicate key error (code 23505), return a nicer error message
+		if err, ok := err.(*pgconn.PgError); ok {
+			fmt.Println(err.Code)
+			if err.Code == "23505" {
+				jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("user with email %s already exists", request.Email))
+				return
+			}
+		}
+		c.App.GetLogger().Errorf("Error creating new API user", "err", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error creating API user"))
+		return
+	}
+
+	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
+}
+
+// Update changes sets email, password, or role fields of a specified API user.
 func (c *UserController) Update(ctx *gin.Context) {
-	// TODO: Andrew - STUB
-	return
+	type updateUserRequest struct {
+		Email       string `json:"email"`
+		NewEmail    string `json:"newEmail"`
+		NewPassword string `json:"newPassword"`
+		NewRole     string `json:"newRole"`
+	}
+
+	var request updateUserRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// First, attempt to load specified user by email
+	// This user object will have its fields patched for a final update call
+	user, err := c.App.SessionORM().FindUser(request.Email)
+	if err != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("specified user not found: %s", request.Email))
+		return
+	}
+
+	// Don't allow current admin user to edit self
+	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	if !ok {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		return
+	}
+	if sessionUser.Email == request.Email {
+		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("can not change state or permissions of current admin user"))
+		return
+	}
+
+	// Changes to the user may require the entries in the sessions table to be removed
+	purgeSessions := false
+
+	// Patch validated email is newEmail is specified
+	if request.NewEmail != "" {
+		if err := clsession.ValidateEmail(request.NewEmail); err != nil {
+			jsonAPIError(ctx, http.StatusBadRequest, err)
+			return
+		}
+		user.Email = request.NewEmail
+
+		// Email changed, purge associated sessions at final step
+		purgeSessions = true
+	}
+
+	// Patch validated password is newPassword is specified
+	if request.NewPassword != "" {
+		pwd, err := clsession.ValidateAndHashPassword(request.NewPassword)
+		if err != nil {
+			jsonAPIError(ctx, http.StatusBadRequest, err)
+			return
+		}
+		user.HashedPassword = pwd
+
+		// Password changed, purge associated sessions at final step
+		purgeSessions = true
+	}
+
+	// Patch validated role is newRole is specified
+	if request.NewRole != "" {
+		if err := clsession.ValidateUserRole(request.NewRole); err != nil {
+			jsonAPIError(ctx, http.StatusBadRequest, err)
+			return
+		}
+		user.Role = request.NewRole
+	}
+
+	if purgeSessions {
+		err := c.App.SessionORM().DeleteSessionByUser(request.Email)
+		if err != nil {
+			c.App.GetLogger().Errorf("Failed to purge user sessions via DeleteSessionByUser", "err", err)
+			jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error updating API user"))
+			return
+		}
+	}
+
+	if err = c.App.SessionORM().UpdateUser(request.Email, &user); err != nil {
+		// If this is a duplicate key error (code 23505), return a nicer error message
+		if err, ok := err.(*pgconn.PgError); ok {
+			fmt.Println(err.Code)
+			if err.Code == "23505" {
+				jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("user with email %s already exists", request.Email))
+				return
+			}
+		}
+		c.App.GetLogger().Errorf("Error updating new API user", "err", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error updating API user"))
+		return
+	}
+
+	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
 // Delete deletes an API user and any sessions by email
 func (c *UserController) Delete(ctx *gin.Context) {
-	// TODO: Andrew - STUB
-	return
+	email := ctx.Param("email")
+
+	// Attempt find user by email
+	_, err := c.App.SessionORM().FindUser(email)
+	if err != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("specified user not found: %s", email))
+		return
+	}
+
+	// Don't allow current admin user to delete self
+	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
+	if !ok {
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		return
+	}
+	if sessionUser.Email == email {
+		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("can not delete currently logged in admin user"))
+		return
+	}
+
+	if err = c.App.SessionORM().DeleteUser(email); err != nil {
+		c.App.GetLogger().Errorf("Error deleting API user", "err", err, "email", email)
+		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error deleting API user"))
+		return
+	}
+
+	jsonAPIResponse(ctx, presenters.NewUserResource(clsession.User{Email: email}), "user")
 }
 
 // UpdatePassword changes the password for the current User.

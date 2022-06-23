@@ -2,7 +2,6 @@ package auth
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/contrib/sessions"
@@ -41,6 +40,7 @@ type Authenticator interface {
 	AuthorizedUserWithSession(sessionID string) (clsessions.User, error)
 	FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error)
 	FindUser(email string) (clsessions.User, error)
+	FindUserByAPIToken(apiToken string) (clsessions.User, error)
 }
 
 // authMethod defines a method which can be used to authenticate a request. This
@@ -79,15 +79,14 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		Secret:    c.GetHeader(APISecret),
 	}
 
-	// TODO: Andrew - this actually may not be needed anymore
-	// user, err := authr.FindUser("TODO: Andrew")
-	// if err != nil {
-	// 	if errors.Is(err, sql.ErrNoRows) {
-	// 		return auth.ErrorAuthFailed
-	// 	}
-	// 	return err
-	// }
-	var user clsessions.User
+	// We need to first load the user row so we can compare tokens using the stored salt
+	user, err := authr.FindUserByAPIToken(token.AccessKey)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.ErrorAuthFailed
+		}
+		return err
+	}
 
 	ok, err := clsessions.AuthenticateUserByToken(token, &user)
 	if err != nil {
@@ -140,12 +139,10 @@ var _ authMethod = AuthenticateExternalInitiator
 // Authenticate is middleware which authenticates the request by attempting to
 // authenticate using all the provided methods.
 func Authenticate(store Authenticator, methods ...authMethod) gin.HandlerFunc {
-	fmt.Printf("DEBUG - Authenticate\n")
 	return func(c *gin.Context) {
 		var err error
 		for _, method := range methods {
 			err = method(c, store)
-			fmt.Printf("DEBUG - Authenticate tried method: %v, err: %s\n", method, err)
 			if !errors.Is(err, auth.ErrorAuthFailed) {
 				break
 			}

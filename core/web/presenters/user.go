@@ -9,8 +9,11 @@ import (
 // UserResource represents a User JSONAPI resource.
 type UserResource struct {
 	JAID
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"createdAt"`
+	Email             string    `json:"email"`
+	Role              string    `json:"role"`
+	HasActiveApiToken string    `json:"hasActiveApiToken"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -22,9 +25,24 @@ func (r UserResource) GetName() string {
 //
 // A User does not have an ID primary key, so we must use the email
 func NewUserResource(u sessions.User) *UserResource {
-	return &UserResource{
-		JAID:      NewJAID(u.Email),
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
+	hasToken := "false"
+	if u.TokenKey.Valid {
+		hasToken = "true"
 	}
+	return &UserResource{
+		JAID:              NewJAID(u.Email),
+		Email:             u.Email,
+		Role:              u.Role,
+		HasActiveApiToken: hasToken,
+		CreatedAt:         u.CreatedAt,
+		UpdatedAt:         u.UpdatedAt,
+	}
+}
+
+func NewUserResources(users []sessions.User) []UserResource {
+	us := []UserResource{}
+	for _, user := range users {
+		us = append(us, *NewUserResource(user))
+	}
+	return us
 }

@@ -182,6 +182,24 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return nil
 }
 
+// Logout removes local and remote session.
+func (cli *Client) Logout(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Delete("/sessions")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	err = cli.CookieAuthenticator.Logout()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
 // ChangePassword prompts the user for the old password and a new one, then
 // posts it to Chainlink to change the password.
 func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {

@@ -881,13 +881,11 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	// TODO: Andrew - get current user here - different implementation for GraphQL mutations
-	// sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
-	// if !ok {
-	// 	jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
-	// 	return
-	// }
-	dbUser, err := r.App.SessionORM().FindUser("")
+	session, ok := webauth.GetGQLAuthenticatedSession(ctx)
+	if !ok {
+		return nil, errors.New("Failed to obtain current user from context")
+	}
+	dbUser, err := r.App.SessionORM().FindUser(session.User.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -913,7 +911,11 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	dbUser, err := r.App.SessionORM().FindUser("TODO: Andrew")
+	session, ok := webauth.GetGQLAuthenticatedSession(ctx)
+	if !ok {
+		return nil, errors.New("Failed to obtain current user from context")
+	}
+	dbUser, err := r.App.SessionORM().FindUser(session.User.Email)
 	if err != nil {
 		return nil, err
 	}
