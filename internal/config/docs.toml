@@ -11,6 +11,7 @@ InsecureFastScrypt = false # Default
 ReaperExpiration = '240h' # Default
 # RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 RootDir = '~/.chainlink' # Default
+# ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
 ShutdownGracePeriod = '5s' # Default
 
 [Feature]
@@ -25,11 +26,11 @@ OffchainReporting = false # Default
 
 [Database]
 # Database queries will timeout if they are idle in transaction for this duration or longer.
-DefaultIdleInTxSessionTimeout = '1m'
+DefaultIdleInTxSessionTimeout = '1h' # Default
 # Database queries will timeout if they are stuck waiting to take a lock for this duration or longer.
-DefaultLockTimeout = '1h'
+DefaultLockTimeout = '15s' # Default
 # Database queries expected to return quickly will timeout after exceeding this duration.
-DefaultQueryTimeout = '1s'
+DefaultQueryTimeout = '10s' # Default
 # MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
 MigrateOnStartup = true # Default
 # ORMMaxIdleConns configures the maximum number of idle database connections that the Chainlink node will keep open. Think of this as the baseline number of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
@@ -56,7 +57,7 @@ Mode = 'none' # Default
 # Dir sets the directory to use for saving the backup file. Use this if you want to save the backup file in a directory other than the default ROOT directory.
 Dir = 'test/backup/dir' # Example
 # If enabled, Chainlink will automatically take a backup of the database before running migrations when you are upgrading to a new version.
-OnVersionUpgrade = true
+OnVersionUpgrade = true # Default
 # URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
 #
 # It is recommended to set this value to a _read replica_ if you have one to avoid excessive load on the main database.
@@ -152,7 +153,7 @@ FileDir = '/my/log/directory' # Example
 # - mb (megabytes)
 # - gb (gigabytes)
 # - tb (terabytes)
-FileMaxSize = '5120mb'
+FileMaxSize = '5120mb' # Default
 # FileMaxAgeDays determines the log file's max age in days before file rotation. Keeping this config with the default value will not remove log files based on age.
 FileMaxAgeDays = 0 # Default
 # FileMaxBackups determines the maximum number of old log files to retain. Keeping this config with the default value retains all old log files. The `FileMaxAgeDays` variable can still cause them to get deleted.
@@ -381,18 +382,18 @@ GoroutineThreshold = 5000 # Default
 # Enable printing of Sentry SDK debug messages.
 Debug = false # Default
 # If provided, events will be sent to this Sentry data source name. Sentry is completely disabled if this is left blank.
-DSN = 'sentry-dsn'
+DSN = 'sentry-dsn' # Example
 # If provided, this will override the Sentry environment to the given value. Otherwise autodetects between dev/prod.
-Environment = 'dev'
+Environment = 'prod' # Default
 # If provided, this will override the Sentry release to the given value. Otherwise uses the compiled-in version number.
-Release = 'v1.2.3'
+Release = 'v1.2.3' # Example
 
 # EVM defaults depend on ChainID:
 #
 # **EXTENDED**
 [[EVM]]
 # The chain ID of this EVM chain. Mandatory.
-ChainID = '1'
+ChainID = '1' # Example
 Enabled = true # Default
 # **ADVANCED**
 # BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
@@ -607,7 +608,7 @@ BlockHistorySize = 8 # Default
 # EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used.
 #
 # Only applies to EIP-1559 transactions)
-EIP1559FeeCapBufferBlocks = 13
+EIP1559FeeCapBufferBlocks = 13 # Example
 # TransactionPercentile specifies gas price to choose. E.g. if the block history contains four transactions with gas prices `[100, 200, 300, 400]` then picking 25 for this number will give a value of 200. If the calculated gas price is higher than `GasPriceDefault` then the higher price will be used as the base price for new transactions.
 #
 # Must be in range 0-100.

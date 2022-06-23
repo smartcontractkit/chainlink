@@ -85,7 +85,7 @@ RootDir is the Chainlink node's root directory. This is the default directory fo
 ```toml
 ShutdownGracePeriod = '5s' # Default
 ```
-
+ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
 
 ## Feature<a id='Feature'></a>
 ```toml
@@ -124,9 +124,9 @@ OffchainReporting enables OCR jobs.
 ## Database<a id='Database'></a>
 ```toml
 [Database]
-DefaultIdleInTxSessionTimeout = '1m'
-DefaultLockTimeout = '1h'
-DefaultQueryTimeout = '1s'
+DefaultIdleInTxSessionTimeout = '1h' # Default
+DefaultLockTimeout = '15s' # Default
+DefaultQueryTimeout = '10s' # Default
 MigrateOnStartup = true # Default
 ORMMaxIdleConns = 10 # Default
 ORMMaxOpenConns = 20 # Default
@@ -135,19 +135,19 @@ ORMMaxOpenConns = 20 # Default
 
 ### DefaultIdleInTxSessionTimeout<a id='Database-DefaultIdleInTxSessionTimeout'></a>
 ```toml
-DefaultIdleInTxSessionTimeout = '1m'
+DefaultIdleInTxSessionTimeout = '1h' # Default
 ```
 Database queries will timeout if they are idle in transaction for this duration or longer.
 
 ### DefaultLockTimeout<a id='Database-DefaultLockTimeout'></a>
 ```toml
-DefaultLockTimeout = '1h'
+DefaultLockTimeout = '15s' # Default
 ```
 Database queries will timeout if they are stuck waiting to take a lock for this duration or longer.
 
 ### DefaultQueryTimeout<a id='Database-DefaultQueryTimeout'></a>
 ```toml
-DefaultQueryTimeout = '1s'
+DefaultQueryTimeout = '10s' # Default
 ```
 Database queries expected to return quickly will timeout after exceeding this duration.
 
@@ -178,7 +178,7 @@ Postgres has connection limits, so you must use cation when increasing this valu
 [Database.Backup]
 Mode = 'none' # Default
 Dir = 'test/backup/dir' # Example
-OnVersionUpgrade = true
+OnVersionUpgrade = true # Default
 URL = 'http://test.back.up/fake' # Example
 Frequency = '1h' # Default
 ```
@@ -206,7 +206,7 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 
 ### OnVersionUpgrade<a id='Database-Backup-OnVersionUpgrade'></a>
 ```toml
-OnVersionUpgrade = true
+OnVersionUpgrade = true # Default
 ```
 If enabled, Chainlink will automatically take a backup of the database before running migrations when you are upgrading to a new version.
 
@@ -399,7 +399,7 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 DatabaseQueries = false # Default
 JSONConsole = false # Default
 FileDir = '/my/log/directory' # Example
-FileMaxSize = '5120mb'
+FileMaxSize = '5120mb' # Default
 FileMaxAgeDays = 0 # Default
 FileMaxBackups = 1 # Default
 UnixTS = false # Default
@@ -426,7 +426,7 @@ FileDir sets the log directory. By default, Chainlink nodes write log data to `$
 
 ### FileMaxSize<a id='Log-FileMaxSize'></a>
 ```toml
-FileMaxSize = '5120mb'
+FileMaxSize = '5120mb' # Default
 ```
 FileMaxSize determines the log file's max size in megabytes before file rotation. Having this not set will disable logging to disk. If your disk doesn't have enough disk space, the logging will pause and the application will log errors until space is available again.
 
@@ -1185,9 +1185,9 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 ```toml
 [Sentry]
 Debug = false # Default
-DSN = 'sentry-dsn'
-Environment = 'dev'
-Release = 'v1.2.3'
+DSN = 'sentry-dsn' # Example
+Environment = 'prod' # Default
+Release = 'v1.2.3' # Example
 ```
 
 
@@ -1201,26 +1201,26 @@ Enable printing of Sentry SDK debug messages.
 
 ### DSN<a id='Sentry-DSN'></a>
 ```toml
-DSN = 'sentry-dsn'
+DSN = 'sentry-dsn' # Example
 ```
 If provided, events will be sent to this Sentry data source name. Sentry is completely disabled if this is left blank.
 
 ### Environment<a id='Sentry-Environment'></a>
 ```toml
-Environment = 'dev'
+Environment = 'prod' # Default
 ```
 If provided, this will override the Sentry environment to the given value. Otherwise autodetects between dev/prod.
 
 ### Release<a id='Sentry-Release'></a>
 ```toml
-Release = 'v1.2.3'
+Release = 'v1.2.3' # Example
 ```
 If provided, this will override the Sentry release to the given value. Otherwise uses the compiled-in version number.
 
 ## EVM<a id='EVM'></a>
 ```toml
 [[EVM]]
-ChainID = '1'
+ChainID = '1' # Example
 Enabled = true # Default
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
@@ -2859,7 +2859,7 @@ PollInterval = '10s'
 
 ### ChainID<a id='EVM-ChainID'></a>
 ```toml
-ChainID = '1'
+ChainID = '1' # Example
 ```
 The chain ID of this EVM chain. Mandatory.
 
@@ -3252,7 +3252,7 @@ have this head yet.
 BatchSize = 4 # Default
 BlockDelay = 1 # Default
 BlockHistorySize = 8 # Default
-EIP1559FeeCapBufferBlocks = 13
+EIP1559FeeCapBufferBlocks = 13 # Example
 TransactionPercentile = 60 # Default
 ```
 These settings allow you to configure how your node calculates gas prices. In most cases, leaving these values at their defaults should give good results.
@@ -3286,7 +3286,7 @@ BlockHistorySize controls the number of past blocks to keep in memory to use as 
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 
 ```toml
-EIP1559FeeCapBufferBlocks = 13
+EIP1559FeeCapBufferBlocks = 13 # Example
 ```
 EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used.
 
