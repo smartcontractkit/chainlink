@@ -277,6 +277,10 @@ type OCR2PluginType string
 const (
 	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
+
+	DKG OCR2PluginType = "dkg"
+
+	OCR2VRF OCR2PluginType = "ocr2vrf"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
