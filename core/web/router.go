@@ -389,8 +389,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			if chain.path == "evm" {
 				// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
 				nodes.GET("", paginatedRequest(chain.nc.Index))
-				nodes.POST("", chain.nc.Create)
-				nodes.DELETE("/:ID", chain.nc.Delete)
+				nodes.POST("", auth.RequiresEditRole(chain.nc.Create))
+				nodes.DELETE("/:ID", auth.RequiresEditRole(chain.nc.Delete))
 			}
 			nodes.GET(chain.path, paginatedRequest(chain.nc.Index))
 			chains.GET(chain.path+"/:ID/nodes", paginatedRequest(chain.nc.Index))
