@@ -450,7 +450,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
-	t.Run("does not refetch blocks below EVM_FINALITY_DEPTH", func(t *testing.T) {
+	t.Run("does not refetch blocks below ETH_FINALITY_DEPTH", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
@@ -512,7 +512,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
-	t.Run("replaces blocks on re-org within EVM_FINALITY_DEPTH", func(t *testing.T) {
+	t.Run("replaces blocks on re-org within ETH_FINALITY_DEPTH", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
