@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -147,7 +148,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
-		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr, nil, nil)
+		dbst := pg.NewStatusTracker(db, time.Second, lggr)
+		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr, nil, nil, dbst)
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore, cfg)
 

@@ -42,7 +42,8 @@ func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pi
 	orm.On("GetQ").Return(q)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
+	dbst := pg.NewStatusTracker(db, time.Second, logger.TestLogger(t))
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c, dbst)
 	return r, orm
 }
 

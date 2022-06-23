@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -72,7 +73,8 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	dbst := pg.NewStatusTracker(db, time.Second, lggr)
+	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil, dbst)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err := ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)

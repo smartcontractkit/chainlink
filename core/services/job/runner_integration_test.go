@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -66,7 +67,8 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
+	dbst := pg.NewStatusTracker(db, time.Second, logger.TestLogger(t))
+	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t), c, c, dbst)
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
 	runner.Start(testutils.Context(t))
