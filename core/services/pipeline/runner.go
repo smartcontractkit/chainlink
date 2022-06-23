@@ -59,6 +59,7 @@ type runner struct {
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
+	unsubscribeDbStatus    func()
 
 	// test helper
 	runFinished func(*Run)
@@ -98,7 +99,7 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client, dbStatusTracker pg.StatusTracker) *runner {
 	r := &runner{
 		orm:                    orm,
 		config:                 config,
@@ -115,14 +116,17 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
+	r.unsubscribeDbStatus = dbStatusTracker.Subscribe(r.handleDbStatusChange)
 	return r
 }
 
 // Start starts Runner.
-func (r *runner) Start(context.Context) error {
+func (r *runner) Start(ctx context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
+		r.runReaperCtx(ctx)
+
 		r.wgDone.Add(2)
-		go r.scheduleUnfinishedRuns()
+		go r.processUnfinishedRunsUntilNow()
 		go r.runReaperLoop()
 		return nil
 	})
@@ -131,12 +135,13 @@ func (r *runner) Start(context.Context) error {
 func (r *runner) Close() error {
 	return r.StopOnce("PipelineRunner", func() error {
 		close(r.chStop)
+		r.unsubscribeDbStatus()
 		r.wgDone.Wait()
 		return nil
 	})
 }
 
-func (r *runner) destroy() {
+func (r *runner) stopReaper() {
 	err := r.runReaperWorker.Stop()
 	if err != nil {
 		r.lggr.Error(err)
@@ -145,7 +150,7 @@ func (r *runner) destroy() {
 
 func (r *runner) runReaperLoop() {
 	defer r.wgDone.Done()
-	defer r.destroy()
+	defer r.stopReaper()
 	if r.config.JobPipelineReaperInterval() == 0 {
 		return
 	}
@@ -589,28 +594,39 @@ func (r *runner) runReaper() {
 	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
+	r.runReaperCtx(ctx)
+}
+
+func (r *runner) runReaperCtx(ctx context.Context) {
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
 
-// init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
-// We pick up those runs and resume execution.
-func (r *runner) scheduleUnfinishedRuns() {
+func (r *runner) processUnfinishedRunsUntilNow() {
 	defer r.wgDone.Done()
 
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
-	now := time.Now()
+	r.processUnfinishedRuns(time.Now())
+}
 
-	// immediately run reaper so we don't consider runs that are too old
-	r.runReaper()
+func (r *runner) handleDbStatusChange(connected bool) {
+	if connected {
+		r.processUnfinishedRuns(time.Now())
+	}
+}
 
+// Searches the database for runs stuck in the 'running' state while the node was previously killed,
+// or there was DB connectivity interruption. We pick up those runs and resume execution.
+func (r *runner) processUnfinishedRuns(until time.Time) {
 	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
+	r.runReaperCtx(ctx)
+
 	var wgRunsDone sync.WaitGroup
-	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {
+	err := r.orm.GetUnfinishedRuns(ctx, until, func(run Run) error {
 		wgRunsDone.Add(1)
 
 		go func() {
@@ -620,7 +636,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
-				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
+				r.lggr.Errorw("Pipeline failed to resume unfinished run", "error", err)
 			}
 		}()
 
@@ -632,6 +648,6 @@ func (r *runner) scheduleUnfinishedRuns() {
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		r.lggr.Errorw("Pipeline run init job failed", "error", err)
+		r.lggr.Errorw("Pipeline failed to process unfinished runs", "error", err)
 	}
 }

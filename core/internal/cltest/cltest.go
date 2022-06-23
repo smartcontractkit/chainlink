@@ -180,7 +180,8 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, cfg)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
-	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	dbst := pg.NewStatusTracker(db, time.Second, lggr)
+	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient, dbst)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,

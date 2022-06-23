@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -247,13 +248,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
+		dbStatusTracker = pg.NewStatusTracker(db, time.Second, globalLogger) // TODO: interval => config?
+		pipelineORM     = pipeline.NewORM(db, globalLogger, cfg)
+		bridgeORM       = bridges.NewORM(db, globalLogger, cfg)
+		sessionORM      = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
+		pipelineRunner  = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient, dbStatusTracker)
+		jobORM          = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
+		txmORM          = txmgr.NewORM(db, globalLogger, cfg)
 	)
+
+	subservices = append(subservices, dbStatusTracker)
 
 	for _, chain := range chains.EVM.Chains() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
@@ -655,7 +659,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					utils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      utils.NewHash(),
