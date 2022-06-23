@@ -1,3 +1,5 @@
+// Docs prints core node documentation and/or a list of errors.
+// The docs are Markdown generated from Toml - see config.GenerateDocs.
 package main
 
 import (

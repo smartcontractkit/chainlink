@@ -14,7 +14,7 @@ import (
 //go:embed docs.toml
 var docsTOML string
 
-// GenerateDocs returns MarkDown documentation generated from doc.toml.
+// GenerateDocs returns MarkDown documentation generated from docs.toml.
 func GenerateDocs() (string, error) {
 	items, err := parseTOMLDocs(docsTOML)
 	var sb strings.Builder
