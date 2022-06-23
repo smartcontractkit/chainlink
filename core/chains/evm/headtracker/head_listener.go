@@ -82,8 +82,13 @@ func (hl *headListener) Connected() bool {
 }
 
 func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {
+	var noHeadsAlarmC <-chan time.Time
+	var noHeadsAlarmT *time.Ticker
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
-	t := time.NewTicker(noHeadsAlarmDuration)
+	if noHeadsAlarmDuration > 0 {
+		noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
+		noHeadsAlarmC = noHeadsAlarmT.C
+	}
 
 	for {
 		select {
@@ -91,9 +96,12 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			return nil
 
 		case blockHeader, open := <-hl.chHeaders:
-			// We've received a head, reset the no heads alarm
-			t.Stop()
-			t = time.NewTicker(noHeadsAlarmDuration)
+			if noHeadsAlarmT != nil {
+				// We've received a head, reset the no heads alarm
+				noHeadsAlarmT.Stop()
+				noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
+				noHeadsAlarmC = noHeadsAlarmT.C
+			}
 			hl.receivingHeads.Store(true)
 			if !open {
 				return errors.New("head listener: chHeaders prematurely closed")
@@ -121,7 +129,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			}
 			return err
 
-		case <-t.C:
+		case <-noHeadsAlarmC:
 			// We haven't received a head on the channel for a long time, log a warning
 			hl.logger.Warn(fmt.Sprintf("have not received a head for %v", noHeadsAlarmDuration))
 			hl.receivingHeads.Store(false)
