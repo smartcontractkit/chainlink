@@ -751,7 +751,7 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 	return c.defaultSet.linkContractAddress
 }
 
-// OperatorFactoryAddress represents the address of the official LINK token
+// OperatorFactoryAddress represents the address of the OperatorFactory
 // contract on the current Chain
 func (c *chainScopedConfig) OperatorFactoryAddress() string {
 	val, ok := c.GeneralConfig.GlobalOperatorFactoryAddress()

@@ -200,6 +200,7 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet := fallbackDefaultSet
 	bscMainnet.balanceMonitorBlockDelay = 2
 	bscMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
+	bscMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	bscMainnet.blockHistoryEstimatorBlockDelay = 2
 	bscMainnet.blockHistoryEstimatorBlockHistorySize = 24
 	bscMainnet.ethTxResendAfterThreshold = 1 * time.Minute
@@ -223,8 +224,10 @@ func setChainSpecificConfigDefaultSets() {
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
 	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
-	polygonMainnet.finalityDepth = 500           // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
-	polygonMainnet.gasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
+	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
+	polygonMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	polygonMainnet.finalityDepth = 500  // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
+	polygonMainnet.gasBumpThreshold = 5 // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
 	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
@@ -246,6 +249,8 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	arbitrumMainnet := fallbackDefaultSet
+	arbitrumMainnet.blockEmissionIdleWarningThreshold = 0
+	arbitrumMainnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	arbitrumMainnet.chainType = config.ChainArbitrum
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasLimitDefault = 7000000
@@ -263,6 +268,8 @@ func setChainSpecificConfigDefaultSets() {
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
 	optimismMainnet.balanceMonitorBlockDelay = 0
+	optimismMainnet.blockEmissionIdleWarningThreshold = 0
+	optimismMainnet.nodeDeadAfterNoNewHeadersThreshold = 0    // Optimism only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
 	optimismMainnet.chainType = config.ChainOptimism
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
@@ -281,6 +288,8 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
+	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
+	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
 	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
@@ -304,6 +313,8 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Avalanche
 	avalancheMainnet := fallbackDefaultSet
+	avalancheMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
+	avalancheMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	avalancheMainnet.linkContractAddress = "0x5947BB275c521040051D82396192181b413227A3"
 	avalancheMainnet.finalityDepth = 1
 	avalancheMainnet.gasEstimatorMode = "BlockHistory"
@@ -321,6 +332,8 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Harmony
 	harmonyMainnet := fallbackDefaultSet
+	harmonyMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
+	harmonyMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	harmonyMainnet.linkContractAddress = "0x218532a12a389a4a92fC0C5Fb22901D1c19198aA"
 	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
@@ -334,6 +347,8 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Metis is an L2 chain based on Optimism.
 	metisMainnet := fallbackDefaultSet
+	metisMainnet.blockEmissionIdleWarningThreshold = 0
+	metisMainnet.nodeDeadAfterNoNewHeadersThreshold = 0
 	metisMainnet.balanceMonitorBlockDelay = 0
 	metisMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on metis
 	metisMainnet.chainType = config.ChainMetis

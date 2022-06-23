@@ -759,7 +759,7 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 	return c.GeneralConfig.GlobalLinkContractAddress()
 }
 
-// GlobalOperatorFactoryAddress allows to override the LINK contract address
+// GlobalOperatorFactoryAddress allows to override the OperatorFactory contract address
 func (c *TestGeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
 	if c.Overrides.OperatorFactoryAddress.Valid {
 		return c.Overrides.OperatorFactoryAddress.String, true
