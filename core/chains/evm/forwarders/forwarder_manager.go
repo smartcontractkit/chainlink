@@ -94,18 +94,9 @@ func (f *FwdMgr) Start() error {
 	})
 }
 
-// TODO(samhassan): this should be aware of job type to decide how to fetch senders list.
-// 	This is necessary to support ocr1 jobs.
-// 	https://app.shortcut.com/chainlinklabs/story/15448/ocr1-feeds-jobs-should-detect-if-they-are-configured-to-use-a-forwarder-contract
 func (f *FwdMgr) MaybeForwardTransaction(from common.Address, to common.Address, encodedPayload []byte) (fwdAddr common.Address, fwdPayload []byte, err error) {
-
-	senders, err := f.getContractSenders(to)
-	if err != nil {
-		return to, encodedPayload, errors.Wrap(err, "Skipping forwarding transaction")
-	}
-
-	// Gets current forwarders that are in `to` senders
-	fwdrs, err := f.ORM.FindForwardersInListByChain(utils.Big(*f.evmClient.ChainID()), senders)
+	// Gets forwarders for current chain.
+	fwdrs, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {
 		return to, encodedPayload, errors.Wrap(err, "Skipping forwarding transaction")
 	}
