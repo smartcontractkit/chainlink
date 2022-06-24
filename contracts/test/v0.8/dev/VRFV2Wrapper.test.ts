@@ -62,7 +62,10 @@ describe('VRFV2Wrapper', () => {
     _wrapperPremium: BigNumberish = wrapperPremiumPercentage,
     _flatFee: BigNumberish = flatFee,
   ): BigNumber => {
-    const totalGas = BigNumber.from(0).add(gasLimit).add(_wrapperGasOverhead).add(_coordinatorGasOverhead)
+    const totalGas = BigNumber.from(0)
+      .add(gasLimit)
+      .add(_wrapperGasOverhead)
+      .add(_coordinatorGasOverhead)
     const baseFee = BigNumber.from('1000000000000000000')
       .mul(_gasPriceWei)
       .mul(totalGas)
@@ -634,31 +637,6 @@ describe('VRFV2Wrapper', () => {
           .connect(consumerOwner)
           .withdraw(recipientAddress, oneHundredLink.div(2)),
       ).to.be.reverted
-    })
-  })
-
-  describe('#destroy', async () => {
-    it('can be destroyed by the owner', async () => {
-      await configure()
-      await fund(wrapper.address, oneHundredLink)
-      const recipientAddress = await withdrawRecipient.getAddress()
-
-      await expect(wrapper.connect(owner).destroy(recipientAddress)).to.not.be
-        .reverted
-      bigNumEquals(oneHundredLink, await link.balanceOf(recipientAddress))
-
-      // Subscription should no longer exist
-      await expect(coordinator.connect(owner).getSubscription(1)).to.be.reverted
-    })
-
-    it('cannot be destroyed by a non owner', async () => {
-      await configure()
-      await fund(wrapper.address, oneHundredLink)
-      await fundSub()
-      const recipientAddress = await withdrawRecipient.getAddress()
-
-      await expect(wrapper.connect(consumerOwner).destroy(recipientAddress)).to
-        .be.reverted
     })
   })
 })

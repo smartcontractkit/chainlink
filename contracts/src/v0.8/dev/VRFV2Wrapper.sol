@@ -220,6 +220,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   function estimateRequestPrice(uint32 _callbackGasLimit, uint256 _requestGasPriceWei)
     external
     view
+    override
     onlyConfiguredNotDisabled
     returns (uint256)
   {
@@ -311,18 +312,6 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    */
   function disable() external onlyOwner {
     s_disabled = true;
-  }
-
-  /**
-   * @notice destroy this contract, withdrawing any revenue or funds in the wrapper's subscription.
-   *
-   * @param _recipient is the address that should receive the LINK funds held by this contract and
-   *        by this contract's VRF V2 subscription.
-   */
-  function destroy(address payable _recipient) external onlyOwner {
-    COORDINATOR.cancelSubscription(SUBSCRIPTION_ID, _recipient);
-    LINK.transfer(_recipient, LINK.balanceOf(address(this)));
-    selfdestruct(_recipient);
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
