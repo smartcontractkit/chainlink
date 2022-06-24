@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -311,7 +311,7 @@ contract KeeperRegistry is
     address sender,
     uint256 amount,
     bytes calldata data
-  ) external {
+  ) external override {
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
@@ -685,7 +685,7 @@ contract KeeperRegistry is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  UpkeepFormat public constant upkeepTranscoderVersion = UpkeepFormat.V1;
+  UpkeepFormat public constant override upkeepTranscoderVersion = UpkeepFormat.V1;
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
