@@ -80,6 +80,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint32 callbackGasLimit;
     uint256 requestGasPrice;
     int256 requestWeiPerUnitLink;
+    uint256 juelsPaid;
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */
     public s_callbacks;
@@ -283,7 +284,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       callbackAddress: _sender,
       callbackGasLimit: callbackGasLimit,
       requestGasPrice: tx.gasprice,
-      requestWeiPerUnitLink: weiPerUnitLink
+      requestWeiPerUnitLink: weiPerUnitLink,
+      juelsPaid: _amount
     });
     lastRequestId = requestId;
   }
@@ -329,19 +331,15 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       emit WrapperFulfillmentFailed(_requestId, callback.callbackAddress);
     }
 
-    uint256 paidPrice = calculateRequestPriceInternal(
-      callback.callbackGasLimit,
-      callback.requestGasPrice,
-      callback.requestWeiPerUnitLink
-    );
+    uint256 juelsPaid = callback.juelsPaid;
     uint256 actualPrice = calculateRequestPriceInternal(
       gasUsed,
       callback.requestGasPrice,
       callback.requestWeiPerUnitLink
     );
 
-    if (paidPrice > actualPrice) {
-      LINK.transfer(callback.callbackAddress, paidPrice - actualPrice);
+    if (juelsPaid > actualPrice) {
+      LINK.transfer(callback.callbackAddress, juelsPaid - actualPrice);
     }
   }
 
