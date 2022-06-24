@@ -17,7 +17,7 @@ ShutdownGracePeriod = '5s' # Default
 [Feature]
 # FeedsManager enables the experimental feeds manager service.
 FeedsManager = false # Default
-# Enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
+# LogPoller enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
 LogPoller = false # Default
 # OffchainReporting2 enables OCR2 jobs.
 OffchainReporting2 = false # Default
@@ -25,11 +25,11 @@ OffchainReporting2 = false # Default
 OffchainReporting = false # Default
 
 [Database]
-# Database queries will timeout if they are idle in transaction for this duration or longer.
+# DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
 DefaultIdleInTxSessionTimeout = '1h' # Default
-# Database queries will timeout if they are stuck waiting to take a lock for this duration or longer.
+# DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take a lock before timing out.
 DefaultLockTimeout = '15s' # Default
-# Database queries expected to return quickly will timeout after exceeding this duration.
+# DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
 DefaultQueryTimeout = '10s' # Default
 # MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
 MigrateOnStartup = true # Default
@@ -56,7 +56,7 @@ ORMMaxOpenConns = 20 # Default
 Mode = 'none' # Default
 # Dir sets the directory to use for saving the backup file. Use this if you want to save the backup file in a directory other than the default ROOT directory.
 Dir = 'test/backup/dir' # Example
-# If enabled, Chainlink will automatically take a backup of the database before running migrations when you are upgrading to a new version.
+# OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
 OnVersionUpgrade = true # Default
 # URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
 #
@@ -364,13 +364,13 @@ GatherDuration = '10s' # Default
 GatherTraceDuration = '5s' # Default
 # MaxProfileSize is the maximum amount of disk space that profiles may consume before profiling is disabled.
 MaxProfileSize = '100mb' # Default
-# See https://pkg.go.dev/runtime#SetCPUProfileRate.
+# CPUProfileRate sets the rate for CPU profiling. See https://pkg.go.dev/runtime#SetCPUProfileRate.
 CPUProfileRate = 1 # Default
-# See https://pkg.go.dev/runtime#pkg-variables.
+# MemProfileRate sets the rate for memory profiling. See https://pkg.go.dev/runtime#pkg-variables.
 MemProfileRate = 1 # Default
-# See https://pkg.go.dev/runtime#SetBlockProfileRate.
+# BlockProfileRate sets the fraction of blocking events for goroutine profiling. See https://pkg.go.dev/runtime#SetBlockProfileRate.
 BlockProfileRate = 1 # Default
-# See https://pkg.go.dev/runtime#SetMutexProfileFraction.
+# MutexProfileFraction sets the fraction of contention events for mutex profiling. See https://pkg.go.dev/runtime#SetMutexProfileFraction.
 MutexProfileFraction = 1 # Default
 # MemThreshold sets the maximum amount of memory the node can actively consume before profiling begins.
 MemThreshold = '4gb' # Default
@@ -397,9 +397,9 @@ ChainID = '1' # Example
 Enabled = true # Default
 # **ADVANCED**
 # BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
-BlockBackfillDepth = 100
+BlockBackfillDepth = 10 # Default
 # BlockBackfillSkip enables skipping of very long backfills.
-BlockBackfillSkip = true
+BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 ChainType = 'Optimism' # Example
 # EIP1559DynamicFees torces EIP-1559 transaction mode for all chains. Enabling EIP-1559 mode can help reduce gas costs on chains that support it. This is supported only on official Ethereum mainnet and testnets. It is not recommended to enable this setting on Polygon because the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are less likely to be included than legacy transactions.
@@ -447,7 +447,7 @@ ChainType = 'Optimism' # Example
 # - `MaxGasPriceWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 # - `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
 EIP1559DynamicFees = false # Default
-# EvmFinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
+# FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 # There is not a large performance penalty to setting this relatively high (on the order of hundreds)
 # It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
@@ -516,12 +516,13 @@ GasTipCapDefault = '1 wei' # Default
 #
 # Only applies to EIP-1559 transactions)
 GasTipCapMinimum = '1 wei' # Default
-# The address of the canonical ERC-677 LINK token contract on the given chain. Note that this is usually autodetected from chain ID.
+# LinkContractAddress is the canonical ERC-677 LINK token contract address on the given chain. Note that this is usually autodetected from chain ID.
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 # **ADVANCED**
-# EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
+# LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
 LogBackfillBatchSize = 100 # Default
-# Works in conjunction with FeatureLogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate. Not necessary to set unless you know exactly what you are doing.
+# **ADVANCED**
+# LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
 # MaxGasPriceWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
 MaxGasPriceWei = '100 micro' # Default
@@ -554,15 +555,15 @@ MaxQueuedTransactions = 250 # Default
 # GasEstimatorMode = 'FixedPrice'
 # ```
 MinGasPriceWei = '1 gwei' # Default
-# Minimum required confirmations before a log event will be consumed.
+# MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
 MinIncomingConfirmations = 3 # Default
-# Minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
+# MinimumContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 MinimumContractPayment = '10000000000000 juels' # Default
 # NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 NonceAutoSync = true # Default
-# The address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
+# OperatorFactoryAddress is the address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
-# Default batch size for batched RPC calls.
+# RPCDefaultBatchSize is the default batch size for batched RPC calls.
 RPCDefaultBatchSize = 100 # Default
 # TxReaperInterval controls how often the EthTx reaper will run.
 TxReaperInterval = '1h' # Default
@@ -577,10 +578,8 @@ UseForwarders = false # Default
 # Enabled balance monitoring for all keys.
 Enabled = true # Default
 # **ADVANCED**
-# EvmBalanceMonitorBlockDelay is the number of blocks that the balance monitor
-# trails behind head. This is required when load balancing across multiple nodes
-# announce a new head, then route a request to a different node which does not
-# have this head yet.
+# BlockDelay is the number of blocks that the balance monitor trails behind head. This is required when load balancing
+# across multiple nodes announce a new head, then route a request to a different node which does not have this head yet.
 BlockDelay = 1 # Default
 
 # These settings allow you to configure how your node calculates gas prices. In most cases, leaving these values at their defaults should give good results.
@@ -626,7 +625,9 @@ MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
 
 [[EVM.KeySpecific]]
+# Key is the account to apply these settings to
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+# MaxGasPriceWei overrides the maximum gas price for this key. See EVM.MaxGasPriceWei.
 MaxGasPriceWei = '79 gwei' # Example
 
 [EVM.NodePool]
@@ -668,7 +669,7 @@ BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
 # OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
 OCR2CachePollPeriod = '1s' # Default
-# OCR2CacheTTl is the stale OCR2 cache deadline.
+# OCR2CacheTTL is the stale OCR2 cache deadline.
 OCR2CacheTTL = '1m' # Default
 # TxTimeout is the timeout for sending txes to an RPC endpoint.
 TxTimeout = '1h' # Default
@@ -678,7 +679,7 @@ TxRetryTimeout = '10s' # Default
 TxConfirmTimeout = '30s' # Default
 # SkipPreflight enables or disables preflight checks when sending txs.
 SkipPreflight = true # Default
-# Confirmation level for solana state and transactions. ([documentation](https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment))
+# Commitment is the confirmation level for solana state and transactions. ([documentation](https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment))
 Commitment = 'confirmed' # Default
 # MaxRetries is the maximum number of times the RPC node will automatically rebroadcast a tx.
 # The default is 0 for custom txm rebroadcasting method, set to -1 to use the RPC node's default retry strategy.

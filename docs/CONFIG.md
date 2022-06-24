@@ -108,7 +108,7 @@ FeedsManager enables the experimental feeds manager service.
 ```toml
 LogPoller = false # Default
 ```
-Enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
+LogPoller enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
 
 ### OffchainReporting2<a id='Feature-OffchainReporting2'></a>
 ```toml
@@ -138,19 +138,19 @@ ORMMaxOpenConns = 20 # Default
 ```toml
 DefaultIdleInTxSessionTimeout = '1h' # Default
 ```
-Database queries will timeout if they are idle in transaction for this duration or longer.
+DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
 
 ### DefaultLockTimeout<a id='Database-DefaultLockTimeout'></a>
 ```toml
 DefaultLockTimeout = '15s' # Default
 ```
-Database queries will timeout if they are stuck waiting to take a lock for this duration or longer.
+DefaultLockTimeout is the maximum time allowed for a query stuck waiting to take a lock before timing out.
 
 ### DefaultQueryTimeout<a id='Database-DefaultQueryTimeout'></a>
 ```toml
 DefaultQueryTimeout = '10s' # Default
 ```
-Database queries expected to return quickly will timeout after exceeding this duration.
+DefaultQueryTimeout is the maximum time allowed for standard queries before timing out.
 
 ### MigrateOnStartup<a id='Database-MigrateOnStartup'></a>
 ```toml
@@ -209,7 +209,7 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 ```toml
 OnVersionUpgrade = true # Default
 ```
-If enabled, Chainlink will automatically take a backup of the database before running migrations when you are upgrading to a new version.
+OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
 
 ### URL<a id='Database-Backup-URL'></a>
 ```toml
@@ -1134,25 +1134,25 @@ MaxProfileSize is the maximum amount of disk space that profiles may consume bef
 ```toml
 CPUProfileRate = 1 # Default
 ```
-See https://pkg.go.dev/runtime#SetCPUProfileRate.
+CPUProfileRate sets the rate for CPU profiling. See https://pkg.go.dev/runtime#SetCPUProfileRate.
 
 ### MemProfileRate<a id='AutoPprof-MemProfileRate'></a>
 ```toml
 MemProfileRate = 1 # Default
 ```
-See https://pkg.go.dev/runtime#pkg-variables.
+MemProfileRate sets the rate for memory profiling. See https://pkg.go.dev/runtime#pkg-variables.
 
 ### BlockProfileRate<a id='AutoPprof-BlockProfileRate'></a>
 ```toml
 BlockProfileRate = 1 # Default
 ```
-See https://pkg.go.dev/runtime#SetBlockProfileRate.
+BlockProfileRate sets the fraction of blocking events for goroutine profiling. See https://pkg.go.dev/runtime#SetBlockProfileRate.
 
 ### MutexProfileFraction<a id='AutoPprof-MutexProfileFraction'></a>
 ```toml
 MutexProfileFraction = 1 # Default
 ```
-See https://pkg.go.dev/runtime#SetMutexProfileFraction.
+MutexProfileFraction sets the fraction of contention events for mutex profiling. See https://pkg.go.dev/runtime#SetMutexProfileFraction.
 
 ### MemThreshold<a id='AutoPprof-MemThreshold'></a>
 ```toml
@@ -2863,13 +2863,13 @@ Enabled = true # Default
 ### BlockBackfillDepth<a id='EVM-BlockBackfillDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-BlockBackfillDepth = 100
+BlockBackfillDepth = 10 # Default
 ```
 BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
 
 ### BlockBackfillSkip<a id='EVM-BlockBackfillSkip'></a>
 ```toml
-BlockBackfillSkip = true
+BlockBackfillSkip = false # Default
 ```
 BlockBackfillSkip enables skipping of very long backfills.
 
@@ -2932,7 +2932,7 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 ```toml
 FinalityDepth = 50 # Default
 ```
-EvmFinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
+FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
 BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 There is not a large performance penalty to setting this relatively high (on the order of hundreds)
 It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
@@ -3057,20 +3057,21 @@ Only applies to EIP-1559 transactions)
 ```toml
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 ```
-The address of the canonical ERC-677 LINK token contract on the given chain. Note that this is usually autodetected from chain ID.
+LinkContractAddress is the canonical ERC-677 LINK token contract address on the given chain. Note that this is usually autodetected from chain ID.
 
 ### LogBackfillBatchSize<a id='EVM-LogBackfillBatchSize'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 LogBackfillBatchSize = 100 # Default
 ```
-EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
+LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
 
 ### LogPollInterval<a id='EVM-LogPollInterval'></a>
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 LogPollInterval = '15s' # Default
 ```
-Works in conjunction with FeatureLogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate. Not necessary to set unless you know exactly what you are doing.
+LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 
 ### MaxGasPriceWei<a id='EVM-MaxGasPriceWei'></a>
 ```toml
@@ -3123,13 +3124,13 @@ GasEstimatorMode = 'FixedPrice'
 ```toml
 MinIncomingConfirmations = 3 # Default
 ```
-Minimum required confirmations before a log event will be consumed.
+MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
 
 ### MinimumContractPayment<a id='EVM-MinimumContractPayment'></a>
 ```toml
 MinimumContractPayment = '10000000000000 juels' # Default
 ```
-Minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
+MinimumContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 
 ### NonceAutoSync<a id='EVM-NonceAutoSync'></a>
 ```toml
@@ -3141,13 +3142,13 @@ NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will a
 ```toml
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 ```
-The address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
+OperatorFactoryAddress is the address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 
 ### RPCDefaultBatchSize<a id='EVM-RPCDefaultBatchSize'></a>
 ```toml
 RPCDefaultBatchSize = 100 # Default
 ```
-Default batch size for batched RPC calls.
+RPCDefaultBatchSize is the default batch size for batched RPC calls.
 
 ### TxReaperInterval<a id='EVM-TxReaperInterval'></a>
 ```toml
@@ -3192,10 +3193,8 @@ Enabled balance monitoring for all keys.
 ```toml
 BlockDelay = 1 # Default
 ```
-EvmBalanceMonitorBlockDelay is the number of blocks that the balance monitor
-trails behind head. This is required when load balancing across multiple nodes
-announce a new head, then route a request to a different node which does not
-have this head yet.
+BlockDelay is the number of blocks that the balance monitor trails behind head. This is required when load balancing
+across multiple nodes announce a new head, then route a request to a different node which does not have this head yet.
 
 ## EVM.BlockHistoryEstimator<a id='EVM-BlockHistoryEstimator'></a>
 ```toml
@@ -3305,13 +3304,13 @@ MaxGasPriceWei = '79 gwei' # Example
 ```toml
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
-
+Key is the account to apply these settings to
 
 ### MaxGasPriceWei<a id='EVM-KeySpecific-MaxGasPriceWei'></a>
 ```toml
 MaxGasPriceWei = '79 gwei' # Example
 ```
-
+MaxGasPriceWei overrides the maximum gas price for this key. See EVM.MaxGasPriceWei.
 
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml
@@ -3486,7 +3485,7 @@ OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
 ```toml
 OCR2CacheTTL = '1m' # Default
 ```
-OCR2CacheTTl is the stale OCR2 cache deadline.
+OCR2CacheTTL is the stale OCR2 cache deadline.
 
 ### TxTimeout<a id='Solana-TxTimeout'></a>
 ```toml
@@ -3516,7 +3515,7 @@ SkipPreflight enables or disables preflight checks when sending txs.
 ```toml
 Commitment = 'confirmed' # Default
 ```
-Confirmation level for solana state and transactions. ([documentation](https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment))
+Commitment is the confirmation level for solana state and transactions. ([documentation](https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment))
 
 ### MaxRetries<a id='Solana-MaxRetries'></a>
 ```toml
