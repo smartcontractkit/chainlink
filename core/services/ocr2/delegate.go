@@ -173,10 +173,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if !ok {
 			return nil, errors.New("chainID must be provided in relay conig")
 		}
-		chainID, ok := chainIDInterface.(int64)
-		if !ok {
-			return nil, errors.New("chainID must be integral")
-		}
+		chainID := int64(chainIDInterface.(float64))
 		chain, err := d.chainSet.Get(big.NewInt(chainID))
 		if err != nil {
 			return nil, errors.Wrap(err, "get chainset")

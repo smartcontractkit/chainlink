@@ -5,38 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/pkg/errors"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"go.dedis.ch/kyber/v3"
 )
-
-// TODO: Remove below once translator implementation is available in ocr2vrf repo
-type trivialTranslation struct{ base kyber.Point }
-
-func NewTrivialTranslation(base kyber.Point) *trivialTranslation {
-	return &trivialTranslation{base}
-}
-
-func (t *trivialTranslation) TranslateKey(share kyber.Scalar) (kyber.Point, error) {
-	return t.base.Clone().Mul(share, nil), nil
-}
-
-func (t *trivialTranslation) VerifyTranslation(pk1, pk2 kyber.Point) error {
-	if pk1.Equal(pk2) {
-		return nil
-	}
-	return errors.Errorf("putative translated points are not equal")
-}
-
-func (t *trivialTranslation) Name() string {
-	return "trivial translator"
-}
-
-func (t *trivialTranslation) TargetGroup(
-	sourceGroup kyber.Group,
-) (targetGroup kyber.Group, err error) {
-	return sourceGroup, nil
-}
 
 type commonSetConfigArgs struct {
 	onchainPubKeys         string
@@ -51,7 +21,7 @@ type commonSetConfigArgs struct {
 	deltaRound             time.Duration
 	deltaGrace             time.Duration
 	deltaStage             time.Duration
-	maxRounds              time.Duration
+	maxRounds              uint8
 	maxDurationQuery       time.Duration
 	maxDurationObservation time.Duration
 	maxDurationReport      time.Duration
@@ -115,7 +85,7 @@ func main() {
 		deltaRound := cmd.Duration("delta-round", 10*time.Second, "duration of delta round")
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "duration of delta grace")
 		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta grace")
-		maxRounds := cmd.Duration("max-rounds", 3*time.Second, "maximum number of rounds")
+		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 5*time.Second, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 5*time.Second, "maximum duration of observation method")
 		maxDurationReport := cmd.Duration("max-duration-report", 5*time.Second, "maximum duration of report method")
@@ -149,7 +119,7 @@ func main() {
 				deltaRound:             *deltaRound,
 				deltaGrace:             *deltaGrace,
 				deltaStage:             *deltaStage,
-				maxRounds:              *maxRounds,
+				maxRounds:              uint8(*maxRounds),
 				maxDurationQuery:       *maxDurationQuery,
 				maxDurationObservation: *maxDurationObservation,
 				maxDurationReport:      *maxDurationReport,
