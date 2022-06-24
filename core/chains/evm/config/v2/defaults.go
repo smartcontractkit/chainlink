@@ -271,12 +271,4 @@ func (c *Chain) SetFrom(f *Chain) {
 			c.OCR.ObservationGracePeriod = v
 		}
 	}
-	if o := f.OCR2; o != nil {
-		if c.OCR2 == nil {
-			c.OCR2 = &OCR2{}
-		}
-		if v := o.ContractConfirmations; v != nil {
-			c.OCR2.ContractConfirmations = v
-		}
-	}
 }

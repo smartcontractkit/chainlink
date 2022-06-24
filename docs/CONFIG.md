@@ -31,7 +31,6 @@
 	- [KeySpecific](#EVM-KeySpecific)
 	- [NodePool](#EVM-NodePool)
 	- [OCR](#EVM-OCR)
-	- [OCR2](#EVM-OCR2)
 	- [Nodes](#EVM-Nodes)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
@@ -696,7 +695,6 @@ ContractSubscribeInterval = '2m' # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
-MonitoringEndpoint = 'test-mon-end' # Example
 ```
 
 
@@ -704,94 +702,128 @@ MonitoringEndpoint = 'test-mon-end' # Example
 ```toml
 ContractConfirmations = 3 # Default
 ```
+ContractConfirmations is the number of block confirmations to wait for before enacting an on-chain
+configuration change. This value doesn't need to be very high (in
+particular, it does not need to protect against malicious re-orgs).
+Since configuration changes create some overhead, and mini-reorgs
+are fairly common, recommended values are between two and ten.
 
+Malicious re-orgs are not any more of concern here than they are in
+blockchain applications in general: Since nodes check the contract for the
+latest config every ContractConfigTrackerPollInterval.Seconds(), they will
+come to a common view of the current config within any interval longer than
+that, as long as the latest setConfig transaction in the longest chain is
+stable. They will thus be able to continue reporting after the poll
+interval, unless an adversary is able to repeatedly re-org the transaction
+out during every poll interval, which would amount to the capability to
+censor any transaction.
+
+Note that 1 confirmation implies that the transaction/event has been mined in one block.
+0 confirmations would imply that the event would be recognised before it has even been mined, which is not currently supported.
+e.g.
+Current block height: 42
+Changed in block height: 43
+Contract config confirmations: 1
+STILL PENDING
+
+Current block height: 43
+Changed in block height: 43
+Contract config confirmations: 1
+CONFIRMED
 
 ### BlockchainTimeout<a id='OCR2-BlockchainTimeout'></a>
 ```toml
 BlockchainTimeout = '20s' # Default
 ```
-
+BlockchainTimeout is the timeout for blockchain queries (mediated through
+ContractConfigTracker and ContractTransmitter).
+(This is necessary because an oracle's operations are serialized, so
+blocking forever on a chain interaction would break the oracle.)
 
 ### ContractPollInterval<a id='OCR2-ContractPollInterval'></a>
 ```toml
 ContractPollInterval = '1m' # Default
 ```
-
+ContractPollInterval is the polling interval at which ContractConfigTracker is queried for# updated on-chain configurations. Recommended values are between
+fifteen seconds and two minutes.
 
 ### ContractSubscribeInterval<a id='OCR2-ContractSubscribeInterval'></a>
 ```toml
 ContractSubscribeInterval = '2m' # Default
 ```
-
+ContractSubscribeInterval is the interval at which we try to establish a subscription on ContractConfigTracker
+if one doesn't exist. Recommended values are between two and five minutes.
 
 ### ContractTransmitterTransmitTimeout<a id='OCR2-ContractTransmitterTransmitTimeout'></a>
 ```toml
 ContractTransmitterTransmitTimeout = '10s' # Default
 ```
-
+ContractTransmitterTransmitTimeout is the timeout for ContractTransmitter.Transmit calls.
 
 ### DatabaseTimeout<a id='OCR2-DatabaseTimeout'></a>
 ```toml
 DatabaseTimeout = '10s' # Default
 ```
-
+DatabaseTimeout is the timeout for database interactions.
+(This is necessary because an oracle's operations are serialized, so
+blocking forever on an observation would break the oracle.)
 
 ### KeyBundleID<a id='OCR2-KeyBundleID'></a>
 ```toml
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 ```
-TODO
-
-### MonitoringEndpoint<a id='OCR2-MonitoringEndpoint'></a>
-```toml
-MonitoringEndpoint = 'test-mon-end' # Example
-```
-TODO
+KeyBundleID is a sha256 hexadecimal hash identifier.
 
 ## OCR<a id='OCR'></a>
 ```toml
 [OCR]
-ObservationTimeout = '11s'
-BlockchainTimeout = '3s'
-ContractPollInterval = '1h'
-ContractSubscribeInterval = '1m'
-DefaultTransactionQueueDepth = 12
+ObservationTimeout = '5s' # Default
+BlockchainTimeout = '20s' # Default
+ContractPollInterval = '1m' # Default
+ContractSubscribeInterval = '2m' # Default
+DefaultTransactionQueueDepth = 1 # Default
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
-MonitoringEndpoint = 'test-monitor' # Example
 SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
-TraceLogging = false # Default
 ```
 This section applies only if you are running off-chain reporting jobs.
 
 ### ObservationTimeout<a id='OCR-ObservationTimeout'></a>
 ```toml
-ObservationTimeout = '11s'
+ObservationTimeout = '5s' # Default
 ```
-
+ObservationTimeout is the timeout for making observations using the DataSource.Observe method.
+(This is necessary because an oracle's operations are serialized, so
+blocking forever on an observation would break the oracle.)
 
 ### BlockchainTimeout<a id='OCR-BlockchainTimeout'></a>
 ```toml
-BlockchainTimeout = '3s'
+BlockchainTimeout = '20s' # Default
 ```
-
+BlockchainTimeout is the timeout for blockchain queries (mediated through
+ContractConfigTracker and ContractTransmitter).
+(This is necessary because an oracle's operations are serialized, so
+blocking forever on a chain interaction would break the oracle.)
 
 ### ContractPollInterval<a id='OCR-ContractPollInterval'></a>
 ```toml
-ContractPollInterval = '1h'
+ContractPollInterval = '1m' # Default
 ```
-
+ContractPollInterval is the polling interval at which ContractConfigTracker is queried for
+updated on-chain configurations. Recommended values are between
+fifteen seconds and two minutes.
 
 ### ContractSubscribeInterval<a id='OCR-ContractSubscribeInterval'></a>
 ```toml
-ContractSubscribeInterval = '1m'
+ContractSubscribeInterval = '2m' # Default
 ```
-
+ContractSubscribeInterval is the interval at which we try to establish a subscription on ContractConfigTracker
+if one doesn't exist. Recommended values are between two and five minutes.
 
 ### DefaultTransactionQueueDepth<a id='OCR-DefaultTransactionQueueDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-DefaultTransactionQueueDepth = 12
+DefaultTransactionQueueDepth = 1 # Default
 ```
 DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR. Set to 0 to use `SendEvery` strategy instead.
 
@@ -800,12 +832,6 @@ DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
 ```
 KeyBundleID is the default key bundle ID to use for OCR jobs. If you have an OCR job that does not explicitly specify a key bundle ID, it will fall back to this value.
-
-### MonitoringEndpoint<a id='OCR-MonitoringEndpoint'></a>
-```toml
-MonitoringEndpoint = 'test-monitor' # Example
-```
-MonitoringEndpoint is an optional URL for an OCR monitoring endpoint.
 
 ### SimulateTransactions<a id='OCR-SimulateTransactions'></a>
 ```toml
@@ -819,17 +845,12 @@ TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 ```
 TransmitterAddress is the default sending address to use for OCR. If you have an OCR job that does not explicitly specify a transmitter address, it will fall back to this value.
 
-### TraceLogging<a id='OCR-TraceLogging'></a>
-```toml
-TraceLogging = false # Default
-```
-
-
 ## P2P<a id='P2P'></a>
 ```toml
 [P2P]
 IncomingMessageBufferSize = 10 # Default
 OutgoingMessageBufferSize = 10 # Default
+TraceLogging = false # Default
 ```
 P2P supports multiple networking stack versions. You may configure `[P2P.V1]`, `[P2P.V2]`, or both to run simultaneously.
 If both are configured, then for each link with another peer, V2 networking will be preferred. If V2 does not work, the link will
@@ -842,13 +863,26 @@ All nodes in the OCR network should share the same networking stack.
 ```toml
 IncomingMessageBufferSize = 10 # Default
 ```
-
+IncomingMessageBufferSize is the per-remote number of incoming
+messages to buffer. Any additional messages received on top of those
+already in the queue will be dropped.
 
 ### OutgoingMessageBufferSize<a id='P2P-OutgoingMessageBufferSize'></a>
 ```toml
 OutgoingMessageBufferSize = 10 # Default
 ```
+OutgoingMessageBufferSize is the per-remote number of outgoing
+messages to buffer. Any additional messages send on top of those
+already in the queue will displace the oldest.
+NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
+IncomingMessageBufferSize to give the remote enough space to process
+them all in case we regained connection and now send a bunch at once
 
+### TraceLogging<a id='P2P-TraceLogging'></a>
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
 
 ## P2P.V1<a id='P2P-V1'></a>
 ```toml
@@ -883,7 +917,10 @@ AnnouncePort should be set as the externally reachable port of the Chainlink nod
 ```toml
 BootstrapCheckInterval = '20s' # Default
 ```
-
+BootstrapCheckInterval is the interval at which nodes check connections to bootstrap nodes and reconnect if any of them is lost.
+Setting this to a small value would allow newly joined bootstrap nodes to get more connectivityBootstrapCheckInterval = '20s' # Default
+more quickly, which helps to make bootstrap process faster. The cost of this operation is relatively# DefaultBootstrapPeers is the default set of bootstrap peers.
+cheap. We set this to 1 minute during our test.DefaultBootstrapPeers = ['/dns4/example.com/tcp/1337/p2p/12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U', '/ip4/1.2.3.4/tcp/9999/p2p/12D3KooWLZ9uTC3MrvKfDpGju6RAQubiMDL7CuJcAgDRTYP7fh7R'] # Example
 
 ### DefaultBootstrapPeers<a id='P2P-V1-DefaultBootstrapPeers'></a>
 ```toml
@@ -895,14 +932,23 @@ DefaultBootstrapPeers is the default set of bootstrap peers.
 ```toml
 DHTAnnouncementCounterUserPrefix = 0 # Default
 ```
-
+DHTAnnouncementCounterUserPrefix can be used to restore the node's
+ability to announce its IP/port on the P2P network after a database
+rollback. Make sure to only increase this value, and *never* decrease it.
+Don't use this variable unless you really know what you're doing, since you
+could semi-permanently exclude your node from the P2P network by
+misconfiguring it.
 
 ### DHTLookupInterval<a id='P2P-V1-DHTLookupInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 DHTLookupInterval = 10 # Default
 ```
+DHTLookupInterval is the interval between which we do the expensive peer
+lookup using DHT.
 
+Every DHTLookupInterval failures to open a stream to a peer, we will
+attempt to lookup its IP from DHT
 
 ### ListenIP<a id='P2P-V1-ListenIP'></a>
 ```toml
@@ -921,7 +967,11 @@ ListenPort is the port to listen on. If left blank, the node randomly selects a 
 ```toml
 NewStreamTimeout = '10s' # Default
 ```
-
+NewStreamTimeout is the maximum length of time to wait to open a
+stream before we give up.
+We shouldn't hit this in practice since libp2p will give up fast if
+it can't get a connection, but it is here anyway as a failsafe.
+Set to 0 to disable any timeout on top of what libp2p gives us by default.
 
 ### PeerID<a id='P2P-V1-PeerID'></a>
 ```toml
@@ -963,13 +1013,13 @@ DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networkin
 ```toml
 DeltaDial = '15s' # Default
 ```
-
+DeltaDial controls how far apart Dial attempts are
 
 ### DeltaReconcile<a id='P2P-V2-DeltaReconcile'></a>
 ```toml
 DeltaReconcile = '1m' # Default
 ```
-
+DeltaReconcile controls how often a Reconcile message is sent to every peer.
 
 ### ListenAddresses<a id='P2P-V2-ListenAddresses'></a>
 ```toml
@@ -1181,25 +1231,25 @@ Release = 'v1.2.3' # Example
 ```toml
 Debug = false # Default
 ```
-Enable printing of Sentry SDK debug messages.
+Debug enables printing of Sentry SDK debug messages.
 
 ### DSN<a id='Sentry-DSN'></a>
 ```toml
 DSN = 'sentry-dsn' # Example
 ```
-If provided, events will be sent to this Sentry data source name. Sentry is completely disabled if this is left blank.
+DSN is the data source name where events will be sent. Sentry is completely disabled if this is left blank.
 
 ### Environment<a id='Sentry-Environment'></a>
 ```toml
 Environment = 'prod' # Default
 ```
-If provided, this will override the Sentry environment to the given value. Otherwise autodetects between dev/prod.
+Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
 
 ### Release<a id='Sentry-Release'></a>
 ```toml
 Release = 'v1.2.3' # Example
 ```
-If provided, this will override the Sentry release to the given value. Otherwise uses the compiled-in version number.
+Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
 
 ## EVM<a id='EVM'></a>
 EVM defaults depend on ChainID:
@@ -2852,7 +2902,7 @@ ObservationGracePeriod = '1s'
 ```toml
 ChainID = '1' # Example
 ```
-The chain ID of this EVM chain. Mandatory.
+ChainID is the EVM chain ID. Mandatory.
 
 ### Enabled<a id='EVM-Enabled'></a>
 ```toml
@@ -3277,13 +3327,19 @@ BlockEmissionIdleWarningThreshold will cause Chainlink to log warnings if this d
 ```toml
 HistoryDepth = 100 # Default
 ```
-
+HistoryDepth tracks the top N block numbers to keep in the `heads` database table.
+Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
+This number should be at least as large as `FinalityDepth`.
+There may be a small performance penalty to setting this to something very large (10,000+)
 
 ### MaxBufferSize<a id='EVM-HeadTracker-MaxBufferSize'></a>
 ```toml
 MaxBufferSize = 3 # Default
 ```
-
+MaxBufferSize is the maximum number of heads that may be
+buffered in front of the head tracker before older heads start to be
+dropped. You may think of it as something like the maximum permittable "lag"
+for the head tracker before we start dropping heads to keep up.
 
 ### SamplingInterval<a id='EVM-HeadTracker-SamplingInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -3352,7 +3408,7 @@ ContractConfirmations = 4 # Default
 ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 ObservationGracePeriod = '1s' # Default
-ObservationTimeout = '1m'
+ObservationTimeout = '1m' # Example
 ```
 
 
@@ -3360,44 +3416,31 @@ ObservationTimeout = '1m'
 ```toml
 ContractConfirmations = 4 # Default
 ```
-
+ContractConfirmations sets OCR.ContractConfirmations for this EVM chain.
 
 ### ContractTransmitterTransmitTimeout<a id='EVM-OCR-ContractTransmitterTransmitTimeout'></a>
 ```toml
 ContractTransmitterTransmitTimeout = '10s' # Default
 ```
-
+ContractTransmitterTransmitTimeout sets OCR.ContractTransmitterTransmitTimeout for this EVM chain.
 
 ### DatabaseTimeout<a id='EVM-OCR-DatabaseTimeout'></a>
 ```toml
 DatabaseTimeout = '10s' # Default
 ```
-
+DatabaseTimeout sets OCR.DatabaseTimeout for this EVM chain.
 
 ### ObservationGracePeriod<a id='EVM-OCR-ObservationGracePeriod'></a>
 ```toml
 ObservationGracePeriod = '1s' # Default
 ```
-
+ObservationGracePeriod sets OCR.ObservationGracePeriod for this EVM chain.
 
 ### ObservationTimeout<a id='EVM-OCR-ObservationTimeout'></a>
 ```toml
-ObservationTimeout = '1m'
+ObservationTimeout = '1m' # Example
 ```
-
-
-## EVM.OCR2<a id='EVM-OCR2'></a>
-```toml
-[EVM.OCR2]
-ContractConfirmations = 7
-```
-
-
-### ContractConfirmations<a id='EVM-OCR2-ContractConfirmations'></a>
-```toml
-ContractConfirmations = 7
-```
-
+ObservationTimeout sets OCR.ObservationTimeout for this EVM chain.
 
 ## EVM.Nodes<a id='EVM-Nodes'></a>
 ```toml
@@ -3436,7 +3479,7 @@ SendOnly = true # Default
 ## Solana<a id='Solana'></a>
 ```toml
 [[Solana]]
-ChainID = 'mainnet'
+ChainID = 'mainnet' # Example
 Enabled = false # Default
 BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
@@ -3453,9 +3496,9 @@ MaxRetries = 0 # Default
 
 ### ChainID<a id='Solana-ChainID'></a>
 ```toml
-ChainID = 'mainnet'
+ChainID = 'mainnet' # Example
 ```
-
+ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localnet. Mandatory.
 
 ### Enabled<a id='Solana-Enabled'></a>
 ```toml
@@ -3566,7 +3609,7 @@ TxMsgTimeout = '10m' # Default
 ```toml
 ChainID = 'Bombay-12' # Example
 ```
-
+ChainID is the Terra chain ID. Mandatory.
 
 ### Enabled<a id='Terra-Enabled'></a>
 ```toml

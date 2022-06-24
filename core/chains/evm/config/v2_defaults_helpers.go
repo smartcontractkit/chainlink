@@ -91,9 +91,6 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 			ObservationTimeout:                 nil,
 			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
 		},
-		OCR2: &v2.OCR2{
-			ContractConfirmations: nil,
-		},
 	}
 	if *c.ChainType == "" {
 		c.ChainType = nil
@@ -112,9 +109,6 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	}
 	if isZeroPtr(c.OCR) {
 		c.OCR = nil
-	}
-	if isZeroPtr(c.OCR2) {
-		c.OCR2 = nil
 	}
 	return c
 }

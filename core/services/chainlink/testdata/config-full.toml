@@ -104,7 +104,6 @@ ContractSubscribeInterval = '1m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
-MonitoringEndpoint = 'test-mon-end'
 
 [OCR]
 ObservationTimeout = '11s'
@@ -113,14 +112,13 @@ ContractPollInterval = '1h0m0s'
 ContractSubscribeInterval = '1m0s'
 DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
-MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
-TraceLogging = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 
 [P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+TraceLogging = true
 
 [P2P.V1]
 AnnounceIP = '1.2.3.4'
@@ -246,9 +244,6 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
 ObservationTimeout = '1s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-ContractConfirmations = 7
 
 [[EVM.Nodes]]
 Name = 'foo'

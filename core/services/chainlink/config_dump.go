@@ -611,7 +611,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		ContractTransmitterTransmitTimeout: envDuration("OCR2ContractTransmitterTransmitTimeout"),
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
-		MonitoringEndpoint:                 envvar.NewString("OCR2MonitoringEndpoint").ParsePtr(),
 	}
 	if isZeroPtr(c.OCR2) {
 		c.OCR2 = nil
@@ -624,9 +623,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		ContractSubscribeInterval:    envDuration("OCRContractSubscribeInterval"),
 		DefaultTransactionQueueDepth: envvar.NewUint32("OCRDefaultTransactionQueueDepth").ParsePtr(),
 		KeyBundleID:                  envvar.New("OCRKeyBundleID", models.Sha256HashFromHex).ParsePtr(),
-		MonitoringEndpoint:           envvar.NewString("OCRMonitoringEndpoint").ParsePtr(),
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
-		TraceLogging:                 envvar.NewBool("OCRTraceLogging").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
 	}
 	if isZeroPtr(c.OCR) {
@@ -636,6 +633,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.P2P = &config.P2P{
 		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
 	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
 		err = ns.UnmarshalText([]byte(s))

@@ -279,7 +279,6 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractTransmitterTransmitTimeout: models.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
-		MonitoringEndpoint:                 ptr("test-mon-end"),
 	}
 	full.OCR = &config.OCR{
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
@@ -288,14 +287,13 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractSubscribeInterval:    models.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
-		MonitoringEndpoint:           ptr("test-monitor"),
 		SimulateTransactions:         ptr(true),
-		TraceLogging:                 ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 	}
 	full.P2P = &config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
 		OutgoingMessageBufferSize: ptr[int64](17),
+		TraceLogging:              ptr(true),
 		V1: &config.P2PV1{
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
@@ -433,9 +431,6 @@ func TestConfig_Marshal(t *testing.T) {
 					DatabaseTimeout:                    &second,
 					ObservationTimeout:                 &second,
 					ObservationGracePeriod:             &second,
-				},
-				OCR2: &evmcfg.OCR2{
-					ContractConfirmations: ptr[uint16](7),
 				},
 			},
 			Nodes: []evmcfg.Node{
@@ -622,9 +617,7 @@ ContractPollInterval = '1h0m0s'
 ContractSubscribeInterval = '1m0s'
 DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
-MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
-TraceLogging = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
 		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
@@ -636,12 +629,12 @@ ContractSubscribeInterval = '1m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
-MonitoringEndpoint = 'test-mon-end'
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `
 [P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+TraceLogging = true
 
 [P2P.V1]
 AnnounceIP = '1.2.3.4'
@@ -771,9 +764,6 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
 ObservationTimeout = '1s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-ContractConfirmations = 7
 
 [[EVM.Nodes]]
 Name = 'foo'

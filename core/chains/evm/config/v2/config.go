@@ -69,8 +69,6 @@ type Chain struct {
 	NodePool *NodePool
 
 	OCR *OCR
-
-	OCR2 *OCR2
 }
 
 type BalanceMonitor struct {
@@ -110,10 +108,6 @@ type OCR struct {
 	DatabaseTimeout                    *models.Duration
 	ObservationTimeout                 *models.Duration
 	ObservationGracePeriod             *models.Duration
-}
-
-type OCR2 struct {
-	ContractConfirmations *uint16
 }
 
 func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
