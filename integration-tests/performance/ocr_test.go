@@ -3,10 +3,11 @@ package performance
 //revive:disable:dot-imports
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	integration_tests "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -55,7 +56,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		By("Connecting to launched resources", func() {
 			// Load Networks
 			var err error
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(env)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

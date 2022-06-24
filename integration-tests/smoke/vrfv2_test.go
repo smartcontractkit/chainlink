@@ -4,14 +4,15 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests"
-	"math/big"
-	"time"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,7 +59,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 
 		By("Connecting to launched resources", func() {
 			log.Trace().Msg("JUST A TRACE")
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(e)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(e)
 			Expect(err).ShouldNot(HaveOccurred())
 			cd, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -182,7 +183,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 	},
 		Entry("VRFv2 on Geth @geth",
-			blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings),
+			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
 			eth.New(nil),
 			chainlink.New(0, nil),
 		),

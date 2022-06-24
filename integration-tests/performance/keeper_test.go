@@ -3,9 +3,10 @@ package performance
 //revive:disable:dot-imports
 import (
 	"context"
-	integration_tests "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"time"
+
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -57,7 +58,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(env)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

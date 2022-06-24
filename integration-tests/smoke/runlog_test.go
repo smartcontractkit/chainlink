@@ -4,7 +4,6 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -54,7 +54,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(e)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
@@ -144,7 +144,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		})
 	},
 		Entry("VRF on Geth @geth",
-			blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings),
+			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
 			ethereum.New(nil),
 			chainlink.New(0, nil),
 		),

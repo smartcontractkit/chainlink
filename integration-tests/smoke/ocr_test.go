@@ -3,13 +3,13 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,7 +53,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		By("Connecting to launched resources", func() {
 			// Load Networks
 			var err error
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(env)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
@@ -106,7 +106,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		})
 	},
 		Entry("OCR on Geth @geth",
-			blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings),
+			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
 			ethereum.New(nil),
 			chainlink.New(0, nil),
 		),

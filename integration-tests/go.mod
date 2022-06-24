@@ -13,13 +13,6 @@ require (
 )
 
 require (
-	github.com/aws/constructs-go/constructs/v10 v10.1.22 // indirect
-	github.com/aws/jsii-runtime-go v1.59.0 // indirect
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.3.14 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
-)
-
-require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
@@ -27,7 +20,10 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
+	github.com/aws/constructs-go/constructs/v10 v10.1.22 // indirect
+	github.com/aws/jsii-runtime-go v1.59.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.3.14 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
@@ -36,6 +32,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fvbommel/sortorder v1.0.1 // indirect
 	github.com/go-errors/errors v1.4.1 // indirect
 	github.com/go-logr/logr v1.2.2 // indirect

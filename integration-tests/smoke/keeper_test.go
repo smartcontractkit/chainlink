@@ -6,12 +6,11 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/integration-tests"
-
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -133,7 +132,7 @@ func getKeeperSuite(
 			})
 
 			By("Connecting to launched resources", func() {
-				c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(env)
+				c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
 				Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 				contractDeployer, err = contracts.NewContractDeployer(c)
 				Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

@@ -4,7 +4,6 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/ethereum/go-ethereum/common"
 	uuid "github.com/satori/go.uuid"
@@ -61,7 +61,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(env)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 
 			cd, err = contracts.NewContractDeployer(c)
@@ -190,7 +190,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		})
 	},
 		Entry("Flux on Geth @geth",
-			blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings),
+			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
 			ethereum.New(nil),
 			chainlink.New(0, nil),
 		),

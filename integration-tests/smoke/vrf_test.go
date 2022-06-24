@@ -4,6 +4,11 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
+	it "github.com/smartcontractkit/chainlink/integration-tests"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -18,9 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests"
-	"math/big"
-	"time"
 )
 
 var _ = Describe("VRF suite @table", func() {
@@ -137,7 +139,8 @@ var _ = Describe("VRF suite @table", func() {
 		}
 	},
 		Entry("VRF suite on Geth @geth",
-			blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings),
+			blockchain.NewEthereumMultiNodeClientSetup(
+				it.DefaultGethSettings),
 			ethereum.New(nil),
 			chainlink.New(0, nil),
 		),

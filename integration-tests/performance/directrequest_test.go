@@ -4,11 +4,12 @@ package performance
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	integration_tests "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -56,7 +57,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(e)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

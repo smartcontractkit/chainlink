@@ -4,9 +4,10 @@ package performance
 import (
 	"context"
 	"fmt"
-	integration_tests "github.com/smartcontractkit/chainlink/integration-tests"
 	"math/big"
 	"time"
+
+	it "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -57,7 +58,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(integration_tests.DefaultGethSettings)(e)
+			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

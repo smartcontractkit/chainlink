@@ -1,9 +1,10 @@
 package integration_tests
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/config"
-	"time"
 )
 
 // Just use os.GetEnv to get any secrets there, you don't need to fill URLs, that is handled by environment when you connect
