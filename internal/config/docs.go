@@ -49,9 +49,7 @@ func GenerateDocs() (string, error) {
 }
 
 func advancedWarning(msg string) string {
-	return fmt.Sprintf(`
-:warning: **_ADVANCED_**: _%s_
-`, msg)
+	return fmt.Sprintf(":warning: **_ADVANCED_**: _%s_\n", msg)
 }
 
 // lines holds a set of contiguous lines
@@ -76,6 +74,13 @@ func (t table) advanced() string {
 	return ""
 }
 
+func (t table) code() string {
+	if !t.ext {
+		return fmt.Sprint("```toml\n", t.codes, "\n```\n")
+	}
+	return ""
+}
+
 func (t table) extended() string {
 	if t.ext {
 		s, err := extended(t.name)
@@ -90,11 +95,9 @@ func (t table) extended() string {
 // String prints a table as an H2, followed by a code block and description.
 func (t *table) String() string {
 	link := strings.ReplaceAll(t.name, ".", "-")
-	return fmt.Sprint("## ", t.name, "<a id='", link, "'></a>",
+	return fmt.Sprint("## ", t.name, "<a id='", link, "'></a>\n",
 		t.advanced(),
-		"\n```toml\n",
-		t.codes,
-		"\n```\n",
+		t.code(),
 		t.desc,
 		t.extended())
 }
@@ -120,9 +123,9 @@ func (k keyval) String() string {
 		name = name[i+1:]
 	}
 	link := strings.ReplaceAll(k.name, ".", "-")
-	return fmt.Sprint("### ", name, "<a id='", link, "'></a>",
+	return fmt.Sprint("### ", name, "<a id='", link, "'></a>\n",
 		k.advanced(),
-		"\n```toml\n",
+		"```toml\n",
 		k.code,
 		"\n```\n",
 		k.desc)

@@ -65,7 +65,6 @@ ExplorerURL is the websocket URL for the node to push stats to.
 
 ### InsecureFastScrypt<a id='InsecureFastScrypt'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 InsecureFastScrypt = false # Default
 ```
@@ -230,7 +229,6 @@ Set to `0` to disable periodic backups.
 
 ## Database.Listener<a id='Database-Listener'></a>
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
-
 ```toml
 [Database.Listener]
 MaxReconnectDuration = '10m' # Default
@@ -259,7 +257,6 @@ FallbackPollInterval controls how often clients should manually poll as a fallba
 
 ## Database.Lock<a id='Database-Lock'></a>
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
-
 ```toml
 [Database.Lock]
 Mode = 'dual' # Default
@@ -492,7 +489,6 @@ Usually this will be the same as the URL/IP and port you use to connect to the C
 
 ### HTTPWriteTimeout<a id='WebServer-HTTPWriteTimeout'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 HTTPWriteTimeout = '10s' # Default
 ```
@@ -664,7 +660,6 @@ ReaperThreshold determines the age limit for job runs. Completed job runs older 
 
 ### ResultWriteQueueDepth<a id='JobPipeline-ResultWriteQueueDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 ResultWriteQueueDepth = 100 # Default
 ```
@@ -680,7 +675,6 @@ SimulateTransactions = false # Default
 
 ### DefaultTransactionQueueDepth<a id='FluxMonitor-DefaultTransactionQueueDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 DefaultTransactionQueueDepth = 1 # Default
 ```
@@ -796,7 +790,6 @@ ContractSubscribeInterval = '1m'
 
 ### DefaultTransactionQueueDepth<a id='OCR-DefaultTransactionQueueDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 DefaultTransactionQueueDepth = 12
 ```
@@ -906,7 +899,6 @@ DHTAnnouncementCounterUserPrefix = 0 # Default
 
 ### DHTLookupInterval<a id='P2P-V1-DHTLookupInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 DHTLookupInterval = 10 # Default
 ```
@@ -926,7 +918,6 @@ ListenPort is the port to listen on. If left blank, the node randomly selects a 
 
 ### NewStreamTimeout<a id='P2P-V1-NewStreamTimeout'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 NewStreamTimeout = '10s' # Default
 ```
@@ -940,7 +931,6 @@ PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the firs
 
 ### PeerstoreWriteInterval<a id='P2P-V1-PeerstoreWriteInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 PeerstoreWriteInterval = '5m' # Default
 ```
@@ -1007,7 +997,6 @@ UpkeepCheckGasPriceEnabled = false # Default
 
 ### DefaultTransactionQueueDepth<a id='Keeper-DefaultTransactionQueueDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 DefaultTransactionQueueDepth = 1 # Default
 ```
@@ -1033,7 +1022,6 @@ BaseFeeBufferPercent specifies the percentage to add to the base fee used for ch
 
 ### MaximumGracePeriod<a id='Keeper-MaximumGracePeriod'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 MaximumGracePeriod = 100 # Default
 ```
@@ -1041,7 +1029,6 @@ MaximumGracePeriod is the maximum number of blocks that a keeper will wait after
 
 ### RegistryCheckGasOverhead<a id='Keeper-RegistryCheckGasOverhead'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 RegistryCheckGasOverhead = '200000' # Default
 ```
@@ -1049,7 +1036,6 @@ RegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() cal
 
 ### RegistryPerformGasOverhead<a id='Keeper-RegistryPerformGasOverhead'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 RegistryPerformGasOverhead = '150000' # Default
 ```
@@ -1057,7 +1043,6 @@ RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep()
 
 ### RegistrySyncInterval<a id='Keeper-RegistrySyncInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 RegistrySyncInterval = '30m' # Default
 ```
@@ -1065,7 +1050,6 @@ RegistrySyncInterval is the interval in which the RegistrySynchronizer performs 
 
 ### RegistrySyncUpkeepQueueSize<a id='Keeper-RegistrySyncUpkeepQueueSize'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 RegistrySyncUpkeepQueueSize = 10 # Default
 ```
@@ -1085,7 +1069,6 @@ TurnFlagEnabled enables a new algorithm for how keepers take turns.
 
 ### UpkeepCheckGasPriceEnabled<a id='Keeper-UpkeepCheckGasPriceEnabled'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 UpkeepCheckGasPriceEnabled = false # Default
 ```
@@ -1195,7 +1178,6 @@ Release = 'v1.2.3' # Example
 
 ### Debug<a id='Sentry-Debug'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 Debug = false # Default
 ```
@@ -1220,45 +1202,6 @@ Release = 'v1.2.3' # Example
 If provided, this will override the Sentry release to the given value. Otherwise uses the compiled-in version number.
 
 ## EVM<a id='EVM'></a>
-```toml
-[[EVM]]
-ChainID = '1' # Example
-Enabled = true # Default
-BlockBackfillDepth = 100
-BlockBackfillSkip = true
-ChainType = 'Optimism' # Example
-EIP1559DynamicFees = false # Default
-FinalityDepth = 50 # Default
-FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
-GasBumpPercent = 20 # Default
-GasBumpThreshold = 3 # Default
-GasBumpTxDepth = 10 # Default
-GasBumpWei = '5 gwei' # Default
-GasEstimatorMode = 'BlockHistory' # Default
-GasFeeCapDefault = '100 gwei' # Default
-GasLimitDefault = '500000' # Default
-GasLimitMultiplier = '1.0' # Default
-GasLimitTransfer = '21000' # Default
-GasPriceDefault = '20 gwei' # Default
-GasTipCapDefault = '1 wei' # Default
-GasTipCapMinimum = '1 wei' # Default
-LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
-LogBackfillBatchSize = 100 # Default
-LogPollInterval = '15s' # Default
-MaxGasPriceWei = '100 micro' # Default
-MaxInFlightTransactions = 16 # Default
-MaxQueuedTransactions = 250 # Default
-MinGasPriceWei = '1 gwei' # Default
-MinIncomingConfirmations = 3 # Default
-MinimumContractPayment = '10000000000000 juels' # Default
-NonceAutoSync = true # Default
-OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
-RPCDefaultBatchSize = 100 # Default
-TxReaperInterval = '1h' # Default
-TxReaperThreshold = '168h' # Default
-TxResendAfterThreshold = '1m' # Default
-UseForwarders = false # Default
-```
 EVM defaults depend on ChainID:
 
 <details><summary>Ethereum Mainnet (1)<a id='EVM-1'></a></summary><p>
@@ -2919,7 +2862,6 @@ Enabled = true # Default
 
 ### BlockBackfillDepth<a id='EVM-BlockBackfillDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 BlockBackfillDepth = 100
 ```
@@ -3013,7 +2955,6 @@ A re-org occurs at height 47 starting at block 41, transaction is NOT marked for
 
 ### FlagsContractAddress<a id='EVM-FlagsContractAddress'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
 ```
@@ -3120,7 +3061,6 @@ The address of the canonical ERC-677 LINK token contract on the given chain. Not
 
 ### LogBackfillBatchSize<a id='EVM-LogBackfillBatchSize'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 LogBackfillBatchSize = 100 # Default
 ```
@@ -3249,7 +3189,6 @@ Enabled balance monitoring for all keys.
 
 ### BlockDelay<a id='EVM-BalanceMonitor-BlockDelay'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 BlockDelay = 1 # Default
 ```
@@ -3296,7 +3235,6 @@ BlockHistorySize controls the number of past blocks to keep in memory to use as 
 
 ### EIP1559FeeCapBufferBlocks<a id='EVM-BlockHistoryEstimator-EIP1559FeeCapBufferBlocks'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 EIP1559FeeCapBufferBlocks = 13 # Example
 ```
@@ -3350,7 +3288,6 @@ MaxBufferSize = 3 # Default
 
 ### SamplingInterval<a id='EVM-HeadTracker-SamplingInterval'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-
 ```toml
 SamplingInterval = '1s' # Default
 ```
