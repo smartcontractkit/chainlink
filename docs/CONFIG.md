@@ -30,6 +30,8 @@
 	- [HeadTracker](#EVM-HeadTracker)
 	- [KeySpecific](#EVM-KeySpecific)
 	- [NodePool](#EVM-NodePool)
+	- [OCR](#EVM-OCR)
+	- [OCR2](#EVM-OCR2)
 	- [Nodes](#EVM-Nodes)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
@@ -1250,12 +1252,6 @@ MinGasPriceWei = '1 gwei' # Default
 MinIncomingConfirmations = 3 # Default
 MinimumContractPayment = '10000000000000 juels' # Default
 NonceAutoSync = true # Default
-OCRContractConfirmations = 4 # Default
-OCRContractTransmitterTransmitTimeout = '10s' # Default
-OCRDatabaseTimeout = '10s' # Default
-OCRObservationGracePeriod = '1s' # Default
-OCRObservationTimeout = '1m'
-OCR2ContractConfirmations = 7
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 RPCDefaultBatchSize = 100 # Default
 TxReaperInterval = '1h' # Default
@@ -1292,10 +1288,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
@@ -1323,6 +1315,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1354,10 +1352,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1384,6 +1378,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1415,10 +1415,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1445,6 +1441,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1476,10 +1478,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1506,6 +1504,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1538,10 +1542,6 @@ MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1568,6 +1568,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1599,10 +1605,6 @@ MinGasPriceWei = '0'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1629,6 +1631,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1660,10 +1668,6 @@ MinGasPriceWei = '0'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1690,6 +1694,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1721,10 +1731,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
@@ -1752,6 +1758,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1783,10 +1795,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '2s'
-OCRDatabaseTimeout = '2s'
-OCRObservationGracePeriod = '500ms'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1813,6 +1821,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '2s'
+DatabaseTimeout = '2s'
+ObservationGracePeriod = '500ms'
 ```
 
 </p></details>
@@ -1843,10 +1857,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1873,6 +1883,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1903,10 +1919,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1933,6 +1945,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -1965,10 +1983,6 @@ MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -1995,6 +2009,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2027,10 +2047,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2057,6 +2073,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2088,10 +2110,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '2s'
-OCRDatabaseTimeout = '2s'
-OCRObservationGracePeriod = '500ms'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2118,6 +2136,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '2s'
+DatabaseTimeout = '2s'
+ObservationGracePeriod = '500ms'
 ```
 
 </p></details>
@@ -2149,10 +2173,6 @@ MinGasPriceWei = '30 gwei'
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2179,6 +2199,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2210,10 +2236,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2240,6 +2262,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2271,10 +2299,6 @@ MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2301,6 +2325,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2332,10 +2362,6 @@ MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2362,6 +2388,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2393,10 +2425,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2423,6 +2451,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2455,10 +2489,6 @@ MinGasPriceWei = '1 micro'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2485,6 +2515,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2516,10 +2552,6 @@ MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2546,6 +2578,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2577,10 +2615,6 @@ MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2607,6 +2641,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2638,10 +2678,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2668,6 +2704,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2700,10 +2742,6 @@ MinGasPriceWei = '1 micro'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 1
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2730,6 +2768,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2761,10 +2805,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2791,6 +2831,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -2822,10 +2868,6 @@ MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
-OCRContractConfirmations = 4
-OCRContractTransmitterTransmitTimeout = '10s'
-OCRDatabaseTimeout = '10s'
-OCRObservationGracePeriod = '1s'
 RPCDefaultBatchSize = 100
 TxReaperInterval = '1h0m0s'
 TxReaperThreshold = '168h0m0s'
@@ -2852,6 +2894,12 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
 ```
 
 </p></details>
@@ -3149,42 +3197,6 @@ NonceAutoSync = true # Default
 ```
 NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 
-### OCRContractConfirmations<a id='EVM-OCRContractConfirmations'></a>
-```toml
-OCRContractConfirmations = 4 # Default
-```
-
-
-### OCRContractTransmitterTransmitTimeout<a id='EVM-OCRContractTransmitterTransmitTimeout'></a>
-```toml
-OCRContractTransmitterTransmitTimeout = '10s' # Default
-```
-
-
-### OCRDatabaseTimeout<a id='EVM-OCRDatabaseTimeout'></a>
-```toml
-OCRDatabaseTimeout = '10s' # Default
-```
-
-
-### OCRObservationGracePeriod<a id='EVM-OCRObservationGracePeriod'></a>
-```toml
-OCRObservationGracePeriod = '1s' # Default
-```
-
-
-### OCRObservationTimeout<a id='EVM-OCRObservationTimeout'></a>
-```toml
-OCRObservationTimeout = '1m'
-```
-
-
-### OCR2ContractConfirmations<a id='EVM-OCR2ContractConfirmations'></a>
-```toml
-OCR2ContractConfirmations = 7
-```
-
-
 ### OperatorFactoryAddress<a id='EVM-OperatorFactoryAddress'></a>
 ```toml
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
@@ -3396,6 +3408,60 @@ PollInterval = '10s' # Default
 PollInterval controls how often to poll the node to check for liveness.
 
 Set to zero to disable poll checking.
+
+## EVM.OCR<a id='EVM-OCR'></a>
+```toml
+[EVM.OCR]
+ContractConfirmations = 4 # Default
+ContractTransmitterTransmitTimeout = '10s' # Default
+DatabaseTimeout = '10s' # Default
+ObservationGracePeriod = '1s' # Default
+ObservationTimeout = '1m'
+```
+
+
+### ContractConfirmations<a id='EVM-OCR-ContractConfirmations'></a>
+```toml
+ContractConfirmations = 4 # Default
+```
+
+
+### ContractTransmitterTransmitTimeout<a id='EVM-OCR-ContractTransmitterTransmitTimeout'></a>
+```toml
+ContractTransmitterTransmitTimeout = '10s' # Default
+```
+
+
+### DatabaseTimeout<a id='EVM-OCR-DatabaseTimeout'></a>
+```toml
+DatabaseTimeout = '10s' # Default
+```
+
+
+### ObservationGracePeriod<a id='EVM-OCR-ObservationGracePeriod'></a>
+```toml
+ObservationGracePeriod = '1s' # Default
+```
+
+
+### ObservationTimeout<a id='EVM-OCR-ObservationTimeout'></a>
+```toml
+ObservationTimeout = '1m'
+```
+
+
+## EVM.OCR2<a id='EVM-OCR2'></a>
+```toml
+[EVM.OCR2]
+ContractConfirmations = 7
+```
+
+
+### ContractConfirmations<a id='EVM-OCR2-ContractConfirmations'></a>
+```toml
+ContractConfirmations = 7
+```
+
 
 ## EVM.Nodes<a id='EVM-Nodes'></a>
 ```toml

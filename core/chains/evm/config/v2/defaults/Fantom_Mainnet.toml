@@ -2,8 +2,8 @@ ChainID = '250'
 GasPriceDefault = '15 gwei'
 MaxGasPriceWei = '0.2 milli'
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
-MinIncomingConfirmations = 3
 LogPollInterval = '1s'
+MinIncomingConfirmations = 3
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'

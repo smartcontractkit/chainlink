@@ -170,24 +170,6 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.NonceAutoSync; v != nil {
 		c.NonceAutoSync = v
 	}
-	if v := f.OCRContractConfirmations; v != nil {
-		c.OCRContractConfirmations = v
-	}
-	if v := f.OCRContractTransmitterTransmitTimeout; v != nil {
-		c.OCRContractTransmitterTransmitTimeout = v
-	}
-	if v := f.OCRDatabaseTimeout; v != nil {
-		c.OCRDatabaseTimeout = v
-	}
-	if v := f.OCRObservationTimeout; v != nil {
-		c.OCRObservationTimeout = v
-	}
-	if v := f.OCRObservationGracePeriod; v != nil {
-		c.OCRObservationGracePeriod = v
-	}
-	if v := f.OCR2ContractConfirmations; v != nil {
-		c.OCR2ContractConfirmations = v
-	}
 	if v := f.OperatorFactoryAddress; v != nil {
 		c.OperatorFactoryAddress = v
 	}
@@ -267,6 +249,34 @@ func (c *Chain) SetFrom(f *Chain) {
 		}
 		if v := n.PollInterval; v != nil {
 			c.NodePool.PollInterval = v
+		}
+	}
+	if o := f.OCR; o != nil {
+		if c.OCR == nil {
+			c.OCR = &OCR{}
+		}
+		if v := o.ContractConfirmations; v != nil {
+			c.OCR.ContractConfirmations = v
+		}
+		if v := o.ContractTransmitterTransmitTimeout; v != nil {
+			c.OCR.ContractTransmitterTransmitTimeout = v
+		}
+		if v := o.DatabaseTimeout; v != nil {
+			c.OCR.DatabaseTimeout = v
+		}
+		if v := o.ObservationTimeout; v != nil {
+			c.OCR.ObservationTimeout = v
+		}
+		if v := o.ObservationGracePeriod; v != nil {
+			c.OCR.ObservationGracePeriod = v
+		}
+	}
+	if o := f.OCR2; o != nil {
+		if c.OCR2 == nil {
+			c.OCR2 = &OCR2{}
+		}
+		if v := o.ContractConfirmations; v != nil {
+			c.OCR2.ContractConfirmations = v
 		}
 	}
 }

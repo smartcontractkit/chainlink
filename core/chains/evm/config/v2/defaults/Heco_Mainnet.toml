@@ -6,11 +6,8 @@ GasBumpWei = '5 gwei'
 GasPriceDefault = '5 gwei'
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 MinGasPriceWei = '1 gwei'
-MinIncomingConfirmations = 3
-OCRDatabaseTimeout = '2s'
-OCRContractTransmitterTransmitTimeout = '2s'
-OCRObservationGracePeriod = '500ms'
 LogPollInterval = '3s'
+MinIncomingConfirmations = 3
 
 [BalanceMonitor]
 BlockDelay = 2
@@ -27,3 +24,7 @@ SamplingInterval = '1s'
 [NodePool]
 NoNewHeadsThreshold = '30s'
 
+[OCR]
+DatabaseTimeout = '2s'
+ContractTransmitterTransmitTimeout = '2s'
+ObservationGracePeriod = '500ms'

@@ -3,11 +3,11 @@ LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 FinalityDepth = 1
 GasEstimatorMode = 'BlockHistory'
 GasPriceDefault = '25 gwei'
+LogPollInterval = '3s'
 MaxGasPriceWei = '1000 gwei'
 MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
-OCRContractConfirmations = 1
-LogPollInterval = '3s'
+OCR.ContractConfirmations = 1
 
 [BlockHistoryEstimator]
 BlockHistorySize = 24

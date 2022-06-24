@@ -6,10 +6,10 @@ MaxQueuedTransactions = 5000
 MaxGasPriceWei = '0.2 milli'
 GasPriceDefault = '1 gwei'
 MinGasPriceWei = '1 gwei'
-TxResendAfterThreshold = '1m'
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
-MinIncomingConfirmations = 5
 LogPollInterval = '1s'
+MinIncomingConfirmations = 5
+TxResendAfterThreshold = '1m'
 
 [BalanceMonitor]
 BlockDelay = 13

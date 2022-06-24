@@ -26,5 +26,5 @@ func TestDoc(t *testing.T) {
 
 	cfgtest.AssertFieldsNotNil(t, c)
 
-	//TODO validate defaults? ensure non-zero examples?
+	//TODO validate defaults?
 }

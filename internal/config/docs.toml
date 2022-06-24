@@ -560,12 +560,6 @@ MinIncomingConfirmations = 3 # Default
 MinimumContractPayment = '10000000000000 juels' # Default
 # NonceAutoSync enables automatic nonce syncing on startup. Chainlink nodes will automatically try to sync its local nonce with the remote chain on startup and fast forward if necessary. This is almost always safe but can be disabled in exceptional cases by setting this value to false.
 NonceAutoSync = true # Default
-OCRContractConfirmations = 4 # Default
-OCRContractTransmitterTransmitTimeout = '10s' # Default
-OCRDatabaseTimeout = '10s' # Default
-OCRObservationGracePeriod = '1s' # Default
-OCRObservationTimeout = '1m'
-OCR2ContractConfirmations = 7
 # The address of the canonical operator forwarder contract on the given chain. Note that this is usually autodetected from chain ID.
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418' # Example
 # Default batch size for batched RPC calls.
@@ -648,6 +642,16 @@ PollFailureThreshold = 3 # Default
 #
 # Set to zero to disable poll checking.
 PollInterval = '10s' # Default
+
+[EVM.OCR]
+ContractConfirmations = 4 # Default
+ContractTransmitterTransmitTimeout = '10s' # Default
+DatabaseTimeout = '10s' # Default
+ObservationGracePeriod = '1s' # Default
+ObservationTimeout = '1m'
+
+[EVM.OCR2]
+ContractConfirmations = 7
 
 [[EVM.Nodes]]
 Name = 'foo' # Example

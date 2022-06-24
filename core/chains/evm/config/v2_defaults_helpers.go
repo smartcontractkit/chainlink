@@ -27,46 +27,40 @@ func V2Fallback() v2.Chain {
 
 func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	c := v2.Chain{
-		BlockBackfillDepth:                    nil,
-		BlockBackfillSkip:                     nil,
-		ChainType:                             ptr(string(set.chainType)),
-		EIP1559DynamicFees:                    ptr(set.eip1559DynamicFees),
-		FinalityDepth:                         ptr(set.finalityDepth),
-		FlagsContractAddress:                  asEIP155Address(set.flagsContractAddress),
-		GasBumpPercent:                        ptr(set.gasBumpPercent),
-		GasBumpThreshold:                      utils.NewWei(new(big.Int).SetUint64(set.gasBumpThreshold)),
-		GasBumpTxDepth:                        ptr(set.gasBumpTxDepth),
-		GasBumpWei:                            utils.NewWei(&set.gasBumpWei),
-		GasEstimatorMode:                      ptr(set.gasEstimatorMode),
-		GasFeeCapDefault:                      utils.NewWei(&set.gasFeeCapDefault),
-		GasLimitDefault:                       utils.NewBig(new(big.Int).SetUint64(set.gasLimitDefault)),
-		GasLimitMultiplier:                    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
-		GasLimitTransfer:                      utils.NewBig(new(big.Int).SetUint64(set.gasLimitTransfer)),
-		GasPriceDefault:                       utils.NewWei(&set.gasPriceDefault),
-		GasTipCapDefault:                      utils.NewWei(&set.gasTipCapDefault),
-		GasTipCapMinimum:                      utils.NewWei(&set.gasTipCapMinimum),
-		LinkContractAddress:                   asEIP155Address(set.linkContractAddress),
-		LogBackfillBatchSize:                  ptr(set.logBackfillBatchSize),
-		LogPollInterval:                       models.MustNewDuration(set.logPollInterval),
-		MaxGasPriceWei:                        utils.NewWei(&set.maxGasPriceWei),
-		MaxInFlightTransactions:               ptr(set.maxInFlightTransactions),
-		MaxQueuedTransactions:                 ptr(uint32(set.maxQueuedTransactions)),
-		MinGasPriceWei:                        utils.NewWei(&set.minGasPriceWei),
-		MinIncomingConfirmations:              ptr(set.minIncomingConfirmations),
-		MinimumContractPayment:                set.minimumContractPayment,
-		NonceAutoSync:                         ptr(set.nonceAutoSync),
-		OCRContractConfirmations:              ptr(set.ocrContractConfirmations),
-		OCRContractTransmitterTransmitTimeout: models.MustNewDuration(set.ocrContractTransmitterTransmitTimeout),
-		OCRDatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
-		OCRObservationTimeout:                 nil,
-		OCRObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
-		OCR2ContractConfirmations:             nil,
-		OperatorFactoryAddress:                asEIP155Address(set.operatorFactoryAddress),
-		RPCDefaultBatchSize:                   ptr(set.rpcDefaultBatchSize),
-		TxReaperInterval:                      models.MustNewDuration(set.ethTxReaperInterval),
-		TxReaperThreshold:                     models.MustNewDuration(set.ethTxReaperThreshold),
-		TxResendAfterThreshold:                models.MustNewDuration(set.ethTxResendAfterThreshold),
-		UseForwarders:                         ptr(set.useForwarders),
+		BlockBackfillDepth:       nil,
+		BlockBackfillSkip:        nil,
+		ChainType:                ptr(string(set.chainType)),
+		EIP1559DynamicFees:       ptr(set.eip1559DynamicFees),
+		FinalityDepth:            ptr(set.finalityDepth),
+		FlagsContractAddress:     asEIP155Address(set.flagsContractAddress),
+		GasBumpPercent:           ptr(set.gasBumpPercent),
+		GasBumpThreshold:         utils.NewWei(new(big.Int).SetUint64(set.gasBumpThreshold)),
+		GasBumpTxDepth:           ptr(set.gasBumpTxDepth),
+		GasBumpWei:               utils.NewWei(&set.gasBumpWei),
+		GasEstimatorMode:         ptr(set.gasEstimatorMode),
+		GasFeeCapDefault:         utils.NewWei(&set.gasFeeCapDefault),
+		GasLimitDefault:          utils.NewBig(new(big.Int).SetUint64(set.gasLimitDefault)),
+		GasLimitMultiplier:       ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
+		GasLimitTransfer:         utils.NewBig(new(big.Int).SetUint64(set.gasLimitTransfer)),
+		GasPriceDefault:          utils.NewWei(&set.gasPriceDefault),
+		GasTipCapDefault:         utils.NewWei(&set.gasTipCapDefault),
+		GasTipCapMinimum:         utils.NewWei(&set.gasTipCapMinimum),
+		LinkContractAddress:      asEIP155Address(set.linkContractAddress),
+		LogBackfillBatchSize:     ptr(set.logBackfillBatchSize),
+		LogPollInterval:          models.MustNewDuration(set.logPollInterval),
+		MaxGasPriceWei:           utils.NewWei(&set.maxGasPriceWei),
+		MaxInFlightTransactions:  ptr(set.maxInFlightTransactions),
+		MaxQueuedTransactions:    ptr(uint32(set.maxQueuedTransactions)),
+		MinGasPriceWei:           utils.NewWei(&set.minGasPriceWei),
+		MinIncomingConfirmations: ptr(set.minIncomingConfirmations),
+		MinimumContractPayment:   set.minimumContractPayment,
+		NonceAutoSync:            ptr(set.nonceAutoSync),
+		OperatorFactoryAddress:   asEIP155Address(set.operatorFactoryAddress),
+		RPCDefaultBatchSize:      ptr(set.rpcDefaultBatchSize),
+		TxReaperInterval:         models.MustNewDuration(set.ethTxReaperInterval),
+		TxReaperThreshold:        models.MustNewDuration(set.ethTxReaperThreshold),
+		TxResendAfterThreshold:   models.MustNewDuration(set.ethTxResendAfterThreshold),
+		UseForwarders:            ptr(set.useForwarders),
 		BalanceMonitor: &v2.BalanceMonitor{
 			Enabled:    ptr(set.balanceMonitorEnabled),
 			BlockDelay: ptr(set.balanceMonitorBlockDelay),
@@ -90,6 +84,16 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 			PollFailureThreshold: ptr(set.nodePollFailureThreshold),
 			PollInterval:         models.MustNewDuration(set.nodePollInterval),
 		},
+		OCR: &v2.OCR{
+			ContractConfirmations:              ptr(set.ocrContractConfirmations),
+			ContractTransmitterTransmitTimeout: models.MustNewDuration(set.ocrContractTransmitterTransmitTimeout),
+			DatabaseTimeout:                    models.MustNewDuration(set.ocrDatabaseTimeout),
+			ObservationTimeout:                 nil,
+			ObservationGracePeriod:             models.MustNewDuration(set.ocrObservationGracePeriod),
+		},
+		OCR2: &v2.OCR2{
+			ContractConfirmations: nil,
+		},
 	}
 	if *c.ChainType == "" {
 		c.ChainType = nil
@@ -105,6 +109,12 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	}
 	if isZeroPtr(c.NodePool) {
 		c.NodePool = nil
+	}
+	if isZeroPtr(c.OCR) {
+		c.OCR = nil
+	}
+	if isZeroPtr(c.OCR2) {
+		c.OCR2 = nil
 	}
 	return c
 }

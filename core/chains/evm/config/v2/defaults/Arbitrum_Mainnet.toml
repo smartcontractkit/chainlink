@@ -8,7 +8,7 @@ MaxGasPriceWei = '1000 gwei'
 MinGasPriceWei = '1000 gwei'
 GasEstimatorMode = 'FixedPrice'
 LinkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
-OCRContractConfirmations = 1
+OCR.ContractConfirmations = 1
 
 [BlockHistoryEstimator]
 BlockHistorySize = 0

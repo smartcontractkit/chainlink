@@ -409,13 +409,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
 
-				OCRContractConfirmations:              ptr[uint16](11),
-				OCRContractTransmitterTransmitTimeout: &minute,
-				OCRDatabaseTimeout:                    &second,
-				OCRObservationTimeout:                 &second,
-				OCRObservationGracePeriod:             &second,
-				OCR2ContractConfirmations:             ptr[uint16](7),
-
 				RPCDefaultBatchSize:    ptr[uint32](17),
 				TxReaperInterval:       &minute,
 				TxReaperThreshold:      &minute,
@@ -433,6 +426,16 @@ func TestConfig_Marshal(t *testing.T) {
 					NoNewHeadsThreshold:  &minute,
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
+				},
+				OCR: &evmcfg.OCR{
+					ContractConfirmations:              ptr[uint16](11),
+					ContractTransmitterTransmitTimeout: &minute,
+					DatabaseTimeout:                    &second,
+					ObservationTimeout:                 &second,
+					ObservationGracePeriod:             &second,
+				},
+				OCR2: &evmcfg.OCR2{
+					ContractConfirmations: ptr[uint16](7),
 				},
 			},
 			Nodes: []evmcfg.Node{
@@ -729,12 +732,6 @@ MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
-OCRContractConfirmations = 11
-OCRContractTransmitterTransmitTimeout = '1m0s'
-OCRDatabaseTimeout = '1s'
-OCRObservationTimeout = '1s'
-OCRObservationGracePeriod = '1s'
-OCR2ContractConfirmations = 7
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 TxReaperInterval = '1m0s'
@@ -767,6 +764,16 @@ MaxGasPriceWei = '79.228162514264337593543950335 gether'
 NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
+
+[EVM.OCR]
+ContractConfirmations = 11
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1s'
+ObservationTimeout = '1s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+ContractConfirmations = 7
 
 [[EVM.Nodes]]
 Name = 'foo'

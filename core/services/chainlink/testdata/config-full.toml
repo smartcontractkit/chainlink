@@ -207,12 +207,6 @@ MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
-OCRContractConfirmations = 11
-OCRContractTransmitterTransmitTimeout = '1m0s'
-OCRDatabaseTimeout = '1s'
-OCRObservationTimeout = '1s'
-OCRObservationGracePeriod = '1s'
-OCR2ContractConfirmations = 7
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 TxReaperInterval = '1m0s'
@@ -245,6 +239,16 @@ MaxGasPriceWei = '79.228162514264337593543950335 gether'
 NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
+
+[EVM.OCR]
+ContractConfirmations = 11
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1s'
+ObservationTimeout = '1s'
+ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+ContractConfirmations = 7
 
 [[EVM.Nodes]]
 Name = 'foo'

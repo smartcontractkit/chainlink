@@ -49,14 +49,6 @@ type Chain struct {
 
 	NonceAutoSync *bool
 
-	//TODO nbd group for now
-	OCRContractConfirmations              *uint16
-	OCRContractTransmitterTransmitTimeout *models.Duration
-	OCRDatabaseTimeout                    *models.Duration
-	OCRObservationTimeout                 *models.Duration
-	OCRObservationGracePeriod             *models.Duration
-	OCR2ContractConfirmations             *uint16
-
 	OperatorFactoryAddress *ethkey.EIP55Address
 	RPCDefaultBatchSize    *uint32
 
@@ -75,6 +67,10 @@ type Chain struct {
 	KeySpecific []KeySpecific `toml:",omitempty"`
 
 	NodePool *NodePool
+
+	OCR *OCR
+
+	OCR2 *OCR2
 }
 
 type BalanceMonitor struct {
@@ -106,6 +102,18 @@ type NodePool struct {
 	NoNewHeadsThreshold  *models.Duration
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
+}
+
+type OCR struct {
+	ContractConfirmations              *uint16
+	ContractTransmitterTransmitTimeout *models.Duration
+	DatabaseTimeout                    *models.Duration
+	ObservationTimeout                 *models.Duration
+	ObservationGracePeriod             *models.Duration
+}
+
+type OCR2 struct {
+	ContractConfirmations *uint16
 }
 
 func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
@@ -241,7 +249,9 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.MinIncomingConfirmations = &v
 	}
 	c.MinimumContractPayment = cfg.MinimumContractPayment
-	c.OCRObservationTimeout = cfg.OCRObservationTimeout
+	if cfg.OCRObservationTimeout != nil {
+		c.OCR = &OCR{ObservationTimeout: cfg.OCRObservationTimeout}
+	}
 	if cfg.NodeNoNewHeadsThreshold != nil {
 		c.NodePool = &NodePool{NoNewHeadsThreshold: cfg.NodeNoNewHeadsThreshold}
 	}

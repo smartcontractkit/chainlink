@@ -7,7 +7,7 @@ GasEstimatorMode = 'L2Suggested'
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 MinIncomingConfirmations = 1
 MinGasPriceWei = 0
-OCRContractConfirmations = 1
+OCR.ContractConfirmations = 1
 
 [BalanceMonitor]
 BlockDelay = 0
