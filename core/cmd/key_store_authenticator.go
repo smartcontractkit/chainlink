@@ -2,12 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	ErrPasswordWhitespace  = errors.New("leading/trailing whitespace detected in password")
+	ErrEmptyPasswordInFile = errors.New("detected empty password in password file")
 )
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -21,12 +27,24 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 	if err != nil {
 		return errors.Wrap(err, "error determining if keystore is empty")
 	}
-	password, err := passwordFromFile(c.String("password"))
+	// If empty filename is provided, the password will be empty and err will be nil.
+	passwordFile := c.String("password")
+	password, err := passwordFromFile(passwordFile)
 	if err != nil {
 		return errors.Wrap(err, "error reading password from file")
 	}
-	passwordProvided := len(password) != 0
-	if passwordProvided {
+	if strings.TrimSpace(password) != password {
+		return ErrPasswordWhitespace
+	}
+	if len(passwordFile) != 0 && len(password) == 0 {
+		return ErrEmptyPasswordInFile
+	}
+	if len(password) != 0 {
+		// Because we fixed password requirements to have 3+ symbols,
+		// to not break backward compatibility we enforce this only for empty key stores.
+		if err = auth.validatePasswordStrength(password); err != nil && isEmpty {
+			return err
+		}
 		return keyStore.Unlock(password)
 	}
 	interactive := auth.Prompter.IsTerminal()
@@ -55,9 +73,11 @@ func (auth TerminalKeyStoreAuthenticator) promptExistingPassword() string {
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword() (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
-		err := auth.validatePasswordStrength(password)
-		if err != nil {
-			return password, err
+		if err := auth.validatePasswordStrength(password); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(password) != password {
+			return "", ErrPasswordWhitespace
 		}
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")
