@@ -33,7 +33,7 @@ require (
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lib/pq v1.10.5
+	github.com/lib/pq v1.10.6
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.7
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
