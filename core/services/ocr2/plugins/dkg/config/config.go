@@ -5,7 +5,6 @@ type PluginConfig struct {
 	EncryptionPublicKey string `json:"encryptionPublicKey"`
 	SigningPublicKey    string `json:"signingPublicKey"`
 	KeyID               string `json:"keyID"`
-	DKGAddress          string `json:"dkgAddress"`
 }
 
 // ValidatePluginConfig validates that the given DKG plugin configuration is correct.

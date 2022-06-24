@@ -74,7 +74,7 @@ func (d *DKGContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, err
 		return nil, errors.Wrap(err, "get dkgencrypt key")
 	}
 	onchainDKGClient, err := newOnchainDKGClient(
-		d.pluginConfig.DKGAddress,
+		d.jb.OCR2OracleSpec.ContractID,
 		d.ethClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "ew onchain dkg client")
