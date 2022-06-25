@@ -10,11 +10,11 @@ TxResendAfterThreshold = '1m'
 BlockDelay = 13
 
 [GasEstimator]
-BumpThreshold = 5
-BumpWei = '20 gwei'
 PriceDefault = '30 gwei'
 PriceMaxWei = '0.2 milli'
 PriceMinWei = '30 gwei'
+BumpThreshold = 5
+BumpWei = '20 gwei'
 
 [GasEstimator.BlockHistory]
 BlockDelay = 10

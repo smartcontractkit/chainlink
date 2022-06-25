@@ -1280,17 +1280,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = true
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1345,17 +1345,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = true
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1410,17 +1410,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1475,17 +1475,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1541,17 +1541,17 @@ BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '0'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '0'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1606,17 +1606,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '50 mwei'
+PriceMaxWei = '50 gwei'
+PriceMinWei = '0'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '50 mwei'
-PriceMaxWei = '50 gwei'
-PriceMinWei = '0'
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1671,17 +1671,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '50 mwei'
+PriceMaxWei = '50 gwei'
+PriceMinWei = '0'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '50 mwei'
-PriceMaxWei = '50 gwei'
-PriceMinWei = '0'
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1737,17 +1737,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1802,17 +1802,17 @@ BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '5'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '5 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1866,17 +1866,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1930,17 +1930,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -1996,17 +1996,17 @@ BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '0'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '0'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2062,17 +2062,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '1 gwei'
+PriceMaxWei = '500 gwei'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '1 gwei'
-PriceMaxWei = '500 gwei'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2127,17 +2127,17 @@ BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '5'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '5 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2192,17 +2192,17 @@ BlockDelay = 13
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '30 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '30 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '5'
 BumpTxDepth = 10
 BumpWei = '20 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '30 gwei'
-PriceMaxWei = '200 micro'
-PriceMinWei = '30 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2257,17 +2257,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '15 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '15 gwei'
-PriceMaxWei = '200 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2322,17 +2322,17 @@ BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '0'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '0'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2387,17 +2387,17 @@ BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '0'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '0'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2452,17 +2452,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '15 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '15 gwei'
-PriceMaxWei = '200 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2518,17 +2518,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
+PriceDefault = '1 micro'
+PriceMaxWei = '1 micro'
+PriceMinWei = '1 micro'
+LimitDefault = '7000000'
+LimitMultiplier = '1'
+LimitTransfer = '800000'
 BumpPercent = 20
 BumpThreshold = '0'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '7000000'
-LimitMultiplier = '1'
-LimitTransfer = '800000'
-PriceDefault = '1 micro'
-PriceMaxWei = '1 micro'
-PriceMinWei = '1 micro'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2583,17 +2583,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMaxWei = '1 micro'
+PriceMinWei = '25 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '25 gwei'
-PriceMaxWei = '1 micro'
-PriceMinWei = '25 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2648,17 +2648,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMaxWei = '1 micro'
+PriceMinWei = '25 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '25 gwei'
-PriceMaxWei = '1 micro'
-PriceMinWei = '25 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2713,17 +2713,17 @@ BlockDelay = 13
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '1 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '5'
 BumpTxDepth = 10
 BumpWei = '20 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '1 gwei'
-PriceMaxWei = '200 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2779,17 +2779,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
+PriceDefault = '1 micro'
+PriceMaxWei = '1 micro'
+PriceMinWei = '1 micro'
+LimitDefault = '7000000'
+LimitMultiplier = '1'
+LimitTransfer = '800000'
 BumpPercent = 20
 BumpThreshold = '0'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '7000000'
-LimitMultiplier = '1'
-LimitTransfer = '800000'
-PriceDefault = '1 micro'
-PriceMaxWei = '1 micro'
-PriceMinWei = '1 micro'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2844,17 +2844,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '5 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -2909,17 +2909,17 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
 EIP1559DynamicFees = false
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
-PriceDefault = '5 gwei'
-PriceMaxWei = '100 micro'
-PriceMinWei = '1 gwei'
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMinimum = '1'
@@ -3136,20 +3136,20 @@ across multiple nodes announce a new head, then route a request to a different n
 ```toml
 [EVM.GasEstimator]
 Mode = 'BlockHistory' # Default
+PriceDefault = '20 gwei' # Default
+PriceMaxWei = '100 micro' # Default
+PriceMinWei = '1 gwei' # Default
+LimitDefault = '500000' # Default
+LimitMultiplier = '1.0' # Default
+LimitTransfer = '21000' # Default
 BumpPercent = 20 # Default
 BumpThreshold = 3 # Default
 BumpTxDepth = 10 # Default
 BumpWei = '5 gwei' # Default
 EIP1559DynamicFees = false # Default
 FeeCapDefault = '100 gwei' # Default
-LimitDefault = '500000' # Default
-LimitMultiplier = '1.0' # Default
-LimitTransfer = '21000' # Default
 TipCapDefault = '1 wei' # Default
 TipCapMinimum = '1 wei' # Default
-PriceDefault = '20 gwei' # Default
-PriceMaxWei = '100 micro' # Default
-PriceMinWei = '1 gwei' # Default
 ```
 
 
@@ -3168,6 +3168,62 @@ Chainlink nodes decide what gas price to use using an `Estimator`. It ships with
 You can also use your own estimator for gas price by selecting the `FixedPrice` estimator and using the exposed API to set the price.
 
 An important point to note is that the Chainlink node does _not_ ship with built-in support for go-ethereum's `estimateGas` call. This is for several reasons, including security and reliability. We have found empirically that it is not generally safe to rely on the remote ETH node's idea of what gas price should be.
+
+### PriceDefault<a id='EVM-GasEstimator-PriceDefault'></a>
+```toml
+PriceDefault = '20 gwei' # Default
+```
+PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
+
+(Only applies to legacy transactions)
+
+Can be used with the `chainlink setgasprice` to be updated while the node is still running.
+
+### PriceMaxWei<a id='EVM-GasEstimator-PriceMaxWei'></a>
+```toml
+PriceMaxWei = '100 micro' # Default
+```
+PriceMaxWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
+
+### PriceMinWei<a id='EVM-GasEstimator-PriceMinWei'></a>
+```toml
+PriceMinWei = '1 gwei' # Default
+```
+PriceMinWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
+
+(Only applies to legacy transactions)
+
+It is possible to force the Chainlink node to use a fixed gas price by setting a combination of these, e.g.
+
+```toml
+EIP1559DynamicFees = false
+PriceMaxWei = 100
+PriceMinWei = 100
+PriceDefault = 100
+BumpThreshold = 0
+Mode = 'FixedPrice'
+```
+
+### LimitDefault<a id='EVM-GasEstimator-LimitDefault'></a>
+```toml
+LimitDefault = '500000' # Default
+```
+LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
+Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+
+### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
+```toml
+LimitMultiplier = '1.0' # Default
+```
+LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
+
+This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+
+### LimitTransfer<a id='EVM-GasEstimator-LimitTransfer'></a>
+```toml
+LimitTransfer = '21000' # Default
+```
+LimitTransfer is the gas limit used for an ordinary ETH transfer.
 
 ### BumpPercent<a id='EVM-GasEstimator-BumpPercent'></a>
 ```toml
@@ -3248,27 +3304,6 @@ FeeCapDefault = '100 gwei' # Default
 ```
 FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
 
-### LimitDefault<a id='EVM-GasEstimator-LimitDefault'></a>
-```toml
-LimitDefault = '500000' # Default
-```
-LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
-Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
-
-### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
-```toml
-LimitMultiplier = '1.0' # Default
-```
-LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
-
-This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
-
-### LimitTransfer<a id='EVM-GasEstimator-LimitTransfer'></a>
-```toml
-LimitTransfer = '21000' # Default
-```
-LimitTransfer is the gas limit used for an ordinary ETH transfer.
-
 ### TipCapDefault<a id='EVM-GasEstimator-TipCapDefault'></a>
 ```toml
 TipCapDefault = '1 wei' # Default
@@ -3284,41 +3319,6 @@ TipCapMinimum = '1 wei' # Default
 TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 
 Only applies to EIP-1559 transactions)
-
-### PriceDefault<a id='EVM-GasEstimator-PriceDefault'></a>
-```toml
-PriceDefault = '20 gwei' # Default
-```
-PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
-
-(Only applies to legacy transactions)
-
-Can be used with the `chainlink setgasprice` to be updated while the node is still running.
-
-### PriceMaxWei<a id='EVM-GasEstimator-PriceMaxWei'></a>
-```toml
-PriceMaxWei = '100 micro' # Default
-```
-PriceMaxWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
-
-### PriceMinWei<a id='EVM-GasEstimator-PriceMinWei'></a>
-```toml
-PriceMinWei = '1 gwei' # Default
-```
-PriceMinWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
-
-(Only applies to legacy transactions)
-
-It is possible to force the Chainlink node to use a fixed gas price by setting a combination of these, e.g.
-
-```toml
-EIP1559DynamicFees = false
-PriceMaxWei = 100
-PriceMinWei = 100
-PriceDefault = 100
-BumpThreshold = 0
-Mode = 'FixedPrice'
-```
 
 ## EVM.GasEstimator.BlockHistory<a id='EVM-GasEstimator-BlockHistory'></a>
 ```toml

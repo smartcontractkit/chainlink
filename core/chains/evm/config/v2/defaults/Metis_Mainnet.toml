@@ -6,8 +6,8 @@ OCR.ContractConfirmations = 1
 
 [GasEstimator]
 Mode = 'L2Suggested'
-BumpThreshold = 0
 PriceMinWei = '0'
+BumpThreshold = 0
 
 [BalanceMonitor]
 BlockDelay = 0

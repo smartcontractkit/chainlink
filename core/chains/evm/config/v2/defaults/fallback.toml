@@ -18,20 +18,20 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
-EIP1559DynamicFees = false
+PriceDefault = '20 gwei'
+PriceMaxWei = '100000 gwei'
+PriceMinWei = '1 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
 BumpPercent = 20
 BumpThreshold = '3'
 BumpTxDepth = 10
 BumpWei = '5 gwei'
+EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
-LimitDefault = '500000'
-LimitMultiplier = '1'
-LimitTransfer = '21000'
 TipCapDefault = '1'
 TipCapMinimum = '1'
-PriceDefault = '20 gwei'
-PriceMaxWei = '100000 gwei'
-PriceMinWei = '1 gwei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4

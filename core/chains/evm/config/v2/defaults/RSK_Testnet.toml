@@ -4,7 +4,7 @@ MinimumContractPayment = '0.001 link'
 LogPollInterval = '30s'
 
 [GasEstimator]
-FeeCapDefault = '100 mwei'
 PriceDefault = '50 mwei'
 PriceMaxWei = '50 gwei'
 PriceMinWei = 0
+FeeCapDefault = '100 mwei'

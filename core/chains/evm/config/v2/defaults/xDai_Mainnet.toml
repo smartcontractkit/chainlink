@@ -4,7 +4,7 @@ LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogPollInterval = '5s'
 
 [GasEstimator]
-BumpThreshold = '3'
 PriceDefault = '1 gwei'
-PriceMinWei = '1 gwei'
 PriceMaxWei = '500 gwei'
+PriceMinWei = '1 gwei'
+BumpThreshold = '3'

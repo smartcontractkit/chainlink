@@ -732,17 +732,17 @@ BlockDelay = 17
 
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
+PriceDefault = '9.223372036854775807 ether'
+PriceMaxWei = '281.474976710655 micro'
+PriceMinWei = '13'
+LimitDefault = '12'
+LimitMultiplier = '1.234'
+LimitTransfer = '100'
 BumpPercent = 10
 BumpThreshold = '6'
 BumpTxDepth = 6
 BumpWei = '100'
 EIP1559DynamicFees = true
-LimitDefault = '12'
-LimitMultiplier = '1.234'
-LimitTransfer = '100'
-PriceDefault = '9.223372036854775807 ether'
-PriceMaxWei = '281.474976710655 micro'
-PriceMinWei = '13'
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2'
 TipCapMinimum = '1'

@@ -568,6 +568,38 @@ BlockDelay = 1 # Default
 #
 # An important point to note is that the Chainlink node does _not_ ship with built-in support for go-ethereum's `estimateGas` call. This is for several reasons, including security and reliability. We have found empirically that it is not generally safe to rely on the remote ETH node's idea of what gas price should be.
 Mode = 'BlockHistory' # Default
+# PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
+#
+# (Only applies to legacy transactions)
+#
+# Can be used with the `chainlink setgasprice` to be updated while the node is still running.
+PriceDefault = '20 gwei' # Default
+# PriceMaxWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
+PriceMaxWei = '100 micro' # Default
+# PriceMinWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
+#
+# (Only applies to legacy transactions)
+#
+# It is possible to force the Chainlink node to use a fixed gas price by setting a combination of these, e.g.
+#
+# ```toml
+# EIP1559DynamicFees = false
+# PriceMaxWei = 100
+# PriceMinWei = 100
+# PriceDefault = 100
+# BumpThreshold = 0
+# Mode = 'FixedPrice'
+# ```
+PriceMinWei = '1 gwei' # Default
+# LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
+# Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+LimitDefault = '500000' # Default
+# LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
+#
+# This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+LimitMultiplier = '1.0' # Default
+# LimitTransfer is the gas limit used for an ordinary ETH transfer.
+LimitTransfer = '21000' # Default
 # BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `GasBumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
 BumpPercent = 20 # Default
 # BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
@@ -623,15 +655,6 @@ BumpWei = '5 gwei' # Default
 EIP1559DynamicFees = false # Default
 # FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
 FeeCapDefault = '100 gwei' # Default
-# LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
-# Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
-LimitDefault = '500000' # Default
-# LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
-#
-# This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
-LimitMultiplier = '1.0' # Default
-# LimitTransfer is the gas limit used for an ordinary ETH transfer.
-LimitTransfer = '21000' # Default
 # TipCapDefault is the default gas tip to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
 #
 # (Only applies to EIP-1559 transactions)
@@ -640,29 +663,6 @@ TipCapDefault = '1 wei' # Default
 #
 # Only applies to EIP-1559 transactions)
 TipCapMinimum = '1 wei' # Default
-# PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
-#
-# (Only applies to legacy transactions)
-#
-# Can be used with the `chainlink setgasprice` to be updated while the node is still running.
-PriceDefault = '20 gwei' # Default
-# PriceMaxWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
-PriceMaxWei = '100 micro' # Default
-# PriceMinWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
-#
-# (Only applies to legacy transactions)
-#
-# It is possible to force the Chainlink node to use a fixed gas price by setting a combination of these, e.g.
-#
-# ```toml
-# EIP1559DynamicFees = false
-# PriceMaxWei = 100
-# PriceMinWei = 100
-# PriceDefault = 100
-# BumpThreshold = 0
-# Mode = 'FixedPrice'
-# ```
-PriceMinWei = '1 gwei' # Default
 
 
 # These settings allow you to configure how your node calculates gas prices when using the block history estimator.

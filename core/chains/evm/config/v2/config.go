@@ -15,13 +15,11 @@ import (
 )
 
 type Chain struct {
-	BlockBackfillDepth *uint32
-	BlockBackfillSkip  *bool
-
-	ChainType            *string
-	FinalityDepth        *uint32
-	FlagsContractAddress *ethkey.EIP55Address
-
+	BlockBackfillDepth       *uint32
+	BlockBackfillSkip        *bool
+	ChainType                *string
+	FinalityDepth            *uint32
+	FlagsContractAddress     *ethkey.EIP55Address
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *models.Duration
@@ -29,15 +27,12 @@ type Chain struct {
 	MaxQueuedTransactions    *uint32
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
-
-	NonceAutoSync *bool
-
-	OperatorFactoryAddress *ethkey.EIP55Address
-	RPCDefaultBatchSize    *uint32
-
-	TxReaperInterval       *models.Duration
-	TxReaperThreshold      *models.Duration
-	TxResendAfterThreshold *models.Duration
+	NonceAutoSync            *bool
+	OperatorFactoryAddress   *ethkey.EIP55Address
+	RPCDefaultBatchSize      *uint32
+	TxReaperInterval         *models.Duration
+	TxReaperThreshold        *models.Duration
+	TxResendAfterThreshold   *models.Duration
 
 	UseForwarders *bool
 
@@ -62,20 +57,20 @@ type BalanceMonitor struct {
 type GasEstimator struct {
 	Mode *string
 
+	PriceDefault *utils.Wei
+	PriceMaxWei  *utils.Wei
+	PriceMinWei  *utils.Wei
+
+	LimitDefault    *utils.Big
+	LimitMultiplier *decimal.Decimal
+	LimitTransfer   *utils.Big
+
 	BumpPercent   *uint16
 	BumpThreshold *utils.Wei
 	BumpTxDepth   *uint16
 	BumpWei       *utils.Wei
 
 	EIP1559DynamicFees *bool
-
-	LimitDefault    *utils.Big
-	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *utils.Big
-
-	PriceDefault *utils.Wei
-	PriceMaxWei  *utils.Wei
-	PriceMinWei  *utils.Wei
 
 	FeeCapDefault *utils.Wei
 	TipCapDefault *utils.Wei

@@ -5,12 +5,12 @@ OCR.ContractConfirmations = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
-BumpThreshold = '0'
-LimitDefault = 7000000
-LimitTransfer = 800000
 PriceDefault = '1000 gwei'
 PriceMaxWei = '1000 gwei'
 PriceMinWei = '1000 gwei'
+LimitDefault = 7000000
+LimitTransfer = 800000
+BumpThreshold = '0'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0
