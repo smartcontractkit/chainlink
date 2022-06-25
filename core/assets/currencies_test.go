@@ -114,8 +114,8 @@ func TestAssets_Eth_IsZero(t *testing.T) {
 	zeroEth := assets.NewEth(0)
 	assert.True(t, zeroEth.IsZero())
 
-	oneWei := assets.NewEth(1)
-	assert.False(t, oneWei.IsZero())
+	oneLink := assets.NewEth(1)
+	assert.False(t, oneLink.IsZero())
 }
 
 func TestAssets_Eth_MarshalJson(t *testing.T) {
@@ -314,7 +314,6 @@ func TestLink(t *testing.T) {
 		{"1100000000000000000", "1.1 link"},
 		{"1.1link", "1.1 link"},
 		{"1.1 link", "1.1 link"},
-		//TODO more cases, errors
 	} {
 		t.Run(tt.input, func(t *testing.T) {
 			var l assets.Link
@@ -325,4 +324,34 @@ func TestLink(t *testing.T) {
 			assert.Equal(t, tt.exp, string(b))
 		})
 	}
+}
+
+func FuzzLink(f *testing.F) {
+	f.Add("1")
+	f.Add("1 link")
+	f.Add("1.1link")
+	f.Add("2.3")
+	f.Add("2.3 link")
+	f.Add("00005 link")
+	f.Add("0.0005link")
+	f.Add("1100000000000000000000000000000")
+	f.Add("1100000000000000000000000000000 juels")
+	f.Fuzz(func(t *testing.T, v string) {
+		if len(v) > 1_000 {
+			t.Skip()
+		}
+		var l assets.Link
+		err := l.UnmarshalText([]byte(v))
+		if err != nil {
+			t.Skip()
+		}
+
+		b, err := l.MarshalText()
+		require.NoErrorf(t, err, "failed to marshal %v after unmarshaling from %q", l, v)
+
+		var l2 assets.Link
+		err = l2.UnmarshalText(b)
+		require.NoErrorf(t, err, "failed to unmarshal %s after marshaling from %v", string(b), l)
+		require.Equal(t, l, l2, "unequal values after marshal/unmarshal")
+	})
 }
