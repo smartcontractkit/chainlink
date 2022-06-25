@@ -1,9 +1,11 @@
 ChainID = '4002'
-GasPriceDefault = '15 gwei'
-MaxGasPriceWei = '0.2 milli'
 LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 3
+
+[GasEstimator]
+PriceDefault = '15 gwei'
+PriceMaxWei = '0.2 milli'
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'

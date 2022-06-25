@@ -19,31 +19,14 @@ type Chain struct {
 	BlockBackfillSkip  *bool
 
 	ChainType            *string
-	EIP1559DynamicFees   *bool
 	FinalityDepth        *uint32
 	FlagsContractAddress *ethkey.EIP55Address
 
-	GasBumpPercent     *uint16
-	GasBumpThreshold   *utils.Wei
-	GasBumpTxDepth     *uint16
-	GasBumpWei         *utils.Wei
-	GasEstimatorMode   *string
-	GasFeeCapDefault   *utils.Wei
-	GasLimitDefault    *utils.Big
-	GasLimitMultiplier *decimal.Decimal
-	GasLimitTransfer   *utils.Big
-	GasPriceDefault    *utils.Wei
-	GasTipCapDefault   *utils.Wei
-	GasTipCapMinimum   *utils.Wei
-
-	LinkContractAddress  *ethkey.EIP55Address
-	LogBackfillBatchSize *uint32
-	LogPollInterval      *models.Duration
-
-	MaxGasPriceWei           *utils.Wei
+	LinkContractAddress      *ethkey.EIP55Address
+	LogBackfillBatchSize     *uint32
+	LogPollInterval          *models.Duration
 	MaxInFlightTransactions  *uint32
 	MaxQueuedTransactions    *uint32
-	MinGasPriceWei           *utils.Wei
 	MinIncomingConfirmations *uint32
 	MinimumContractPayment   *assets.Link
 
@@ -60,7 +43,7 @@ type Chain struct {
 
 	BalanceMonitor *BalanceMonitor
 
-	BlockHistoryEstimator *BlockHistoryEstimator
+	GasEstimator *GasEstimator
 
 	HeadTracker *HeadTracker
 
@@ -76,6 +59,31 @@ type BalanceMonitor struct {
 	BlockDelay *uint16
 }
 
+type GasEstimator struct {
+	Mode *string
+
+	BumpPercent   *uint16
+	BumpThreshold *utils.Wei
+	BumpTxDepth   *uint16
+	BumpWei       *utils.Wei
+
+	EIP1559DynamicFees *bool
+
+	LimitDefault    *utils.Big
+	LimitMultiplier *decimal.Decimal
+	LimitTransfer   *utils.Big
+
+	PriceDefault *utils.Wei
+	PriceMaxWei  *utils.Wei
+	PriceMinWei  *utils.Wei
+
+	FeeCapDefault *utils.Wei
+	TipCapDefault *utils.Wei
+	TipCapMinimum *utils.Wei
+
+	BlockHistory *BlockHistoryEstimator
+}
+
 type BlockHistoryEstimator struct {
 	BatchSize                 *uint32
 	BlockDelay                *uint16
@@ -85,8 +93,12 @@ type BlockHistoryEstimator struct {
 }
 
 type KeySpecific struct {
-	Key            *ethkey.EIP55Address
-	MaxGasPriceWei *utils.Wei
+	Key          *ethkey.EIP55Address
+	GasEstimator *KeySpecificGasEstimator
+}
+
+type KeySpecificGasEstimator struct {
+	PriceMaxWei *utils.Wei
 }
 
 type HeadTracker struct {
@@ -114,53 +126,15 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg == nil {
 		return nil
 	}
-	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
-		c.BlockHistoryEstimator = &BlockHistoryEstimator{}
-		if cfg.BlockHistoryEstimatorBlockDelay.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
-			c.BlockHistoryEstimator.BlockDelay = &v
-		}
-		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
-			c.BlockHistoryEstimator.BlockHistorySize = &v
-		}
-		if cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Int64)
-			c.BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = &v
-		}
-	}
 	if cfg.ChainType.Valid {
 		c.ChainType = &cfg.ChainType.String
 	}
 	c.TxReaperThreshold = cfg.EthTxReaperThreshold
 	c.TxResendAfterThreshold = cfg.EthTxResendAfterThreshold
-	if cfg.EvmEIP1559DynamicFees.Valid {
-		c.EIP1559DynamicFees = &cfg.EvmEIP1559DynamicFees.Bool
-	}
 	if cfg.EvmFinalityDepth.Valid {
 		v := uint32(cfg.EvmFinalityDepth.Int64)
 		c.FinalityDepth = &v
 	}
-	if cfg.EvmGasBumpPercent.Valid {
-		v := uint16(cfg.EvmGasBumpPercent.Int64)
-		c.GasBumpPercent = &v
-	}
-	if cfg.EvmGasBumpTxDepth.Valid {
-		v := uint16(cfg.EvmGasBumpTxDepth.Int64)
-		c.GasBumpTxDepth = &v
-	}
-	c.GasBumpWei = cfg.EvmGasBumpWei.Wei()
-	c.GasFeeCapDefault = cfg.EvmGasFeeCapDefault.Wei()
-	if cfg.EvmGasLimitDefault.Valid {
-		c.GasLimitDefault = utils.NewBigI(cfg.EvmGasLimitDefault.Int64)
-	}
-	if cfg.EvmGasLimitMultiplier.Valid {
-		v := decimal.NewFromFloat(cfg.EvmGasLimitMultiplier.Float64)
-		c.GasLimitMultiplier = &v
-	}
-	c.GasPriceDefault = cfg.EvmGasPriceDefault.Wei()
-	c.GasTipCapDefault = cfg.EvmGasTipCapDefault.Wei()
-	c.GasTipCapMinimum = cfg.EvmGasTipCapMinimum.Wei()
 	if cfg.EvmHeadTrackerHistoryDepth.Valid {
 		if c.HeadTracker == nil {
 			c.HeadTracker = &HeadTracker{}
@@ -186,7 +160,6 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.LogBackfillBatchSize = &v
 	}
 	c.LogPollInterval = cfg.EvmLogPollInterval
-	c.MaxGasPriceWei = cfg.EvmMaxGasPriceWei.Wei()
 	if cfg.EvmNonceAutoSync.Valid {
 		c.NonceAutoSync = &cfg.EvmNonceAutoSync.Bool
 	}
@@ -207,7 +180,95 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.FlagsContractAddress = &v
 	}
 	if cfg.GasEstimatorMode.Valid {
-		c.GasEstimatorMode = &cfg.GasEstimatorMode.String
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.Mode = &cfg.GasEstimatorMode.String
+	}
+	if cfg.EvmMaxGasPriceWei != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.PriceMaxWei = cfg.EvmMaxGasPriceWei.Wei()
+	}
+	if cfg.EvmEIP1559DynamicFees.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.EIP1559DynamicFees = &cfg.EvmEIP1559DynamicFees.Bool
+	}
+	if cfg.EvmGasPriceDefault != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.PriceDefault = cfg.EvmGasPriceDefault.Wei()
+	}
+	if cfg.EvmGasLimitMultiplier.Valid {
+		v := decimal.NewFromFloat(cfg.EvmGasLimitMultiplier.Float64)
+		c.GasEstimator.LimitMultiplier = &v
+	}
+	if cfg.EvmGasTipCapDefault != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.TipCapDefault = cfg.EvmGasTipCapDefault.Wei()
+	}
+	if cfg.EvmGasTipCapMinimum != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.TipCapMinimum = cfg.EvmGasTipCapMinimum.Wei()
+	}
+	if cfg.EvmGasBumpPercent.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint16(cfg.EvmGasBumpPercent.Int64)
+		c.GasEstimator.BumpPercent = &v
+	}
+	if cfg.EvmGasBumpTxDepth.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint16(cfg.EvmGasBumpTxDepth.Int64)
+		c.GasEstimator.BumpTxDepth = &v
+	}
+	if cfg.EvmGasBumpWei != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.BumpWei = cfg.EvmGasBumpWei.Wei()
+	}
+	if cfg.EvmGasFeeCapDefault != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.FeeCapDefault = cfg.EvmGasFeeCapDefault.Wei()
+	}
+	if cfg.EvmGasLimitDefault.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.LimitDefault = utils.NewBigI(cfg.EvmGasLimitDefault.Int64)
+	}
+
+	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		c.GasEstimator.BlockHistory = &BlockHistoryEstimator{}
+		if cfg.BlockHistoryEstimatorBlockDelay.Valid {
+			v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
+			c.GasEstimator.BlockHistory.BlockDelay = &v
+		}
+		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
+			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
+			c.GasEstimator.BlockHistory.BlockHistorySize = &v
+		}
+		if cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
+			v := uint16(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Int64)
+			c.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = &v
+		}
 	}
 	for s, kcfg := range cfg.KeySpecific {
 		if !common.IsHexAddress(s) {
@@ -216,8 +277,10 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		a := common.HexToAddress(s)
 		v := ethkey.EIP55AddressFromAddress(a)
 		c.KeySpecific = append(c.KeySpecific, KeySpecific{
-			Key:            &v,
-			MaxGasPriceWei: kcfg.EvmMaxGasPriceWei.Wei(),
+			Key: &v,
+			GasEstimator: &KeySpecificGasEstimator{
+				PriceMaxWei: kcfg.EvmMaxGasPriceWei.Wei(),
+			},
 		})
 	}
 	if cfg.LinkContractAddress.Valid {

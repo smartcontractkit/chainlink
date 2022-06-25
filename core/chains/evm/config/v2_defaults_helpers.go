@@ -30,28 +30,13 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 		BlockBackfillDepth:       nil,
 		BlockBackfillSkip:        nil,
 		ChainType:                ptr(string(set.chainType)),
-		EIP1559DynamicFees:       ptr(set.eip1559DynamicFees),
 		FinalityDepth:            ptr(set.finalityDepth),
 		FlagsContractAddress:     asEIP155Address(set.flagsContractAddress),
-		GasBumpPercent:           ptr(set.gasBumpPercent),
-		GasBumpThreshold:         utils.NewWei(new(big.Int).SetUint64(set.gasBumpThreshold)),
-		GasBumpTxDepth:           ptr(set.gasBumpTxDepth),
-		GasBumpWei:               utils.NewWei(&set.gasBumpWei),
-		GasEstimatorMode:         ptr(set.gasEstimatorMode),
-		GasFeeCapDefault:         utils.NewWei(&set.gasFeeCapDefault),
-		GasLimitDefault:          utils.NewBig(new(big.Int).SetUint64(set.gasLimitDefault)),
-		GasLimitMultiplier:       ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
-		GasLimitTransfer:         utils.NewBig(new(big.Int).SetUint64(set.gasLimitTransfer)),
-		GasPriceDefault:          utils.NewWei(&set.gasPriceDefault),
-		GasTipCapDefault:         utils.NewWei(&set.gasTipCapDefault),
-		GasTipCapMinimum:         utils.NewWei(&set.gasTipCapMinimum),
 		LinkContractAddress:      asEIP155Address(set.linkContractAddress),
 		LogBackfillBatchSize:     ptr(set.logBackfillBatchSize),
 		LogPollInterval:          models.MustNewDuration(set.logPollInterval),
-		MaxGasPriceWei:           utils.NewWei(&set.maxGasPriceWei),
 		MaxInFlightTransactions:  ptr(set.maxInFlightTransactions),
 		MaxQueuedTransactions:    ptr(uint32(set.maxQueuedTransactions)),
-		MinGasPriceWei:           utils.NewWei(&set.minGasPriceWei),
 		MinIncomingConfirmations: ptr(set.minIncomingConfirmations),
 		MinimumContractPayment:   set.minimumContractPayment,
 		NonceAutoSync:            ptr(set.nonceAutoSync),
@@ -65,12 +50,29 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 			Enabled:    ptr(set.balanceMonitorEnabled),
 			BlockDelay: ptr(set.balanceMonitorBlockDelay),
 		},
-		BlockHistoryEstimator: &v2.BlockHistoryEstimator{
-			BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
-			BlockDelay:                ptr(set.blockHistoryEstimatorBlockDelay),
-			BlockHistorySize:          ptr(set.blockHistoryEstimatorBlockHistorySize),
-			EIP1559FeeCapBufferBlocks: set.blockHistoryEstimatorEIP1559FeeCapBufferBlocks,
-			TransactionPercentile:     ptr(set.blockHistoryEstimatorTransactionPercentile),
+		GasEstimator: &v2.GasEstimator{
+			Mode:               ptr(set.gasEstimatorMode),
+			EIP1559DynamicFees: ptr(set.eip1559DynamicFees),
+			BumpPercent:        ptr(set.gasBumpPercent),
+			BumpThreshold:      utils.NewWei(new(big.Int).SetUint64(set.gasBumpThreshold)),
+			BumpTxDepth:        ptr(set.gasBumpTxDepth),
+			BumpWei:            utils.NewWei(&set.gasBumpWei),
+			FeeCapDefault:      utils.NewWei(&set.gasFeeCapDefault),
+			LimitDefault:       utils.NewBig(new(big.Int).SetUint64(set.gasLimitDefault)),
+			LimitMultiplier:    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
+			LimitTransfer:      utils.NewBig(new(big.Int).SetUint64(set.gasLimitTransfer)),
+			TipCapDefault:      utils.NewWei(&set.gasTipCapDefault),
+			TipCapMinimum:      utils.NewWei(&set.gasTipCapMinimum),
+			PriceDefault:       utils.NewWei(&set.gasPriceDefault),
+			PriceMaxWei:        utils.NewWei(&set.maxGasPriceWei),
+			PriceMinWei:        utils.NewWei(&set.minGasPriceWei),
+			BlockHistory: &v2.BlockHistoryEstimator{
+				BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
+				BlockDelay:                ptr(set.blockHistoryEstimatorBlockDelay),
+				BlockHistorySize:          ptr(set.blockHistoryEstimatorBlockHistorySize),
+				EIP1559FeeCapBufferBlocks: set.blockHistoryEstimatorEIP1559FeeCapBufferBlocks,
+				TransactionPercentile:     ptr(set.blockHistoryEstimatorTransactionPercentile),
+			},
 		},
 		HeadTracker: &v2.HeadTracker{
 			BlockEmissionIdleWarningThreshold: models.MustNewDuration(set.blockEmissionIdleWarningThreshold),
@@ -98,8 +100,11 @@ func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
 	if isZeroPtr(c.BalanceMonitor) {
 		c.BalanceMonitor = nil
 	}
-	if isZeroPtr(c.BlockHistoryEstimator) {
-		c.BlockHistoryEstimator = nil
+	if isZeroPtr(c.GasEstimator.BlockHistory) {
+		c.GasEstimator.BlockHistory = nil
+	}
+	if isZeroPtr(c.GasEstimator) {
+		c.GasEstimator = nil
 	}
 	if isZeroPtr(c.HeadTracker) {
 		c.HeadTracker = nil

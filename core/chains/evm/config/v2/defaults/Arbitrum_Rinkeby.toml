@@ -1,16 +1,18 @@
 ChainID = '421611'
 ChainType = 'arbitrum'
-GasBumpThreshold = '0'
-GasEstimatorMode = 'FixedPrice'
-GasLimitDefault = 7000000
-GasLimitTransfer = 800000
-GasPriceDefault = '1000 gwei'
-MaxGasPriceWei = '1000 gwei'
-MinGasPriceWei = '1000 gwei'
 LinkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
 OCR.ContractConfirmations = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+BumpThreshold = '0'
+Mode = 'FixedPrice'
+LimitDefault = 7000000
+LimitTransfer = 800000
+PriceDefault = '1000 gwei'
+PriceMaxWei = '1000 gwei'
+PriceMinWei = '1000 gwei'
+
+[GasEstimator.BlockHistory]
 BlockHistorySize = 0
 
 [HeadTracker]

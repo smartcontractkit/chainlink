@@ -86,7 +86,9 @@ var (
 			{
 				ChainID: utils.NewBigI(42),
 				Chain: evmcfg.Chain{
-					GasPriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
+					GasEstimator: &evmcfg.GasEstimator{
+						PriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
+					},
 				},
 				Nodes: []evmcfg.Node{
 					{
@@ -97,7 +99,9 @@ var (
 			{
 				ChainID: utils.NewBigI(137),
 				Chain: evmcfg.Chain{
-					GasEstimatorMode: ptr("FixedPrice"),
+					GasEstimator: &evmcfg.GasEstimator{
+						Mode: ptr("FixedPrice"),
+					},
 				},
 				Nodes: []evmcfg.Node{
 					{
@@ -358,37 +362,44 @@ func TestConfig_Marshal(t *testing.T) {
 					Enabled:    ptr(true),
 					BlockDelay: ptr[uint16](17),
 				},
-				BlockBackfillDepth: ptr[uint32](100),
-				BlockBackfillSkip:  ptr(true),
-				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimator{
-					BatchSize:                 ptr[uint32](17),
-					BlockDelay:                ptr[uint16](10),
-					BlockHistorySize:          ptr[uint16](12),
-					EIP1559FeeCapBufferBlocks: ptr[uint16](13),
-					TransactionPercentile:     ptr[uint16](15),
-				},
+				BlockBackfillDepth:   ptr[uint32](100),
+				BlockBackfillSkip:    ptr(true),
 				ChainType:            ptr("Optimism"),
-				EIP1559DynamicFees:   ptr(true),
 				FinalityDepth:        ptr[uint32](42),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
-				GasBumpPercent:     ptr[uint16](10),
-				GasBumpThreshold:   utils.NewBigI(6).Wei(),
-				GasBumpTxDepth:     ptr[uint16](6),
-				GasBumpWei:         utils.NewBigI(100).Wei(),
-				GasEstimatorMode:   ptr("L2Suggested"),
-				GasFeeCapDefault:   utils.NewBigI(math.MaxInt64).Wei(),
-				GasLimitDefault:    utils.NewBigI(12),
-				GasLimitMultiplier: mustDecimal("1.234"),
-				GasLimitTransfer:   utils.NewBigI(100),
-				GasPriceDefault:    utils.NewBigI(math.MaxInt64).Wei(),
-				GasTipCapDefault:   utils.NewBigI(2).Wei(),
-				GasTipCapMinimum:   utils.NewBigI(1).Wei(),
+				GasEstimator: &evmcfg.GasEstimator{
+					Mode:               ptr("L2Suggested"),
+					EIP1559DynamicFees: ptr(true),
+					BumpPercent:        ptr[uint16](10),
+					BumpThreshold:      utils.NewBigI(6).Wei(),
+					BumpTxDepth:        ptr[uint16](6),
+					BumpWei:            utils.NewBigI(100).Wei(),
+					FeeCapDefault:      utils.NewBigI(math.MaxInt64).Wei(),
+					LimitDefault:       utils.NewBigI(12),
+					LimitMultiplier:    mustDecimal("1.234"),
+					LimitTransfer:      utils.NewBigI(100),
+					TipCapDefault:      utils.NewBigI(2).Wei(),
+					TipCapMinimum:      utils.NewBigI(1).Wei(),
+					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
+					PriceMaxWei:        utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
+					PriceMinWei:        utils.NewBigI(13).Wei(),
+
+					BlockHistory: &evmcfg.BlockHistoryEstimator{
+						BatchSize:                 ptr[uint32](17),
+						BlockDelay:                ptr[uint16](10),
+						BlockHistorySize:          ptr[uint16](12),
+						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
+						TransactionPercentile:     ptr[uint16](15),
+					},
+				},
 
 				KeySpecific: []evmcfg.KeySpecific{
 					{
-						Key:            mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
-						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
+						Key: mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
+						GasEstimator: &evmcfg.KeySpecificGasEstimator{
+							PriceMaxWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
+						},
 					},
 				},
 
@@ -396,10 +407,8 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize: ptr[uint32](17),
 				LogPollInterval:      &minute,
 
-				MaxGasPriceWei:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
 				MaxInFlightTransactions:  ptr[uint32](19),
 				MaxQueuedTransactions:    ptr[uint32](99),
-				MinGasPriceWei:           utils.NewBigI(13).Wei(),
 				MinIncomingConfirmations: ptr[uint32](13),
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
 
@@ -700,28 +709,13 @@ Enabled = false
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
-EIP1559DynamicFees = true
 FinalityDepth = 42
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
-GasBumpPercent = 10
-GasBumpThreshold = '6'
-GasBumpTxDepth = 6
-GasBumpWei = '100'
-GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '9.223372036854775807 ether'
-GasLimitDefault = '12'
-GasLimitMultiplier = '1.234'
-GasLimitTransfer = '100'
-GasPriceDefault = '9.223372036854775807 ether'
-GasTipCapDefault = '2'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxGasPriceWei = '281.474976710655 micro'
 MaxInFlightTransactions = 19
 MaxQueuedTransactions = 99
-MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
 MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
@@ -736,7 +730,24 @@ UseForwarders = true
 Enabled = true
 BlockDelay = 17
 
-[EVM.BlockHistoryEstimator]
+[EVM.GasEstimator]
+Mode = 'L2Suggested'
+BumpPercent = 10
+BumpThreshold = '6'
+BumpTxDepth = 6
+BumpWei = '100'
+EIP1559DynamicFees = true
+LimitDefault = '12'
+LimitMultiplier = '1.234'
+LimitTransfer = '100'
+PriceDefault = '9.223372036854775807 ether'
+PriceMaxWei = '281.474976710655 micro'
+PriceMinWei = '13'
+FeeCapDefault = '9.223372036854775807 ether'
+TipCapDefault = '2'
+TipCapMinimum = '1'
+
+[EVM.GasEstimator.BlockHistory]
 BatchSize = 17
 BlockDelay = 10
 BlockHistorySize = 12
@@ -751,7 +762,9 @@ SamplingInterval = '1h0m0s'
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
-MaxGasPriceWei = '79.228162514264337593543950335 gether'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMaxWei = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 NoNewHeadsThreshold = '1m0s'

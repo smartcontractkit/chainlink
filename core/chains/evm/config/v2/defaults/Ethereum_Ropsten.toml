@@ -1,9 +1,11 @@
 ChainID = '3'
-EIP1559DynamicFees = true
 LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
 MinimumContractPayment = '0.1 link'
 
-[BlockHistoryEstimator]
+[GasEstimator]
+EIP1559DynamicFees = true
+
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4

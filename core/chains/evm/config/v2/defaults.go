@@ -95,50 +95,11 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.ChainType; v != nil {
 		c.ChainType = v
 	}
-	if v := f.EIP1559DynamicFees; v != nil {
-		c.EIP1559DynamicFees = v
-	}
 	if v := f.FinalityDepth; v != nil {
 		c.FinalityDepth = v
 	}
 	if v := f.FlagsContractAddress; v != nil {
 		c.FlagsContractAddress = v
-	}
-	if v := f.GasBumpPercent; v != nil {
-		c.GasBumpPercent = v
-	}
-	if v := f.GasBumpThreshold; v != nil {
-		c.GasBumpThreshold = v
-	}
-	if v := f.GasBumpTxDepth; v != nil {
-		c.GasBumpTxDepth = v
-	}
-	if v := f.GasBumpWei; v != nil {
-		c.GasBumpWei = v
-	}
-	if v := f.GasEstimatorMode; v != nil {
-		c.GasEstimatorMode = v
-	}
-	if v := f.GasFeeCapDefault; v != nil {
-		c.GasFeeCapDefault = v
-	}
-	if v := f.GasLimitDefault; v != nil {
-		c.GasLimitDefault = v
-	}
-	if v := f.GasLimitMultiplier; v != nil {
-		c.GasLimitMultiplier = v
-	}
-	if v := f.GasLimitTransfer; v != nil {
-		c.GasLimitTransfer = v
-	}
-	if v := f.GasPriceDefault; v != nil {
-		c.GasPriceDefault = v
-	}
-	if v := f.GasTipCapDefault; v != nil {
-		c.GasTipCapDefault = v
-	}
-	if v := f.GasTipCapMinimum; v != nil {
-		c.GasTipCapMinimum = v
 	}
 	if v := f.LinkContractAddress; v != nil {
 		c.LinkContractAddress = v
@@ -149,17 +110,11 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogPollInterval; v != nil {
 		c.LogPollInterval = v
 	}
-	if v := f.MaxGasPriceWei; v != nil {
-		c.MaxGasPriceWei = v
-	}
 	if v := f.MaxInFlightTransactions; v != nil {
 		c.MaxInFlightTransactions = v
 	}
 	if v := f.MaxQueuedTransactions; v != nil {
 		c.MaxQueuedTransactions = v
-	}
-	if v := f.MinGasPriceWei; v != nil {
-		c.MinGasPriceWei = v
 	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
@@ -199,24 +154,74 @@ func (c *Chain) SetFrom(f *Chain) {
 			c.BalanceMonitor.BlockDelay = v
 		}
 	}
-	if b := f.BlockHistoryEstimator; b != nil {
-		if c.BlockHistoryEstimator == nil {
-			c.BlockHistoryEstimator = &BlockHistoryEstimator{}
+	if g := f.GasEstimator; g != nil {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
 		}
-		if v := b.BatchSize; v != nil {
-			c.BlockHistoryEstimator.BatchSize = v
+		if v := g.Mode; v != nil {
+			c.GasEstimator.Mode = v
 		}
-		if v := b.BlockDelay; v != nil {
-			c.BlockHistoryEstimator.BlockDelay = v
+		if v := g.EIP1559DynamicFees; v != nil {
+			c.GasEstimator.EIP1559DynamicFees = v
 		}
-		if v := b.BlockHistorySize; v != nil {
-			c.BlockHistoryEstimator.BlockHistorySize = v
+		if v := g.BumpPercent; v != nil {
+			c.GasEstimator.BumpPercent = v
 		}
-		if v := b.EIP1559FeeCapBufferBlocks; v != nil {
-			c.BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = v
+		if v := g.BumpThreshold; v != nil {
+			c.GasEstimator.BumpThreshold = v
 		}
-		if v := b.TransactionPercentile; v != nil {
-			c.BlockHistoryEstimator.TransactionPercentile = v
+		if v := g.BumpTxDepth; v != nil {
+			c.GasEstimator.BumpTxDepth = v
+		}
+		if v := g.BumpWei; v != nil {
+			c.GasEstimator.BumpWei = v
+		}
+		if v := g.FeeCapDefault; v != nil {
+			c.GasEstimator.FeeCapDefault = v
+		}
+		if v := g.LimitDefault; v != nil {
+			c.GasEstimator.LimitDefault = v
+		}
+		if v := g.LimitMultiplier; v != nil {
+			c.GasEstimator.LimitMultiplier = v
+		}
+		if v := g.LimitTransfer; v != nil {
+			c.GasEstimator.LimitTransfer = v
+		}
+		if v := g.PriceDefault; v != nil {
+			c.GasEstimator.PriceDefault = v
+		}
+		if v := g.TipCapDefault; v != nil {
+			c.GasEstimator.TipCapDefault = v
+		}
+		if v := g.TipCapMinimum; v != nil {
+			c.GasEstimator.TipCapMinimum = v
+		}
+		if v := g.PriceMaxWei; v != nil {
+			c.GasEstimator.PriceMaxWei = v
+		}
+		if v := g.PriceMinWei; v != nil {
+			c.GasEstimator.PriceMinWei = v
+		}
+		if b := g.BlockHistory; b != nil {
+			if c.GasEstimator.BlockHistory == nil {
+				c.GasEstimator.BlockHistory = &BlockHistoryEstimator{}
+			}
+			if v := b.BatchSize; v != nil {
+				c.GasEstimator.BlockHistory.BatchSize = v
+			}
+			if v := b.BlockDelay; v != nil {
+				c.GasEstimator.BlockHistory.BlockDelay = v
+			}
+			if v := b.BlockHistorySize; v != nil {
+				c.GasEstimator.BlockHistory.BlockHistorySize = v
+			}
+			if v := b.EIP1559FeeCapBufferBlocks; v != nil {
+				c.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = v
+			}
+			if v := b.TransactionPercentile; v != nil {
+				c.GasEstimator.BlockHistory.TransactionPercentile = v
+			}
 		}
 	}
 	// skip KeySpecific

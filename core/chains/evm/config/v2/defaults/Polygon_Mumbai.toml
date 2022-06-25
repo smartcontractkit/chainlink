@@ -1,11 +1,6 @@
 ChainID = '80001'
 FinalityDepth = 500
-GasBumpThreshold = 5
-GasBumpWei = '20 gwei'
 MaxQueuedTransactions = 5000
-MaxGasPriceWei = '0.2 milli'
-GasPriceDefault = '1 gwei'
-MinGasPriceWei = '1 gwei'
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 5
@@ -14,7 +9,14 @@ TxResendAfterThreshold = '1m'
 [BalanceMonitor]
 BlockDelay = 13
 
-[BlockHistoryEstimator]
+[GasEstimator]
+BumpThreshold = 5
+BumpWei = '20 gwei'
+PriceDefault = '1 gwei'
+PriceMaxWei = '0.2 milli'
+PriceMinWei = '1 gwei'
+
+[GasEstimator.BlockHistory]
 BlockDelay = 10
 BlockHistorySize = 24
 

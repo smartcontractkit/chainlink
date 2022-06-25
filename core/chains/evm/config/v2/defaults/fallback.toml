@@ -1,23 +1,8 @@
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100000 gwei'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '.00001 link'
 NonceAutoSync = true
@@ -31,7 +16,24 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+EIP1559DynamicFees = false
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+FeeCapDefault = '100 gwei'
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100000 gwei'
+PriceMinWei = '1 gwei'
+
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8

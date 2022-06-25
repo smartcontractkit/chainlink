@@ -2,7 +2,7 @@ ChainID = '4'
 LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
 MinimumContractPayment = '0.1 link'
 
-[BlockHistoryEstimator]
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4

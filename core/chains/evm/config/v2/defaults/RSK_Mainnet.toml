@@ -1,8 +1,10 @@
 ChainID = '30'
-GasPriceDefault = '50 mwei'
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
-MaxGasPriceWei = '50 gwei'
-GasFeeCapDefault = '100 mwei'
-MinGasPriceWei = 0
-MinimumContractPayment = '0.001 link'
 LogPollInterval = '30s'
+MinimumContractPayment = '0.001 link'
+
+[GasEstimator]
+PriceDefault = '50 mwei'
+PriceMaxWei = '50 gwei'
+PriceMinWei = 0
+FeeCapDefault = '100 mwei'

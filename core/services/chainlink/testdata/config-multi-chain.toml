@@ -41,7 +41,9 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
-GasPriceDefault = '9.223372036854775807 ether'
+
+[EVM.GasEstimator]
+PriceDefault = '9.223372036854775807 ether'
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -49,7 +51,9 @@ WSURL = 'wss://web.socket/test'
 
 [[EVM]]
 ChainID = '137'
-GasEstimatorMode = 'FixedPrice'
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
 
 [[EVM.Nodes]]
 Name = 'primary'

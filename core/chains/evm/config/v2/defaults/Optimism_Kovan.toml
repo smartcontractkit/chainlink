@@ -1,18 +1,20 @@
 ChainID = '69'
 ChainType = 'optimism'
-TxResendAfterThreshold = '15s'
 FinalityDepth = 1
-GasBumpThreshold = '0'
-GasEstimatorMode = 'L2Suggested'
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 MinIncomingConfirmations = 1
-MinGasPriceWei = 0
 OCR.ContractConfirmations = 1
+TxResendAfterThreshold = '15s'
 
 [BalanceMonitor]
 BlockDelay = 0
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'L2Suggested'
+BumpThreshold = '0'
+PriceMinWei = 0
+
+[GasEstimator.BlockHistory]
 BlockHistorySize = 0
 
 [HeadTracker]

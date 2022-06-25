@@ -26,7 +26,8 @@
 - [Sentry](#Sentry)
 - [EVM](#EVM)
 	- [BalanceMonitor](#EVM-BalanceMonitor)
-	- [BlockHistoryEstimator](#EVM-BlockHistoryEstimator)
+	- [GasEstimator](#EVM-GasEstimator)
+		- [BlockHistory](#EVM-GasEstimator-BlockHistory)
 	- [HeadTracker](#EVM-HeadTracker)
 	- [KeySpecific](#EVM-KeySpecific)
 	- [NodePool](#EVM-NodePool)
@@ -1257,27 +1258,12 @@ EVM defaults depend on ChainID:
 <details><summary>Ethereum Mainnet (1)<a id='EVM-1'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = true
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1292,11 +1278,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = true
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1321,27 +1324,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Ropsten (3)<a id='EVM-3'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = true
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1355,11 +1343,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = true
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1384,27 +1389,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Rinkeby (4)<a id='EVM-4'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1418,11 +1408,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1447,27 +1454,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Goerli (5)<a id='EVM-5'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1481,11 +1473,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1511,27 +1520,12 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'optimism'
-EIP1559DynamicFees = false
 FinalityDepth = 1
-GasBumpPercent = 20
-GasBumpThreshold = '0'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1545,11 +1539,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 0
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'L2Suggested'
+BumpPercent = 20
+BumpThreshold = '0'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -1574,27 +1585,12 @@ ObservationGracePeriod = '1s'
 <details><summary>RSK Mainnet (30)<a id='EVM-30'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 mwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '50 mwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
-MaxGasPriceWei = '50 gwei'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '0'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -1608,11 +1604,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '50 mwei'
+PriceMaxWei = '50 gwei'
+PriceMinWei = '0'
+FeeCapDefault = '100 mwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1637,27 +1650,12 @@ ObservationGracePeriod = '1s'
 <details><summary>RSK Testnet (31)<a id='EVM-31'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 mwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '50 mwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 LogBackfillBatchSize = 100
 LogPollInterval = '30s'
-MaxGasPriceWei = '50 gwei'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '0'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -1671,11 +1669,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '50 mwei'
+PriceMaxWei = '50 gwei'
+PriceMinWei = '0'
+FeeCapDefault = '100 mwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1700,27 +1715,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Ethereum Kovan (42)<a id='EVM-42'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1735,11 +1735,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1764,27 +1781,12 @@ ObservationGracePeriod = '1s'
 <details><summary>BSC Mainnet (56)<a id='EVM-56'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '5'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '5 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1798,11 +1800,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 2
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '5'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -1827,26 +1846,11 @@ ObservationGracePeriod = '500ms'
 <details><summary>OKX Testnet (65)<a id='EVM-65'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1860,11 +1864,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1889,26 +1910,11 @@ ObservationGracePeriod = '1s'
 <details><summary>OKX Mainnet (66)<a id='EVM-66'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1922,11 +1928,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1952,27 +1975,12 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'optimism'
-EIP1559DynamicFees = false
 FinalityDepth = 1
-GasBumpPercent = 20
-GasBumpThreshold = '0'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1986,11 +1994,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 0
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'L2Suggested'
+BumpPercent = 20
+BumpThreshold = '0'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2016,27 +2041,12 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'xdai'
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '1 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogBackfillBatchSize = 100
 LogPollInterval = '5s'
-MaxGasPriceWei = '500 gwei'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2050,11 +2060,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '1 gwei'
+PriceMaxWei = '500 gwei'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -2079,27 +2106,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Heco Mainnet (128)<a id='EVM-128'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '5'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '5 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2113,11 +2125,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 2
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '5'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2142,27 +2171,12 @@ ObservationGracePeriod = '500ms'
 <details><summary>Polygon Mainnet (137)<a id='EVM-137'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 500
-GasBumpPercent = 20
-GasBumpThreshold = '5'
-GasBumpTxDepth = 10
-GasBumpWei = '20 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '30 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxGasPriceWei = '200 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 5000
-MinGasPriceWei = '30 gwei'
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2176,11 +2190,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 13
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '5'
+BumpTxDepth = 10
+BumpWei = '20 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '30 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '30 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2205,27 +2236,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Fantom Mainnet (250)<a id='EVM-250'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '15 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxGasPriceWei = '200 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2239,11 +2255,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '15 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2269,26 +2302,11 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'metis'
-EIP1559DynamicFees = false
 FinalityDepth = 1
-GasBumpPercent = 20
-GasBumpThreshold = '0'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2302,11 +2320,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 0
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'L2Suggested'
+BumpPercent = 20
+BumpThreshold = '0'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2332,26 +2367,11 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'metis'
-EIP1559DynamicFees = false
 FinalityDepth = 1
-GasBumpPercent = 20
-GasBumpThreshold = '0'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '20 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '0'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2365,11 +2385,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 0
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'L2Suggested'
+BumpPercent = 20
+BumpThreshold = '0'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '20 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '0'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2394,27 +2431,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Fantom Testnet (4002)<a id='EVM-4002'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '15 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxGasPriceWei = '200 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2428,11 +2450,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '15 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2458,27 +2497,12 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'arbitrum'
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '0'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'FixedPrice'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '7000000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '800000'
-GasPriceDefault = '1 micro'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '1 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 micro'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2492,11 +2516,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'FixedPrice'
+BumpPercent = 20
+BumpThreshold = '0'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '7000000'
+LimitMultiplier = '1'
+LimitTransfer = '800000'
+PriceDefault = '1 micro'
+PriceMaxWei = '1 micro'
+PriceMinWei = '1 micro'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2521,27 +2562,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Avalanche Fuji (43113)<a id='EVM-43113'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 1
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '25 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxGasPriceWei = '1 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2555,11 +2581,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '25 gwei'
+PriceMaxWei = '1 micro'
+PriceMinWei = '25 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2584,27 +2627,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Avalanche Mainnet (43114)<a id='EVM-43114'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 1
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '25 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 100
 LogPollInterval = '3s'
-MaxGasPriceWei = '1 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '25 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2618,11 +2646,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '25 gwei'
+PriceMaxWei = '1 micro'
+PriceMinWei = '25 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2647,27 +2692,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Polygon Mumbai (80001)<a id='EVM-80001'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 500
-GasBumpPercent = 20
-GasBumpThreshold = '5'
-GasBumpTxDepth = 10
-GasBumpWei = '20 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '1 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 100
 LogPollInterval = '1s'
-MaxGasPriceWei = '200 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 5000
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 5
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2681,11 +2711,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 13
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '5'
+BumpTxDepth = 10
+BumpWei = '20 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '1 gwei'
+PriceMaxWei = '200 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2711,27 +2758,12 @@ ObservationGracePeriod = '1s'
 
 ```toml
 ChainType = 'arbitrum'
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '0'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'FixedPrice'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '7000000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '800000'
-GasPriceDefault = '1 micro'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 100
 LogPollInterval = '15s'
-MaxGasPriceWei = '1 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 micro'
 MinIncomingConfirmations = 3
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2745,11 +2777,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'FixedPrice'
+BumpPercent = 20
+BumpThreshold = '0'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '7000000'
+LimitMultiplier = '1'
+LimitTransfer = '800000'
+PriceDefault = '1 micro'
+PriceMaxWei = '1 micro'
+PriceMinWei = '1 micro'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2774,27 +2823,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Harmony Mainnet (1666600000)<a id='EVM-1666600000'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '5 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2808,11 +2842,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2837,27 +2888,12 @@ ObservationGracePeriod = '1s'
 <details><summary>Harmony Testnet (1666700000)<a id='EVM-1666700000'></a></summary><p>
 
 ```toml
-EIP1559DynamicFees = false
 FinalityDepth = 50
-GasBumpPercent = 20
-GasBumpThreshold = '3'
-GasBumpTxDepth = 10
-GasBumpWei = '5 gwei'
-GasEstimatorMode = 'BlockHistory'
-GasFeeCapDefault = '100 gwei'
-GasLimitDefault = '500000'
-GasLimitMultiplier = '1'
-GasLimitTransfer = '21000'
-GasPriceDefault = '5 gwei'
-GasTipCapDefault = '1'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e'
 LogBackfillBatchSize = 100
 LogPollInterval = '2s'
-MaxGasPriceWei = '100 micro'
 MaxInFlightTransactions = 16
 MaxQueuedTransactions = 250
-MinGasPriceWei = '1 gwei'
 MinIncomingConfirmations = 1
 MinimumContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2871,11 +2907,28 @@ UseForwarders = false
 Enabled = true
 BlockDelay = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+BumpPercent = 20
+BumpThreshold = '3'
+BumpTxDepth = 10
+BumpWei = '5 gwei'
+EIP1559DynamicFees = false
+LimitDefault = '500000'
+LimitMultiplier = '1'
+LimitTransfer = '21000'
+PriceDefault = '5 gwei'
+PriceMaxWei = '100 micro'
+PriceMinWei = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+[GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
+
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2929,55 +2982,6 @@ ChainType = 'Optimism' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 
-### EIP1559DynamicFees<a id='EVM-EIP1559DynamicFees'></a>
-```toml
-EIP1559DynamicFees = false # Default
-```
-EIP1559DynamicFees torces EIP-1559 transaction mode for all chains. Enabling EIP-1559 mode can help reduce gas costs on chains that support it. This is supported only on official Ethereum mainnet and testnets. It is not recommended to enable this setting on Polygon because the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are less likely to be included than legacy transactions.
-
-#### Technical details
-
-Chainlink nodes include experimental support for submitting transactions using type 0x2 (EIP-1559) envelope.
-
-EIP-1559 mode is enabled by default on the Ethereum Mainnet, but can be enabled on a per-chain basis or globally.
-
-This might help to save gas on spikes. Chainlink nodes should react faster on the upleg and avoid overpaying on the downleg. It might also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value such as 12 or even 6 because tip cap should be a more consistent indicator of inclusion time than total gas price. This would make Chainlink nodes more responsive and should reduce response time variance. Some experimentation is required to find optimum settings.
-
-Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
-
-In EIP-1559 mode, the total price for the transaction is the minimum of base fee + tip cap and fee cap. More information can be found on the [official EIP](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md).
-
-Chainlink's implementation of EIP-1559 works as follows:
-
-If you are using FixedPriceEstimator:
-- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=GasTipCapDefault`
-- With gas bumping enabled, it will submit all transactions initially with `feecap=GasFeeCapDefault` and `tipcap=GasTipCapDefault`.
-
-If you are using BlockHistoryEstimator (default for most chains):
-- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
-
-Bumping works as follows:
-
-- Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-- Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
-
-A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
-
-- Base Fee Per Gas = BaseFeePerGas
-- Max Fee Per Gas = FeeCap
-- Max Priority Fee Per Gas = TipCap
-
-In EIP-1559 mode, the following changes occur to how configuration works:
-
-- All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap. Be aware that existing pending legacy transactions will continue to be gas bumped in legacy mode.
-- `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
-- `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
-- `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
-- `MinGasPriceWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
-- `MaxGasPriceWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
-- `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
-
 ### FinalityDepth<a id='EVM-FinalityDepth'></a>
 ```toml
 FinalityDepth = 50 # Default
@@ -3010,99 +3014,6 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
 ```
 FlagsContractAddress can optionally point to a [Flags contract](../contracts/src/v0.8/Flags.sol). If set, the node will lookup that contract for each job that supports flags contracts (currently OCR and FM jobs are supported). If the job's contractAddress is set as hibernating in the FlagsContractAddress address, it overrides the standard update parameters (such as heartbeat/threshold).
 
-### GasBumpPercent<a id='EVM-GasBumpPercent'></a>
-```toml
-GasBumpPercent = 20 # Default
-```
-GasBumpPercent is the percentage by which to bump gas on a transaction that has exceeded `GasBumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
-
-### GasBumpThreshold<a id='EVM-GasBumpThreshold'></a>
-```toml
-GasBumpThreshold = 3 # Default
-```
-GasBumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
-
-### GasBumpTxDepth<a id='EVM-GasBumpTxDepth'></a>
-```toml
-GasBumpTxDepth = 10 # Default
-```
-GasBumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all).
-
-### GasBumpWei<a id='EVM-GasBumpWei'></a>
-```toml
-GasBumpWei = '5 gwei' # Default
-```
-GasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
-
-### GasEstimatorMode<a id='EVM-GasEstimatorMode'></a>
-```toml
-GasEstimatorMode = 'BlockHistory' # Default
-```
-GasEstimatorMode controls what type of gas estimator is used.
-
-- `FixedPrice` uses static configured values for gas price (can be set via API call).
-- `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
-- `L2Suggested`
-
-Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
-
-You can also use your own estimator for gas price by selecting the `FixedPrice` estimator and using the exposed API to set the price.
-
-An important point to note is that the Chainlink node does _not_ ship with built-in support for go-ethereum's `estimateGas` call. This is for several reasons, including security and reliability. We have found empirically that it is not generally safe to rely on the remote ETH node's idea of what gas price should be.
-
-### GasFeeCapDefault<a id='EVM-GasFeeCapDefault'></a>
-```toml
-GasFeeCapDefault = '100 gwei' # Default
-```
-GasFeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
-
-### GasLimitDefault<a id='EVM-GasLimitDefault'></a>
-```toml
-GasLimitDefault = '500000' # Default
-```
-GasLimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
-Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
-
-### GasLimitMultiplier<a id='EVM-GasLimitMultiplier'></a>
-```toml
-GasLimitMultiplier = '1.0' # Default
-```
-GasLimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
-
-This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
-
-### GasLimitTransfer<a id='EVM-GasLimitTransfer'></a>
-```toml
-GasLimitTransfer = '21000' # Default
-```
-GasLimitTransfer is the gas limit used for an ordinary ETH transfer.
-
-### GasPriceDefault<a id='EVM-GasPriceDefault'></a>
-```toml
-GasPriceDefault = '20 gwei' # Default
-```
-GasPriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
-
-(Only applies to legacy transactions)
-
-Can be used with the `chainlink setgasprice` to be updated while the node is still running.
-
-### GasTipCapDefault<a id='EVM-GasTipCapDefault'></a>
-```toml
-GasTipCapDefault = '1 wei' # Default
-```
-GasTipCapDefault is the default gas tip to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
-
-(Only applies to EIP-1559 transactions)
-
-### GasTipCapMinimum<a id='EVM-GasTipCapMinimum'></a>
-```toml
-GasTipCapMinimum = '1 wei' # Default
-```
-GasTipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
-
-Only applies to EIP-1559 transactions)
-
 ### LinkContractAddress<a id='EVM-LinkContractAddress'></a>
 ```toml
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
@@ -3122,12 +3033,6 @@ LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill
 LogPollInterval = '15s' # Default
 ```
 LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
-
-### MaxGasPriceWei<a id='EVM-MaxGasPriceWei'></a>
-```toml
-MaxGasPriceWei = '100 micro' # Default
-```
-MaxGasPriceWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
 
 ### MaxInFlightTransactions<a id='EVM-MaxInFlightTransactions'></a>
 ```toml
@@ -3150,25 +3055,6 @@ Do NOT blindly increase this value thinking it will fix things if you start hitt
 In deployments with very high burst rates, or on chains with large re-orgs, you _may_ consider increasing this.
 
 0 value disables any limit on queue size. Use with caution.
-
-### MinGasPriceWei<a id='EVM-MinGasPriceWei'></a>
-```toml
-MinGasPriceWei = '1 gwei' # Default
-```
-MinGasPriceWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
-
-(Only applies to legacy transactions)
-
-It is possible to force the Chainlink node to use a fixed gas price by setting a combination of these, e.g.
-
-```toml
-EIP1559DynamicFees = false
-MaxGasPriceWei = 100
-MinGasPriceWei = 100
-GasPriceDefault = 100
-GasBumpThreshold = 0
-GasEstimatorMode = 'FixedPrice'
-```
 
 ### MinIncomingConfirmations<a id='EVM-MinIncomingConfirmations'></a>
 ```toml
@@ -3246,25 +3132,214 @@ BlockDelay = 1 # Default
 BlockDelay is the number of blocks that the balance monitor trails behind head. This is required when load balancing
 across multiple nodes announce a new head, then route a request to a different node which does not have this head yet.
 
-## EVM.BlockHistoryEstimator<a id='EVM-BlockHistoryEstimator'></a>
+## EVM.GasEstimator<a id='EVM-GasEstimator'></a>
 ```toml
-[EVM.BlockHistoryEstimator]
+[EVM.GasEstimator]
+Mode = 'BlockHistory' # Default
+BumpPercent = 20 # Default
+BumpThreshold = 3 # Default
+BumpTxDepth = 10 # Default
+BumpWei = '5 gwei' # Default
+EIP1559DynamicFees = false # Default
+FeeCapDefault = '100 gwei' # Default
+LimitDefault = '500000' # Default
+LimitMultiplier = '1.0' # Default
+LimitTransfer = '21000' # Default
+TipCapDefault = '1 wei' # Default
+TipCapMinimum = '1 wei' # Default
+PriceDefault = '20 gwei' # Default
+PriceMaxWei = '100 micro' # Default
+PriceMinWei = '1 gwei' # Default
+```
+
+
+### Mode<a id='EVM-GasEstimator-Mode'></a>
+```toml
+Mode = 'BlockHistory' # Default
+```
+Mode controls what type of gas estimator is used.
+
+- `FixedPrice` uses static configured values for gas price (can be set via API call).
+- `BlockHistory` dynamically adjusts default gas price based on heuristics from mined blocks.
+- `L2Suggested`
+
+Chainlink nodes decide what gas price to use using an `Estimator`. It ships with several simple and battle-hardened built-in estimators that should work well for almost all use-cases. Note that estimators will change their behaviour slightly depending on if you are in EIP-1559 mode or not.
+
+You can also use your own estimator for gas price by selecting the `FixedPrice` estimator and using the exposed API to set the price.
+
+An important point to note is that the Chainlink node does _not_ ship with built-in support for go-ethereum's `estimateGas` call. This is for several reasons, including security and reliability. We have found empirically that it is not generally safe to rely on the remote ETH node's idea of what gas price should be.
+
+### BumpPercent<a id='EVM-GasEstimator-BumpPercent'></a>
+```toml
+BumpPercent = 20 # Default
+```
+BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `GasBumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+
+### BumpThreshold<a id='EVM-GasEstimator-BumpThreshold'></a>
+```toml
+BumpThreshold = 3 # Default
+```
+BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
+
+### BumpTxDepth<a id='EVM-GasEstimator-BumpTxDepth'></a>
+```toml
+BumpTxDepth = 10 # Default
+```
+BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all).
+
+### BumpWei<a id='EVM-GasEstimator-BumpWei'></a>
+```toml
+BumpWei = '5 gwei' # Default
+```
+BumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
+
+### EIP1559DynamicFees<a id='EVM-GasEstimator-EIP1559DynamicFees'></a>
+```toml
+EIP1559DynamicFees = false # Default
+```
+EIP1559DynamicFees torces EIP-1559 transaction mode. Enabling EIP-1559 mode can help reduce gas costs on chains that support it. This is supported only on official Ethereum mainnet and testnets. It is not recommended to enable this setting on Polygon because the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are less likely to be included than legacy transactions.
+
+#### Technical details
+
+Chainlink nodes include experimental support for submitting transactions using type 0x2 (EIP-1559) envelope.
+
+EIP-1559 mode is enabled by default on the Ethereum Mainnet, but can be enabled on a per-chain basis or globally.
+
+This might help to save gas on spikes. Chainlink nodes should react faster on the upleg and avoid overpaying on the downleg. It might also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value such as 12 or even 6 because tip cap should be a more consistent indicator of inclusion time than total gas price. This would make Chainlink nodes more responsive and should reduce response time variance. Some experimentation is required to find optimum settings.
+
+Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
+
+In EIP-1559 mode, the total price for the transaction is the minimum of base fee + tip cap and fee cap. More information can be found on the [official EIP](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md).
+
+Chainlink's implementation of EIP-1559 works as follows:
+
+If you are using FixedPriceEstimator:
+- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=GasTipCapDefault`
+- With gas bumping enabled, it will submit all transactions initially with `feecap=GasFeeCapDefault` and `tipcap=GasTipCapDefault`.
+
+If you are using BlockHistoryEstimator (default for most chains):
+- With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+
+Bumping works as follows:
+
+- Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
+- Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+
+A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
+
+- Base Fee Per Gas = BaseFeePerGas
+- Max Fee Per Gas = FeeCap
+- Max Priority Fee Per Gas = TipCap
+
+In EIP-1559 mode, the following changes occur to how configuration works:
+
+- All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap. Be aware that existing pending legacy transactions will continue to be gas bumped in legacy mode.
+- `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
+- `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
+- `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
+- `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
+- `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
+- `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
+
+### FeeCapDefault<a id='EVM-GasEstimator-FeeCapDefault'></a>
+```toml
+FeeCapDefault = '100 gwei' # Default
+```
+FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
+
+### LimitDefault<a id='EVM-GasEstimator-LimitDefault'></a>
+```toml
+LimitDefault = '500000' # Default
+```
+LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
+Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+
+### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
+```toml
+LimitMultiplier = '1.0' # Default
+```
+LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
+
+This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+
+### LimitTransfer<a id='EVM-GasEstimator-LimitTransfer'></a>
+```toml
+LimitTransfer = '21000' # Default
+```
+LimitTransfer is the gas limit used for an ordinary ETH transfer.
+
+### TipCapDefault<a id='EVM-GasEstimator-TipCapDefault'></a>
+```toml
+TipCapDefault = '1 wei' # Default
+```
+TipCapDefault is the default gas tip to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
+
+(Only applies to EIP-1559 transactions)
+
+### TipCapMinimum<a id='EVM-GasEstimator-TipCapMinimum'></a>
+```toml
+TipCapMinimum = '1 wei' # Default
+```
+TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
+
+Only applies to EIP-1559 transactions)
+
+### PriceDefault<a id='EVM-GasEstimator-PriceDefault'></a>
+```toml
+PriceDefault = '20 gwei' # Default
+```
+PriceDefault is the default gas price to use when submitting transactions to the blockchain. Will be overridden by the built-in `BlockHistoryEstimator` if enabled, and might be increased if gas bumping is enabled.
+
+(Only applies to legacy transactions)
+
+Can be used with the `chainlink setgasprice` to be updated while the node is still running.
+
+### PriceMaxWei<a id='EVM-GasEstimator-PriceMaxWei'></a>
+```toml
+PriceMaxWei = '100 micro' # Default
+```
+PriceMaxWei is the maximum gas price. Chainlink nodes will never pay more than this for a transaction.
+
+### PriceMinWei<a id='EVM-GasEstimator-PriceMinWei'></a>
+```toml
+PriceMinWei = '1 gwei' # Default
+```
+PriceMinWei is the minimum gas price. Chainlink nodes will never pay less than this for a transaction.
+
+(Only applies to legacy transactions)
+
+It is possible to force the Chainlink node to use a fixed gas price by setting a combination of these, e.g.
+
+```toml
+EIP1559DynamicFees = false
+PriceMaxWei = 100
+PriceMinWei = 100
+PriceDefault = 100
+BumpThreshold = 0
+Mode = 'FixedPrice'
+```
+
+## EVM.GasEstimator.BlockHistory<a id='EVM-GasEstimator-BlockHistory'></a>
+```toml
+[EVM.GasEstimator.BlockHistory]
 BatchSize = 4 # Default
 BlockDelay = 1 # Default
 BlockHistorySize = 8 # Default
 EIP1559FeeCapBufferBlocks = 13 # Example
 TransactionPercentile = 60 # Default
 ```
-These settings allow you to configure how your node calculates gas prices. In most cases, leaving these values at their defaults should give good results.
+These settings allow you to configure how your node calculates gas prices when using the block history estimator.
+In most cases, leaving these values at their defaults should give good results.
 
-### BatchSize<a id='EVM-BlockHistoryEstimator-BatchSize'></a>
+### BatchSize<a id='EVM-GasEstimator-BlockHistory-BatchSize'></a>
 ```toml
 BatchSize = 4 # Default
 ```
 BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
 If the `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` environment variable is set to 0, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE.
 
-### BlockDelay<a id='EVM-BlockHistoryEstimator-BlockDelay'></a>
+### BlockDelay<a id='EVM-GasEstimator-BlockHistory-BlockDelay'></a>
 ```toml
 BlockDelay = 1 # Default
 ```
@@ -3276,13 +3351,13 @@ block, but it is possible to receive a head BEFORE that block is actually
 available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 "zero" blocks that are missing transactions.
 
-### BlockHistorySize<a id='EVM-BlockHistoryEstimator-BlockHistorySize'></a>
+### BlockHistorySize<a id='EVM-GasEstimator-BlockHistory-BlockHistorySize'></a>
 ```toml
 BlockHistorySize = 8 # Default
 ```
 BlockHistorySize controls the number of past blocks to keep in memory to use as a basis for calculating a percentile gas price.
 
-### EIP1559FeeCapBufferBlocks<a id='EVM-BlockHistoryEstimator-EIP1559FeeCapBufferBlocks'></a>
+### EIP1559FeeCapBufferBlocks<a id='EVM-GasEstimator-BlockHistory-EIP1559FeeCapBufferBlocks'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 EIP1559FeeCapBufferBlocks = 13 # Example
@@ -3291,7 +3366,7 @@ EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base 
 
 Only applies to EIP-1559 transactions)
 
-### TransactionPercentile<a id='EVM-BlockHistoryEstimator-TransactionPercentile'></a>
+### TransactionPercentile<a id='EVM-GasEstimator-BlockHistory-TransactionPercentile'></a>
 ```toml
 TransactionPercentile = 60 # Default
 ```
@@ -3352,7 +3427,7 @@ SamplingInterval means that head tracker callbacks will at maximum be made once 
 ```toml
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
-MaxGasPriceWei = '79 gwei' # Example
+GasEstimator.PriceMaxWei = '79 gwei' # Example
 ```
 
 
@@ -3362,11 +3437,11 @@ Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
 Key is the account to apply these settings to
 
-### MaxGasPriceWei<a id='EVM-KeySpecific-MaxGasPriceWei'></a>
+### PriceMaxWei<a id='EVM-KeySpecific-GasEstimator-PriceMaxWei'></a>
 ```toml
-MaxGasPriceWei = '79 gwei' # Example
+GasEstimator.PriceMaxWei = '79 gwei' # Example
 ```
-MaxGasPriceWei overrides the maximum gas price for this key. See EVM.MaxGasPriceWei.
+GasEstimator.PriceMaxWei overrides the maximum gas price for this key. See EVM.GasEstimator.PriceMaxWei.
 
 ## EVM.NodePool<a id='EVM-NodePool'></a>
 ```toml

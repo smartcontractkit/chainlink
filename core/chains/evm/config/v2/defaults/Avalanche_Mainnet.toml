@@ -1,15 +1,17 @@
 ChainID = '43114'
-LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 FinalityDepth = 1
-GasEstimatorMode = 'BlockHistory'
-GasPriceDefault = '25 gwei'
-MaxGasPriceWei = '1000 gwei'
-MinGasPriceWei = '25 gwei'
-MinIncomingConfirmations = 1
+LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogPollInterval = '3s'
+MinIncomingConfirmations = 1
 OCR.ContractConfirmations = 1
 
-[BlockHistoryEstimator]
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMaxWei = '1000 gwei'
+PriceMinWei = '25 gwei'
+
+[GasEstimator.BlockHistory]
 BlockHistorySize = 24
 BlockDelay = 2
 

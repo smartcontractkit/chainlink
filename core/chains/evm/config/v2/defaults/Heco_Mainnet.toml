@@ -1,18 +1,20 @@
 ChainID = '128'
-TxResendAfterThreshold = '1m'
 FinalityDepth = 50
-GasBumpThreshold = 5
-GasBumpWei = '5 gwei'
-GasPriceDefault = '5 gwei'
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
-MinGasPriceWei = '1 gwei'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 3
+TxResendAfterThreshold = '1m'
 
 [BalanceMonitor]
 BlockDelay = 2
 
-[BlockHistoryEstimator]
+[GasEstimator]
+BumpThreshold = 5
+BumpWei = '5 gwei'
+PriceDefault = '5 gwei'
+PriceMinWei = '1 gwei'
+
+[GasEstimator.BlockHistory]
 BlockDelay = 2
 BlockHistorySize = 24
 
