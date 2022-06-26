@@ -1,5 +1,3 @@
-# TODO check changelog for notes on undocumented fields
-
 # Dev enables development mode. This setting is not recommended for production deployments. It can be useful for enabling experimental features and collecting debug information.
 Dev = false # Default
 # ExplorerURL is the websocket URL for the node to push stats to.
@@ -17,7 +15,7 @@ ShutdownGracePeriod = '5s' # Default
 [Feature]
 # FeedsManager enables the experimental feeds manager service.
 FeedsManager = false # Default
-# LogPoller enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
+# LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 LogPoller = false # Default
 # OffchainReporting2 enables OCR2 jobs.
 OffchainReporting2 = false # Default
@@ -490,15 +488,15 @@ ChainType = 'Optimism' # Example
 # Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 #
 # Special cases:
-# ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
-# ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
+# `FinalityDepth`=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
+# `FinalityDepth`=1 implies that transactions are final after we see them in one block.
 #
 # Examples:
 #
 # Transaction sending:
 # A transaction is sent at block height 42
 #
-# ETH_FINALITY_DEPTH is set to 5
+# `FinalityDepth` is set to 5
 # A re-org occurs at height 44 starting at block 41, transaction is marked for rebroadcast
 # A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
 # A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
@@ -596,7 +594,7 @@ PriceMinWei = '1 gwei' # Default
 LimitDefault = '500000' # Default
 # LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 #
-# This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+# This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
 LimitMultiplier = '1.0' # Default
 # LimitTransfer is the gas limit used for an ordinary ETH transfer.
 LimitTransfer = '21000' # Default
@@ -616,7 +614,7 @@ BumpWei = '5 gwei' # Default
 #
 # EIP-1559 mode is enabled by default on the Ethereum Mainnet, but can be enabled on a per-chain basis or globally.
 #
-# This might help to save gas on spikes. Chainlink nodes should react faster on the upleg and avoid overpaying on the downleg. It might also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value such as 12 or even 6 because tip cap should be a more consistent indicator of inclusion time than total gas price. This would make Chainlink nodes more responsive and should reduce response time variance. Some experimentation is required to find optimum settings.
+# This might help to save gas on spikes. Chainlink nodes should react faster on the upleg and avoid overpaying on the downleg. It might also be possible to set `EVM.GasEstimator.BlockHistory.BatchSize` to a smaller value such as 12 or even 6 because tip cap should be a more consistent indicator of inclusion time than total gas price. This would make Chainlink nodes more responsive and should reduce response time variance. Some experimentation is required to find optimum settings.
 #
 # Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
 #
@@ -630,7 +628,7 @@ BumpWei = '5 gwei' # Default
 #
 # If you are using BlockHistoryEstimator (default for most chains):
 # - With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
-# - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+# - With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 #
 # Bumping works as follows:
 #
@@ -651,7 +649,7 @@ BumpWei = '5 gwei' # Default
 # - `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
 # - `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
 # - `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
-# - `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
+# - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 EIP1559DynamicFees = false # Default
 # FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
 FeeCapDefault = '100 gwei' # Default
@@ -669,7 +667,7 @@ TipCapMinimum = '1 wei' # Default
 # In most cases, leaving these values at their defaults should give good results.
 [EVM.GasEstimator.BlockHistory]
 # BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
-# If the `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` environment variable is set to 0, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE.
+# If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize`.
 BatchSize = 4 # Default
 # BlockDelay controls the number of blocks that the block history estimator trails behind head.
 # For example, if this is set to 3, and we receive block 10, block history estimator will fetch block 7.
@@ -737,15 +735,15 @@ PollFailureThreshold = 3 # Default
 PollInterval = '10s' # Default
 
 [EVM.OCR]
-# ContractConfirmations sets OCR.ContractConfirmations for this EVM chain.
+# ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
 ContractConfirmations = 4 # Default
-# ContractTransmitterTransmitTimeout sets OCR.ContractTransmitterTransmitTimeout for this EVM chain.
+# ContractTransmitterTransmitTimeout sets `OCR.ContractTransmitterTransmitTimeout` for this EVM chain.
 ContractTransmitterTransmitTimeout = '10s' # Default
-# DatabaseTimeout sets OCR.DatabaseTimeout for this EVM chain.
+# DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
 DatabaseTimeout = '10s' # Default
-# ObservationGracePeriod sets OCR.ObservationGracePeriod for this EVM chain.
+# ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 ObservationGracePeriod = '1s' # Default
-# ObservationTimeout sets OCR.ObservationTimeout for this EVM chain.
+# ObservationTimeout sets `OCR.ObservationTimeout` for this EVM chain.
 ObservationTimeout = '1m' # Example
 
 [[EVM.Nodes]]

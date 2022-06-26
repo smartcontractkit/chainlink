@@ -49,8 +49,6 @@ ShutdownGracePeriod = '5s' # Default
 ```
 
 
-TODO check changelog for notes on undocumented fields
-
 ### Dev<a id='Dev'></a>
 ```toml
 Dev = false # Default
@@ -108,7 +106,7 @@ FeedsManager enables the experimental feeds manager service.
 ```toml
 LogPoller = false # Default
 ```
-LogPoller enables the log poller, an experimental approach to processing logs, required if also using EvmUseForwarders or OCR2.
+LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 
 ### OffchainReporting2<a id='Feature-OffchainReporting2'></a>
 ```toml
@@ -2994,15 +2992,15 @@ If a transaction is mined in a block more than this many blocks ago, and is reor
 Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 
 Special cases:
-ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
-ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
+`FinalityDepth`=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
+`FinalityDepth`=1 implies that transactions are final after we see them in one block.
 
 Examples:
 
 Transaction sending:
 A transaction is sent at block height 42
 
-ETH_FINALITY_DEPTH is set to 5
+`FinalityDepth` is set to 5
 A re-org occurs at height 44 starting at block 41, transaction is marked for rebroadcast
 A re-org occurs at height 46 starting at block 41, transaction is marked for rebroadcast
 A re-org occurs at height 47 starting at block 41, transaction is NOT marked for rebroadcast
@@ -3217,7 +3215,7 @@ LimitMultiplier = '1.0' # Default
 ```
 LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 
-This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to EthGasLimitDefault.
+This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
 
 ### LimitTransfer<a id='EVM-GasEstimator-LimitTransfer'></a>
 ```toml
@@ -3261,7 +3259,7 @@ Chainlink nodes include experimental support for submitting transactions using t
 
 EIP-1559 mode is enabled by default on the Ethereum Mainnet, but can be enabled on a per-chain basis or globally.
 
-This might help to save gas on spikes. Chainlink nodes should react faster on the upleg and avoid overpaying on the downleg. It might also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value such as 12 or even 6 because tip cap should be a more consistent indicator of inclusion time than total gas price. This would make Chainlink nodes more responsive and should reduce response time variance. Some experimentation is required to find optimum settings.
+This might help to save gas on spikes. Chainlink nodes should react faster on the upleg and avoid overpaying on the downleg. It might also be possible to set `EVM.GasEstimator.BlockHistory.BatchSize` to a smaller value such as 12 or even 6 because tip cap should be a more consistent indicator of inclusion time than total gas price. This would make Chainlink nodes more responsive and should reduce response time variance. Some experimentation is required to find optimum settings.
 
 Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
 
@@ -3275,7 +3273,7 @@ If you are using FixedPriceEstimator:
 
 If you are using BlockHistoryEstimator (default for most chains):
 - With gas bumping disabled, it will submit all transactions with `feecap=MaxGasPriceWei` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting `EVM.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks` but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
 
@@ -3296,7 +3294,7 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
 - `PriceMinWei` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
 - `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
-- `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
+- `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 
 ### FeeCapDefault<a id='EVM-GasEstimator-FeeCapDefault'></a>
 ```toml
@@ -3337,7 +3335,7 @@ In most cases, leaving these values at their defaults should give good results.
 BatchSize = 4 # Default
 ```
 BatchSize sets the maximum number of blocks to fetch in one batch in the block history estimator.
-If the `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` environment variable is set to 0, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE.
+If the `BatchSize` variable is set to 0, it defaults to `EVM.RPCDefaultBatchSize`.
 
 ### BlockDelay<a id='EVM-GasEstimator-BlockHistory-BlockDelay'></a>
 ```toml
@@ -3491,31 +3489,31 @@ ObservationTimeout = '1m' # Example
 ```toml
 ContractConfirmations = 4 # Default
 ```
-ContractConfirmations sets OCR.ContractConfirmations for this EVM chain.
+ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
 
 ### ContractTransmitterTransmitTimeout<a id='EVM-OCR-ContractTransmitterTransmitTimeout'></a>
 ```toml
 ContractTransmitterTransmitTimeout = '10s' # Default
 ```
-ContractTransmitterTransmitTimeout sets OCR.ContractTransmitterTransmitTimeout for this EVM chain.
+ContractTransmitterTransmitTimeout sets `OCR.ContractTransmitterTransmitTimeout` for this EVM chain.
 
 ### DatabaseTimeout<a id='EVM-OCR-DatabaseTimeout'></a>
 ```toml
 DatabaseTimeout = '10s' # Default
 ```
-DatabaseTimeout sets OCR.DatabaseTimeout for this EVM chain.
+DatabaseTimeout sets `OCR.DatabaseTimeout` for this EVM chain.
 
 ### ObservationGracePeriod<a id='EVM-OCR-ObservationGracePeriod'></a>
 ```toml
 ObservationGracePeriod = '1s' # Default
 ```
-ObservationGracePeriod sets OCR.ObservationGracePeriod for this EVM chain.
+ObservationGracePeriod sets `OCR.ObservationGracePeriod` for this EVM chain.
 
 ### ObservationTimeout<a id='EVM-OCR-ObservationTimeout'></a>
 ```toml
 ObservationTimeout = '1m' # Example
 ```
-ObservationTimeout sets OCR.ObservationTimeout for this EVM chain.
+ObservationTimeout sets `OCR.ObservationTimeout` for this EVM chain.
 
 ## EVM.Nodes<a id='EVM-Nodes'></a>
 ```toml
