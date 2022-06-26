@@ -24,14 +24,6 @@ var (
 	DefaultIDs []*utils.Big
 )
 
-//TODO docs only?
-func DefaultName(id *utils.Big) string {
-	if id == nil {
-		return ""
-	}
-	return defaultNames[id.String()]
-}
-
 func init() {
 	fes, err := defaultsFS.ReadDir("defaults")
 	if err != nil {
@@ -74,15 +66,18 @@ func init() {
 	})
 }
 
-// SetDefaults sets the Chain default values, optionally for a specific chain id.
-func (c *Chain) SetDefaults(chainID *utils.Big) {
+// Defaults returns the default Chain values, optionally for the given chainID, as well as a name if the chainID is known.
+func Defaults(chainID *utils.Big) (c Chain, name string) {
 	c.SetFrom(&fallback)
 	if chainID == nil {
 		return
 	}
-	if d, ok := defaults[chainID.String()]; ok {
+	s := chainID.String()
+	if d, ok := defaults[s]; ok {
 		c.SetFrom(&d)
+		name = defaultNames[s]
 	}
+	return
 }
 
 func (c *Chain) SetFrom(f *Chain) {

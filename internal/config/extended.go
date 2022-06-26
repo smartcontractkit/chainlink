@@ -18,11 +18,9 @@ func extended(key string) (string, error) {
 	// EVM Per-Chain Defaults
 	var sb strings.Builder
 	for _, id := range evmcfg.DefaultIDs {
-		name := evmcfg.DefaultName(id)
+		config, name := evmcfg.Defaults(id)
 		fmt.Fprintf(&sb, "\n<details><summary>%s (%s)<a id='EVM-%s'></a></summary><p>\n\n", name, id, id)
 		sb.WriteString("```toml\n")
-		var config evmcfg.Chain
-		config.SetDefaults(id)
 		b, err := toml.Marshal(config)
 		if err != nil {
 			return "", err

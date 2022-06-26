@@ -12,20 +12,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//TODO doc
-func V2Defaults() map[int64]v2.Chain {
+func ChainSpecificConfigDefaultsAsV2() map[int64]v2.Chain {
 	m := map[int64]v2.Chain{}
 	for id, set := range chainSpecificConfigDefaultSets {
-		m[id] = v2Defaults(set)
+		m[id] = set.asV2()
 	}
 	return m
 }
 
-func V2Fallback() v2.Chain {
-	return v2Defaults(fallbackDefaultSet)
+func FallbackDefaultsAsV2() v2.Chain {
+	return fallbackDefaultSet.asV2()
 }
 
-func v2Defaults(set chainSpecificConfigDefaultSet) v2.Chain {
+func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 	c := v2.Chain{
 		BlockBackfillDepth:       nil,
 		BlockBackfillSkip:        nil,

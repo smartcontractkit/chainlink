@@ -22,7 +22,6 @@ const (
 	meth  = "mether"
 	geth  = "gether"
 	teth  = "tether"
-	// TODO alternative generic unit suffixes?
 )
 
 func suffixExp(suf string) int32 {
@@ -54,6 +53,7 @@ func suffixExp(suf string) int32 {
 	}
 }
 
+// Wei extends Big to implement encoding.TextMarshaler and encoding.TextUnmarshaler with support for unit suffixes.
 type Wei Big
 
 // NewWei constructs a Wei from *big.Int.
@@ -61,7 +61,6 @@ func NewWei(i *big.Int) *Wei {
 	return (*Wei)(i)
 }
 
-//TODO accept generic suffixes too?
 func (w Wei) Text(suffix string) string {
 	switch suffix {
 	default: // empty or unknown
