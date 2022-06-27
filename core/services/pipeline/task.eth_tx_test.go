@@ -39,7 +39,7 @@ func TestETHTxTask(t *testing.T) {
 		minConfirmations      string
 		evmChainID            string
 		transmitChecker       string
-		specGasLimitGwei      uint32
+		specGasLimit          uint32
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager)
@@ -541,8 +541,8 @@ func TestETHTxTask(t *testing.T) {
 				TransmitChecker:  test.transmitChecker,
 			}
 
-			if test.specGasLimitGwei > 0 {
-				task.SetGasLimitGwei(test.specGasLimitGwei)
+			if test.specGasLimit > 0 {
+				task.SetSpecGasLimit(test.specGasLimit)
 			}
 
 			keyStore := new(keystoremocks.Eth)

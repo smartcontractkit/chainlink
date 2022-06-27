@@ -12,7 +12,6 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -39,7 +38,7 @@ type ETHTxTask struct {
 	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
 	TransmitChecker string `json:"transmitChecker"`
 
-	gasLimitGwei *uint32
+	specGasLimit *uint32
 	keyStore     ETHKeyStore
 	chainSet     evm.ChainSet
 }
@@ -75,8 +74,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	maximumGasLimit := chain.Config().EvmGasLimitDefault()
-	if t.gasLimitGwei != nil {
-		maximumGasLimit = assets.GWei(int64(*t.gasLimitGwei)).Uint64()
+	if t.specGasLimit != nil {
+		maximumGasLimit = uint64(*t.specGasLimit)
 	}
 
 	var (

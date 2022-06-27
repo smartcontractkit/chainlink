@@ -14,7 +14,7 @@ export function buildJob(
     name: 'direct request job',
     externalJobID: '00000000-0000-0000-0000-0000000000001',
     maxTaskDuration: '10s',
-    gasLimitGwei: 1000,
+    gasLimit: 1000,
     spec: {
       __typename: 'DirectRequestSpec',
       contractAddress: '0x0000000000000000000000000000000000000000',

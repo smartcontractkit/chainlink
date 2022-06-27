@@ -1,5 +1,5 @@
 package pipeline
 
-func (t *ETHTxTask) SetGasLimitGwei(v uint32) {
-	t.gasLimitGwei = &v
+func (t *ETHTxTask) SetSpecGasLimit(v uint32) {
+	t.specGasLimit = &v
 }

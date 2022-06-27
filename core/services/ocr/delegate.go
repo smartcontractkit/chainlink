@@ -14,7 +14,6 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -218,8 +217,8 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 
 		gasLimit := chain.Config().EvmGasLimitDefault()
-		if jb.GasLimitGwei != nil {
-			gasLimit = assets.GWei(int64(*jb.GasLimitGwei)).Uint64()
+		if jb.GasLimit != nil {
+			gasLimit = uint64(*jb.GasLimit)
 		}
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),

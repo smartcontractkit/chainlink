@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -176,8 +175,8 @@ func NewFromJobSpec(
 	}
 
 	gasLimit := cfg.EvmGasLimitDefault()
-	if jobSpec.GasLimitGwei != nil {
-		gasLimit = assets.GWei(int64(*jobSpec.GasLimitGwei)).Uint64()
+	if jobSpec.GasLimit != nil {
+		gasLimit = uint64(*jobSpec.GasLimit)
 	}
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
 		fluxAggregator,
