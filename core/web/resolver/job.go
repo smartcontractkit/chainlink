@@ -77,6 +77,15 @@ func (r *JobResolver) SchemaVersion() int32 {
 	return int32(r.j.SchemaVersion)
 }
 
+// GasLimitGwei resolves the job's gas limit.
+func (r *JobResolver) GasLimitGwei() *int32 {
+	if r.j.GasLimitGwei == nil {
+		return nil
+	}
+	v := int32(*r.j.GasLimitGwei)
+	return &v
+}
+
 // Type resolves the job's type.
 func (r *JobResolver) Type() string {
 	return string(r.j.Type)

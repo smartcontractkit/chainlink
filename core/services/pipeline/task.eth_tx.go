@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -38,8 +39,9 @@ type ETHTxTask struct {
 	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
 	TransmitChecker string `json:"transmitChecker"`
 
-	keyStore ETHKeyStore
-	chainSet evm.ChainSet
+	gasLimitGwei *uint32
+	keyStore     ETHKeyStore
+	chainSet     evm.ChainSet
 }
 
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
@@ -72,6 +74,11 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
+	maximumGasLimit := chain.Config().EvmGasLimitDefault()
+	if t.gasLimitGwei != nil {
+		maximumGasLimit = assets.GWei(int64(*t.gasLimitGwei)).Uint64()
+	}
+
 	var (
 		fromAddrs             AddressSliceParam
 		toAddr                AddressParam
@@ -86,7 +93,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
-		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), cfg.EvmGasLimitDefault())), "gasLimit"),
+		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), maximumGasLimit)), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
 		errors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),

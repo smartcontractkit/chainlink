@@ -14,6 +14,7 @@ const extractJobFields = (job: JobPayload_Fields, ...otherKeys: string[]) => {
     'schemaVersion',
     'name',
     'externalJobID',
+    'gasLimitGwei',
     ...otherKeys,
   )
 }

@@ -437,7 +437,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		name    string
 		eip1559 bool
 	}{
-		{"legacy mode", false},
+		// {"legacy mode", false},
 		{"eip1559 mode", true},
 	}
 

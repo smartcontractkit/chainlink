@@ -14,6 +14,7 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -216,19 +217,21 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.New("TransmitterAddress is missing")
 		}
 
+		gasLimit := chain.Config().EvmGasLimitDefault()
+		if jb.GasLimitGwei != nil {
+			gasLimit = assets.GWei(int64(*jb.GasLimitGwei)).Uint64()
+		}
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
-		jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
-		jb.PipelineSpec.JobID = jb.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)

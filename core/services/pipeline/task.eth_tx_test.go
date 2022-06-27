@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -38,6 +39,7 @@ func TestETHTxTask(t *testing.T) {
 		minConfirmations      string
 		evmChainID            string
 		transmitChecker       string
+		specGasLimitGwei      uint32
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager)
@@ -56,6 +58,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			`{"CheckerType": "vrf_v2", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -98,6 +101,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -142,6 +146,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -188,6 +193,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -234,6 +240,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -265,6 +272,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0, // spec does not override gas limit
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -273,6 +281,43 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(999)
+				txMeta := &txmgr.EthTxMeta{
+					JobID:         &jid,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
+				}
+				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				txManager.On("CreateEthTransaction", txmgr.NewTx{
+					FromAddress:    from,
+					ToAddress:      to,
+					EncodedPayload: data,
+					GasLimit:       gasLimit,
+					Meta:           txMeta,
+					Strategy:       txmgr.SendEveryStrategy{},
+				}).Return(txmgr.EthTx{}, nil)
+			},
+			nil, nil, "", pipeline.RunInfo{},
+		},
+		{
+			"happy (missing gasLimit takes spec defined value)",
+			`[ "0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c" ]`,
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"foobar",
+			"",
+			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
+			`0`,
+			"",
+			"",
+			123,
+			pipeline.NewVarsFrom(nil),
+			nil,
+			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
+				config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(999)
+				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
+				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				data := []byte("foobar")
+				gasLimit := assets.GWei(123).Uint64()
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -301,6 +346,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -329,6 +375,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -365,6 +412,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -382,6 +430,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -399,6 +448,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -416,6 +466,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -432,6 +483,7 @@ func TestETHTxTask(t *testing.T) {
 			`3`,
 			"",
 			"",
+			0,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -454,6 +506,7 @@ func TestETHTxTask(t *testing.T) {
 			`0`,
 			"$(evmChainID)",
 			"",
+			0,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -486,6 +539,10 @@ func TestETHTxTask(t *testing.T) {
 				MinConfirmations: test.minConfirmations,
 				EVMChainID:       test.evmChainID,
 				TransmitChecker:  test.transmitChecker,
+			}
+
+			if test.specGasLimitGwei > 0 {
+				task.SetGasLimitGwei(test.specGasLimitGwei)
 			}
 
 			keyStore := new(keystoremocks.Eth)

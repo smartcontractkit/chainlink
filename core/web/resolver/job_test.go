@@ -34,6 +34,7 @@ func TestResolver_Jobs(t *testing.T) {
 						id
 						createdAt
 						externalJobID
+						gasLimitGwei
 						maxTaskDuration
 						name
 						schemaVersion
@@ -101,6 +102,7 @@ func TestResolver_Jobs(t *testing.T) {
 							"id": "1",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"externalJobID": "00000000-0000-0000-0000-000000000001",
+							"gasLimitGwei": null,
 							"maxTaskDuration": "1s",
 							"name": "job1",
 							"schemaVersion": 1,
@@ -141,6 +143,7 @@ func TestResolver_Job(t *testing.T) {
 						id
 						createdAt
 						externalJobID
+						gasLimitGwei
 						maxTaskDuration
 						name
 						schemaVersion
@@ -204,6 +207,7 @@ func TestResolver_Job(t *testing.T) {
 						"id": "1",
 						"createdAt": "2021-01-01T00:00:00Z",
 						"externalJobID": "00000000-0000-0000-0000-000000000001",
+						"gasLimitGwei": null,
 						"maxTaskDuration": "1s",
 						"name": "job1",
 						"schemaVersion": 1,

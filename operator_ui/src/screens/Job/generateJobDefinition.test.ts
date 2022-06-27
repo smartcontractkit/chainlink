@@ -20,6 +20,7 @@ describe('generateJobDefinition', () => {
       name: 'cron job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'CronSpec',
         schedule: '*/2 * * * *',
@@ -56,6 +57,7 @@ observationSource = """
       name: 'direct request job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'DirectRequestSpec',
         contractAddress: '0x0000000000000000000000000000000000000000',
@@ -101,6 +103,7 @@ observationSource = """
       name: 'keeper job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'KeeperSpec',
         contractAddress: '0x0000000000000000000000000000000000000000',
@@ -140,6 +143,7 @@ observationSource = """
       name: 'flux monitor job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'FluxMonitorSpec',
         absoluteThreshold: 1,
@@ -198,6 +202,7 @@ observationSource = """
       name: 'ocr job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'OCRSpec',
         blockchainTimeout: '20s',
@@ -274,6 +279,7 @@ observationSource = """
       name: 'ocr job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'OCRSpec',
         blockchainTimeout: '20s',
@@ -352,6 +358,7 @@ observationTimeout = "10s"
       name: 'ocr 2 job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'OCR2Spec',
         blockchainTimeout: '20s',
@@ -428,6 +435,7 @@ juelsPerFeeCoinSource = "1000000000"
       name: 'vrf job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'VRFSpec',
         coordinatorAddress: '0x0000000000000000000000000000000000000000',
@@ -490,6 +498,7 @@ observationSource = """
       name: 'webhook job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'WebhookSpec',
       },
@@ -522,6 +531,7 @@ observationSource = """
       name: 'bootstrap',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
+      gasLimitGwei: 1000,
       spec: {
         __typename: 'BootstrapSpec',
         id: '',

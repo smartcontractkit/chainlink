@@ -250,9 +250,11 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).chainSet = r.chainSet
+			task.(*EstimateGasLimitTask).gasLimitGwei = run.PipelineSpec.GasLimitGwei
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).chainSet = r.chainSet
+			task.(*ETHTxTask).gasLimitGwei = run.PipelineSpec.GasLimitGwei
 		default:
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,7 +30,8 @@ type EstimateGasLimitTask struct {
 	Data       string `json:"data"`
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	chainSet evm.ChainSet
+	gasLimitGwei *uint32
+	chainSet     evm.ChainSet
 }
 
 type GasEstimator interface {
@@ -68,6 +70,9 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 		return Result{Error: err}, retryableRunInfo()
 	}
 	maximumGasLimit := chain.Config().EvmGasLimitDefault()
+	if t.gasLimitGwei != nil {
+		maximumGasLimit = assets.GWei(int64(*t.gasLimitGwei)).Uint64()
+	}
 	to := common.Address(toAddr)
 	gasLimit, err := chain.Client().EstimateGas(context.Background(), ethereum.CallMsg{
 		From: common.Address(fromAddr),
