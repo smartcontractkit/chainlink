@@ -43,7 +43,8 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.19.0
-	github.com/pelletier/go-toml v1.9.4
+	github.com/pelletier/go-toml v1.9.5
+	github.com/pelletier/go-toml/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.12.1
@@ -53,10 +54,10 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-relay v0.0.0-20220516224734-c4759cac049a
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220519124030-06ae6d2fe754
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220517130712-37c2baa48d68
-	github.com/smartcontractkit/libocr v0.0.0-20220512162406-9e4afd8896f3
+	github.com/smartcontractkit/chainlink-relay v0.1.2-0.20220621201358-49e57dd1264e
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
+	github.com/smartcontractkit/libocr v0.0.0-20220623210256-b7ae1e1c66f6
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a

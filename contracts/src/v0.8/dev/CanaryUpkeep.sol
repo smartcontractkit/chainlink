@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.6;
 
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/KeeperRegistryInterface.sol";
@@ -69,7 +69,7 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
    */
   function checkUpkeep(
     bytes calldata /* checkData */
-  ) external view returns (bool, bytes memory) {
+  ) external view override returns (bool, bytes memory) {
     bool upkeepNeeded = block.timestamp >= s_interval + s_timestamp;
     return (upkeepNeeded, bytes(""));
   }
@@ -80,7 +80,7 @@ contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
    */
   function performUpkeep(
     bytes calldata /* performData */
-  ) external {
+  ) external override {
     (State memory _s, Config memory _c, address[] memory keepers) = i_keeperRegistry.getState();
     if (keepers.length == 0) {
       revert NoKeeperNodes();

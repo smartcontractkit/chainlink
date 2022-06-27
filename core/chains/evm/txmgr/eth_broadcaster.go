@@ -258,7 +258,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "processUnstartedEthTxs failed")
+		return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
@@ -279,7 +279,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		}
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+			return errors.Wrap(err, "processUnstartedEthTxs failed on nextUnstartedTransactionWithNonce")
 		}
 		if etx == nil {
 			return nil
@@ -294,7 +294,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			}
 			a, err = eb.NewDynamicFeeAttempt(*etx, fee, gasLimit)
 			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed")
+				return errors.Wrap(err, "processUnstartedEthTxs failed on NewDynamicFeeAttempt")
 			}
 		} else {
 			gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
@@ -303,7 +303,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			}
 			a, err = eb.NewLegacyAttempt(*etx, gasPrice, gasLimit)
 			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed")
+				return errors.Wrap(err, "processUnstartedEthTxs failed on NewLegacyAttempt")
 			}
 		}
 
@@ -311,11 +311,11 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+			return errors.Wrap(err, "processUnstartedEthTxs failed on saveInProgressTransaction")
 		}
 
 		if err := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+			return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 		}
 	}
 }

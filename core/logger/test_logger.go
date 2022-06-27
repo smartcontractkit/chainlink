@@ -30,11 +30,13 @@ func testLogger(tb testing.TB, core zapcore.Core) SugaredLogger {
 	ll, invalid := envvar.LogLevel.Parse()
 	a := zap.NewAtomicLevelAt(ll)
 	opts := []zaptest.LoggerOption{zaptest.Level(a)}
+	zapOpts := []zap.Option{zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
 	if core != nil {
-		opts = append(opts, zaptest.WrapOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		zapOpts = append(zapOpts, zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 			return zapcore.NewTee(c, core)
-		})))
+		}))
 	}
+	opts = append(opts, zaptest.WrapOptions(zapOpts...))
 	l := &zapLogger{
 		level:         a,
 		SugaredLogger: zaptest.NewLogger(tb, opts...).Sugar(),
