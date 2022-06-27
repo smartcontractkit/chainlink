@@ -44,7 +44,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	originalKeyRingRaw := rawKeyRing{
 		CSA:     []csakey.Raw{csa1.Raw(), csa2.Raw()},
 		Eth:     []ethkey.Raw{eth1.Raw(), eth2.Raw()},
-		OCR:     []ocrkey.Raw{ocr1.Raw(), ocr2.Raw()},
+		OCR:     []ocrkey.Raw{ocr[0].Raw(), ocr[1].Raw()},
 		OCR2:    ocr2_raw,
 		P2P:     []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
 		Solana:  []solkey.Raw{sol1.Raw(), sol2.Raw()},
