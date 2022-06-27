@@ -117,7 +117,10 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewBool("BalanceMonitorEnabled").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].BalanceMonitorEnabled = e
+			if c.EVM[i].BalanceMonitor == nil {
+				c.EVM[i].BalanceMonitor = &evmcfg.BalanceMonitor{}
+			}
+			c.EVM[i].BalanceMonitor.Enabled = e
 		}
 	}
 	if e := envvar.NewUint32("BlockBackfillDepth").ParsePtr(); e != nil {
@@ -264,72 +267,114 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].EIP1559DynamicFees = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.EIP1559DynamicFees = e
 		}
 	}
 	if e := envvar.NewUint16("EvmGasBumpPercent").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpPercent = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpPercent = e
 		}
 	}
-	if e := envvar.New("EvmGasBumpThreshold", parse.BigInt).ParsePtr(); e != nil {
+	if e := envvar.NewUint32("EvmGasBumpThreshold").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpThreshold = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpThreshold = e
 		}
 	}
 	if e := envvar.New("EvmGasBumpWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpWei = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpMin = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasFeeCapDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasFeeCapDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.FeeCapDefault = utils.NewWei(*e)
 		}
 	}
-	if e := envvar.New("EvmGasLimitDefault", parse.BigInt).ParsePtr(); e != nil {
+	if e := envvar.NewUint32("EvmGasLimitDefault").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasLimitDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitDefault = e
 		}
 	}
 	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasLimitMultiplier = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitMultiplier = e
 		}
 	}
-	if e := envvar.New("EvmGasLimitTransfer", parse.BigInt).ParsePtr(); e != nil {
+	if e := envvar.NewUint32("EvmGasLimitTransfer").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasLimitTransfer = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitTransfer = e
 		}
 	}
 	if e := envvar.New("EvmGasPriceDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasPriceDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.PriceDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasTipCapDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.TipCapDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapMinimum", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasTipCapMinimum = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.TipCapMinimum = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxGasPriceWei = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.PriceMax = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMinGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MinGasPriceWei = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.PriceMin = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.NewString("GasEstimatorMode").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasEstimatorMode = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.Mode = e
 		}
 	} else if e, ok := os.LookupEnv("GAS_UPDATER_ENABLED"); ok {
 		v := "FixedPrice"
@@ -337,97 +382,133 @@ func (c *Config) loadLegacyEVMEnv() {
 			v = "BlockHistory"
 		}
 		for i := range c.EVM {
-			c.EVM[i].GasEstimatorMode = &v
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.Mode = &v
+		}
+	}
+	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpTxDepth = e
 		}
 	}
 	if e := envvar.NewUint32("BlockHistoryEstimatorBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.BatchSize = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BatchSize = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BATCH_SIZE"); ok {
 		l, err := parse.Uint32(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.BatchSize = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BatchSize = &l
 			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.BlockDelay = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BlockDelay = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.BlockDelay = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BlockDelay = &l
 			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockHistorySize").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.BlockHistorySize = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BlockHistorySize = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.BlockHistorySize = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BlockHistorySize = &l
 			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = e
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorTransactionPercentile").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.TransactionPercentile = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.TransactionPercentile = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.TransactionPercentile = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.TransactionPercentile = &l
 			}
 		}
 	}
 	for i := range c.EVM {
-		if isZeroPtr(c.EVM[i].BlockHistoryEstimator) {
-			c.EVM[i].BlockHistoryEstimator = nil
+		if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
+			c.EVM[i].GasEstimator.BlockHistory = nil
 		}
-	}
-	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {
-		for i := range c.EVM {
-			c.EVM[i].GasBumpTxDepth = e
+		if isZeroPtr(c.EVM[i].GasEstimator) {
+			c.EVM[i].GasEstimator = nil
 		}
 	}
 	if e := envvar.NewUint32("EvmMaxInFlightTransactions").ParsePtr(); e != nil {
@@ -608,7 +689,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		ContractTransmitterTransmitTimeout: envDuration("OCR2ContractTransmitterTransmitTimeout"),
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
-		MonitoringEndpoint:                 envvar.NewString("OCR2MonitoringEndpoint").ParsePtr(),
 	}
 	if isZeroPtr(c.OCR2) {
 		c.OCR2 = nil
@@ -621,9 +701,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		ContractSubscribeInterval:    envDuration("OCRContractSubscribeInterval"),
 		DefaultTransactionQueueDepth: envvar.NewUint32("OCRDefaultTransactionQueueDepth").ParsePtr(),
 		KeyBundleID:                  envvar.New("OCRKeyBundleID", models.Sha256HashFromHex).ParsePtr(),
-		MonitoringEndpoint:           envvar.NewString("OCRMonitoringEndpoint").ParsePtr(),
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
-		TraceLogging:                 envvar.NewBool("OCRTraceLogging").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
 	}
 	if isZeroPtr(c.OCR) {
@@ -633,6 +711,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.P2P = &config.P2P{
 		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
 	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
 		err = ns.UnmarshalText([]byte(s))
