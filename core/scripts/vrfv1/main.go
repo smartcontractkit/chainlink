@@ -9,17 +9,21 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 
 	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	vrfltoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_ownerless_consumer"
 	vrfoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_ownerless_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -84,6 +88,56 @@ func main() {
 	//account.GasPrice = gp.Mul(gp, big.NewInt(2))
 
 	switch os.Args[1] {
+	case "coordinator-deploy":
+		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "LINK token contract address")
+		bhsAddress := cmd.String("bhs-address", "", "blockhash store contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "bhs-address")
+		_, tx, _, err := solidity_vrf_coordinator_interface.DeployVRFCoordinator(
+			account, ec, common.HexToAddress(*linkAddress), common.HexToAddress(*bhsAddress))
+		helpers.PanicErr(err)
+		fmt.Println("Coordinator deployment tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+		coordinatorAddress, err := bind.WaitDeployed(context.Background(), ec, tx)
+		helpers.PanicErr(err)
+		fmt.Println("Coordinator address:", coordinatorAddress)
+	case "coordinator-register-key":
+		cmd := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of VRF coordinator")
+		pubKeyUncompressed := cmd.String("pubkey-uncompressed", "", "uncompressed VRF public key in hex")
+		oracleAddress := cmd.String("oracle-address", "", "oracle address")
+		fee := cmd.String("fee", "", "VRF fee in juels")
+		jobID := cmd.String("job-id", "", "Job UUID on the chainlink node (UUID)")
+		helpers.ParseArgs(cmd, os.Args[2:],
+			"coordinator-address", "pubkey-uncompressed", "oracle-address", "fee", "job-id")
+
+		coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
+			common.HexToAddress(*coordinatorAddress),
+			ec)
+		helpers.PanicErr(err)
+
+		// Put key in ECDSA format
+		if strings.HasPrefix(*pubKeyUncompressed, "0x") {
+			*pubKeyUncompressed = strings.Replace(*pubKeyUncompressed, "0x", "04", 1)
+		}
+		pubBytes, err := hex.DecodeString(*pubKeyUncompressed)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+
+		uid, err := uuid.FromString(*jobID)
+		helpers.PanicErr(err)
+		tx, err := coordinator.RegisterProvingKey(
+			account,
+			decimal.RequireFromString(*fee).BigInt(),
+			common.HexToAddress(*oracleAddress),
+			[2]*big.Int{pk.X, pk.Y},
+			job.ExternalJobIDEncodeStringToTopic(uid),
+		)
+		helpers.PanicErr(err)
+
+		receipt, err := bind.WaitMined(context.Background(), ec, tx)
+		helpers.PanicErr(err)
+		fmt.Println("Tx", helpers.ExplorerLink(chainID, tx.Hash()), "mined in block", receipt.BlockNumber.String())
 	case "ownerless-consumer-deploy":
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
 		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")

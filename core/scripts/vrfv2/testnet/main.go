@@ -325,9 +325,7 @@ func main() {
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
 		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
-		_, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(owner, ec, common.HexToAddress(*bhsAddr))
-		helpers.PanicErr(err)
-		confirmContractDeployed(context.Background(), ec, tx, chainID)
+		deployBatchBHS(e, common.HexToAddress(*bhsAddr))
 	case "batch-bhs-store":
 		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
