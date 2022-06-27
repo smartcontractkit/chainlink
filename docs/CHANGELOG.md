@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Chainlink will now fail to boot if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+- Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+
 ```
 Must be longer than 12 characters
 Must comprise at least 3 of:
@@ -59,10 +60,6 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
-<<<<<<< HEAD
-- Correctly handle the case where bumped gas would exceed the RPC node's configured maximum on Fantom (note that node operators should check their Fantom RPC node configuration and remove the fee cap if there is one)
-=======
->>>>>>> develop
 - Fixed handling of Metis internal fee change
 
 ### Removed
