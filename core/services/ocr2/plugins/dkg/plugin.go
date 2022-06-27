@@ -79,7 +79,7 @@ func (d *DKGContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, err
 	if err != nil {
 		return nil, errors.Wrap(err, "ew onchain dkg client")
 	}
-	onchainContract := dkg.NewOnchainContract(onchainDKGClient, &altbn_128.G1{})
+	onchainContract := dkg.NewOnchainContract(onchainDKGClient, &altbn_128.G2{})
 	keyConsumer := newDummyKeyConsumer()
 	factory := dkg.NewReportingPluginFactory(
 		encryptKey.KyberScalar(),
