@@ -75,13 +75,6 @@ func NewRandomEVMChainID() *big.Int {
 	return big.NewInt(id)
 }
 
-// TestCtx is a context that will expire on test timeout
-func TestCtx(t *testing.T) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), WaitTimeout(t))
-	t.Cleanup(cancel)
-	return ctx
-}
-
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
 	_, _ = mrand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
@@ -120,14 +113,10 @@ func AfterWaitTimeout(t *testing.T) <-chan time.Time {
 	return time.After(WaitTimeout(t))
 }
 
-// Context returns a context with the test's deadline, if available.
+// Context returns a context.Context that will expire after WaitTimeout, which is derived from the test's deadline when it is available.
 func Context(t *testing.T) (ctx context.Context) {
-	ctx = context.Background()
-	if d, ok := t.Deadline(); ok {
-		var cancel func()
-		ctx, cancel = context.WithDeadline(ctx, d)
-		t.Cleanup(cancel)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), WaitTimeout(t))
+	t.Cleanup(cancel)
 	return ctx
 }
 

@@ -8,12 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestNullClient(t *testing.T) {
@@ -36,7 +37,7 @@ func TestNullClient(t *testing.T) {
 
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.TestCtx(t)
+		ctx := testutils.Context(t)
 
 		err := nc.Dial(ctx)
 		require.NoError(t, err)
@@ -88,7 +89,7 @@ func TestNullClient(t *testing.T) {
 
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.TestCtx(t)
+		ctx := testutils.Context(t)
 
 		h, err := nc.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
