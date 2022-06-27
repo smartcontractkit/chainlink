@@ -11,13 +11,7 @@ import "./VRF.sol";
 import "./ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 
-contract VRFCoordinatorV2 is
-  VRF,
-  ConfirmedOwner,
-  iTypeAndVersion,
-  iVRFCoordinatorV2,
-  iERC677Receiver
-{
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinatorV2, iERC677Receiver {
   iLinkToken public immutable LINK;
   iAggregatorV3 public immutable LINK_ETH_FEED;
   iBlockhashStore public immutable BLOCKHASH_STORE;

@@ -21,10 +21,8 @@ contract OptimismValidator is iTypeAndVersion, iAggregatorValidator, SimpleWrite
   address public constant FLAG_OPTIMISM_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
   // Encode underlying Flags call/s
-  bytes private constant CALL_RAISE_FLAG =
-    abi.encodeWithSelector(iFlags.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  bytes private constant CALL_LOWER_FLAG =
-    abi.encodeWithSelector(iFlags.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
+  bytes private constant CALL_RAISE_FLAG = abi.encodeWithSelector(iFlags.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
+  bytes private constant CALL_LOWER_FLAG = abi.encodeWithSelector(iFlags.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
   uint32 private constant CALL_GAS_LIMIT = 1_200_000;
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 

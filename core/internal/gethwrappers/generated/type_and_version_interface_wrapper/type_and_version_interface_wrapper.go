@@ -27,131 +27,131 @@ var (
 	_ = event.NewSubscription
 )
 
-var TypeAndVersionInterfaceMetaData = &bind.MetaData{
+var ITypeAndVersionMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
 }
 
-var TypeAndVersionInterfaceABI = TypeAndVersionInterfaceMetaData.ABI
+var ITypeAndVersionABI = ITypeAndVersionMetaData.ABI
 
-type TypeAndVersionInterface struct {
+type ITypeAndVersion struct {
 	address common.Address
 	abi     abi.ABI
-	TypeAndVersionInterfaceCaller
-	TypeAndVersionInterfaceTransactor
-	TypeAndVersionInterfaceFilterer
+	ITypeAndVersionCaller
+	ITypeAndVersionTransactor
+	ITypeAndVersionFilterer
 }
 
-type TypeAndVersionInterfaceCaller struct {
+type ITypeAndVersionCaller struct {
 	contract *bind.BoundContract
 }
 
-type TypeAndVersionInterfaceTransactor struct {
+type ITypeAndVersionTransactor struct {
 	contract *bind.BoundContract
 }
 
-type TypeAndVersionInterfaceFilterer struct {
+type ITypeAndVersionFilterer struct {
 	contract *bind.BoundContract
 }
 
-type TypeAndVersionInterfaceSession struct {
-	Contract     *TypeAndVersionInterface
+type ITypeAndVersionSession struct {
+	Contract     *ITypeAndVersion
 	CallOpts     bind.CallOpts
 	TransactOpts bind.TransactOpts
 }
 
-type TypeAndVersionInterfaceCallerSession struct {
-	Contract *TypeAndVersionInterfaceCaller
+type ITypeAndVersionCallerSession struct {
+	Contract *ITypeAndVersionCaller
 	CallOpts bind.CallOpts
 }
 
-type TypeAndVersionInterfaceTransactorSession struct {
-	Contract     *TypeAndVersionInterfaceTransactor
+type ITypeAndVersionTransactorSession struct {
+	Contract     *ITypeAndVersionTransactor
 	TransactOpts bind.TransactOpts
 }
 
-type TypeAndVersionInterfaceRaw struct {
-	Contract *TypeAndVersionInterface
+type ITypeAndVersionRaw struct {
+	Contract *ITypeAndVersion
 }
 
-type TypeAndVersionInterfaceCallerRaw struct {
-	Contract *TypeAndVersionInterfaceCaller
+type ITypeAndVersionCallerRaw struct {
+	Contract *ITypeAndVersionCaller
 }
 
-type TypeAndVersionInterfaceTransactorRaw struct {
-	Contract *TypeAndVersionInterfaceTransactor
+type ITypeAndVersionTransactorRaw struct {
+	Contract *ITypeAndVersionTransactor
 }
 
-func NewTypeAndVersionInterface(address common.Address, backend bind.ContractBackend) (*TypeAndVersionInterface, error) {
-	abi, err := abi.JSON(strings.NewReader(TypeAndVersionInterfaceABI))
+func NewITypeAndVersion(address common.Address, backend bind.ContractBackend) (*ITypeAndVersion, error) {
+	abi, err := abi.JSON(strings.NewReader(ITypeAndVersionABI))
 	if err != nil {
 		return nil, err
 	}
-	contract, err := bindTypeAndVersionInterface(address, backend, backend, backend)
+	contract, err := bindITypeAndVersion(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &TypeAndVersionInterface{address: address, abi: abi, TypeAndVersionInterfaceCaller: TypeAndVersionInterfaceCaller{contract: contract}, TypeAndVersionInterfaceTransactor: TypeAndVersionInterfaceTransactor{contract: contract}, TypeAndVersionInterfaceFilterer: TypeAndVersionInterfaceFilterer{contract: contract}}, nil
+	return &ITypeAndVersion{address: address, abi: abi, ITypeAndVersionCaller: ITypeAndVersionCaller{contract: contract}, ITypeAndVersionTransactor: ITypeAndVersionTransactor{contract: contract}, ITypeAndVersionFilterer: ITypeAndVersionFilterer{contract: contract}}, nil
 }
 
-func NewTypeAndVersionInterfaceCaller(address common.Address, caller bind.ContractCaller) (*TypeAndVersionInterfaceCaller, error) {
-	contract, err := bindTypeAndVersionInterface(address, caller, nil, nil)
+func NewITypeAndVersionCaller(address common.Address, caller bind.ContractCaller) (*ITypeAndVersionCaller, error) {
+	contract, err := bindITypeAndVersion(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &TypeAndVersionInterfaceCaller{contract: contract}, nil
+	return &ITypeAndVersionCaller{contract: contract}, nil
 }
 
-func NewTypeAndVersionInterfaceTransactor(address common.Address, transactor bind.ContractTransactor) (*TypeAndVersionInterfaceTransactor, error) {
-	contract, err := bindTypeAndVersionInterface(address, nil, transactor, nil)
+func NewITypeAndVersionTransactor(address common.Address, transactor bind.ContractTransactor) (*ITypeAndVersionTransactor, error) {
+	contract, err := bindITypeAndVersion(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &TypeAndVersionInterfaceTransactor{contract: contract}, nil
+	return &ITypeAndVersionTransactor{contract: contract}, nil
 }
 
-func NewTypeAndVersionInterfaceFilterer(address common.Address, filterer bind.ContractFilterer) (*TypeAndVersionInterfaceFilterer, error) {
-	contract, err := bindTypeAndVersionInterface(address, nil, nil, filterer)
+func NewITypeAndVersionFilterer(address common.Address, filterer bind.ContractFilterer) (*ITypeAndVersionFilterer, error) {
+	contract, err := bindITypeAndVersion(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &TypeAndVersionInterfaceFilterer{contract: contract}, nil
+	return &ITypeAndVersionFilterer{contract: contract}, nil
 }
 
-func bindTypeAndVersionInterface(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(TypeAndVersionInterfaceABI))
+func bindITypeAndVersion(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(ITypeAndVersionABI))
 	if err != nil {
 		return nil, err
 	}
 	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _TypeAndVersionInterface.Contract.TypeAndVersionInterfaceCaller.contract.Call(opts, result, method, params...)
+func (_ITypeAndVersion *ITypeAndVersionRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ITypeAndVersion.Contract.ITypeAndVersionCaller.contract.Call(opts, result, method, params...)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _TypeAndVersionInterface.Contract.TypeAndVersionInterfaceTransactor.contract.Transfer(opts)
+func (_ITypeAndVersion *ITypeAndVersionRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ITypeAndVersion.Contract.ITypeAndVersionTransactor.contract.Transfer(opts)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _TypeAndVersionInterface.Contract.TypeAndVersionInterfaceTransactor.contract.Transact(opts, method, params...)
+func (_ITypeAndVersion *ITypeAndVersionRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ITypeAndVersion.Contract.ITypeAndVersionTransactor.contract.Transact(opts, method, params...)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _TypeAndVersionInterface.Contract.contract.Call(opts, result, method, params...)
+func (_ITypeAndVersion *ITypeAndVersionCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ITypeAndVersion.Contract.contract.Call(opts, result, method, params...)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _TypeAndVersionInterface.Contract.contract.Transfer(opts)
+func (_ITypeAndVersion *ITypeAndVersionTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ITypeAndVersion.Contract.contract.Transfer(opts)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _TypeAndVersionInterface.Contract.contract.Transact(opts, method, params...)
+func (_ITypeAndVersion *ITypeAndVersionTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ITypeAndVersion.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceCaller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
+func (_ITypeAndVersion *ITypeAndVersionCaller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
-	err := _TypeAndVersionInterface.contract.Call(opts, &out, "typeAndVersion")
+	err := _ITypeAndVersion.contract.Call(opts, &out, "typeAndVersion")
 
 	if err != nil {
 		return *new(string), err
@@ -163,19 +163,19 @@ func (_TypeAndVersionInterface *TypeAndVersionInterfaceCaller) TypeAndVersion(op
 
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceSession) TypeAndVersion() (string, error) {
-	return _TypeAndVersionInterface.Contract.TypeAndVersion(&_TypeAndVersionInterface.CallOpts)
+func (_ITypeAndVersion *ITypeAndVersionSession) TypeAndVersion() (string, error) {
+	return _ITypeAndVersion.Contract.TypeAndVersion(&_ITypeAndVersion.CallOpts)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterfaceCallerSession) TypeAndVersion() (string, error) {
-	return _TypeAndVersionInterface.Contract.TypeAndVersion(&_TypeAndVersionInterface.CallOpts)
+func (_ITypeAndVersion *ITypeAndVersionCallerSession) TypeAndVersion() (string, error) {
+	return _ITypeAndVersion.Contract.TypeAndVersion(&_ITypeAndVersion.CallOpts)
 }
 
-func (_TypeAndVersionInterface *TypeAndVersionInterface) Address() common.Address {
-	return _TypeAndVersionInterface.address
+func (_ITypeAndVersion *ITypeAndVersion) Address() common.Address {
+	return _ITypeAndVersion.address
 }
 
-type TypeAndVersionInterfaceInterface interface {
+type ITypeAndVersionInterface interface {
 	TypeAndVersion(opts *bind.CallOpts) (string, error)
 
 	Address() common.Address

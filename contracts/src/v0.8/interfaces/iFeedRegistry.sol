@@ -141,10 +141,7 @@ interface iFeedRegistry {
 
   // Proposed aggregator
 
-  function getProposedFeed(address base, address quote)
-    external
-    view
-    returns (iAggregatorV2V3 proposedAggregator);
+  function getProposedFeed(address base, address quote) external view returns (iAggregatorV2V3 proposedAggregator);
 
   function proposedGetRoundData(
     address base,

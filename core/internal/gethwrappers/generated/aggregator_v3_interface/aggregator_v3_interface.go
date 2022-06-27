@@ -27,131 +27,131 @@ var (
 	_ = event.NewSubscription
 )
 
-var AggregatorV3InterfaceMetaData = &bind.MetaData{
+var IAggregatorV3MetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint80\",\"name\":\"_roundId\",\"type\":\"uint80\"}],\"name\":\"getRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
-var AggregatorV3InterfaceABI = AggregatorV3InterfaceMetaData.ABI
+var IAggregatorV3ABI = IAggregatorV3MetaData.ABI
 
-type AggregatorV3Interface struct {
+type IAggregatorV3 struct {
 	address common.Address
 	abi     abi.ABI
-	AggregatorV3InterfaceCaller
-	AggregatorV3InterfaceTransactor
-	AggregatorV3InterfaceFilterer
+	IAggregatorV3Caller
+	IAggregatorV3Transactor
+	IAggregatorV3Filterer
 }
 
-type AggregatorV3InterfaceCaller struct {
+type IAggregatorV3Caller struct {
 	contract *bind.BoundContract
 }
 
-type AggregatorV3InterfaceTransactor struct {
+type IAggregatorV3Transactor struct {
 	contract *bind.BoundContract
 }
 
-type AggregatorV3InterfaceFilterer struct {
+type IAggregatorV3Filterer struct {
 	contract *bind.BoundContract
 }
 
-type AggregatorV3InterfaceSession struct {
-	Contract     *AggregatorV3Interface
+type IAggregatorV3Session struct {
+	Contract     *IAggregatorV3
 	CallOpts     bind.CallOpts
 	TransactOpts bind.TransactOpts
 }
 
-type AggregatorV3InterfaceCallerSession struct {
-	Contract *AggregatorV3InterfaceCaller
+type IAggregatorV3CallerSession struct {
+	Contract *IAggregatorV3Caller
 	CallOpts bind.CallOpts
 }
 
-type AggregatorV3InterfaceTransactorSession struct {
-	Contract     *AggregatorV3InterfaceTransactor
+type IAggregatorV3TransactorSession struct {
+	Contract     *IAggregatorV3Transactor
 	TransactOpts bind.TransactOpts
 }
 
-type AggregatorV3InterfaceRaw struct {
-	Contract *AggregatorV3Interface
+type IAggregatorV3Raw struct {
+	Contract *IAggregatorV3
 }
 
-type AggregatorV3InterfaceCallerRaw struct {
-	Contract *AggregatorV3InterfaceCaller
+type IAggregatorV3CallerRaw struct {
+	Contract *IAggregatorV3Caller
 }
 
-type AggregatorV3InterfaceTransactorRaw struct {
-	Contract *AggregatorV3InterfaceTransactor
+type IAggregatorV3TransactorRaw struct {
+	Contract *IAggregatorV3Transactor
 }
 
-func NewAggregatorV3Interface(address common.Address, backend bind.ContractBackend) (*AggregatorV3Interface, error) {
-	abi, err := abi.JSON(strings.NewReader(AggregatorV3InterfaceABI))
+func NewIAggregatorV3(address common.Address, backend bind.ContractBackend) (*IAggregatorV3, error) {
+	abi, err := abi.JSON(strings.NewReader(IAggregatorV3ABI))
 	if err != nil {
 		return nil, err
 	}
-	contract, err := bindAggregatorV3Interface(address, backend, backend, backend)
+	contract, err := bindIAggregatorV3(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &AggregatorV3Interface{address: address, abi: abi, AggregatorV3InterfaceCaller: AggregatorV3InterfaceCaller{contract: contract}, AggregatorV3InterfaceTransactor: AggregatorV3InterfaceTransactor{contract: contract}, AggregatorV3InterfaceFilterer: AggregatorV3InterfaceFilterer{contract: contract}}, nil
+	return &IAggregatorV3{address: address, abi: abi, IAggregatorV3Caller: IAggregatorV3Caller{contract: contract}, IAggregatorV3Transactor: IAggregatorV3Transactor{contract: contract}, IAggregatorV3Filterer: IAggregatorV3Filterer{contract: contract}}, nil
 }
 
-func NewAggregatorV3InterfaceCaller(address common.Address, caller bind.ContractCaller) (*AggregatorV3InterfaceCaller, error) {
-	contract, err := bindAggregatorV3Interface(address, caller, nil, nil)
+func NewIAggregatorV3Caller(address common.Address, caller bind.ContractCaller) (*IAggregatorV3Caller, error) {
+	contract, err := bindIAggregatorV3(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &AggregatorV3InterfaceCaller{contract: contract}, nil
+	return &IAggregatorV3Caller{contract: contract}, nil
 }
 
-func NewAggregatorV3InterfaceTransactor(address common.Address, transactor bind.ContractTransactor) (*AggregatorV3InterfaceTransactor, error) {
-	contract, err := bindAggregatorV3Interface(address, nil, transactor, nil)
+func NewIAggregatorV3Transactor(address common.Address, transactor bind.ContractTransactor) (*IAggregatorV3Transactor, error) {
+	contract, err := bindIAggregatorV3(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &AggregatorV3InterfaceTransactor{contract: contract}, nil
+	return &IAggregatorV3Transactor{contract: contract}, nil
 }
 
-func NewAggregatorV3InterfaceFilterer(address common.Address, filterer bind.ContractFilterer) (*AggregatorV3InterfaceFilterer, error) {
-	contract, err := bindAggregatorV3Interface(address, nil, nil, filterer)
+func NewIAggregatorV3Filterer(address common.Address, filterer bind.ContractFilterer) (*IAggregatorV3Filterer, error) {
+	contract, err := bindIAggregatorV3(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &AggregatorV3InterfaceFilterer{contract: contract}, nil
+	return &IAggregatorV3Filterer{contract: contract}, nil
 }
 
-func bindAggregatorV3Interface(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(AggregatorV3InterfaceABI))
+func bindIAggregatorV3(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(IAggregatorV3ABI))
 	if err != nil {
 		return nil, err
 	}
 	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _AggregatorV3Interface.Contract.AggregatorV3InterfaceCaller.contract.Call(opts, result, method, params...)
+func (_IAggregatorV3 *IAggregatorV3Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IAggregatorV3.Contract.IAggregatorV3Caller.contract.Call(opts, result, method, params...)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _AggregatorV3Interface.Contract.AggregatorV3InterfaceTransactor.contract.Transfer(opts)
+func (_IAggregatorV3 *IAggregatorV3Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAggregatorV3.Contract.IAggregatorV3Transactor.contract.Transfer(opts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _AggregatorV3Interface.Contract.AggregatorV3InterfaceTransactor.contract.Transact(opts, method, params...)
+func (_IAggregatorV3 *IAggregatorV3Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IAggregatorV3.Contract.IAggregatorV3Transactor.contract.Transact(opts, method, params...)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _AggregatorV3Interface.Contract.contract.Call(opts, result, method, params...)
+func (_IAggregatorV3 *IAggregatorV3CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IAggregatorV3.Contract.contract.Call(opts, result, method, params...)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _AggregatorV3Interface.Contract.contract.Transfer(opts)
+func (_IAggregatorV3 *IAggregatorV3TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAggregatorV3.Contract.contract.Transfer(opts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _AggregatorV3Interface.Contract.contract.Transact(opts, method, params...)
+func (_IAggregatorV3 *IAggregatorV3TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IAggregatorV3.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
+func (_IAggregatorV3 *IAggregatorV3Caller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
-	err := _AggregatorV3Interface.contract.Call(opts, &out, "decimals")
+	err := _IAggregatorV3.contract.Call(opts, &out, "decimals")
 
 	if err != nil {
 		return *new(uint8), err
@@ -163,17 +163,17 @@ func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) Decimals(opts *bind.C
 
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceSession) Decimals() (uint8, error) {
-	return _AggregatorV3Interface.Contract.Decimals(&_AggregatorV3Interface.CallOpts)
+func (_IAggregatorV3 *IAggregatorV3Session) Decimals() (uint8, error) {
+	return _IAggregatorV3.Contract.Decimals(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCallerSession) Decimals() (uint8, error) {
-	return _AggregatorV3Interface.Contract.Decimals(&_AggregatorV3Interface.CallOpts)
+func (_IAggregatorV3 *IAggregatorV3CallerSession) Decimals() (uint8, error) {
+	return _IAggregatorV3.Contract.Decimals(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) Description(opts *bind.CallOpts) (string, error) {
+func (_IAggregatorV3 *IAggregatorV3Caller) Description(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
-	err := _AggregatorV3Interface.contract.Call(opts, &out, "description")
+	err := _IAggregatorV3.contract.Call(opts, &out, "description")
 
 	if err != nil {
 		return *new(string), err
@@ -185,19 +185,19 @@ func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) Description(opts *bin
 
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceSession) Description() (string, error) {
-	return _AggregatorV3Interface.Contract.Description(&_AggregatorV3Interface.CallOpts)
+func (_IAggregatorV3 *IAggregatorV3Session) Description() (string, error) {
+	return _IAggregatorV3.Contract.Description(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCallerSession) Description() (string, error) {
-	return _AggregatorV3Interface.Contract.Description(&_AggregatorV3Interface.CallOpts)
+func (_IAggregatorV3 *IAggregatorV3CallerSession) Description() (string, error) {
+	return _IAggregatorV3.Contract.Description(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) GetRoundData(opts *bind.CallOpts, _roundId *big.Int) (GetRoundData,
+func (_IAggregatorV3 *IAggregatorV3Caller) GetRoundData(opts *bind.CallOpts, _roundId *big.Int) (GetRoundData,
 
 	error) {
 	var out []interface{}
-	err := _AggregatorV3Interface.contract.Call(opts, &out, "getRoundData", _roundId)
+	err := _IAggregatorV3.contract.Call(opts, &out, "getRoundData", _roundId)
 
 	outstruct := new(GetRoundData)
 	if err != nil {
@@ -214,23 +214,23 @@ func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) GetRoundData(opts *bi
 
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceSession) GetRoundData(_roundId *big.Int) (GetRoundData,
+func (_IAggregatorV3 *IAggregatorV3Session) GetRoundData(_roundId *big.Int) (GetRoundData,
 
 	error) {
-	return _AggregatorV3Interface.Contract.GetRoundData(&_AggregatorV3Interface.CallOpts, _roundId)
+	return _IAggregatorV3.Contract.GetRoundData(&_IAggregatorV3.CallOpts, _roundId)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCallerSession) GetRoundData(_roundId *big.Int) (GetRoundData,
+func (_IAggregatorV3 *IAggregatorV3CallerSession) GetRoundData(_roundId *big.Int) (GetRoundData,
 
 	error) {
-	return _AggregatorV3Interface.Contract.GetRoundData(&_AggregatorV3Interface.CallOpts, _roundId)
+	return _IAggregatorV3.Contract.GetRoundData(&_IAggregatorV3.CallOpts, _roundId)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) LatestRoundData(opts *bind.CallOpts) (LatestRoundData,
+func (_IAggregatorV3 *IAggregatorV3Caller) LatestRoundData(opts *bind.CallOpts) (LatestRoundData,
 
 	error) {
 	var out []interface{}
-	err := _AggregatorV3Interface.contract.Call(opts, &out, "latestRoundData")
+	err := _IAggregatorV3.contract.Call(opts, &out, "latestRoundData")
 
 	outstruct := new(LatestRoundData)
 	if err != nil {
@@ -247,21 +247,21 @@ func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) LatestRoundData(opts 
 
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceSession) LatestRoundData() (LatestRoundData,
+func (_IAggregatorV3 *IAggregatorV3Session) LatestRoundData() (LatestRoundData,
 
 	error) {
-	return _AggregatorV3Interface.Contract.LatestRoundData(&_AggregatorV3Interface.CallOpts)
+	return _IAggregatorV3.Contract.LatestRoundData(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCallerSession) LatestRoundData() (LatestRoundData,
+func (_IAggregatorV3 *IAggregatorV3CallerSession) LatestRoundData() (LatestRoundData,
 
 	error) {
-	return _AggregatorV3Interface.Contract.LatestRoundData(&_AggregatorV3Interface.CallOpts)
+	return _IAggregatorV3.Contract.LatestRoundData(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) Version(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAggregatorV3 *IAggregatorV3Caller) Version(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _AggregatorV3Interface.contract.Call(opts, &out, "version")
+	err := _IAggregatorV3.contract.Call(opts, &out, "version")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -273,12 +273,12 @@ func (_AggregatorV3Interface *AggregatorV3InterfaceCaller) Version(opts *bind.Ca
 
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceSession) Version() (*big.Int, error) {
-	return _AggregatorV3Interface.Contract.Version(&_AggregatorV3Interface.CallOpts)
+func (_IAggregatorV3 *IAggregatorV3Session) Version() (*big.Int, error) {
+	return _IAggregatorV3.Contract.Version(&_IAggregatorV3.CallOpts)
 }
 
-func (_AggregatorV3Interface *AggregatorV3InterfaceCallerSession) Version() (*big.Int, error) {
-	return _AggregatorV3Interface.Contract.Version(&_AggregatorV3Interface.CallOpts)
+func (_IAggregatorV3 *IAggregatorV3CallerSession) Version() (*big.Int, error) {
+	return _IAggregatorV3.Contract.Version(&_IAggregatorV3.CallOpts)
 }
 
 type GetRoundData struct {
@@ -296,11 +296,11 @@ type LatestRoundData struct {
 	AnsweredInRound *big.Int
 }
 
-func (_AggregatorV3Interface *AggregatorV3Interface) Address() common.Address {
-	return _AggregatorV3Interface.address
+func (_IAggregatorV3 *IAggregatorV3) Address() common.Address {
+	return _IAggregatorV3.address
 }
 
-type AggregatorV3InterfaceInterface interface {
+type IAggregatorV3Interface interface {
 	Decimals(opts *bind.CallOpts) (uint8, error)
 
 	Description(opts *bind.CallOpts) (string, error)

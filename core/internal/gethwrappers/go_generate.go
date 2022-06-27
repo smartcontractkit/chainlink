@@ -29,7 +29,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - CronUpkeepFactory cron_upkeep_factory_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/CronUpkeep.abi - CronUpkeep cron_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeeperRegistry.abi ../../../contracts/solc/v0.8.6/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper1_2
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/TypeAndVersionInterface.abi ../../../contracts/solc/v0.8.6/TypeAndVersionInterface.bin TypeAndVersionInterface type_and_version_interface_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/iTypeAndVersion.abi ../../../contracts/solc/v0.8.6/iTypeAndVersion.bin iTypeAndVersion type_and_version_interface_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.abi ../../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.bin KeeperRegistryCheckUpkeepGasUsageWrapper gas_wrapper
 
 // v0.8.6 VRFConsumer
@@ -59,8 +59,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer
 
 // Aggregators
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/AggregatorV3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV3Interface.bin AggregatorV3Interface aggregator_v3_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/iAggregatorV2V3.abi ../../../contracts/solc/v0.8.6/iAggregatorV2V3.bin iAggregatorV2V3 aggregator_v2v3_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/iAggregatorV3.abi ../../../contracts/solc/v0.8.6/iAggregatorV3.bin iAggregatorV3 aggregator_v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../../contracts/solc/v0.8.6/DerivedPriceFeed.bin DerivedPriceFeed derived_price_feed_wrapper
 
 // Log tester
