@@ -86,11 +86,11 @@ func main() {
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "duration of delta grace")
 		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta grace")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
-		maxDurationQuery := cmd.Duration("max-duration-query", 5*time.Second, "maximum duration of query")
-		maxDurationObservation := cmd.Duration("max-duration-observation", 5*time.Second, "maximum duration of observation method")
-		maxDurationReport := cmd.Duration("max-duration-report", 5*time.Second, "maximum duration of report method")
-		maxDurationAccept := cmd.Duration("max-duration-accept", 5*time.Second, "maximum duration of shouldAcceptFinalizedReport method")
-		maxDurationTransmit := cmd.Duration("max-duration-transmit", 5*time.Second, "maximum duration of shouldTransmitAcceptedReport method")
+		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
+		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
+		maxDurationReport := cmd.Duration("max-duration-report", 10*time.Second, "maximum duration of report method")
+		maxDurationAccept := cmd.Duration("max-duration-accept", 10*time.Millisecond, "maximum duration of shouldAcceptFinalizedReport method")
+		maxDurationTransmit := cmd.Duration("max-duration-transmit", 1*time.Second, "maximum duration of shouldTransmitAcceptedReport method")
 
 		helpers.ParseArgs(cmd,
 			os.Args[2:],
