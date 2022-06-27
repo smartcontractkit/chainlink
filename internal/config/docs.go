@@ -16,7 +16,12 @@ var docsTOML string
 
 // GenerateDocs returns MarkDown documentation generated from docs.toml.
 func GenerateDocs() (string, error) {
-	items, err := parseTOMLDocs(docsTOML)
+	return generateDocs(docsTOML)
+}
+
+// generateDocs returns MarkDown documentation generated from the TOML string.
+func generateDocs(toml string) (string, error) {
+	items, err := parseTOMLDocs(toml)
 	var sb strings.Builder
 
 	// Header.

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -27,4 +28,17 @@ func TestDoc(t *testing.T) {
 	cfgtest.AssertFieldsNotNil(t, c)
 
 	//TODO validate defaults?
+}
+
+var (
+	//go:embed testdata/example.toml
+	exampleTOML string
+	//go:embed testdata/example.md
+	exampleMarkdown string
+)
+
+func Test_generateDocs(t *testing.T) {
+	got, err := generateDocs(exampleTOML)
+	require.NoError(t, err)
+	assert.Equal(t, exampleMarkdown, got)
 }
