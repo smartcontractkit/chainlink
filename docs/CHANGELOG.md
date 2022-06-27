@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simplified the Keepers job spec by removing the observation source from the required parameters.
 
-## [1.5.1]
+## [1.5.1] - 2022-06-27
 
 ### Fixed
 
