@@ -2959,7 +2959,7 @@ ChainID is the EVM chain ID. Mandatory.
 ```toml
 Enabled = true # Default
 ```
-
+Enabled enables this chain.
 
 ### BlockBackfillDepth<a id='EVM-BlockBackfillDepth'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -3519,9 +3519,9 @@ ObservationTimeout sets `OCR.ObservationTimeout` for this EVM chain.
 ```toml
 [[EVM.Nodes]]
 Name = 'foo' # Example
-WSURL = 'wss://web.socket/test' # Default
-HTTPURL = 'https://foo.web' # Default
-SendOnly = true # Default
+WSURL = 'wss://web.socket/test' # Example
+HTTPURL = 'https://foo.web' # Example
+SendOnly = false # Default
 ```
 
 
@@ -3529,25 +3529,25 @@ SendOnly = true # Default
 ```toml
 Name = 'foo' # Example
 ```
-
+Name is a unique (per-chain) identifier for this node.
 
 ### WSURL<a id='EVM-Nodes-WSURL'></a>
 ```toml
-WSURL = 'wss://web.socket/test' # Default
+WSURL = 'wss://web.socket/test' # Example
 ```
-
+WSURL is the WS(S) endpoint for this node. Required for primary nodes.
 
 ### HTTPURL<a id='EVM-Nodes-HTTPURL'></a>
 ```toml
-HTTPURL = 'https://foo.web' # Default
+HTTPURL = 'https://foo.web' # Example
 ```
-
+HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Required for `SendOnly`.
 
 ### SendOnly<a id='EVM-Nodes-SendOnly'></a>
 ```toml
-SendOnly = true # Default
+SendOnly = false # Default
 ```
-
+SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
 
 ## Solana<a id='Solana'></a>
 ```toml
@@ -3577,7 +3577,7 @@ ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localn
 ```toml
 Enabled = false # Default
 ```
-
+Enabled enables this chain.
 
 ### BalancePollPeriod<a id='Solana-BalancePollPeriod'></a>
 ```toml
@@ -3652,13 +3652,13 @@ URL = 'http://solana.web' # Example
 ```toml
 Name = 'primary' # Example
 ```
-
+Name is a unique (per-chain) identifier for this node.
 
 ### URL<a id='Solana-Nodes-URL'></a>
 ```toml
 URL = 'http://solana.web' # Example
 ```
-
+URL is the HTTP(S) endpoint for this node.
 
 ## Terra<a id='Terra'></a>
 ```toml
@@ -3688,7 +3688,7 @@ ChainID is the Terra chain ID. Mandatory.
 ```toml
 Enabled = true # Default
 ```
-
+Enabled enables this chain.
 
 ### BlockRate<a id='Terra-BlockRate'></a>
 ```toml
@@ -3762,11 +3762,11 @@ TendermintURL = 'http://tender.mint' # Example
 ```toml
 Name = 'primary' # Example
 ```
-
+Name is a unique (per-chain) identifier for this node.
 
 ### TendermintURL<a id='Terra-Nodes-TendermintURL'></a>
 ```toml
 TendermintURL = 'http://tender.mint' # Example
 ```
-
+TendermintURL is the HTTP(S) tendermint endpoint for this node.
 

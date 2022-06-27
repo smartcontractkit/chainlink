@@ -472,6 +472,7 @@ Release = 'v1.2.3' # Example
 [[EVM]]
 # ChainID is the EVM chain ID. Mandatory.
 ChainID = '1' # Example
+# Enabled enables this chain.
 Enabled = true # Default
 # **ADVANCED**
 # BlockBackfillDepth specifies the number of blocks before the current HEAD that the log broadcaster will try to re-consume logs from.
@@ -747,14 +748,19 @@ ObservationGracePeriod = '1s' # Default
 ObservationTimeout = '1m' # Example
 
 [[EVM.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
 Name = 'foo' # Example
-WSURL = 'wss://web.socket/test' # Default
-HTTPURL = 'https://foo.web' # Default
-SendOnly = true # Default
+# WSURL is the WS(S) endpoint for this node. Required for primary nodes.
+WSURL = 'wss://web.socket/test' # Example
+# HTTPURL is the HTTP(S) endpoint for this node. Recommended for primary nodes. Required for `SendOnly`.
+HTTPURL = 'https://foo.web' # Example
+# SendOnly limits usage to sending transaction broadcasts only. With this enabled, only HTTPURL is required, and WSURL is not used.
+SendOnly = false # Default
 
 [[Solana]]
 # ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localnet. Mandatory.
 ChainID = 'mainnet' # Example
+# Enabled enables this chain.
 Enabled = false # Default
 # BalancePollPeriod is the rate to poll for SOL balance and update Prometheus metrics.
 BalancePollPeriod = '5s' # Default
@@ -779,12 +785,15 @@ Commitment = 'confirmed' # Default
 MaxRetries = 0 # Default
 
 [[Solana.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
 Name = 'primary' # Example
+# URL is the HTTP(S) endpoint for this node.
 URL = 'http://solana.web' # Example
 
 [[Terra]]
 # ChainID is the Terra chain ID. Mandatory.
 ChainID = 'Bombay-12' # Example
+# Enabled enables this chain.
 Enabled = true # Default
 # BlockRate is the average time between blocks.
 BlockRate = '6s' # Default
@@ -808,5 +817,7 @@ OCR2CacheTTL = '1m' # Default
 TxMsgTimeout = '10m' # Default
 
 [[Terra.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
 Name = 'primary' # Example
+# TendermintURL is the HTTP(S) tendermint endpoint for this node.
 TendermintURL = 'http://tender.mint' # Example
