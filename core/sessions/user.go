@@ -18,7 +18,7 @@ import (
 type User struct {
 	Email             string
 	HashedPassword    string
-	Role              string
+	Role              UserRole
 	CreatedAt         time.Time
 	TokenKey          null.String
 	TokenSalt         null.String
@@ -26,11 +26,13 @@ type User struct {
 	UpdatedAt         time.Time
 }
 
+type UserRole string
+
 const (
-	UserRoleAdmin       = "admin"
-	UserRoleEdit        = "edit"
-	UserRoleEditMinimal = "edit_minimal"
-	UserRoleView        = "view"
+	UserRoleAdmin       UserRole = "admin"
+	UserRoleEdit        UserRole = "edit"
+	UserRoleEditMinimal UserRole = "edit_minimal"
+	UserRoleView        UserRole = "view"
 )
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -42,17 +44,13 @@ const (
 )
 
 // NewUser creates a new user by hashing the passed plainPwd with bcrypt.
-func NewUser(email, plainPwd, role string) (User, error) {
+func NewUser(email string, plainPwd string, role UserRole) (User, error) {
 	if err := ValidateEmail(email); err != nil {
 		return User{}, err
 	}
 
 	pwd, err := ValidateAndHashPassword(plainPwd)
 	if err != nil {
-		return User{}, err
-	}
-
-	if err := ValidateUserRole(role); err != nil {
 		return User{}, err
 	}
 
@@ -76,8 +74,11 @@ func ValidateEmail(email string) error {
 
 // ValidateAndHashPassword is the single point of logic for user password validations
 func ValidateAndHashPassword(plainPwd string) (string, error) {
-	if len(plainPwd) < 8 || len(plainPwd) > MaxBcryptPasswordLength {
-		return "", fmt.Errorf("must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
+	if err := utils.VerifyPasswordComplexity(plainPwd); err != nil {
+		return "", err
+	}
+	if len(plainPwd) > MaxBcryptPasswordLength {
+		return "", errors.Errorf("must enter a password less than %v characters", MaxBcryptPasswordLength)
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)
@@ -88,20 +89,30 @@ func ValidateAndHashPassword(plainPwd string) (string, error) {
 	return pwd, nil
 }
 
-// ValidateUserRole is the single point of logic for user role validations
-func ValidateUserRole(role string) error {
-	if role != UserRoleAdmin && role != UserRoleEdit && role != UserRoleEditMinimal && role != UserRoleView {
-		errStr := fmt.Sprintf(
-			"Invalid role: %s. Allowed roles: '%s', '%s', '%s', '%s'.",
-			role,
-			UserRoleAdmin,
-			UserRoleEdit,
-			UserRoleEditMinimal,
-			UserRoleView,
-		)
-		return fmt.Errorf(errStr)
+// GetUserRole is the single point of logic for mapping role string to UserRole
+func GetUserRole(role string) (UserRole, error) {
+	if role == string(UserRoleAdmin) {
+		return UserRoleAdmin, nil
 	}
-	return nil
+	if role == string(UserRoleEdit) {
+		return UserRoleEdit, nil
+	}
+	if role == string(UserRoleEditMinimal) {
+		return UserRoleEditMinimal, nil
+	}
+	if role == string(UserRoleView) {
+		return UserRoleView, nil
+	}
+
+	errStr := fmt.Sprintf(
+		"Invalid role: %s. Allowed roles: '%s', '%s', '%s', '%s'.",
+		role,
+		UserRoleAdmin,
+		UserRoleEdit,
+		UserRoleEditMinimal,
+		UserRoleView,
+	)
+	return UserRole(""), errors.Errorf(errStr)
 }
 
 // SessionRequest encapsulates the fields needed to generate a new SessionID,

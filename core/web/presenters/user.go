@@ -9,11 +9,11 @@ import (
 // UserResource represents a User JSONAPI resource.
 type UserResource struct {
 	JAID
-	Email             string    `json:"email"`
-	Role              string    `json:"role"`
-	HasActiveApiToken string    `json:"hasActiveApiToken"`
-	CreatedAt         time.Time `json:"createdAt"`
-	UpdatedAt         time.Time `json:"updatedAt"`
+	Email             string            `json:"email"`
+	Role              sessions.UserRole `json:"role"`
+	HasActiveApiToken string            `json:"hasActiveApiToken"`
+	CreatedAt         time.Time         `json:"createdAt"`
+	UpdatedAt         time.Time         `json:"updatedAt"`
 }
 
 // GetName implements the api2go EntityNamer interface

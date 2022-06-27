@@ -2,8 +2,8 @@ package resolver
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
@@ -20,10 +20,10 @@ func authenticateUser(ctx context.Context) error {
 func authenticateUserCanEditMinimal(ctx context.Context) error {
 	session, ok := auth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
-		return fmt.Errorf("Not permitted with current role")
+		return errors.Errorf("Not permitted with current role")
 	}
 	if session.User.Role == sessions.UserRoleView {
-		return fmt.Errorf("Not permitted with current role")
+		return errors.Errorf("Not permitted with current role")
 	}
 	return nil
 }
@@ -32,10 +32,10 @@ func authenticateUserCanEditMinimal(ctx context.Context) error {
 func authenticateUserCanEdit(ctx context.Context) error {
 	session, ok := auth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
-		return fmt.Errorf("Not permitted with current role")
+		return errors.Errorf("Not permitted with current role")
 	}
 	if session.User.Role == sessions.UserRoleView || session.User.Role == sessions.UserRoleEditMinimal {
-		return fmt.Errorf("Not permitted with current role")
+		return errors.Errorf("Not permitted with current role")
 	}
 	return nil
 }
@@ -44,10 +44,10 @@ func authenticateUserCanEdit(ctx context.Context) error {
 func authenticateUserIsAdmin(ctx context.Context) error {
 	session, ok := auth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
-		return fmt.Errorf("Not permitted with current role")
+		return errors.Errorf("Not permitted with current role")
 	}
 	if session.User.Role != sessions.UserRoleAdmin {
-		return fmt.Errorf("Not permitted with current role")
+		return errors.Errorf("Not permitted with current role")
 	}
 	return nil
 }

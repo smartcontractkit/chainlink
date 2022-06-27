@@ -61,7 +61,7 @@ func (o *orm) FindUser(email string) (User, error) {
 	return o.findUser(email)
 }
 
-// FindUserByAPIToken will attempt to return an API user by email.
+// FindUserByAPIToken will attempt to return an API user via the user's table token_key column.
 func (o *orm) FindUserByAPIToken(apiToken string) (user User, err error) {
 	sql := "SELECT * FROM users WHERE token_key = $1"
 	err = o.db.Get(&user, sql, apiToken)
@@ -69,14 +69,14 @@ func (o *orm) FindUserByAPIToken(apiToken string) (user User, err error) {
 }
 
 func (o *orm) findUser(email string) (user User, err error) {
-	sql := "SELECT * FROM users WHERE email = $1"
+	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
 	err = o.db.Get(&user, sql, email)
 	return
 }
 
 // ListUsers will load and return all user rows from the db.
 func (o *orm) ListUsers() (users []User, err error) {
-	sql := "SELECT * FROM users ORDER BY role ASC;"
+	sql := "SELECT * FROM users ORDER BY email ASC;"
 	err = o.db.Select(&users, sql)
 	return
 }
@@ -88,28 +88,36 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 		return User{}, errors.New("Session ID cannot be empty")
 	}
 
-	// First find user based on session token
-	var email *string
-	if err := o.db.Get(&email, "SELECT email FROM sessions WHERE id = $1", sessionID); err != nil {
-		return User{}, err
-	}
-	user, err := o.FindUser(*email)
-	if err != nil {
-		return User{}, err
-	}
+	var user User
+	ctx, cancel := pg.DefaultQueryCtx()
+	defer cancel()
+	err := pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
+		// First find user based on session token
+		var email string
+		if err := tx.Get(&email, "SELECT email FROM sessions WHERE id = $1 FOR UPDATE", sessionID); err != nil {
+			return errors.Wrap(err, "no matching user for provided session token")
+		}
+		// if err := o.db.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", *email); err != nil {
+		if err := tx.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
+			return errors.Wrap(err, "no matching user for provided session email")
+		}
+		// Sesssion valid and tied to user, update last_used
+		result, err := tx.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
+		if err != nil {
+			return errors.Wrap(err, "unable to update sessions table")
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rowsAffected == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 
-	// Sesssion valid and tied to user, update last_used
-	result, err := o.db.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
 	if err != nil {
 		return User{}, err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return User{}, err
-	}
-	if rowsAffected == 0 {
-		return User{}, sql.ErrNoRows
 	}
 
 	return user, nil
@@ -120,11 +128,11 @@ func (o *orm) DeleteUser(email string) error {
 	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
 	return pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
-		if _, err := tx.Exec("DELETE FROM sessions WHERE email = $1", email); err != nil {
+		// session table rows are deleted on cascade through the user email constraint
+		if _, err := tx.Exec("DELETE FROM users WHERE email = $1", email); err != nil {
 			return err
 		}
-		_, err := tx.Exec("DELETE FROM users WHERE email = $1", email)
-		return err
+		return nil
 	})
 }
 
@@ -188,7 +196,13 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if len(uwas) == 0 {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
-		_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+
+		ctx, cancel := pg.DefaultQueryCtx()
+		defer cancel()
+		pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
+			_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+			return err
+		})
 		return session.ID, err
 	}
 
@@ -226,7 +240,13 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	lggr.Infof("User passed MFA authentication and login will proceed")
 	// This is a success so we can create the sessions
 	session := NewSession()
-	_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+
+	ctx, cancel := pg.DefaultQueryCtx()
+	defer cancel()
+	pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
+		_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+		return err
+	})
 	if err != nil {
 		return "", err
 	}
@@ -254,13 +274,13 @@ func (o *orm) ClearNonCurrentSessions(sessionID string) error {
 // CreateUser creates a new API user
 func (o *orm) CreateUser(user *User) error {
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	return o.db.Get(user, sql, user.Email, user.HashedPassword, user.Role)
+	return o.db.Get(user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role)
 }
 
 // UpdateUser overwrites key fields of the user specified by email using new values present in the passed user struct.
 func (o *orm) UpdateUser(email string, user *User) error {
 	sql := "UPDATE users SET email = $1, hashed_password = $2, role = $3, updated_at = now() WHERE email = $4 RETURNING *"
-	return o.db.Get(user, sql, user.Email, user.HashedPassword, user.Role, email)
+	return o.db.Get(user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role, email)
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.

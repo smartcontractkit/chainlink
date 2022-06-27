@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgconn"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -54,9 +55,15 @@ func (c *UserController) Create(ctx *gin.Context) {
 		return
 	}
 
-	user, err := clsession.NewUser(request.Email, request.Password, request.Role)
+	userRole, err := clsession.GetUserRole(request.Role)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("error creating API user: %s", err))
+		jsonAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := clsession.NewUser(request.Email, request.Password, userRole)
+	if err != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("error creating API user: %s", err))
 		return
 	}
 	if err = c.App.SessionORM().CreateUser(&user); err != nil {
@@ -64,12 +71,12 @@ func (c *UserController) Create(ctx *gin.Context) {
 		if err, ok := err.(*pgconn.PgError); ok {
 			fmt.Println(err.Code)
 			if err.Code == "23505" {
-				jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("user with email %s already exists", request.Email))
+				jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("user with email %s already exists", request.Email))
 				return
 			}
 		}
 		c.App.GetLogger().Errorf("Error creating new API user", "err", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error creating API user"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error creating API user"))
 		return
 	}
 
@@ -95,18 +102,18 @@ func (c *UserController) Update(ctx *gin.Context) {
 	// This user object will have its fields patched for a final update call
 	user, err := c.App.SessionORM().FindUser(request.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("specified user not found: %s", request.Email))
+		jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("specified user not found: %s", request.Email))
 		return
 	}
 
 	// Don't allow current admin user to edit self
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 	if sessionUser.Email == request.Email {
-		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("can not change state or permissions of current admin user"))
+		jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("can not change state or permissions of current admin user"))
 		return
 	}
 
@@ -140,18 +147,19 @@ func (c *UserController) Update(ctx *gin.Context) {
 
 	// Patch validated role is newRole is specified
 	if request.NewRole != "" {
-		if err := clsession.ValidateUserRole(request.NewRole); err != nil {
+		userRole, err := clsession.GetUserRole(request.NewRole)
+		if err != nil {
 			jsonAPIError(ctx, http.StatusBadRequest, err)
 			return
 		}
-		user.Role = request.NewRole
+		user.Role = userRole
 	}
 
 	if purgeSessions {
 		err := c.App.SessionORM().DeleteSessionByUser(request.Email)
 		if err != nil {
 			c.App.GetLogger().Errorf("Failed to purge user sessions via DeleteSessionByUser", "err", err)
-			jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error updating API user"))
+			jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error updating API user"))
 			return
 		}
 	}
@@ -161,12 +169,12 @@ func (c *UserController) Update(ctx *gin.Context) {
 		if err, ok := err.(*pgconn.PgError); ok {
 			fmt.Println(err.Code)
 			if err.Code == "23505" {
-				jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("user with email %s already exists", request.Email))
+				jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("user with email %s already exists", request.Email))
 				return
 			}
 		}
 		c.App.GetLogger().Errorf("Error updating new API user", "err", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error updating API user"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error updating API user"))
 		return
 	}
 
@@ -180,24 +188,24 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	// Attempt find user by email
 	_, err := c.App.SessionORM().FindUser(email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("specified user not found: %s", email))
+		jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("specified user not found: %s", email))
 		return
 	}
 
 	// Don't allow current admin user to delete self
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 	if sessionUser.Email == email {
-		jsonAPIError(ctx, http.StatusBadRequest, fmt.Errorf("can not delete currently logged in admin user"))
+		jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("can not delete currently logged in admin user"))
 		return
 	}
 
 	if err = c.App.SessionORM().DeleteUser(email); err != nil {
 		c.App.GetLogger().Errorf("Error deleting API user", "err", err, "email", email)
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("error deleting API user"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error deleting API user"))
 		return
 	}
 
@@ -214,12 +222,12 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
@@ -244,12 +252,12 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
@@ -275,12 +283,12 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
@@ -312,10 +320,10 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.Us
 	}
 	orm := c.App.SessionORM()
 	if err := orm.ClearNonCurrentSessions(sessionID); err != nil {
-		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
+		return pkgerrors.Errorf("failed to clear non current user sessions: %+v", err)
 	}
 	if err := orm.SetPassword(user, newPassword); err != nil {
-		return fmt.Errorf("failed to update current user password: %+v", err)
+		return pkgerrors.Errorf("failed to update current user password: %+v", err)
 	}
 	return nil
 }

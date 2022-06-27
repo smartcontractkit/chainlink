@@ -21,7 +21,7 @@ var adminUsersTableHeaders = []string{"Email", "Role", "Has API token", "Created
 func (p *AdminUsersPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
-		p.Role,
+		string(p.Role),
 		p.HasActiveApiToken,
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
@@ -73,6 +73,7 @@ func (cli *Client) ListUsers(c *cli.Context) (err error) {
 
 // CreateUser creates a new user by prompting for email, password, and role
 func (cli *Client) CreateUser(c *cli.Context) (err error) {
+	fmt.Println("Password of new user:")
 	pwd := cli.PasswordPrompter.Prompt()
 
 	request := struct {

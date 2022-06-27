@@ -32,7 +32,7 @@ func AuthenticateGQL(authenticator Authenticator, lggr logger.Logger) gin.Handle
 
 		user, err := authenticator.AuthorizedUserWithSession(sessionID)
 		if err != nil {
-			lggr.Errorf("Failed call to AuthorizedUserWithSession, unable to get user", "err", err)
+			lggr.Errorw("Failed call to AuthorizedUserWithSession, unable to get user", "err", err)
 			return
 		}
 
