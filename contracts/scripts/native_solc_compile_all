@@ -73,6 +73,7 @@ $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
 
 $SCRIPTPATH/native_solc8_6_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile VRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile dev/NativeVRFCoordinatorV2.sol
 
 # Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol

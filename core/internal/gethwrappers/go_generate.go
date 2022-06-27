@@ -54,6 +54,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin VRFSingleConsumerExample vrf_single_consumer_example
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8.6/VRFExternalSubOwnerExample.bin VRFExternalSubOwnerExample vrf_external_sub_owner_example
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin VRFV2RevertingExample vrfv2_reverting_example
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/NativeVRFCoordinatorV2.abi ../../../contracts/solc/v0.8.6/NativeVRFCoordinatorV2.bin NativeVRFCoordinatorV2 native_vrf_coordinator_v2
 
 // Keepers X VRF v2
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer

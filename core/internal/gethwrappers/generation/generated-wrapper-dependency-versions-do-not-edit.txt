@@ -18,6 +18,7 @@ keeper_registry_wrapper1_2: ../../../contracts/solc/v0.8.6/KeeperRegistry.abi ..
 keepers_vrf_consumer: ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin fa75572e689c9e84705c63e8dbe1b7b8aa1a8fe82d66356c4873d024bb9166e8
 log_emitter: ../../../contracts/solc/v0.8.6/LogEmitter.abi ../../../contracts/solc/v0.8.6/LogEmitter.bin 375488d19b6ee1c180d42048be10abea9146e2a58347fd180358850d435cb854
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
+native_vrf_coordinator_v2: ../../../contracts/solc/v0.8.6/NativeVRFCoordinatorV2.abi ../../../contracts/solc/v0.8.6/NativeVRFCoordinatorV2.bin 1b61104c3fb3a19d8cebc350cff4e0c084a50bd131668de20a7ddd50024af0af
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_factory: ../../../contracts/solc/v0.7/OperatorFactory.abi ../../../contracts/solc/v0.7/OperatorFactory.bin 065cff92e71cf0dc384bfdd6598c2c13c2290f64c26e0d18a1a326d08552e717
 operator_wrapper: ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin 08965dbb26f62739c1ce4d0941f30c0dd08003648823e7d722900b48270ffc2b
