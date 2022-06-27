@@ -34,6 +34,8 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	cfg := cltest.NewTestGeneralConfig(t)
+	zero := time.Duration(0) // no need to test head timeouts here
+	cfg.Overrides.NodeNoNewHeadsThreshold = &zero
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
 	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, chStop)
