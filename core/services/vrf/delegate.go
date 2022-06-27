@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -115,7 +116,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	// This is not a terminal error, but it isn't ideal.
 	// We can operate under these potentially degraded conditions, however.
-	err = setMaxGasPriceGWei(jb.VRFSpec, d.cc, chain.ID())
+	err = setMaxGasPriceGWei(
+		toAddrSlice(jb.VRFSpec.FromAddresses),
+		jb.VRFSpec.MaxGasPriceGWei,
+		d.cc,
+		chain.ID())
 	if err != nil {
 		l.With("err", err).Warn("unable to set max gas price gwei on from addresses, continuing anyway")
 	}
@@ -136,6 +141,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				lV2,
 				chain.Client(),
 				chain.ID(),
+				d.cc,
 				chain.LogBroadcaster(),
 				d.q,
 				coordinatorV2,
@@ -277,21 +283,28 @@ GROUP BY meta->'RequestID'
 	return counts, nil
 }
 
-// setMaxGasPriceGWei attempts to set the max gas price for each key in the fromAddresses field
-// of the VRF job spec to the maxGasPriceGWei field in the VRF job spec, if the field is set.
-// If maxGasPriceGWei is not set, this is a no-op.
-func setMaxGasPriceGWei(spec *job.VRFSpec, chainSet evm.ChainSet, chainID *big.Int) error {
-	if spec.MaxGasPriceGWei == nil {
+// setMaxGasPriceGWei attempts to set the max gas price for each key in the fromAddresses slice
+// of the VRF job spec to the given maxGasPriceGWei parameter.
+// If maxGasPriceGWei is nil, this is a no-op.
+func setMaxGasPriceGWei(fromAddresses []common.Address, maxGasPriceGWei *uint32, keyUpdater keyConfigUpdater, chainID *big.Int) error {
+	if maxGasPriceGWei == nil {
 		return nil
 	}
 
-	for _, addr := range spec.FromAddresses {
-		updater := evm.UpdateKeySpecificMaxGasPrice(addr.Address(), assets.GWei(int64(*spec.MaxGasPriceGWei)))
-		err := chainSet.UpdateConfig(chainID, updater)
+	for _, addr := range fromAddresses {
+		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.GWei(int64(*maxGasPriceGWei)))
+		err := keyUpdater.UpdateConfig(chainID, updater)
 		if err != nil {
 			return errors.Wrap(err, "update key specific max gas price")
 		}
 	}
 
 	return nil
+}
+
+func toAddrSlice(addrs []ethkey.EIP55Address) (r []common.Address) {
+	for _, a := range addrs {
+		r = append(r, a.Address())
+	}
+	return
 }
