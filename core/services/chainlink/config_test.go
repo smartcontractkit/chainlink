@@ -372,18 +372,18 @@ func TestConfig_Marshal(t *testing.T) {
 					Mode:               ptr("L2Suggested"),
 					EIP1559DynamicFees: ptr(true),
 					BumpPercent:        ptr[uint16](10),
-					BumpThreshold:      utils.NewBigI(6).Wei(),
+					BumpThreshold:      ptr[uint32](6),
 					BumpTxDepth:        ptr[uint16](6),
-					BumpWei:            utils.NewBigI(100).Wei(),
+					BumpMin:            utils.NewBigI(100).Wei(),
 					FeeCapDefault:      utils.NewBigI(math.MaxInt64).Wei(),
-					LimitDefault:       utils.NewBigI(12),
+					LimitDefault:       ptr[uint32](12),
 					LimitMultiplier:    mustDecimal("1.234"),
-					LimitTransfer:      utils.NewBigI(100),
+					LimitTransfer:      ptr[uint32](100),
 					TipCapDefault:      utils.NewBigI(2).Wei(),
 					TipCapMinimum:      utils.NewBigI(1).Wei(),
 					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
-					PriceMaxWei:        utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
-					PriceMinWei:        utils.NewBigI(13).Wei(),
+					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
+					PriceMin:           utils.NewBigI(13).Wei(),
 
 					BlockHistory: &evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
@@ -398,7 +398,7 @@ func TestConfig_Marshal(t *testing.T) {
 					{
 						Key: mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
 						GasEstimator: &evmcfg.KeySpecificGasEstimator{
-							PriceMaxWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
+							PriceMax: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
 						},
 					},
 				},
@@ -733,19 +733,19 @@ BlockDelay = 17
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
 PriceDefault = '9.223372036854775807 ether'
-PriceMaxWei = '281.474976710655 micro'
-PriceMinWei = '13'
-LimitDefault = '12'
+PriceMax = '281.474976710655 micro'
+PriceMin = '13 wei'
+LimitDefault = 12
 LimitMultiplier = '1.234'
-LimitTransfer = '100'
+LimitTransfer = 100
+BumpMin = '100 wei'
 BumpPercent = 10
-BumpThreshold = '6'
+BumpThreshold = 6
 BumpTxDepth = 6
-BumpWei = '100'
 EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
-TipCapDefault = '2'
-TipCapMinimum = '1'
+TipCapDefault = '2 wei'
+TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -764,7 +764,7 @@ SamplingInterval = '1h0m0s'
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
 
 [EVM.KeySpecific.GasEstimator]
-PriceMaxWei = '79.228162514264337593543950335 gether'
+PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 NoNewHeadsThreshold = '1m0s'

@@ -5,6 +5,6 @@ LogPollInterval = '30s'
 
 [GasEstimator]
 PriceDefault = '50 mwei'
-PriceMaxWei = '50 gwei'
-PriceMinWei = 0
+PriceMax = '50 gwei'
+PriceMin = '0'
 FeeCapDefault = '100 mwei'

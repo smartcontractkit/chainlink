@@ -13,7 +13,9 @@ func TestWei(t *testing.T) {
 		exp   string
 	}{
 		{"0", "0"},
-		{"1", "1"},
+		{"0 wei", "0"},
+		{"0 ether", "0"},
+		{"1", "1 wei"},
 		{"1000", "1 kwei"},
 		{"1100", "1.1 kwei"},
 		{"1.1 kwei", "1.1 kwei"},

@@ -5,7 +5,7 @@ MinIncomingConfirmations = 3
 
 [GasEstimator]
 PriceDefault = '15 gwei'
-PriceMaxWei = '0.2 milli'
+PriceMax = '0.2 milli'
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'

@@ -1,8 +1,6 @@
 package config
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
@@ -52,19 +50,19 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 		GasEstimator: &v2.GasEstimator{
 			Mode:               ptr(set.gasEstimatorMode),
 			EIP1559DynamicFees: ptr(set.eip1559DynamicFees),
+			BumpMin:            utils.NewWei(&set.gasBumpWei),
 			BumpPercent:        ptr(set.gasBumpPercent),
-			BumpThreshold:      utils.NewWei(new(big.Int).SetUint64(set.gasBumpThreshold)),
+			BumpThreshold:      ptr(uint32(set.gasBumpThreshold)),
 			BumpTxDepth:        ptr(set.gasBumpTxDepth),
-			BumpWei:            utils.NewWei(&set.gasBumpWei),
 			FeeCapDefault:      utils.NewWei(&set.gasFeeCapDefault),
-			LimitDefault:       utils.NewBig(new(big.Int).SetUint64(set.gasLimitDefault)),
+			LimitDefault:       ptr(uint32(set.gasLimitDefault)),
 			LimitMultiplier:    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
-			LimitTransfer:      utils.NewBig(new(big.Int).SetUint64(set.gasLimitTransfer)),
+			LimitTransfer:      ptr(uint32(set.gasLimitTransfer)),
 			TipCapDefault:      utils.NewWei(&set.gasTipCapDefault),
 			TipCapMinimum:      utils.NewWei(&set.gasTipCapMinimum),
 			PriceDefault:       utils.NewWei(&set.gasPriceDefault),
-			PriceMaxWei:        utils.NewWei(&set.maxGasPriceWei),
-			PriceMinWei:        utils.NewWei(&set.minGasPriceWei),
+			PriceMax:           utils.NewWei(&set.maxGasPriceWei),
+			PriceMin:           utils.NewWei(&set.minGasPriceWei),
 			BlockHistory: &v2.BlockHistoryEstimator{
 				BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
 				BlockDelay:                ptr(set.blockHistoryEstimatorBlockDelay),

@@ -8,8 +8,8 @@ OCR.ContractConfirmations = 1
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '25 gwei'
-PriceMaxWei = '1000 gwei'
-PriceMinWei = '25 gwei'
+PriceMax = '1000 gwei'
+PriceMin = '25 gwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 24

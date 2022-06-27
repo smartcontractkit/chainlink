@@ -14,9 +14,9 @@ BlockDelay = 0
 [GasEstimator]
 Mode = 'L2Suggested'
 # Optimism uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
-PriceMinWei = 0
+PriceMin = '0'
 # Never bump gas on optimism
-BumpThreshold = '0'
+BumpThreshold = 0
 
 [GasEstimator.BlockHistory]
 # Force an error if someone enables the estimator by accident; we never want to run the block history estimator on optimism

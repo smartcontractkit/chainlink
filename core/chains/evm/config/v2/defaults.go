@@ -168,8 +168,8 @@ func (c *Chain) SetFrom(f *Chain) {
 		if v := g.BumpTxDepth; v != nil {
 			c.GasEstimator.BumpTxDepth = v
 		}
-		if v := g.BumpWei; v != nil {
-			c.GasEstimator.BumpWei = v
+		if v := g.BumpMin; v != nil {
+			c.GasEstimator.BumpMin = v
 		}
 		if v := g.FeeCapDefault; v != nil {
 			c.GasEstimator.FeeCapDefault = v
@@ -192,11 +192,11 @@ func (c *Chain) SetFrom(f *Chain) {
 		if v := g.TipCapMinimum; v != nil {
 			c.GasEstimator.TipCapMinimum = v
 		}
-		if v := g.PriceMaxWei; v != nil {
-			c.GasEstimator.PriceMaxWei = v
+		if v := g.PriceMax; v != nil {
+			c.GasEstimator.PriceMax = v
 		}
-		if v := g.PriceMinWei; v != nil {
-			c.GasEstimator.PriceMinWei = v
+		if v := g.PriceMin; v != nil {
+			c.GasEstimator.PriceMin = v
 		}
 		if b := g.BlockHistory; b != nil {
 			if c.GasEstimator.BlockHistory == nil {

@@ -7,7 +7,7 @@ MinimumContractPayment = '0.001 link'
 [GasEstimator]
 # It's about 100 times more expensive than Wei, very roughly speaking
 PriceDefault = '50 mwei'
-PriceMaxWei = '50 gwei'
-PriceMinWei = 0
+PriceMax = '50 gwei'
+PriceMin = '0'
 # rsk does not yet support EIP-1559 but this allows validation to pass
 FeeCapDefault = '100 mwei'

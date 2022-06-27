@@ -66,7 +66,7 @@ func (w Wei) Text(suffix string) string {
 	default: // empty or unknown
 		fallthrough
 	case wei:
-		return (*big.Int)(&w).String()
+		return w.text(wei, 0)
 	case kwei:
 		return w.text(kwei, 3)
 	case mwei:
@@ -90,8 +90,12 @@ func (w Wei) Text(suffix string) string {
 	}
 }
 
+// text formats w with the given suffix and exponent. As a special case, the suffix is omitted for `0`.
 func (w Wei) text(suf string, exp int32) string {
 	d := decimal.NewFromBigInt((*big.Int)(&w), -exp)
+	if d.IsZero() {
+		return "0"
+	}
 	return fmt.Sprintf("%s %s", d, suf)
 
 }

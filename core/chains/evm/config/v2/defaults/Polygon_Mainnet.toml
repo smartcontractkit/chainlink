@@ -18,12 +18,12 @@ BlockDelay = 13
 # Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
 PriceDefault = '30 gwei'
 # 200,000 GWei
-PriceMaxWei = '0.2 milli'
+PriceMax = '0.2 milli'
 # Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
-PriceMinWei = '30 gwei'
+PriceMin = '30 gwei'
+BumpMin = '20 gwei'
 # 10s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
-BumpWei = '20 gwei'
 
 [GasEstimator.BlockHistory]
 # Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching

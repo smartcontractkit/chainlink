@@ -58,17 +58,17 @@ type GasEstimator struct {
 	Mode *string
 
 	PriceDefault *utils.Wei
-	PriceMaxWei  *utils.Wei
-	PriceMinWei  *utils.Wei
+	PriceMax     *utils.Wei
+	PriceMin     *utils.Wei
 
-	LimitDefault    *utils.Big
+	LimitDefault    *uint32
 	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *utils.Big
+	LimitTransfer   *uint32
 
+	BumpMin       *utils.Wei
 	BumpPercent   *uint16
-	BumpThreshold *utils.Wei
+	BumpThreshold *uint32
 	BumpTxDepth   *uint16
-	BumpWei       *utils.Wei
 
 	EIP1559DynamicFees *bool
 
@@ -93,7 +93,7 @@ type KeySpecific struct {
 }
 
 type KeySpecificGasEstimator struct {
-	PriceMaxWei *utils.Wei
+	PriceMax *utils.Wei
 }
 
 type HeadTracker struct {
@@ -184,7 +184,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.PriceMaxWei = cfg.EvmMaxGasPriceWei.Wei()
+		c.GasEstimator.PriceMax = cfg.EvmMaxGasPriceWei.Wei()
 	}
 	if cfg.EvmEIP1559DynamicFees.Valid {
 		if c.GasEstimator == nil {
@@ -232,7 +232,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.BumpWei = cfg.EvmGasBumpWei.Wei()
+		c.GasEstimator.BumpMin = cfg.EvmGasBumpWei.Wei()
 	}
 	if cfg.EvmGasFeeCapDefault != nil {
 		if c.GasEstimator == nil {
@@ -244,7 +244,8 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		c.GasEstimator.LimitDefault = utils.NewBigI(cfg.EvmGasLimitDefault.Int64)
+		v := uint32(cfg.EvmGasLimitDefault.Int64)
+		c.GasEstimator.LimitDefault = &v
 	}
 
 	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
@@ -274,7 +275,7 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.KeySpecific = append(c.KeySpecific, KeySpecific{
 			Key: &v,
 			GasEstimator: &KeySpecificGasEstimator{
-				PriceMaxWei: kcfg.EvmMaxGasPriceWei.Wei(),
+				PriceMax: kcfg.EvmMaxGasPriceWei.Wei(),
 			},
 		})
 	}

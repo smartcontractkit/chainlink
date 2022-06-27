@@ -11,10 +11,10 @@ BlockDelay = 13
 
 [GasEstimator]
 PriceDefault = '1 gwei'
-PriceMaxWei = '0.2 milli'
-PriceMinWei = '1 gwei'
+PriceMax = '0.2 milli'
+PriceMin = '1 gwei'
+BumpMin = '20 gwei'
 BumpThreshold = 5
-BumpWei = '20 gwei'
 
 [GasEstimator.BlockHistory]
 BlockDelay = 10

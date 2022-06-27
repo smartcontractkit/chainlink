@@ -11,8 +11,8 @@ BlockDelay = 0
 
 [GasEstimator]
 Mode = 'L2Suggested'
-PriceMinWei = 0
-BumpThreshold = '0'
+PriceMin = '0'
+BumpThreshold = 0
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 0

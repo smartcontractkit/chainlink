@@ -12,8 +12,8 @@ LogPollInterval = '5s'
 
 [GasEstimator]
 PriceDefault = '1 gwei'
-PriceMaxWei = '500 gwei'
+PriceMax = '500 gwei'
 # 1 Gwei is the minimum accepted by the validators (unless whitelisted)
-PriceMinWei = '1 gwei'
+PriceMin = '1 gwei'
 # 15s delay since feeds update every minute in volatile situations
-BumpThreshold = '3'
+BumpThreshold = 3
