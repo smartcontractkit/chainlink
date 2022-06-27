@@ -3694,61 +3694,61 @@ Enabled = true # Default
 ```toml
 BlockRate = '6s' # Default
 ```
-
+BlockRate is the average time between blocks.
 
 ### BlocksUntilTxTimeout<a id='Terra-BlocksUntilTxTimeout'></a>
 ```toml
 BlocksUntilTxTimeout = 30 # Default
 ```
-
+BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
 
 ### ConfirmPollPeriod<a id='Terra-ConfirmPollPeriod'></a>
 ```toml
 ConfirmPollPeriod = '1s' # Default
 ```
-
+ConfirmPollPeriod sets how often check for tx confirmation.
 
 ### FallbackGasPriceULuna<a id='Terra-FallbackGasPriceULuna'></a>
 ```toml
 FallbackGasPriceULuna = '0.015' # Default
 ```
-
+FallbackGasPriceULuna sets a fallback gas price to use when the estimator is not available.
 
 ### FCDURL<a id='Terra-FCDURL'></a>
 ```toml
 FCDURL = 'http://terra.com' # Example
 ```
-
+FCDURL sets the FCD URL.
 
 ### GasLimitMultiplier<a id='Terra-GasLimitMultiplier'></a>
 ```toml
 GasLimitMultiplier = '1.5' # Default
 ```
-
+GasLimitMultiplier scales the estimated gas limit.
 
 ### MaxMsgsPerBatch<a id='Terra-MaxMsgsPerBatch'></a>
 ```toml
 MaxMsgsPerBatch = 100 # Default
 ```
-
+MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
 
 ### OCR2CachePollPeriod<a id='Terra-OCR2CachePollPeriod'></a>
 ```toml
 OCR2CachePollPeriod = '4s' # Default
 ```
-
+OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
 
 ### OCR2CacheTTL<a id='Terra-OCR2CacheTTL'></a>
 ```toml
 OCR2CacheTTL = '1m' # Default
 ```
-
+OCR2CacheTTL is the stale OCR2 cache deadline.
 
 ### TxMsgTimeout<a id='Terra-TxMsgTimeout'></a>
 ```toml
 TxMsgTimeout = '10m' # Default
 ```
-
+TxMsgTimeout is the maximum age for resending transaction before they expire.
 
 ## Terra.Nodes<a id='Terra-Nodes'></a>
 ```toml
