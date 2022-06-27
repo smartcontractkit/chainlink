@@ -11,6 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 )
 
+const (
+	fieldDefault = "# Default"
+	fieldExample = "# Example"
+
+	tokenAdvanced = "**ADVANCED**"
+	tokenExtended = "**EXTENDED**"
+)
+
 //go:embed docs.toml
 var docsTOML string
 
@@ -24,30 +32,22 @@ func generateDocs(toml string) (string, error) {
 	items, err := parseTOMLDocs(toml)
 	var sb strings.Builder
 
-	// Header.
 	sb.WriteString(`[//]: # (Documentation generated from docs.toml - DO NOT EDIT.)
 
 ## Table of contents
 
 `)
-	// Link to each table group.
 	for _, item := range items {
 		switch t := item.(type) {
-		case *table:
-			indent := strings.Repeat("\t", strings.Count(t.name, "."))
-			name := t.name
-			if i := strings.LastIndex(name, "."); i > -1 {
-				name = name[i+1:]
-			}
-			link := strings.ReplaceAll(t.name, ".", "-")
-			fmt.Fprintf(&sb, "%s- [%s](#%s)\n", indent, name, link)
+		case interface{ tocEntry() string }:
+			sb.WriteString(t.tocEntry())
 		}
 	}
-	fmt.Fprintln(&sb)
+	sb.WriteString("\n")
 
 	for _, item := range items {
-		fmt.Fprintln(&sb, item)
-		fmt.Fprintln(&sb)
+		sb.WriteString(item.String())
+		sb.WriteString("\n\n")
 	}
 
 	return sb.String(), err
@@ -72,6 +72,24 @@ type table struct {
 	ext   bool
 }
 
+func newTable(line string, desc lines) *table {
+	t := &table{
+		name:  strings.Trim(line, "[]"),
+		codes: []string{line},
+		desc:  desc,
+	}
+	if len(desc) > 0 {
+		if strings.HasPrefix(strings.TrimSpace(desc[0]), tokenAdvanced) {
+			t.adv = true
+			t.desc = t.desc[1:]
+		} else if strings.HasPrefix(strings.TrimSpace(desc[len(desc)-1]), tokenExtended) {
+			t.ext = true
+			t.desc = t.desc[:len(desc)-1]
+		}
+	}
+	return t
+}
+
 func (t table) advanced() string {
 	if t.adv {
 		return advancedWarning("Do not change these settings unless you know what you are doing.")
@@ -88,13 +106,27 @@ func (t table) code() string {
 
 func (t table) extended() string {
 	if t.ext {
-		s, err := extended(t.name)
+		if t.name != "EVM" {
+			log.Fatalf("%s: no extended description available", t.name)
+		}
+		s, err := evmChainDefaults()
 		if err != nil {
-			log.Fatalf("%s: failed to sprint extended table description: %v", t.name, err)
+			log.Fatalf("%s: failed to generate evm chain defaults: %v", t.name, err)
 		}
 		return s
 	}
 	return ""
+}
+
+// tocEntry prints a table-of-contents entry with a link.
+func (t table) tocEntry() string {
+	indent := strings.Repeat("\t", strings.Count(t.name, "."))
+	name := t.name
+	if i := strings.LastIndex(name, "."); i > -1 {
+		name = name[i+1:]
+	}
+	link := strings.ReplaceAll(t.name, ".", "-")
+	return fmt.Sprintf("%s- [%s](#%s)\n", indent, name, link)
 }
 
 // String prints a table as an H2, followed by a code block and description.
@@ -112,6 +144,20 @@ type keyval struct {
 	code string
 	adv  bool
 	desc lines
+}
+
+func newKeyval(line string, desc lines) keyval {
+	line = strings.TrimSpace(line)
+	kv := keyval{
+		name: line[:strings.Index(line, " ")],
+		code: line,
+		desc: desc,
+	}
+	if len(desc) > 0 && strings.HasPrefix(strings.TrimSpace(desc[0]), tokenAdvanced) {
+		kv.adv = true
+		kv.desc = kv.desc[1:]
+	}
+	return kv
 }
 
 func (k keyval) advanced() string {
@@ -154,33 +200,14 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 				desc = nil
 			}
 		} else if strings.HasPrefix(line, "[") {
-			currentTable = &table{
-				name:  strings.Trim(line, "[]"),
-				codes: []string{line},
-				desc:  desc,
-			}
-			if len(desc) > 0 && strings.HasPrefix(strings.TrimSpace(desc[0]), "**ADVANCED**") {
-				currentTable.adv = true
-				currentTable.desc = currentTable.desc[1:]
-			} else if len(desc) > 0 && strings.HasPrefix(strings.TrimSpace(desc[len(desc)-1]), "**EXTENDED**") {
-				currentTable.ext = true
-				currentTable.desc = currentTable.desc[:len(desc)-1]
-			}
+			currentTable = newTable(line, desc)
 			items = append(items, currentTable)
 			desc = nil
 		} else {
-			line = strings.TrimSpace(line)
-			kv := keyval{
-				name: line[:strings.Index(line, " ")],
-				code: line,
-				desc: desc,
-			}
-			if len(desc) > 0 && strings.HasPrefix(strings.TrimSpace(desc[0]), "**ADVANCED**") {
-				kv.adv = true
-				kv.desc = kv.desc[1:]
-			}
+			kv := newKeyval(line, desc)
 			shortName := kv.name
 			if currentTable != &globalTable {
+				// update to full name
 				kv.name = currentTable.name + "." + kv.name
 			}
 			if len(kv.desc) == 0 {
@@ -188,8 +215,8 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 			} else if !strings.HasPrefix(kv.desc[0], shortName) {
 				err = multierr.Append(err, fmt.Errorf("%s: description does not begin with %q", kv.name, shortName))
 			}
-			if !strings.HasSuffix(line, "# Default") && !strings.HasSuffix(line, "# Example") {
-				err = multierr.Append(err, fmt.Errorf(`%s: is neither a "# Default" or "# Example"`, kv.name))
+			if !strings.HasSuffix(line, fieldDefault) && !strings.HasSuffix(line, fieldExample) {
+				err = multierr.Append(err, fmt.Errorf(`%s: is not one of %v`, kv.name, []string{fieldDefault, fieldExample}))
 			}
 
 			items = append(items, kv)

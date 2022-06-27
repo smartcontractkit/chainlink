@@ -10,12 +10,8 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 )
 
-func extended(key string) (string, error) {
-	if key != "EVM" {
-		return "", fmt.Errorf("%s: no extended description available", key)
-	}
-
-	// EVM Per-Chain Defaults
+// evmChainDefaults returns generated Markdown for the EVM per-chain defaults. See v2.Defaults.
+func evmChainDefaults() (string, error) {
 	var sb strings.Builder
 	for _, id := range evmcfg.DefaultIDs {
 		config, name := evmcfg.Defaults(id)
