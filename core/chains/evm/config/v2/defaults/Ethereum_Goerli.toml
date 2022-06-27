@@ -2,6 +2,11 @@ ChainID = '5'
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 MinimumContractPayment = '0.1 link'
 
+[GasEstimator]
+# TODO: EIP1559 on goerli has not been adequately tested, see:
+# https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+EIP1559DynamicFees = false
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1

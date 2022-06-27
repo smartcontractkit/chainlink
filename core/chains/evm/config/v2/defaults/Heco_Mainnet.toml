@@ -1,3 +1,4 @@
+# Heco uses BSC's settings.
 ChainID = '128'
 FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'

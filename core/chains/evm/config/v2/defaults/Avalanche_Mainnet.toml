@@ -12,6 +12,7 @@ PriceMaxWei = '1000 gwei'
 PriceMinWei = '25 gwei'
 
 [GasEstimator.BlockHistory]
+# Average block time of 2s
 BlockHistorySize = 24
 BlockDelay = 2
 
