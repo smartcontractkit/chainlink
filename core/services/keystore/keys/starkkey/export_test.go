@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 )
 
-func TestStarknetKeys_ExportImport(t *testing.T) {
+func TestStarkNetKeys_ExportImport(t *testing.T) {
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 
