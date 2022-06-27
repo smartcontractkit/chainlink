@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./OracleInterface.sol";
-import "./ChainlinkRequestInterface.sol";
+import "./iOracle.sol";
+import "./iChainlinkRequest.sol";
 
-interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
+interface iOperator is iOracle, iChainlinkRequest {
   function operatorRequest(
     address sender,
     uint256 payment,

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {AggregatorV2V3Interface} from "../interfaces/AggregatorV2V3Interface.sol";
+import {iAggregatorV2V3} from "../interfaces/iAggregatorV2V3.sol";
 
 contract FeedConsumer {
-  AggregatorV2V3Interface public immutable AGGREGATOR;
+  iAggregatorV2V3 public immutable AGGREGATOR;
 
   constructor(address feedAddress) {
-    AGGREGATOR = AggregatorV2V3Interface(feedAddress);
+    AGGREGATOR = iAggregatorV2V3(feedAddress);
   }
 
   function latestAnswer() external view returns (int256 answer) {

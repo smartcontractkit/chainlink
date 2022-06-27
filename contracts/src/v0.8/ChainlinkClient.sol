@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "./Chainlink.sol";
-import "./interfaces/ENSInterface.sol";
-import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/ChainlinkRequestInterface.sol";
-import "./interfaces/OperatorInterface.sol";
-import "./interfaces/PointerInterface.sol";
+import "./interfaces/iENS.sol";
+import "./interfaces/iLinkToken.sol";
+import "./interfaces/iChainlinkRequest.sol";
+import "./interfaces/iOperator.sol";
+import "./interfaces/iPointer.sol";
 import {ENSResolver as ENSResolver_Chainlink} from "./vendor/ENSResolver.sol";
 
 /**
@@ -26,10 +26,10 @@ abstract contract ChainlinkClient {
   bytes32 private constant ENS_ORACLE_SUBNAME = keccak256("oracle");
   address private constant LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
 
-  ENSInterface private s_ens;
+  iENS private s_ens;
   bytes32 private s_ensNode;
-  LinkTokenInterface private s_link;
-  OperatorInterface private s_oracle;
+  iLinkToken private s_link;
+  iOperator private s_oracle;
   uint256 private s_requestCount = 1;
   mapping(bytes32 => address) private s_pendingRequests;
 
@@ -97,7 +97,7 @@ abstract contract ChainlinkClient {
     uint256 nonce = s_requestCount;
     s_requestCount = nonce + 1;
     bytes memory encodedRequest = abi.encodeWithSelector(
-      ChainlinkRequestInterface.oracleRequest.selector,
+      iChainlinkRequest.oracleRequest.selector,
       SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
       AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
       req.id,
@@ -141,7 +141,7 @@ abstract contract ChainlinkClient {
     uint256 nonce = s_requestCount;
     s_requestCount = nonce + 1;
     bytes memory encodedRequest = abi.encodeWithSelector(
-      OperatorInterface.operatorRequest.selector,
+      iOperator.operatorRequest.selector,
       SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
       AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
       req.id,
@@ -189,7 +189,7 @@ abstract contract ChainlinkClient {
     bytes4 callbackFunc,
     uint256 expiration
   ) internal {
-    OperatorInterface requested = OperatorInterface(s_pendingRequests[requestId]);
+    iOperator requested = iOperator(s_pendingRequests[requestId]);
     delete s_pendingRequests[requestId];
     emit ChainlinkCancelled(requestId);
     requested.cancelOracleRequest(requestId, payment, callbackFunc, expiration);
@@ -209,7 +209,7 @@ abstract contract ChainlinkClient {
    * @param oracleAddress The address of the oracle contract
    */
   function setChainlinkOracle(address oracleAddress) internal {
-    s_oracle = OperatorInterface(oracleAddress);
+    s_oracle = iOperator(oracleAddress);
   }
 
   /**
@@ -217,7 +217,7 @@ abstract contract ChainlinkClient {
    * @param linkAddress The address of the LINK token contract
    */
   function setChainlinkToken(address linkAddress) internal {
-    s_link = LinkTokenInterface(linkAddress);
+    s_link = iLinkToken(linkAddress);
   }
 
   /**
@@ -225,7 +225,7 @@ abstract contract ChainlinkClient {
    * network as given by the Pointer contract
    */
   function setPublicChainlinkToken() internal {
-    setChainlinkToken(PointerInterface(LINK_TOKEN_POINTER).getAddress());
+    setChainlinkToken(iPointer(LINK_TOKEN_POINTER).getAddress());
   }
 
   /**
@@ -261,7 +261,7 @@ abstract contract ChainlinkClient {
    * @param node The ENS node hash
    */
   function useChainlinkWithENS(address ensAddress, bytes32 node) internal {
-    s_ens = ENSInterface(ensAddress);
+    s_ens = iENS(ensAddress);
     s_ensNode = node;
     bytes32 linkSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_TOKEN_SUBNAME));
     ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(linkSubnode));

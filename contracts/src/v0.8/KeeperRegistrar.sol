@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/KeeperRegistryInterface.sol";
-import "./interfaces/TypeAndVersionInterface.sol";
+import "./interfaces/iLinkToken.sol";
+import "./interfaces/iKeeperRegistry.sol";
+import "./interfaces/iTypeAndVersion.sol";
 import "./ConfirmedOwner.sol";
-import "./interfaces/ERC677ReceiverInterface.sol";
+import "./interfaces/iERC677Receiver.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -17,7 +17,7 @@ import "./interfaces/ERC677ReceiverInterface.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
+contract KeeperRegistrar is iTypeAndVersion, ConfirmedOwner, iERC677Receiver {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.
@@ -33,7 +33,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
 
   mapping(bytes32 => PendingRequest) private s_pendingRequests;
 
-  LinkTokenInterface public immutable LINK;
+  iLinkToken public immutable LINK;
 
   /**
    * @notice versions:
@@ -47,7 +47,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     AutoApproveType autoApproveConfigType;
     uint32 autoApproveMaxAllowed;
     uint32 approvedCount;
-    KeeperRegistryBaseInterface keeperRegistry;
+    iKeeperRegistryBase keeperRegistry;
     uint96 minLINKJuels;
   }
 
@@ -112,7 +112,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     address keeperRegistry,
     uint96 minLINKJuels
   ) ConfirmedOwner(msg.sender) {
-    LINK = LinkTokenInterface(LINKAddress);
+    LINK = iLinkToken(LINKAddress);
     setRegistrationConfig(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
   }
 
@@ -232,7 +232,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
       autoApproveMaxAllowed: autoApproveMaxAllowed,
       approvedCount: approvedCount,
       minLINKJuels: minLINKJuels,
-      keeperRegistry: KeeperRegistryBaseInterface(keeperRegistry)
+      keeperRegistry: iKeeperRegistryBase(keeperRegistry)
     });
 
     emit ConfigChanged(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
@@ -332,7 +332,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     uint96 amount,
     bytes32 hash
   ) private {
-    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
+    iKeeperRegistryBase keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
     uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);

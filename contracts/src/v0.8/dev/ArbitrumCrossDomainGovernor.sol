@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/DelegateForwarderInterface.sol";
+import "./interfaces/iDelegateForwarder.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 import "./ArbitrumCrossDomainForwarder.sol";
@@ -12,7 +12,7 @@ import "./ArbitrumCrossDomainForwarder.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
  */
-contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCrossDomainForwarder {
+contract ArbitrumCrossDomainGovernor is iDelegateForwarder, ArbitrumCrossDomainForwarder {
   /**
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
@@ -25,7 +25,7 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
    *
    * - ArbitrumCrossDomainGovernor 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc iTypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumCrossDomainGovernor 1.0.0";
@@ -33,7 +33,7 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
 
   /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-   * @inheritdoc ForwarderInterface
+   * @inheritdoc iForwarder
    */
   function forward(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionCall(target, data, "Governor call reverted");
@@ -41,7 +41,7 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
 
   /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-   * @inheritdoc DelegateForwarderInterface
+   * @inheritdoc iDelegateForwarder
    */
   function forwardDelegate(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");

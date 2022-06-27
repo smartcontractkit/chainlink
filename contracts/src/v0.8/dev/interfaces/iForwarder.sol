@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/// @title ForwarderInterface - forwards a call to a target, under some conditions
-interface ForwarderInterface {
+/// @title iForwarder - forwards a call to a target, under some conditions
+interface iForwarder {
   /**
    * @notice forward calls the `target` with `data`
    * @param target contract address to be called

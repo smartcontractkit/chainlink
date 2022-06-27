@@ -2,6 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "./KeeperBase.sol";
-import "./interfaces/KeeperCompatibleInterface.sol";
+import "./interfaces/iKeeperCompatible.sol";
 
-abstract contract KeeperCompatible is KeeperBase, KeeperCompatibleInterface {}
+abstract contract KeeperCompatible is KeeperBase, iKeeperCompatible {}

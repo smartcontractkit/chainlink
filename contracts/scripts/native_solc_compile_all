@@ -41,7 +41,7 @@ $SCRIPTPATH/native_solc8_6_compile KeeperRegistry.sol
 $SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper.sol
 
 # Aggregators
-$SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
+$SCRIPTPATH/native_solc8_6_compile interfaces/iAggregatorV2V3.sol
 
 $SCRIPTPATH/native_solc8_6_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol

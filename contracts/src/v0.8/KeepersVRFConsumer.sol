@@ -3,7 +3,7 @@ pragma solidity ^0.8.6;
 
 import "./KeeperCompatible.sol";
 import "./VRFConsumerBaseV2.sol";
-import "./interfaces/VRFCoordinatorV2Interface.sol";
+import "./interfaces/iVRFCoordinatorV2.sol";
 
 /**
  * @title KeepersVRFConsumer
@@ -11,13 +11,13 @@ import "./interfaces/VRFCoordinatorV2Interface.sol";
  * VRF V2 requester and consumer. In particular, a random words request is made when `performUpkeep`
  * is called in a cadence provided by the upkeep interval.
  */
-contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
+contract KeepersVRFConsumer is iKeeperCompatible, VRFConsumerBaseV2 {
   // Upkeep interval in seconds. This contract's performUpkeep method will
   // be called by the Keepers network roughly every UPKEEP_INTERVAL seconds.
   uint256 public immutable UPKEEP_INTERVAL;
 
   // VRF V2 information, provided upon contract construction.
-  VRFCoordinatorV2Interface public immutable COORDINATOR;
+  iVRFCoordinatorV2 public immutable COORDINATOR;
   uint64 public immutable SUBSCRIPTION_ID;
   uint16 public immutable REQUEST_CONFIRMATIONS;
   bytes32 public immutable KEY_HASH;
@@ -42,7 +42,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
     uint16 requestConfirmations,
     uint256 upkeepInterval
   ) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
+    COORDINATOR = iVRFCoordinatorV2(vrfCoordinator);
     SUBSCRIPTION_ID = subscriptionId;
     REQUEST_CONFIRMATIONS = requestConfirmations;
     KEY_HASH = keyHash;

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/AggregatorValidatorInterface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/AccessControllerInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/iAggregatorValidator.sol";
+import "../interfaces/iTypeAndVersion.sol";
+import "../interfaces/iAccessController.sol";
+import "../interfaces/iAggregatorV3.sol";
 import "../SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
-import "./interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
-import "./interfaces/FlagsInterface.sol";
+import "./interfaces/iArbitrumSequencerUptimeFeed.sol";
+import "./interfaces/iFlags.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
@@ -22,7 +22,7 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
  *  - Gas configuration is controlled by a configurable external SimpleWriteAccessController
  *  - Funds on the contract are managed by the owner
  */
-contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract ArbitrumValidator is iTypeAndVersion, iAggregatorValidator, SimpleWriteAccessController {
   enum PaymentStrategy {
     L1,
     L2
@@ -46,7 +46,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   PaymentStrategy private s_paymentStrategy;
   GasConfig private s_gasConfig;
-  AccessControllerInterface private s_configAC;
+  iAccessController private s_configAC;
 
   /**
    * @notice emitted when a new payment strategy is set
@@ -116,7 +116,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *   - now calls `updateStatus` on an L2 ArbitrumSequencerUptimeFeed contract instead of
    *     directly calling the Flags contract
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc iTypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumValidator 1.0.0";
@@ -132,7 +132,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     return s_gasConfig;
   }
 
-  /// @return config AccessControllerInterface contract address
+  /// @return config iAccessController contract address
   function configAC() external view virtual returns (address) {
     return address(s_configAC);
   }
@@ -199,9 +199,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-   * @notice sets config AccessControllerInterface contract
+   * @notice sets config iAccessController contract
    * @dev only owner can call this
-   * @param accessController new AccessControllerInterface contract address
+   * @param accessController new iAccessController contract address
    */
   function setConfigAC(address accessController) external onlyOwner {
     _setConfigAC(accessController);
@@ -253,7 +253,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // Excess gas on L2 will be sent to the L2 xDomain alias address of this contract
     address refundAddr = L2_ALIAS;
     // Encode the ArbitrumSequencerUptimeFeed call
-    bytes4 selector = ArbitrumSequencerUptimeFeedInterface.updateStatus.selector;
+    bytes4 selector = iArbitrumSequencerUptimeFeed.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
     uint64 timestamp = uint64(block.timestamp);
     // Encode `status` and `timestamp`
@@ -305,7 +305,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   function _setConfigAC(address accessController) internal {
     address previousAccessController = address(s_configAC);
     if (accessController != previousAccessController) {
-      s_configAC = AccessControllerInterface(accessController);
+      s_configAC = iAccessController(accessController);
       emit ConfigACSet(previousAccessController, accessController);
     }
   }
@@ -316,7 +316,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param calldataSizeInBytes xDomain message size in bytes
    */
   function _approximateMaxSubmissionCost(uint256 calldataSizeInBytes) internal view returns (uint256) {
-    (, int256 l1GasPriceInWei, , , ) = AggregatorV3Interface(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
+    (, int256 l1GasPriceInWei, , , ) = iAggregatorV3(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
     uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 3; // add 200% buffer (price volatility error margin)
     return (l1GasPriceEstimate * calldataSizeInBytes) / 256 + l1GasPriceEstimate;
   }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./CrossDomainOwnable.sol";
-import "./interfaces/ForwarderInterface.sol";
+import "./interfaces/iForwarder.sol";
 
 /**
  * @title CrossDomainForwarder - L1 xDomain account representation
@@ -10,6 +10,6 @@ import "./interfaces/ForwarderInterface.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can consider that position to be held by the `l1Owner`
  */
-abstract contract CrossDomainForwarder is ForwarderInterface, CrossDomainOwnable {
+abstract contract CrossDomainForwarder is iForwarder, CrossDomainOwnable {
 
 }

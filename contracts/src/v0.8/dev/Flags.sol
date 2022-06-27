@@ -2,11 +2,11 @@
 pragma solidity ^0.8.6;
 
 import "../SimpleReadAccessController.sol";
-import "../interfaces/AccessControllerInterface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
+import "../interfaces/iAccessController.sol";
+import "../interfaces/iTypeAndVersion.sol";
 
 /* dev dependencies - to be re/moved after audit */
-import "./interfaces/FlagsInterface.sol";
+import "./interfaces/iFlags.sol";
 
 /**
  * @title The Flags contract
@@ -17,9 +17,9 @@ import "./interfaces/FlagsInterface.sol";
  * An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessController {
-  AccessControllerInterface public raisingAccessController;
-  AccessControllerInterface public loweringAccessController;
+contract Flags is iTypeAndVersion, iFlags, SimpleReadAccessController {
+  iAccessController public raisingAccessController;
+  iAccessController public loweringAccessController;
 
   mapping(address => bool) private flags;
 
@@ -43,7 +43,7 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
    * - Flags 1.1.0: upgraded to solc 0.8, added lowering access controller
    * - Flags 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc iTypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "Flags 1.1.0";
@@ -135,7 +135,7 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
     address previous = address(raisingAccessController);
 
     if (previous != racAddress) {
-      raisingAccessController = AccessControllerInterface(racAddress);
+      raisingAccessController = iAccessController(racAddress);
 
       emit RaisingAccessControllerUpdated(previous, racAddress);
     }
@@ -145,7 +145,7 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
     address previous = address(loweringAccessController);
 
     if (previous != lacAddress) {
-      loweringAccessController = AccessControllerInterface(lacAddress);
+      loweringAccessController = iAccessController(lacAddress);
 
       emit LoweringAccessControllerUpdated(previous, lacAddress);
     }

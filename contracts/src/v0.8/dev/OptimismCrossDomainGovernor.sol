@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/DelegateForwarderInterface.sol";
+import "./interfaces/iDelegateForwarder.sol";
 import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 import "./OptimismCrossDomainForwarder.sol";
@@ -12,7 +12,7 @@ import "./OptimismCrossDomainForwarder.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
  */
-contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCrossDomainForwarder {
+contract OptimismCrossDomainGovernor is iDelegateForwarder, OptimismCrossDomainForwarder {
   /**
    * @notice creates a new Optimism xDomain Forwarder contract
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
@@ -28,7 +28,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    *
    * - OptimismCrossDomainForwarder 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc iTypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismCrossDomainGovernor 1.0.0";
@@ -36,7 +36,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
 
   /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-   * @inheritdoc ForwarderInterface
+   * @inheritdoc iForwarder
    */
   function forward(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionCall(target, data, "Governor call reverted");
@@ -44,7 +44,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
 
   /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-   * @inheritdoc DelegateForwarderInterface
+   * @inheritdoc iDelegateForwarder
    */
   function forwardDelegate(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");

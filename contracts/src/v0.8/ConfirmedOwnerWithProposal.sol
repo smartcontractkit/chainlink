@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/OwnableInterface.sol";
+import "./interfaces/iOwnable.sol";
 
 /**
  * @title The ConfirmedOwner contract
  * @notice A contract with helpers for basic contract ownership.
  */
-contract ConfirmedOwnerWithProposal is OwnableInterface {
+contract ConfirmedOwnerWithProposal is iOwnable {
   address private s_owner;
   address private s_pendingOwner;
 

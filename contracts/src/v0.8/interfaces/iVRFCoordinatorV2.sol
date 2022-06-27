@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface VRFCoordinatorV2Interface {
+interface iVRFCoordinatorV2 {
   /**
    * @notice Get configuration relevant for making requests
    * @return minimumRequestConfirmations global min for request confirmations

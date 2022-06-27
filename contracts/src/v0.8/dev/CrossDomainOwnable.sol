@@ -2,13 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "../ConfirmedOwner.sol";
-import "./interfaces/CrossDomainOwnableInterface.sol";
+import "./interfaces/iCrossDomainiOwnable.sol";
 
 /**
  * @title The CrossDomainOwnable contract
  * @notice A contract with helpers for cross-domain contract ownership.
  */
-contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
+contract CrossDomainOwnable is iCrossDomainiOwnable, ConfirmedOwner {
   address internal s_l1Owner;
   address internal s_l1PendingOwner;
 

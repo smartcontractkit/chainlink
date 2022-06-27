@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/AggregatorValidatorInterface.sol";
-import "../interfaces/AccessControllerInterface.sol";
+import "../interfaces/iTypeAndVersion.sol";
+import "../interfaces/iAggregatorValidator.sol";
+import "../interfaces/iAccessController.sol";
 import "../SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
-import "./interfaces/FlagsInterface.sol";
-import "./interfaces/ForwarderInterface.sol";
+import "./interfaces/iFlags.sol";
+import "./interfaces/iForwarder.sol";
 import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
 
 /**
@@ -16,15 +16,15 @@ import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOV
  * @notice Allows to raise and lower Flags on the Optimism L2 network through L1 bridge
  *  - The internal AccessController controls the access of the validate method
  */
-contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract OptimismValidator is iTypeAndVersion, iAggregatorValidator, SimpleWriteAccessController {
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address public constant FLAG_OPTIMISM_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
   // Encode underlying Flags call/s
   bytes private constant CALL_RAISE_FLAG =
-    abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
+    abi.encodeWithSelector(iFlags.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
   bytes private constant CALL_LOWER_FLAG =
-    abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
+    abi.encodeWithSelector(iFlags.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
   uint32 private constant CALL_GAS_LIMIT = 1_200_000;
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
@@ -55,7 +55,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *
    * - OptimismValidator 0.1.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc iTypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismValidator 0.1.0";
@@ -81,7 +81,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     }
 
     // Encode the Forwarder call
-    bytes4 selector = ForwarderInterface.forward.selector;
+    bytes4 selector = iForwarder.forward.selector;
     address target = L2_FLAGS;
     // Choose and encode the underlying Flags call
     bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE ? CALL_RAISE_FLAG : CALL_LOWER_FLAG;

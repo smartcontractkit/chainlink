@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./SimpleReadAccessController.sol";
-import "./interfaces/AccessControllerInterface.sol";
-import "./interfaces/FlagsInterface.sol";
+import "./interfaces/iAccessController.sol";
+import "./interfaces/iFlags.sol";
 
 /**
  * @title The Flags contract
@@ -13,8 +13,8 @@ import "./interfaces/FlagsInterface.sol";
  * to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is FlagsInterface, SimpleReadAccessController {
-  AccessControllerInterface public raisingAccessController;
+contract Flags is iFlags, SimpleReadAccessController {
+  iAccessController public raisingAccessController;
 
   mapping(address => bool) private flags;
 
@@ -102,7 +102,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     address previous = address(raisingAccessController);
 
     if (previous != racAddress) {
-      raisingAccessController = AccessControllerInterface(racAddress);
+      raisingAccessController = iAccessController(racAddress);
 
       emit RaisingAccessControllerUpdated(previous, racAddress);
     }
