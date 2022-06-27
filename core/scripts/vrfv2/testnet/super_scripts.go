@@ -14,7 +14,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-func deployUniverse(e environment) {
+func deployUniverse(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
@@ -47,10 +47,7 @@ func deployUniverse(e environment) {
 		"subscription-balance",
 	)
 
-	subscriptionBalance, success := big.NewInt(0).SetString(*subscriptionBalanceString, 10)
-	if !success {
-		panic(fmt.Sprintf("failed to parse subscriptionBalance '%s'", *subscriptionBalanceString))
-	}
+	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
 
 	// Put key in ECDSA format
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
@@ -60,12 +57,18 @@ func deployUniverse(e environment) {
 	fmt.Println("\nDeploying BHS...")
 	bhsContractAddress := deployBHS(e)
 
+	fmt.Println("\nDeploying Batch BHS...")
+	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
+
 	fmt.Println("\nDeploying Coordinator...")
 	coordinatorAddress := deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
-	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.ec)
+	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	fmt.Println("\nSetting Config...")
+	fmt.Println("\nDeploying Batch Coordinator...")
+	batchCoordinatorAddress := deployBatchCoordinatorV2(e, coordinatorAddress)
+
+	fmt.Println("\nSetting Coordinator Config...")
 	setCoordinatorConfig(
 		e,
 		*coordinator,
@@ -88,16 +91,18 @@ func deployUniverse(e environment) {
 	)
 
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
-	printCoordinatorConfig(e, *coordinator)
+	printCoordinatorConfig(coordinator)
 
 	if len(*registerKeyUncompressedPubKey) > 0 && len(*registerKeyOracleAddress) > 0 {
 		fmt.Println("\nRegistering proving key...")
 		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
-		_, _, s_provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
+		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
 		helpers.PanicErr(configErr)
-		fmt.Println("Key hash registered:", hex.EncodeToString(s_provingKeyHashes[0][:]))
+		fmt.Println("Key hash registered:", hex.EncodeToString(provingKeyHashes[0][:]))
+	} else {
+		fmt.Println("NOT registering proving key - you must do this eventually in order to fully deploy VRF!")
 	}
 
 	fmt.Println("\nDeploying consumer...")
@@ -110,17 +115,23 @@ func deployUniverse(e environment) {
 	fmt.Println("\nAdding consumer to subscription...")
 	eoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
 
-	fmt.Println("\nFunding subscription...")
-	eoaFundSubscription(e, *coordinator, *linkAddress, subscriptionBalance, subID)
+	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
+		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
+		eoaFundSubscription(e, *coordinator, *linkAddress, subscriptionBalance, subID)
+	} else {
+		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
+	}
 
-	fmt.Println("\nSubscribed and funded, retrieving subscription from deployed contract...")
+	fmt.Println("\nSubscribed and (possibly) funded, retrieving subscription from deployed contract...")
 	s, err := coordinator.GetSubscription(nil, subID)
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 	fmt.Println(
 		"\nDeployment complete.",
 		"\nBlockhash Store contract address:", bhsContractAddress,
+		"\nBatch Blockhash Store contract address:", batchBHSAddress,
 		"\nVRF Coordinator Address:", coordinatorAddress,
+		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalanceString,
