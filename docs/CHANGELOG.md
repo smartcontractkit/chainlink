@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- After feedback from users, password complexity requirements have been simplified. These are the new, simplified requirements for any kind of password used with Chainlink:
+1. Must be 16 characters or more
+2. Must not contain leading or trailing whitespace
+3. User passwords must not contain the user's API email
+
 ## [1.5.0] - 2022-06-21
 
 ### Changed
