@@ -238,8 +238,8 @@ describe('ArbitrumSequencerUptimeFeed', () => {
     })
   })
 
-  describe('Protect reads on AggregatorV2V3Interface functions', () => {
-    it('should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted', async () => {
+  describe('Protect reads on iAggregatorV2V3 functions', () => {
+    it('should disallow reads on iAggregatorV2V3 functions when consuming contract is not whitelisted', async () => {
       // Sanity - consumer is not whitelisted
       expect(await arbitrumSequencerUptimeFeed.checkEnabled()).to.be.true
       expect(
@@ -258,7 +258,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       )
     })
 
-    it('should allow reads on AggregatorV2V3Interface functions when consuming contract is whitelisted', async () => {
+    it('should allow reads on iAggregatorV2V3 functions when consuming contract is whitelisted', async () => {
       // Whitelist consumer
       await arbitrumSequencerUptimeFeed.addAccess(uptimeFeedConsumer.address)
       // Sanity - consumer is whitelisted
