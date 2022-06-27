@@ -133,9 +133,9 @@ func (k keyval) String() string {
 
 func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 	defer func() { err = cfgtest.MultiErrorList(err) }()
-	globalTable := &table{name: "Global"}
-	items = append(items, globalTable)
-	currentTable := globalTable
+	globalTable := table{name: "Global"}
+	currentTable := &globalTable
+	items = append(items, currentTable)
 	var desc lines
 	for _, line := range strings.Split(s, "\n") {
 		if strings.HasPrefix(line, "#") {
@@ -143,7 +143,7 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 			desc = append(desc, strings.TrimSpace(line[1:]))
 		} else if strings.TrimSpace(line) == "" {
 			// empty
-			currentTable = globalTable
+			currentTable = &globalTable
 			if len(desc) > 0 {
 				items = append(items, desc)
 				desc = nil
@@ -175,7 +175,7 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 				kv.desc = kv.desc[1:]
 			}
 			shortName := kv.name
-			if currentTable != globalTable {
+			if currentTable != &globalTable {
 				kv.name = currentTable.name + "." + kv.name
 			}
 			if len(kv.desc) == 0 {
@@ -186,10 +186,9 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 			if !strings.HasSuffix(line, "# Default") && !strings.HasSuffix(line, "# Example") {
 				err = multierr.Append(err, fmt.Errorf(`%s: is neither a "# Default" or "# Example"`, kv.name))
 			}
+
 			items = append(items, kv)
-			if currentTable != nil {
-				currentTable.codes = append(currentTable.codes, kv.code)
-			}
+			currentTable.codes = append(currentTable.codes, kv.code)
 			desc = nil
 		}
 	}

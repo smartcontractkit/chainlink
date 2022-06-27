@@ -154,9 +154,7 @@ func (w *Wei) UnmarshalText(b []byte) error {
 			continue
 		}
 		t := strings.TrimSuffix(s, suf)
-		if strings.HasSuffix(t, " ") {
-			t = t[:len(t)-1]
-		}
+		t = strings.TrimSuffix(t, " ")
 		d, err := decimal.NewFromString(t)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse %q", s)

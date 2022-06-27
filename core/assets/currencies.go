@@ -130,11 +130,9 @@ func (l *Link) UnmarshalJSON(data []byte) error {
 func (l *Link) UnmarshalText(text []byte) error {
 	s := string(text)
 	if strings.HasSuffix(s, "link") {
-		t := strings.TrimSuffix(s, "link")
-		if strings.HasSuffix(t, " ") {
-			t = t[:len(t)-1]
-		}
-		d, err := decimal.NewFromString(t)
+		s = strings.TrimSuffix(s, "link")
+		s = strings.TrimSuffix(s, " ")
+		d, err := decimal.NewFromString(s)
 		if err != nil {
 			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
 		}
@@ -148,9 +146,7 @@ func (l *Link) UnmarshalText(text []byte) error {
 	}
 	if strings.HasSuffix(s, "juels") {
 		s = strings.TrimSuffix(s, "juels")
-		if strings.HasSuffix(s, " ") {
-			s = s[:len(s)-1]
-		}
+		s = strings.TrimSuffix(s, " ")
 	}
 	if _, ok := l.SetString(s, 10); !ok {
 		return errors.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
