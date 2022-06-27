@@ -14,7 +14,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-func deployUniverse(e environment) {
+func deployUniverse(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
@@ -62,7 +62,7 @@ func deployUniverse(e environment) {
 
 	fmt.Println("\nDeploying Coordinator...")
 	coordinatorAddress := deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
-	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.ec)
+	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	fmt.Println("\nDeploying Batch Coordinator...")
@@ -91,16 +91,16 @@ func deployUniverse(e environment) {
 	)
 
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
-	printCoordinatorConfig(e, *coordinator)
+	printCoordinatorConfig(coordinator)
 
 	if len(*registerKeyUncompressedPubKey) > 0 && len(*registerKeyOracleAddress) > 0 {
 		fmt.Println("\nRegistering proving key...")
 		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
-		_, _, s_provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
+		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
 		helpers.PanicErr(configErr)
-		fmt.Println("Key hash registered:", hex.EncodeToString(s_provingKeyHashes[0][:]))
+		fmt.Println("Key hash registered:", hex.EncodeToString(provingKeyHashes[0][:]))
 	} else {
 		fmt.Println("NOT registering proving key - you must do this eventually in order to fully deploy VRF!")
 	}

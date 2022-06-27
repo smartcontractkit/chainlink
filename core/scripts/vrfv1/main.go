@@ -2,19 +2,15 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 
@@ -28,64 +24,7 @@ import (
 )
 
 func main() {
-	ethURL, set := os.LookupEnv("ETH_URL")
-	if !set {
-		panic("need eth url")
-	}
-
-	chainIDEnv, set := os.LookupEnv("ETH_CHAIN_ID")
-	if !set {
-		panic("need chain ID")
-	}
-
-	accountKey, set := os.LookupEnv("ACCOUNT_KEY")
-	if !set {
-		panic("need account key")
-	}
-
-	if len(os.Args) < 2 {
-		fmt.Println("expected subcommand")
-		os.Exit(1)
-	}
-
-	ec, err := ethclient.Dial(ethURL)
-	helpers.PanicErr(err)
-
-	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
-	helpers.PanicErr(err)
-
-	// Owner key. Make sure it has eth
-	b, err := hex.DecodeString(accountKey)
-	helpers.PanicErr(err)
-	d := new(big.Int).SetBytes(b)
-
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
-	account, err := bind.NewKeyedTransactorWithChainID(&privateKey, big.NewInt(chainID))
-	helpers.PanicErr(err)
-
-	// Explicitly set gas price to ensure non-eip 1559
-	gp, err := ec.SuggestGasPrice(context.Background())
-	helpers.PanicErr(err)
-	account.GasPrice = gp
-
-	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
-	//
-	//block, err := ec.BlockNumber(context.Background())
-	//helpers.PanicErr(err)
-	//
-	//nonce, err := ec.NonceAt(context.Background(), account.From, big.NewInt(int64(block)))
-	//helpers.PanicErr(err)
-	//
-	//account.Nonce = big.NewInt(int64(nonce))
-	//account.GasPrice = gp.Mul(gp, big.NewInt(2))
+	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
 	case "coordinator-deploy":
@@ -94,12 +33,9 @@ func main() {
 		bhsAddress := cmd.String("bhs-address", "", "blockhash store contract address")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "bhs-address")
 		_, tx, _, err := solidity_vrf_coordinator_interface.DeployVRFCoordinator(
-			account, ec, common.HexToAddress(*linkAddress), common.HexToAddress(*bhsAddress))
+			e.Owner, e.Ec, common.HexToAddress(*linkAddress), common.HexToAddress(*bhsAddress))
 		helpers.PanicErr(err)
-		fmt.Println("Coordinator deployment tx:", helpers.ExplorerLink(chainID, tx.Hash()))
-		coordinatorAddress, err := bind.WaitDeployed(context.Background(), ec, tx)
-		helpers.PanicErr(err)
-		fmt.Println("Coordinator address:", coordinatorAddress)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "coordinator-register-key":
 		cmd := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of VRF coordinator")
@@ -112,7 +48,7 @@ func main() {
 
 		coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
 			common.HexToAddress(*coordinatorAddress),
-			ec)
+			e.Ec)
 		helpers.PanicErr(err)
 
 		// Put key in ECDSA format
@@ -127,7 +63,7 @@ func main() {
 		uid, err := uuid.FromString(*jobID)
 		helpers.PanicErr(err)
 		tx, err := coordinator.RegisterProvingKey(
-			account,
+			e.Owner,
 			decimal.RequireFromString(*fee).BigInt(),
 			common.HexToAddress(*oracleAddress),
 			[2]*big.Int{pk.X, pk.Y},
@@ -135,22 +71,19 @@ func main() {
 		)
 		helpers.PanicErr(err)
 
-		receipt, err := bind.WaitMined(context.Background(), ec, tx)
-		helpers.PanicErr(err)
-		fmt.Println("Tx", helpers.ExplorerLink(chainID, tx.Hash()), "mined in block", receipt.BlockNumber.String())
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "ownerless-consumer-deploy":
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
 		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")
 		linkAddr := cmd.String("link-address", "", "address of link token")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
-		consumerAddr, tx, _, err := vrfoc.DeployVRFOwnerlessConsumerExample(
-			account,
-			ec,
+		_, tx, _, err := vrfoc.DeployVRFOwnerlessConsumerExample(
+			e.Owner,
+			e.Ec,
 			common.HexToAddress(*coordAddr),
 			common.HexToAddress(*linkAddr))
 		helpers.PanicErr(err)
-		fmt.Printf("Ownerless Consumer: %s TX: %s\n",
-			consumerAddr, helpers.ExplorerLink(chainID, tx.Hash()))
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "loadtest-ownerless-consumer-deploy":
 		cmd := flag.NewFlagSet("loadtest-ownerless-consumer-deploy", flag.ExitOnError)
 		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")
@@ -158,15 +91,14 @@ func main() {
 		priceStr := cmd.String("price", "", "the price of each VRF request in Juels")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
 		price := decimal.RequireFromString(*priceStr).BigInt()
-		consumerAddr, tx, _, err := vrfltoc.DeployVRFLoadTestOwnerlessConsumer(
-			account,
-			ec,
+		_, tx, _, err := vrfltoc.DeployVRFLoadTestOwnerlessConsumer(
+			e.Owner,
+			e.Ec,
 			common.HexToAddress(*coordAddr),
 			common.HexToAddress(*linkAddr),
 			price)
 		helpers.PanicErr(err)
-		fmt.Printf("Loadtest Ownerless Consumer: %s TX: %s\n",
-			consumerAddr, helpers.ExplorerLink(chainID, tx.Hash()))
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "ownerless-consumer-request":
 		cmd := flag.NewFlagSet("ownerless-consumer-request", flag.ExitOnError)
 		linkAddr := cmd.String("link-address", "", "address of link token")
@@ -178,12 +110,12 @@ func main() {
 		if !ok {
 			panic(fmt.Sprintf("failed to parse payment amount: %s", *paymentStr))
 		}
-		link, err := linktoken.NewLinkToken(common.HexToAddress(*linkAddr), ec)
+		link, err := linktoken.NewLinkToken(common.HexToAddress(*linkAddr), e.Ec)
 		helpers.PanicErr(err)
 		data, err := utils.GenericEncode([]string{"bytes32"}, common.HexToHash(*keyHash))
 		helpers.PanicErr(err)
-		tx, err := link.TransferAndCall(account, common.HexToAddress(*consumerAddr), payment, data)
+		tx, err := link.TransferAndCall(e.Owner, common.HexToAddress(*consumerAddr), payment, data)
 		helpers.PanicErr(err)
-		fmt.Printf("TX: %s\n", helpers.ExplorerLink(chainID, tx.Hash()))
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	}
 }
