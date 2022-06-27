@@ -38,7 +38,7 @@ type RegistryWrapper struct {
 }
 
 func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBackend) (*RegistryWrapper, error) {
-	interface_wrapper, err := type_and_version.NewTypeAndVersionInterface(
+	interface_wrapper, err := type_and_version.NewITypeAndVersion(
 		address.Address(),
 		backend,
 	)
@@ -74,7 +74,7 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 	}, nil
 }
 
-func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*RegistryVersion, error) {
+func getRegistryVersion(contract *type_and_version.ITypeAndVersion) (*RegistryVersion, error) {
 	typeAndVersion, err := contract.TypeAndVersion(nil)
 	if err != nil {
 		jsonErr := evmclient.ExtractRPCError(err)

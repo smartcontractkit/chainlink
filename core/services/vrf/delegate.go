@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err != nil {
 				return nil, err
 			}
-			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			aggregator, err := aggregator_v3_interface.NewIAggregatorV3(linkEthFeedAddress, chain.Client())
 			if err != nil {
 				return nil, err
 			}

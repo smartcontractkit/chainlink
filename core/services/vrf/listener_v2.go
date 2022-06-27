@@ -81,7 +81,7 @@ func newListenerV2(
 	q pg.Q,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
-	aggregator *aggregator_v3_interface.AggregatorV3Interface,
+	aggregator *aggregator_v3_interface.IAggregatorV3,
 	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
@@ -184,7 +184,7 @@ type listenerV2 struct {
 	wg *sync.WaitGroup
 
 	// aggregator client to get link/eth feed prices from chain.
-	aggregator aggregator_v3_interface.AggregatorV3InterfaceInterface
+	aggregator aggregator_v3_interface.IAggregatorV3Interface
 
 	// deduper prevents processing duplicate requests from the log broadcaster.
 	deduper *logDeduper
