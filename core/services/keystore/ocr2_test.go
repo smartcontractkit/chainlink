@@ -5,13 +5,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_OCR2KeyStore_E2E(t *testing.T) {
@@ -93,12 +94,16 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
 		require.NoError(t, err)
+		_, err = ks.Export("non-existent", cltest.Password)
+		assert.Error(t, err)
 		err = ks.Delete(key.ID())
 		require.NoError(t, err)
 		_, err = ks.Get(key.ID())
 		require.Error(t, err)
 		importedKey, err := ks.Import(exportJSON, cltest.Password)
 		require.NoError(t, err)
+		_, err = ks.Import([]byte(""), cltest.Password)
+		assert.Error(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
@@ -112,11 +117,15 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		err = ks.Add(newKey)
 		require.NoError(t, err)
+		err = ks.Add(newKey)
+		assert.Error(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
 		err = ks.Delete(newKey.ID())
 		require.NoError(t, err)
+		err = ks.Delete(newKey.ID())
+		assert.Error(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(keys))

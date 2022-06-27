@@ -23,6 +23,11 @@ on:
         required: false
         default: main
         type: string
+      dep_atlas_sha:
+        description: atlas commit or branch
+        required: false
+        default: master
+        type: string
   workflow_call:
     inputs:
       cl_repo:
@@ -46,6 +51,10 @@ on:
       dep_starknet_sha:
         required: false
         description: chainlink-starknet commit or branch
+        type: string
+      dep_atlas_sha:
+        description: atlas commit or branch
+        required: false
         type: string
     secrets:
       AWS_ACCESS_KEY_ID:
@@ -71,7 +80,7 @@ jobs:
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     env:
-      GOPRIVATE: github.com/smartcontractkit/chainlink-starknet
+      GOPRIVATE: github.com/smartcontractkit/chainlink-starknet,github.com/smartcontractkit/atlas
       GH_ACCESS_TOKEN: ${{ secrets.QA_PRIVATE_GHA_PULL }}
     steps:
       - name: Checkout Chainlink repo
@@ -96,6 +105,10 @@ jobs:
         if: ${{ github.event.inputs.dep_starknet_sha }}
         run: |
           go get github.com/smartcontractkit/chainlink-starknet@${{ github.event.inputs.dep_starknet_sha }}
+      - name: Replace Atlas deps manual flow
+        if: ${{ github.event.inputs.dep_atlas_sha }}
+        run: |
+          go get github.com/smartcontractkit/atlas@${{ github.event.inputs.dep_atlas_sha }}
       - name: Replace Solana deps workflow_call
         if: ${{ inputs.dep_solana_sha }}
         run: |
@@ -108,6 +121,10 @@ jobs:
         if: ${{ inputs.dep_starknet_sha }}
         run: |
           go get github.com/smartcontractkit/chainlink-starknet@${{ inputs.dep_starknet_sha }}
+      - name: Replace Atlas deps workflow_call
+        if: ${{ inputs.dep_atlas_sha }}
+        run: |
+          go get github.com/smartcontractkit/atlas@${{ inputs.dep_atlas_sha }}
       - name: Tidy
         run: |
           go mod tidy

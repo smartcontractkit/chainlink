@@ -204,7 +204,7 @@ func MakeDuration(d time.Duration) (Duration, error) {
 	return Duration{d: d}, nil
 }
 
-func MakeDurationFromString(s string) (Duration, error) {
+func ParseDuration(s string) (Duration, error) {
 	d, err := time.ParseDuration(s)
 	if err != nil {
 		return Duration{}, err
@@ -219,6 +219,11 @@ func MustMakeDuration(d time.Duration) Duration {
 		panic(err)
 	}
 	return rv
+}
+
+func MustNewDuration(d time.Duration) *Duration {
+	rv := MustMakeDuration(d)
+	return &rv
 }
 
 // Duration returns the value as the standard time.Duration value.
@@ -281,6 +286,25 @@ func (d *Duration) Scan(v interface{}) (err error) {
 
 func (d Duration) Value() (driver.Value, error) {
 	return int64(d.d), nil
+}
+
+// MarshalText implements the text.Marshaler interface.
+func (d Duration) MarshalText() ([]byte, error) {
+	return []byte(d.d.String()), nil
+}
+
+// UnmarshalText implements the text.Unmarshaler interface.
+func (d *Duration) UnmarshalText(input []byte) error {
+	v, err := time.ParseDuration(string(input))
+	if err != nil {
+		return err
+	}
+	pd, err := MakeDuration(v)
+	if err != nil {
+		return err
+	}
+	*d = pd
+	return nil
 }
 
 // Interval represents a time.Duration stored as a Postgres interval type
@@ -455,6 +479,10 @@ func (s Sha256Hash) String() string {
 	return hex.EncodeToString(s[:])
 }
 
+func (s *Sha256Hash) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
 func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
 	*s, err = Sha256HashFromHex(string(bs))
 	return
@@ -476,4 +504,28 @@ func (s Sha256Hash) Value() (driver.Value, error) {
 	b := make([]byte, 32)
 	copy(b, s[:])
 	return b, nil
+}
+
+// URL extends url.URL to implement encoding.TextMarshaler.
+type URL url.URL
+
+func ParseURL(s string) (*URL, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+	return (*URL)(u), nil
+}
+
+func (u *URL) MarshalText() ([]byte, error) {
+	return []byte((*url.URL)(u).String()), nil
+}
+
+func (u *URL) UnmarshalText(input []byte) error {
+	v, err := url.Parse(string(input))
+	if err != nil {
+		return err
+	}
+	*u = URL(*v)
+	return nil
 }

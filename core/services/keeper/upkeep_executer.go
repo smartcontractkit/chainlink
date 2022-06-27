@@ -242,7 +242,10 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		},
 	})
 
+	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
+	ex.job.PipelineSpec.DotDagSource = observationSource
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
+
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
 		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return
@@ -274,11 +277,12 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 
+	keySpecificGasPriceWei := ex.config.KeySpecificMaxGasPriceWei(upkeep.Registry.FromAddress.Address())
 	if ex.config.EvmEIP1559DynamicFees() {
-		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
+		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas, keySpecificGasPriceWei)
 		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
 	} else {
-		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
+		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas, keySpecificGasPriceWei)
 		gasPrice = addBuffer(gasPrice, ex.config.KeeperGasPriceBufferPercent())
 	}
 	if err != nil {

@@ -31,7 +31,6 @@ import (
 	keeperRegV1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -265,7 +264,6 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 			FromAddress:              nodeAddr,
 			EvmChainID:               int(k.cfg.ChainID),
 			MinIncomingConfirmations: 1,
-			ObservationSource:        keeper.ExpectedObservationSource,
 		}).Toml(),
 	})
 	if err != nil {

@@ -6,6 +6,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -13,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_P2PKeyStore_E2E(t *testing.T) {
@@ -58,12 +59,18 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.PeerID(), cltest.Password)
 		require.NoError(t, err)
+		_, err = ks.Export("non-existent", cltest.Password)
+		assert.Error(t, err)
 		_, err = ks.Delete(key.PeerID())
 		require.NoError(t, err)
 		_, err = ks.Get(key.PeerID())
 		require.Error(t, err)
 		importedKey, err := ks.Import(exportJSON, cltest.Password)
 		require.NoError(t, err)
+		_, err = ks.Import(exportJSON, cltest.Password)
+		assert.Error(t, err)
+		_, err = ks.Import([]byte(""), cltest.Password)
+		assert.Error(t, err)
 		require.Equal(t, key.PeerID(), importedKey.PeerID())
 		retrievedKey, err := ks.Get(key.PeerID())
 		require.NoError(t, err)
@@ -76,11 +83,15 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		err = ks.Add(newKey)
 		require.NoError(t, err)
+		err = ks.Add(newKey)
+		assert.Error(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
 		_, err = ks.Delete(newKey.PeerID())
 		require.NoError(t, err)
+		_, err = ks.Delete(newKey.PeerID())
+		assert.Error(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(keys))
@@ -160,5 +171,20 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password)
 		require.NoError(t, err)
 		require.Equal(t, "12D3KooWSq2UZgSXvhGLG5uuAAmz1JNjxHMJViJB39aorvbbYo8p", importedKey.ID())
+	})
+
+	t.Run("returns V1 keys as V2", func(t *testing.T) {
+		defer reset()
+		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_p2p_keys")))
+
+		p1 := cltest.MustRandomP2PPeerID(t)
+		err := utils.JustError(db.Exec(`INSERT INTO encrypted_p2p_keys (peer_id, pub_key, encrypted_priv_key, created_at, updated_at, deleted_at) VALUES ($1, $2, '{"cipher":"aes-128-ctr","ciphertext":"adb2dff72148a8cd467f6f06a03869e7cedf180cf2a4decdb86875b2e1cf3e58c4bd2b721ecdaa88a0825fa9abfc309bf32dbb35a5c0b6cb01ac89a956d78e0550eff351","cipherparams":{"iv":"6cc4381766a4efc39f762b2b8d09dfba"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ff5055ae4cdcdc2d0404307d578262e2caeb0210f82db3a0ecbdba727c6f5259"},"mac":"d37e4f1dea98d85960ef3205099fc71741715ae56a3b1a8f9215a78de9b95595"}', NOW(), NOW(), NULL)`, p1.Pretty(), utils.NewHash()))
+		require.NoError(t, err)
+
+		keys, err := ks.GetV1KeysAsV2()
+		require.NoError(t, err)
+
+		assert.Len(t, keys, 1)
+		assert.Equal(t, fmt.Sprintf("P2PKeyV2{PrivateKey: <redacted>, PeerID: %s}", keys[0].PeerID().Raw()), keys[0].GoString())
 	})
 }

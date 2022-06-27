@@ -72,7 +72,6 @@ type ChainScopedOnlyConfig interface {
 	OperatorFactoryAddress() string
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
-	NodeNoNewHeadsThreshold() time.Duration
 
 	// OCR2 chain specific config
 	OCR2ContractConfirmations() uint16
@@ -601,7 +600,6 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 		return val
 	}
 	valLegacy, set := lookupEnv(c, "GAS_UPDATER_BLOCK_DELAY", parse.Uint16)
-
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_DELAY", valLegacy)
 		c.logger.Error("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
@@ -753,7 +751,7 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 	return c.defaultSet.linkContractAddress
 }
 
-// OperatorFactoryAddress represents the address of the official LINK token
+// OperatorFactoryAddress represents the address of the OperatorFactory
 // contract on the current Chain
 func (c *chainScopedConfig) OperatorFactoryAddress() string {
 	val, ok := c.GeneralConfig.GlobalOperatorFactoryAddress()
