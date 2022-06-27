@@ -10,13 +10,13 @@ require (
 	github.com/prometheus/client_golang v1.12.0
 	github.com/riferrei/srclient v0.4.1-0.20211229125508-8edc580da179
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
+	github.com/smartcontractkit/libocr v0.0.0-20220623210256-b7ae1e1c66f6
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/goleak v1.1.12
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 )
 
 require (
