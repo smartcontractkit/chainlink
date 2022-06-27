@@ -244,39 +244,6 @@ func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	}
 }
 
-// MaxUint32 finds the maximum value of a list of uint32s.
-func MaxUint32(first uint32, uints ...uint32) uint32 {
-	max := first
-	for _, n := range uints {
-		if n > max {
-			max = n
-		}
-	}
-	return max
-}
-
-// MaxInt finds the maximum value of a list of ints.
-func MaxInt(first int, ints ...int) int {
-	max := first
-	for _, n := range ints {
-		if n > max {
-			max = n
-		}
-	}
-	return max
-}
-
-// MinUint finds the minimum value of a list of uints.
-func MinUint(first uint, vals ...uint) uint {
-	min := first
-	for _, n := range vals {
-		if n < min {
-			min = n
-		}
-	}
-	return min
-}
-
 // UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object
 func UnmarshalToMap(input string) (map[string]interface{}, error) {
 	var output map[string]interface{}

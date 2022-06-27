@@ -18,7 +18,7 @@ var (
 	_ Estimator = &l2SuggestedEstimator{}
 )
 
-//go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname OptimismRPCClient
+//go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 }
@@ -113,17 +113,17 @@ func (o *l2SuggestedEstimator) refreshPrice() (t *time.Timer) {
 
 func (o *l2SuggestedEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (*l2SuggestedEstimator) GetDynamicFee(_ uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*l2SuggestedEstimator) GetDynamicFee(_ uint64, _ *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (*l2SuggestedEstimator) BumpDynamicFee(_ DynamicFee, _ uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*l2SuggestedEstimator) BumpDynamicFee(_ DynamicFee, _ uint64, _ *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = l2GasLimit
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
@@ -151,10 +151,14 @@ func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, opts ..
 	if !ok {
 		return nil, 0, errors.New("estimator is not started")
 	}
+	// For L2 chains (e.g. Optimism), submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
+	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
+		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
+	}
 	return
 }
 
-func (o *l2SuggestedEstimator) BumpLegacyGas(_ *big.Int, _ uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *l2SuggestedEstimator) BumpLegacyGas(_ *big.Int, _ uint64, _ *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	return nil, 0, errors.New("bump gas is not supported for this l2")
 }
 

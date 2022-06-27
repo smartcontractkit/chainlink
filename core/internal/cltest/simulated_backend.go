@@ -16,7 +16,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -59,7 +58,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 		cfg.Overrides.P2PEnabled = null.BoolFrom(false)
 	}
 
-	client := evmclient.NewSimulatedBackendClient(t, backend, chainId)
+	client := NewSimulatedBackendClient(t, backend, chainId)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
