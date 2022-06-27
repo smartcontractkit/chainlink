@@ -73,7 +73,7 @@ type ORM interface {
 	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
 	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
 
-	DeleteRunsOlderThan(context.Context, time.Duration) error
+	DeleteRunsOlderThan(context.Context, time.Duration, time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
 	GetUnfinishedRuns(context.Context, time.Time, func(run Run) error) error
@@ -375,11 +375,13 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
-func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	// Added 1 minute timeout to account for big databases
-	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+//  This is guaranteed not to run longer than the timeout
+func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration, timeout time.Duration) error {
+	// Use 60 minute timeout to account for big databases
+	q := o.q.WithOpts(pg.WithParentCtx(ctx), func(q *pg.Q) { q.QueryTimeout = timeout })
 
 	queryThreshold := time.Now().Add(-threshold)
+
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
 WITH batched_pipeline_runs AS (
@@ -408,6 +410,11 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 	})
 	if err != nil {
 		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	err = q.ExecQ("VACUUM ANALYZE pipeline_runs")
+	if err != nil {
+		return errors.Wrap(err, "DeleteRunsOlderThan successfully deleted old pipeline_runs rows, but failed to run VACUUM ANALYZE")
 	}
 
 	return nil
