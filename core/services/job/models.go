@@ -434,6 +434,15 @@ type VRFSpec struct {
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
+	// MaxGasPriceGwei sets the maximum gas price in gwei on the addresses
+	// specified in the fromAddresses job spec parameter.
+	// This is optional. If it's not set, then the job will not attempt to set any
+	// specific gas price on the addresses in fromAddresses, which will use any previously
+	// set congfiguration (i.e, set via CLI, or REST API, or environment variable).
+	// This is essentially the "gas lane" gas price.
+	// V2 only.
+	MaxGasPriceGWei *uint32 `toml:"maxGasPriceGWei" db:"max_gas_price_gwei"`
+
 	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults
 	// to 20 if not provided.
 	ChunkSize uint32 `toml:"chunkSize"`

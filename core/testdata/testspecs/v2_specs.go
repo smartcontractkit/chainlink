@@ -233,6 +233,7 @@ type VRFSpecParams struct {
 	RequestTimeout                time.Duration
 	V2                            bool
 	ChunkSize                     int
+	MaxGasPriceGWei               int
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
 }
@@ -282,6 +283,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	chunkSize := 20
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
+	}
+	maxGasPriceGWei := 200
+	if params.MaxGasPriceGWei != 0 {
+		maxGasPriceGWei = params.MaxGasPriceGWei
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -348,6 +353,7 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
+maxGasPriceGWei = %d
 observationSource = """
 %s
 """
@@ -356,7 +362,7 @@ observationSource = """
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), observationSource)
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), maxGasPriceGWei, observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {

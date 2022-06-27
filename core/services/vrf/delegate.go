@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
@@ -111,6 +112,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	)
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
+
+	// This is not a terminal error, but it isn't ideal.
+	// We can operate under these potentially degraded conditions, however.
+	err = setMaxGasPriceGWei(jb.VRFSpec, d.cc, chain.ID())
+	if err != nil {
+		l.With("err", err).Warn("unable to set max gas price gwei on from addresses, continuing anyway")
+	}
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
@@ -267,4 +275,23 @@ GROUP BY meta->'RequestID'
 		return nil, err
 	}
 	return counts, nil
+}
+
+// setMaxGasPriceGWei attempts to set the max gas price for each key in the fromAddresses field
+// of the VRF job spec to the maxGasPriceGWei field in the VRF job spec, if the field is set.
+// If maxGasPriceGWei is not set, this is a no-op.
+func setMaxGasPriceGWei(spec *job.VRFSpec, chainSet evm.ChainSet, chainID *big.Int) error {
+	if spec.MaxGasPriceGWei == nil {
+		return nil
+	}
+
+	for _, addr := range spec.FromAddresses {
+		updater := evm.UpdateKeySpecificMaxGasPrice(addr.Address(), assets.GWei(int64(*spec.MaxGasPriceGWei)))
+		err := chainSet.UpdateConfig(chainID, updater)
+		if err != nil {
+			return errors.Wrap(err, "update key specific max gas price")
+		}
+	}
+
+	return nil
 }
