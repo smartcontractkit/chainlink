@@ -83,7 +83,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil)
+			err = actions.TeardownSuite(e, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil, nil)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})
