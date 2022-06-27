@@ -179,7 +179,7 @@ func (w *Wei) UnmarshalText(b []byte) error {
 		return nil
 
 	}
-	// no suffix?
+	// unrecognized or missing suffix
 	d, err := decimal.NewFromString(s)
 	if err != nil {
 		return errors.Wrapf(err, "unable to parse %q", s)
