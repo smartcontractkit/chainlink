@@ -11,9 +11,11 @@ import (
 	"github.com/NethermindEth/juno/pkg/crypto/weierstrass"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 )
 
 var _ ocrtypes.OnchainKeyring = &starknetKeyring{}

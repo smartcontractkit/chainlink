@@ -51,16 +51,16 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa     *csa
-	eth     *eth
-	ocr     *ocr
-	ocr2    ocr2
-	p2p     *p2p
-	solana  *solana
-	terra   *terra
+	csa      *csa
+	eth      *eth
+	ocr      *ocr
+	ocr2     ocr2
+	p2p      *p2p
+	solana   *solana
+	terra    *terra
 	starknet *starknet
-	vrf     *vrf
-	dkgSign *dkgSign
+	vrf      *vrf
+	dkgSign  *dkgSign
 }
 
 func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {

@@ -2,6 +2,7 @@ package ocrkey
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
