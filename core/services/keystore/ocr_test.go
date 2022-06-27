@@ -1,15 +1,19 @@
 package keystore_test
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_OCRKeyStore_E2E(t *testing.T) {
@@ -50,6 +54,8 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		defer reset()
 		key, err := ks.Create()
 		require.NoError(t, err)
+		_, err = ks.Export("non-existent", cltest.Password)
+		assert.Error(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
 		require.NoError(t, err)
 		_, err = ks.Delete(key.ID())
@@ -58,10 +64,14 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		require.Error(t, err)
 		importedKey, err := ks.Import(exportJSON, cltest.Password)
 		require.NoError(t, err)
-		require.Equal(t, key.ID(), importedKey.ID())
+		_, err = ks.Import([]byte(""), cltest.Password)
+		assert.Error(t, err)
+		_, err = ks.Import(exportJSON, cltest.Password)
+		assert.Error(t, err)
+		assert.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
-		require.Equal(t, importedKey, retrievedKey)
+		assert.Equal(t, importedKey, retrievedKey)
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
@@ -70,16 +80,20 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		err = ks.Add(newKey)
 		require.NoError(t, err)
+		err = ks.Add(newKey)
+		assert.Error(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		assert.Equal(t, 1, len(keys))
 		_, err = ks.Delete(newKey.ID())
 		require.NoError(t, err)
+		_, err = ks.Delete(newKey.ID())
+		assert.Error(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		assert.Equal(t, 0, len(keys))
 		_, err = ks.Get(newKey.ID())
-		require.Error(t, err)
+		assert.Error(t, err)
 	})
 
 	t.Run("ensures key", func(t *testing.T) {
@@ -98,5 +112,25 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password)
 		require.NoError(t, err)
 		require.Equal(t, "7cfd89bbb018e4778a44fd61172e8834dd24b4a2baf61ead795143b117221c61", importedKey.ID())
+	})
+
+	t.Run("", func(t *testing.T) {
+		defer reset()
+		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_ocr_key_bundles")))
+
+		ocr1 := utils.NewHash()
+		b, err := ocrkey.New()
+		require.NoError(t, err)
+		eb, err := b.Encrypt(cltest.Password, utils.FastScryptParams)
+		require.NoError(t, err)
+
+		err = utils.JustError(db.Exec(`INSERT INTO encrypted_ocr_key_bundles (id, on_chain_signing_address, off_chain_public_key, encrypted_private_keys, created_at, updated_at, config_public_key, deleted_at) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, NULL)`, ocr1, testutils.NewAddress(), utils.NewHash(), eb.EncryptedPrivateKeys, utils.NewHash()))
+		require.NoError(t, err)
+
+		keys, err := ks.GetV1KeysAsV2()
+		require.NoError(t, err)
+
+		assert.Len(t, keys, 1)
+		assert.Equal(t, fmt.Sprintf("OCRKeyV2{ID: %s}", keys[0].ID()), keys[0].GoString())
 	})
 }

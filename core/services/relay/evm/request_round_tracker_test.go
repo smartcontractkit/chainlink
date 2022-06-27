@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mocks"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	ocrmocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 )
 
@@ -43,7 +43,7 @@ func mustNewFilterer(t *testing.T, address gethCommon.Address) *ocr2aggregator.O
 }
 
 type contractTrackerUni struct {
-	db                  *ocrmocks.OCRContractTrackerDB
+	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
 	hb                  *htmocks.HeadBroadcaster
 	ec                  *evmmocks.Client
@@ -75,7 +75,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	if contract == nil {
 		contract = mustNewContract(t, testutils.NewAddress())
 	}
-	uni.db = new(ocrmocks.OCRContractTrackerDB)
+	uni.db = new(mocks.RequestRoundDB)
 	uni.lb = new(logmocks.Broadcaster)
 	uni.hb = new(htmocks.HeadBroadcaster)
 	uni.ec = new(evmmocks.Client)
