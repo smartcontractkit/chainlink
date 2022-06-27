@@ -34,6 +34,7 @@ describe('generateJobDefinition', () => {
 schemaVersion = 1
 name = "cron job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 maxTaskDuration = "10s"
 schedule = "*/2 * * * *"
 observationSource = """
@@ -57,7 +58,6 @@ observationSource = """
       name: 'direct request job',
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
-      gasLimitGwei: 1000,
       spec: {
         __typename: 'DirectRequestSpec',
         contractAddress: '0x0000000000000000000000000000000000000000',
@@ -119,6 +119,7 @@ observationSource = """
 schemaVersion = 1
 name = "keeper job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 contractAddress = "0x0000000000000000000000000000000000000000"
 evmChainID = "42"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
@@ -168,6 +169,7 @@ observationSource = """
 schemaVersion = 1
 name = "flux monitor job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 maxTaskDuration = "10s"
 absoluteThreshold = 1
 contractAddress = "0x0000000000000000000000000000000000000000"
@@ -242,6 +244,7 @@ observationSource = """
 schemaVersion = 1
 name = "ocr job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 maxTaskDuration = "10s"
 contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
 contractConfigConfirmations = 3
@@ -319,6 +322,7 @@ observationSource = """
 schemaVersion = 1
 name = "ocr job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 maxTaskDuration = "10s"
 contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
 evmChainID = "42"
@@ -395,6 +399,7 @@ observationTimeout = "10s"
 schemaVersion = 1
 name = "ocr 2 job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 maxTaskDuration = "10s"
 blockchainTimeout = "20s"
 contractID = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
@@ -464,6 +469,7 @@ juelsPerFeeCoinSource = "1000000000"
 schemaVersion = 1
 name = "vrf job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 coordinatorAddress = "0x0000000000000000000000000000000000000000"
 evmChainID = "42"
 fromAddresses = [ "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42" ]
@@ -511,6 +517,7 @@ observationSource = """
 schemaVersion = 1
 name = "webhook job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
@@ -554,6 +561,7 @@ observationSource = """
 schemaVersion = 1
 name = "bootstrap"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
+gasLimitGwei = 1_000
 id = ""
 contractID = "0x0000000000000000000000000000000000000000"
 relay = "evm"
