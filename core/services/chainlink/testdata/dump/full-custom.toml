@@ -1,0 +1,173 @@
+Dev = true
+ExplorerURL = 'http://explorer.com'
+InsecureFastScrypt = true
+ReaperExpiration = '10h0m0s'
+RootDir = 'root/dir'
+ShutdownGracePeriod = '10s'
+
+[Feature]
+FeedsManager = true
+OffchainReporting2 = true
+OffchainReporting = true
+
+[Database]
+DefaultIdleInTxSessionTimeout = '1h0m0s'
+DefaultLockTimeout = '1m0s'
+DefaultQueryTimeout = '1s'
+MigrateOnStartup = false
+ORMMaxIdleConns = 5
+ORMMaxOpenConns = 12
+
+[Database.Backup]
+Dir = 'db/backup'
+Frequency = '10m0s'
+Mode = 'lite'
+OnVersionUpgrade = false
+URL = 'db/backup'
+
+[Database.Listener]
+MaxReconnectDuration = '1m0s'
+MinReconnectInterval = '10s'
+FallbackPollInterval = '10s'
+
+[Database.Lock]
+Mode = 'advisory'
+AdvisoryCheckInterval = '5s'
+LeaseDuration = '5s'
+LeaseRefreshInterval = '2s'
+
+[TelemetryIngress]
+UniConn = false
+Logging = true
+ServerPubKey = 'telem-pub-key'
+URL = 'http://telemetry.io'
+BufferSize = 13
+MaxBatchSize = 50
+SendInterval = '10s'
+SendTimeout = '1m0s'
+UseBatchSend = false
+
+[Log]
+DatabaseQueries = true
+FileDir = 'log/dir'
+FileMaxSize = '2.30gb'
+FileMaxAgeDays = 10
+FileMaxBackups = 15
+JSONConsole = true
+UnixTS = true
+
+[WebServer]
+AllowOrigins = 'allow,origins'
+BridgeResponseURL = 'http://bridge.response'
+HTTPWriteTimeout = '5s'
+HTTPPort = 6080
+SecureCookies = false
+SessionTimeout = '10m0s'
+
+[WebServer.MFA]
+RPID = 'mfa-rpid'
+RPOrigin = 'mfa-rporigin'
+
+[WebServer.RateLimit]
+Authenticated = 99
+AuthenticatedPeriod = '5m10s'
+Unauthenticated = 1
+UnauthenticatedPeriod = '10s'
+
+[WebServer.TLS]
+CertPath = 'tls/cert'
+ForceRedirect = true
+Host = 'tls-hostname'
+HTTPSPort = 6098
+KeyPath = 'tls/key'
+
+[JobPipeline]
+DefaultHTTPRequestTimeout = '1h0m0s'
+ExternalInitiatorsEnabled = true
+HTTPRequestMaxSize = '300b'
+MaxRunDuration = '1m0s'
+ReaperInterval = '5m0s'
+ReaperThreshold = '1h0m0s'
+ResultWriteQueueDepth = 20
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 5
+SimulateTransactions = true
+
+[OCR2]
+ContractConfirmations = 30
+BlockchainTimeout = '1m0s'
+ContractPollInterval = '30s'
+ContractSubscribeInterval = '10m0s'
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1m0s'
+KeyBundleID = 'abcdef1234560000000000000000000000000000000000000000000000000000'
+
+[OCR]
+ObservationTimeout = '10s'
+BlockchainTimeout = '40s'
+ContractPollInterval = '1h0m0s'
+ContractSubscribeInterval = '1h0m0s'
+DefaultTransactionQueueDepth = 13
+KeyBundleID = '123456abcdef0000000000000000000000000000000000000000000000000000'
+SimulateTransactions = true
+TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
+
+[P2P]
+IncomingMessageBufferSize = 747
+OutgoingMessageBufferSize = 42
+TraceLogging = true
+
+[P2P.V1]
+AnnounceIP = '1.2.3.4'
+AnnouncePort = 57
+BootstrapCheckInterval = '1h0m0s'
+DefaultBootstrapPeers = ['p2p', 'bootstrap', 'peers']
+DHTAnnouncementCounterUserPrefix = 77
+DHTLookupInterval = 6
+ListenIP = '4.3.2.1'
+ListenPort = 4242
+NewStreamTimeout = '1m0s'
+PeerID = '12D3KooWMk13oppZXmGdRZgaJBFDF6Tc5521YYxKjwkscLSEPrVW'
+PeerstoreWriteInterval = '10m0s'
+
+[P2P.V2]
+AnnounceAddresses = ['1', '2', '3', '4']
+DefaultBootstrappers = ['a', 'b', 'c']
+DeltaDial = '1m0s'
+DeltaReconcile = '30m0s'
+ListenAddresses = ['abcd']
+
+[Keeper]
+DefaultTransactionQueueDepth = 10
+GasPriceBufferPercent = 50
+GasTipCapBufferPercent = 12
+BaseFeeBufferPercent = 7
+MaximumGracePeriod = 42
+RegistryCheckGasOverhead = '6'
+RegistryPerformGasOverhead = '900'
+RegistrySyncInterval = '1m0s'
+RegistrySyncUpkeepQueueSize = 99
+TurnLookBack = 67
+TurnFlagEnabled = true
+UpkeepCheckGasPriceEnabled = true
+
+[AutoPprof]
+Enabled = true
+ProfileRoot = 'pprof/root'
+PollInterval = '5m0s'
+GatherDuration = '10m0s'
+GatherTraceDuration = '30s'
+MaxProfileSize = '10.00gb'
+CPUProfileRate = 10
+MemProfileRate = 5
+BlockProfileRate = 42
+MutexProfileFraction = 21
+MemThreshold = '1.00gb'
+GoroutineThreshold = 50
+
+[Sentry]
+Debug = true
+DSN = 'http://sentry.dsn'
+Environment = 'prod'
+Release = 'sentry-release'

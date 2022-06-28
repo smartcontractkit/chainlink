@@ -394,6 +394,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ObservationTimeout:                        models.Interval(2 * time.Minute),
 						ObservationTimeoutEnv:                     false,
 						P2PBootstrapPeers:                         pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
+						P2PV2Bootstrappers:                        pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						TransmitterAddress:                        &transmitterAddress,
 					},
 				}, nil)
@@ -427,6 +428,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 									observationTimeout
 									observationTimeoutEnv
 									p2pBootstrapPeers
+									p2pv2Bootstrappers
 									transmitterAddress
 								}
 							}
@@ -461,6 +463,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"observationTimeout": "2m0s",
 							"observationTimeoutEnv": false,
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
+							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
 					}

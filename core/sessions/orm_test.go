@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -33,8 +34,8 @@ func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
 	db, orm := setupORM(t)
-	user1 := cltest.MustNewUser(t, "test1@email1.net", "password1")
-	user2 := cltest.MustNewUser(t, "test2@email2.net", "password2")
+	user1 := cltest.MustNewUser(t, "test1@email1.net", "longlonglongpassword1")
+	user2 := cltest.MustNewUser(t, "test2@email2.net", "longlonglongpassword2")
 
 	require.NoError(t, orm.CreateUser(&user1))
 	require.NoError(t, orm.CreateUser(&user2))
@@ -68,7 +69,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t))
 
-			user := cltest.MustNewUser(t, "have@email", "password")
+			user := cltest.MustNewUser(t, "have@email", testutils.Password)
 			require.NoError(t, orm.CreateUser(&user))
 
 			prevSession := cltest.NewSession("correctID")

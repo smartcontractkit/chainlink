@@ -555,9 +555,11 @@ func (c *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	return getEnvWithFallback(c, envvar.NewDuration("DatabaseListenerMaxReconnectDuration"))
 }
 
+var DatabaseBackupModeEnvVar = envvar.New("DatabaseBackupMode", parseDatabaseBackupMode)
+
 // DatabaseBackupMode sets the database backup mode
 func (c *generalConfig) DatabaseBackupMode() DatabaseBackupMode {
-	return getEnvWithFallback(c, envvar.New("DatabaseBackupMode", parseDatabaseBackupMode))
+	return getEnvWithFallback(c, DatabaseBackupModeEnvVar)
 }
 
 // DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
