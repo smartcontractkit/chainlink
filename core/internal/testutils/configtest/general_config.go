@@ -101,6 +101,7 @@ type GeneralConfigOverrides struct {
 	KeySpecific                             map[string]types.ChainCfg
 	LinkContractAddress                     null.String
 	OperatorFactoryAddress                  null.String
+	NodeNoNewHeadsThreshold                 *time.Duration
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
@@ -774,4 +775,12 @@ func (c *TestGeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
 		return c.Overrides.OperatorFactoryAddress.String, true
 	}
 	return c.GeneralConfig.GlobalOperatorFactoryAddress()
+}
+
+// GlobalNodeNoNewHeadsThreshold overrides NodeNoNewHeadsThreshold for all chains
+func (c *TestGeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	if c.Overrides.NodeNoNewHeadsThreshold != nil {
+		return *c.Overrides.NodeNoNewHeadsThreshold, true
+	}
+	return c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
 }

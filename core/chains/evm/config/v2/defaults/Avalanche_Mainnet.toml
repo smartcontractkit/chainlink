@@ -1,0 +1,23 @@
+ChainID = '43114'
+FinalityDepth = 1
+LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
+LogPollInterval = '3s'
+MinIncomingConfirmations = 1
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '25 gwei'
+PriceMax = '1000 gwei'
+PriceMin = '25 gwei'
+
+[GasEstimator.BlockHistory]
+# Average block time of 2s
+BlockHistorySize = 24
+BlockDelay = 2
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+
+[NodePool]
+NoNewHeadsThreshold = '30s'
