@@ -20,6 +20,7 @@ describe('VRFV2Wrapper', () => {
   const pointZeroZeroThreeLink = BigNumber.from('3000000000000000')
   const oneHundredLink = BigNumber.from('100000000000000000000')
   const oneHundredGwei = BigNumber.from('100000000000')
+  const twoHundredGwei = BigNumber.from('200000000000')
   const fiftyGwei = BigNumber.from('50000000000')
 
   // Configuration
@@ -439,7 +440,9 @@ describe('VRFV2Wrapper', () => {
       await expect(
         coordinator
           .connect(owner)
-          .fulfillRandomWordsWithOverride(1, wrapper.address, [123]),
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasPrice: oneHundredGwei,
+          }),
       )
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(consumer, 'WrappedRequestFulfilled')
@@ -449,6 +452,89 @@ describe('VRFV2Wrapper', () => {
         calculatePrice(wrapperConsumer1WordGasUsage),
       )
       const expectedBalance = price.sub(approxRefund)
+      const diff = expectedBalance
+        .sub(await link.balanceOf(wrapper.address))
+        .abs()
+      expect(diff.lt(pointOneLink)).to.be.true
+    })
+    it('can request and fulfill randomness with network gas price decrease', async () => {
+      await configure()
+      await fund(consumer.address, oneHundredLink)
+      await fundSub()
+
+      await expect(
+        consumer
+          .connect(consumerOwner)
+          .makeRequest(wrapperConsumer1WordGasUsage, 3, 1, { gasPrice: oneHundredGwei }),
+      ).to.emit(coordinator, 'RandomWordsRequested')
+
+      const price = calculatePrice(wrapperConsumer1WordGasUsage)
+
+      // Check that the wrapper has the paid amount
+      bigNumEquals(price, await link.balanceOf(wrapper.address))
+
+      const { paid, fulfilled } = await consumer.s_requests(1 /* requestId */)
+      bigNumEquals(price, paid)
+      expect(fulfilled).to.be.false
+
+      // fulfill the request
+      await expect(
+        coordinator
+          .connect(owner)
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasPrice: fiftyGwei,
+          }),
+      )
+        .to.emit(coordinator, 'RandomWordsFulfilled')
+        .to.emit(consumer, 'WrappedRequestFulfilled')
+        .withArgs(1, [123], BigNumber.from(price))
+
+      const priceAtTimeOfFulfillment = calculatePrice(
+        wrapperConsumer1WordGasUsage,
+        wrapperGasOverhead,
+        coordinatorGasOverhead,
+        fiftyGwei,
+      )
+      const approxRefund = price.sub(priceAtTimeOfFulfillment)
+      const expectedBalance = price.sub(approxRefund)
+      const diff = expectedBalance
+        .sub(await link.balanceOf(wrapper.address))
+        .abs()
+      expect(diff.lt(pointOneLink)).to.be.true
+    })
+    it('can request and fulfill randomness with network gas price increase', async () => {
+      await configure()
+      await fund(consumer.address, oneHundredLink)
+      await fundSub()
+
+      await expect(
+        consumer
+          .connect(consumerOwner)
+          .makeRequest(wrapperConsumer1WordGasUsage, 3, 1, { gasPrice: oneHundredGwei }),
+      ).to.emit(coordinator, 'RandomWordsRequested')
+
+      const price = calculatePrice(wrapperConsumer1WordGasUsage)
+
+      // Check that the wrapper has the paid amount
+      bigNumEquals(price, await link.balanceOf(wrapper.address))
+
+      const { paid, fulfilled } = await consumer.s_requests(1 /* requestId */)
+      bigNumEquals(price, paid)
+      expect(fulfilled).to.be.false
+
+      // fulfill the request
+      await expect(
+        coordinator
+          .connect(owner)
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasPrice: twoHundredGwei,
+          }),
+      )
+        .to.emit(coordinator, 'RandomWordsFulfilled')
+        .to.emit(consumer, 'WrappedRequestFulfilled')
+        .withArgs(1, [123], BigNumber.from(price))
+
+      const expectedBalance = price
       const diff = expectedBalance
         .sub(await link.balanceOf(wrapper.address))
         .abs()
@@ -499,7 +585,9 @@ describe('VRFV2Wrapper', () => {
       await expect(
         coordinator
           .connect(owner)
-          .fulfillRandomWordsWithOverride(1, wrapper.address, [123]),
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasPrice: oneHundredGwei,
+          }),
       )
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(wrapper, 'WrapperFulfillmentFailed')

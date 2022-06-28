@@ -332,11 +332,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     }
 
     uint256 juelsPaid = callback.juelsPaid;
-    uint256 actualPrice = calculateRequestPriceInternal(
-      gasUsed,
-      callback.requestGasPrice,
-      callback.requestWeiPerUnitLink
-    );
+    int256 weiPerUnitLink = getFeedData();
+    uint256 actualPrice = calculateRequestPriceInternal(gasUsed, tx.gasprice, weiPerUnitLink);
 
     if (juelsPaid > actualPrice) {
       LINK.transfer(callback.callbackAddress, juelsPaid - actualPrice);
