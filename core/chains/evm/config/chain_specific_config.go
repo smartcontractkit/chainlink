@@ -14,8 +14,8 @@ var (
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
-	DefaultGasTip                        = big.NewInt(1)                           // go-ethereum requires the tip to be at least 1 wei
-	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10000000000000) // 0.00001 LINK
+	DefaultGasTip                        = big.NewInt(1)                               // go-ethereum requires the tip to be at least 1 wei
+	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
 )
 
 type (
@@ -229,7 +229,6 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.finalityDepth = 500  // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 	polygonMainnet.gasBumpThreshold = 5 // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
-	polygonMainnet.gasPriceDefault = *assets.GWei(1)
 	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
