@@ -133,6 +133,8 @@ func main() {
 
 		setDKGConfig(e, *dkgAddress, commands)
 
+	case "dkg-setup":
+		setupDKGNodes(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
