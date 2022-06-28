@@ -34,8 +34,6 @@ describe('VRFV2Wrapper', () => {
   const maxNumWords = 10
   const weiPerUnitLink = pointZeroZeroThreeLink
   const flatFee = pointOneLink
-  const wrapperConsumer1WordGasUsage = 73_000
-  const wrapperConsumerRevertGasUsage = 3_000
 
   let wrapper: VRFV2Wrapper
   let coordinator: VRFCoordinatorV2Mock
@@ -445,10 +443,7 @@ describe('VRFV2Wrapper', () => {
         .to.emit(consumer, 'WrappedRequestFulfilled')
         .withArgs(1, [123], BigNumber.from(price))
 
-      const approxRefund = calculatePrice(100_000).sub(
-        calculatePrice(wrapperConsumer1WordGasUsage),
-      )
-      const expectedBalance = price.sub(approxRefund)
+      const expectedBalance = price
       const diff = expectedBalance
         .sub(await link.balanceOf(wrapper.address))
         .abs()
@@ -504,10 +499,7 @@ describe('VRFV2Wrapper', () => {
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(wrapper, 'WrapperFulfillmentFailed')
 
-      const approxRefund = calculatePrice(100_000).sub(
-        calculatePrice(wrapperConsumerRevertGasUsage),
-      )
-      const expectedBalance = price.sub(approxRefund)
+      const expectedBalance = price
       const diff = expectedBalance
         .sub(await link.balanceOf(wrapper.address))
         .abs()

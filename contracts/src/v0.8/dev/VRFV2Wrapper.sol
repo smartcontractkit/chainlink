@@ -324,22 +324,9 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     VRFV2WrapperConsumerBase c;
     bytes memory resp = abi.encodeWithSelector(c.rawFulfillRandomWords.selector, _requestId, _randomWords);
 
-    uint256 gasBefore = gasleft();
     bool success = callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
-    uint256 gasUsed = gasBefore - gasleft();
     if (!success) {
       emit WrapperFulfillmentFailed(_requestId, callback.callbackAddress);
-    }
-
-    uint256 juelsPaid = callback.juelsPaid;
-    uint256 actualPrice = calculateRequestPriceInternal(
-      gasUsed,
-      callback.requestGasPrice,
-      callback.requestWeiPerUnitLink
-    );
-
-    if (juelsPaid > actualPrice) {
-      LINK.transfer(callback.callbackAddress, juelsPaid - actualPrice);
     }
   }
 
