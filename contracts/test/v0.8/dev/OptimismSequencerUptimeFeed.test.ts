@@ -204,7 +204,7 @@ describe('OptimismSequencerUptimeFeed', () => {
   })
 
   describe('AggregatorV3Interface', () => {
-    it('should return a valid answer from getRoundData and latestRoundData', async () => {
+    it('should return valid answer from getRoundData and latestRoundData', async () => {
       let [roundId, answer, startedAt, updatedAt, answeredInRound] =
         await optimismUptimeFeed.latestRoundData()
       expect(roundId).to.equal(1)
