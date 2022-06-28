@@ -144,9 +144,9 @@ contract OptimismSequencerUptimeFeed is
     bool status,
     uint64 timestamp
   ) private {
-    uint64 recordedAt = uint64(block.timestamp);
-    Round memory nextRound = Round(status, timestamp, recordedAt);
-    FeedState memory feedState = FeedState(roundId, status, timestamp, recordedAt);
+    uint64 updatedAt = uint64(block.timestamp);
+    Round memory nextRound = Round(status, timestamp, updatedAt);
+    FeedState memory feedState = FeedState(roundId, status, timestamp, updatedAt);
 
     s_rounds[roundId] = nextRound;
     s_feedState = feedState;
