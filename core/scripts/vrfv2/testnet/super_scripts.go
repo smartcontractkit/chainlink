@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"

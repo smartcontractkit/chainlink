@@ -213,21 +213,19 @@ func binarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 }
 
 func wrapperDeploy(
-	owner *bind.TransactOpts,
-	ec *ethclient.Client,
-	chainID int64,
+	e helpers.Environment,
 	link, linkEthFeed, coordinator common.Address,
 ) (common.Address, uint64) {
-	address, tx, _, err := vrfv2_wrapper.DeployVRFV2Wrapper(owner, ec,
+	address, tx, _, err := vrfv2_wrapper.DeployVRFV2Wrapper(e.Owner, e.Ec,
 		link,
 		linkEthFeed,
 		coordinator)
 	helpers.PanicErr(err)
 
-	confirmContractDeployed(context.Background(), ec, tx, chainID)
+	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Printf("VRFV2Wrapper address: %s\n", address)
 
-	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(address, ec)
+	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(address, e.Ec)
 	helpers.PanicErr(err)
 
 	subID, err := wrapper.SUBSCRIPTIONID(nil)
@@ -237,40 +235,36 @@ func wrapperDeploy(
 }
 
 func wrapperConfigure(
-	owner *bind.TransactOpts,
-	ec *ethclient.Client,
-	chainID int64,
+	e helpers.Environment,
 	wrapperAddress common.Address,
 	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 ) {
-	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(wrapperAddress, ec)
+	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	tx, err := wrapper.SetConfig(
-		owner,
+		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
 		uint8(premiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords))
 	helpers.PanicErr(err)
-	confirmTXMined(context.Background(), ec, tx, chainID)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func wrapperConsumerDeploy(
-	owner *bind.TransactOpts,
-	ec *ethclient.Client,
-	chainID int64,
+	e helpers.Environment,
 	link, wrapper common.Address,
 ) common.Address {
-	address, tx, _, err := vrfv2_wrapper_consumer_example.DeployVRFV2WrapperConsumerExample(owner, ec,
+	address, tx, _, err := vrfv2_wrapper_consumer_example.DeployVRFV2WrapperConsumerExample(e.Owner, e.Ec,
 		link,
 		wrapper)
 	helpers.PanicErr(err)
 
-	confirmContractDeployed(context.Background(), ec, tx, chainID)
+	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Printf("VRFV2WrapperConsumerExample address: %s\n", address)
 	return address
 }

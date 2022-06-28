@@ -718,7 +718,8 @@ func main() {
 		}
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		eoaFundSubscription(e, coordinator.Address(), common.HexToAddress(*consumerLinkAddress), amount, uint64(*subID))
+
+		eoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")
@@ -839,7 +840,7 @@ func main() {
 		linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address")
-		wrapperDeploy(owner, ec, chainID,
+		wrapperDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
@@ -853,7 +854,7 @@ func main() {
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash")
 
-		wrapperConfigure(owner, ec, chainID,
+		wrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
 			*coordinatorGasOverhead,
@@ -866,7 +867,7 @@ func main() {
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "wrapper-address")
 
-		wrapperConsumerDeploy(owner, ec, chainID,
+		wrapperConsumerDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*wrapperAddress))
 	case "wrapper-consumer-request":
@@ -878,12 +879,12 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 
 		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
-			common.HexToAddress(*consumerAddress), ec)
+			common.HexToAddress(*consumerAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		tx, err := consumer.MakeRequest(owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
 		helpers.PanicErr(err)
-		confirmTXMined(context.Background(), ec, tx, chainID)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-universe-deploy":
 		cmd := flag.NewFlagSet("wrapper-universe-deploy", flag.ExitOnError)
 		linkAddress := cmd.String("link-address", "", "address of link token")
@@ -903,12 +904,12 @@ func main() {
 			panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
 		}
 
-		wrapper, subID := wrapperDeploy(owner, ec, chainID,
+		wrapper, subID := wrapperDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
 
-		wrapperConfigure(owner, ec, chainID,
+		wrapperConfigure(e,
 			wrapper,
 			*wrapperGasOverhead,
 			*coordinatorGasOverhead,
@@ -916,22 +917,25 @@ func main() {
 			*keyHash,
 			*maxNumWords)
 
-		consumer := wrapperConsumerDeploy(owner, ec, chainID,
+		consumer := wrapperConsumerDeploy(e,
 			common.HexToAddress(*linkAddress),
 			wrapper)
 
-		eoaFundSubscription(e, common.HexToAddress(*coordinatorAddress), common.HexToAddress(*linkAddress), amount, subID)
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
 
-		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), ec)
+		eoaFundSubscription(e, *coordinator, *linkAddress, amount, subID)
+
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 		helpers.PanicErr(err)
 		consumerAmount, s := big.NewInt(0).SetString(*consumerFunding, 10)
 		if !s {
 			panic(fmt.Sprintf("failed to parse top up amount '%s'", *consumerFunding))
 		}
 
-		tx, err := link.Transfer(owner, consumer, consumerAmount)
+		tx, err := link.Transfer(e.Owner, consumer, consumerAmount)
 		helpers.PanicErr(err)
-		confirmTXMined(context.Background(), ec, tx, chainID)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
