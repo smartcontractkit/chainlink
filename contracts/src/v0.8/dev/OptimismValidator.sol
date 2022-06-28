@@ -125,11 +125,6 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256, /* currentRoundId */
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
-    // Avoids resending to L2 the same tx on every call
-    if (previousAnswer == currentAnswer) {
-      return true;
-    }
-
     // Encode the OptimismSequencerUptimeFeed call
     bytes4 selector = OptimismSequencerUptimeFeedInterface.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
