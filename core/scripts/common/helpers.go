@@ -41,11 +41,6 @@ func SetupEnv() Environment {
 		panic("need account key")
 	}
 
-	if len(os.Args) < 2 {
-		fmt.Println("expected subcommand")
-		os.Exit(1)
-	}
-
 	ec, err := ethclient.Dial(ethURL)
 	PanicErr(err)
 
