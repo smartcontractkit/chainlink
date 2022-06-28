@@ -263,6 +263,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", cc.Patch)
+		authv2.GET("/config/v2", cc.Dump)
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
@@ -318,6 +319,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"solana", NewSolanaKeysController(app)},
 			{"terra", NewTerraKeysController(app)},
+			{"dkgsign", NewDKGSignKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)
 			authv2.POST("/keys/"+keys.path, keys.kc.Create)

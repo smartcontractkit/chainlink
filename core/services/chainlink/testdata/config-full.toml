@@ -1,0 +1,317 @@
+Dev = true
+ExplorerURL = 'http://explorer.url'
+InsecureFastScrypt = true
+ReaperExpiration = '168h0m0s'
+RootDir = 'test/root/dir'
+ShutdownGracePeriod = '10s'
+
+[Feature]
+FeedsManager = true
+LogPoller = true
+OffchainReporting2 = true
+OffchainReporting = true
+
+[Database]
+DefaultIdleInTxSessionTimeout = '1m0s'
+DefaultLockTimeout = '1h0m0s'
+DefaultQueryTimeout = '1s'
+MigrateOnStartup = true
+ORMMaxIdleConns = 7
+ORMMaxOpenConns = 13
+
+[Database.Backup]
+Dir = 'test/backup/dir'
+Frequency = '1h0m0s'
+Mode = 'full'
+OnVersionUpgrade = true
+URL = 'http://test.back.up/fake'
+
+[Database.Listener]
+MaxReconnectDuration = '1m0s'
+MinReconnectInterval = '5m0s'
+FallbackPollInterval = '2m0s'
+
+[Database.Lock]
+Mode = 'advisory'
+AdvisoryCheckInterval = '5m0s'
+AdvisoryID = 345982730592843
+LeaseDuration = '1m0s'
+LeaseRefreshInterval = '1s'
+
+[TelemetryIngress]
+UniConn = true
+Logging = true
+ServerPubKey = 'test-pub-key'
+URL = 'https://prom.test'
+BufferSize = 1234
+MaxBatchSize = 4321
+SendInterval = '1m0s'
+SendTimeout = '5s'
+UseBatchSend = true
+
+[Log]
+DatabaseQueries = true
+FileDir = 'log/file/dir'
+FileMaxSize = '100.00gb'
+FileMaxAgeDays = 17
+FileMaxBackups = 9
+JSONConsole = true
+UnixTS = true
+
+[WebServer]
+AllowOrigins = '*'
+BridgeResponseURL = 'https://bridge.response'
+HTTPWriteTimeout = '1m0s'
+HTTPPort = 56
+SecureCookies = true
+SessionTimeout = '1h0m0s'
+
+[WebServer.MFA]
+RPID = 'test-rpid'
+RPOrigin = 'test-rp-origin'
+
+[WebServer.RateLimit]
+Authenticated = 42
+AuthenticatedPeriod = '1s'
+Unauthenticated = 7
+UnauthenticatedPeriod = '1m0s'
+
+[WebServer.TLS]
+CertPath = 'tls/cert/path'
+ForceRedirect = true
+Host = 'tls-host'
+HTTPSPort = 6789
+KeyPath = 'tls/key/path'
+
+[JobPipeline]
+DefaultHTTPRequestTimeout = '1m0s'
+ExternalInitiatorsEnabled = true
+HTTPRequestMaxSize = '100.00mb'
+MaxRunDuration = '1h0m0s'
+ReaperInterval = '4h0m0s'
+ReaperThreshold = '168h0m0s'
+ResultWriteQueueDepth = 10
+
+[FluxMonitor]
+DefaultTransactionQueueDepth = 100
+SimulateTransactions = true
+
+[OCR2]
+ContractConfirmations = 11
+BlockchainTimeout = '3s'
+ContractPollInterval = '1h0m0s'
+ContractSubscribeInterval = '1m0s'
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '8s'
+KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
+
+[OCR]
+ObservationTimeout = '11s'
+BlockchainTimeout = '3s'
+ContractPollInterval = '1h0m0s'
+ContractSubscribeInterval = '1m0s'
+DefaultTransactionQueueDepth = 12
+KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
+SimulateTransactions = true
+TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
+
+[P2P]
+IncomingMessageBufferSize = 13
+OutgoingMessageBufferSize = 17
+TraceLogging = true
+
+[P2P.V1]
+AnnounceIP = '1.2.3.4'
+AnnouncePort = 1234
+BootstrapCheckInterval = '1m0s'
+DefaultBootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
+DHTAnnouncementCounterUserPrefix = 4321
+DHTLookupInterval = 9
+ListenIP = '4.3.2.1'
+ListenPort = 9
+NewStreamTimeout = '1s'
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
+PeerstoreWriteInterval = '1m0s'
+
+[P2P.V2]
+AnnounceAddresses = ['a', 'b', 'c']
+DefaultBootstrappers = ['1', '2', '3']
+DeltaDial = '1m0s'
+DeltaReconcile = '1s'
+ListenAddresses = ['foo', 'bar']
+
+[Keeper]
+DefaultTransactionQueueDepth = 17
+GasPriceBufferPercent = 12
+GasTipCapBufferPercent = 43
+BaseFeeBufferPercent = 89
+MaximumGracePeriod = 31
+RegistryCheckGasOverhead = '90'
+RegistryPerformGasOverhead = '18446744073709551615'
+RegistrySyncInterval = '1h0m0s'
+RegistrySyncUpkeepQueueSize = 31
+TurnLookBack = 91
+TurnFlagEnabled = true
+UpkeepCheckGasPriceEnabled = true
+
+[AutoPprof]
+Enabled = true
+ProfileRoot = 'prof/root'
+PollInterval = '1m0s'
+GatherDuration = '12s'
+GatherTraceDuration = '13s'
+MaxProfileSize = '1.00gb'
+CPUProfileRate = 7
+MemProfileRate = 9
+BlockProfileRate = 5
+MutexProfileFraction = 2
+MemThreshold = '1.00gb'
+GoroutineThreshold = 999
+
+[Sentry]
+Debug = true
+DSN = 'sentry-dsn'
+Environment = 'dev'
+Release = 'v1.2.3'
+
+[[EVM]]
+ChainID = '1'
+Enabled = false
+BlockBackfillDepth = 100
+BlockBackfillSkip = true
+ChainType = 'Optimism'
+FinalityDepth = 42
+FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
+LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LogBackfillBatchSize = 17
+LogPollInterval = '1m0s'
+MaxInFlightTransactions = 19
+MaxQueuedTransactions = 99
+MinIncomingConfirmations = 13
+MinimumContractPayment = '9.223372036854775807 link'
+NonceAutoSync = true
+OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+RPCDefaultBatchSize = 17
+TxReaperInterval = '1m0s'
+TxReaperThreshold = '1m0s'
+TxResendAfterThreshold = '1h0m0s'
+UseForwarders = true
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 17
+
+[EVM.GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '9.223372036854775807 ether'
+PriceMax = '281.474976710655 micro'
+PriceMin = '13 wei'
+LimitDefault = 12
+LimitMultiplier = '1.234'
+LimitTransfer = 100
+BumpMin = '100 wei'
+BumpPercent = 10
+BumpThreshold = 6
+BumpTxDepth = 6
+EIP1559DynamicFees = true
+FeeCapDefault = '9.223372036854775807 ether'
+TipCapDefault = '2 wei'
+TipCapMinimum = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 17
+BlockDelay = 10
+BlockHistorySize = 12
+EIP1559FeeCapBufferBlocks = 13
+TransactionPercentile = 15
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '1h0m0s'
+HistoryDepth = 15
+MaxBufferSize = 17
+SamplingInterval = '1h0m0s'
+
+[[EVM.KeySpecific]]
+Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMax = '79.228162514264337593543950335 gether'
+
+[EVM.NodePool]
+NoNewHeadsThreshold = '1m0s'
+PollFailureThreshold = 5
+PollInterval = '1m0s'
+
+[EVM.OCR]
+ContractConfirmations = 11
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1s'
+ObservationTimeout = '1s'
+ObservationGracePeriod = '1s'
+
+[[EVM.Nodes]]
+Name = 'foo'
+WSURL = 'wss://web.socket/test'
+HTTPURL = 'https://foo.web'
+
+[[EVM.Nodes]]
+Name = 'bar'
+WSURL = 'wss://web.socket/test'
+HTTPURL = 'https://bar.com'
+
+[[EVM.Nodes]]
+Name = 'broadcast'
+HTTPURL = 'http://broadcast.mirror'
+SendOnly = true
+
+[[Solana]]
+ChainID = 'mainnet'
+Enabled = false
+BalancePollPeriod = '1m0s'
+ConfirmPollPeriod = '1s'
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxTimeout = '1h0m0s'
+TxRetryTimeout = '1m0s'
+TxConfirmTimeout = '1s'
+SkipPreflight = true
+Commitment = 'banana'
+MaxRetries = 7
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://solana.web'
+
+[[Solana.Nodes]]
+Name = 'foo'
+URL = 'http://solana.foo'
+
+[[Solana.Nodes]]
+Name = 'bar'
+URL = 'http://solana.bar'
+
+[[Terra]]
+ChainID = 'Bombay-12'
+Enabled = true
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPriceULuna = '0.001'
+FCDURL = 'http://terra.com'
+GasLimitMultiplier = '1.2'
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Terra.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Terra.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'

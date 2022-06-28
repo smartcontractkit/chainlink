@@ -60,7 +60,7 @@ func NewHeadTracker(
 	headSaver httypes.HeadSaver,
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
-	lggr = lggr.Named(logger.HeadTracker)
+	lggr = lggr.Named("HeadTracker")
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
