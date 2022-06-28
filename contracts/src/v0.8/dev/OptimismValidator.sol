@@ -7,17 +7,12 @@ import "../interfaces/AccessControllerInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../SimpleWriteAccessController.sol";
 
-/* ./dev dependencies - to be moved from ./dev after audit */
-import "./interfaces/FlagsInterface.sol";
-import "./interfaces/ForwarderInterface.sol";
 import "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
 /**
- * @title OptimismValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)
- * @notice Allows to raise and lower Flags on the Optimism L2 network through L1 bridge
- *  - The internal AccessController controls the access of the validate method
+ * @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
  */
 contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
@@ -25,12 +20,6 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
   address public immutable L2_UPTIME_FEED_ADDR;
-
-  /**
-   * @notice emitted when a new ETH withdrawal from L2 was requested
-   * @param amount of funds to withdraw
-   */
-  event L2WithdrawalRequested(uint256 amount);
 
   /**
    * @notice emitted when gas cost to spend on L2 is updated
@@ -86,38 +75,10 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-   * @notice makes this contract payable
-   * @dev receives funds:
-   *  - to use them (if configured) to pay for L2 execution on L1
-   *  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
-   */
-  receive() external payable {}
-
-  /**
-   * @notice withdraws all funds available in this contract to the msg.sender
-   * @dev only owner can call this
-   */
-  function withdrawFunds() external onlyOwner {
-    address payable recipient = payable(msg.sender);
-    uint256 amount = address(this).balance;
-    Address.sendValue(recipient, amount);
-  }
-
-  /**
-   * @notice withdraws all funds available in this contract to the address specified
-   * @dev only owner can call this
-   * @param recipient address where to send the funds
-   */
-  function withdrawFundsTo(address payable recipient) external onlyOwner {
-    uint256 amount = address(this).balance;
-    Address.sendValue(recipient, amount);
-  }
-
-  /**
-   * @notice validate method sends an xDomain L2 tx to update Flags contract, in case of change from `previousAnswer`.
-   * @dev A message is created on the Optimism L1 Inbox contract. This method is accessed controlled.
+   * @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
+   * @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
    * @param previousAnswer previous aggregator answer
-   * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
+   * @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
    */
   function validate(
     uint256, /* previousRoundId */

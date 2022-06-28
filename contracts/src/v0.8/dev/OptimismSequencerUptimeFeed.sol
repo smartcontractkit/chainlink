@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
 import {AggregatorInterface} from "../interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../interfaces/AggregatorV2V3Interface.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
 import {OptimismSequencerUptimeFeedInterface} from "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../SimpleReadAccessController.sol";
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
@@ -15,8 +13,7 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
 /**
  * @title OptimismSequencerUptimeFeed - L2 sequencer uptime status aggregator
  * @notice L2 contract that receives status updates from a specific L1 address,
- *  records a new answer if the status changed, and raises or lowers the flag on the
- *   stored Flags contract.
+ *  records a new answer if the status changed
  */
 contract OptimismSequencerUptimeFeed is
   AggregatorV2V3Interface,
