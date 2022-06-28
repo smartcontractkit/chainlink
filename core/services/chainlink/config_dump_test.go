@@ -25,9 +25,6 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 	fes, err := dumpTestFiles.ReadDir("testdata/dump")
 	require.NoError(t, err)
 	for _, fe := range fes {
-		if fe.IsDir() {
-			continue
-		}
 		if filepath.Ext(fe.Name()) != ".toml" {
 			continue
 		}

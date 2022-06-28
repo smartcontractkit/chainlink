@@ -102,7 +102,6 @@ ContractSubscribeInterval = '10m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1m0s'
 KeyBundleID = 'abcdef1234560000000000000000000000000000000000000000000000000000'
-MonitoringEndpoint = 'http://ocr2.monitoring.com'
 
 [OCR]
 ObservationTimeout = '10s'
@@ -111,14 +110,13 @@ ContractPollInterval = '1h0m0s'
 ContractSubscribeInterval = '1h0m0s'
 DefaultTransactionQueueDepth = 13
 KeyBundleID = '123456abcdef0000000000000000000000000000000000000000000000000000'
-MonitoringEndpoint = 'http://ocr.monitoring.com'
 SimulateTransactions = true
-TraceLogging = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 
 [P2P]
 IncomingMessageBufferSize = 747
 OutgoingMessageBufferSize = 42
+TraceLogging = true
 
 [P2P.V1]
 AnnounceIP = '1.2.3.4'
