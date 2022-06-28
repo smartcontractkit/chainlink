@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {AddressAliasHelper} from "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
 import {AggregatorInterface} from "../interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
@@ -155,15 +154,6 @@ contract OptimismSequencerUptimeFeed is
   }
 
   /**
-   * @notice Messages sent by the stored L1 sender will arrive on L2 with this
-   *  address as the `msg.sender`
-   * @return L2-aliased form of the L1 sender address
-   */
-  function aliasedL1MessageSender() public view returns (address) {
-    return AddressAliasHelper.applyL1ToL2Alias(l1Sender());
-  }
-
-  /**
    * @dev Returns an AggregatorV2V3Interface compatible answer from status flag
    *
    * @param status The status flag to convert to an aggregator-compatible answer
@@ -216,8 +206,8 @@ contract OptimismSequencerUptimeFeed is
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
     if (
-      msg.sender != address(s_l2CrossDomainMessenger) &&
-      s_l2CrossDomainMessenger.xDomainMessageSender() != aliasedL1MessageSender()
+      msg.sender != address(s_l2CrossDomainMessenger) ||
+      s_l2CrossDomainMessenger.xDomainMessageSender() != s_l1Sender
     ) {
       revert InvalidSender();
     }
