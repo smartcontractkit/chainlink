@@ -474,7 +474,7 @@ describe('VRFV2Wrapper', () => {
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(wrapper, 'WrapperFulfillmentFailed')
     })
-    it('refunds and does not revert if consumer reverts', async () => {
+    it('does not revert if consumer reverts', async () => {
       await configure()
       await fund(consumerRevert.address, oneHundredLink)
       await fundSub()
