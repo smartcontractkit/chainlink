@@ -113,9 +113,15 @@ func AfterWaitTimeout(t *testing.T) <-chan time.Time {
 	return time.After(WaitTimeout(t))
 }
 
-// Context returns a context.Context that will expire after WaitTimeout, which is derived from the test's deadline when it is available.
-func Context(t *testing.T) (ctx context.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), WaitTimeout(t))
+// Context returns a context with the test's deadline, if available.
+func Context(t *testing.T) context.Context {
+	ctx := context.Background()
+	var cancel func()
+	if d, ok := t.Deadline(); ok {
+		ctx, cancel = context.WithDeadline(ctx, d)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
 	t.Cleanup(cancel)
 	return ctx
 }
