@@ -1,0 +1,57 @@
+FinalityDepth = 50
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h'
+TxReaperThreshold = '168h'
+TxResendAfterThreshold = '1m'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '100000 gwei'
+PriceMin = '1 gwei'
+LimitDefault = 500_000
+LimitMultiplier = '1'
+LimitTransfer = 21_000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1'
+TipCapMinimum = '1'
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 8
+TransactionPercentile = 60
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '1m'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '3m'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'

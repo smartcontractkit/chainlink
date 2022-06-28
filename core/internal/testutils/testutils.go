@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
+	uuid "github.com/satori/go.uuid"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -31,7 +32,7 @@ import (
 
 const (
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password = "16charlengthp4SsW0rD1!@#_"
 )
 
 // FixtureChainID matches the chain always added by fixtures.sql
@@ -92,6 +93,12 @@ func randomBytes(n int) []byte {
 func Random32Byte() (b [32]byte) {
 	copy(b[:], randomBytes(32))
 	return b
+}
+
+// RandomizeName appends a random UUID to the provided name
+func RandomizeName(n string) string {
+	id := uuid.NewV4().String()
+	return n + id
 }
 
 // DefaultWaitTimeout is the default wait timeout. If you have a *testing.T, use WaitTimeout instead.

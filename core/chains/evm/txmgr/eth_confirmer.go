@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -290,7 +290,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	if len(attempts) == 0 {
 		return nil
 	}
-	ec.lggr.Infof("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts))
+	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
 	reqs, err := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
@@ -422,7 +422,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 
 		batch := attempts[i:j]
 
-		receipts, err := ec.batchFetchReceipts(ctx, batch)
+		receipts, err := ec.batchFetchReceipts(ctx, batch, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "batchFetchReceipts failed")
 		}
@@ -457,7 +457,7 @@ func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethC
 
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
-func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt) (receipts []evmtypes.Receipt, err error) {
+func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) (receipts []evmtypes.Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
@@ -468,7 +468,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		reqs = append(reqs, req)
 	}
 
-	lggr := ec.lggr.Named("batchFetchReceipts")
+	lggr := ec.lggr.Named("batchFetchReceipts").With("blockNum", blockNum)
 
 	err = ec.ethClient.BatchCallContext(ctx, reqs)
 	if err != nil {
@@ -678,7 +678,13 @@ func (ec *EthConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error
 		return nil
 	}
 
-	rows, err := ec.q.Query(`
+	return ec.q.Transaction(func(q pg.Queryer) error {
+		type etx struct {
+			ID    int64
+			Nonce int64
+		}
+		var data []etx
+		err := q.Select(&data, `
 UPDATE eth_txes
 SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL, initial_broadcast_at=NULL
 FROM (
@@ -693,31 +699,61 @@ FROM (
 	FOR UPDATE OF e1
 ) e0
 WHERE e0.id = eth_txes.id
-RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.chainID.String())
+RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, ec.chainID.String())
 
-	if err != nil {
-		return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
-	}
-	defer ec.lggr.ErrorIfClosing(rows, "eth_txes rows")
-
-	for rows.Next() {
-		var ethTxID int64
-		var nonce clnull.Int64
-		var fromAddress gethCommon.Address
-		if err = rows.Scan(&ethTxID, &nonce, &fromAddress); err != nil {
-			return errors.Wrap(err, "error scanning row")
+		if err != nil {
+			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
 		}
 
-		ec.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
-			"Current block height is %v. This transaction may not have not been sent and will be marked as fatally errored. "+
-			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
-			"an external wallet has been used to send a transaction from account %s with nonce %v."+
-			" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
-			" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64), "ethTxID", ethTxID, "nonce", nonce, "fromAddress", fromAddress)
-	}
+		// We need this little lookup table because we have to have the nonce
+		// from the first query, BEFORE it was updated/nullified
+		lookup := make(map[int64]etx)
+		for _, d := range data {
+			lookup[d.ID] = d
+		}
+		etxIDs := make([]int64, len(data))
+		for i := 0; i < len(data); i++ {
+			etxIDs[i] = data[i].ID
+		}
 
-	return rows.Err()
+		type result struct {
+			ID                         int64
+			FromAddress                gethCommon.Address
+			MaxBroadcastBeforeBlockNum int64
+			TxHashes                   pq.ByteaArray
+		}
+
+		var results []result
+		err = q.Select(&results, `
+SELECT e.id, e.from_address, max(a.broadcast_before_block_num) AS max_broadcast_before_block_num, array_agg(a.hash) AS tx_hashes
+FROM eth_txes e
+INNER JOIN eth_tx_attempts a ON e.id = a.eth_tx_id
+WHERE e.id = ANY($1)
+GROUP BY e.id
+`, etxIDs)
+
+		if err != nil {
+			return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to load additional data")
+		}
+
+		for _, r := range results {
+			nonce := lookup[r.ID].Nonce
+			txHashesHex := make([]common.Address, len(r.TxHashes))
+			for i := 0; i < len(r.TxHashes); i++ {
+				txHashesHex[i] = gethCommon.BytesToAddress(r.TxHashes[i])
+			}
+
+			ec.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+				"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
+				"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
+				"an external wallet has been used to send a transaction from account %s with nonce %v."+
+				" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
+				" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
+				r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress.Hex(), nonce), "ethTxID", r.ID, "nonce", nonce, "fromAddress", r.FromAddress, "txHashes", txHashesHex)
+		}
+
+		return nil
+	})
 }
 
 // RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-eth
@@ -1118,7 +1154,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, lggr logger
 		sendError = nil
 	}
 
-	if sendError.IsTooExpensive() {
+	if sendError.IsTxFeeExceedsCap() {
 		// The gas price was bumped too high. This transaction attempt cannot be accepted.
 		//
 		// Best thing we can do is to re-send the previous attempt at the old
