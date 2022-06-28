@@ -3,6 +3,7 @@ package ocr
 import (
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -52,6 +53,11 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	}
 	jb.OCROracleSpec = &spec
 
+	if jb.OCROracleSpec.P2PV2Bootstrappers == nil {
+		// Empty but non-null, field is non-nullable.
+		jb.OCROracleSpec.P2PV2Bootstrappers = pq.StringArray{}
+	}
+
 	if jb.Type != job.OffchainReporting {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
 	}
@@ -61,6 +67,13 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	for i := range spec.P2PBootstrapPeers {
 		if _, err = multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
 			return jb, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
+		}
+	}
+
+	if len(spec.P2PV2Bootstrappers) > 0 {
+		_, err = ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
+		if err != nil {
+			return jb, err
 		}
 	}
 

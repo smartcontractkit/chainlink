@@ -2066,6 +2066,12 @@ describe('KeeperRegistry', () => {
           .to.emit(registry2, 'UpkeepReceived')
           .withArgs(id, toWei('100'), registry.address)
       })
+      it('is only migratable by the admin', async () => {
+        await expect(
+          registry.connect(owner).migrateUpkeeps([id], registry2.address),
+        ).to.be.revertedWith('OnlyCallableByAdmin()')
+        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
+      })
     })
 
     context('when permissions are not set', () => {

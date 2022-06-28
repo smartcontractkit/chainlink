@@ -45,7 +45,7 @@ func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Conf
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
-		logger:    lggr.Named(logger.HeadListener),
+		logger:    lggr.Named("HeadListener"),
 		chStop:    chStop,
 	}
 }

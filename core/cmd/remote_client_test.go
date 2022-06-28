@@ -115,7 +115,7 @@ func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmmocks.Client
 }
 
 func keyNameForTest(t *testing.T) string {
-	return fmt.Sprintf("%s_test_key.json", t.Name())
+	return fmt.Sprintf("%s/%s_test_key.json", t.TempDir(), t.Name())
 }
 
 func deleteKeyExportFile(t *testing.T) {
@@ -418,8 +418,8 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		UpdatePasswordRequest: web.UpdatePasswordRequest{
-			OldPassword: cltest.Password,
-			NewPassword: "_p4SsW0rD1!@#",
+			OldPassword: testutils.Password,
+			NewPassword: testutils.Password + "foo",
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
@@ -589,7 +589,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
-	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
