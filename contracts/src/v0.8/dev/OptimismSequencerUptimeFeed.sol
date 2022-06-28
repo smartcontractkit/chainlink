@@ -200,7 +200,7 @@ contract OptimismSequencerUptimeFeed is
       return getStatusAnswer(s_rounds[uint80(roundId)].status);
     }
 
-    return 0;
+    revert NoDataPresent();
   }
 
   /// @inheritdoc AggregatorInterface
@@ -209,7 +209,7 @@ contract OptimismSequencerUptimeFeed is
       return s_rounds[uint80(roundId)].timestamp;
     }
 
-    return 0;
+    revert NoDataPresent();
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -230,13 +230,12 @@ contract OptimismSequencerUptimeFeed is
       Round memory round = s_rounds[_roundId];
       answer = getStatusAnswer(round.status);
       startedAt = uint256(round.timestamp);
+      roundId = _roundId;
+      updatedAt = startedAt;
+      answeredInRound = roundId;
     } else {
-      answer = 0;
-      startedAt = 0;
+      revert NoDataPresent();
     }
-    roundId = _roundId;
-    updatedAt = startedAt;
-    answeredInRound = roundId;
   }
 
   /// @inheritdoc AggregatorV3Interface

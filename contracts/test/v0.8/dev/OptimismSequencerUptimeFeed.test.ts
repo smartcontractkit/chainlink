@@ -211,14 +211,22 @@ describe('OptimismSequencerUptimeFeed', () => {
       )
     })
 
-    it('should return 0 from #getRoundData when round does not yet exist (future roundId)', async () => {
-      const [roundId, answer, startedAt, updatedAt, answeredInRound] =
-        await optimismUptimeFeed.getRoundData(2)
-      expect(roundId).to.equal(2)
-      expect(answer).to.equal(0)
-      expect(startedAt).to.equal(0)
-      expect(updatedAt).to.equal(0)
-      expect(answeredInRound).to.equal(2)
+    it('should revert from #getRoundData when round does not yet exist (future roundId)', async () => {
+      expect(optimismUptimeFeed.getRoundData(2)).to.be.revertedWith(
+        'NoDataPresent()',
+      )
+    })
+
+    it('should revert from #getAnswer when round does not yet exist (future roundId)', async () => {
+      expect(optimismUptimeFeed.getAnswer(2)).to.be.revertedWith(
+        'NoDataPresent()',
+      )
+    })
+
+    it('should revert from #getTimestamp when round does not yet exist (future roundId)', async () => {
+      expect(optimismUptimeFeed.getTimestamp(2)).to.be.revertedWith(
+        'NoDataPresent()',
+      )
     })
   })
 
