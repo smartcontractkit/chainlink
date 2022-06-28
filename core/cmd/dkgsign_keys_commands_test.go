@@ -123,7 +123,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 		set.String("output", keyName, "")
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewDKGSignKeysClient(client).ExportKey(c)
-		require.Error(tt, err, "Error exporting")
+		require.Error(tt, err)
 		require.Error(tt, utils.JustError(os.Stat(keyName)))
 
 		// Export test
