@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -24,8 +25,17 @@ const password = "password"
 func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	csa1, csa2 := csakey.MustNewV2XXXTestingOnly(big.NewInt(1)), csakey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	eth1, eth2 := mustNewEthKey(t), mustNewEthKey(t)
-	ocr1, ocr2 := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1)), ocrkey.MustNewV2XXXTestingOnly(big.NewInt(2))
-	ocr2_evm, ocr2_sol, ocr2_ter := ocr2key.MustNewInsecure(rand.Reader, "evm"), ocr2key.MustNewInsecure(rand.Reader, "solana"), ocr2key.MustNewInsecure(rand.Reader, "terra")
+	ocr := []ocrkey.KeyV2{
+		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1)),
+		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(2)),
+	}
+	var ocr2 []ocr2key.KeyBundle
+	var ocr2_raw []ocr2key.Raw
+	for _, chain := range chaintype.SupportedChainTypes {
+		key := ocr2key.MustNewInsecure(rand.Reader, chain)
+		ocr2 = append(ocr2, key)
+		ocr2_raw = append(ocr2_raw, key.Raw())
+	}
 	p2p1, p2p2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)), p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	sol1, sol2 := solkey.MustNewInsecure(rand.Reader), solkey.MustNewInsecure(rand.Reader)
 	vrf1, vrf2 := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1)), vrfkey.MustNewV2XXXTestingOnly(big.NewInt(2))
@@ -34,8 +44,8 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	originalKeyRingRaw := rawKeyRing{
 		CSA:     []csakey.Raw{csa1.Raw(), csa2.Raw()},
 		Eth:     []ethkey.Raw{eth1.Raw(), eth2.Raw()},
-		OCR:     []ocrkey.Raw{ocr1.Raw(), ocr2.Raw()},
-		OCR2:    []ocr2key.Raw{ocr2_evm.Raw(), ocr2_sol.Raw(), ocr2_ter.Raw()},
+		OCR:     []ocrkey.Raw{ocr[0].Raw(), ocr[1].Raw()},
+		OCR2:    ocr2_raw,
 		P2P:     []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
 		Solana:  []solkey.Raw{sol1.Raw(), sol2.Raw()},
 		VRF:     []vrfkey.Raw{vrf1.Raw(), vrf2.Raw()},
@@ -59,25 +69,24 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	require.Equal(t, originalKeyRing.Eth[eth2.ID()].Address, decryptedKeyRing.Eth[eth2.ID()].Address)
 	// compare ocr keys
 	require.Equal(t, 2, len(decryptedKeyRing.OCR))
-	require.Equal(t, originalKeyRing.OCR[ocr1.ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr1.ID()].OnChainSigning.X)
-	require.Equal(t, originalKeyRing.OCR[ocr1.ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr1.ID()].OnChainSigning.Y)
-	require.Equal(t, originalKeyRing.OCR[ocr1.ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr1.ID()].OnChainSigning.D)
-	require.Equal(t, originalKeyRing.OCR[ocr1.ID()].OffChainSigning, decryptedKeyRing.OCR[ocr1.ID()].OffChainSigning)
-	require.Equal(t, originalKeyRing.OCR[ocr1.ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr1.ID()].OffChainEncryption)
-	require.Equal(t, originalKeyRing.OCR[ocr2.ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr2.ID()].OnChainSigning.X)
-	require.Equal(t, originalKeyRing.OCR[ocr2.ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr2.ID()].OnChainSigning.Y)
-	require.Equal(t, originalKeyRing.OCR[ocr2.ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr2.ID()].OnChainSigning.D)
-	require.Equal(t, originalKeyRing.OCR[ocr2.ID()].OffChainSigning, decryptedKeyRing.OCR[ocr2.ID()].OffChainSigning)
-	require.Equal(t, originalKeyRing.OCR[ocr2.ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr2.ID()].OffChainEncryption)
+	require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.X)
+	require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y)
+	require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.D)
+	require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OffChainSigning, decryptedKeyRing.OCR[ocr[0].ID()].OffChainSigning)
+	require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[0].ID()].OffChainEncryption)
+	require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.X)
+	require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.Y)
+	require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[1].ID()].OnChainSigning.D)
+	require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainSigning, decryptedKeyRing.OCR[ocr[1].ID()].OffChainSigning)
+	require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[1].ID()].OffChainEncryption)
 	// compare ocr2 keys
-	require.Equal(t, 3, len(decryptedKeyRing.OCR2))
-	require.Equal(t, originalKeyRing.OCR2[ocr2_evm.ID()].ID(), decryptedKeyRing.OCR2[ocr2_evm.ID()].ID())
-	require.Equal(t, originalKeyRing.OCR2[ocr2_sol.ID()].ID(), decryptedKeyRing.OCR2[ocr2_sol.ID()].ID())
-	require.Equal(t, originalKeyRing.OCR2[ocr2_ter.ID()].ID(), decryptedKeyRing.OCR2[ocr2_ter.ID()].ID())
-	require.Equal(t, ocr2_ter.OnChainPublicKey(), decryptedKeyRing.OCR2[ocr2_ter.ID()].OnChainPublicKey())
-	require.Equal(t, originalKeyRing.OCR2[ocr2_evm.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_evm.ID()].ChainType())
-	require.Equal(t, originalKeyRing.OCR2[ocr2_sol.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_sol.ID()].ChainType())
-	require.Equal(t, originalKeyRing.OCR2[ocr2_ter.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_ter.ID()].ChainType())
+	require.Equal(t, len(chaintype.SupportedChainTypes), len(decryptedKeyRing.OCR2))
+	for i := range ocr2 {
+		id := ocr2[i].ID()
+		require.Equal(t, originalKeyRing.OCR2[id].ID(), decryptedKeyRing.OCR2[id].ID())
+		require.Equal(t, ocr2[i].OnChainPublicKey(), decryptedKeyRing.OCR2[id].OnChainPublicKey())
+		require.Equal(t, originalKeyRing.OCR2[id].ChainType(), decryptedKeyRing.OCR2[id].ChainType())
+	}
 	// compare p2p keys
 	require.Equal(t, 2, len(decryptedKeyRing.P2P))
 	require.Equal(t, originalKeyRing.P2P[p2p1.ID()].GetPublic(), decryptedKeyRing.P2P[p2p1.ID()].GetPublic())

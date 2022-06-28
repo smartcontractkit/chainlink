@@ -1,27 +1,26 @@
 package p2pkey
 
 import (
-	"encoding/json"
-
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const keyTypeIdentifier = "P2P"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
-	var export EncryptedP2PKeyExport
-	if err := json.Unmarshal(keyJSON, &export); err != nil {
-		return KeyV2{}, err
-	}
-	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
-	if err != nil {
-		return KeyV2{}, errors.Wrap(err, "failed to decrypt P2P key")
-	}
-	key := Raw(privKey).Key()
-	return key, nil
+	return keys.FromEncryptedJSON(
+		keyTypeIdentifier,
+		keyJSON,
+		password,
+		adulteratedPassword,
+		func(_ EncryptedP2PKeyExport, rawPrivKey []byte) (KeyV2, error) {
+			return Raw(rawPrivKey).Key(), nil
+		},
+	)
 }
 
 type EncryptedP2PKeyExport struct {
@@ -31,27 +30,31 @@ type EncryptedP2PKeyExport struct {
 	Crypto    keystore.CryptoJSON `json:"crypto"`
 }
 
+func (x EncryptedP2PKeyExport) GetCrypto() keystore.CryptoJSON {
+	return x.Crypto
+}
+
 func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	cryptoJSON, err := keystore.EncryptDataV3(
+	return keys.ToEncryptedJSON(
+		keyTypeIdentifier,
 		key.Raw(),
-		[]byte(adulteratedPassword(password)),
-		scryptParams.N,
-		scryptParams.P,
+		key,
+		password,
+		scryptParams,
+		adulteratedPassword,
+		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) (EncryptedP2PKeyExport, error) {
+			rawPubKey, err := key.GetPublic().Bytes()
+			if err != nil {
+				return EncryptedP2PKeyExport{}, errors.Wrapf(err, "could not get raw public key")
+			}
+			return EncryptedP2PKeyExport{
+				KeyType:   id,
+				PublicKey: hexutil.Encode(rawPubKey),
+				PeerID:    key.PeerID(),
+				Crypto:    cryptoJSON,
+			}, nil
+		},
 	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt P2P key")
-	}
-	rawPubKey, err := key.GetPublic().Bytes()
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get raw public key")
-	}
-	encryptedP2PKeyExport := EncryptedP2PKeyExport{
-		KeyType:   keyTypeIdentifier,
-		PublicKey: hexutil.Encode(rawPubKey),
-		PeerID:    key.PeerID(),
-		Crypto:    cryptoJSON,
-	}
-	return json.Marshal(encryptedP2PKeyExport)
 }
 
 func adulteratedPassword(password string) string {
