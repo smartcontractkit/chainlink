@@ -435,11 +435,19 @@ type VRFSpec struct {
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
 	// MaxGasPriceGwei sets the maximum gas price in gwei on the addresses
-	// specified in the fromAddresses job spec parameter.
-	// This is optional. If it's not set, then the job will not attempt to set any
-	// specific gas price on the addresses in fromAddresses, which will use any previously
-	// set congfiguration (i.e, set via CLI, or REST API, or environment variable).
+	// specified in VRFSpec.FromAddresses.
+	//
+	// This is optional. If this is not set, then the job will not attempt to set any
+	// key specific gas prices on the addresses specified in VRFSpec.FromAddresses,
+	// and as a result, will use any previously set key specific max gas price (i.e, set via CLI or REST API)
+	// or the global max gas price if a key-specific gas price is not set.
+	//
 	// This is essentially the "gas lane" gas price.
+	//
+	// This will end up overriding any previously set key-specific gas prices
+	// set via CLI and/or REST API. However, environment variables can end up
+	// taking precedence depending on their values relative to the key-specific prices.
+	//
 	// V2 only.
 	MaxGasPriceGWei *uint32 `toml:"maxGasPriceGWei" db:"max_gas_price_gwei"`
 
