@@ -12,7 +12,6 @@ import "./interfaces/FlagsInterface.sol";
 import "./interfaces/ForwarderInterface.sol";
 import "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
-import "@eth-optimism/contracts/L2/messaging/IL2ERC20Bridge.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
 /**
