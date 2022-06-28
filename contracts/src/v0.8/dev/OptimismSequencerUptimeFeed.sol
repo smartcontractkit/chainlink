@@ -74,7 +74,11 @@ contract OptimismSequencerUptimeFeed is
    * @param flagsAddress Address of the Flags contract on L2
    * @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
    */
-  constructor(address flagsAddress, address l1SenderAddress, address l2CrossDomainMessengerAddr) {
+  constructor(
+    address flagsAddress,
+    address l1SenderAddress,
+    address l2CrossDomainMessengerAddr
+  ) {
     setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
     FLAGS = FlagsInterface(flagsAddress);
@@ -211,8 +215,10 @@ contract OptimismSequencerUptimeFeed is
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
-    if (msg.sender != address(s_l2CrossDomainMessenger)
-        && s_l2CrossDomainMessenger.xDomainMessageSender() != aliasedL1MessageSender()) {
+    if (
+      msg.sender != address(s_l2CrossDomainMessenger) &&
+      s_l2CrossDomainMessenger.xDomainMessageSender() != aliasedL1MessageSender()
+    ) {
       revert InvalidSender();
     }
 
