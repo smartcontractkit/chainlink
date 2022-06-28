@@ -175,8 +175,8 @@ func NewFromJobSpec(
 	}
 
 	gasLimit := cfg.EvmGasLimitDefault()
-	if jobSpec.GasLimit != nil {
-		gasLimit = uint64(*jobSpec.GasLimit)
+	if jobSpec.GasLimit.Valid {
+		gasLimit = uint64(jobSpec.GasLimit.Uint32)
 	}
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
 		fluxAggregator,

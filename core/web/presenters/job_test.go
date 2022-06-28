@@ -14,6 +14,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -56,7 +57,7 @@ func TestJob(t *testing.T) {
 			name: "direct request spec",
 			job: job.Job{
 				ID:       1,
-				GasLimit: &specGasLimit,
+				GasLimit: clnull.Uint32From(specGasLimit),
 				DirectRequestSpec: &job.DirectRequestSpec{
 					ContractAddress: contractAddress,
 					CreatedAt:       timestamp,

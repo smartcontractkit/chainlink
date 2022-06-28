@@ -396,7 +396,7 @@ type JobResource struct {
 	Name                   string                  `json:"name"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
-	GasLimit               *uint32                 `json:"gasLimit"`
+	GasLimit               clnull.Uint32           `json:"gasLimit"`
 	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
 	ExternalJobID          uuid.UUID               `json:"externalJobID"`
 	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`

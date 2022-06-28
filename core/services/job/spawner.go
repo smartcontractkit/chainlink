@@ -170,7 +170,9 @@ func (js *spawner) StartService(ctx context.Context, spec Job) error {
 
 	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
 	spec.PipelineSpec.JobID = spec.ID
-	spec.PipelineSpec.GasLimit = spec.GasLimit
+	if spec.GasLimit.Valid {
+		spec.PipelineSpec.GasLimit = &spec.GasLimit.Uint32
+	}
 
 	services, err := delegate.ServicesForSpec(spec)
 	if err != nil {

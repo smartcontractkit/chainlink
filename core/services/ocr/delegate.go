@@ -217,8 +217,8 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 
 		gasLimit := chain.Config().EvmGasLimitDefault()
-		if jb.GasLimit != nil {
-			gasLimit = uint64(*jb.GasLimit)
+		if jb.GasLimit.Valid {
+			gasLimit = uint64(jb.GasLimit.Uint32)
 		}
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
