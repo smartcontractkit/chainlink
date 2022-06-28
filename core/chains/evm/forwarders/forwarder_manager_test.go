@@ -9,10 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
@@ -22,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/test-go/testify/mock"
-	"github.com/test-go/testify/require"
 )
 
 var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"]
@@ -53,7 +54,7 @@ func TestFwdMgr(t *testing.T) {
 	ec.Commit()
 
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID), lggr, 100*time.Millisecond, 2, 3)
+		cltest.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID), lggr, 100*time.Millisecond, 2, 3)
 	fwdMgr := forwarders.NewFwdMgr(db, ethClient, lp, lggr, pgtest.NewPGCfg(true))
 	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 

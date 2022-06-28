@@ -15,6 +15,7 @@ import { useChainsQuery } from 'src/hooks/queries/useChainsQuery'
 import { useEVMAccountsQuery } from 'src/hooks/queries/useEVMAccountsQuery'
 import { useP2PKeysQuery } from 'src/hooks/queries/useP2PKeysQuery'
 import { useOCRKeysQuery } from 'src/hooks/queries/useOCRKeysQuery'
+import { useOCR2KeysQuery } from 'src/hooks/queries/useOCR2KeysQuery'
 
 type Props = {
   open: boolean
@@ -40,6 +41,10 @@ export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
     fetchPolicy: 'cache-and-network',
   })
 
+  const { data: ocr2KeysData } = useOCR2KeysQuery({
+    fetchPolicy: 'cache-and-network',
+  })
+
   const initialValues = {
     chainID: '',
     chainType: 'EVM',
@@ -52,6 +57,10 @@ export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
     ocr1P2PPeerID: '',
     ocr1KeyBundleID: '',
     ocr2Enabled: false,
+    ocr2IsBootstrap: false,
+    ocr2Multiaddr: '',
+    ocr2P2PPeerID: '',
+    ocr2KeyBundleID: '',
   }
 
   const chainIDs: string[] = chainData
@@ -61,6 +70,7 @@ export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
   const accounts = accountData ? accountData.ethKeys.results : []
   const p2pKeys = p2pKeysData ? p2pKeysData.p2pKeys.results : []
   const ocrKeys = ocrKeysData ? ocrKeysData.ocrKeyBundles.results : []
+  const ocr2Keys = ocr2KeysData ? ocr2KeysData.ocr2KeyBundles.results : []
 
   return (
     <Dialog onClose={onClose} open={open} disableBackdropClick>
@@ -77,6 +87,7 @@ export const NewSupportedChainDialog = ({ onClose, open, onSubmit }: Props) => {
           accounts={accounts}
           p2pKeys={p2pKeys}
           ocrKeys={ocrKeys}
+          ocr2Keys={ocr2Keys}
         />
       </DialogContent>
 
