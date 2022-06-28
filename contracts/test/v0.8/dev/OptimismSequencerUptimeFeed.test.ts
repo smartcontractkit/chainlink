@@ -4,16 +4,15 @@ import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
 describe('OptimismSequencerUptimeFeed', () => {
-  let flags: Contract
   let l2CrossDomainMessenger: Contract
   let optimismUptimeFeed: Contract
-  let accessController: Contract
   let uptimeFeedConsumer: Contract
   let deployer: SignerWithAddress
   let l1Owner: SignerWithAddress
   let l2Messenger: SignerWithAddress
   let dummy: SignerWithAddress
   const gasUsedDeviation = 100
+  const initialStatus = 0
 
   before(async () => {
     const accounts = await ethers.getSigners()
@@ -42,21 +41,6 @@ describe('OptimismSequencerUptimeFeed', () => {
   })
 
   beforeEach(async () => {
-    const accessControllerFactory = await ethers.getContractFactory(
-      'src/v0.8/SimpleWriteAccessController.sol:SimpleWriteAccessController',
-      deployer,
-    )
-    accessController = await accessControllerFactory.deploy()
-
-    const flagsHistoryFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/Flags.sol:Flags',
-      deployer,
-    )
-    flags = await flagsHistoryFactory.deploy(
-      accessController.address,
-      accessController.address,
-    )
-    await accessController.addAccess(flags.address)
 
     const optimismSequencerStatusRecorderFactory =
       await ethers.getContractFactory(
@@ -64,22 +48,13 @@ describe('OptimismSequencerUptimeFeed', () => {
         deployer,
       )
     optimismUptimeFeed = await optimismSequencerStatusRecorderFactory.deploy(
-      flags.address,
       l1Owner.address,
       l2CrossDomainMessenger.address,
+      initialStatus
     )
-    // Required for OptimismSequencerUptimeFeed to raise/lower flags
-    await accessController.addAccess(optimismUptimeFeed.address)
-    // Required for OptimismSequencerUptimeFeed to read flags
-    await flags.addAccess(optimismUptimeFeed.address)
+
     // Set mock sender in mock L2 messenger contract
     await l2CrossDomainMessenger.setSender(l1Owner.address)
-
-    // Deployer requires access to invoke initialize
-    await accessController.addAccess(deployer.address)
-    // Once OptimismSequencerUptimeFeed has access, we can initialise the 0th aggregator round
-    const initTx = await optimismUptimeFeed.connect(deployer).initialize()
-    await expect(initTx).to.emit(optimismUptimeFeed, 'Initialized')
 
     // Mock consumer
     const statusFeedConsumerFactory = await ethers.getContractFactory(
@@ -91,12 +66,13 @@ describe('OptimismSequencerUptimeFeed', () => {
     )
   })
 
-  describe('constants', () => {
-    it('should have the correct value for FLAG_L2_SEQ_OFFLINE', async () => {
-      const flag: string = await optimismUptimeFeed.FLAG_L2_SEQ_OFFLINE()
-      expect(flag.toLowerCase()).to.equal(
-        '0x6101bcde09d322cf8ae794576755b23289be35b5',
-      )
+  describe("constructor", () => {
+    it("should have been deployed with the correct initial state", async () => {
+      const l1Sender = await optimismUptimeFeed.l1Sender();
+      expect(l1Sender).to.equal(l1Owner.address)
+      const { roundId, answer } = await optimismUptimeFeed.latestRoundData();
+      expect(roundId).to.equal(1)
+      expect(answer).to.equal(initialStatus)
     })
   })
 
@@ -296,7 +272,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert no update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        33180,
+        33062,
         gasUsedDeviation,
       )
 
@@ -309,7 +285,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        97889,
+        60599,
         gasUsedDeviation,
       )
     })
@@ -331,7 +307,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          31157,
+          30952,
           gasUsedDeviation,
         )
       })
@@ -396,7 +372,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30799,
+          30682,
           gasUsedDeviation,
         )
       })
@@ -409,7 +385,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30753,
+          30570,
           gasUsedDeviation,
         )
       })
