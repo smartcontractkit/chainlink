@@ -593,6 +593,7 @@ func NewApp(client *Client) *cli.App {
 
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("Terra", NewTerraKeysClient(client)),
+				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
 
 				{
