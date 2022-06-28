@@ -182,12 +182,11 @@ chainID			= 1337
 )
 
 type KeeperSpecParams struct {
-	Name                     string
-	ContractAddress          string
-	FromAddress              string
-	EvmChainID               int
-	MinIncomingConfirmations int
-	ObservationSource        string
+	Name              string
+	ContractAddress   string
+	FromAddress       string
+	EvmChainID        int
+	ObservationSource string
 }
 
 type KeeperSpec struct {
@@ -207,14 +206,13 @@ name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
-minIncomingConfirmations	= %d
 externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
 observationSource = """%s"""
 `
 	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations, escapedObvSource),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, escapedObvSource),
 	}
 }
 

@@ -347,7 +347,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
 		exportedKey := `{"address":"0dd359b4f22a30e44b2fd744b679971941865820","crypto":{"cipher":"aes-128-ctr","ciphertext":"b30af964a3b3f37894e599446b4cf2314bbfcd1062e6b35b620d3d20bd9965cc","cipherparams":{"iv":"58a8d75629cc1945da7cf8c24520d1dc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"c352887e9d427d8a6a1869082619b73fac4566082a99f6e367d126f11b434f28"},"mac":"fd76a588210e0bf73d01332091e0e83a4584ee2df31eaec0e27f9a1b94f024b4"},"id":"a5ee0802-1d7b-45b6-aeb8-ea8a3351e715","version":3}`
-		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password, &cltest.FixtureChainID)
+		importedKey, err := ks.Import([]byte(exportedKey), "p4SsW0rD1!@#_", &cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Equal(t, "0x0dd359b4f22a30E44b2fD744B679971941865820", importedKey.ID())
 
@@ -391,7 +391,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 			defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM keys")))
 
 			ethAddress := testutils.NewAddress()
-			err = utils.JustError(db.Exec(`INSERT INTO keys (address, json, created_at, updated_at, next_nonce, is_funding, deleted_at) VALUES ($1, '{"address":"0dd359b4f22a30e44b2fd744b679971941865820","crypto":{"cipher":"aes-128-ctr","ciphertext":"b30af964a3b3f37894e599446b4cf2314bbfcd1062e6b35b620d3d20bd9965cc","cipherparams":{"iv":"58a8d75629cc1945da7cf8c24520d1dc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"c352887e9d427d8a6a1869082619b73fac4566082a99f6e367d126f11b434f28"},"mac":"fd76a588210e0bf73d01332091e0e83a4584ee2df31eaec0e27f9a1b94f024b4"},"id":"a5ee0802-1d7b-45b6-aeb8-ea8a3351e715","version":3}', NOW(), NOW(), 0, false, NULL)`, ethAddress))
+			err = utils.JustError(db.Exec(`INSERT INTO keys (address, json, created_at, updated_at, next_nonce, is_funding, deleted_at) VALUES ($1, '{"address":"6fdac88ddfd811d130095373986889ed90e0d622","crypto":{"cipher":"aes-128-ctr","ciphertext":"557f5324e770c3d203751c1f0f7fb5076386c49f5b05e3f20b3abb59758fd3c3","cipherparams":{"iv":"bd9472543fab7cc63027cbcd039daff0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":2,"p":1,"r":8,"salt":"647b54770a3fda830b4440ae57c44cf7506297295fe4d72b1ff943e3a8ddb94a"},"mac":"0c654ee29ee06b3816fc0040d84ebd648c557144a77ccc55b9568355f53397b3"},"id":"6fdac88d-dfd8-11d1-3009-5373986889ed","version":3}', NOW(), NOW(), 0, false, NULL)`, ethAddress))
 			require.NoError(t, err)
 
 			keys, _, err := ks.GetV1KeysAsV2(func() (*big.Int, error) {
