@@ -40,6 +40,9 @@ jobs:
           push: true
   run_tests:
     environment: integration
+    permissions:
+      id-token: write
+      contents: read
     name: run core evm ${{ github.event.inputs.focus }} performance tests
     runs-on: ubuntu-latest
     needs: build-chainlink
