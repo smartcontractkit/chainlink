@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 2. Must not contain leading or trailing whitespace
 3. User passwords must not contain the user's API email
 
+- Simplified the Keepers job spec by removing the observation source from the required parameters.
+
 ## [1.5.0] - 2022-06-21
 
 ### Changed
