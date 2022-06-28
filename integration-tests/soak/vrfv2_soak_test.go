@@ -2,7 +2,6 @@ package vrfv2soak
 
 //revive:disable:dot-imports
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -12,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
@@ -28,7 +28,8 @@ var _ = Describe("Vrfv2 soak test suite @soak_vrfv2", func() {
 		vrfv2SoakTest *testsetups.VRFV2SoakTest
 		coordinator   contracts.VRFCoordinatorV2
 		consumer      contracts.VRFConsumerV2
-		jobInfo       []testsetups.VRFV2SoakTestJobInfo
+		// jobInfo       []testsetups.VRFV2SoakTestJobInfo
+		jobInfo []actions.VRFV2JobInfo
 	)
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
@@ -37,13 +38,18 @@ var _ = Describe("Vrfv2 soak test suite @soak_vrfv2", func() {
 			if !ok {
 				namespace = "local"
 			}
+			c := environment.NewChainlinkConfig(
+				config.ChainlinkVals(),
+				fmt.Sprintf("%s-vrfv2-soak", namespace),
+				// works only on perf Geth
+				environment.PerformanceGeth,
+			)
+			chart, err := c.Charts.Get("chainlink")
+			log.Error().Interface("charts", c.Charts).Msg("what charts are there")
+			Expect(err).ShouldNot(HaveOccurred())
+			chart.Values["replicas"] = 2
 			env, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(
-					config.ChainlinkVals(),
-					fmt.Sprintf("%s-vrfv2-soak", namespace),
-					// works only on perf Geth
-					environment.PerformanceGeth,
-				),
+				c,
 			)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 			log.Info().Str("Namespace", env.Namespace).Msg("Connected to Soak Environment")
@@ -52,7 +58,7 @@ var _ = Describe("Vrfv2 soak test suite @soak_vrfv2", func() {
 		By("Setup the Vrfv2 test", func() {
 			vrfv2SoakTest = &testsetups.VRFV2SoakTest{
 				Inputs: &testsetups.VRFV2SoakTestInputs{
-					TestDuration:         time.Minute * 10,
+					TestDuration:         time.Minute * 1,
 					ChainlinkNodeFunding: big.NewFloat(1000),
 					StopTestOnError:      false,
 
@@ -70,7 +76,7 @@ var _ = Describe("Vrfv2 soak test suite @soak_vrfv2", func() {
 				},
 			}
 
-			vrfv2SoakTest.Setup(env, true)
+			vrfv2SoakTest.Setup(env, []string{"chainlink"}, true)
 		})
 
 		By("Deploy Contracts", func() {
@@ -90,6 +96,12 @@ var _ = Describe("Vrfv2 soak test suite @soak_vrfv2", func() {
 			mf, err := contractDeployer.DeployMockETHLINKFeed(linkEthFeedResponse)
 			Expect(err).ShouldNot(HaveOccurred())
 			coordinator, consumer, _ = actions.DeployVRFV2Contracts(linkTokenContract, contractDeployer, vrfv2SoakTest.Networks, mf.Address())
+
+			evmClient := vrfv2SoakTest.Networks.Default.(*blockchain.EthereumMultinodeClient).DefaultClient
+			temp := &contracts.EthereumVRFConsumerV2{}
+			temp.LoadFromAddress(consumer.Address(), evmClient)
+			consumer = temp
+
 			err = linkTokenContract.Transfer(consumer.Address(), big.NewInt(0).Mul(big.NewInt(1e4), big.NewInt(1e18)))
 			Expect(err).ShouldNot(HaveOccurred())
 			err = coordinator.SetConfig(
@@ -118,20 +130,7 @@ var _ = Describe("Vrfv2 soak test suite @soak_vrfv2", func() {
 			err = vrfv2SoakTest.Networks.Default.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
 
-			jobs, provingKeys := actions.CreateVRFV2Jobs(vrfv2SoakTest.ChainlinkNodes, coordinator, vrfv2SoakTest.Networks)
-			Expect(len(jobs)).Should(Equal(len(provingKeys)), "Should have a set of keys for each job")
-
-			// Create proving key hash here so we aren't calculating it in the test run itself.
-			for i, pk := range provingKeys {
-				keyHash, err := coordinator.HashOfKey(context.Background(), pk)
-				Expect(err).ShouldNot(HaveOccurred(), "Should be able to create a keyHash from the proving keys")
-				ji := testsetups.VRFV2SoakTestJobInfo{
-					Job:            jobs[i],
-					ProvingKey:     provingKeys[i],
-					ProvingKeyHash: keyHash,
-				}
-				jobInfo = append(jobInfo, ji)
-			}
+			jobInfo = actions.CreateVRFV2Jobs(vrfv2SoakTest.ChainlinkNodes, coordinator, vrfv2SoakTest.Networks, 1)
 
 			err = vrfv2SoakTest.DefaultNetwork.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
