@@ -168,6 +168,10 @@ func (js *spawner) StartService(ctx context.Context, spec Job) error {
 	// that it was able to start without an error.
 	aj := activeJob{delegate: delegate, spec: spec}
 
+	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
+	spec.PipelineSpec.JobID = spec.ID
+	spec.PipelineSpec.GasLimit = spec.GasLimit
+
 	services, err := delegate.ServicesForSpec(spec)
 	if err != nil {
 		js.lggr.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -317,7 +316,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := assets.GWei(123).Uint64()
+				gasLimit := 123
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -329,7 +328,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       gasLimit,
+					GasLimit:       uint64(gasLimit),
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EthTx{}, nil)
