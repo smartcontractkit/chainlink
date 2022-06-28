@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -181,6 +182,7 @@ func TestResolver_Job(t *testing.T) {
 					ID:              1,
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
+					GasLimit:        clnull.Uint32From(123),
 					MaxTaskDuration: models.Interval(1 * time.Second),
 					ExternalJobID:   externalJobID,
 					CreatedAt:       f.Timestamp(),
@@ -207,7 +209,7 @@ func TestResolver_Job(t *testing.T) {
 						"id": "1",
 						"createdAt": "2021-01-01T00:00:00Z",
 						"externalJobID": "00000000-0000-0000-0000-000000000001",
-						"gasLimit": null,
+						"gasLimit": 123,
 						"maxTaskDuration": "1s",
 						"name": "job1",
 						"schemaVersion": 1,

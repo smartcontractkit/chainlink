@@ -82,7 +82,7 @@ func (r *JobResolver) GasLimit() *int32 {
 	if !r.j.GasLimit.Valid {
 		return nil
 	}
-	v := int32(*&r.j.GasLimit.Uint32)
+	v := int32(r.j.GasLimit.Uint32)
 	return &v
 }
 

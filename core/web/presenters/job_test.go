@@ -219,6 +219,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Type("offchainreporting"),
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
+				GasLimit:        clnull.Uint32From(123),
 				MaxTaskDuration: models.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
@@ -258,7 +259,7 @@ func TestJob(t *testing.T) {
 						},
 						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
-						"gasLimit": null,
+						"gasLimit": 123,
 						"directRequestSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
