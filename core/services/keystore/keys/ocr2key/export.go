@@ -2,11 +2,11 @@ package ocr2key
 
 import (
 	"encoding/hex"
-	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,52 +23,60 @@ type EncryptedOCRKeyExport struct {
 	Crypto            keystore.CryptoJSON `json:"crypto"`
 }
 
+func (x EncryptedOCRKeyExport) GetCrypto() keystore.CryptoJSON {
+	return x.Crypto
+}
+
 // FromEncryptedJSON returns key from encrypted json
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
-	var export EncryptedOCRKeyExport
-	if err := json.Unmarshal(keyJSON, &export); err != nil {
-		return nil, err
-	}
-	rawKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decrypt OCR key")
-	}
-	switch export.ChainType {
-	case chaintype.EVM:
-		key := mustNewEVMKeyFromRaw(rawKey)
-		return &key, nil
-	case chaintype.Solana:
-		key := mustNewSolanaKeyFromRaw(rawKey)
-		return &key, nil
-	case chaintype.Terra:
-		key := mustNewTerraKeyFromRaw(rawKey)
-		return &key, nil
-	default:
-		return nil, chaintype.NewErrInvalidChainType(export.ChainType)
-	}
+	return keys.FromEncryptedJSON(
+		keyTypeIdentifier,
+		keyJSON,
+		password,
+		adulteratedPassword,
+		func(export EncryptedOCRKeyExport, rawPrivKey []byte) (KeyBundle, error) {
+			var kb KeyBundle
+			switch export.ChainType {
+			case chaintype.EVM:
+				kb = newKeyBundle(new(evmKeyring))
+			case chaintype.Solana:
+				kb = newKeyBundle(new(solanaKeyring))
+			case chaintype.Terra:
+				kb = newKeyBundle(new(terraKeyring))
+			case chaintype.StarkNet:
+				kb = newKeyBundle(new(starknetKeyring))
+			default:
+				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
+			}
+			if err := kb.Unmarshal(rawPrivKey); err != nil {
+				return nil, err
+			}
+			return kb, nil
+		},
+	)
 }
 
 // ToEncryptedJSON returns encrypted JSON representing key
 func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	cryptoJSON, err := keystore.EncryptDataV3(
+	return keys.ToEncryptedJSON(
+		keyTypeIdentifier,
 		key.Raw(),
-		[]byte(adulteratedPassword(password)),
-		scryptParams.N,
-		scryptParams.P,
+		key,
+		password,
+		scryptParams,
+		adulteratedPassword,
+		func(id string, key KeyBundle, cryptoJSON keystore.CryptoJSON) (EncryptedOCRKeyExport, error) {
+			pubKeyConfig := key.ConfigEncryptionPublicKey()
+			pubKey := key.OffchainPublicKey()
+			return EncryptedOCRKeyExport{
+				KeyType:           id,
+				ChainType:         key.ChainType(),
+				ID:                key.ID(),
+				OnchainPublicKey:  key.OnChainPublicKey(),
+				OffChainPublicKey: hex.EncodeToString(pubKey[:]),
+				ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
+				Crypto:            cryptoJSON,
+			}, nil
+		},
 	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Eth key")
-	}
-	pubKeyConfig := key.ConfigEncryptionPublicKey()
-	pubKey := key.OffchainPublicKey()
-	encryptedOCRKExport := EncryptedOCRKeyExport{
-		KeyType:           keyTypeIdentifier,
-		ChainType:         key.ChainType(),
-		ID:                key.ID(),
-		OnchainPublicKey:  key.OnChainPublicKey(),
-		OffChainPublicKey: hex.EncodeToString(pubKey[:]),
-		ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
-		Crypto:            cryptoJSON,
-	}
-	return json.Marshal(encryptedOCRKExport)
 }
