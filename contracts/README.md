@@ -54,8 +54,6 @@ Check out our [Github repo](https://github.com/smartcontractkit/chainlink).
 
 Contributions are welcome! Please refer to the `/docs` folder in our [repo](https://github.com/smartcontractkit/chainlink/tree/develop/docs) where you will find `CONTRIBUTING.md` which has detailed information on how you can contribute.
 
-Also check out our [Developer Wiki](https://github.com/smartcontractkit/chainlink/wiki), especially the "Core Information" and "Core Developer Resources" sections.
-
 Thank you!
 
 ## License
