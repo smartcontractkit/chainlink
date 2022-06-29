@@ -4,7 +4,7 @@ Here lives the integration tests for chainlink, utilizing our [chainlink-testing
 
 ## How to Run
 
-### Connect to a Kubernetes cluster
+## Connect to a Kubernetes Cluster
 
 Integration tests require a connection to an actively running kubernetes cluster. [Minikube](https://minikube.sigs.k8s.io/docs/start/)
 can work fine for some tests, but in order to run more rigorous tests, or to run with any parallelism, you'll need to either

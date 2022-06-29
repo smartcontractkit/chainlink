@@ -62,7 +62,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		chainlinkCharts ...environment.ConnectedChart,
 	) {
 		By("Deploying the environment")
-		testEnvironment := environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).AddHelm(evmChart)
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).AddHelm(evmChart)
 		for _, chainlinkChart := range chainlinkCharts {
 			testEnvironment.AddHelm(chainlinkChart)
 		}
@@ -74,7 +74,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting client shouldn't fail")
 		cd, err := contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-		chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
 		chainClient.ParallelTransactions(true)
 

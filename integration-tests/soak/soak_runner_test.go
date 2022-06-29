@@ -28,7 +28,7 @@ func init() {
 }
 
 func TestOCRSoak(t *testing.T) {
-	soakTestHelper(t, "@soak-ocr", "soak-ocr", 6, networks.MetisStardust)
+	soakTestHelper(t, "@soak-ocr", "soak-ocr", 6, networks.SimulatedEVM)
 }
 
 func TestKeeperSoak(t *testing.T) {

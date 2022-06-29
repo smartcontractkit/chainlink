@@ -25,15 +25,20 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 		err                 error
 		testEnvironment     *environment.Environment
 		keeperBlockTimeTest *testsetups.KeeperBlockTimeTest
+		soakNetwork         *blockchain.EVMNetwork
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
+			soakNetwork = blockchain.LoadNetworkFromEnvironment()
 			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
 			err = testEnvironment.
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
-				AddHelm(ethereum.New(nil)).
+				AddHelm(ethereum.New(&ethereum.Props{
+					NetworkName: soakNetwork.Name,
+					Simulated:   soakNetwork.Simulated,
+				})).
 				AddHelm(chainlink.New(0, nil)).
 				Run()
 			Expect(err).ShouldNot(HaveOccurred())

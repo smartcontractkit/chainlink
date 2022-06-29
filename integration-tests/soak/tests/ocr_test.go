@@ -38,7 +38,6 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: soakNetwork.Name,
 					Simulated:   soakNetwork.Simulated,
-					WsURLs:      soakNetwork.URLs,
 				})).
 				AddHelm(chainlink.New(0, nil)).
 				Run()
