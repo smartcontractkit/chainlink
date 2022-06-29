@@ -13,16 +13,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 )
 
-//go:embed testdata/dump/*.toml
 //go:embed testdata/dump/*.env
+//go:embed testdata/dump/*.toml
+//go:embed testdata/dump/*.json
 var dumpTestFiles embed.FS
 
 func TestChainlinkApplication_ConfigDump(t *testing.T) {
-	fes, err := dumpTestFiles.ReadDir("testdata/dump")
+	dir := "testdata/dump"
+	fes, err := dumpTestFiles.ReadDir(dir)
 	require.NoError(t, err)
 	for _, fe := range fes {
 		if filepath.Ext(fe.Name()) != ".toml" {
@@ -30,13 +31,16 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 		}
 		name := strings.TrimSuffix(fe.Name(), ".toml")
 		t.Run(name, func(t *testing.T) {
-			exp, err := dumpTestFiles.ReadFile(filepath.Join("testdata/dump", fe.Name()))
+			exp, err := dumpTestFiles.ReadFile(filepath.Join(dir, fe.Name()))
 			require.NoError(t, err)
 
-			env, err := dumpTestFiles.ReadFile(filepath.Join("testdata/dump", name) + ".env")
+			env, err := dumpTestFiles.ReadFile(filepath.Join(dir, name+".env"))
 			require.NoError(t, err)
 
-			//TODO look for optional db file https://app.shortcut.com/chainlinklabs/story/33621/create-config-dump-functionality
+			chainsJSON, err := dumpTestFiles.ReadFile(filepath.Join(dir, name+".json"))
+			if !os.IsNotExist(err) { // optional
+				require.NoError(t, err)
+			}
 
 			os.Clearenv()
 
@@ -53,8 +57,8 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 				seen[k] = struct{}{}
 				require.NoError(t, os.Setenv(k, v))
 			}
-			var app chainlink.ChainlinkApplication
-			got, err := app.ConfigDump(testutils.TestCtx(t))
+
+			got, err := chainlink.FakeConfigDump(chainsJSON)
 			require.NoError(t, err)
 			assert.Equal(t, string(exp), got, diff.Diff(string(exp), got))
 		})

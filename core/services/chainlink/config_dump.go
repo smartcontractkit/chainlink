@@ -12,10 +12,15 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -27,12 +32,72 @@ import (
 )
 
 func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error) {
+	var chains dbData
+	if app != nil {
+		var err error
+		if app.Chains.EVM != nil {
+			chains.EVMChains, _, err = app.Chains.EVM.Index(0, -1)
+			if err != nil {
+				return "", err
+			}
+			chains.EVMNodes = make(map[string][]evmtyp.Node)
+			for _, dbChain := range chains.EVMChains {
+				chains.EVMNodes[dbChain.ID.String()], _, err = app.Chains.EVM.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to get nodes for evm chain %v", dbChain.ID)
+				}
+			}
+		}
+
+		if app.Chains.Solana != nil {
+			chains.SolanaChains, _, err = app.Chains.Solana.Index(0, -1)
+			if err != nil {
+				return "", err
+			}
+
+			chains.SolanaNodes = make(map[string][]soldb.Node)
+			for _, dbChain := range chains.SolanaChains {
+				chains.SolanaNodes[dbChain.ID], _, err = app.Chains.Solana.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to get nodes for solana chain %s", dbChain.ID)
+				}
+			}
+		}
+
+		if app.Chains.Terra != nil {
+			chains.TerraChains, _, err = app.Chains.Terra.Index(0, -1)
+			if err != nil {
+				return "", err
+			}
+
+			chains.TerraNodes = make(map[string][]terdb.Node)
+			for _, dbChain := range chains.TerraChains {
+				chains.TerraNodes[dbChain.ID], _, err = app.Chains.Terra.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to get nodes for terra chain %s", dbChain.ID)
+				}
+			}
+		}
+	}
+	return configDump(chains)
+}
+
+type dbData struct {
+	EVMChains []evmtyp.DBChain
+	EVMNodes  map[string][]evmtyp.Node
+
+	SolanaChains []solana.DBChain
+	SolanaNodes  map[string][]soldb.Node
+
+	TerraChains []tertyp.DBChain
+	TerraNodes  map[string][]terdb.Node
+}
+
+func configDump(data dbData) (string, error) {
 	var c Config
 
-	if app != nil {
-		if err := c.loadChainsAndNodes(ctx, app.Chains); err != nil {
-			return "", err
-		}
+	if err := c.loadChainsAndNodes(data); err != nil {
+		return "", err
 	}
 
 	c.loadLegacyEVMEnv()
@@ -43,71 +108,41 @@ func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error)
 }
 
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
-func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
-	if chains.EVM != nil {
-		dbChains, _, err := chains.EVM.Index(0, -1)
-		if err != nil {
-			return err
+func (c *Config) loadChainsAndNodes(dbData dbData) error {
+	for _, dbChain := range dbData.EVMChains {
+		var evmChain EVMConfig
+		if err := evmChain.setFromDB(dbChain, dbData.EVMNodes[dbChain.ID.String()]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for evm chain %v", dbChain.ID)
 		}
-		for _, dbChain := range dbChains {
-			dbNodes, _, err := chains.EVM.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get nodes for chain %v", dbChain.ID)
-			}
-			var evmChain EVMConfig
-			if err := evmChain.setFromDB(dbChain, dbNodes); err != nil {
-				return errors.Wrapf(err, "failed to convert db config for chain %v", dbChain.ID)
-			}
-			if *evmChain.Enabled {
-				// no need to persist if enabled
-				evmChain.Enabled = nil
-			}
-			c.EVM = append(c.EVM, evmChain)
+		if *evmChain.Enabled {
+			// no need to persist if enabled
+			evmChain.Enabled = nil
 		}
+		c.EVM = append(c.EVM, evmChain)
 	}
 
-	if chains.Solana != nil {
-		dbChains, _, err := chains.Solana.Index(0, -1)
-		if err != nil {
-			return err
+	for _, dbChain := range dbData.SolanaChains {
+		var solChain SolanaConfig
+		if err := solChain.setFromDB(dbChain, dbData.SolanaNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for solana chain %s", dbChain.ID)
 		}
-		for _, dbChain := range dbChains {
-			dbNodes, _, err := chains.Solana.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
-			}
-			var solChain SolanaConfig
-			if err := solChain.setFromDB(dbChain, dbNodes); err != nil {
-				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
-			}
-			if *solChain.Enabled {
-				// no need to persist if enabled
-				solChain.Enabled = nil
-			}
-			c.Solana = append(c.Solana, solChain)
+		if *solChain.Enabled {
+			// no need to persist if enabled
+			solChain.Enabled = nil
 		}
+		c.Solana = append(c.Solana, solChain)
 	}
 
-	if chains.Terra != nil {
-		dbChains, _, err := chains.Terra.Index(0, -1)
-		if err != nil {
-			return err
+	for _, dbChain := range dbData.TerraChains {
+		var terChain TerraConfig
+		if err := terChain.setFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for terra chain %s", dbChain.ID)
 		}
-		for _, dbChain := range dbChains {
-			dbNodes, _, err := chains.Terra.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
-			}
-			var terChain TerraConfig
-			if err := terChain.setFromDB(dbChain, dbNodes); err != nil {
-				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
-			}
-			if *terChain.Enabled {
-				// no need to persist if enabled
-				terChain.Enabled = nil
-			}
-			c.Terra = append(c.Terra, terChain)
+		if *terChain.Enabled {
+			// no need to persist if enabled
+			terChain.Enabled = nil
 		}
+		c.Terra = append(c.Terra, terChain)
 	}
 
 	return nil
@@ -209,6 +244,11 @@ func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewUint32("EvmRPCDefaultBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].RPCDefaultBatchSize = e
+		}
+	}
+	if e := envvar.New("FlagsContractAddress", ethkey.NewEIP55Address).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].FlagsContractAddress = e
 		}
 	}
 	if e := envvar.New("LinkContractAddress", ethkey.NewEIP55Address).ParsePtr(); e != nil {
@@ -504,11 +544,13 @@ func (c *Config) loadLegacyEVMEnv() {
 		}
 	}
 	for i := range c.EVM {
-		if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
-			c.EVM[i].GasEstimator.BlockHistory = nil
-		}
-		if isZeroPtr(c.EVM[i].GasEstimator) {
-			c.EVM[i].GasEstimator = nil
+		if c.EVM[i].GasEstimator != nil {
+			if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
+				c.EVM[i].GasEstimator.BlockHistory = nil
+			}
+			if isZeroPtr(c.EVM[i].GasEstimator) {
+				c.EVM[i].GasEstimator = nil
+			}
 		}
 	}
 	if e := envvar.NewUint32("EvmMaxInFlightTransactions").ParsePtr(); e != nil {

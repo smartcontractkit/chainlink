@@ -171,3 +171,121 @@ Debug = true
 DSN = 'http://sentry.dsn'
 Environment = 'prod'
 Release = 'sentry-release'
+
+[[EVM]]
+ChainID = '0'
+Enabled = false
+BlockBackfillDepth = 5
+BlockBackfillSkip = true
+ChainType = 'Optimism'
+FinalityDepth = 50
+FlagsContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
+LinkContractAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+LogBackfillBatchSize = 200
+LogPollInterval = '10s'
+MaxInFlightTransactions = 1500
+MinIncomingConfirmations = 12
+MinimumContractPayment = '123456789'
+NonceAutoSync = true
+OperatorFactoryAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
+RPCDefaultBatchSize = 10
+TxReaperInterval = '10h0m0s'
+TxReaperThreshold = '1m0s'
+TxResendAfterThreshold = '5m0s'
+UseForwarders = true
+
+[EVM.BalanceMonitor]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '100.2 kwei'
+PriceMax = '9 mwei'
+LimitDefault = 1020304050
+LimitMultiplier = '1.003'
+LimitTransfer = 4294967295
+BumpMin = '987.654 kwei'
+BumpPercent = 2
+BumpThreshold = 10
+BumpTxDepth = 7
+EIP1559DynamicFees = true
+FeeCapDefault = '45.678912345 gwei'
+TipCapDefault = '4.321 kwei'
+TipCapMinimum = '7 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 13
+BlockDelay = 6
+BlockHistorySize = 56
+EIP1559FeeCapBufferBlocks = 97
+TransactionPercentile = 42
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '1h0m0s'
+HistoryDepth = 7
+MaxBufferSize = 50
+SamplingInterval = '5s'
+
+[EVM.NodePool]
+NoNewHeadsThreshold = '5m0s'
+PollFailureThreshold = 3
+PollInterval = '1m0s'
+
+[EVM.OCR]
+ObservationTimeout = '8m0s'
+
+[[EVM.Nodes]]
+Name = 'primary_0_1'
+WSURL = 'ws://test1.invalid'
+
+[[EVM.Nodes]]
+Name = 'primary_0_2'
+WSURL = 'ws://test2.invalid'
+HTTPURL = 'https://test2.invalid'
+
+[[EVM.Nodes]]
+Name = 'sendonly_0_1'
+HTTPURL = 'http://test5.invalid'
+SendOnly = true
+
+[[Solana]]
+ChainID = 'mainnet'
+BalancePollPeriod = '8s'
+ConfirmPollPeriod = '5m9s'
+OCR2CachePollPeriod = '1h7m0s'
+OCR2CacheTTL = '42m10s'
+TxTimeout = '1s'
+TxRetryTimeout = '1m0s'
+TxConfirmTimeout = '1h0m0s'
+SkipPreflight = true
+Commitment = 'foobar'
+MaxRetries = 7
+
+[[Solana.Nodes]]
+Name = 'mainnet'
+URL = 'http://foo.bar'
+
+[[Solana.Nodes]]
+Name = 'mainnet-2'
+URL = 'http://fake.url'
+
+[[Terra]]
+ChainID = 'Columbus-5'
+BlockRate = '10m6s'
+BlocksUntilTxTimeout = 86
+ConfirmPollPeriod = '1m4s'
+FallbackGasPriceULuna = '9.5'
+FCDURL = 'http://fcd.url'
+GasLimitMultiplier = '1.65'
+MaxMsgsPerBatch = 9
+OCR2CachePollPeriod = '4m0s'
+OCR2CacheTTL = '6h0m5s'
+TxMsgTimeout = '9m0s'
+
+[[Terra.Nodes]]
+Name = 'mainnet'
+TendermintURL = 'http://terra.com'
+
+[[Terra.Nodes]]
+Name = 'mainnet-2'
+TendermintURL = 'http://terra.org'
