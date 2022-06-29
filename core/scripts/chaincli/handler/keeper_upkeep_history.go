@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	registry11 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -26,11 +28,26 @@ const (
 )
 
 var (
-	checkUpkeepArguments abi.Arguments
+	checkUpkeepArguments1 abi.Arguments
+	checkUpkeepArguments2 abi.Arguments
 )
 
+type result struct {
+	block          uint64
+	checkUpkeep    bool
+	keeperIndex    uint64
+	keeperAddress  common.Address
+	reason         string
+	performData    string
+	maxLinkPayment *big.Int
+	gasLimit       *big.Int
+	adjustedGasWei *big.Int
+	linkEth        *big.Int
+}
+
 func init() {
-	checkUpkeepArguments = keeper.Registry1_1ABI.Methods["checkUpkeep"].Outputs
+	checkUpkeepArguments1 = keeper.Registry1_1ABI.Methods["checkUpkeep"].Outputs
+	checkUpkeepArguments2 = keeper.Registry1_2ABI.Methods["checkUpkeep"].Outputs
 }
 
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
@@ -40,7 +57,16 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 		log.Fatalf("blocks range difference must not more than %d", defaultMaxBlocksRange)
 	}
 
-	registryAddr, registryClient := k.GetRegistry(ctx)
+	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
+	var registryAddr common.Address
+	var keeperRegistry11 *registry11.KeeperRegistry
+	var keeperRegistry12 *registry12.KeeperRegistry
+
+	if isVersion12 {
+		registryAddr, keeperRegistry12 = k.getRegistry2(ctx)
+	} else {
+		registryAddr, keeperRegistry11 = k.getRegistry1(ctx)
+	}
 
 	// Get positioning constant of the current registry
 	positioningConstant, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
@@ -60,19 +86,29 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 			BlockNumber: big.NewInt(0).SetUint64(block),
 		}
 
-		registryConfig, err := registryClient.GetConfig(&callOpts)
-		if err != nil {
-			log.Fatal("failed to fetch registry config: ", err)
+		var keepers []common.Address
+		var blockCountPerTurn uint64
+		if isVersion12 {
+			state, err := keeperRegistry12.GetState(&callOpts)
+			if err != nil {
+				log.Fatal("failed to fetch registry state: ", err)
+			}
+			blockCountPerTurn = state.Config.BlockCountPerTurn.Uint64()
+			keepers = state.Keepers
+		} else {
+			config, err := keeperRegistry11.GetConfig(&callOpts)
+			if err != nil {
+				log.Fatal("failed to fetch registry config: ", err)
+			}
+			blockCountPerTurn = config.BlockCountPerTurn.Uint64()
+			keepers, err = keeperRegistry11.GetKeeperList(&callOpts)
+			if err != nil {
+				log.Fatal("failed to fetch keepers list: ", err)
+			}
 		}
-		blockCountPerTurn := registryConfig.BlockCountPerTurn.Uint64()
 
-		keepersList, err := registryClient.GetKeeperList(&callOpts)
-		if err != nil {
-			log.Fatal("failed to fetch keepers list: ", err)
-		}
-
-		keeperIndex := (uint64(positioningConstant) + ((block - (block % blockCountPerTurn)) / blockCountPerTurn)) % uint64(len(keepersList))
-		payload, err := keeper.Registry1_1ABI.Pack("checkUpkeep", big.NewInt(upkeepId), keepersList[keeperIndex])
+		keeperIndex := (uint64(positioningConstant) + ((block - (block % blockCountPerTurn)) / blockCountPerTurn)) % uint64(len(keepers))
+		payload, err := keeper.Registry1_2ABI.Pack("checkUpkeep", big.NewInt(upkeepId), keepers[keeperIndex])
 		if err != nil {
 			log.Fatal("failed to pack checkUpkeep: ", err)
 		}
@@ -85,7 +121,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 			args["gasPrice"] = hexutil.EncodeUint64(gasPrice)
 		}
 
-		var result string
+		var res string
 		reqs = append(reqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
@@ -93,33 +129,26 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 				// The block at which we want to inspect the upkeep state
 				hexutil.EncodeUint64(block),
 			},
-			Result: &result,
+			Result: &res,
 		})
 
-		results = append(results, &result)
+		results = append(results, &res)
 		keeperPerBlockIndex = append(keeperPerBlockIndex, keeperIndex)
-		keeperPerBlockAddress = append(keeperPerBlockAddress, keepersList[keeperIndex])
+		keeperPerBlockAddress = append(keeperPerBlockAddress, keepers[keeperIndex])
 	}
 
+	k.batchProcess(ctx, reqs, from, keeperPerBlockIndex, keeperPerBlockAddress, results)
+}
+
+func (k *Keeper) batchProcess(ctx context.Context, reqs []rpc.BatchElem, from uint64, keeperPerBlockIndex []uint64, keeperPerBlockAddress []common.Address, results []*string) {
 	log.Println("Doing batch call to check upkeeps")
 	if err := k.rpcClient.BatchCallContext(ctx, reqs); err != nil {
 		log.Fatal("failed to batch call checkUpkeep: ", err)
 	}
 
 	log.Println("Parsing batch call response")
-	type result struct {
-		block          uint64
-		checkUpkeep    bool
-		keeperIndex    uint64
-		keeperAddress  common.Address
-		reason         string
-		performData    string
-		maxLinkPayment *big.Int
-		gasLimit       *big.Int
-		adjustedGasWei *big.Int
-		linkEth        *big.Int
-	}
 	var parsedResults []result
+	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 	for i, req := range reqs {
 		if req.Error != nil {
 			parsedResults = append(parsedResults, result{
@@ -132,7 +161,13 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 			continue
 		}
 
-		returnValues, err := checkUpkeepArguments.UnpackValues(hexutil.MustDecode(*results[i]))
+		var returnValues []interface{}
+		var err error
+		if isVersion12 {
+			returnValues, err = checkUpkeepArguments2.UnpackValues(hexutil.MustDecode(*results[i]))
+		} else {
+			returnValues, err = checkUpkeepArguments1.UnpackValues(hexutil.MustDecode(*results[i]))
+		}
 		if err != nil {
 			log.Fatal("unpack checkUpkeep return: ", err, *results[i])
 		}
@@ -150,6 +185,11 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 		})
 	}
 
+	printResultsToConsole(parsedResults)
+}
+
+// printResultsToConsole writes parsed results to the console
+func printResultsToConsole(parsedResults []result) {
 	writer := tabwriter.NewWriter(os.Stdout, 8, 8, 0, '\t', 0)
 	defer writer.Flush()
 

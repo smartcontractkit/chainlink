@@ -4,6 +4,8 @@ import (
 	"log"
 
 	"github.com/spf13/viper"
+
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 )
 
 // Config represents configuration fields
@@ -29,20 +31,25 @@ type Config struct {
 	CheckGasLimit        uint32 `mapstructure:"CHECK_GAS_LIMIT"`
 	StalenessSeconds     int64  `mapstructure:"STALENESS_SECONDS"`
 	GasCeilingMultiplier uint16 `mapstructure:"GAS_CEILING_MULTIPLIER"`
+	MinUpkeepSpend       int64  `mapstructure:"MIN_UPKEEP_SPEND"`
+	MaxPerformGas        uint32 `mapstructure:"MAX_PERFORM_GAS"`
 	FallbackGasPrice     int64  `mapstructure:"FALLBACK_GAS_PRICE"`
 	FallbackLinkPrice    int64  `mapstructure:"FALLBACK_LINK_PRICE"`
+	Transcoder           string `mapstructure:"TRANSCODER"`
+	Registrar            string `mapstructure:"REGISTRAR"`
 
 	// Keepers Config
-	RegistryAddress                 string `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
-	RegistryConfigUpdate            bool   `mapstructure:"KEEPER_CONFIG_UPDATE"`
-	KeepersCount                    int    `mapstructure:"KEEPERS_COUNT"`
-	UpkeepTestRange                 int64  `mapstructure:"UPKEEP_TEST_RANGE"`
-	UpkeepAverageEligibilityCadence int64  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
-	UpkeepInterval                  int64  `mapstructure:"UPKEEP_INTERVAL"`
-	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
-	UpkeepGasLimit                  uint32 `mapstructure:"UPKEEP_GAS_LIMIT"`
-	UpkeepCount                     int64  `mapstructure:"UPKEEP_COUNT"`
-	AddFundsAmount                  string `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
+	RegistryAddress                 string                 `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
+	RegistryConfigUpdate            bool                   `mapstructure:"KEEPER_CONFIG_UPDATE"`
+	KeepersCount                    int                    `mapstructure:"KEEPERS_COUNT"`
+	UpkeepTestRange                 int64                  `mapstructure:"UPKEEP_TEST_RANGE"`
+	UpkeepAverageEligibilityCadence int64                  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
+	UpkeepInterval                  int64                  `mapstructure:"UPKEEP_INTERVAL"`
+	UpkeepCheckData                 string                 `mapstructure:"UPKEEP_CHECK_DATA"`
+	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
+	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
+	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
 
 	// Feeds config
 	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
@@ -50,7 +57,7 @@ type Config struct {
 	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
 }
 
-// New is the constructor of Config
+// New creates a new config
 func New() *Config {
 	var cfg Config
 	configFile := viper.GetString("config")
