@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simplified the Keepers job spec by removing the observation source from the required parameters.
 
+## Added
+
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified
+  with P2PV2_BOOTSTRAPPERS config param
+
 ## [1.5.1] - 2022-06-27
 
 ### Fixed
@@ -70,12 +75,10 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 - `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
 
-- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified
--  with P2PV2_BOOTSTRAPPERS config param
-
 
 ### Fixed
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
+- Correctly handle the case where bumped gas would exceed the RPC node's configured maximum on Fantom (note that node operators should check their Fantom RPC node configuration and remove the fee cap if there is one)
 - Fixed handling of Metis internal fee change
 
 ### Removed
