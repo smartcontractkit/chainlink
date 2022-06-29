@@ -94,6 +94,7 @@ const JOB_PAYLOAD__SPEC = gql`
       requestTimeout
       backoffInitialDelay
       backoffMaxDelay
+      maxGasPriceGWei
     }
     ... on BlockhashStoreSpec {
       coordinatorV1Address

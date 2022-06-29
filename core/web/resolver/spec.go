@@ -698,6 +698,15 @@ func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
 }
 
+// MaxGasPriceGWei resolves the spec's max gas price gwei.
+func (r *VRFSpecResolver) MaxGasPriceGWei() *int32 {
+	if r.spec.MaxGasPriceGWei == nil {
+		return nil
+	}
+	maxGasPriceGWei := int32(*r.spec.MaxGasPriceGWei)
+	return &maxGasPriceGWei
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }
