@@ -65,7 +65,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
-        uses: smartcontractkit/ctf-ci-e2e-action@v2.0.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@v2.0.1
         env:
           CHAINLINK_COMMIT_SHA: ${{ github.sha }}
           CHAINLINK_ENV_OWNER: ${{ github.actor }}
