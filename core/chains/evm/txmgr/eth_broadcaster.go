@@ -11,6 +11,8 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/sqlx"
@@ -33,6 +35,34 @@ const (
 	// TransmitCheckTimeout controls the maximum amount of time that will be
 	// spent on the transmit check.
 	TransmitCheckTimeout = 2 * time.Second
+)
+
+var (
+	promTimeUntilBroadcast = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_time_until_tx_broadcast",
+		Help: "The amount of time elapsed from when a transaction is enqueued to until it is broadcasted.",
+		Buckets: []float64{
+			float64(time.Second),
+			float64(5 * time.Second),
+			float64(15 * time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+		},
+	}, []string{"evmChainID"})
+
+	promTimeBetweenBroadcasts = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_time_between_tx_broadcasts",
+		Help: "The amount of time elapsed between two broadcasts of the same transaction.",
+		Buckets: []float64{
+			float64(time.Second),
+			float64(5 * time.Second),
+			float64(15 * time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+		},
+	}, []string{"evmChainID"})
 )
 
 var errEthTxRemoved = errors.New("eth_tx removed")
@@ -317,6 +347,8 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		if err := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 		}
+
+		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, *etx.BroadcastAt)
 	}
 }
 
@@ -414,6 +446,22 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return eb.saveFatallyErroredTransaction(lgr, &etx)
+	}
+
+	// We could arrive here under a bunch of scenarios:
+	// 1. from handleAnyInProgressEthTx, which will call handleInProgressEthTx if there is a single
+	// transaction in the in_progress state and re-sends it.
+	// 2. from processUnstartedEthTxs, which will call handleInProgressEthTx to send the transaction
+	// for the first time around. In this case, initialBroadcastAt will be the timestamp when it was
+	// first broadcast, and we'd want to recognize that as the time the transaction was first broadcasted.
+	// 3. from tryAgainWithNewDynamicFeeGas and tryAgainWithNewLegacyGas. In both of these cases,
+	// it is a re-broadcast, however the initialBroadcastAt value will be identical since that's what
+	// we pass in to tryAgainBumpingGas below.
+	if etx.BroadcastAt != nil {
+		// This is a rare occurrence, but in the event it does happen, we would want to know.
+		observeTimeBetweenBroadcasts(eb.chainID, *etx.BroadcastAt, initialBroadcastAt)
+	} else {
+		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, initialBroadcastAt)
 	}
 
 	etx.InitialBroadcastAt = &initialBroadcastAt
@@ -738,4 +786,14 @@ func IncrementNextNonce(q pg.Queryer, address gethCommon.Address, chainID *big.I
 			"Either the key is missing or the nonce has been modified by an external process. This is an unrecoverable error")
 	}
 	return nil
+}
+
+func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {
+	duration := float64(broadcastAt.Sub(createdAt))
+	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
+}
+
+func observeTimeBetweenBroadcasts(chainID big.Int, lastBroadcast, currentBroadcast time.Time) {
+	duration := float64(currentBroadcast.Sub(lastBroadcast))
+	promTimeBetweenBroadcasts.WithLabelValues(chainID.String()).Observe(duration)
 }
