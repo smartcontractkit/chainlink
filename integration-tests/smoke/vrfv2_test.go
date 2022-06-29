@@ -58,7 +58,6 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			log.Trace().Msg("JUST A TRACE")
 			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(e)
 			Expect(err).ShouldNot(HaveOccurred())
 			cd, err = contracts.NewContractDeployer(c)
