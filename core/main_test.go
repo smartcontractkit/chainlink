@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -204,6 +202,7 @@ func ExampleRun_keys() {
 	//    ocr2        Remote commands for administering the node's off chain reporting keys
 	//    solana      Remote commands for administering the node's Solana keys
 	//    terra       Remote commands for administering the node's Terra keys
+	//    starknet    Remote commands for administering the node's StarkNet keys
 	//    dkgsign     Remote commands for administering the node's DKGSign keys
 	//    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
 	//    vrf         Remote commands for administering the node's vrf keys
@@ -347,6 +346,26 @@ func ExampleRun_keys_terra() {
 	//    export  Export Terra key to keyfile
 	//    delete  Delete Terra key if present
 	//    list    List the Terra keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_starknet() {
+	run("keys", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys starknet - Remote commands for administering the node's StarkNet keys
+	//
+	// USAGE:
+	//    core.test keys starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a StarkNet key
+	//    import  Import StarkNet key from keyfile
+	//    export  Export StarkNet key to keyfile
+	//    delete  Delete StarkNet key if present
+	//    list    List the StarkNet keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help

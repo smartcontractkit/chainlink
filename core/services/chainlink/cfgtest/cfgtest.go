@@ -14,7 +14,7 @@ import (
 
 func AssertFieldsNotNil(t *testing.T, s interface{}) {
 	err := assertFieldsNotNil(t, "", reflect.ValueOf(s))
-	assert.NoError(t, err, multiErrorList(multierr.Errors(err)))
+	assert.NoError(t, err, MultiErrorList(err))
 }
 
 func assertFieldsNotNil(t *testing.T, prefix string, s reflect.Value) (err error) {
@@ -97,6 +97,15 @@ func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 }
 
 type multiErrorList []error
+
+// MultiErrorList returns an error which formats underlying errors as a list, or nil if err is nil.
+func MultiErrorList(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return multiErrorList(multierr.Errors(err))
+}
 
 func (m multiErrorList) Error() string {
 	l := len(m)

@@ -29,15 +29,13 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -72,6 +70,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -120,6 +119,7 @@ var (
 	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
 	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1))
