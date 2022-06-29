@@ -200,6 +200,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			d.dkgSignKs,
 			d.dkgEncryptKs,
 			chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "error while instantiating DKG")
+		}
 	case job.OCR2VRF:
 		ocr2vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
 			types.RelayArgs{

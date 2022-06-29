@@ -47,7 +47,7 @@ func NewDKG(
 	if err != nil {
 		return &DKGContainer{}, err
 	}
-	err = config.ValidatePluginConfig(pluginConfig)
+	err = config.ValidatePluginConfig(pluginConfig, dkgSignKs, dkgEncryptKs)
 	if err != nil {
 		return &DKGContainer{}, err
 	}
