@@ -71,6 +71,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -113,14 +114,15 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
-	DefaultCSAKey     = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey     = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key    = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
-	DefaultP2PKey     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey  = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultTerraKey   = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultVRFKey     = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultDKGSignKey = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey      = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey      = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCR2Key     = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	DefaultP2PKey      = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultSolanaKey   = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultTerraKey    = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultStarkNetKey = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultDKGSignKey  = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
