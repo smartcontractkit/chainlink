@@ -16,40 +16,76 @@ import (
 )
 
 type splunkLogger struct {
-	logger          Logger
-	splunkToken     string
-	splunkURL       string
-	environmentName string
-	hostname        string
-	localIP         string
+	logger            Logger
+	logBuffer         chan splunkLogItem
+	serviceDoneSignal chan struct{}
+	splunkToken       string
+	splunkURL         string
+	environmentName   string
+	hostname          string
+	localIP           string
+}
+
+type splunkLogItem struct {
+	eventID audit.EventID
+	data    map[string]interface{}
 }
 
 func newSplunkLogger(logger Logger, splunkToken string, splunkURL string, hostname string, environment string) Logger {
+	// This logger implements a single goroutine buffer/queue system to enable fire and forget
+	// dispatch of audit log events within web controllers. The async http post to collector has
+	// a timeout of 30 seconds, so internal API responses won't hang indefinitely.
+	logBuff := make(chan splunkLogItem, 10)
+	doneSignal := make(chan struct{})
+
+	sLogger := splunkLogger{
+		logger:            logger.Helper(1),
+		logBuffer:         logBuff,
+		serviceDoneSignal: doneSignal,
+		splunkToken:       splunkToken,
+		splunkURL:         splunkURL,
+		environmentName:   environment,
+		hostname:          hostname,
+		localIP:           getLocalIP(),
+	}
+
+	// Start single async forwarder thread
+	go sLogger.StartLogForwarder()
+
 	// Initialize and return Splunk logger struct with required state for HEC calls
-	return &splunkLogger{
-		logger:          logger.Helper(1),
-		splunkToken:     splunkToken,
-		splunkURL:       splunkURL,
-		environmentName: environment,
-		hostname:        hostname,
-		localIP:         getLocalIP(),
+	return &sLogger
+}
+
+// StartLogForwarder is a goroutine with buffer limit to process and forward log events async
+func (l *splunkLogger) StartLogForwarder() {
+	for {
+		select {
+		case event := <-l.logBuffer:
+			l.postLogToSplunk(event.eventID, event.data)
+		case <-l.serviceDoneSignal:
+			return
+		}
 	}
 }
 
 func (l *splunkLogger) Audit(eventID audit.EventID, data map[string]interface{}) {
-	// goroutine to async POST to splunk HTTP Event Collector (HEC)
-	go l.postLogToSplunk(eventID, data)
+	// Queue event data in logBuffer for forwarder to pick up and send
+	event := splunkLogItem{
+		eventID: eventID,
+		data:    data,
+	}
+	l.logBuffer <- event
 	l.logger.Audit(eventID, data)
 }
 
-// getLocalIP returns the first non- loopback local IP of the host
+// getLocalIP returns the first non-loopback local IP of the host
 func getLocalIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return ""
 	}
 	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
+		// filter and return address types for first non loopback address
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
@@ -77,7 +113,7 @@ func (l *splunkLogger) postLogToSplunk(eventID audit.EventID, data map[string]in
 	serializedSplunkLog, _ := json.Marshal(splunkLog)
 
 	// Send up to HEC log collector
-	httpClient := &http.Client{Timeout: time.Second * 60}
+	httpClient := &http.Client{Timeout: time.Second * 30}
 	req, _ := http.NewRequest("POST", l.splunkURL, bytes.NewReader(serializedSplunkLog))
 	req.Header.Add("Authorization", "Splunk "+l.splunkToken)
 	resp, err := httpClient.Do(req)
