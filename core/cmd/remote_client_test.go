@@ -418,8 +418,8 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		UpdatePasswordRequest: web.UpdatePasswordRequest{
-			OldPassword: cltest.Password,
-			NewPassword: "_p4SsW0rD1!@#",
+			OldPassword: testutils.Password,
+			NewPassword: testutils.Password + "foo",
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))

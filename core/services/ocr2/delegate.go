@@ -167,7 +167,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
-			}, spec.TransmitterID.String)
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+			})
 		if err2 != nil {
 			return nil, err2
 		}
@@ -180,7 +182,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
-			}, spec.TransmitterID.String)
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+			})
 		if err2 != nil {
 			return nil, err2
 		}

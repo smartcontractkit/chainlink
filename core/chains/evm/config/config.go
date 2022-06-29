@@ -73,9 +73,6 @@ type ChainScopedOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinimumContractPayment() *assets.Link
 
-	// OCR2 chain specific config
-	OCR2ContractConfirmations() uint16
-
 	// OCR1 chain specific config
 	OCRContractConfirmations() uint16
 	OCRContractTransmitterTransmitTimeout() time.Duration
@@ -751,7 +748,7 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 	return c.defaultSet.linkContractAddress
 }
 
-// OperatorFactoryAddress represents the address of the official LINK token
+// OperatorFactoryAddress represents the address of the OperatorFactory
 // contract on the current Chain
 func (c *chainScopedConfig) OperatorFactoryAddress() string {
 	val, ok := c.GeneralConfig.GlobalOperatorFactoryAddress()
