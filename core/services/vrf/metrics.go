@@ -1,6 +1,8 @@
 package vrf
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
@@ -46,6 +48,18 @@ var (
 		Name: "vrf_duplicate_requests",
 		Help: "The number of times the VRF listener receives duplicate requests, which could indicate a reorg.",
 	}, []string{"job_name", "external_job_id", "vrf_version"})
+
+	metricTimeBetweenSims = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "vrf_request_time_until_sim",
+		Help: "How long a VRF requests sits in the in-memory queue in between simulation attempts.",
+		Buckets: []float64{
+			float64(time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+			float64(5 * time.Minute),
+		},
+	}, []string{"job_name", "external_job_id", "vrf_version"})
 )
 
 func updateQueueSize(jobName string, extJobID uuid.UUID, vrfVersion version, size int) {
@@ -64,4 +78,22 @@ func incDroppedReqs(jobName string, extJobID uuid.UUID, vrfVersion version, reas
 
 func incDupeReqs(jobName string, extJobID uuid.UUID, vrfVersion version) {
 	metricDupeRequests.WithLabelValues(jobName, extJobID.String(), string(vrfVersion)).Inc()
+}
+
+func observeTimeBetweenSims(jobName string, extJobID uuid.UUID, vrfVersion version, pendingReqs []pendingRequest) {
+	now := time.Now().UTC()
+	for _, request := range pendingReqs {
+		// First time around lastTry will be zero because the request has not been
+		// simulated yet. It will be updated every time the request is simulated (in the event
+		// the request is simulated multiple times, due to it being underfunded).
+		var duration time.Duration
+		if request.lastTry.IsZero() {
+			duration = now.Sub(request.utcTimestamp)
+		} else {
+			duration = now.Sub(request.lastTry)
+		}
+		metricTimeBetweenSims.
+			WithLabelValues(jobName, extJobID.String(), string(vrfVersion)).
+			Observe(float64(duration))
+	}
 }
