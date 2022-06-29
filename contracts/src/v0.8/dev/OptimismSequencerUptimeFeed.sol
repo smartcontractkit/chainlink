@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {AggregatorInterface} from "../interfaces/AggregatorInterface.sol";
-import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
-import {AggregatorV2V3Interface} from "../interfaces/AggregatorV2V3Interface.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {OptimismSequencerUptimeFeedInterface} from "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import {IAggregator} from "../interfaces/IAggregator.sol";
+import {IAggregatorV3} from "../interfaces/IAggregatorV3.sol";
+import {IAggregatorV2V3} from "../interfaces/IAggregatorV2V3.sol";
+import {ITypeAndVersion} from "../interfaces/ITypeAndVersion.sol";
+import {IOptimismSequencerUptimeFeed} from "./interfaces/IOptimismSequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../SimpleReadAccessController.sol";
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2CrossDomainMessenger.sol";
@@ -16,9 +16,9 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
  *  records a new answer if the status changed
  */
 contract OptimismSequencerUptimeFeed is
-  AggregatorV2V3Interface,
-  OptimismSequencerUptimeFeedInterface,
-  TypeAndVersionInterface,
+  IAggregatorV2V3,
+  IOptimismSequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   /// @dev Round info (for uptime history)
@@ -38,7 +38,7 @@ contract OptimismSequencerUptimeFeed is
 
   /// @notice Sender is not the L2 messenger
   error InvalidSender();
-  /// @notice Replacement for AggregatorV3Interface "No data present"
+  /// @notice Replacement for IAggregatorV3 "No data present"
   error NoDataPresent();
 
   event L1SenderTransferred(address indexed from, address indexed to);
@@ -79,7 +79,7 @@ contract OptimismSequencerUptimeFeed is
 
   /**
    * @notice Check if a roundId is valid in this current contract state
-   * @dev Mainly used for AggregatorV2V3Interface functions
+   * @dev Mainly used for IAggregatorV2V3 functions
    * @param roundId Round ID to check
    */
   function isValidRound(uint256 roundId) private view returns (bool) {
@@ -91,7 +91,7 @@ contract OptimismSequencerUptimeFeed is
    *
    * - OptimismSequencerUptimeFeed 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismSequencerUptimeFeed 1.0.0";
@@ -121,7 +121,7 @@ contract OptimismSequencerUptimeFeed is
   }
 
   /**
-   * @dev Returns an AggregatorV2V3Interface compatible answer from status flag
+   * @dev Returns an IAggregatorV2V3 compatible answer from status flag
    *
    * @param status The status flag to convert to an aggregator-compatible answer
    */
@@ -194,25 +194,25 @@ contract OptimismSequencerUptimeFeed is
     }
   }
 
-  /// @inheritdoc AggregatorInterface
+  /// @inheritdoc IAggregator
   function latestAnswer() external view override checkAccess returns (int256) {
     FeedState memory feedState = s_feedState;
     return getStatusAnswer(feedState.latestStatus);
   }
 
-  /// @inheritdoc AggregatorInterface
+  /// @inheritdoc IAggregator
   function latestTimestamp() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
     return feedState.startedAt;
   }
 
-  /// @inheritdoc AggregatorInterface
+  /// @inheritdoc IAggregator
   function latestRound() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
     return feedState.latestRoundId;
   }
 
-  /// @inheritdoc AggregatorInterface
+  /// @inheritdoc IAggregator
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
     if (isValidRound(roundId)) {
       return getStatusAnswer(s_rounds[uint80(roundId)].status);
@@ -221,7 +221,7 @@ contract OptimismSequencerUptimeFeed is
     revert NoDataPresent();
   }
 
-  /// @inheritdoc AggregatorInterface
+  /// @inheritdoc IAggregator
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
     if (isValidRound(roundId)) {
       return s_rounds[uint80(roundId)].startedAt;
@@ -230,7 +230,7 @@ contract OptimismSequencerUptimeFeed is
     revert NoDataPresent();
   }
 
-  /// @inheritdoc AggregatorV3Interface
+  /// @inheritdoc IAggregatorV3
   function getRoundData(uint80 _roundId)
     public
     view
@@ -256,7 +256,7 @@ contract OptimismSequencerUptimeFeed is
     }
   }
 
-  /// @inheritdoc AggregatorV3Interface
+  /// @inheritdoc IAggregatorV3
   function latestRoundData()
     external
     view

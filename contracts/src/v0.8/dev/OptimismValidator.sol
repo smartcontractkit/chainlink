@@ -7,7 +7,7 @@ import "../interfaces/IAccessController.sol";
 import "../interfaces/IAggregatorV3.sol";
 import "../SimpleWriteAccessController.sol";
 
-import "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import "./interfaces/IOptimismSequencerUptimeFeed.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
@@ -87,7 +87,7 @@ contract OptimismValidator is ITypeAndVersion, IAggregatorValidator, SimpleWrite
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Encode the OptimismSequencerUptimeFeed call
-    bytes4 selector = OptimismSequencerUptimeFeedInterface.updateStatus.selector;
+    bytes4 selector = IOptimismSequencerUptimeFeed.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
     uint64 timestamp = uint64(block.timestamp);
     // Encode `status` and `timestamp`
