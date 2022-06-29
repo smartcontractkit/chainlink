@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added 
 
-- Added job spec attribute `gasLimit` which overrides `ETH_GAS_LIMIT_DEFAULT` value.
+- Added job spec attribute `gasLimit` which allows job-specific overrides of the default `ETH_GAS_LIMIT_DEFAULT` value for gas limit.
 
 ### Changed
 
