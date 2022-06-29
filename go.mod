@@ -59,7 +59,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
 	github.com/smartcontractkit/libocr v0.0.0-20220623210256-b7ae1e1c66f6
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220621025357-4e7ffb3fbe46
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220622011836-190aa7f5b481
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
