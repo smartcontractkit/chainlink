@@ -66,6 +66,9 @@ jobs:
         uses: actions/checkout@v2
       - name: Run Tests
         uses: smartcontractkit/ctf-ci-e2e-action@v1.0.4
+        env:
+          CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+          CHAINLINK_ENV_OWNER: ${{ github.actor }}
         with:
           test_command_to_run: make test_smoke args="-nodes=15"
           test_download_vendor_packages_command: make gomod
