@@ -1,8 +1,8 @@
-name: Chaos tests
+name: Integration Chaos Test
 on:
   push:
-    tags:
-      - '*'
+#    tags:
+#      - '*'
 jobs:
   build-chainlink:
     environment: integration
@@ -11,8 +11,6 @@ jobs:
       contents: read
     name: Build Chainlink Image
     runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -44,9 +42,10 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: ETH Chaos Tests
+    name: EVM Chaos Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink]
+    needs:
+      - build-chainlink
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2

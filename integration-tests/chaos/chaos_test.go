@@ -3,12 +3,13 @@ package chaos_test
 //revive:disable:dot-imports
 import (
 	"context"
+	"math/big"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	it "github.com/smartcontractkit/chainlink/integration-tests"
-	"math/big"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
