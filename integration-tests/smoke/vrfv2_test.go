@@ -31,12 +31,12 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRF suite on Simulated Network @simulated",
+			Entry("VRFv2 suite on Simulated Network @simulated",
 				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethdeploy.New(nil),
 				chainlink.New(0, nil),
 			),
-			Entry("VRF suite on Metis Stardust @metis",
+			Entry("VRFv2 suite on Metis Stardust @metis",
 				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethdeploy.New(&ethdeploy.Props{
 					NetworkName: networks.MetisStardust.Name,

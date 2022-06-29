@@ -30,12 +30,12 @@ import (
 var _ = Describe("Direct request suite @runlog", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("OCR suite on Simulated Network @simulated",
+			Entry("Runlog suite on Simulated Network @simulated",
 				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
-			Entry("OCR suite on Metis Stardust @metis",
+			Entry("Runlog suite on Metis Stardust @metis",
 				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
