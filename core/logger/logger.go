@@ -79,9 +79,7 @@ type Logger interface {
 	// exit uncleanly
 	Fatal(args ...interface{})
 
-	// The .Audit function here is specific to the SplunkLogger implementation
-	// It is added to the interface to ensure that audit logs are sent regardless of log level.
-	// All other Logger implementations should continue the pattern of propogating wrapped logger calls
+	// Audit logs an audit event, regardless of level.
 	Audit(eventID audit.EventID, data map[string]interface{})
 
 	Tracef(format string, values ...interface{})

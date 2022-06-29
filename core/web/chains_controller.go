@@ -96,7 +96,10 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 		return
 	}
 
-	chainj, _ := json.Marshal(chain)
+	chainj, err := json.Marshal(chain)
+	if err != nil {
+		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
+	}
 	cc.lggr.Audit(audit.ChainAdded, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponseWithStatus(c, cc.newResource(chain), cc.resourceName, http.StatusCreated)
@@ -153,7 +156,10 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 		return
 	}
 
-	chainj, _ := json.Marshal(chain)
+	chainj, err := json.Marshal(chain)
+	if err != nil {
+		cc.lggr.Errorf("Unable to marshal chain to json", "err", err)
+	}
 	cc.lggr.Audit(audit.ChainSpecUpdated, map[string]interface{}{"chain": chainj})
 
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)

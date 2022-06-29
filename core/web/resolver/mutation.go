@@ -1070,7 +1070,10 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	chainj, _ := json.Marshal(chain)
+	chainj, err := json.Marshal(chain)
+	if err != nil {
+		r.App.GetLogger().Errorf("Unable to marshal chain to json", "err", err)
+	}
 	r.App.GetLogger().Audit(audit.ChainAdded, map[string]interface{}{"chain": chainj})
 
 	return NewCreateChainPayload(&chain, nil), nil
@@ -1125,7 +1128,10 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	chainj, _ := json.Marshal(chain)
+	chainj, err := json.Marshal(chain)
+	if err != nil {
+		r.App.GetLogger().Errorf("Unable to marshal chain to json", "err", err)
+	}
 	r.App.GetLogger().Audit(audit.ChainSpecUpdated, map[string]interface{}{"chainj": chainj})
 
 	return NewUpdateChainPayload(&chain, nil, nil), nil

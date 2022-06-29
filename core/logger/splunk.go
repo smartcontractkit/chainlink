@@ -31,6 +31,9 @@ type splunkLogItem struct {
 	data    map[string]interface{}
 }
 
+// The .Audit function in the logger interface is exclusively used by this SplunkLogger implementation.
+// .Auditf function implementations should continue the pattern. Audit logs here must be emitted
+// regardless of log level, hence the separate 'Audit' log level
 func newSplunkLogger(logger Logger, splunkToken string, splunkURL string, hostname string, environment string) Logger {
 	// This logger implements a single goroutine buffer/queue system to enable fire and forget
 	// dispatch of audit log events within web controllers. The async http post to collector has
@@ -74,7 +77,8 @@ func (l *splunkLogger) Audit(eventID audit.EventID, data map[string]interface{})
 		eventID: eventID,
 		data:    data,
 	}
-	l.logBuffer <- event
+	// l.logBuffer <- event
+	l.postLogToSplunk(event.eventID, event.data) // TODO: Andrew
 	l.logger.Audit(eventID, data)
 }
 
