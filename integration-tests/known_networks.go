@@ -2,12 +2,9 @@ package networks
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
@@ -19,22 +16,7 @@ var (
 	SimulatedEVM = blockchain.SimulatedEVMNetwork
 
 	// MetisStardust holds default values for the Metis Stardust testnet
-	MetisStardust *blockchain.EVMNetwork
-)
-
-// LoadNetworks utilizes a .env file to load all env vars and assign values to preset networks
-func LoadNetworks(dotEnvPath string) {
-	absPath, err := filepath.Abs(dotEnvPath)
-	if err != nil {
-		log.Error().Err(err).Msg("Error loading .env file, proceeding with default values")
-	} else {
-		err = godotenv.Load(absPath)
-		if err != nil {
-			log.Error().Str("Path", absPath).Err(err).Msg("Error loading .env file, proceeding with default values")
-		}
-	}
-
-	MetisStardust = &blockchain.EVMNetwork{
+	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Metis Stardust Network",
 		ChainID:                   588,
 		URLs:                      []string{"wss://stardust-ws.metis.io/"},
@@ -45,6 +27,4 @@ func LoadNetworks(dotEnvPath string) {
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 	}
-
-	log.Info().Msg("Loaded Networks")
-}
+)

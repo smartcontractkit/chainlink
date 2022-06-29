@@ -24,7 +24,6 @@ import (
 
 func init() {
 	logging.Init()
-	networks.LoadNetworks("../.env")
 }
 
 func TestOCRSoak(t *testing.T) {
