@@ -153,49 +153,49 @@ func (js *spawner) stopService(jobID int32) {
 }
 
 // StartService starts service for the given job spec.
-func (js *spawner) StartService(ctx context.Context, spec Job) error {
+func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
-	delegate, exists := js.jobTypeDelegates[spec.Type]
+	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
-		js.lggr.Errorw("Job type has not been registered with job.Spawner", "type", spec.Type, "jobID", spec.ID)
+		js.lggr.Errorw("Job type has not been registered with job.Spawner", "type", jb.Type, "jobID", jb.ID)
 		return nil
 	}
 	// We always add the active job in the activeJob map, even in the case
 	// that it fails to start. That way we have access to the delegate to call
 	// OnJobDeleted before deleting. However, the activeJob will only have services
 	// that it was able to start without an error.
-	aj := activeJob{delegate: delegate, spec: spec}
+	aj := activeJob{delegate: delegate, spec: jb}
 
-	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
-	spec.PipelineSpec.JobID = spec.ID
-	if spec.GasLimit.Valid {
-		spec.PipelineSpec.GasLimit = &spec.GasLimit.Uint32
+	jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
+	jb.PipelineSpec.JobID = jb.ID
+	if jb.GasLimit.Valid {
+		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	services, err := delegate.ServicesForSpec(spec)
+	services, err := delegate.ServicesForSpec(jb)
 	if err != nil {
-		js.lggr.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)
+		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "error", err)
 		cctx, cancel := utils.ContextFromChan(js.chStop)
 		defer cancel()
-		js.orm.TryRecordError(spec.ID, err.Error(), pg.WithParentCtx(cctx))
-		js.activeJobs[spec.ID] = aj
+		js.orm.TryRecordError(jb.ID, err.Error(), pg.WithParentCtx(cctx))
+		js.activeJobs[jb.ID] = aj
 		return nil
 	}
 
-	js.lggr.Debugw("JobSpawner: Starting services for job", "jobID", spec.ID, "count", len(services))
+	js.lggr.Debugw("JobSpawner: Starting services for job", "jobID", jb.ID, "count", len(services))
 
 	for _, service := range services {
 		err = service.Start(ctx)
 		if err != nil {
-			js.lggr.Criticalw("Error starting service for job", "jobID", spec.ID, "error", err)
+			js.lggr.Criticalw("Error starting service for job", "jobID", jb.ID, "error", err)
 			continue
 		}
 		aj.services = append(aj.services, service)
 	}
-	js.lggr.Debugw("JobSpawner: Finished starting services for job", "jobID", spec.ID, "count", len(services))
-	js.activeJobs[spec.ID] = aj
+	js.lggr.Debugw("JobSpawner: Finished starting services for job", "jobID", jb.ID, "count", len(services))
+	js.activeJobs[jb.ID] = aj
 	return nil
 }
 
