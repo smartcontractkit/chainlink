@@ -15,11 +15,11 @@ import (
 // Some networks with public RPC endpoints are already filled out, but make use of environment variables to use info like
 // private RPC endpoints and private keys.
 var (
-	// SimulatedEVMNetwork represents a simulated network
-	SimulatedEVMNetwork = blockchain.SimulatedEVMNetwork
+	// SimulatedEVM represents a simulated network
+	SimulatedEVM = blockchain.SimulatedEVMNetwork
 
-	// MetisTestNetwork holds default values for the Metis Stardust testnet
-	MetisTestNetwork *blockchain.EVMNetwork
+	// MetisStardust holds default values for the Metis Stardust testnet
+	MetisStardust *blockchain.EVMNetwork
 )
 
 // LoadNetworks utilizes a .env file to load all env vars and assign values to preset networks
@@ -34,7 +34,7 @@ func LoadNetworks(dotEnvPath string) {
 		}
 	}
 
-	MetisTestNetwork = &blockchain.EVMNetwork{
+	MetisStardust = &blockchain.EVMNetwork{
 		Name:                      "Metis Stardust Network",
 		ChainID:                   588,
 		URLs:                      []string{"wss://stardust-ws.metis.io/"},

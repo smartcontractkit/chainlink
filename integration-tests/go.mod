@@ -9,12 +9,10 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.27.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/chainlink-env v0.2.15
-	github.com/smartcontractkit/chainlink-testing-framework v1.3.11
-	github.com/stretchr/testify v1.7.4
+	github.com/smartcontractkit/chainlink-env v0.2.16
+	github.com/smartcontractkit/chainlink-testing-framework v1.4.1
+	github.com/stretchr/testify v1.8.0
 )
-
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

@@ -28,11 +28,11 @@ func init() {
 }
 
 func TestOCRSoak(t *testing.T) {
-	soakTestHelper(t, "@soak-ocr", "soak-ocr", 6, networks.MetisTestNetwork)
+	soakTestHelper(t, "@soak-ocr", "soak-ocr", 6, networks.MetisStardust)
 }
 
 func TestKeeperSoak(t *testing.T) {
-	soakTestHelper(t, "@soak-keeper", "soak-keeper", 6, networks.SimulatedEVMNetwork)
+	soakTestHelper(t, "@soak-keeper", "soak-keeper", 6, networks.SimulatedEVM)
 }
 
 func soakTestHelper(
@@ -44,7 +44,7 @@ func soakTestHelper(
 	exeFile, exeFileSize, err := actions.BuildGoTests("./", "./tests", "../")
 	require.NoError(t, err, "Error building go tests")
 	env := environment.New(&environment.Config{
-		TTL:             999 * time.Hour,
+		TTL:             720 * time.Hour, // 30 days limit
 		Labels:          []string{fmt.Sprintf("envType=%s", pkg.EnvTypeEVM5RemoteRunner)},
 		NamespacePrefix: namespacePrefix,
 	})
@@ -68,7 +68,7 @@ func soakTestHelper(
 	if !evmNetwork.Simulated {
 		chainlinkVals["env"] = map[string]interface{}{
 			"eth_url":      evmNetwork.URLs[0],
-			"eth_chain_id": fmt.Sprint(networks.MetisTestNetwork.ChainID),
+			"eth_chain_id": fmt.Sprint(networks.MetisStardust.ChainID),
 		}
 	}
 

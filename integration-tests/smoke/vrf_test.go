@@ -25,24 +25,52 @@ import (
 )
 
 var _ = Describe("VRF suite @vrf", func() {
+	var (
+		testScenarios = []TableEntry{
+			Entry("VRF suite on Simulated Network @simulated",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, nil),
+			),
+			Entry("VRF suite on Metis Stardust @metis",
+				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.MetisStardust.Name,
+					Simulated:   networks.MetisStardust.Simulated,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.MetisStardust.ChainlinkValuesMap(),
+				}),
+			),
+		}
+
+		testEnvironment *environment.Environment
+		chainClient     blockchain.EVMClient
+		chainlinkNodes  []client.Chainlink
+	)
+
+	AfterEach(func() {
+		By("Tearing env down")
+		chainClient.GasStats().PrintStats()
+		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	})
+
 	DescribeTable("VRF suite on different EVM networks", func(
-		clientFunc func(networkSettings *blockchain.EVMNetwork) func(*environment.Environment) (blockchain.EVMClient, error),
-		evmNetwork *blockchain.EVMNetwork,
-		chainlinkValues map[string]interface{},
+		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		evmChart environment.ConnectedChart,
+		chainlinkCharts ...environment.ConnectedChart,
 	) {
 		By("Deploying the environment")
-		testEnvironment := environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).
-			AddHelm(ethereum.New(&ethereum.Props{
-				NetworkName: evmNetwork.Name,
-				Simulated:   evmNetwork.Simulated,
-				WsURLs:      evmNetwork.URLs,
-			})).
-			AddHelm(chainlink.New(0, chainlinkValues))
+		testEnvironment := environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).AddHelm(evmChart)
+		for _, chainlinkChart := range chainlinkCharts {
+			testEnvironment.AddHelm(chainlinkChart)
+		}
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err := clientFunc(evmNetwork)(testEnvironment)
+		chainClient, err := clientFunc(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting client shouldn't fail")
 		cd, err := contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
@@ -132,19 +160,8 @@ var _ = Describe("VRF suite @vrf", func() {
 				g.Expect(out.Uint64()).Should(Not(BeNumerically("==", 0)), "Expected the VRF job give an answer other than 0")
 				log.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")
 			}, timeout, "1s").Should(Succeed())
-
-			By("Tearing env down")
-			chainClient.GasStats().PrintStats()
-			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		}
 	},
-		Entry("VRF suite on Simulated Network @simulated", blockchain.NewEthereumMultiNodeClientSetup, networks.SimulatedEVMNetwork, nil),
-		Entry("VRF suite on Metis Stardust @metis", blockchain.NewMetisMultiNodeClientSetup, networks.MetisTestNetwork, map[string]interface{}{
-			"env": map[string]interface{}{
-				"eth_url":      networks.MetisTestNetwork.URLs[0],
-				"eth_chain_id": fmt.Sprint(networks.MetisTestNetwork.ChainID),
-			},
-		}),
+		testScenarios,
 	)
 })

@@ -4,32 +4,41 @@ package smoke
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
 )
 
 var _ = Describe("Cronjob suite @cron", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Cronjob suite on Simulated Network @simulated", blockchain.NewEthereumMultiNodeClientSetup, networks.SimulatedEVMNetwork, nil),
-			Entry("Cronjob suite on Metis Stardust @metis", blockchain.NewMetisMultiNodeClientSetup, networks.MetisTestNetwork, map[string]interface{}{
-				"env": map[string]interface{}{
-					"eth_url":      networks.MetisTestNetwork.URLs[0],
-					"eth_chain_id": fmt.Sprint(networks.MetisTestNetwork.ChainID),
-				},
-			}),
+			Entry("Cronjob suite on Simulated Network @simulated",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, nil),
+			),
+			Entry("Cronjob suite on Metis Stardust @metis",
+				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.MetisStardust.Name,
+					Simulated:   networks.MetisStardust.Simulated,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.MetisStardust.ChainlinkValuesMap(),
+				}),
+			),
 		}
 
 		err             error
@@ -40,25 +49,26 @@ var _ = Describe("Cronjob suite @cron", func() {
 	)
 
 	AfterEach(func() {
-		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil, nil)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-		})
+		By("Tearing down the environment")
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil, nil)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
 	DescribeTable("Cronjob suite on different EVM networks", func(
-		clientFunc func(networkSettings *blockchain.EVMNetwork) func(*environment.Environment) (blockchain.EVMClient, error),
-		evmNetwork *blockchain.EVMNetwork,
-		chainlinkValues map[string]interface{},
+		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		evmChart environment.ConnectedChart,
+		chainlinkCharts ...environment.ConnectedChart,
 	) {
 		By("Deploying the environment")
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-cron"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
-			AddHelm(ethereum.New(nil)).
-			AddHelm(chainlink.New(0, chainlinkValues))
+			AddHelm(evmChart)
+		for _, chainlinkChart := range chainlinkCharts {
+			testEnvironment.AddHelm(chainlinkChart)
+		}
 		err = testEnvironment.Run()
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "Error deploying test environment")
 
 		By("Connecting to launched resources")
 		cls, err := client.ConnectChainlinkNodes(testEnvironment)

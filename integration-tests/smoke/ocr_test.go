@@ -24,62 +24,86 @@ import (
 )
 
 var _ = Describe("OCR Feed @ocr", func() {
+	var (
+		testScenarios = []TableEntry{
+			Entry("OCR suite on Simulated Network @simulated",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, map[string]interface{}{
+					"replicas": 6,
+				}),
+			),
+			Entry("OCR suite on Metis Stardust @metis",
+				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.MetisStardust.Name,
+					Simulated:   networks.MetisStardust.Simulated,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env":      networks.MetisStardust.ChainlinkValuesMap(),
+					"replicas": 6,
+				}),
+			),
+		}
+
+		err               error
+		testEnvironment   *environment.Environment
+		chainClient       blockchain.EVMClient
+		contractDeployer  contracts.ContractDeployer
+		linkTokenContract contracts.LinkToken
+		chainlinkNodes    []client.Chainlink
+		mockServer        *client.MockserverClient
+		ocrInstances      []contracts.OffchainAggregator
+	)
+
+	AfterEach(func() {
+		By("Tearing down the environment")
+		chainClient.GasStats().PrintStats()
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	})
+
 	DescribeTable("OCR suite on different EVM networks", func(
-		evmNetwork *blockchain.EVMNetwork,
+		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		evmChart environment.ConnectedChart,
+		chainlinkCharts ...environment.ConnectedChart,
 	) {
-		var (
-			err               error
-			testEnvironment   *environment.Environment
-			chainClient       blockchain.EVMClient
-			contractDeployer  contracts.ContractDeployer
-			linkTokenContract contracts.LinkToken
-			chainlinkNodes    []client.Chainlink
-			mockServer        *client.MockserverClient
-			ocrInstances      []contracts.OffchainAggregator
-		)
+		By("Deploying the environment")
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-ocr"}).
+			AddHelm(mockservercfg.New(nil)).
+			AddHelm(mockserver.New(nil)).
+			AddHelm(evmChart)
+		for _, chainlinkChart := range chainlinkCharts {
+			testEnvironment.AddHelm(chainlinkChart)
+		}
+		err = testEnvironment.Run()
+		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Deploying the environment", func() {
-			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-ocr"}).
-				AddHelm(mockservercfg.New(nil)).
-				AddHelm(mockserver.New(nil)).
-				AddHelm(ethereum.New(nil)).
-				AddHelm(chainlink.New(0, map[string]interface{}{
-					"replicas": "6",
-				}))
-			err = testEnvironment.Run()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+		By("Connecting to launched resources")
+		chainClient, err = clientFunc(testEnvironment)
+		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
+		contractDeployer, err = contracts.NewContractDeployer(chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 
-		By("Connecting to launched resources", func() {
-			// Load Networks
-			var err error
-			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(evmNetwork)(testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			contractDeployer, err = contracts.NewContractDeployer(chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
+		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
+		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+		mockServer, err = client.ConnectMockServer(testEnvironment)
+		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
-			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			mockServer, err = client.ConnectMockServer(testEnvironment)
-			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
+		chainClient.ParallelTransactions(true)
+		Expect(err).ShouldNot(HaveOccurred())
 
-			chainClient.ParallelTransactions(true)
-			Expect(err).ShouldNot(HaveOccurred())
+		linkTokenContract, err = contractDeployer.DeployLinkTokenContract()
+		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
-			linkTokenContract, err = contractDeployer.DeployLinkTokenContract()
-			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-		})
+		By("Funding Chainlink nodes")
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
+		Expect(err).ShouldNot(HaveOccurred())
 
-		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
-			Expect(err).ShouldNot(HaveOccurred())
-		})
-
-		By("Deploying OCR contracts", func() {
-			ocrInstances = actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
-			err = chainClient.WaitForEvents()
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+		By("Deploying OCR contracts")
+		ocrInstances = actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
+		err = chainClient.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer))
 		By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer))
@@ -96,15 +120,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(answer.Int64()).Should(Equal(int64(10)), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
-
-		By("Printing gas stats", func() {
-			chainClient.GasStats().PrintStats()
-		})
-		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-		})
 	},
-		Entry("OCR on Geth @simulated", networks.SimulatedEVMNetwork),
+		testScenarios,
 	)
 })

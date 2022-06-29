@@ -1350,8 +1350,10 @@ github.com/slack-go/slack v0.11.0 h1:sBBjQz8LY++6eeWhGJNZpRm5jvLRNnWBFZ/cAq58a6k
 github.com/slack-go/slack v0.11.0/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
-github.com/smartcontractkit/chainlink-env v0.2.15 h1:qWxWzXBrLdF0L7PdVa5HISEQ1+KAHgEsfCr/VlwcpWk=
-github.com/smartcontractkit/chainlink-env v0.2.15/go.mod h1:cWI3cyLxt3XTR6hxWecOP+fNKldB3ASsQrinQHhQ12g=
+github.com/smartcontractkit/chainlink-env v0.2.16 h1:vvSuesR7g7/DML4hyRRslaP7aF20FjPuaOtipEnSVog=
+github.com/smartcontractkit/chainlink-env v0.2.16/go.mod h1:cWI3cyLxt3XTR6hxWecOP+fNKldB3ASsQrinQHhQ12g=
+github.com/smartcontractkit/chainlink-testing-framework v1.4.1 h1:1tAA6rv6GAqpuqnZEjLcKeuWL03NytLHPrLKt6DL5x0=
+github.com/smartcontractkit/chainlink-testing-framework v1.4.1/go.mod h1:fLOl1RREhgTaDP/XBk9T9NanVaxeT0ntWL20Reg48Y0=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20220121130134-5d2b1d5f424b h1:9xEvwk6fHqL9Fp/u8bLd7kbEQKrDSzwuDsH1ptHjE9g=
 github.com/smartcontractkit/libocr v0.0.0-20220121130134-5d2b1d5f424b/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
@@ -1412,8 +1414,8 @@ github.com/stretchr/testify v1.6.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/stretchr/testify v1.7.4 h1:wZRexSlwd7ZXfKINDLsO4r7WBt3gTKONc6K/VesHvHM=
-github.com/stretchr/testify v1.7.4/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
+github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
+github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d/go.mod h1:9OrXJhf154huy1nPWmuSrkgjPUtUNhA+Zmy+6AESzuA=

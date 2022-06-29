@@ -134,7 +134,7 @@ func getKeeperSuite(
 			})
 
 			By("Connecting to launched resources", func() {
-				chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVMNetwork)(testEnvironment)
+				chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
 				Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 				contractDeployer, err = contracts.NewContractDeployer(chainClient)
 				Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
