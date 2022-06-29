@@ -1,8 +1,10 @@
 name: Integration Chaos Test
 on:
+  schedule:
+    - cron: '0 0 * * *'
   push:
-#    tags:
-#      - '*'
+    tags:
+      - '*'
 jobs:
   build-chainlink:
     environment: integration
