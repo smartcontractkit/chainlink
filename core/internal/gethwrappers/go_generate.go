@@ -29,7 +29,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - CronUpkeepFactory cron_upkeep_factory_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/CronUpkeep.abi - CronUpkeep cron_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeeperRegistry.abi ../../../contracts/solc/v0.8.6/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper1_2
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/iTypeAndVersion.abi ../../../contracts/solc/v0.8.6/iTypeAndVersion.bin iTypeAndVersion type_and_version_interface_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/ITypeAndVersion.abi ../../../contracts/solc/v0.8.6/ITypeAndVersion.bin ITypeAndVersion type_and_version_interface_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.abi ../../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.bin KeeperRegistryCheckUpkeepGasUsageWrapper gas_wrapper
 
 // v0.8.6 VRFConsumer

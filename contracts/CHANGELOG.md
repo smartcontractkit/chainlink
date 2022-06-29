@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Rename v0.8 interfaces from `ExampleContractInterface.sol` format, to `iExampleContract.sol` format.
+- Rename v0.8 interfaces from `ExampleContractInterface.sol` format, to `IExampleContract.sol` format.
 - Downgrade 0.8.13 contracts to 0.8.6 due to [this solc bug](https://medium.com/certora/overly-optimistic-optimizer-certora-bug-disclosure-2101e3f7994d).
 - Reintroduce v0.6 `EACAggregatorProxy` after removing it in [this commit](https://github.com/smartcontractkit/chainlink/commit/558f42f5122779cb2e05dc8c2b84d1ae78cc0d71)
 - Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
