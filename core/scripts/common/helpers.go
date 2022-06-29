@@ -19,6 +19,29 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// EtherscanVerifyEndpoints maps a chain ID to the appropriate etherscan
+// contract verification URL.
+var EtherscanVerifyEndpoints = map[int]string{
+	1:        "https://api.etherscan.io/api",         // Ethereum mainnet
+	3:        "https://api-ropsten.etherscan.io/",    // Ropsten testnet
+	4:        "https://api-rinkeby.etherscan.io/",    // Rinkeby testnet
+	5:        "https://api-goerli.etherscan.io/",     // Goerli testnet
+	42:       "https://api-kovan.etherscan.io/api",   // Kovan testnet
+	11155111: "https://api-sepolia.etherscan.io/api", // Sepolia testnet
+
+	56: "https://api.bscscan.com/api",         // BSC mainnet
+	97: "https://api-testnet.bscscan.com/api", // BSC testnet
+
+	137:   "https://api.polygonscan.com/api",        // Polygon mainnet
+	80001: "https://api-mumbai.polygonscan.com/api", // Polygon testnet
+
+	250:  "https://api.ftmscan.com/api",         // Fantom mainnet
+	4002: "https://api-testnet.ftmscan.com/api", // Fantom testnet
+
+	43114: "https://api.snowtrace.io/api",         // Avalanche mainnet
+	43113: "https://api-testnet.snowtrace.io/api", // Avalanche testnet
+}
+
 type Environment struct {
 	Owner   *bind.TransactOpts
 	Ec      *ethclient.Client
