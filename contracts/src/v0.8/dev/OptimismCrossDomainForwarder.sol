@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iTypeAndVersion.sol";
+import "../interfaces/ITypeAndVersion.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
 import "./CrossDomainForwarder.sol";
@@ -14,7 +14,7 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract OptimismCrossDomainForwarder is iTypeAndVersion, CrossDomainForwarder {
+contract OptimismCrossDomainForwarder is ITypeAndVersion, CrossDomainForwarder {
   // OVM_L2CrossDomainMessenger is a precompile usually deployed to 0x4200000000000000000000000000000000000007
   iOVM_CrossDomainMessenger private immutable OVM_CROSS_DOMAIN_MESSENGER;
 
@@ -34,7 +34,7 @@ contract OptimismCrossDomainForwarder is iTypeAndVersion, CrossDomainForwarder {
    * - OptimismCrossDomainForwarder 0.1.0: initial release
    * - OptimismCrossDomainForwarder 1.0.0: Use OZ Address, CrossDomainOwnable
    *
-   * @inheritdoc iTypeAndVersion
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismCrossDomainForwarder 1.0.0";
@@ -42,7 +42,7 @@ contract OptimismCrossDomainForwarder is iTypeAndVersion, CrossDomainForwarder {
 
   /**
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
-   * @inheritdoc iForwarder
+   * @inheritdoc IForwarder
    */
   function forward(address target, bytes memory data) external virtual override onlyL1Owner {
     Address.functionCall(target, data, "Forwarder call reverted");

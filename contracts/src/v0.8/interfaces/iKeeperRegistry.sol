@@ -52,7 +52,7 @@ struct State {
   uint256 numUpkeeps;
 }
 
-interface iKeeperRegistryBase {
+interface IKeeperRegistryBase {
   function registerUpkeep(
     address target,
     uint32 gasLimit,
@@ -108,7 +108,7 @@ interface iKeeperRegistryBase {
  * but we want them to be easily queried off-chain. Solidity will not compile
  * if we actually inherit from this interface, so we document it here.
  */
-interface iKeeperRegistry is iKeeperRegistryBase {
+interface IKeeperRegistry is IKeeperRegistryBase {
   function checkUpkeep(uint256 upkeepId, address from)
     external
     view
@@ -121,7 +121,7 @@ interface iKeeperRegistry is iKeeperRegistryBase {
     );
 }
 
-interface iKeeperRegistryExecutable is iKeeperRegistryBase {
+interface IKeeperRegistryExecutable is IKeeperRegistryBase {
   function checkUpkeep(uint256 upkeepId, address from)
     external
     returns (

@@ -2,14 +2,14 @@
 
 pragma solidity ^0.8.0;
 
-import "./interfaces/iUpkeepTranscoder.sol";
-import "./interfaces/iTypeAndVersion.sol";
+import "./interfaces/IUpkeepTranscoder.sol";
+import "./interfaces/ITypeAndVersion.sol";
 
 /**
  * @notice Transcoder for converting upkeep data from one keeper
  * registry version to another
  */
-contract UpkeepTranscoder is iUpkeepTranscoder, iTypeAndVersion {
+contract UpkeepTranscoder is IUpkeepTranscoder, ITypeAndVersion {
   error InvalidTranscoding();
 
   /**

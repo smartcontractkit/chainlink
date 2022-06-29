@@ -7,36 +7,36 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./KeeperBase.sol";
 import "./ConfirmedOwner.sol";
-import "./interfaces/iTypeAndVersion.sol";
-import "./interfaces/iAggregatorV3.sol";
-import "./interfaces/iLinkToken.sol";
-import "./interfaces/iKeeperCompatible.sol";
-import "./interfaces/iKeeperRegistry.sol";
-import "./interfaces/iMigratableKeeperRegistry.sol";
-import "./interfaces/iUpkeepTranscoder.sol";
-import "./interfaces/iERC677Receiver.sol";
+import "./interfaces/ITypeAndVersion.sol";
+import "./interfaces/IAggregatorV3.sol";
+import "./interfaces/ILinkToken.sol";
+import "./interfaces/IKeeperCompatible.sol";
+import "./interfaces/IKeeperRegistry.sol";
+import "./interfaces/IMigratableKeeperRegistry.sol";
+import "./interfaces/IUpkeepTranscoder.sol";
+import "./interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
 contract KeeperRegistry is
-  iTypeAndVersion,
+  ITypeAndVersion,
   ConfirmedOwner,
   KeeperBase,
   ReentrancyGuard,
   Pausable,
-  iKeeperRegistryExecutable,
-  iMigratableKeeperRegistry,
-  iERC677Receiver
+  IKeeperRegistryExecutable,
+  IMigratableKeeperRegistry,
+  IERC677Receiver
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
   address private constant ZERO_ADDRESS = address(0);
   address private constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-  bytes4 private constant CHECK_SELECTOR = iKeeperCompatible.checkUpkeep.selector;
-  bytes4 private constant PERFORM_SELECTOR = iKeeperCompatible.performUpkeep.selector;
+  bytes4 private constant CHECK_SELECTOR = IKeeperCompatible.checkUpkeep.selector;
+  bytes4 private constant PERFORM_SELECTOR = IKeeperCompatible.performUpkeep.selector;
   uint256 private constant PERFORM_GAS_MIN = 2_300;
   uint256 private constant CANCELATION_DELAY = 50;
   uint256 private constant PERFORM_GAS_CUSHION = 5_000;
@@ -60,9 +60,9 @@ contract KeeperRegistry is
   address private s_transcoder;
   address private s_registrar;
 
-  iLinkToken public immutable LINK;
-  iAggregatorV3 public immutable LINK_ETH_FEED;
-  iAggregatorV3 public immutable FAST_GAS_FEED;
+  ILinkToken public immutable LINK;
+  IAggregatorV3 public immutable LINK_ETH_FEED;
+  IAggregatorV3 public immutable FAST_GAS_FEED;
 
   /**
    * @notice versions:
@@ -186,9 +186,9 @@ contract KeeperRegistry is
     address fastGasFeed,
     Config memory config
   ) ConfirmedOwner(msg.sender) {
-    LINK = iLinkToken(link);
-    LINK_ETH_FEED = iAggregatorV3(linkEthFeed);
-    FAST_GAS_FEED = iAggregatorV3(fastGasFeed);
+    LINK = ILinkToken(link);
+    LINK_ETH_FEED = IAggregatorV3(linkEthFeed);
+    FAST_GAS_FEED = IAggregatorV3(fastGasFeed);
     setConfig(config);
   }
 
@@ -643,7 +643,7 @@ contract KeeperRegistry is
   }
 
   /**
-   * @inheritdoc iMigratableKeeperRegistry
+   * @inheritdoc IMigratableKeeperRegistry
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
     if (
@@ -672,10 +672,10 @@ contract KeeperRegistry is
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
-    iMigratableKeeperRegistry(destination).receiveUpkeeps(
-      iUpkeepTranscoder(s_transcoder).transcodeUpkeeps(
+    IMigratableKeeperRegistry(destination).receiveUpkeeps(
+      IUpkeepTranscoder(s_transcoder).transcodeUpkeeps(
         UpkeepFormat.V1,
-        iMigratableKeeperRegistry(destination).upkeepTranscoderVersion(),
+        IMigratableKeeperRegistry(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
       )
     );
@@ -683,12 +683,12 @@ contract KeeperRegistry is
   }
 
   /**
-   * @inheritdoc iMigratableKeeperRegistry
+   * @inheritdoc IMigratableKeeperRegistry
    */
   UpkeepFormat public constant override upkeepTranscoderVersion = UpkeepFormat.V1;
 
   /**
-   * @inheritdoc iMigratableKeeperRegistry
+   * @inheritdoc IMigratableKeeperRegistry
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     if (

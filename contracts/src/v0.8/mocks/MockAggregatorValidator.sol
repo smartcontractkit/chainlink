@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iAggregatorValidator.sol";
+import "../interfaces/IAggregatorValidator.sol";
 
-contract MockAggregatorValidator is iAggregatorValidator {
+contract MockAggregatorValidator is IAggregatorValidator {
   uint8 immutable id;
 
   constructor(uint8 id_) {

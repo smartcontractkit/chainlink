@@ -4,9 +4,9 @@
 pragma solidity ^0.8.4;
 
 import "../VRFConsumerBase.sol";
-import "../interfaces/iERC677Receiver.sol";
+import "../interfaces/IERC677Receiver.sol";
 
-contract VRFOwnerlessConsumerExample is VRFConsumerBase, iERC677Receiver {
+contract VRFOwnerlessConsumerExample is VRFConsumerBase, IERC677Receiver {
   uint256 public s_randomnessOutput;
   bytes32 public s_requestId;
 

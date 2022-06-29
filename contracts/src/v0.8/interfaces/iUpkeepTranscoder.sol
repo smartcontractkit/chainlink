@@ -4,7 +4,7 @@ import "../UpkeepFormat.sol";
 
 pragma solidity ^0.8.0;
 
-interface iUpkeepTranscoder {
+interface IUpkeepTranscoder {
   function transcodeUpkeeps(
     UpkeepFormat fromVersion,
     UpkeepFormat toVersion,

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "./iAggregatorV2V3.sol";
+import "./IAggregatorV2V3.sol";
 
-interface iFeedRegistry {
+interface IFeedRegistry {
   struct Phase {
     uint16 phaseId;
     uint80 startingAggregatorRoundId;
@@ -27,7 +27,7 @@ interface iFeedRegistry {
     address sender
   );
 
-  // V3 iAggregatorV3
+  // V3 IAggregatorV3
 
   function decimals(address base, address quote) external view returns (uint8);
 
@@ -61,7 +61,7 @@ interface iFeedRegistry {
       uint80 answeredInRound
     );
 
-  // V2 iAggregator
+  // V2 IAggregator
 
   function latestAnswer(address base, address quote) external view returns (int256 answer);
 
@@ -83,13 +83,13 @@ interface iFeedRegistry {
 
   // Registry getters
 
-  function getFeed(address base, address quote) external view returns (iAggregatorV2V3 aggregator);
+  function getFeed(address base, address quote) external view returns (IAggregatorV2V3 aggregator);
 
   function getPhaseFeed(
     address base,
     address quote,
     uint16 phaseId
-  ) external view returns (iAggregatorV2V3 aggregator);
+  ) external view returns (IAggregatorV2V3 aggregator);
 
   function isFeedEnabled(address aggregator) external view returns (bool);
 
@@ -105,7 +105,7 @@ interface iFeedRegistry {
     address base,
     address quote,
     uint80 roundId
-  ) external view returns (iAggregatorV2V3 aggregator);
+  ) external view returns (IAggregatorV2V3 aggregator);
 
   function getPhaseRange(
     address base,
@@ -141,7 +141,7 @@ interface iFeedRegistry {
 
   // Proposed aggregator
 
-  function getProposedFeed(address base, address quote) external view returns (iAggregatorV2V3 proposedAggregator);
+  function getProposedFeed(address base, address quote) external view returns (IAggregatorV2V3 proposedAggregator);
 
   function proposedGetRoundData(
     address base,

@@ -59,8 +59,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer
 
 // Aggregators
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/iAggregatorV2V3.abi ../../../contracts/solc/v0.8.6/iAggregatorV2V3.bin iAggregatorV2V3 aggregator_v2v3_interface
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/iAggregatorV3.abi ../../../contracts/solc/v0.8.6/iAggregatorV3.bin iAggregatorV3 aggregator_v3_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/IAggregatorV2V3.abi ../../../contracts/solc/v0.8.6/IAggregatorV2V3.bin IAggregatorV2V3 aggregator_v2v3_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/IAggregatorV3.abi ../../../contracts/solc/v0.8.6/IAggregatorV3.bin IAggregatorV3 aggregator_v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../../contracts/solc/v0.8.6/DerivedPriceFeed.bin DerivedPriceFeed derived_price_feed_wrapper
 
 // Log tester

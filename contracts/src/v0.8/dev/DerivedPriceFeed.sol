@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../interfaces/iAggregatorV3.sol";
+import "../interfaces/IAggregatorV3.sol";
 
 /**
  * Network: Fantom Testnet
@@ -28,11 +28,11 @@ import "../interfaces/iAggregatorV3.sol";
  * FTM / USD feed and derive LINK / FTM using division.
  * (LINK/USD)/(FTM/USD) = LINK/FTM
  */
-contract DerivedPriceFeed is iAggregatorV3 {
+contract DerivedPriceFeed is IAggregatorV3 {
   uint256 public constant override version = 0;
 
-  iAggregatorV3 public immutable BASE;
-  iAggregatorV3 public immutable QUOTE;
+  IAggregatorV3 public immutable BASE;
+  IAggregatorV3 public immutable QUOTE;
   uint8 public immutable DECIMALS;
 
   constructor(
@@ -42,8 +42,8 @@ contract DerivedPriceFeed is iAggregatorV3 {
   ) {
     require(_decimals > uint8(0) && _decimals <= uint8(18), "Invalid _decimals");
     DECIMALS = _decimals;
-    BASE = iAggregatorV3(_base);
-    QUOTE = iAggregatorV3(_quote);
+    BASE = IAggregatorV3(_base);
+    QUOTE = IAggregatorV3(_quote);
   }
 
   function decimals() external view override returns (uint8) {

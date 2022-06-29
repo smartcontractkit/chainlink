@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iLinkToken.sol";
+import "../interfaces/ILinkToken.sol";
 import "../VRFConsumerBase.sol";
 
 contract VRFCoordinatorMock {
-  iLinkToken public LINK;
+  ILinkToken public LINK;
 
   event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed);
 
   constructor(address linkAddress) public {
-    LINK = iLinkToken(linkAddress);
+    LINK = ILinkToken(linkAddress);
   }
 
   function onTokenTransfer(

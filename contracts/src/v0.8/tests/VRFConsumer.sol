@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iLinkToken.sol";
+import "../interfaces/ILinkToken.sol";
 import "../VRFConsumerBase.sol";
 
 contract VRFConsumer is VRFConsumerBase {

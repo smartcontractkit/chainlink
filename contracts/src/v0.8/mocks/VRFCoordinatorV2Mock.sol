@@ -2,11 +2,11 @@
 // A mock for testing code that relies on VRFCoordinatorV2.
 pragma solidity ^0.8.4;
 
-import "../interfaces/iLinkToken.sol";
-import "../interfaces/iVRFCoordinatorV2.sol";
+import "../interfaces/ILinkToken.sol";
+import "../interfaces/IVRFCoordinatorV2.sol";
 import "../VRFConsumerBaseV2.sol";
 
-contract VRFCoordinatorV2Mock is iVRFCoordinatorV2 {
+contract VRFCoordinatorV2Mock is IVRFCoordinatorV2 {
   uint96 public immutable BASE_FEE;
   uint96 public immutable GAS_PRICE_LINK;
   uint16 public immutable MAX_CONSUMERS = 100;

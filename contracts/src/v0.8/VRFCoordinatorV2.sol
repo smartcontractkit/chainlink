@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "./interfaces/iLinkToken.sol";
-import "./interfaces/iBlockhashStore.sol";
-import "./interfaces/iAggregatorV3.sol";
-import "./interfaces/iVRFCoordinatorV2.sol";
-import "./interfaces/iTypeAndVersion.sol";
-import "./interfaces/iERC677Receiver.sol";
+import "./interfaces/ILinkToken.sol";
+import "./interfaces/IBlockhashStore.sol";
+import "./interfaces/IAggregatorV3.sol";
+import "./interfaces/IVRFCoordinatorV2.sol";
+import "./interfaces/ITypeAndVersion.sol";
+import "./interfaces/IERC677Receiver.sol";
 import "./VRF.sol";
 import "./ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 
-contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinatorV2, iERC677Receiver {
-  iLinkToken public immutable LINK;
-  iAggregatorV3 public immutable LINK_ETH_FEED;
-  iBlockhashStore public immutable BLOCKHASH_STORE;
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner, ITypeAndVersion, IVRFCoordinatorV2, IERC677Receiver {
+  ILinkToken public immutable LINK;
+  IAggregatorV3 public immutable LINK_ETH_FEED;
+  IBlockhashStore public immutable BLOCKHASH_STORE;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -162,9 +162,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
     address blockhashStore,
     address linkEthFeed
   ) ConfirmedOwner(msg.sender) {
-    LINK = iLinkToken(link);
-    LINK_ETH_FEED = iAggregatorV3(linkEthFeed);
-    BLOCKHASH_STORE = iBlockhashStore(blockhashStore);
+    LINK = ILinkToken(link);
+    LINK_ETH_FEED = IAggregatorV3(linkEthFeed);
+    BLOCKHASH_STORE = IBlockhashStore(blockhashStore);
   }
 
   /**
@@ -343,7 +343,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function getRequestConfig()
     external
@@ -359,7 +359,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function requestRandomWords(
     bytes32 keyHash,
@@ -674,7 +674,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function getSubscription(uint64 subId)
     external
@@ -699,7 +699,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function createSubscription() external override nonReentrant returns (uint64) {
     s_currentSubId++;
@@ -717,7 +717,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner)
     external
@@ -733,7 +733,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function acceptSubscriptionOwnerTransfer(uint64 subId) external override nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
@@ -749,7 +749,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     if (s_consumers[consumer][subId] == 0) {
@@ -773,7 +773,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function addConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
@@ -793,7 +793,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    */
   function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
     if (pendingRequestExists(subId)) {
@@ -821,7 +821,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, iTypeAndVersion, iVRFCoordinat
   }
 
   /**
-   * @inheritdoc iVRFCoordinatorV2
+   * @inheritdoc IVRFCoordinatorV2
    * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */

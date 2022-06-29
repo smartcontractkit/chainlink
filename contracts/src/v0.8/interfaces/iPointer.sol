@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface iPointer {
+interface IPointer {
   function getAddress() external view returns (address);
 }

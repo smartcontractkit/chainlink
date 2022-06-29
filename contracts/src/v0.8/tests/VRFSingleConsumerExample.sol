@@ -2,13 +2,13 @@
 // Example of a single consumer contract which owns the subscription.
 pragma solidity ^0.8.0;
 
-import "../interfaces/iLinkToken.sol";
-import "../interfaces/iVRFCoordinatorV2.sol";
+import "../interfaces/ILinkToken.sol";
+import "../interfaces/IVRFCoordinatorV2.sol";
 import "../VRFConsumerBaseV2.sol";
 
 contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
-  iVRFCoordinatorV2 COORDINATOR;
-  iLinkToken LINKTOKEN;
+  IVRFCoordinatorV2 COORDINATOR;
+  ILinkToken LINKTOKEN;
 
   struct RequestConfig {
     uint64 subId;
@@ -30,8 +30,8 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     uint32 numWords,
     bytes32 keyHash
   ) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = iVRFCoordinatorV2(vrfCoordinator);
-    LINKTOKEN = iLinkToken(link);
+    COORDINATOR = IVRFCoordinatorV2(vrfCoordinator);
+    LINKTOKEN = ILinkToken(link);
     s_owner = msg.sender;
     s_requestConfig = RequestConfig({
       subId: 0, // Unset initially

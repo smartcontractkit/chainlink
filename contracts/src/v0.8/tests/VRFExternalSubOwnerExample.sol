@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iLinkToken.sol";
-import "../interfaces/iVRFCoordinatorV2.sol";
+import "../interfaces/ILinkToken.sol";
+import "../interfaces/IVRFCoordinatorV2.sol";
 import "../VRFConsumerBaseV2.sol";
 
 contract VRFExternalSubOwnerExample is VRFConsumerBaseV2 {
-  iVRFCoordinatorV2 COORDINATOR;
-  iLinkToken LINKTOKEN;
+  IVRFCoordinatorV2 COORDINATOR;
+  ILinkToken LINKTOKEN;
 
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   address s_owner;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = iVRFCoordinatorV2(vrfCoordinator);
-    LINKTOKEN = iLinkToken(link);
+    COORDINATOR = IVRFCoordinatorV2(vrfCoordinator);
+    LINKTOKEN = ILinkToken(link);
     s_owner = msg.sender;
   }
 

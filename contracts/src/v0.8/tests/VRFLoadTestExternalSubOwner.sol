@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iLinkToken.sol";
-import "../interfaces/iVRFCoordinatorV2.sol";
+import "../interfaces/ILinkToken.sol";
+import "../interfaces/IVRFCoordinatorV2.sol";
 import "../VRFConsumerBaseV2.sol";
 import "../ConfirmedOwner.sol";
 
@@ -11,14 +11,14 @@ import "../ConfirmedOwner.sol";
  * @notice Allows making many VRF V2 randomness requests in a single transaction for load testing.
  */
 contract VRFLoadTestExternalSubOwner is VRFConsumerBaseV2, ConfirmedOwner {
-  iVRFCoordinatorV2 public immutable COORDINATOR;
-  iLinkToken public immutable LINK;
+  IVRFCoordinatorV2 public immutable COORDINATOR;
+  ILinkToken public immutable LINK;
 
   uint256 public s_responseCount;
 
   constructor(address _vrfCoordinator, address _link) VRFConsumerBaseV2(_vrfCoordinator) ConfirmedOwner(msg.sender) {
-    COORDINATOR = iVRFCoordinatorV2(_vrfCoordinator);
-    LINK = iLinkToken(_link);
+    COORDINATOR = IVRFCoordinatorV2(_vrfCoordinator);
+    LINK = ILinkToken(_link);
   }
 
   function fulfillRandomWords(uint256, uint256[] memory) internal override {

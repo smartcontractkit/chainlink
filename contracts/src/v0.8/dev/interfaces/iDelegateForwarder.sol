@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/// @title iDelegateForwarder - forwards a delegatecall to a target, under some conditions
-interface iDelegateForwarder {
+/// @title IDelegateForwarder - forwards a delegatecall to a target, under some conditions
+interface IDelegateForwarder {
   /**
    * @notice forward delegatecalls the `target` with `data`
    * @param target contract address to be delegatecalled

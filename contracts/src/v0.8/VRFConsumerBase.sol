@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/iLinkToken.sol";
+import "./interfaces/ILinkToken.sol";
 
 import "./VRFRequestIDBase.sol";
 
@@ -165,7 +165,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     return makeRequestId(_keyHash, vRFSeed);
   }
 
-  iLinkToken internal immutable LINK;
+  ILinkToken internal immutable LINK;
   address private immutable vrfCoordinator;
 
   // Nonces for each VRF key from which randomness has been requested.
@@ -182,7 +182,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    */
   constructor(address _vrfCoordinator, address _link) {
     vrfCoordinator = _vrfCoordinator;
-    LINK = iLinkToken(_link);
+    LINK = ILinkToken(_link);
   }
 
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF

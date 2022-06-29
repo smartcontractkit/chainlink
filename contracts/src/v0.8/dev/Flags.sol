@@ -2,11 +2,11 @@
 pragma solidity ^0.8.6;
 
 import "../SimpleReadAccessController.sol";
-import "../interfaces/iAccessController.sol";
-import "../interfaces/iTypeAndVersion.sol";
+import "../interfaces/IAccessController.sol";
+import "../interfaces/ITypeAndVersion.sol";
 
 /* dev dependencies - to be re/moved after audit */
-import "./interfaces/iFlags.sol";
+import "./interfaces/IFlags.sol";
 
 /**
  * @title The Flags contract
@@ -17,9 +17,9 @@ import "./interfaces/iFlags.sol";
  * An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is iTypeAndVersion, iFlags, SimpleReadAccessController {
-  iAccessController public raisingAccessController;
-  iAccessController public loweringAccessController;
+contract Flags is ITypeAndVersion, IFlags, SimpleReadAccessController {
+  IAccessController public raisingAccessController;
+  IAccessController public loweringAccessController;
 
   mapping(address => bool) private flags;
 
@@ -43,7 +43,7 @@ contract Flags is iTypeAndVersion, iFlags, SimpleReadAccessController {
    * - Flags 1.1.0: upgraded to solc 0.8, added lowering access controller
    * - Flags 1.0.0: initial release
    *
-   * @inheritdoc iTypeAndVersion
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "Flags 1.1.0";
@@ -135,7 +135,7 @@ contract Flags is iTypeAndVersion, iFlags, SimpleReadAccessController {
     address previous = address(raisingAccessController);
 
     if (previous != racAddress) {
-      raisingAccessController = iAccessController(racAddress);
+      raisingAccessController = IAccessController(racAddress);
 
       emit RaisingAccessControllerUpdated(previous, racAddress);
     }
@@ -145,7 +145,7 @@ contract Flags is iTypeAndVersion, iFlags, SimpleReadAccessController {
     address previous = address(loweringAccessController);
 
     if (previous != lacAddress) {
-      loweringAccessController = iAccessController(lacAddress);
+      loweringAccessController = IAccessController(lacAddress);
 
       emit LoweringAccessControllerUpdated(previous, lacAddress);
     }

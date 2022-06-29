@@ -2,13 +2,13 @@
 pragma solidity ^0.8.4;
 
 import {AddressAliasHelper} from "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {iForwarder} from "./interfaces/iForwarder.sol";
-import {iAggregator} from "../interfaces/iAggregator.sol";
-import {iAggregatorV3} from "../interfaces/iAggregatorV3.sol";
-import {iAggregatorV2V3} from "../interfaces/iAggregatorV2V3.sol";
-import {iTypeAndVersion} from "../interfaces/iTypeAndVersion.sol";
-import {iFlags} from "./interfaces/iFlags.sol";
-import {iArbitrumSequencerUptimeFeed} from "./interfaces/iArbitrumSequencerUptimeFeed.sol";
+import {IForwarder} from "./interfaces/IForwarder.sol";
+import {IAggregator} from "../interfaces/IAggregator.sol";
+import {IAggregatorV3} from "../interfaces/IAggregatorV3.sol";
+import {IAggregatorV2V3} from "../interfaces/IAggregatorV2V3.sol";
+import {ITypeAndVersion} from "../interfaces/ITypeAndVersion.sol";
+import {IFlags} from "./interfaces/IFlags.sol";
+import {IArbitrumSequencerUptimeFeed} from "./interfaces/IArbitrumSequencerUptimeFeed.sol";
 import {SimpleReadAccessController} from "../SimpleReadAccessController.sol";
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 
@@ -19,9 +19,9 @@ import {ConfirmedOwner} from "../ConfirmedOwner.sol";
  *   stored Flags contract.
  */
 contract ArbitrumSequencerUptimeFeed is
-  iAggregatorV2V3,
-  iArbitrumSequencerUptimeFeed,
-  iTypeAndVersion,
+  IAggregatorV2V3,
+  IArbitrumSequencerUptimeFeed,
+  ITypeAndVersion,
   SimpleReadAccessController
 {
   /// @dev Round info (for uptime history)
@@ -43,7 +43,7 @@ contract ArbitrumSequencerUptimeFeed is
   error AlreadyInitialized();
   /// @notice Sender is not the L2 messenger
   error InvalidSender();
-  /// @notice Replacement for iAggregatorV3 "No data present"
+  /// @notice Replacement for IAggregatorV3 "No data present"
   error NoDataPresent();
 
   event Initialized();
@@ -60,7 +60,7 @@ contract ArbitrumSequencerUptimeFeed is
   uint256 public constant override version = 1;
 
   /// @dev Flags contract to raise/lower flags on, during status transitions
-  iFlags public immutable FLAGS;
+  IFlags public immutable FLAGS;
   /// @dev L1 address
   address private s_l1Sender;
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
@@ -74,12 +74,12 @@ contract ArbitrumSequencerUptimeFeed is
   constructor(address flagsAddress, address l1SenderAddress) {
     setL1Sender(l1SenderAddress);
 
-    FLAGS = iFlags(flagsAddress);
+    FLAGS = IFlags(flagsAddress);
   }
 
   /**
    * @notice Check if a roundId is valid in this current contract state
-   * @dev Mainly used for iAggregatorV2V3 functions
+   * @dev Mainly used for IAggregatorV2V3 functions
    * @param roundId Round ID to check
    */
   function isValidRound(uint256 roundId) private view returns (bool) {
@@ -118,7 +118,7 @@ contract ArbitrumSequencerUptimeFeed is
    *
    * - ArbitrumSequencerUptimeFeed 1.0.0: initial release
    *
-   * @inheritdoc iTypeAndVersion
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumSequencerUptimeFeed 1.0.0";
@@ -157,7 +157,7 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /**
-   * @dev Returns an iAggregatorV2V3 compatible answer from status flag
+   * @dev Returns an IAggregatorV2V3 compatible answer from status flag
    *
    * @param status The status flag to convert to an aggregator-compatible answer
    */
@@ -225,28 +225,28 @@ contract ArbitrumSequencerUptimeFeed is
     forwardStatusToFlags(status);
   }
 
-  /// @inheritdoc iAggregator
+  /// @inheritdoc IAggregator
   function latestAnswer() external view override checkAccess returns (int256) {
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
     return getStatusAnswer(feedState.latestStatus);
   }
 
-  /// @inheritdoc iAggregator
+  /// @inheritdoc IAggregator
   function latestTimestamp() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
     return feedState.latestTimestamp;
   }
 
-  /// @inheritdoc iAggregator
+  /// @inheritdoc IAggregator
   function latestRound() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
     return feedState.latestRoundId;
   }
 
-  /// @inheritdoc iAggregator
+  /// @inheritdoc IAggregator
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
     requireInitialized(s_feedState.latestRoundId);
     if (isValidRound(roundId)) {
@@ -256,7 +256,7 @@ contract ArbitrumSequencerUptimeFeed is
     return 0;
   }
 
-  /// @inheritdoc iAggregator
+  /// @inheritdoc IAggregator
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
     requireInitialized(s_feedState.latestRoundId);
     if (isValidRound(roundId)) {
@@ -266,7 +266,7 @@ contract ArbitrumSequencerUptimeFeed is
     return 0;
   }
 
-  /// @inheritdoc iAggregatorV3
+  /// @inheritdoc IAggregatorV3
   function getRoundData(uint80 _roundId)
     public
     view
@@ -295,7 +295,7 @@ contract ArbitrumSequencerUptimeFeed is
     answeredInRound = roundId;
   }
 
-  /// @inheritdoc iAggregatorV3
+  /// @inheritdoc IAggregatorV3
   function latestRoundData()
     external
     view

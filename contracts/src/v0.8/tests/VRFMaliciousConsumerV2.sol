@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/iLinkToken.sol";
-import "../interfaces/iVRFCoordinatorV2.sol";
+import "../interfaces/ILinkToken.sol";
+import "../interfaces/IVRFCoordinatorV2.sol";
 import "../VRFConsumerBaseV2.sol";
 
 contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  iVRFCoordinatorV2 COORDINATOR;
-  iLinkToken LINKTOKEN;
+  IVRFCoordinatorV2 COORDINATOR;
+  ILinkToken LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
   bytes32 s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
-    COORDINATOR = iVRFCoordinatorV2(vrfCoordinator);
-    LINKTOKEN = iLinkToken(link);
+    COORDINATOR = IVRFCoordinatorV2(vrfCoordinator);
+    LINKTOKEN = ILinkToken(link);
   }
 
   function setKeyHash(bytes32 keyHash) public {

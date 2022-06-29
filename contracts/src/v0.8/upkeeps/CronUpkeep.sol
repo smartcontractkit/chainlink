@@ -23,7 +23,7 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../ConfirmedOwner.sol";
 import "../KeeperBase.sol";
-import "../interfaces/iKeeperCompatible.sol";
+import "../interfaces/IKeeperCompatible.sol";
 import {Cron as CronInternal, Spec} from "../libraries/internal/Cron.sol";
 import {Cron as CronExternal} from "../libraries/external/Cron.sol";
 import {getRevertMsg} from "../utils/utils.sol";
@@ -34,7 +34,7 @@ import {getRevertMsg} from "../utils/utils.sol";
  * Users must use the encodeCronString() function to encode their cron jobs before
  * setting them. This keeps all the string manipulation off chain and reduces gas costs.
  */
-contract CronUpkeep is iKeeperCompatible, KeeperBase, ConfirmedOwner, Pausable, Proxy {
+contract CronUpkeep is IKeeperCompatible, KeeperBase, ConfirmedOwner, Pausable, Proxy {
   using EnumerableSet for EnumerableSet.UintSet;
 
   event CronJobExecuted(uint256 indexed id, uint256 timestamp);

@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../UpkeepFormat.sol";
 
-interface iMigratableKeeperRegistry {
+interface IMigratableKeeperRegistry {
   /**
    * @notice Migrates upkeeps from one registry to another, including LINK and upkeep params.
    * Only callable by the upkeep admin. All upkeeps must have the same admin. Can only migrate active upkeeps.

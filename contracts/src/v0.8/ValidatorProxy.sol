@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "./ConfirmedOwner.sol";
-import "./interfaces/iAggregatorValidator.sol";
-import "./interfaces/iTypeAndVersion.sol";
+import "./interfaces/IAggregatorValidator.sol";
+import "./interfaces/ITypeAndVersion.sol";
 
-contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner {
+contract ValidatorProxy is IAggregatorValidator, ITypeAndVersion, ConfirmedOwner {
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {
     address target;
@@ -13,7 +13,7 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
   }
 
   struct ValidatorConfiguration {
-    iAggregatorValidator target;
+    IAggregatorValidator target;
     bool hasNewProposal;
   }
 
@@ -25,12 +25,12 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
   // Configuration for the current validator
   ValidatorConfiguration private s_currentValidator;
   // Proposed validator address
-  iAggregatorValidator private s_proposedValidator;
+  IAggregatorValidator private s_proposedValidator;
 
   event AggregatorProposed(address indexed aggregator);
   event AggregatorUpgraded(address indexed previous, address indexed current);
-  event ValidatorProposed(iAggregatorValidator indexed validator);
-  event ValidatorUpgraded(iAggregatorValidator indexed previous, iAggregatorValidator indexed current);
+  event ValidatorProposed(IAggregatorValidator indexed validator);
+  event ValidatorUpgraded(IAggregatorValidator indexed previous, IAggregatorValidator indexed current);
   /// @notice The proposed aggregator called validate, but the call was not passed on to any validators
   event ProposedAggregatorValidateCall(
     address indexed proposed,
@@ -45,7 +45,7 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
    * @param aggregator address
    * @param validator address
    */
-  constructor(address aggregator, iAggregatorValidator validator) ConfirmedOwner(msg.sender) {
+  constructor(address aggregator, IAggregatorValidator validator) ConfirmedOwner(msg.sender) {
     s_currentAggregator = AggregatorConfiguration({target: aggregator, hasNewProposal: false});
     s_currentValidator = ValidatorConfiguration({target: validator, hasNewProposal: false});
   }
@@ -99,7 +99,7 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
     require(currentValidatorAddress != address(0), "No validator set");
     currentValidatorAddress.call(
       abi.encodeWithSelector(
-        iAggregatorValidator.validate.selector,
+        IAggregatorValidator.validate.selector,
         previousRoundId,
         previousAnswer,
         currentRoundId,
@@ -110,7 +110,7 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
     if (currentValidator.hasNewProposal) {
       address(s_proposedValidator).call(
         abi.encodeWithSelector(
-          iAggregatorValidator.validate.selector,
+          IAggregatorValidator.validate.selector,
           previousRoundId,
           previousAnswer,
           currentRoundId,
@@ -181,7 +181,7 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
    * @dev A zero address can be used to unset the proposed validator. Only owner can call.
    * @param proposed address
    */
-  function proposeNewValidator(iAggregatorValidator proposed) external onlyOwner {
+  function proposeNewValidator(IAggregatorValidator proposed) external onlyOwner {
     require(s_proposedValidator != proposed && s_currentValidator.target != proposed, "Invalid proposal");
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
@@ -196,8 +196,8 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
   function upgradeValidator() external onlyOwner {
     // Get configuration in memory
     ValidatorConfiguration memory current = s_currentValidator;
-    iAggregatorValidator previous = current.target;
-    iAggregatorValidator proposed = s_proposedValidator;
+    IAggregatorValidator previous = current.target;
+    IAggregatorValidator proposed = s_proposedValidator;
 
     // Perform the upgrade
     require(current.hasNewProposal, "No proposal");
@@ -217,9 +217,9 @@ contract ValidatorProxy is iAggregatorValidator, iTypeAndVersion, ConfirmedOwner
     external
     view
     returns (
-      iAggregatorValidator current,
+      IAggregatorValidator current,
       bool hasProposal,
-      iAggregatorValidator proposed
+      IAggregatorValidator proposed
     )
   {
     current = s_currentValidator.target;

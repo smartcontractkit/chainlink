@@ -3,14 +3,14 @@
 pragma solidity 0.8.6;
 
 import "../ConfirmedOwner.sol";
-import "../interfaces/iKeeperCompatible.sol";
+import "../interfaces/IKeeperCompatible.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title The EthBalanceMonitor contract
  * @notice A keeper-compatible contract that monitors and funds eth addresses
  */
-contract EthBalanceMonitor is ConfirmedOwner, Pausable, iKeeperCompatible {
+contract EthBalanceMonitor is ConfirmedOwner, Pausable, IKeeperCompatible {
   // observed limit of 45K + 10k buffer
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
 

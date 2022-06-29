@@ -39,11 +39,11 @@ pragma solidity ^0.8.4;
  *
  * @dev The oracle will have given you an ID for the VRF keypair they have
  * @dev committed to (let's call it keyHash). Create subscription, fund it
- * @dev and your consumer contract as a consumer of it (see iVRFCoordinator
+ * @dev and your consumer contract as a consumer of it (see IVRFCoordinator
  * @dev subscription management functions).
  * @dev Call requestRandomWords(keyHash, subId, minimumRequestConfirmations,
  * @dev callbackGasLimit, numWords),
- * @dev see (iVRFCoordinator for a description of the arguments).
+ * @dev see (IVRFCoordinator for a description of the arguments).
  *
  * @dev Once the VRFCoordinator has received and validated the oracle's response
  * @dev to your request, it will call your contract's fulfillRandomWords method.

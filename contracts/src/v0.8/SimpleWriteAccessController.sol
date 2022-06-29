@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./ConfirmedOwner.sol";
-import "./interfaces/iAccessController.sol";
+import "./interfaces/IAccessController.sol";
 
 /**
  * @title SimpleWriteAccessController
@@ -11,7 +11,7 @@ import "./interfaces/iAccessController.sol";
  * @dev does not make any special permissions for externally, see
  * SimpleReadAccessController for that.
  */
-contract SimpleWriteAccessController is iAccessController, ConfirmedOwner {
+contract SimpleWriteAccessController is IAccessController, ConfirmedOwner {
   bool public checkEnabled;
   mapping(address => bool) internal accessList;
 
