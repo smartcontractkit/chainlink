@@ -48,7 +48,7 @@ func NewUser(email, plainPwd string) (User, error) {
 	}
 
 	if err := utils.VerifyPasswordComplexity(plainPwd, email); err != nil {
-		return User{}, err
+		return User{}, errors.Wrapf(err, "password insufficiently complex:\n%s", utils.PasswordComplexityRequirements)
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)
