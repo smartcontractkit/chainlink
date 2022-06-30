@@ -17,8 +17,8 @@ import (
 )
 
 //go:embed testdata/dump/*.env
-//go:embed testdata/dump/*.toml
 //go:embed testdata/dump/*.json
+//go:embed testdata/dump/*.toml
 var dumpTestFiles embed.FS
 
 func TestChainlinkApplication_ConfigDump(t *testing.T) {
@@ -35,7 +35,9 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 			require.NoError(t, err)
 
 			env, err := dumpTestFiles.ReadFile(filepath.Join(dir, name+".env"))
-			require.NoError(t, err)
+			if !os.IsNotExist(err) { // optional
+				require.NoError(t, err)
+			}
 
 			chainsJSON, err := dumpTestFiles.ReadFile(filepath.Join(dir, name+".json"))
 			if !os.IsNotExist(err) { // optional
