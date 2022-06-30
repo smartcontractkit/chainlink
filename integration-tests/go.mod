@@ -8,8 +8,8 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.27.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/chainlink-env v0.2.17-0.20220630154114-3871f1c8992a
-	github.com/smartcontractkit/chainlink-testing-framework v1.4.1
+	github.com/smartcontractkit/chainlink-env v0.2.17
+	github.com/smartcontractkit/chainlink-testing-framework v1.4.2
 	github.com/stretchr/testify v1.8.0
 )
 
@@ -21,10 +21,10 @@ require (
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
-	github.com/aws/constructs-go/constructs/v10 v10.1.22 // indirect
-	github.com/aws/jsii-runtime-go v1.59.0 // indirect
+	github.com/aws/constructs-go/constructs/v10 v10.1.43 // indirect
+	github.com/aws/jsii-runtime-go v1.61.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.3.14 // indirect
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.3.41 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
@@ -105,14 +105,14 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.24.1 // indirect
+	k8s.io/api v0.24.2 // indirect
 	k8s.io/apimachinery v0.24.2 // indirect
-	k8s.io/cli-runtime v0.24.1 // indirect
-	k8s.io/client-go v0.24.1 // indirect
-	k8s.io/component-base v0.24.1 // indirect
+	k8s.io/cli-runtime v0.24.2 // indirect
+	k8s.io/client-go v0.24.2 // indirect
+	k8s.io/component-base v0.24.2 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
-	k8s.io/kubectl v0.24.1 // indirect
+	k8s.io/kubectl v0.24.2 // indirect
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/kustomize/api v0.11.4 // indirect
