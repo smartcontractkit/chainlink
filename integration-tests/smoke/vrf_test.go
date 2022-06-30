@@ -7,50 +7,79 @@ import (
 	"math/big"
 	"time"
 
-	it "github.com/smartcontractkit/chainlink/integration-tests"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
+	uuid "github.com/satori/go.uuid"
 )
 
-var _ = Describe("VRF suite @table", func() {
+var _ = Describe("VRF suite @vrf", func() {
+	var (
+		testScenarios = []TableEntry{
+			Entry("VRF suite on Simulated Network @simulated",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, nil),
+			),
+			Entry("VRF suite on Metis Stardust @metis",
+				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.MetisStardust.Name,
+					Simulated:   networks.MetisStardust.Simulated,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.MetisStardust.ChainlinkValuesMap(),
+				}),
+			),
+		}
+
+		testEnvironment *environment.Environment
+		chainClient     blockchain.EVMClient
+		chainlinkNodes  []client.Chainlink
+	)
+
+	AfterEach(func() {
+		By("Tearing env down")
+		chainClient.GasStats().PrintStats()
+		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	})
+
 	DescribeTable("VRF suite on different EVM networks", func(
 		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
-		networkChart environment.ConnectedChart,
-		clChart environment.ConnectedChart,
+		evmChart environment.ConnectedChart,
+		chainlinkCharts ...environment.ConnectedChart,
 	) {
 		By("Deploying the environment")
-		e := environment.New(nil).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
-			AddHelm(networkChart).
-			AddHelm(clChart)
-		err := e.Run()
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).AddHelm(evmChart)
+		for _, chainlinkChart := range chainlinkCharts {
+			testEnvironment.AddHelm(chainlinkChart)
+		}
+		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		c, err := clientFunc(e)
+		chainClient, err = clientFunc(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting client shouldn't fail")
-		cd, err := contracts.NewContractDeployer(c)
+		cd, err := contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-		chainlinkNodes, err := client.ConnectChainlinkNodes(e)
+		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-		c.ParallelTransactions(true)
+		chainClient.ParallelTransactions(true)
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, c, big.NewFloat(10))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.05))
 		Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 
 		By("Deploying VRF contracts")
@@ -62,14 +91,14 @@ var _ = Describe("VRF suite @table", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF coordinator shouldn't fail")
 		consumer, err := cd.DeployVRFConsumer(lt.Address(), coordinator.Address())
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF consumer contract shouldn't fail")
-		err = c.WaitForEvents()
+		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for VRF setup contracts to deploy")
 
 		err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 		Expect(err).ShouldNot(HaveOccurred(), "Funding consumer contract shouldn't fail")
 		_, err = cd.DeployVRFContract()
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF contract shouldn't fail")
-		err = c.WaitForEvents()
+		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 
 		for _, n := range chainlinkNodes {
@@ -131,18 +160,8 @@ var _ = Describe("VRF suite @table", func() {
 				g.Expect(out.Uint64()).Should(Not(BeNumerically("==", 0)), "Expected the VRF job give an answer other than 0")
 				log.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")
 			}, timeout, "1s").Should(Succeed())
-
-			By("Tearing env down")
-			c.GasStats().PrintStats()
-			err = actions.TeardownSuite(e, utils.ProjectRoot, chainlinkNodes, nil, c)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		}
 	},
-		Entry("VRF suite on Geth @geth",
-			blockchain.NewEthereumMultiNodeClientSetup(
-				it.DefaultGethSettings),
-			ethereum.New(nil),
-			chainlink.New(0, nil),
-		),
+		testScenarios,
 	)
 })

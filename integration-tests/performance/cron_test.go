@@ -10,29 +10,30 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
 )
 
 var _ = Describe("Cronjob suite @cron", func() {
 	var (
-		err           error
-		job           *client.Job
-		chainlinkNode client.Chainlink
-		ms            *client.MockserverClient
-		e             *environment.Environment
-		profileTest   *testsetups.ChainlinkProfileTest
+		err             error
+		job             *client.Job
+		chainlinkNode   client.Chainlink
+		mockServer      *client.MockserverClient
+		testEnvironment *environment.Environment
+		profileTest     *testsetups.ChainlinkProfileTest
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			e = environment.New(nil).
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-cron"}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(nil)).
@@ -41,14 +42,14 @@ var _ = Describe("Cronjob suite @cron", func() {
 						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
 					},
 				}))
-			err = e.Run()
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
-			cls, err := client.ConnectChainlinkNodes(e)
+			cls, err := client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			ms, err = client.ConnectMockServer(e)
+			mockServer, err = client.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver client shouldn't fail")
 			chainlinkNode = cls[0]
 		})
@@ -58,12 +59,12 @@ var _ = Describe("Cronjob suite @cron", func() {
 				defer GinkgoRecover()
 				// initial value set is performed before jobs creation
 				Eventually(func(g Gomega) {
-					err = ms.SetValuePath("/variable", 5)
+					err = mockServer.SetValuePath("/variable", 5)
 					Expect(err).ShouldNot(HaveOccurred(), "Setting value path in mockserver shouldn't fail")
 
 					bta := client.BridgeTypeAttributes{
 						Name:        fmt.Sprintf("variable-%s", uuid.NewV4().String()),
-						URL:         fmt.Sprintf("%s/variable", ms.Config.ClusterURL),
+						URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 						RequestData: "{}",
 					}
 					err = chainlinkNode.CreateBridge(&bta)
@@ -90,7 +91,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 				ProfileDuration: 30 * time.Second,
 				ChainlinkNodes:  []client.Chainlink{chainlinkNode},
 			})
-			profileTest.Setup(e)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -102,7 +103,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, &profileTest.TestReporter, nil)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, &profileTest.TestReporter, nil)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})
