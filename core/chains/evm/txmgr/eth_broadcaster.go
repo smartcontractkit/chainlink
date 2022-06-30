@@ -334,8 +334,6 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		if err := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 		}
-
-		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, *etx.BroadcastAt)
 	}
 }
 
