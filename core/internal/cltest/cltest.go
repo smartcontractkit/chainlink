@@ -29,15 +29,14 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -65,6 +64,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -114,15 +114,16 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
-	DefaultCSAKey      = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey      = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key     = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
-	DefaultP2PKey      = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey   = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultTerraKey    = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultStarkNetKey = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultDKGSignKey  = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
