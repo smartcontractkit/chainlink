@@ -40,6 +40,11 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 					Simulated:   soakNetwork.Simulated,
 				})).
 				AddHelm(chainlink.New(0, nil)).
+				AddHelm(chainlink.New(1, nil)).
+				AddHelm(chainlink.New(2, nil)).
+				AddHelm(chainlink.New(3, nil)).
+				AddHelm(chainlink.New(4, nil)).
+				AddHelm(chainlink.New(5, nil)).
 				Run()
 			Expect(err).ShouldNot(HaveOccurred())
 			log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Soak Environment")

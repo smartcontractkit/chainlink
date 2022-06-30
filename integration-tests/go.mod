@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/ethereum/go-ethereum v1.10.19
-	github.com/joho/godotenv v1.3.0
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/rs/zerolog v1.27.0
