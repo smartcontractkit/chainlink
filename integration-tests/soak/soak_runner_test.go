@@ -27,7 +27,7 @@ func init() {
 }
 
 func TestOCRSoak(t *testing.T) {
-	soakTestHelper(t, "@soak-ocr", "soak-ocr", 6, networks.SimulatedEVM)
+	soakTestHelper(t, "@soak-ocr", "soak-ocr", 6, networks.MetisStardust)
 }
 
 func TestKeeperSoak(t *testing.T) {
@@ -78,7 +78,6 @@ func soakTestHelper(
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: evmNetwork.Name,
 			Simulated:   evmNetwork.Simulated,
-			WsURLs:      evmNetwork.URLs,
 		})).
 		AddHelm(chainlink.New(0, chainlinkVals)).
 		Run()
