@@ -398,6 +398,7 @@ type JobResource struct {
 	Name                   string                  `json:"name"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
+	GasLimit               clnull.Uint32           `json:"gasLimit"`
 	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
 	ExternalJobID          uuid.UUID               `json:"externalJobID"`
 	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
@@ -421,6 +422,7 @@ func NewJobResource(j job.Job) *JobResource {
 		Name:            j.Name.ValueOrZero(),
 		Type:            JobSpecType(j.Type),
 		SchemaVersion:   j.SchemaVersion,
+		GasLimit:        j.GasLimit,
 		MaxTaskDuration: j.MaxTaskDuration,
 		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
 		ExternalJobID:   j.ExternalJobID,

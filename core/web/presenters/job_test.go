@@ -14,6 +14,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -45,6 +46,8 @@ func TestJob(t *testing.T) {
 	v2CoordAddress, err := ethkey.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
 	require.NoError(t, err)
 
+	var specGasLimit uint32 = 1000
+
 	testCases := []struct {
 		name string
 		job  job.Job
@@ -53,7 +56,8 @@ func TestJob(t *testing.T) {
 		{
 			name: "direct request spec",
 			job: job.Job{
-				ID: 1,
+				ID:       1,
+				GasLimit: clnull.Uint32From(specGasLimit),
 				DirectRequestSpec: &job.DirectRequestSpec{
 					ContractAddress: contractAddress,
 					CreatedAt:       timestamp,
@@ -99,6 +103,7 @@ func TestJob(t *testing.T) {
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
+						"gasLimit": 1000,
 						"keeperSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
@@ -168,6 +173,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z",
 							"evmChainID": "42"
 						},
+						"gasLimit": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
 						"directRequestSpec": null,
@@ -213,6 +219,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Type("offchainreporting"),
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
+				GasLimit:        clnull.Uint32From(123),
 				MaxTaskDuration: models.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
@@ -252,6 +259,7 @@ func TestJob(t *testing.T) {
 						},
 						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
+						"gasLimit": 123,
 						"directRequestSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
@@ -309,6 +317,7 @@ func TestJob(t *testing.T) {
 							"evmChainID": "42"
 						},
 						"fluxMonitorSpec": null,
+						"gasLimit": null,
 						"directRequestSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
@@ -364,6 +373,7 @@ func TestJob(t *testing.T) {
                             "updatedAt":"2000-01-01T00:00:00Z"
                         },
                         "fluxMonitorSpec": null,
+						"gasLimit": null,
                         "directRequestSpec": null,
                         "keeperSpec": null,
                         "offChainReportingOracleSpec": null,
@@ -416,6 +426,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"fluxMonitorSpec": null,
+						"gasLimit": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
 						"cronSpec": null,
@@ -467,6 +478,7 @@ func TestJob(t *testing.T) {
 						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"directRequestSpec": null,
 						"fluxMonitorSpec": null,
+						"gasLimit": null,
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
@@ -529,6 +541,7 @@ func TestJob(t *testing.T) {
 						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"directRequestSpec": null,
 						"fluxMonitorSpec": null,
+						"gasLimit": null,
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
@@ -612,6 +625,7 @@ func TestJob(t *testing.T) {
 							"evmChainID": "42"
 						},
 						"fluxMonitorSpec": null,
+						"gasLimit": null,
 						"directRequestSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
