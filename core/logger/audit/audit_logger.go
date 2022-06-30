@@ -1,4 +1,4 @@
-package logger
+package audit
 
 import (
 	"bytes"
@@ -13,13 +13,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"go.uber.org/zap/zapcore"
 )
 
-type auditLogger struct {
-	logger Logger
+type AuditLogger struct {
+	logger logger.Logger
 	AuditLoggerConfig
 }
 
@@ -72,8 +71,8 @@ func NewAuditLoggerConfig(serviceURL string, headersEncoded, jsonWrapperKey, hos
 // .Auditf function implementations should continue the pattern. Audit logs here must be emitted
 // regardless of log level, hence the separate 'Audit' log level
 // Audit log events are posted up to with an HTTP forwarder
-func newAuditLogger(auditLoggerCfg AuditLoggerConfig, logger Logger) Logger {
-	sLogger := auditLogger{
+func newAuditLogger(auditLoggerCfg AuditLoggerConfig, logger Logger) AuditLogger {
+	sLogger := AuditLogger{
 		logger: logger.Helper(1),
 	}
 	sLogger.AuditLoggerConfig = auditLoggerCfg

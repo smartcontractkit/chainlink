@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -78,9 +77,6 @@ type Logger interface {
 	// Be careful about using this since it does NOT unwind the stack and may
 	// exit uncleanly
 	Fatal(args ...interface{})
-
-	// Audit logs an audit event, regardless of level.
-	Audit(eventID audit.EventID, data map[string]interface{})
 
 	Tracef(format string, values ...interface{})
 	Debugf(format string, values ...interface{})
