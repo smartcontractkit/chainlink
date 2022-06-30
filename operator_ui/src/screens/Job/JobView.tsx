@@ -155,6 +155,7 @@ export const JOB_PAYLOAD_FIELDS = gql`
     schemaVersion
     type
     maxTaskDuration
+    gasLimit
     spec {
       __typename
       ...JobPayload_Spec

@@ -50,10 +50,6 @@ func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
-	// TODO: we need to fill these out manually, find a better fix
-	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
-	spec.PipelineSpec.JobID = spec.ID
-
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
