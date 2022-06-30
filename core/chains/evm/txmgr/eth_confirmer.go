@@ -78,6 +78,21 @@ var (
 		Name: "tx_manager_tx_attempt_count",
 		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
 	}, []string{"evmChainID"})
+	promTimeUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_time_until_tx_confirmed",
+		Help: "The amount of time elapsed from a transaction being broadcast to being included in a block.",
+		Buckets: []float64{
+			float64(500 * time.Millisecond),
+			float64(time.Second),
+			float64(5 * time.Second),
+			float64(15 * time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+			float64(5 * time.Minute),
+			float64(10 * time.Minute),
+		},
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -110,7 +125,7 @@ type EthConfirmer struct {
 func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
-	context, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 	q := pg.NewQ(db, lggr, config)
 
@@ -129,7 +144,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 		resumeCallback,
 		keyStates,
 		utils.NewMailbox[*evmtypes.Head](1),
-		context,
+		ctx,
 		cancel,
 		sync.WaitGroup{},
 		0,
@@ -430,6 +445,9 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
+
+		duration := time.Now().Sub(attempts[i].EthTx.CreatedAt)
+		promTimeUntilTxConfirmed.WithLabelValues(ec.chainID.String()).Observe(float64(duration))
 	}
 	return nil
 }

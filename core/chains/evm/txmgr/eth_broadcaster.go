@@ -40,21 +40,9 @@ const (
 var (
 	promTimeUntilBroadcast = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "tx_manager_time_until_tx_broadcast",
-		Help: "The amount of time elapsed from when a transaction is enqueued to until it is broadcasted.",
+		Help: "The amount of time elapsed from when a transaction is enqueued to until it is broadcast.",
 		Buckets: []float64{
-			float64(time.Second),
-			float64(5 * time.Second),
-			float64(15 * time.Second),
-			float64(30 * time.Second),
-			float64(time.Minute),
-			float64(2 * time.Minute),
-		},
-	}, []string{"evmChainID"})
-
-	promTimeBetweenBroadcasts = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "tx_manager_time_between_tx_broadcasts",
-		Help: "The amount of time elapsed between two broadcasts of the same transaction.",
-		Buckets: []float64{
+			float64(500 * time.Millisecond),
 			float64(time.Second),
 			float64(5 * time.Second),
 			float64(15 * time.Second),
@@ -69,7 +57,6 @@ var errEthTxRemoved = errors.New("eth_tx removed")
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory interface {
-
 	// BuildChecker builds a new TransmitChecker based on the given spec.
 	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error)
 }
@@ -428,6 +415,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	}
 	cancel()
 
+	observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
 	if sendError.IsTxFeeExceedsCap() {
 		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
@@ -446,22 +434,6 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return eb.saveFatallyErroredTransaction(lgr, &etx)
-	}
-
-	// We could arrive here under a bunch of scenarios:
-	// 1. from handleAnyInProgressEthTx, which will call handleInProgressEthTx if there is a single
-	// transaction in the in_progress state and re-sends it.
-	// 2. from processUnstartedEthTxs, which will call handleInProgressEthTx to send the transaction
-	// for the first time around. In this case, initialBroadcastAt will be the timestamp when it was
-	// first broadcast, and we'd want to recognize that as the time the transaction was first broadcasted.
-	// 3. from tryAgainWithNewDynamicFeeGas and tryAgainWithNewLegacyGas. In both of these cases,
-	// it is a re-broadcast, however the initialBroadcastAt value will be identical since that's what
-	// we pass in to tryAgainBumpingGas below.
-	if etx.BroadcastAt != nil {
-		// This is a rare occurrence, but in the event it does happen, we would want to know.
-		observeTimeBetweenBroadcasts(eb.chainID, *etx.BroadcastAt, initialBroadcastAt)
-	} else {
-		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, initialBroadcastAt)
 	}
 
 	etx.InitialBroadcastAt = &initialBroadcastAt
@@ -791,9 +763,4 @@ func IncrementNextNonce(q pg.Queryer, address gethCommon.Address, chainID *big.I
 func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
-}
-
-func observeTimeBetweenBroadcasts(chainID big.Int, lastBroadcast, currentBroadcast time.Time) {
-	duration := float64(currentBroadcast.Sub(lastBroadcast))
-	promTimeBetweenBroadcasts.WithLabelValues(chainID.String()).Observe(duration)
 }
