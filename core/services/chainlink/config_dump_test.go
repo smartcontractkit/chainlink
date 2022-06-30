@@ -44,7 +44,7 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			os.Clearenv()
+			clearenv(t)
 
 			seen := map[string]struct{}{}
 			for _, kv := range strings.Split(string(env), "\n") {
@@ -57,12 +57,26 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 				_, ok := seen[k]
 				require.False(t, ok, "duplicate key: %s", k)
 				seen[k] = struct{}{}
-				require.NoError(t, os.Setenv(k, v))
+				t.Setenv(k, v)
 			}
 
 			got, err := chainlink.FakeConfigDump(chainsJSON)
 			require.NoError(t, err)
 			assert.Equal(t, string(exp), got, diff.Diff(string(exp), got))
 		})
+	}
+}
+
+//go:embed testdata/dump/empty-strings.env
+var emptyStringsEnv string
+
+func clearenv(t *testing.T) {
+	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
+		if strings.TrimSpace(kv) == "" {
+			continue
+		}
+		i := strings.Index(kv, "=")
+		require.NotEqual(t, -1, i, "invalid kv: %s", kv)
+		t.Setenv(kv[:i], "")
 	}
 }

@@ -416,7 +416,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			}
 			c.EVM[i].GasEstimator.Mode = e
 		}
-	} else if e, ok := os.LookupEnv("GAS_UPDATER_ENABLED"); ok {
+	} else if e, ok := os.LookupEnv("GAS_UPDATER_ENABLED"); ok && e != "" {
 		v := "FixedPrice"
 		if b, err := strconv.ParseBool(e); err != nil && b {
 			v = "BlockHistory"
