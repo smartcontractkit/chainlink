@@ -16,17 +16,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-func TestDKGSignKeysController_Index_HappyPath(t *testing.T) {
+func TestDKGEncryptKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupDKGSignKeysControllerTests(t)
-	keys, _ := keyStore.DKGSign().GetAll()
+	client, keyStore := setupDKGEncryptKeysControllerTests(t)
+	keys, _ := keyStore.DKGEncrypt().GetAll()
 
-	response, cleanup := client.Get("/v2/keys/dkgsign")
+	response, cleanup := client.Get("/v2/keys/dkgencrypt")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	resources := []presenters.DKGSignKeyResource{}
+	resources := []presenters.DKGEncryptKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
 	assert.NoError(t, err)
 
@@ -36,19 +36,19 @@ func TestDKGSignKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PublicKeyString(), resources[0].PublicKey)
 }
 
-func TestDKGSignKeysController_Create_HappyPath(t *testing.T) {
+func TestDKGEncryptKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupDKGSignKeysControllerTests(t)
+	client, keyStore := setupDKGEncryptKeysControllerTests(t)
 
-	response, cleanup := client.Post("/v2/keys/dkgsign", nil)
+	response, cleanup := client.Post("/v2/keys/dkgencrypt", nil)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	keys, _ := keyStore.DKGSign().GetAll()
+	keys, _ := keyStore.DKGEncrypt().GetAll()
 	assert.Len(t, keys, 2)
 
-	resource := presenters.DKGSignKeyResource{}
+	resource := presenters.DKGEncryptKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
@@ -63,45 +63,45 @@ func TestDKGSignKeysController_Create_HappyPath(t *testing.T) {
 	}
 	assert.True(t, found)
 
-	_, err = keyStore.DKGSign().Get(resource.ID)
+	_, err = keyStore.DKGEncrypt().Get(resource.ID)
 	assert.NoError(t, err)
 }
 
-func TestDKGSignKeysController_Delete_NonExistentDKGSignKeyID(t *testing.T) {
+func TestDKGEncryptKeysController_Delete_NonExistentDKGEncryptKeyID(t *testing.T) {
 	t.Parallel()
 
-	client, _ := setupDKGSignKeysControllerTests(t)
+	client, _ := setupDKGEncryptKeysControllerTests(t)
 
-	response, cleanup := client.Delete("/v2/keys/dkgsign/" + "nonexistentKey")
+	response, cleanup := client.Delete("/v2/keys/dkgencrypt/" + "nonexistentKey")
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestDKGSignKeysController_Delete_HappyPath(t *testing.T) {
+func TestDKGEncryptKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupDKGSignKeysControllerTests(t)
+	client, keyStore := setupDKGEncryptKeysControllerTests(t)
 
-	keys, _ := keyStore.DKGSign().GetAll()
+	keys, _ := keyStore.DKGEncrypt().GetAll()
 	initialLength := len(keys)
 
-	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/dkgsign/%s", keys[0].ID()))
+	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/dkgencrypt/%s", keys[0].ID()))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
-	assert.Error(t, utils.JustError(keyStore.DKGSign().Get(keys[0].ID())))
+	assert.Error(t, utils.JustError(keyStore.DKGEncrypt().Get(keys[0].ID())))
 
-	afterKeys, err := keyStore.DKGSign().GetAll()
+	afterKeys, err := keyStore.DKGEncrypt().GetAll()
 	assert.NoError(t, err)
 	assert.Equal(t, initialLength-1, len(afterKeys))
 
 }
 
-func setupDKGSignKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
+func setupDKGEncryptKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.DKGSign().Add(cltest.DefaultDKGSignKey)
+	require.NoError(t, app.KeyStore.DKGEncrypt().Add(cltest.DefaultDKGEncryptKey))
 
 	client := app.NewHTTPClient()
 
