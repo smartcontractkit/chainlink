@@ -288,13 +288,15 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
+	fantomMainnet.balanceMonitorBlockDelay = 2
 	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	fantomMainnet.blockHistoryEstimatorBlockDelay = 2
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
-	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
-	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.logPollInterval = 1 * time.Second
+	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
+	fantomMainnet.minIncomingConfirmations = 3
+	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 
