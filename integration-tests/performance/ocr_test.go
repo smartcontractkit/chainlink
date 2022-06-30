@@ -7,39 +7,39 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	it "github.com/smartcontractkit/chainlink/integration-tests"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		err               error
-		env               *environment.Environment
-		c                 blockchain.EVMClient
+		testEnvironment   *environment.Environment
+		chainClient       blockchain.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
 		chainlinkNodes    []client.Chainlink
-		ms                *client.MockserverClient
+		mockServer        *client.MockserverClient
 		ocrInstances      []contracts.OffchainAggregator
 		profileTest       *testsetups.ChainlinkProfileTest
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			env = environment.New(nil).
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-ocr"}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(nil)).
@@ -49,24 +49,24 @@ var _ = Describe("OCR Feed @ocr", func() {
 						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
 					},
 				}))
-			err = env.Run()
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
 			// Load Networks
 			var err error
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			contractDeployer, err = contracts.NewContractDeployer(c)
+			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 
-			chainlinkNodes, err = client.ConnectChainlinkNodes(env)
+			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			ms, err = client.ConnectMockServer(env)
+			mockServer, err = client.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
-			c.ParallelTransactions(true)
+			chainClient.ParallelTransactions(true)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			linkTokenContract, err = contractDeployer.DeployLinkTokenContract()
@@ -74,13 +74,13 @@ var _ = Describe("OCR Feed @ocr", func() {
 		})
 
 		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(chainlinkNodes, c, big.NewFloat(.01))
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Deploying OCR contracts", func() {
-			ocrInstances = actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, c)
-			err = c.WaitForEvents()
+			ocrInstances = actions.DeployOCRContracts(1, linkTokenContract, contractDeployer, chainlinkNodes, chainClient)
+			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
@@ -91,15 +91,15 @@ var _ = Describe("OCR Feed @ocr", func() {
 					// Not the last node, hence not all nodes started profiling yet.
 					return
 				}
-				By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, ms))
-				By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms))
-				By("Starting new round", actions.StartNewRound(1, ocrInstances, c))
+				By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockServer))
+				By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockServer))
+				By("Starting new round", actions.StartNewRound(1, ocrInstances, chainClient))
 				answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
 				Expect(err).ShouldNot(HaveOccurred(), "Getting latest answer from OCR contract shouldn't fail")
 				Expect(answer.Int64()).Should(Equal(int64(5)), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-				By("setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, ms))
-				By("starting new round", actions.StartNewRound(2, ocrInstances, c))
+				By("setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockServer))
+				By("starting new round", actions.StartNewRound(2, ocrInstances, chainClient))
 
 				answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
 				Expect(err).ShouldNot(HaveOccurred())
@@ -111,7 +111,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 				ProfileDuration: time.Minute,
 				ChainlinkNodes:  chainlinkNodes,
 			})
-			profileTest.Setup(env)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -123,10 +123,10 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 	AfterEach(func() {
 		By("Printing gas stats", func() {
-			c.GasStats().PrintStats()
+			chainClient.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, c)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})

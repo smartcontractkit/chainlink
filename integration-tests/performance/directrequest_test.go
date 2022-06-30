@@ -8,17 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	it "github.com/smartcontractkit/chainlink/integration-tests"
-
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -26,24 +20,30 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
+	uuid "github.com/satori/go.uuid"
 )
 
 var _ = Describe("Directrequest suite @directrequest", func() {
 	var (
-		err            error
-		c              blockchain.EVMClient
-		cd             contracts.ContractDeployer
-		chainlinkNodes []client.Chainlink
-		oracle         contracts.Oracle
-		consumer       contracts.APIConsumer
-		jobUUID        uuid.UUID
-		ms             *client.MockserverClient
-		e              *environment.Environment
-		profileTest    *testsetups.ChainlinkProfileTest
+		err              error
+		chainClient      blockchain.EVMClient
+		contractDeployer contracts.ContractDeployer
+		chainlinkNodes   []client.Chainlink
+		oracle           contracts.Oracle
+		consumer         contracts.APIConsumer
+		jobUUID          uuid.UUID
+		mockServerClient *client.MockserverClient
+		testEnvironment  *environment.Environment
+		profileTest      *testsetups.ChainlinkProfileTest
 	)
+
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			e = environment.New(nil).
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-direct-request"}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(nil)).
@@ -52,50 +52,50 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
 					},
 				}))
-			err = e.Run()
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(e)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			cd, err = contracts.NewContractDeployer(c)
+			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-			chainlinkNodes, err = client.ConnectChainlinkNodes(e)
+			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			ms, err = client.ConnectMockServer(e)
+			mockServerClient, err = client.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Funding Chainlink nodes", func() {
-			ethAmount, err := c.EstimateCostForChainlinkOperations(1)
+			ethAmount, err := chainClient.EstimateCostForChainlinkOperations(1)
 			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, c, ethAmount)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, ethAmount)
 			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 		})
 
 		By("Deploying contracts", func() {
-			lt, err := cd.DeployLinkTokenContract()
+			lt, err := contractDeployer.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-			oracle, err = cd.DeployOracle(lt.Address())
+			oracle, err = contractDeployer.DeployOracle(lt.Address())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Oracle Contract shouldn't fail")
-			consumer, err = cd.DeployAPIConsumer(lt.Address())
+			consumer, err = contractDeployer.DeployAPIConsumer(lt.Address())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Consumer Contract shouldn't fail")
-			err = c.SetDefaultWallet(0)
+			err = chainClient.SetDefaultWallet(0)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting default wallet shouldn't fail")
 			err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 			Expect(err).ShouldNot(HaveOccurred(), "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 		})
 
 		By("Creating directrequest job", func() {
-			err = ms.SetValuePath("/variable", 5)
+			err = mockServerClient.SetValuePath("/variable", 5)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting mockserver value path shouldn't fail")
 
 			jobUUID = uuid.NewV4()
 
 			bta := client.BridgeTypeAttributes{
 				Name: fmt.Sprintf("five-%s", jobUUID.String()),
-				URL:  fmt.Sprintf("%s/variable", ms.Config.ClusterURL),
+				URL:  fmt.Sprintf("%s/variable", mockServerClient.Config.ClusterURL),
 			}
 			err = chainlinkNodes[0].CreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
@@ -131,7 +131,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 					oracle.Address(),
 					jobID,
 					big.NewInt(1e18),
-					fmt.Sprintf("%s/variable", ms.Config.ClusterURL),
+					fmt.Sprintf("%s/variable", mockServerClient.Config.ClusterURL),
 					"data,result",
 					big.NewInt(100),
 				)
@@ -151,7 +151,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 				ProfileDuration: 30 * time.Second,
 				ChainlinkNodes:  chainlinkNodes,
 			})
-			profileTest.Setup(e)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -163,8 +163,8 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
-			c.GasStats().PrintStats()
-			err = actions.TeardownSuite(e, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, c)
+			chainClient.GasStats().PrintStats()
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})
