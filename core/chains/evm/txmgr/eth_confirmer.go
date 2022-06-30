@@ -93,6 +93,18 @@ var (
 			float64(10 * time.Minute),
 		},
 	}, []string{"evmChainID"})
+	promBlocksUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_blocks_until_tx_confirmed",
+		Help: "The amount of blocks that have been mined from a transaction being broadcast to being included in a block.",
+		Buckets: []float64{
+			float64(1),
+			float64(5),
+			float64(10),
+			float64(20),
+			float64(50),
+			float64(100),
+		},
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -446,8 +458,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
 
-		duration := time.Now().Sub(attempts[i].EthTx.CreatedAt)
-		promTimeUntilTxConfirmed.WithLabelValues(ec.chainID.String()).Observe(float64(duration))
+		observeUntilTxConfirmed(ec.chainID, batch, receipts)
 	}
 	return nil
 }
@@ -1587,4 +1598,31 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	}
 
 	return nil
+}
+
+func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts []evmtypes.Receipt) {
+	for _, attempt := range attempts {
+		for _, r := range receipts {
+			if attempt.Hash.Hex() == r.TxHash.Hex() {
+				duration := time.Now().Sub(attempt.EthTx.CreatedAt)
+				promTimeUntilTxConfirmed.
+					WithLabelValues(chainID.String()).
+					Observe(float64(duration))
+
+				// get the earliest BroadcastBeforeBlockNum value for all attempts for a particular tx
+				broadcastBefore := utils.MinMap(attempts, func(attempt EthTxAttempt) int64 {
+					if attempt.BroadcastBeforeBlockNum != nil {
+						return *attempt.BroadcastBeforeBlockNum
+					}
+					return 0
+				})
+				if broadcastBefore > 0 {
+					blocksElapsed := r.BlockNumber.Int64() - broadcastBefore
+					promBlocksUntilTxConfirmed.
+						WithLabelValues(chainID.String()).
+						Observe(float64(blocksElapsed))
+				}
+			}
+		}
+	}
 }
