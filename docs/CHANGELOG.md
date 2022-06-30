@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added 
+
+- Added job spec attribute `gasLimit` which allows job-specific overrides of the default `ETH_GAS_LIMIT_DEFAULT` value for gas limit.
+
 ### Changed
 
 - After feedback from users, password complexity requirements have been simplified. These are the new, simplified requirements for any kind of password used with Chainlink:

@@ -126,6 +126,7 @@ type Job struct {
 	JobSpecErrors        []SpecError
 	Type                 Type
 	SchemaVersion        uint32
+	GasLimit             clnull.Uint32 `toml:"gasLimit"`
 	Name                 null.String
 	MaxTaskDuration      models.Interval
 	Pipeline             pipeline.Pipeline `toml:"observationSource"`
