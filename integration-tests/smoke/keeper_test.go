@@ -607,12 +607,9 @@ func getKeeperSuite(
 					err = c.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
-					err := registry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
+					err = registry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
 					Expect(err).ShouldNot(HaveOccurred(), "Couldn't set bidirectional permissions for first registry")
-					err = c.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for migration permissions setting")
-
-					err = registry.SetMigrationPermissions(common.HexToAddress(secondRegistry.Address()), 3)
+					err := secondRegistry.SetMigrationPermissions(common.HexToAddress(secondRegistry.Address()), 3)
 					Expect(err).ShouldNot(HaveOccurred(), "Couldn't set bidirectional permissions for second registry")
 					err = c.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for migration permissions setting")
@@ -638,7 +635,7 @@ func getKeeperSuite(
 					err = c.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
-					// Migrate the upkeep with ID 0 from the first to the second registry
+					// Migrate the upkeep with index 0 from the first to the second registry
 					err = registry.Migrate([]*big.Int{upkeepIDs[0]}, common.HexToAddress(secondRegistry.Address()))
 					Expect(err).ShouldNot(HaveOccurred(), "Couldn't migrate the first upkeep")
 					err = c.WaitForEvents()
@@ -650,11 +647,14 @@ func getKeeperSuite(
 					err = c.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for the pausing of the first registry")
 
+					counterAfterMigration, err := consumers[0].Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+
 					// Check that once we migrated the upkeep, the counter has increased
 					Eventually(func(g Gomega) {
-						counterAfterMigration, err := consumers[0].Counter(context.Background())
+						currentCounter, err := consumers[0].Counter(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-						g.Expect(counterAfterMigration.Int64()).Should(BeNumerically(">", counterBeforeMigration.Int64()),
+						g.Expect(currentCounter.Int64()).Should(BeNumerically(">", counterAfterMigration.Int64()),
 							"Expected counterAfterMigration to be greater than %s, but got %s",
 							counterBeforeMigration, counterAfterMigration)
 					}, "1m", "1s").Should(Succeed())
