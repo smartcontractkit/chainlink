@@ -11,7 +11,7 @@ import (
 
 var (
 	DefaultGethSettings = &config.ETHNetwork{
-		Name:    "Ethereum Geth dev",
+		Name:    "Geth",
 		Type:    blockchain.SimulatedEthNetwork,
 		ChainID: 1337,
 		PrivateKeys: []string{
