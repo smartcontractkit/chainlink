@@ -1350,10 +1350,8 @@ github.com/slack-go/slack v0.11.0 h1:sBBjQz8LY++6eeWhGJNZpRm5jvLRNnWBFZ/cAq58a6k
 github.com/slack-go/slack v0.11.0/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
-github.com/smartcontractkit/chainlink-env v0.2.17 h1:QxyhuSmVCIcLG+ieHj8uER3pGES/kwweYHOI/KXwWhA=
-github.com/smartcontractkit/chainlink-env v0.2.17/go.mod h1:cBJAF2eL1W6JVqy0MJzNwkOWsa8qlDqRclzIW4AnLfk=
-github.com/smartcontractkit/chainlink-env v0.2.18-0.20220630175157-5f334e4a5fd2 h1:08+iGJ21t07V/WpEgxOEcZqmUsigyFTIGbQ8Axawoxo=
-github.com/smartcontractkit/chainlink-env v0.2.18-0.20220630175157-5f334e4a5fd2/go.mod h1:cBJAF2eL1W6JVqy0MJzNwkOWsa8qlDqRclzIW4AnLfk=
+github.com/smartcontractkit/chainlink-env v0.2.18 h1:t75AbwPyeUnFqfonn00hMt5fnKFflbzrlx1sfP9BlTc=
+github.com/smartcontractkit/chainlink-env v0.2.18/go.mod h1:cBJAF2eL1W6JVqy0MJzNwkOWsa8qlDqRclzIW4AnLfk=
 github.com/smartcontractkit/chainlink-testing-framework v1.4.2 h1:18EmBCRCPoDl/K9TDBKEBd7Q01i0KnDWNF+RcH92Hp8=
 github.com/smartcontractkit/chainlink-testing-framework v1.4.2/go.mod h1:H8a9pBXvUbeatGd7EcOqBzIAo0bR/+tcAzbcJRHeACw=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=

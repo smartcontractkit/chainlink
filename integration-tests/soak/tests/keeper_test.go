@@ -7,8 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -33,8 +31,6 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 			soakNetwork = blockchain.LoadNetworkFromEnvironment()
 			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
 			err = testEnvironment.
-				AddHelm(mockservercfg.New(nil)).
-				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: soakNetwork.Name,
 					Simulated:   soakNetwork.Simulated,
