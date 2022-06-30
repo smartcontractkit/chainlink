@@ -32,7 +32,11 @@
         "EvmRPCDefaultBatchSize": "99",
         "FlagsContractAddress": "0xae4E781a6218A8031764928E88d457937A954fC3",
         "GasEstimatorMode": "FixedPrice",
-        "KeySpecific": null,
+        "KeySpecific": {
+          "0xae4E781a6218A8031764928E88d457937A954fC3": {
+            "EvmMaxGasPriceWei": "42"
+          }
+        },
         "LinkContractAddress": "0x538aAaB4ea120b2bC2fe5D296852D948F07D849e",
         "OperatorFactoryAddress": "0xa5B85635Be42F21f94F28034B7DA440EeFF0F418",
         "MinIncomingConfirmations": "99",

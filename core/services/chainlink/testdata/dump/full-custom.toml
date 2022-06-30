@@ -226,6 +226,12 @@ HistoryDepth = 7
 MaxBufferSize = 50
 SamplingInterval = '5s'
 
+[[EVM.KeySpecific]]
+Key = '0xae4E781a6218A8031764928E88d457937A954fC3'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMax = '42 wei'
+
 [EVM.NodePool]
 NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
