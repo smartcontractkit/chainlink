@@ -12,7 +12,7 @@ import { abi as arbitrumSequencerStatusRecorderAbi } from '../../../artifacts/sr
 // @ts-ignore
 import { abi as arbitrumInboxAbi } from '../../../artifacts/src/v0.8/dev/vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol/IInbox.json'
 // @ts-ignore
-import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/interfaces/iAggregatorV2V3.sol/iAggregatorV2V3.json'
+import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/interfaces/IAggregatorV2V3.sol/IAggregatorV2V3.json'
 
 const truncateBigNumToAddress = (num: BigNumberish) => {
   // Pad, then slice off '0x' prefix
