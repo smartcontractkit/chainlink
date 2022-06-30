@@ -18,8 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 
-- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified
-  with P2PV2_BOOTSTRAPPERS config param
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 
 ## [1.5.1] - 2022-06-27
 
