@@ -72,7 +72,7 @@ jobs:
           TEST_TRIGGERED_BY: core-CI
           TEST_LOG_LEVEL: debug
         with:
-          test_command_to_run: make test_smoke_simulated args="-nodes=15"
+          test_command_to_run: make test_smoke_simulated args="-nodes=30"
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
           cl_repo: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
