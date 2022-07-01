@@ -119,8 +119,6 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
-	t.Parallel()
-
 	email := "good@email.com"
 
 	tests := []struct {
@@ -171,8 +169,6 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	t.Parallel()
-
 	db := pgtest.NewSqlxDB(t)
 	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
@@ -244,8 +240,6 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	t.Parallel()
-
 	db := pgtest.NewSqlxDB(t)
 	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
