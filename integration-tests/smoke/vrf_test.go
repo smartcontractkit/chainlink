@@ -107,12 +107,12 @@ var _ = Describe("VRF suite @vrf", func() {
 			log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 			pubKeyCompressed := nodeKey.Data.ID
 			jobUUID := uuid.NewV4()
-			os := &it.VRFTxPipelineSpec{
+			os := &client.VRFTxPipelineSpec{
 				Address: coordinator.Address(),
 			}
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-			job, err := n.CreateJob(&it.VRFJobSpec{
+			job, err := n.CreateJob(&client.VRFJobSpec{
 				Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 				CoordinatorAddress:       coordinator.Address(),
 				MinIncomingConfirmations: 1,
@@ -124,7 +124,7 @@ var _ = Describe("VRF suite @vrf", func() {
 
 			oracleAddr, err := n.PrimaryEthAddress()
 			Expect(err).ShouldNot(HaveOccurred(), "Getting primary ETH address of chainlink node shouldn't fail")
-			provingKey, err := it.EncodeOnChainVRFProvingKey(*nodeKey)
+			provingKey, err := actions.EncodeOnChainVRFProvingKey(*nodeKey)
 			Expect(err).ShouldNot(HaveOccurred(), "Encoding on-chain VRF Proving key shouldn't fail")
 			err = coordinator.RegisterProvingKey(
 				big.NewInt(1),
