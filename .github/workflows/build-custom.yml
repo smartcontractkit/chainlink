@@ -74,13 +74,13 @@ on:
         description: Token to pull private repos
 jobs:
   build-chainlink:
-    name: Build Chainlink Image
-    runs-on: ubuntu-latest
-    environment:
-      integrations
+    if: ${{ !secrets.QA_AWS_REGION }}
+    environment: integrations
     permissions:
       id-token: write
       contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
     env:
       GOPRIVATE: github.com/smartcontractkit/chainlink-starknet,github.com/smartcontractkit/atlas
       GH_ACCESS_TOKEN: ${{ secrets.QA_PRIVATE_GHA_PULL }}
