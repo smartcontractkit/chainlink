@@ -2,27 +2,27 @@ package audit
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"go.uber.org/zap/zapcore"
+
+	"github.com/pkg/errors"
 )
 
-type AuditLogger struct {
-	logger logger.Logger
-	AuditLoggerConfig
+type AuditLogger interface {
+	Audit(ctx context.Context, eventID EventID, data map[string]interface{})
 }
 
-type AuditLoggerConfig struct {
+type auditLogger struct {
+	logger          logger.Logger
+	enabled         bool
 	serviceURL      string
 	serviceHeaders  []serviceHeader
 	jsonWrapperKey  string
@@ -37,18 +37,40 @@ type serviceHeader struct {
 	value  string
 }
 
-// NewAuditLoggerConfig parses and validatesthe passed AUDIT_LOGS_* environment values and populates fields
-func NewAuditLoggerConfig(serviceURL string, headersEncoded, jsonWrapperKey, hostname, environment string) (AuditLoggerConfig, error) {
-	newConfig := AuditLoggerConfig{}
+// NewAuditLogger returns a buffer push system that ingests audit log events and
+// asynchronously pushes them up to an HTTP log service.
+// Parses and validates the AUDIT_LOGS_* environment values and returns an enabled
+// AuditLogger instance. If the environment variables are not set, the logger
+// is disabled and short circuits execution via enabled flag.
+func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
+
+	// Start parsing environment variables for audit logger
+	auditLogsURL := os.Getenv("AUDIT_LOGS_FORWARDER_URL")
+	if auditLogsURL == "" {
+		// Unset, return a disabled audit logger
+		logger.Info("No AUDIT_LOGS_FORWARDER_URL environment set, audit log events will not be captured")
+
+		return &auditLogger{}, nil
+	}
+
+	env := "production"
+	if os.Getenv("CHAINLINK_DEV") == "true" {
+		env = "develop"
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return &auditLogger{}, errors.Errorf("Audit Log initialization error - unable to get hostname", "err", err)
+	}
 
 	// Split and prepare optional service client headers from env variable
 	headers := []serviceHeader{}
+	headersEncoded := os.Getenv("AUDIT_LOGS_FORWARDER_HEADERS")
 	if headersEncoded != "" {
 		headerLines := strings.Split(headersEncoded, "\\")
 		for _, header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return AuditLoggerConfig{}, errors.Errorf("Invalid AUDIT_LOGS_FORWARDER_HEADERS value, single pair split on || required, got: %s", keyValue)
+				return &auditLogger{}, errors.Errorf("Invalid AUDIT_LOGS_FORWARDER_HEADERS value, single pair split on || required, got: %s", keyValue)
 			}
 			headers = append(headers, serviceHeader{
 				header: keyValue[0],
@@ -57,51 +79,28 @@ func NewAuditLoggerConfig(serviceURL string, headersEncoded, jsonWrapperKey, hos
 		}
 	}
 
-	newConfig.serviceURL = serviceURL
-	newConfig.serviceHeaders = headers
-	newConfig.jsonWrapperKey = jsonWrapperKey
-	newConfig.environmentName = environment
-	newConfig.hostname = hostname
-	newConfig.localIP = getLocalIP()
-
-	return newConfig, nil
-}
-
-// The .Audit function in the logger interface is exclusively used by this AuditLogger implementation.
-// .Auditf function implementations should continue the pattern. Audit logs here must be emitted
-// regardless of log level, hence the separate 'Audit' log level
-// Audit log events are posted up to with an HTTP forwarder
-func newAuditLogger(auditLoggerCfg AuditLoggerConfig, logger Logger) AuditLogger {
-	sLogger := AuditLogger{
-		logger: logger.Helper(1),
+	// Finally, create new auditLogger with parameters
+	auditLogger := auditLogger{
+		logger:          logger.Helper(1),
+		enabled:         true,
+		serviceURL:      auditLogsURL,
+		serviceHeaders:  headers,
+		jsonWrapperKey:  os.Getenv("AUDIT_LOGS_FORWARDER_JSON_WRAPPER_KEY"),
+		environmentName: env,
+		hostname:        hostname,
+		localIP:         getLocalIP(),
 	}
-	sLogger.AuditLoggerConfig = auditLoggerCfg
-	return &sLogger
+	return &auditLogger, nil
 }
 
-func (l *auditLogger) Audit(eventID audit.EventID, data map[string]interface{}) {
+func (l *auditLogger) Audit(ctx context.Context, eventID EventID, data map[string]interface{}) {
+	if !l.enabled {
+		return
+	}
 	l.postLogToLogService(eventID, data)
-	l.logger.Audit(eventID, data)
 }
 
-// getLocalIP returns the first non-loopback local IP of the host
-func getLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
-	for _, address := range addrs {
-		// filter and return address types for first non loopback address
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	return ""
-}
-
-func (l *auditLogger) postLogToLogService(eventID audit.EventID, data map[string]interface{}) {
+func (l *auditLogger) postLogToLogService(eventID EventID, data map[string]interface{}) {
 	// Audit log JSON data
 	logItem := map[string]interface{}{
 		"eventID":  eventID,
@@ -144,143 +143,19 @@ func (l *auditLogger) postLogToLogService(eventID audit.EventID, data map[string
 	}
 }
 
-func (l *auditLogger) With(args ...interface{}) Logger {
-	return &auditLogger{
-		logger:            l.logger.With(args...),
-		AuditLoggerConfig: l.AuditLoggerConfig,
-	}
-}
-
-func (l *auditLogger) Named(name string) Logger {
-	return &auditLogger{
-		logger:            l.logger.Named(name),
-		AuditLoggerConfig: l.AuditLoggerConfig,
-	}
-}
-
-func (l *auditLogger) SetLogLevel(level zapcore.Level) {
-	l.logger.SetLogLevel(level)
-}
-
-func (l *auditLogger) Trace(args ...interface{}) {
-	l.logger.Trace(args...)
-}
-
-func (l *auditLogger) Debug(args ...interface{}) {
-	l.logger.Debug(args...)
-}
-
-func (l *auditLogger) Info(args ...interface{}) {
-	l.logger.Info(args...)
-}
-
-func (l *auditLogger) Warn(args ...interface{}) {
-	l.logger.Warn(args...)
-}
-
-func (l *auditLogger) Error(args ...interface{}) {
-	l.logger.Error(args...)
-}
-
-func (l *auditLogger) Critical(args ...interface{}) {
-	l.logger.Critical(args...)
-}
-
-func (l *auditLogger) Panic(args ...interface{}) {
-	l.logger.Panic(args...)
-}
-
-func (l *auditLogger) Fatal(args ...interface{}) {
-	l.logger.Fatal(args...)
-}
-
-func (l *auditLogger) Tracef(format string, values ...interface{}) {
-	l.logger.Tracef(format, values...)
-}
-
-func (l *auditLogger) Debugf(format string, values ...interface{}) {
-	l.logger.Debugf(format, values...)
-}
-
-func (l *auditLogger) Infof(format string, values ...interface{}) {
-	l.logger.Infof(format, values...)
-}
-
-func (l *auditLogger) Warnf(format string, values ...interface{}) {
-	l.logger.Warnf(format, values...)
-}
-
-func (l *auditLogger) Errorf(format string, values ...interface{}) {
-	l.logger.Errorf(format, values...)
-}
-
-func (l *auditLogger) Criticalf(format string, values ...interface{}) {
-	l.logger.Criticalf(format, values...)
-}
-
-func (l *auditLogger) Panicf(format string, values ...interface{}) {
-	l.logger.Panicf(format, values...)
-}
-
-func (l *auditLogger) Fatalf(format string, values ...interface{}) {
-	l.logger.Fatalf(format, values...)
-}
-
-func (l *auditLogger) Tracew(msg string, keysAndValues ...interface{}) {
-	l.logger.Tracew(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Debugw(msg string, keysAndValues ...interface{}) {
-	l.logger.Debugw(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Infow(msg string, keysAndValues ...interface{}) {
-	l.logger.Infow(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Warnw(msg string, keysAndValues ...interface{}) {
-	l.logger.Warnw(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Errorw(msg string, keysAndValues ...interface{}) {
-	l.logger.Errorw(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Criticalw(msg string, keysAndValues ...interface{}) {
-	l.logger.Criticalw(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Panicw(msg string, keysAndValues ...interface{}) {
-	l.logger.Panicw(msg, keysAndValues...)
-}
-
-func (l *auditLogger) Fatalw(msg string, keysAndValues ...interface{}) {
-	l.logger.Fatalw(msg, keysAndValues...)
-}
-
-func (l *auditLogger) ErrorIf(err error, msg string) {
+// getLocalIP returns the first non-loopback local IP of the host
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		l.logger.Errorw(msg, "err", err)
+		return ""
 	}
-}
-
-func (l *auditLogger) ErrorIfClosing(c io.Closer, name string) {
-	if err := c.Close(); err != nil {
-		l.logger.Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
+	for _, address := range addrs {
+		// filter and return address types for first non loopback address
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
 	}
-}
-
-func (l *auditLogger) Sync() error {
-	return l.logger.Sync()
-}
-
-func (l *auditLogger) Helper(add int) Logger {
-	return &auditLogger{
-		logger:            l.logger.Helper(add),
-		AuditLoggerConfig: l.AuditLoggerConfig,
-	}
-}
-
-func (l *auditLogger) Recover(panicErr interface{}) {
-	l.logger.Recover(panicErr)
+	return ""
 }

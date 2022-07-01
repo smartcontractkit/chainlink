@@ -10,5 +10,5 @@ import (
 func NewTerraChainsController(app chainlink.Application) ChainsController {
 	parse := func(s string) (string, error) { return s, nil }
 	return newChainsController[string, *db.ChainCfg, presenters.TerraChainResource](
-		"terra", app.GetChains().Terra, ErrTerraNotEnabled, parse, presenters.NewTerraChainResource, app.GetLogger())
+		"terra", app.GetChains().Terra, ErrTerraNotEnabled, parse, presenters.NewTerraChainResource, app.GetLogger(), app.GetAuditLogger())
 }

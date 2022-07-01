@@ -91,13 +91,13 @@ func (cc *LogController) Patch(c *gin.Context) {
 		LogLevel:    lvls,
 	}
 
-	cc.App.GetLogger().Audit(audit.GlobalLogLevelSet, map[string]interface{}{"logLevel": request.Level})
+	cc.App.GetAuditLogger().Audit(c.Request.Context(), audit.GlobalLogLevelSet, map[string]interface{}{"logLevel": request.Level})
 
 	if request.Level == "debug" {
 		if request.SqlEnabled != nil && *request.SqlEnabled {
-			cc.App.GetLogger().Audit(audit.ConfigSqlLoggingEnabled, map[string]interface{}{})
+			cc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ConfigSqlLoggingEnabled, map[string]interface{}{})
 		} else {
-			cc.App.GetLogger().Audit(audit.ConfigSqlLoggingDisabled, map[string]interface{}{})
+			cc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ConfigSqlLoggingDisabled, map[string]interface{}{})
 		}
 	}
 

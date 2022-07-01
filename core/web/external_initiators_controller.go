@@ -85,7 +85,7 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		return
 	}
 
-	eic.App.GetLogger().Audit(audit.ExternalInitiatorCreated, map[string]interface{}{
+	eic.App.GetAuditLogger().Audit(c.Request.Context(), audit.ExternalInitiatorCreated, map[string]interface{}{
 		"externalInitiatorID":   ei.ID,
 		"externalInitiatorName": ei.Name,
 		"externalInitiatorURL":  ei.URL,
@@ -108,6 +108,6 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	eic.App.GetLogger().Audit(audit.ExternalInitiatorDeleted, map[string]interface{}{"name": name})
+	eic.App.GetAuditLogger().Audit(c.Request.Context(), audit.ExternalInitiatorDeleted, map[string]interface{}{"name": name})
 	jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
 }

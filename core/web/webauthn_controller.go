@@ -94,7 +94,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
-	c.App.GetLogger().Audit(audit.Auth2FAEnrolled, map[string]interface{}{"email": user.Email, "credential": string(credj)})
+	c.App.GetAuditLogger().Audit(ctx.Request.Context(), audit.Auth2FAEnrolled, map[string]interface{}{"email": user.Email, "credential": string(credj)})
 
 	ctx.String(http.StatusOK, "{}")
 }

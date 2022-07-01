@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -63,6 +64,7 @@ type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.Logger
+	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
@@ -185,6 +187,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
+	// Configure and optionally start the audit log forwarder service
+	auditLogger, err := audit.NewAuditLogger(globalLogger)
+	if err != nil {
+		return nil, errors.Errorf("Unable to initialize audit logger", "err", err)
+	}
+
 	var nurse *services.Nurse
 	if cfg.AutoPprofEnabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
@@ -248,7 +256,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
@@ -429,6 +437,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		auditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
 
 		sqlxDB: opts.SqlxDB,
@@ -560,6 +569,10 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 
 func (app *ChainlinkApplication) GetLogger() logger.Logger {
 	return app.logger
+}
+
+func (app *ChainlinkApplication) GetAuditLogger() audit.AuditLogger {
+	return app.auditLogger
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() services.Checker {

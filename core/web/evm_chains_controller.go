@@ -17,5 +17,5 @@ func NewEVMChainsController(app chainlink.Application) ChainsController {
 		return
 	}
 	return newChainsController[utils.Big, *types.ChainCfg, presenters.EVMChainResource](
-		"evm", app.GetChains().EVM, ErrEVMNotEnabled, parse, presenters.NewEVMChainResource, app.GetLogger())
+		"evm", app.GetChains().EVM, ErrEVMNotEnabled, parse, presenters.NewEVMChainResource, app.GetLogger(), app.GetAuditLogger())
 }

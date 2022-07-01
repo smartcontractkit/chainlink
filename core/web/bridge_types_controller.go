@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -97,7 +98,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		resource := presenters.NewBridgeResource(*bt)
 		resource.IncomingToken = bta.IncomingToken
 
-		btc.App.GetLogger().Audit(audit.BridgeCreated, map[string]interface{}{
+		btc.App.GetAuditLogger().Audit(context.Background(), audit.BridgeCreated, map[string]interface{}{
 			"bridgeName":                   bta.Name,
 			"bridgeConfirmations":          bta.Confirmations,
 			"bridgeMinimumContractPayment": bta.MinimumContractPayment,
@@ -178,7 +179,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
-	btc.App.GetLogger().Audit(audit.BridgeUpdated, map[string]interface{}{
+	btc.App.GetAuditLogger().Audit(context.Background(), audit.BridgeUpdated, map[string]interface{}{
 		"bridgeName":                   bt.Name,
 		"bridgeConfirmations":          bt.Confirmations,
 		"bridgeMinimumContractPayment": bt.MinimumContractPayment,
@@ -222,7 +223,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 
-	btc.App.GetLogger().Audit(audit.BridgeDeleted, map[string]interface{}{"name": name})
+	btc.App.GetAuditLogger().Audit(context.Background(), audit.BridgeDeleted, map[string]interface{}{"name": name})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

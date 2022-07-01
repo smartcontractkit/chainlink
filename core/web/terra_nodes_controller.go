@@ -39,5 +39,6 @@ func NewTerraNodesController(app chainlink.Application) NodesController {
 			}, nil
 		},
 		app.GetLogger(),
+		app.GetAuditLogger(),
 	)
 }

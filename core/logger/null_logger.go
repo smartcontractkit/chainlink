@@ -3,7 +3,6 @@ package logger
 import (
 	"io"
 
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -16,15 +15,14 @@ func (l *nullLogger) With(args ...interface{}) Logger { return l }
 func (l *nullLogger) Named(name string) Logger        { return l }
 func (l *nullLogger) SetLogLevel(_ zapcore.Level)     {}
 
-func (l *nullLogger) Audit(eventID audit.EventID, data map[string]interface{}) {}
-func (l *nullLogger) Trace(args ...interface{})                                {}
-func (l *nullLogger) Debug(args ...interface{})                                {}
-func (l *nullLogger) Info(args ...interface{})                                 {}
-func (l *nullLogger) Warn(args ...interface{})                                 {}
-func (l *nullLogger) Error(args ...interface{})                                {}
-func (l *nullLogger) Critical(args ...interface{})                             {}
-func (l *nullLogger) Panic(args ...interface{})                                {}
-func (l *nullLogger) Fatal(args ...interface{})                                {}
+func (l *nullLogger) Trace(args ...interface{})    {}
+func (l *nullLogger) Debug(args ...interface{})    {}
+func (l *nullLogger) Info(args ...interface{})     {}
+func (l *nullLogger) Warn(args ...interface{})     {}
+func (l *nullLogger) Error(args ...interface{})    {}
+func (l *nullLogger) Critical(args ...interface{}) {}
+func (l *nullLogger) Panic(args ...interface{})    {}
+func (l *nullLogger) Fatal(args ...interface{})    {}
 
 func (l *nullLogger) Tracef(format string, values ...interface{})    {}
 func (l *nullLogger) Debugf(format string, values ...interface{})    {}

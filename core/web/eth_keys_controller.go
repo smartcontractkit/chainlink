@@ -132,7 +132,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(audit.ETHKeyCreated, map[string]interface{}{
+	ekc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ETHKeyCreated, map[string]interface{}{
 		"ethPublicKey": key.Address,
 		"ethID":        key.ID(),
 	})
@@ -187,7 +187,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(audit.ETHKeyUpdated, map[string]interface{}{
+	ekc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ETHKeyUpdated, map[string]interface{}{
 		"ethPublicKey": key.Address,
 		"ethID":        key.ID(),
 	})
@@ -243,7 +243,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(audit.ETHKeyDeleted, map[string]interface{}{"id": keyID})
+	ekc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ETHKeyDeleted, map[string]interface{}{"id": keyID})
 	jsonAPIResponse(c, r, "account")
 }
 
@@ -291,7 +291,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(audit.ETHKeyImported, map[string]interface{}{
+	ekc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ETHKeyImported, map[string]interface{}{
 		"ethPublicKey": key.Address,
 		"ethID":        key.ID(),
 	})
@@ -311,7 +311,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ekc.App.GetLogger().Audit(audit.ETHKeyExported, map[string]interface{}{"address": address})
+	ekc.App.GetAuditLogger().Audit(c.Request.Context(), audit.ETHKeyExported, map[string]interface{}{"address": address})
 	c.Data(http.StatusOK, MediaType, bytes)
 }
 

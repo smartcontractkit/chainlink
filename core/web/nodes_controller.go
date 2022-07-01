@@ -28,6 +28,7 @@ type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
 	newResource   func(N) R
 	createNode    func(*gin.Context) (N, error)
 	lggr          logger.Logger
+	auditLogger   audit.AuditLogger
 }
 
 func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
@@ -37,6 +38,7 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 	newResource func(N) R,
 	createNode func(*gin.Context) (N, error),
 	lggr logger.Logger,
+	auditLogger audit.AuditLogger,
 ) NodesController {
 	return &nodesController[I, N, R]{
 		nodeSet:       nodeSet,
@@ -45,6 +47,7 @@ func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
 		newResource:   newResource,
 		createNode:    createNode,
 		lggr:          lggr,
+		auditLogger:   auditLogger,
 	}
 }
 
@@ -100,7 +103,7 @@ func (n *nodesController[I, N, R]) Create(c *gin.Context) {
 		return
 	}
 
-	n.lggr.Audit(audit.ChainRpcNodeAdded, map[string]interface{}{})
+	n.auditLogger.Audit(c.Request.Context(), audit.ChainRpcNodeAdded, map[string]interface{}{})
 
 	jsonAPIResponse(c, n.newResource(node), "node")
 }
@@ -124,7 +127,7 @@ func (n *nodesController[I, N, R]) Delete(c *gin.Context) {
 		return
 	}
 
-	n.lggr.Audit(audit.ChainDeleted, map[string]interface{}{"id": id})
+	n.auditLogger.Audit(c.Request.Context(), audit.ChainDeleted, map[string]interface{}{"id": id})
 
 	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
 }

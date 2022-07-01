@@ -203,34 +203,6 @@ func NewLogger() (Logger, func() error) {
 		}
 	}
 
-	// Set optional Audit Logger values in Config if any defined in env
-	// Disabled on empty config
-	auditLogsURL := os.Getenv("AUDIT_LOGS_FORWARDER_URL")
-	if auditLogsURL != "" {
-		// Audit logger environment variables set, enable by initializing and storing config
-		env := "production"
-		if os.Getenv("CHAINLINK_DEV") == "true" {
-			env = "develop"
-		}
-		hostname, err := os.Hostname()
-		if err != nil {
-			errString := fmt.Sprintf("Error get hostname for Logger config: %s", err)
-			parseErrs = append(parseErrs, errString)
-		}
-		auditCfg, err := NewAuditLoggerConfig(
-			auditLogsURL,
-			os.Getenv("AUDIT_LOGS_FORWARDER_HEADERS"),
-			os.Getenv("AUDIT_LOGS_FORWARDER_JSON_WRAPPER_KEY"),
-			hostname,
-			env,
-		)
-		if err != nil {
-			errString := fmt.Sprintf("Error creating Audit Logger: %s.", err)
-			parseErrs = append(parseErrs, errString)
-		}
-		c.AuditConfig = auditCfg
-	}
-
 	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
@@ -256,7 +228,6 @@ type Config struct {
 	FileMaxBackups int // files
 	Hostname       string
 	ChainlinkDev   bool
-	AuditConfig    AuditLoggerConfig
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -275,12 +246,6 @@ func (c *Config) New() (Logger, func() error) {
 
 	l = newSentryLogger(l)
 	l = newPrometheusLogger(l)
-
-	// If Audit Logging HTTP forwarder is enabled if config is populated with a URL
-	// Extend/wrap the logger with an auditLogger instance
-	if c.AuditConfig.serviceURL != "" {
-		l = newAuditLogger(c.AuditConfig, l)
-	}
 	return l, close
 }
 

@@ -84,7 +84,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	sc.App.GetLogger().Audit(audit.AuthSessionDeleted, map[string]interface{}{"sessionID": sessionID})
+	sc.App.GetAuditLogger().Audit(c.Request.Context(), audit.AuthSessionDeleted, map[string]interface{}{"sessionID": sessionID})
 	jsonAPIResponse(c, Session{Authenticated: false}, "session")
 }
 

@@ -159,7 +159,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 
 	jbj, _ := json.Marshal(jb)
-	jc.App.GetLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
+	jc.App.GetAuditLogger().Audit(c.Request.Context(), audit.JobCreated, map[string]interface{}{"job": string(jbj)})
 
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
@@ -186,6 +186,6 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jc.App.GetLogger().Audit(audit.JobDeleted, map[string]interface{}{"id": j.ID})
+	jc.App.GetAuditLogger().Audit(c.Request.Context(), audit.JobDeleted, map[string]interface{}{"id": j.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

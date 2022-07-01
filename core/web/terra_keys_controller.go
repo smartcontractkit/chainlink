@@ -7,6 +7,6 @@ import (
 )
 
 func NewTerraKeysController(app chainlink.Application) KeysController {
-	return NewKeysController[terrakey.Key, presenters.TerraKeyResource](app.GetKeyStore().Terra(), app.GetLogger(),
+	return NewKeysController[terrakey.Key, presenters.TerraKeyResource](app.GetKeyStore().Terra(), app.GetLogger(), app.GetAuditLogger(),
 		"terraKey", presenters.NewTerraKeyResource, presenters.NewTerraKeyResources)
 }

@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
@@ -45,12 +46,13 @@ type orm struct {
 	db              *sqlx.DB
 	sessionDuration time.Duration
 	lggr            logger.Logger
+	auditLogger     audit.AuditLogger
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, sessionDuration time.Duration, lggr logger.Logger) ORM {
-	return &orm{db, sessionDuration, lggr.Named("SessionsORM")}
+func NewORM(db *sqlx.DB, sessionDuration time.Duration, lggr logger.Logger, auditLogger audit.AuditLogger) ORM {
+	return &orm{db, sessionDuration, lggr.Named("SessionsORM"), auditLogger}
 }
 
 // FindUser will return the one API user, or an error.
@@ -134,12 +136,12 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(sr.Email, user.Email) {
-		o.lggr.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
+		o.auditLogger.Audit(context.Background(), audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
 		return "", errors.New("Invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		o.lggr.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
+		o.auditLogger.Audit(context.Background(), audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
 		return "", errors.New("Invalid password")
 	}
 
@@ -156,7 +158,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
 		_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
-		o.lggr.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
+		o.auditLogger.Audit(context.Background(), audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
 		return session.ID, err
 	}
 
@@ -187,7 +189,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
-		o.lggr.Audit(audit.AuthLoginFailed2FA, map[string]interface{}{"email": sr.Email, "error": err})
+		o.auditLogger.Audit(context.Background(), audit.AuthLoginFailed2FA, map[string]interface{}{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
 		return "", errors.New("MFA Error")
 	}
@@ -206,7 +208,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		lggr.Errorf("error in Marshal credentials: %s", err)
 		return "", err
 	}
-	o.lggr.Audit(audit.AuthLoginSuccessWith2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
+	o.auditLogger.Audit(context.Background(), audit.AuthLoginSuccessWith2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
 
 	return session.ID, nil
 }

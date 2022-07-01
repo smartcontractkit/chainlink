@@ -45,7 +45,7 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	ctrl.App.GetLogger().Audit(audit.CSAKeyCreated, map[string]interface{}{
+	ctrl.App.GetAuditLogger().Audit(c.Request.Context(), audit.CSAKeyCreated, map[string]interface{}{
 		"CSAPublicKey": key.PublicKey,
 		"CSVersion":    key.Version,
 	})
@@ -69,7 +69,7 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	ctrl.App.GetLogger().Audit(audit.CSAKeyImported, map[string]interface{}{
+	ctrl.App.GetAuditLogger().Audit(c.Request.Context(), audit.CSAKeyImported, map[string]interface{}{
 		"CSAPublicKey": key.PublicKey,
 		"CSVersion":    key.Version,
 	})
@@ -90,6 +90,6 @@ func (ctrl *CSAKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	ctrl.App.GetLogger().Audit(audit.CSAKeyExported, map[string]interface{}{"keyID": keyID})
+	ctrl.App.GetAuditLogger().Audit(c.Request.Context(), audit.CSAKeyExported, map[string]interface{}{"keyID": keyID})
 	c.Data(http.StatusOK, MediaType, bytes)
 }

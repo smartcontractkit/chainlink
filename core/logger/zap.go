@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -43,8 +42,6 @@ func (l *zapLogger) With(args ...interface{}) Logger {
 	newLogger.fields = copyFields(l.fields, args...)
 	return &newLogger
 }
-
-func (l *zapLogger) Audit(eventID audit.EventID, data map[string]interface{}) { /* STUB */ }
 
 // copyFields returns a copy of fields with add appended.
 func copyFields(fields []interface{}, add ...interface{}) []interface{} {

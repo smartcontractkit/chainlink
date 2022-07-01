@@ -111,7 +111,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	resource.From = tr.From.String()
 	resource.To = tr.To.String()
 
-	tc.App.GetLogger().Audit(audit.SolanaTransactionCreated, map[string]interface{}{
+	tc.App.GetAuditLogger().Audit(c.Request.Context(), audit.SolanaTransactionCreated, map[string]interface{}{
 		"solanaTransactionResource": resource,
 	})
 	jsonAPIResponse(c, resource, "solana_tx")

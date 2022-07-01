@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/smartcontractkit/chainlink/core/logger/audit"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
@@ -86,10 +84,6 @@ func (s *prometheusLogger) Named(name string) Logger {
 
 func (s *prometheusLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
-}
-
-func (s *prometheusLogger) Audit(eventID audit.EventID, data map[string]interface{}) {
-	s.h.Audit(eventID, data)
 }
 
 func (s *prometheusLogger) Trace(args ...interface{}) {
