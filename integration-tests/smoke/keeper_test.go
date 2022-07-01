@@ -54,21 +54,6 @@ const (
 	defaultUpkeepsToDeploy = 10
 )
 
-var _ = Describe("Keeper v1.1 basic smoke test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 basic smoke test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.1 BCPT test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 BCPT test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Perform simulation test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.1 Register upkeep test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Register upkeep test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
-var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
-var _ = Describe("Keeper v1.1 Removing one keeper test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Removing one keeper test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Pause registry test @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Migrate upkeep from a registry to another @keeper @simulated", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)))
-
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	PaymentPremiumPPB:    uint32(200000000),
 	FlatFeeMicroLINK:     uint32(0),
@@ -95,6 +80,21 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Migrate upkeep from a registry to another @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)))
+
 func getKeeperSuite(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
@@ -115,6 +115,23 @@ func getKeeperSuite(
 			linkToken            contracts.LinkToken
 			chainlinkNodes       []client.Chainlink
 			testEnvironment      *environment.Environment
+			testScenarios        = []TableEntry{
+				Entry("Keeper suite on Simulated Network @simulated",
+					blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+					eth.New(nil),
+					chainlink.New(0, nil),
+				),
+				Entry("Keeper suite on Metis Stardust @metis",
+					blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+					eth.New(&eth.Props{
+						NetworkName: networks.MetisStardust.Name,
+						Simulated:   networks.MetisStardust.Simulated,
+					}),
+					chainlink.New(0, map[string]interface{}{
+						"env": networks.MetisStardust.ChainlinkValuesMap(),
+					}),
+				),
+			}
 		)
 
 		BeforeEach(func() {
@@ -193,7 +210,7 @@ func getKeeperSuite(
 			})
 		})
 
-		Describe("with Keeper job", func() {
+		DescribeTable("with Keeper job", func() {
 			if testToRun == BasicSmokeTest {
 				It("watches all the registered upkeeps perform and then cancels them from the registry", func() {
 					Eventually(func(g Gomega) {
@@ -648,7 +665,7 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
-		})
+		}, testScenarios)
 
 		AfterEach(func() {
 			By("Printing gas stats", func() {
