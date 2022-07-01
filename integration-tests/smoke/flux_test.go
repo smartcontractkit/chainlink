@@ -172,6 +172,9 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 0f5fc71ac (Reverting file)
 		By("Checking flux rounds")
 		// initial value set is performed before jobs creation
 		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
@@ -186,6 +189,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		Expect(data.LatestRoundData.AnsweredInRound.Int64()).Should(Equal(int64(1)), "Expected latest round's answered in round to be %d, but found %d", int64(1), data.LatestRoundData.AnsweredInRound.Int64())
 		Expect(data.AvailableFunds.Int64()).Should(Equal(int64(999999999999999997)), "Expected available funds to be %d, but found %d", int64(999999999999999997), data.AvailableFunds.Int64())
 		Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(3)), "Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
+<<<<<<< HEAD
 =======
 				fluxSpec := &it.FluxMonitorJobSpec{
 					Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
@@ -214,6 +218,8 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				Expect(data.AvailableFunds.Int64()).Should(Equal(int64(999999999999999997)), "Expected available funds to be %d, but found %d", int64(999999999999999997), data.AvailableFunds.Int64())
 				Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(3)), "Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 >>>>>>> 4a77bbd7a (Moving specs from CTF to core)
+=======
+>>>>>>> 0f5fc71ac (Reverting file)
 
 		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
