@@ -254,7 +254,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 		file      string
 		wantError bool
 	}{
-		{"correct", "internal/fixtures/apicredentials", false},
+		{"correct", "../internal/fixtures/apicredentials", false},
 		{"no file", "", true},
 		{"incorrect file", "/tmp/doesnotexist", true},
 	}
