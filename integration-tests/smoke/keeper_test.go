@@ -116,11 +116,7 @@ func getKeeperSuite(
 			chainlinkNodes       []client.Chainlink
 			testEnvironment      *environment.Environment
 			testScenarios        = []TableEntry{
-				Entry("Keeper suite on Simulated Network @simulated",
-					blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
-					eth.New(nil),
-					chainlink.New(0, nil),
-				),
+				Entry("Keeper suite on Simulated Network @simulated"),
 			}
 		)
 
