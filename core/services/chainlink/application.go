@@ -190,7 +190,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(globalLogger)
 	if err != nil {
-		return nil, errors.Errorf("Unable to initialize audit logger", "err", err)
+		return nil, errors.Errorf("Unable to initialize audit logger: %s", err)
 	}
 
 	var nurse *services.Nurse
