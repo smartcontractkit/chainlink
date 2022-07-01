@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.6;
 
 import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/KeeperRegistryInterface.sol";
+import "./interfaces/KeeperRegistryInterface1_2.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 import "./ConfirmedOwner.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
@@ -299,7 +299,14 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677Recei
     address sender,
     uint256 amount,
     bytes calldata data
-  ) external onlyLINK permittedFunctionsForLINK(data) isActualAmount(amount, data) isActualSender(sender, data) {
+  )
+    external
+    override
+    onlyLINK
+    permittedFunctionsForLINK(data)
+    isActualAmount(amount, data)
+    isActualSender(sender, data)
+  {
     if (data.length < 292) revert InvalidDataLength();
     if (amount < s_config.minLINKJuels) {
       revert InsufficientPayment();

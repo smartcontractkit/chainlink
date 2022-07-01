@@ -138,13 +138,15 @@ type ConfigPoller struct {
 	addr               common.Address
 }
 
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) *ConfigPoller {
-	destChainPoller.MergeFilter([]common.Hash{ConfigSet}, addr)
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
+	if err := destChainPoller.MergeFilter([]common.Hash{ConfigSet}, []common.Address{addr}); err != nil {
+		return nil, err
+	}
 	return &ConfigPoller{
 		lggr:               lggr,
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
-	}
+	}, nil
 }
 
 func (lp *ConfigPoller) Notify() <-chan struct{} {

@@ -20,12 +20,14 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/basic_upkeep_contract"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic1_3"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -99,13 +101,49 @@ func deployKeeperRegistry(
 		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
+	case keeper.RegistryVersion_1_3:
+		logicAddr, _, _, err := keeper_registry_logic1_3.DeployKeeperRegistryLogic(
+			auth,
+			backend,
+			0,
+			big.NewInt(80000),
+			linkAddr,
+			linkFeedAddr,
+			gasFeedAddr)
+		require.NoError(t, err)
+		backend.Commit()
+
+		regAddr, _, _, err := keeper_registry_wrapper1_3.DeployKeeperRegistry(
+			auth,
+			backend,
+			logicAddr,
+			keeper_registry_wrapper1_3.Config{
+				PaymentPremiumPPB:    250_000_000,
+				FlatFeeMicroLink:     0,
+				BlockCountPerTurn:    big.NewInt(1),
+				CheckGasLimit:        20_000_000,
+				StalenessSeconds:     big.NewInt(3600),
+				GasCeilingMultiplier: 1,
+				MinUpkeepSpend:       big.NewInt(0),
+				MaxPerformGas:        5_000_000,
+				FallbackGasPrice:     big.NewInt(60000000000),
+				FallbackLinkPrice:    big.NewInt(20000000000000000),
+				Transcoder:           testutils.NewAddress(),
+				Registrar:            testutils.NewAddress(),
+			},
+		)
+		require.NoError(t, err)
+		backend.Commit()
+		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		require.NoError(t, err)
+		return regAddr, wrapper
 	default:
 		panic(errors.Errorf("Deployment of registry verdion %d not defined", version))
 	}
 }
 
 func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
-	receipt, err := backend.TransactionReceipt(nil, registrationTx.Hash())
+	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -123,6 +161,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
 		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
 		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
+		{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
+		{"eip1559_mode_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
 	for _, tt := range tests {
@@ -132,15 +172,15 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			// setup node key
 			nodeKey := cltest.MustGenerateRandomKey(t)
-			nodeAddress := nodeKey.Address.Address()
+			nodeAddress := nodeKey.Address
 			nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
 
 			// setup blockchain
-			sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
-			steve := cltest.NewSimulatedBackendIdentity(t)  // registry owner
-			carrol := cltest.NewSimulatedBackendIdentity(t) // client
-			nelly := cltest.NewSimulatedBackendIdentity(t)  // other keeper operator 1
-			nick := cltest.NewSimulatedBackendIdentity(t)   // other keeper operator 2
+			sergey := testutils.MustNewSimTransactor(t) // owns all the link
+			steve := testutils.MustNewSimTransactor(t)  // registry owner
+			carrol := testutils.MustNewSimTransactor(t) // client
+			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
+			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 			genesisData := core.GenesisAlloc{
 				sergey.From: {Balance: assets.Ether(1000)},
 				steve.From:  {Balance: assets.Ether(1000)},
@@ -150,7 +190,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				nodeAddress: {Balance: assets.Ether(1000)},
 			}
 
-			gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 			backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
 			stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads

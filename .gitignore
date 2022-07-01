@@ -30,6 +30,7 @@ tools/clroot/db.sqlite3-wal
 .direnv
 .idea
 .vscode/
+*.iml
 
 # codeship
 *.aes
@@ -61,3 +62,4 @@ core/web/assets
 integration-tests/**/logs/
 tests-*.xml
 *.test
+tmp-manifest-*.yaml

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -175,7 +174,7 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
-	if err := prc.App.ResumeJobV2(context.Background(), taskID, result); err != nil {
+	if err := prc.App.ResumeJobV2(c.Request.Context(), taskID, result); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

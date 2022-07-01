@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -179,7 +178,7 @@ func (b *BlockHistoryEstimator) Close() error {
 	})
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint64, maxGasPriceWei *big.Int, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint32, maxGasPriceWei *big.Int, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		gasPrice = b.getGasPrice()
@@ -205,11 +204,11 @@ func (b *BlockHistoryEstimator) getTipCap() *big.Int {
 	return b.tipCap
 }
 
-func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint32, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
 	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit, maxGasPriceWei)
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint32, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if !b.config.EvmEIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
@@ -276,7 +275,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.I
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit, maxGasPriceWei)
 }
 
@@ -426,15 +425,18 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		return err
 	}
 
+	var missingBlocks []int64
 	for _, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			if strings.Contains(err.Error(), "failed to decode block number while unmarshalling block") {
-				lggr.Errorw(
-					fmt.Sprintf("Failed to fetch block: RPC node returned an empty block on query for block number %d even though the WS subscription already sent us this block. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
-						HexToInt64(req.Args[0]), blockDelay,
+			if errors.Is(err, ErrMissingBlock) {
+				num := HexToInt64(req.Args[0])
+				missingBlocks = append(missingBlocks, num)
+				lggr.Debugw(
+					fmt.Sprintf("Failed to fetch block: RPC node returned a missing block on query for block number %d even though the WS subscription already sent us this block. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
+						num, blockDelay,
 					),
-					"err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+					"err", err, "blockNum", num, "headNum", head.Number)
 			} else {
 				lggr.Warnw("Failed to fetch block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
 			}
@@ -456,7 +458,16 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		blocks[block.Number] = *block
 	}
 
+	if len(missingBlocks) > 1 {
+		lggr.Errorw(
+			fmt.Sprintf("RPC node returned multiple missing blocks on query for block numbers %v even though the WS subscription already sent us these blocks. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
+				missingBlocks, blockDelay,
+			),
+			"blockNums", missingBlocks, "headNum", head.Number)
+	}
+
 	newBlockHistory := make([]Block, 0)
+
 	for _, block := range blocks {
 		newBlockHistory = append(newBlockHistory, block)
 	}

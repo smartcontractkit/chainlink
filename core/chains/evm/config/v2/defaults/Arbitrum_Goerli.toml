@@ -1,0 +1,24 @@
+ChainID = '421613'
+ChainType = 'arbitrum'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'Arbitrum'
+LimitMax = 1_000_000_000
+# Arbitrum uses the suggested gas price, so we don't want to place any limits on the minimum
+PriceMin = '0'
+PriceDefault = '0.1 gwei'
+PriceMax = '1000 gwei'
+FeeCapDefault = '1000 gwei'
+# Disable gas bumping on arbitrum
+BumpThreshold = 0
+
+[GasEstimator.BlockHistory]
+# Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
+BlockHistorySize = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0'
+
+[NodePool]
+NoNewHeadsThreshold = '0'

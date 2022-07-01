@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -88,14 +88,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
 	appLggr, closeLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
@@ -158,14 +158,14 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		EventBroadcaster: eventBroadcaster,
 	}
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(ccOpts)
+	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
 
 	if cfg.TerraEnabled() {
 		terraLggr := appLggr.Named("Terra")
-		if err := terra.SetupNodes(db, cfg, terraLggr); err != nil {
+		if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup Terra nodes")
 		}
 		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
@@ -183,7 +183,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		if err := solana.SetupNodes(db, cfg, solLggr); err != nil {
+		if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup Solana nodes")
 		}
 		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
@@ -196,6 +196,24 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
+		}
+	}
+
+	if cfg.StarkNetEnabled() {
+		starkLggr := appLggr.Named("StarkNet")
+		if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
+		}
+		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+			Config:   cfg,
+			Logger:   starkLggr,
+			DB:       db,
+			KeyStore: keyStore.StarkNet(),
+			//TODO EventBroadcaster: eventBroadcaster,
+			ORM: starknet.NewORM(db, starkLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
 	}
 
@@ -214,6 +232,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Version:                  static.Version,
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
+		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 	})
 }
 
@@ -571,18 +590,18 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(d.cookiePath())
+	b, err := os.ReadFile(d.cookiePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -648,37 +667,58 @@ type APIInitializer interface {
 
 type promptingAPIInitializer struct {
 	prompter Prompter
+	lggr     logger.Logger
 }
 
 // NewPromptingAPIInitializer creates a concrete instance of APIInitializer
 // that uses the terminal to solicit credentials from the user.
-func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
-	return &promptingAPIInitializer{prompter: prompter}
+func NewPromptingAPIInitializer(prompter Prompter, lggr logger.Logger) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter, lggr: lggr}
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
 func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
-		return user, err
+	// Load list of users to determine which to assume, or if a user needs to be created
+	dbUsers, err := orm.ListUsers()
+	if err != nil {
+		return sessions.User{}, err
 	}
 
-	if !t.prompter.IsTerminal() {
-		return sessions.User{}, ErrorNoAPICredentialsAvailable
+	// If there are no users in the database, prompt for initial admin user creation
+	if len(dbUsers) == 0 {
+		if !t.prompter.IsTerminal() {
+			return sessions.User{}, ErrorNoAPICredentialsAvailable
+		}
+
+		for {
+			email := t.prompter.Prompt("Enter API Email: ")
+			pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+			// On a fresh DB, create an admin user
+			user, err2 := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
+			if err2 != nil {
+				t.lggr.Errorw("Error creating API user", "err", err2)
+				continue
+			}
+			if err = orm.CreateUser(&user); err != nil {
+				t.lggr.Errorf("Error creating API user: ", err, "err")
+			}
+			return user, err
+		}
 	}
 
-	for {
-		email := t.prompter.Prompt("Enter API Email: ")
-		pwd := t.prompter.PasswordPrompt("Enter API Password: ")
-		user, err := sessions.NewUser(email, pwd)
-		if err != nil {
-			fmt.Println("Error creating API user: ", err)
-			continue
-		}
-		if err = orm.CreateUser(&user); err != nil {
-			fmt.Println("Error creating API user: ", err)
-		}
-		return user, err
+	// Attempt to contextually return the correct admin user, CLI access here implies admin
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, t.lggr); found {
+		return adminUser, nil
 	}
+
+	// Otherwise, multiple admin users exist, prompt for which to use
+	email := t.prompter.Prompt("Enter email of API user account to assume: ")
+	user, err := orm.FindUser(email)
+
+	if err != nil {
+		return sessions.User{}, err
+	}
+	return user, nil
 }
 
 type fileAPIInitializer struct {
@@ -693,20 +733,71 @@ func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
 }
 
 func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
-		return user, err
-	}
-
 	request, err := credentialsFromFile(f.file, f.lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
 
-	user, err := sessions.NewUser(request.Email, request.Password)
+	// Load list of users to determine which to assume, or if a user needs to be created
+	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return user, err
+		return sessions.User{}, err
 	}
-	return user, orm.CreateUser(&user)
+
+	// If there are no users in the database, create initial admin user from session request from file creds
+	if len(dbUsers) == 0 {
+		user, err2 := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
+		if err2 != nil {
+			return user, errors.Wrap(err2, "failed to instantiate new user")
+		}
+		return user, orm.CreateUser(&user)
+	}
+
+	// Attempt to contextually return the correct admin user, CLI access here implies admin
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, f.lggr); found {
+		return adminUser, nil
+	}
+
+	// Otherwise, multiple admin users exist, attempt to load email specified in session request
+	user, err := orm.FindUser(request.Email)
+	if err != nil {
+		return sessions.User{}, err
+	}
+	return user, nil
+}
+
+func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) (sessions.User, bool) {
+	if len(users) == 0 {
+		return sessions.User{}, false
+	}
+
+	// If there is only a single DB user, select it within the context of CLI
+	if len(users) == 1 {
+		lggr.Infow("Defaulted to assume single DB API User", "email", users[0].Email)
+		return users[0], true
+	}
+
+	// If there is only one admin user, use it within the context of CLI
+	var singleAdmin sessions.User
+	populatedUser := false
+	for _, user := range users {
+		if user.Role == sessions.UserRoleAdmin {
+			// If multiple admin users found, don't use assume any and clear to continue to prompt
+			if populatedUser {
+				// Clear flag to skip return
+				populatedUser = false
+				break
+			}
+			singleAdmin = user
+			populatedUser = true
+		}
+	}
+	if populatedUser {
+		lggr.Infow("Defaulted to assume single DB admin API User", "email", singleAdmin)
+		return singleAdmin, true
+	}
+
+	return sessions.User{}, false
 }
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
@@ -717,7 +808,7 @@ func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionReque
 	}
 
 	lggr.Debug("Initializing API credentials")
-	dat, err := ioutil.ReadFile(file)
+	dat, err := os.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
 	}

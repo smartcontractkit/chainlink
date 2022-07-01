@@ -19,10 +19,24 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+const (
+	CronJobType               string = "cron"
+	DirectRequestJobType      string = "directrequest"
+	FluxMonitorJobType        string = "fluxmonitor"
+	OffchainReportingJobType  string = "offchainreporting"
+	OffchainReporting2JobType string = "offchainreporting2"
+	KeeperJobType             string = "keeper"
+	VRFJobType                string = "vrf"
+	BlockhashStoreJobType     string = "blockhashstore"
+	WebhookJobType            string = "webhook"
+	BootstrapJobType          string = "bootstrap"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
@@ -299,6 +313,10 @@ const (
 	TaskTypeLowercase        TaskType = "lowercase"
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeConditional      TaskType = "conditional"
+	TaskTypeHexDecode        TaskType = "hexdecode"
+	TaskTypeHexEncode        TaskType = "hexencode"
+	TaskTypeBase64Decode     TaskType = "base64decode"
+	TaskTypeBase64Encode     TaskType = "base64encode"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -381,6 +399,14 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &UppercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeConditional:
 		task = &ConditionalTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeHexDecode:
+		task = &HexDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeHexEncode:
+		task = &HexEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeBase64Decode:
+		task = &Base64DecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeBase64Encode:
+		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -444,6 +470,31 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
 	}
 	return chainSet.Get(id)
+}
+
+func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
+	if specGasLimit != nil {
+		return *specGasLimit
+	}
+
+	var jobTypeGasLimit *uint32
+	switch jobType {
+	case DirectRequestJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+	case FluxMonitorJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+	case OffchainReportingJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+	case KeeperJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+	case VRFJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+	}
+
+	if jobTypeGasLimit != nil {
+		return *jobTypeGasLimit
+	}
+	return cfg.EvmGasLimitDefault()
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings

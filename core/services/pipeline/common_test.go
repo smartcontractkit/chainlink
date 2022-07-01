@@ -12,6 +12,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -93,10 +94,7 @@ func TestRetryUnmarshal(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			p, err := pipeline.Parse(test.spec)
 			require.NoError(t, err)
 			require.Len(t, p.Tasks, 1)
@@ -111,8 +109,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns error if task is not the right type", func(t *testing.T) {
-		t.Parallel()
-
 		taskMap := interface{}(nil)
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("http"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got <nil> (<nil>) of type <nil>")
@@ -127,8 +123,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	})
 
 	t.Run("unknown task type", func(t *testing.T) {
-		t.Parallel()
-
 		taskMap := map[string]string{}
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("xxx"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, `UnmarshalTaskFromMap: unknown task type: "xxx"`)
@@ -162,13 +156,12 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeLowercase, &pipeline.LowercaseTask{}},
 		{pipeline.TaskTypeUppercase, &pipeline.UppercaseTask{}},
 		{pipeline.TaskTypeConditional, &pipeline.ConditionalTask{}},
+		{pipeline.TaskTypeHexDecode, &pipeline.HexDecodeTask{}},
+		{pipeline.TaskTypeBase64Decode, &pipeline.Base64DecodeTask{}},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(string(test.taskType), func(t *testing.T) {
-			t.Parallel()
-
 			taskMap := map[string]string{}
 			task, err := pipeline.UnmarshalTaskFromMap(test.taskType, taskMap, 0, "foo-dot-id")
 			require.NoError(t, err)
@@ -227,10 +220,7 @@ func TestMarshalJSONSerializable_replaceBytesWithHex(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			bytes, err := test.input.MarshalJSON()
 			assert.Equal(t, test.expected, string(bytes))
 			assert.Equal(t, test.err, errors.Cause(err))
@@ -252,10 +242,7 @@ func TestUnmarshalJSONSerializable(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			var i pipeline.JSONSerializable
 			err := json.Unmarshal([]byte(test.input), &i)
 			require.NoError(t, err)
@@ -296,10 +283,7 @@ func TestCheckInputs(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			outputs, err := pipeline.CheckInputs(test.pr, test.minLen, test.maxLen, test.maxErrors)
 			if test.err == nil {
 				assert.NoError(t, err)
@@ -322,4 +306,53 @@ func TestTaskRunResult_IsPending(t *testing.T) {
 
 	trrWithFinishedAt := &pipeline.TaskRunResult{FinishedAt: null.NewTime(time.Now(), true)}
 	assert.False(t, trrWithFinishedAt.IsPending())
+}
+
+func TestSelectGasLimit(t *testing.T) {
+	t.Parallel()
+
+	gcfg := cltest.NewTestGeneralConfig(t)
+	gcfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(999)
+	gcfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(100)
+	gcfg.Overrides.GlobalEvmGasLimitVRFJobType = null.IntFrom(101)
+	gcfg.Overrides.GlobalEvmGasLimitFMJobType = null.IntFrom(102)
+	gcfg.Overrides.GlobalEvmGasLimitOCRJobType = null.IntFrom(103)
+	gcfg.Overrides.GlobalEvmGasLimitKeeperJobType = null.IntFrom(103)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	t.Run("spec defined gas limit", func(t *testing.T) {
+		var specGasLimit uint32 = 1
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.DirectRequestJobType, &specGasLimit)
+		assert.Equal(t, uint32(1), gasLimit)
+	})
+
+	t.Run("direct request specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.DirectRequestJobType, nil)
+		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitDRJobType.Int64), gasLimit)
+	})
+
+	t.Run("OCR specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.OffchainReportingJobType, nil)
+		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitOCRJobType.Int64), gasLimit)
+	})
+
+	t.Run("VRF specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.VRFJobType, nil)
+		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitVRFJobType.Int64), gasLimit)
+	})
+
+	t.Run("flux monitor specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.FluxMonitorJobType, nil)
+		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitFMJobType.Int64), gasLimit)
+	})
+
+	t.Run("keeper specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.KeeperJobType, nil)
+		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), gasLimit)
+	})
+
+	t.Run("fallback to default gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.WebhookJobType, nil)
+		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitDefault.Int64), gasLimit)
+	})
 }

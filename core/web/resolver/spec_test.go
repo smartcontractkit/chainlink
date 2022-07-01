@@ -394,6 +394,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ObservationTimeout:                        models.Interval(2 * time.Minute),
 						ObservationTimeoutEnv:                     false,
 						P2PBootstrapPeers:                         pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
+						P2PV2Bootstrappers:                        pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						TransmitterAddress:                        &transmitterAddress,
 					},
 				}, nil)
@@ -427,6 +428,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 									observationTimeout
 									observationTimeoutEnv
 									p2pBootstrapPeers
+									p2pv2Bootstrappers
 									transmitterAddress
 								}
 							}
@@ -461,6 +463,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"observationTimeout": "2m0s",
 							"observationTimeoutEnv": false,
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
+							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
 					}
@@ -600,6 +603,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				maxGasPriceGWei := uint32(200)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
@@ -618,6 +622,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						BatchFulfillmentGasMultiplier: 1,
 						BackoffInitialDelay:           time.Minute,
 						BackoffMaxDelay:               time.Hour,
+						MaxGasPriceGWei:               &maxGasPriceGWei,
 					},
 				}, nil)
 			},
@@ -643,6 +648,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									chunkSize
 									backoffInitialDelay
 									backoffMaxDelay
+									maxGasPriceGWei
 								}
 							}
 						}
@@ -668,7 +674,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchFulfillmentGasMultiplier": 1,
 							"chunkSize": 25,
 							"backoffInitialDelay": "1m0s",
-							"backoffMaxDelay": "1h0m0s" 
+							"backoffMaxDelay": "1h0m0s",
+							"maxGasPriceGWei": 200
 						}
 					}
 				}

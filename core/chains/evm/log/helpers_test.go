@@ -27,9 +27,9 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -64,6 +64,10 @@ type broadcasterHelperCfg struct {
 }
 
 func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
+	if c.db == nil {
+		// ensure we check before registering any mock Cleanup assertions
+		testutils.SkipShortDB(t)
+	}
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
@@ -122,12 +126,7 @@ func (helper *broadcasterHelper) start() {
 	require.NoError(helper.t, err)
 }
 
-type abigenContract interface {
-	Address() common.Address
-	ParseLog(log types.Log) (generated.AbigenLog, error)
-}
-
-func (helper *broadcasterHelper) register(listener log.Listener, contract abigenContract, numConfirmations uint32) {
+func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint32) {
 	logs := []generated.AbigenLog{
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
@@ -135,7 +134,7 @@ func (helper *broadcasterHelper) register(listener log.Listener, contract abigen
 	helper.registerWithTopics(listener, contract, logs, numConfirmations)
 }
 
-func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract abigenContract, logs []generated.AbigenLog, numConfirmations uint32) {
+func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract log.AbigenContract, logs []generated.AbigenLog, numConfirmations uint32) {
 	logsWithTopics := make(map[common.Hash][][]log.Topic)
 	for _, log := range logs {
 		logsWithTopics[log.Topic()] = nil
@@ -143,7 +142,7 @@ func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contr
 	helper.registerWithTopicValues(listener, contract, numConfirmations, logsWithTopics)
 }
 
-func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract abigenContract, numConfirmations uint32,
+func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract log.AbigenContract, numConfirmations uint32,
 	topics map[common.Hash][][]log.Topic) {
 
 	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
@@ -316,7 +315,7 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	received := listener.received
 	require.Eventually(t, func() bool {
 		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
-	}, cltest.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
+	}, testutils.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 
 	received.Lock()
 	defer received.Unlock()
@@ -368,8 +367,7 @@ type mockEthClientExpectedCalls struct {
 }
 
 func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtest.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtest.MockEth {
-	ethClient := new(evmmocks.Client)
-	ethClient.Test(t)
+	ethClient := evmmocks.NewClient(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	mockEth.EthClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).

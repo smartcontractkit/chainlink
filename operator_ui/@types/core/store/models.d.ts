@@ -1,3 +1,5 @@
+import internal from 'assert'
+
 declare module 'core/store/models' {
   import * as common from 'github.com/ethereum/go-ethereum/common'
   import * as gorm from 'github.com/jinzhu/gorm'
@@ -62,6 +64,13 @@ declare module 'core/store/models' {
     httpURL: string
     wsURL: string
   }
+  export interface EVMKeysChainRequest {
+    address: string
+    evmChainID: string
+    nextNonce: ?integer
+    abandon: ?boolean
+    enabled: ?boolean
+  }
 
   export type Chain = {
     config: Record<string, JSONPrimitive>
@@ -78,6 +87,13 @@ declare module 'core/store/models' {
     createdAt: time.Time
     updatedAt: time.Time
     state: string
+  }
+
+  export type EVMKey = {
+    evmChainID: string
+    address: string
+    disabled: boolean
+    nonce: integer
   }
 
   // We really need to change the API for this. It not only returns levels but

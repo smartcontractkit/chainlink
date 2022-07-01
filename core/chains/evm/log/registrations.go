@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -23,10 +23,10 @@ import (
 //
 // 3. Information about already consumed logs is fetched from the database and used as a filter
 //
-// 4. The logs are attempted to be sent after every new head arrival:
-// 		Each stored log is checked against every matched listener and is sent unless:
-//    A) is too young for that listener
-//    B) matches a log already consumed (via the database information from log_broadcasts table)
+//  4. The logs are attempted to be sent after every new head arrival:
+//     Each stored log is checked against every matched listener and is sent unless:
+//     A) is too young for that listener
+//     B) matches a log already consumed (via the database information from log_broadcasts table)
 //
 // A log might be sent multiple times, if a consumer processes logs asynchronously (e.g. via a queue or a Mailbox), in which case the log
 // may not be marked as consumed before the next sending operation. That's why customers must still check the state via WasAlreadyConsumed
@@ -64,12 +64,6 @@ type (
 	Listener interface {
 		HandleLog(b Broadcast)
 		JobID() int32
-	}
-
-	// Metadata structure maintained per listener
-	listenerMetadata struct {
-		opts    ListenerOpts
-		filters [][]Topic
 	}
 
 	// subscribers type for convenience and readability
@@ -125,7 +119,7 @@ func (r *registrations) handlersWithGreaterConfs(confs uint32) (handlersWithGrea
 // maps modified are only used for checks
 func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 	if sub.opts.MinIncomingConfirmations <= 0 {
-		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined.", sub.opts.MinIncomingConfirmations)
+		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined", sub.opts.MinIncomingConfirmations)
 	}
 
 	jobID := sub.listener.JobID()
@@ -410,6 +404,10 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 		if len(filters) > 0 && len(log.Topics) > 1 {
 			topicValues := log.Topics[1:]
 			if !filtersContainValues(topicValues, filters) {
+				logger.Debugw("Filters did not contain expected topic",
+					"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
+					"address", log.Address, "latestBlockNumber", latestBlockNumber,
+					"topicValues", topicValues, "filters", topicsToHex(filters))
 				continue
 			}
 		}

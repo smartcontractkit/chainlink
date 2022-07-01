@@ -203,10 +203,12 @@ func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 }
 
 func TestChainScopedConfig_Profiles(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name                           string
 		chainID                        int64
-		expectedGasLimitDefault        uint64
+		expectedGasLimitDefault        uint32
 		expectedMinimumContractPayment string
 	}{
 		{"default", 0, 500000, "0.00001"},
@@ -227,13 +229,22 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 
 		{"xDai", 100, 500000, "0.00001"},
 	}
-	for _, tt := range tests {
+	for _, test := range tests {
+		tt := test
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			gcfg := configtest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			config := evmconfig.NewChainScopedConfig(big.NewInt(tt.chainID), evmtypes.ChainCfg{}, nil, lggr, gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
+			assert.Nil(t, config.EvmGasLimitOCRJobType())
+			assert.Nil(t, config.EvmGasLimitDRJobType())
+			assert.Nil(t, config.EvmGasLimitVRFJobType())
+			assert.Nil(t, config.EvmGasLimitFMJobType())
+			assert.Nil(t, config.EvmGasLimitKeeperJobType())
 			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.MinimumContractPayment().Link(), "0"))
 		})
 	}
@@ -261,23 +272,24 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 				ChainType:        null.StringFrom(string(config.ChainArbitrum)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(42161), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
+				GasEstimatorMode:                      null.StringFrom("BlockHistory"),
+				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(1),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(421611), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("Optimism"),
+				GasEstimatorMode: null.StringFrom("L2Suggested"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 	})
 

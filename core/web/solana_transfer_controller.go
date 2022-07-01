@@ -94,7 +94,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 
 	if !tr.AllowHigherAmounts {
-		if err := solanaValidateBalance(reader, tr.From, tr.Amount, tx.Message.ToBase64()); err != nil {
+		if err = solanaValidateBalance(reader, tr.From, tr.Amount, tx.Message.ToBase64()); err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to validate balance: %v", err))
 			return
 		}

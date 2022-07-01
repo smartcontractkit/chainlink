@@ -41,7 +41,7 @@ type Config interface {
 	EthTxResendAfterThreshold() time.Duration
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
-	EvmGasLimitDefault() uint64
+	EvmGasLimitDefault() uint32
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
 	EvmNonceAutoSync() bool
@@ -57,6 +57,9 @@ type KeyStore interface {
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
+	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+	CheckEnabled(address common.Address, chainID *big.Int) error
 }
 
 // For more information about the Txm architecture, see the design doc:
@@ -75,7 +78,17 @@ type TxManager interface {
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
-	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error)
+	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
+	Reset(f func(), addr common.Address, abandon bool) error
+}
+
+type reset struct {
+	// f is the function to execute between stopping/starting the
+	// EthBroadcaster and EthConfirmer
+	f func()
+	// done is either closed after running f, or returns error if f could not
+	// be run for some reason
+	done chan error
 }
 
 type Txm struct {
@@ -94,6 +107,7 @@ type Txm struct {
 
 	chHeads        chan *evmtypes.Head
 	trigger        chan common.Address
+	reset          chan reset
 	resumeCallback ResumeCallback
 
 	chStop   chan struct{}
@@ -135,6 +149,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
+		reset:            make(chan reset),
 	}
 	if cfg.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, cfg)
@@ -170,21 +185,28 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
+		if b.config.EvmNonceAutoSync() {
+			syncer := NewNonceSyncer(b.db, b.logger, b.config, b.ethClient, b.keyStore)
+			if err = syncer.SyncAll(ctx, keyStates); err != nil {
+				return errors.Wrap(err, "Txm: failed to sync with on-chain nonce")
+			}
+		}
+
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err := eb.Start(ctx); err != nil {
+		if err = eb.Start(ctx); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err := ec.Start(); err != nil {
+		if err = ec.Start(); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err := b.gasEstimator.Start(ctx); err != nil {
+		if err = b.gasEstimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
 		b.wg.Add(1)
-		go b.runLoop(eb, ec)
+		go b.runLoop(eb, ec, keyStates)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -196,13 +218,42 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		if b.fwdMgr != nil {
-			if err = b.fwdMgr.Start(); err != nil {
+			if err = b.fwdMgr.Start(ctx); err != nil {
 				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
 
 		return nil
 	})
+}
+
+// Reset stops EthBroadcaster/EthConfirmer, executes callback, then starts them
+// again
+func (b *Txm) Reset(callback func(), addr common.Address, abandon bool) (err error) {
+	ok := b.IfStarted(func() {
+		done := make(chan error)
+		f := func() {
+			callback()
+			if abandon {
+				err = b.abandon(addr)
+			}
+		}
+
+		b.reset <- reset{f, done}
+		err = <-done
+	})
+	if !ok {
+		return errors.New("not started")
+	}
+	return err
+}
+
+// abandon, scoped to the key of this txm:
+// - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
+// this must not be run while EthBroadcaster or EthConfirmer are running
+func (b *Txm) abandon(addr common.Address) (err error) {
+	_, err = b.q.Exec(`UPDATE eth_txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, b.chainID.String(), addr)
+	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.Hex())
 }
 
 func (b *Txm) Close() (merr error) {
@@ -229,7 +280,9 @@ func (b *Txm) Close() (merr error) {
 	})
 }
 
-func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
+func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
+	// eb, ec and keyStates can all be modified by the runloop.
+	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
 	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
 	defer unsub()
@@ -239,36 +292,131 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 	ctx, cancel := utils.ContextFromChan(b.chStop)
 	defer cancel()
 
+	var stopped bool
+	var stopOnce sync.Once
+
+	// execReset is defined as an inline function here because it closes over
+	// eb, ec and stopped
+	execReset := func(r *reset) {
+		// These should always close successfully, since it should be logically
+		// impossible to enter this code path with ec/eb in a state other than
+		// "Started"
+		if err := eb.Close(); err != nil {
+			b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
+		}
+		if err := ec.Close(); err != nil {
+			b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
+		}
+
+		if r != nil {
+			r.f()
+			close(r.done)
+		}
+
+		eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
+		ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+
+		var wg sync.WaitGroup
+		// two goroutines to handle independent backoff retries starting:
+		// - EthBroadcaster
+		// - EthConfirmer
+		// If chStop is closed, we mark stopped=true so that the main runloop
+		// can check and exit early if necessary
+		//
+		// execReset will not return until either:
+		// 1. Both EthBroadcaster and EthConfirmer started successfully
+		// 2. chStop was closed (txmgr exit)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			// Retry indefinitely on failure
+			backoff := utils.NewRedialBackoff()
+			for {
+				select {
+				case <-time.After(backoff.Duration()):
+					if err := eb.Start(ctx); err != nil {
+						b.logger.Criticalw("Failed to start EthBroadcaster", "err", err)
+						continue
+					}
+					return
+				case <-b.chStop:
+					stopOnce.Do(func() { stopped = true })
+					return
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			// Retry indefinitely on failure
+			backoff := utils.NewRedialBackoff()
+			for {
+				select {
+				case <-time.After(backoff.Duration()):
+					if err := ec.Start(); err != nil {
+						b.logger.Criticalw("Failed to start EthConfirmer", "err", err)
+						continue
+					}
+					return
+				case <-b.chStop:
+					stopOnce.Do(func() { stopped = true })
+					return
+				}
+			}
+		}()
+
+		wg.Wait()
+	}
+
 	for {
 		select {
 		case address := <-b.trigger:
 			eb.Trigger(address)
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
+		case reset := <-b.reset:
+			// This check prevents the weird edge-case where you can select
+			// into this block after chStop has already been closed and the
+			// previous reset exited early.
+			// In this case we do not want to reset again, we would rather go
+			// around and hit the stop case.
+			if stopped {
+				reset.done <- errors.New("Txm was stopped")
+				continue
+			}
+			execReset(&reset)
 		case <-b.chStop:
-			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
-			b.logger.ErrorIfClosing(ec, "EthConfirmer")
+			// close and exit
+			//
+			// Note that in some cases EthBroadcaster and/or EthConfirmer may
+			// be in an Unstarted state here, if execReset exited early.
+			//
+			// In this case, we don't care about stopping them since they are
+			// already "stopped", hence the usage of utils.EnsureClosed.
+			if err := utils.EnsureClosed(eb); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
+			}
+			if err := utils.EnsureClosed(ec); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close EthConfirmer: %v", err), "err", err)
+			}
 			return
 		case <-keysChanged:
-			keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
+			// This check prevents the weird edge-case where you can select
+			// into this block after chStop has already been closed and the
+			// previous reset exited early.
+			// In this case we do not want to reset again, we would rather go
+			// around and hit the stop case.
+			if stopped {
+				continue
+			}
+			var err error
+			keyStates, err = b.keyStore.GetStatesForChain(&b.chainID)
 			if err != nil {
-				b.logger.Errorf("Failed to reload key states after key change")
+				b.logger.Criticalf("Failed to reload key states after key change")
 				continue
 			}
 			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
 
-			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
-			b.logger.ErrorIfClosing(ec, "EthConfirmer")
-
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-
-			if err := eb.Start(ctx); err != nil {
-				b.logger.Criticalw("Failed to start EthBroadcaster", "error", err)
-			}
-			if err := ec.Start(); err != nil {
-				b.logger.Criticalw("Failed to start EthConfirmer", "error", err)
-			}
+			execReset(nil)
 		}
 	}
 }
@@ -303,8 +451,9 @@ type NewTx struct {
 	FromAddress    common.Address
 	ToAddress      common.Address
 	EncodedPayload []byte
-	GasLimit       uint64
+	GasLimit       uint32
 	Meta           *EthTxMeta
+	Forwardable    bool
 
 	// Pipeline variables - if you aren't calling this from ethtx task within
 	// the pipeline, you don't need these variables
@@ -319,10 +468,23 @@ type NewTx struct {
 
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+	if err = b.checkEnabled(newTx.FromAddress); err != nil {
+		return etx, err
+	}
+
 	q := b.q.WithOpts(qs...)
-	if b.config.EvmUseForwarders() {
+
+	if b.config.EvmUseForwarders() && newTx.Forwardable {
 		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
+			// Handling meta not set at caller.
+			if newTx.Meta != nil {
+				newTx.Meta.FwdrDestAddress = &newTx.ToAddress
+			} else {
+				newTx.Meta = &EthTxMeta{
+					FwdrDestAddress: &newTx.ToAddress,
+				}
+			}
 			newTx.ToAddress = fwdAddr
 			newTx.EncodedPayload = fwdPayload
 		} else {
@@ -348,9 +510,6 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 				return nil
 			}
 		}
-		if err = b.checkStateExists(tx, newTx.FromAddress); err != nil {
-			return err
-		}
 		err := tx.Get(&etx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
 VALUES (
@@ -374,18 +533,9 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *Txm) checkStateExists(q pg.Queryer, addr common.Address) error {
-	var state ethkey.State
-	err := q.Get(&state, `SELECT * FROM eth_key_states WHERE address = $1`, addr)
-	if errors.Is(err, sql.ErrNoRows) {
-		return errors.Errorf("no eth key exists with address %s", addr.Hex())
-	} else if err != nil {
-		return errors.Wrap(err, "failed to query state")
-	}
-	if state.EVMChainID.Cmp(utils.NewBig(&b.chainID)) != 0 {
-		return errors.Errorf("cannot send transaction on chain ID %s; eth key with address %s is pegged to chain ID %s", b.chainID.String(), addr.Hex(), state.EVMChainID.String())
-	}
-	return nil
+func (b *Txm) checkEnabled(addr common.Address) error {
+	err := b.keyStore.CheckEnabled(addr, &b.chainID)
+	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.Hex(), b.chainID.String())
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
@@ -394,7 +544,7 @@ func (b *Txm) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -445,7 +595,6 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 	}
 
 	err = ethClient.SendTransaction(ctx, signedTx)
-	err = errors.WithStack(err)
 
 	a.EthTx = e // for logging
 	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
@@ -464,7 +613,7 @@ func sendEmptyTransaction(
 	ethClient evmclient.Client,
 	keyStore KeyStore,
 	nonce uint64,
-	gasLimit uint64,
+	gasLimit uint32,
 	gasPriceWei *big.Int,
 	fromAddress common.Address,
 	chainID *big.Int,
@@ -480,10 +629,10 @@ func sendEmptyTransaction(
 }
 
 // makes a transaction that sends 0 eth to self
-func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
+func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint32, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
 	value := big.NewInt(0)
 	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, fromAddress, value, gasLimit, gasPriceWei, payload)
+	tx := gethTypes.NewTransaction(nonce, fromAddress, value, uint64(gasLimit), gasPriceWei, payload)
 	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
@@ -566,9 +715,12 @@ func (n *NullTxManager) Trigger(common.Address) { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
+func (n *NullTxManager) Reset(f func(), addr common.Address, abandon bool) error {
+	return nil
+}
 
 // SendEther does nothing, null functionality
-func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                           { return nil }

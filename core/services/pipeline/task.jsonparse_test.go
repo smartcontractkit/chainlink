@@ -1,13 +1,14 @@
 package pipeline_test
 
 import (
-	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -40,14 +41,26 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 		},
 		{
+			"large int result",
+			"",
+			"some_id",
+			"",
+			"false",
+			pipeline.NewVarsFrom(nil),
+			[]pipeline.Result{{Value: `{"some_id":1564679049192120321}`}},
+			int64(1564679049192120321),
+			nil,
+			"",
+		},
+		{
 			"float result",
 			"",
 			"availability",
 			"",
 			"false",
 			pipeline.NewVarsFrom(nil),
-			[]pipeline.Result{{Value: `{"availability":0.99991}`}},
-			0.99991,
+			[]pipeline.Result{{Value: `{"availability":3.14}`}},
+			3.14,
 			nil,
 			"",
 		},
@@ -59,7 +72,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
-			float64(0),
+			int64(0),
 			nil,
 			"",
 		},
@@ -71,7 +84,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
-			float64(0),
+			int64(0),
 			nil,
 			"",
 		},
@@ -83,7 +96,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1]}`}},
-			float64(1),
+			int64(1),
 			nil,
 			"",
 		},
@@ -95,7 +108,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]}`}},
-			float64(0),
+			int64(0),
 			nil,
 			"",
 		},
@@ -179,7 +192,7 @@ func TestJSONParseTask(t *testing.T) {
 			"false",
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"data": [[0, 1]]}`}},
-			[]interface{}{float64(0), float64(1)},
+			[]interface{}{json.Number("0"), json.Number("1")},
 			nil,
 			"",
 		},
@@ -387,7 +400,7 @@ func TestJSONParseTask(t *testing.T) {
 				Data:      test.data,
 				Lax:       test.lax,
 			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

@@ -17,8 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 // ETHKeysController manages account keys
@@ -33,11 +35,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
-	if ekc.App.GetConfig().Dev() {
-		keys, err = ethKeyStore.GetAll()
-	} else {
-		keys, err = ethKeyStore.SendingKeys(nil)
-	}
+	keys, err = ethKeyStore.GetAll()
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -58,8 +56,8 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 		}
 		r, err := presenters.NewETHKeyResource(key, state,
 			ekc.setEthBalance(c.Request.Context(), state),
-			ekc.setLinkBalance(state),
-			ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
+			ekc.setLinkBalance(c.Request.Context(), state),
+			ekc.setKeyMaxGasPriceWei(state, key.Address),
 		)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -68,9 +66,9 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 
 		resources = append(resources, *r)
 	}
-	// Put funding keys to the end
+	// Put disabled keys to the end
 	sort.SliceStable(resources, func(i, j int) bool {
-		return !resources[i].IsFunding && resources[j].IsFunding
+		return !resources[i].Disabled && resources[j].Disabled
 	})
 
 	jsonAPIResponse(c, resources, "keys")
@@ -110,22 +108,22 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	}
 	if maxGasPriceGWei > 0 {
 		maxGasPriceWei := assets.GWei(maxGasPriceGWei)
-		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address.Address(), maxGasPriceWei)
+		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
 		if err = ekc.App.GetChains().EVM.UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
 	}
 
-	state, err := ethKeyStore.GetState(key.ID())
+	state, err := ethKeyStore.GetState(key.ID(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
-		ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
+		ekc.setLinkBalance(c.Request.Context(), state),
+		ekc.setKeyMaxGasPriceWei(state, key.Address),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -157,8 +155,17 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
+	chain, err := getChain(ekc.App.GetChains().EVM, c.Query("evmChainID"))
+	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	} else if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
 	keyID := c.Param("keyID")
-	state, err := ethKeyStore.GetState(keyID)
+	state, err := ethKeyStore.GetState(keyID, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -171,7 +178,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 	}
 
 	maxGasPriceWei := assets.GWei(maxGasPriceGWei)
-	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address.Address(), maxGasPriceWei)
+	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address, maxGasPriceWei)
 	if err = ekc.App.GetChains().EVM.UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -179,8 +186,8 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
-		ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
+		ekc.setLinkBalance(c.Request.Context(), state),
+		ekc.setKeyMaxGasPriceWei(state, key.Address),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -221,8 +228,18 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("hard delete only"))
 		return
 	}
+
+	chain, err := getChain(ekc.App.GetChains().EVM, c.Query("evmChainID"))
+	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	} else if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
 	keyID := c.Param("keyID")
-	state, err := ethKeyStore.GetState(keyID)
+	state, err := ethKeyStore.GetState(keyID, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -236,7 +253,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -276,7 +293,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	state, err := ethKeyStore.GetState(key.ID())
+	state, err := ethKeyStore.GetState(key.ID(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -284,7 +301,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -315,6 +332,105 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 	c.Data(http.StatusOK, MediaType, bytes)
 }
 
+// Chain updates settings for a given chain for the key
+func (ekc *ETHKeysController) Chain(c *gin.Context) {
+	kst := ekc.App.GetKeyStore().Eth()
+	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
+
+	addressHex := c.Query("address")
+	addressBytes, err := hexutil.Decode(addressHex)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid address"))
+		return
+	}
+	address := common.BytesToAddress(addressBytes)
+
+	cid := c.Query("evmChainID")
+	chain, err := getChain(ekc.App.GetChains().EVM, cid)
+	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	} else if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	var nonce int64 = -1
+	if nonceStr := c.Query("nextNonce"); nonceStr != "" {
+		nonce, err = strconv.ParseInt(nonceStr, 10, 64)
+		if err != nil || nonce < 0 {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrapf(err, "invalid value for nonce: expected 0 or positive int, got: %s", nonceStr))
+			return
+		}
+	}
+	abandon := false
+	if abandonStr := c.Query("abandon"); abandonStr != "" {
+		abandon, err = strconv.ParseBool(abandonStr)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
+			return
+		}
+	}
+
+	// Reset the chain
+	if abandon || nonce >= 0 {
+		var resetErr error
+		err = chain.TxManager().Reset(func() {
+			if nonce >= 0 {
+				resetErr = kst.Reset(address, chain.ID(), nonce)
+			}
+		}, address, abandon)
+		err = multierr.Combine(err, resetErr)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	enabledStr := c.Query("enabled")
+	if enabledStr != "" {
+		var enabled bool
+		enabled, err = strconv.ParseBool(enabledStr)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "enabled must be bool"))
+			return
+		}
+
+		if enabled {
+			err = kst.Enable(address, chain.ID())
+		} else {
+			err = kst.Disable(address, chain.ID())
+		}
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	key, err := kst.Get(address.Hex())
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	state, err := kst.GetState(key.ID(), chain.ID())
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(c.Request.Context(), state),
+	)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, r, "account")
+}
+
 // setEthBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the ETH balance at the address and sets it on the
 // resource.
@@ -343,13 +459,13 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 // setLinkBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
-func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewETHKeyOption {
+func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
 	var bal *assets.Link
 	chain, err := ekc.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 	if err == nil {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().LinkContractAddress())
-		bal, err = ethClient.GetLINKBalance(addr, state.Address.Address())
+		bal, err = ethClient.GetLINKBalance(ctx, addr, state.Address.Address())
 	}
 
 	return func(r *presenters.ETHKeyResource) error {

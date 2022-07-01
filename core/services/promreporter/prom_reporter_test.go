@@ -1,7 +1,6 @@
 package promreporter_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -29,8 +28,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
 		d := pgtest.NewSqlDB(t)
 
-		backend := new(mocks.PrometheusBackend)
-		backend.Test(t)
+		backend := mocks.NewPrometheusBackend(t)
 		reporter := promreporter.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
@@ -49,11 +47,9 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer reporter.Close()
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), &head)
+		reporter.OnNewLongestChain(testutils.Context(t), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
-
-		backend.AssertExpectations(t)
 	})
 
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
@@ -65,8 +61,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		var subscribeCalls atomic.Int32
 
-		backend := new(mocks.PrometheusBackend)
-		backend.Test(t)
+		backend := mocks.NewPrometheusBackend(t)
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(3)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), mock.MatchedBy(func(s float64) bool {
 			return s > 0
@@ -88,11 +83,9 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), &head)
+		reporter.OnNewLongestChain(testutils.Context(t), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
-
-		backend.AssertExpectations(t)
 	})
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
@@ -100,8 +93,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
-		backend := new(mocks.PrometheusBackend)
-		backend.Test(t)
+		backend := mocks.NewPrometheusBackend(t)
 		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
@@ -123,10 +115,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer reporter.Close()
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), &head)
+		reporter.OnNewLongestChain(testutils.Context(t), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
-
-		backend.AssertExpectations(t)
 	})
 }

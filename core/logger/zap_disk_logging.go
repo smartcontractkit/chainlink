@@ -97,7 +97,7 @@ func (cfg zapDiskLoggerConfig) newLogger(zcfg zap.Config, cores ...zapcore.Core)
 		pollDiskSpaceDone: make(chan struct{}),
 		zapLogger: zapLogger{
 			level:         zcfg.Level,
-			SugaredLogger: zap.New(core, zap.ErrorOutput(errWriter)).Sugar(),
+			SugaredLogger: zap.New(core, zap.ErrorOutput(errWriter), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
 		},
 		diskLogLevel: diskLogLevel,
 	}
@@ -107,7 +107,7 @@ func (cfg zapDiskLoggerConfig) newLogger(zcfg zap.Config, cores ...zapcore.Core)
 	}
 
 	var once sync.Once
-	close := func() error {
+	closeLogger := func() error {
 		once.Do(func() {
 			if cfg.local.DebugLogsToDisk() {
 				close(lggr.pollDiskSpaceStop)
@@ -118,7 +118,7 @@ func (cfg zapDiskLoggerConfig) newLogger(zcfg zap.Config, cores ...zapcore.Core)
 		return lggr.Sync()
 	}
 
-	return lggr, close, err
+	return lggr, closeLogger, err
 }
 
 func (cfg zapDiskLoggerConfig) newCore(zcfg zap.Config) (zapcore.Core, zapcore.WriteSyncer, error) {

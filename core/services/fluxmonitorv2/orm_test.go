@@ -167,16 +167,16 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	strategy := new(txmmocks.TxStrategy)
+	strategy := txmmocks.NewTxStrategy(t)
 
 	var (
-		txm = new(txmmocks.TxManager)
+		txm = txmmocks.NewTxManager(t)
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
-		gasLimit = uint64(21000)
+		gasLimit = uint32(21000)
 	)
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
@@ -189,6 +189,4 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	}).Return(txmgr.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(from, to, payload, gasLimit)
-
-	txm.AssertExpectations(t)
 }

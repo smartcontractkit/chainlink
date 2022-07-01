@@ -1,12 +1,18 @@
 package validate
 
 import (
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 )
@@ -90,11 +96,80 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
+	case job.DKG:
+		return validateDKGSpec(spec.OCR2OracleSpec.PluginConfig)
+	case job.OCR2VRF:
+		return validateOCR2VRFSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
 		return errors.Errorf("invalid pluginType %s", spec.OCR2OracleSpec.PluginType)
 	}
 
+	return nil
+}
+
+func validateDKGSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var pluginConfig dkgconfig.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return errors.Wrap(err, "error while unmarshaling plugin config")
+	}
+	err = validateHexString(pluginConfig.EncryptionPublicKey, 32)
+	if err != nil {
+		return errors.Wrap(err, "validation error for encryptedPublicKey")
+	}
+	err = validateHexString(pluginConfig.SigningPublicKey, 32)
+	if err != nil {
+		return errors.Wrap(err, "validation error for signingPublicKey")
+	}
+	err = validateHexString(pluginConfig.KeyID, 32)
+	if err != nil {
+		return errors.Wrap(err, "validation error for keyID")
+	}
+
+	return nil
+}
+
+func validateHexString(val string, expectedLengthInBytes uint) error {
+	decoded, err := hex.DecodeString(val)
+	if err != nil {
+		return errors.Wrapf(err, "expected hex string but received %s", val)
+	}
+	if len(decoded) != int(expectedLengthInBytes) {
+		return fmt.Errorf("value: %s has unexpected length. Expected %d bytes", val, expectedLengthInBytes)
+	}
+	return nil
+}
+
+func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg ocr2vrfconfig.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return errors.Wrap(err, "json unmarshal plugin config")
+	}
+	err = validateDKGSpec(job.JSONConfig{
+		"encryptionPublicKey": cfg.DKGEncryptionPublicKey,
+		"signingPublicKey":    cfg.DKGSigningPublicKey,
+		"keyID":               cfg.DKGKeyID,
+	})
+	if err != nil {
+		return err
+	}
+	if cfg.LinkEthFeedAddress == "" {
+		return errors.New("linkEthFeedAddress must be provided")
+	}
+	if cfg.DKGContractAddress == "" {
+		return errors.New("dkgContractAddress must be provided")
+	}
+	if cfg.LookbackBlocks <= 0 {
+		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
+	}
 	return nil
 }

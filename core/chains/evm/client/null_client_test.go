@@ -8,20 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestNullClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("chain id", func(t *testing.T) {
-		t.Parallel()
-
 		lggr := logger.TestLogger(t)
 		cid := big.NewInt(123)
 		nc := client.NewNullClient(cid, lggr)
@@ -32,11 +31,9 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("CL client methods", func(t *testing.T) {
-		t.Parallel()
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.TestCtx(t)
+		ctx := testutils.Context(t)
 
 		err := nc.Dial(ctx)
 		require.NoError(t, err)
@@ -45,19 +42,15 @@ func TestNullClient(t *testing.T) {
 		nc.Close()
 		require.Equal(t, 1, logs.FilterMessage("Close").Len())
 
-		b, err := nc.GetERC20Balance(common.Address{}, common.Address{})
+		b, err := nc.GetERC20Balance(ctx, common.Address{}, common.Address{})
 		require.NoError(t, err)
 		require.Zero(t, b.Int64())
 		require.Equal(t, 1, logs.FilterMessage("GetERC20Balance").Len())
 
-		l, err := nc.GetLINKBalance(common.Address{}, common.Address{})
+		l, err := nc.GetLINKBalance(ctx, common.Address{}, common.Address{})
 		require.NoError(t, err)
 		require.True(t, l.IsZero())
 		require.Equal(t, 1, logs.FilterMessage("GetLINKBalance").Len())
-
-		err = nc.Call(nil, "")
-		require.NoError(t, err)
-		require.Equal(t, 1, logs.FilterMessage("Call").Len())
 
 		err = nc.CallContext(ctx, nil, "")
 		require.NoError(t, err)
@@ -78,17 +71,15 @@ func TestNullClient(t *testing.T) {
 		require.Equal(t, 1, logs.FilterMessage("Unsubscribe").Len())
 
 		chLogs := make(chan types.Log)
-		sub, err = nc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, chLogs)
+		_, err = nc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, chLogs)
 		require.NoError(t, err)
 		require.Equal(t, 1, logs.FilterMessage("SubscribeFilterLogs").Len())
 	})
 
 	t.Run("Geth client methods", func(t *testing.T) {
-		t.Parallel()
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.TestCtx(t)
+		ctx := testutils.Context(t)
 
 		h, err := nc.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)

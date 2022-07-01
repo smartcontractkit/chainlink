@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -73,7 +72,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			var address ethkey.EIP55Address
 			if tc.taExists {
 				key, _ := cltest.MustInsertRandomKey(t, ta.KeyStore.Eth())
-				address = key.Address
+				address = key.EIP55Address
 			} else {
 				address = cltest.NewEIP55Address()
 			}
@@ -160,7 +159,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, resource.OffChainReportingSpec)
 
@@ -200,7 +199,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, resource.KeeperSpec)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
@@ -222,7 +221,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -239,7 +238,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -256,7 +255,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.DirectRequestSpec)
 
@@ -276,7 +275,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.DirectRequestSpec)
 
@@ -299,7 +298,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
@@ -322,7 +321,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.VRFSpec)
 
@@ -355,7 +354,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -370,7 +369,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 
 	jorm := app.JobORM()
-	_, err = jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+	_, err = jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 	require.NoError(t, err)
 }
 
@@ -378,7 +377,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -486,7 +485,7 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobS
 
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
-	// millenia and century characters to be present
+	// millennia and century characters to be present
 	assert.Contains(t, ocrJobSpecFromServer.OffChainReportingSpec.CreatedAt.String(), "20")
 	assert.Contains(t, ocrJobSpecFromServer.OffChainReportingSpec.UpdatedAt.String(), "20")
 }
@@ -496,7 +495,7 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Equal(t, ereJobSpecFromFile.Pipeline.Source, ereJobSpecFromServer.PipelineSpec.DotDAGSource)
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
-	// millenia and century characters to be present
+	// millennia and century characters to be present
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.CreatedAt.String(), "20")
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
@@ -513,7 +512,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
@@ -531,23 +530,23 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
-	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
-	jb.OCROracleSpec.TransmitterAddress = &app.Key.Address
-	err = app.AddJobV2(context.Background(), &jb)
+	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
 	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
-	err = app.AddJobV2(context.Background(), &erejb)
+	err = app.AddJobV2(testutils.Context(t), &erejb)
 	require.NoError(t, err)
 
 	return app, client, jb, jb.ID, erejb, erejb.ID

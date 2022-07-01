@@ -1,13 +1,13 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -124,6 +124,38 @@ func TestMergeTask(t *testing.T) {
 			true,
 			`right-side`,
 		},
+		{
+			"variable in left",
+			`{"foo": 42, "bar": null}`,
+			`{"flibber": $(someInput)}`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"someInput": "this is a string",
+			}),
+			[]pipeline.Result{},
+			map[string]interface{}{
+				"foo":     float64(42),
+				"bar":     nil,
+				"flibber": "this is a string",
+			},
+			false,
+			"",
+		},
+		{
+			"variable in right",
+			`{"flibber": $(someInput)}`,
+			`{"foo": 42, "bar": null}`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"someInput": "this is a string",
+			}),
+			[]pipeline.Result{},
+			map[string]interface{}{
+				"foo":     float64(42),
+				"bar":     nil,
+				"flibber": "this is a string",
+			},
+			false,
+			"",
+		},
 	}
 
 	for _, tt := range tests {
@@ -134,7 +166,7 @@ func TestMergeTask(t *testing.T) {
 				Left:     test.left,
 				Right:    test.right,
 			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

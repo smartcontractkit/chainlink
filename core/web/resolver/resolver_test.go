@@ -16,6 +16,7 @@ import (
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -82,7 +83,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			schema.MustGetRootSchema(),
 			&Resolver{App: app},
 		)
-		ctx = loader.InjectDataloader(context.Background(), app)
+		ctx = loader.InjectDataloader(testutils.Context(t), app)
 	)
 
 	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(&audit.AuditLoggerService{}).Maybe()
@@ -168,7 +169,7 @@ func (f *gqlTestFramework) Timestamp() time.Time {
 func (f *gqlTestFramework) injectAuthenticatedUser() {
 	f.t.Helper()
 
-	user := clsessions.User{Email: "gqltester@chain.link"}
+	user := clsessions.User{Email: "gqltester@chain.link", Role: clsessions.UserRoleAdmin}
 
 	f.Ctx = auth.SetGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
 }

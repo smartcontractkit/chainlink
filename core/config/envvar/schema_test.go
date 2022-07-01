@@ -71,8 +71,14 @@ func TestConfigSchema(t *testing.T) {
 		"EvmGasBumpWei":                                  "ETH_GAS_BUMP_WEI",
 		"EvmGasFeeCapDefault":                            "EVM_GAS_FEE_CAP_DEFAULT",
 		"EvmGasLimitDefault":                             "ETH_GAS_LIMIT_DEFAULT",
+		"EvmGasLimitMax":                                 "ETH_GAS_LIMIT_MAX",
 		"EvmGasLimitMultiplier":                          "ETH_GAS_LIMIT_MULTIPLIER",
 		"EvmGasLimitTransfer":                            "ETH_GAS_LIMIT_TRANSFER",
+		"EvmGasLimitOCRJobType":                          "ETH_GAS_LIMIT_OCR_JOB_TYPE",
+		"EvmGasLimitDRJobType":                           "ETH_GAS_LIMIT_DR_JOB_TYPE",
+		"EvmGasLimitVRFJobType":                          "ETH_GAS_LIMIT_VRF_JOB_TYPE",
+		"EvmGasLimitFMJobType":                           "ETH_GAS_LIMIT_FM_JOB_TYPE",
+		"EvmGasLimitKeeperJobType":                       "ETH_GAS_LIMIT_KEEPER_JOB_TYPE",
 		"EvmGasPriceDefault":                             "ETH_GAS_PRICE_DEFAULT",
 		"EvmGasTipCapDefault":                            "EVM_GAS_TIP_CAP_DEFAULT",
 		"EvmGasTipCapMinimum":                            "EVM_GAS_TIP_CAP_MINIMUM",
@@ -143,6 +149,7 @@ func TestConfigSchema(t *testing.T) {
 		"NodeNoNewHeadsThreshold":                        "NODE_NO_NEW_HEADS_THRESHOLD",
 		"NodePollFailureThreshold":                       "NODE_POLL_FAILURE_THRESHOLD",
 		"NodePollInterval":                               "NODE_POLL_INTERVAL",
+		"NodeSelectionMode":                              "NODE_SELECTION_MODE",
 		"ORMMaxIdleConns":                                "ORM_MAX_IDLE_CONNS",
 		"ORMMaxOpenConns":                                "ORM_MAX_OPEN_CONNS",
 		"OptimismGasFees":                                "OPTIMISM_GAS_FEES",
@@ -157,6 +164,8 @@ func TestConfigSchema(t *testing.T) {
 		"ShutdownGracePeriod":                            "SHUTDOWN_GRACE_PERIOD",
 		"SolanaEnabled":                                  "SOLANA_ENABLED",
 		"SolanaNodes":                                    "SOLANA_NODES",
+		"StarknetEnabled":                                "STARKNET_ENABLED",
+		"StarknetNodes":                                  "STARKNET_NODES",
 		"TerraNodes":                                     "TERRA_NODES",
 		"TLSCertPath":                                    "TLS_CERT_PATH",
 		"TLSHost":                                        "CHAINLINK_TLS_HOST",
@@ -185,7 +194,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCR2DatabaseTimeout":                    "OCR2_DATABASE_TIMEOUT",
 		"OCR2ContractConfirmations":              "OCR2_CONTRACT_CONFIRMATIONS",
 		"OCR2KeyBundleID":                        "OCR2_KEY_BUNDLE_ID",
-		"OCR2MonitoringEndpoint":                 "OCR2_MONITORING_ENDPOINT",
 		"OCR2TraceLogging":                       "OCR2_TRACE_LOGGING",
 
 		// OCR v1
@@ -196,7 +204,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCRDatabaseTimeout":                    "OCR_DATABASE_TIMEOUT",
 		"OCRContractConfirmations":              "OCR_CONTRACT_CONFIRMATIONS",
 		"OCRKeyBundleID":                        "OCR_KEY_BUNDLE_ID",
-		"OCRMonitoringEndpoint":                 "OCR_MONITORING_ENDPOINT",
 		"OCRDefaultTransactionQueueDepth":       "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"OCRTraceLogging":                       "OCR_TRACE_LOGGING",
 		"OCRObservationGracePeriod":             "OCR_OBSERVATION_GRACE_PERIOD",
@@ -229,6 +236,11 @@ func TestConfigSchema(t *testing.T) {
 		"P2PV2DeltaDial":         "P2PV2_DELTA_DIAL",
 		"P2PV2DeltaReconcile":    "P2PV2_DELTA_RECONCILE",
 		"P2PV2ListenAddresses":   "P2PV2_LISTEN_ADDRESSES",
+
+		// Pyroscope profiling
+		"PyroscopeAuthToken":     "PYROSCOPE_AUTH_TOKEN",
+		"PyroscopeServerAddress": "PYROSCOPE_SERVER_ADDRESS",
+		"PyroscopeEnvironment":   "PYROSCOPE_ENVIRONMENT",
 
 		// P2P deprecated
 		"OCRNewStreamTimeout":          "OCR_NEW_STREAM_TIMEOUT",

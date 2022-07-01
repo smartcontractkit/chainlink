@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func TestRunStatus(t *testing.T) {
+func TestRun_Status(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, pipeline.RunStatusUnknown.Finished(), false)
@@ -24,9 +24,7 @@ func TestRunStatus(t *testing.T) {
 	assert.Equal(t, pipeline.RunStatusRunning.Errored(), false)
 	assert.Equal(t, pipeline.RunStatusCompleted.Errored(), false)
 	assert.Equal(t, pipeline.RunStatusErrored.Errored(), true)
-}
 
-func TestRun_Status(t *testing.T) {
 	now := null.TimeFrom(time.Now())
 
 	testCases := []struct {
@@ -67,10 +65,7 @@ func TestRun_Status(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			assert.Equal(t, tc.want, tc.run.Status())
 		})
 	}

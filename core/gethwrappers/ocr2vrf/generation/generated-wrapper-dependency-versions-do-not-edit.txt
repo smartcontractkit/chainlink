@@ -1,0 +1,4 @@
+GETH_VERSION: 1.10.20
+dkg: ../../../../contracts/solc/v0.8.15/DKG.abi ../../../../contracts/solc/v0.8.15/DKG.bin 00c6f6e6ac6cb52a3d7686cfb7c5ec83485025f0a23541b0bde0fbbf1f5a1b7c
+vrf_beacon_consumer: ../../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin b0d45a8da259c6b1f01f4f55b5e42feae045f988c7c7ddb29377122420077f1d
+vrf_beacon_coordinator: ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 3c52ea15268a6eeb2a7297aa6c094bb48918d080dfaed581701d01c33d475af2

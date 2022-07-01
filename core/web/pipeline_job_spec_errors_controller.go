@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 	"net/http"
 
@@ -28,7 +27,7 @@ func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	err = psec.App.JobORM().DismissError(context.Background(), jobSpec.ID)
+	err = psec.App.JobORM().DismissError(c.Request.Context(), jobSpec.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("PipelineJobSpecError not found"))
 		return

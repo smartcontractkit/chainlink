@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,15 @@ type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struc
 	newResource   func(chains.DBChain[I, C]) R
 	lggr          logger.Logger
 	auditLogger   audit.AuditLogger
+}
+
+type errChainDisabled struct {
+	name   string
+	envVar string
+}
+
+func (e errChainDisabled) Error() string {
+	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.envVar)
 }
 
 func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.DBChainSet[I, C], errNotEnabled error,
@@ -143,7 +153,7 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 		return
 	}
 	var request UpdateChainRequest[C]
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err = c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}

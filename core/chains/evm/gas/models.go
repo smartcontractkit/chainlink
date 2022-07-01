@@ -54,12 +54,14 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 		"minGasPriceWei", cfg.EvmMinGasPriceWei(),
 	)
 	switch s {
+	case "Arbitrum":
+		return NewArbitrumEstimator(lggr, cfg, ethClient, ethClient)
 	case "BlockHistory":
 		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
 	case "FixedPrice":
 		return NewFixedPriceEstimator(cfg, lggr)
 	case "Optimism2", "L2Suggested":
-		return NewL2SuggestedEstimator(lggr, cfg, ethClient)
+		return NewL2SuggestedPriceEstimator(lggr, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(cfg, lggr)
@@ -73,6 +75,7 @@ type DynamicFee struct {
 }
 
 // Estimator provides an interface for estimating gas price and limit
+//
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
@@ -80,16 +83,16 @@ type Estimator interface {
 	Close() error
 	// Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetLegacyGas(calldata []byte, gasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)
+	GetLegacyGas(calldata []byte, gasLimit uint32, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error)
 	// Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee is greater than maxGasPriceWei, the method returns an error
-	BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error)
+	BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint32, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint32, err error)
 	// Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error)
+	GetDynamicFee(gasLimit uint32, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint32, err error)
 	// Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
-	BumpDynamicFee(original DynamicFee, gasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
+	BumpDynamicFee(original DynamicFee, gasLimit uint32, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint32, err error)
 }
 
 // Opt is an option for a gas estimator
@@ -100,11 +103,12 @@ const (
 	OptForceRefetch Opt = iota
 )
 
-func applyMultiplier(gasLimit uint64, multiplier float32) uint64 {
-	return uint64(decimal.NewFromBigInt(big.NewInt(0).SetUint64(gasLimit), 0).Mul(decimal.NewFromFloat32(multiplier)).IntPart())
+func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
+	return uint32(decimal.NewFromBigInt(big.NewInt(0).SetUint64(uint64(gasLimit)), 0).Mul(decimal.NewFromFloat32(multiplier)).IntPart())
 }
 
 // Config defines an interface for configuration in the gas package
+//
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	BlockHistoryEstimatorBatchSize() uint32
@@ -119,6 +123,7 @@ type Config interface {
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpWei() *big.Int
 	EvmGasFeeCapDefault() *big.Int
+	EvmGasLimitMax() uint32
 	EvmGasLimitMultiplier() float32
 	EvmGasPriceDefault() *big.Int
 	EvmGasTipCapDefault() *big.Int
@@ -186,11 +191,16 @@ func (b Block) MarshalJSON() ([]byte, error) {
 	})
 }
 
+var ErrMissingBlock = errors.New("missing block")
+
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
-	bi := blockInternal{}
+	var bi *blockInternal
 	if err := json.Unmarshal(data, &bi); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
+	}
+	if bi == nil {
+		return errors.WithStack(ErrMissingBlock)
 	}
 	n, err := hexutil.DecodeBig(bi.Number)
 	if err != nil {
@@ -241,7 +251,7 @@ type transactionInternal struct {
 // This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
 type Transaction struct {
 	GasPrice             *big.Int
-	GasLimit             uint64
+	GasLimit             uint32
 	MaxFeePerGas         *big.Int
 	MaxPriorityFeePerGas *big.Int
 	Type                 TxType
@@ -265,7 +275,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	}
 	*t = Transaction{
 		(*big.Int)(ti.GasPrice),
-		uint64(*ti.Gas),
+		uint32(*ti.Gas),
 		(*big.Int)(ti.MaxFeePerGas),
 		(*big.Int)(ti.MaxPriorityFeePerGas),
 		*ti.Type,
@@ -275,7 +285,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64, maxGasPriceWei *big.Int) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint32, maxGasPriceWei *big.Int) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
 	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice, maxGasPriceWei)
 	if err != nil {
 		return nil, 0, err
@@ -323,7 +333,7 @@ func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, origin
 }
 
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
-func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap *big.Int, currentBaseFee *big.Int, originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap *big.Int, currentBaseFee *big.Int, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	bumped, err = bumpDynamicFee(config, lggr, currentTipCap, currentBaseFee, originalFee, maxGasPriceWei)
 	if err != nil {
 		return bumped, 0, err

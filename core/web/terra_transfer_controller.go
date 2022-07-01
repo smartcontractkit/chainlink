@@ -78,9 +78,9 @@ func (tc *TerraTransfersController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("chain unreachable: %v", err))
 			return
 		}
-		gasPrice, err := txm.GasPrice()
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("gas price unavailable: %v", err))
+		gasPrice, err2 := txm.GasPrice()
+		if err2 != nil {
+			jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("gas price unavailable: %v", err2))
 			return
 		}
 

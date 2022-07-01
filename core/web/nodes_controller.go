@@ -66,12 +66,11 @@ func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int)
 	if id == "" {
 		// fetch all nodes
 		nodes, count, err = n.nodeSet.GetNodes(c, offset, size)
-
 	} else {
 		// fetch nodes for chain ID
-		chainID, err := n.parseChainID(id)
-		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, err)
+		chainID, err2 := n.parseChainID(id)
+		if err2 != nil {
+			jsonAPIError(c, http.StatusBadRequest, err2)
 			return
 		}
 		nodes, count, err = n.nodeSet.GetNodesForChain(c, chainID, offset, size)

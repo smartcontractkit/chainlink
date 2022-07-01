@@ -1,3 +1,5 @@
+run:
+  timeout: 10m0s
 linters:
   enable:
     - exhaustive
@@ -8,15 +10,11 @@ linters:
     - misspell
     - rowserrcheck
     - errorlint
-  disable:
-    # These are all considered deprecated: https://github.com/golangci/golangci-lint/issues/1841
-    - deadcode
-    - structcheck
-    - unused
-    - varcheck
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
+  goimports:
+    local-prefixes: github.com/smartcontractkit/chainlink
   golint:
     min-confidence: 1.0
   gosec:

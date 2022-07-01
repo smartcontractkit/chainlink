@@ -63,10 +63,16 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasBumpWei                     *big.Int
 	GlobalEvmGasFeeCapDefault               *big.Int
 	GlobalEvmGasLimitDefault                null.Int
+	GlobalEvmGasLimitMax                    null.Int
 	GlobalEvmGasLimitMultiplier             null.Float
 	GlobalEvmGasPriceDefault                *big.Int
 	GlobalEvmGasTipCapDefault               *big.Int
 	GlobalEvmGasTipCapMinimum               *big.Int
+	GlobalEvmGasLimitOCRJobType             null.Int
+	GlobalEvmGasLimitDRJobType              null.Int
+	GlobalEvmGasLimitVRFJobType             null.Int
+	GlobalEvmGasLimitFMJobType              null.Int
+	GlobalEvmGasLimitKeeperJobType          null.Int
 	GlobalEvmHeadTrackerHistoryDepth        null.Int
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
@@ -76,6 +82,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
 	GlobalEvmRPCDefaultBatchSize            null.Int
+	GlobalEvmUseForwarders                  null.Bool
 	GlobalFlagsContractAddress              null.String
 	GlobalGasEstimatorMode                  null.String
 	GlobalMinIncomingConfirmations          null.Int
@@ -96,11 +103,12 @@ type GeneralConfigOverrides struct {
 	LogFileMaxSize                          null.String
 	LogFileMaxAge                           null.Int
 	LogFileMaxBackups                       null.Int
-	SecretGenerator                         config.SecretGenerator
 	TriggerFallbackDBPollInterval           *time.Duration
 	KeySpecific                             map[string]types.ChainCfg
 	LinkContractAddress                     null.String
 	OperatorFactoryAddress                  null.String
+	NodeNoNewHeadsThreshold                 *time.Duration
+	JobPipelineReaperInterval               *time.Duration
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
@@ -113,6 +121,7 @@ type GeneralConfigOverrides struct {
 	TerraEnabled              null.Bool
 	P2PEnabled                null.Bool
 	SolanaEnabled             null.Bool
+	StarkNetEnabled           null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -299,18 +308,19 @@ func (c *TestGeneralConfig) SolanaEnabled() bool {
 	return c.GeneralConfig.SolanaEnabled()
 }
 
+// StarkNetEnabled allows StarkNet to be used
+func (c *TestGeneralConfig) StarkNetEnabled() bool {
+	if c.Overrides.StarkNetEnabled.Valid {
+		return c.Overrides.StarkNetEnabled.Bool
+	}
+	return c.GeneralConfig.StarkNetEnabled()
+}
+
 func (c *TestGeneralConfig) EthereumURL() string {
 	if c.Overrides.EthereumURL.Valid {
 		return c.Overrides.EthereumURL.String
 	}
 	return c.GeneralConfig.EthereumURL()
-}
-
-func (c *TestGeneralConfig) SessionSecret() ([]byte, error) {
-	if c.Overrides.SecretGenerator != nil {
-		return c.Overrides.SecretGenerator.Generate(c.RootDir())
-	}
-	return c.GeneralConfig.SessionSecret()
 }
 
 func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
@@ -555,11 +565,53 @@ func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmGasFeeCapDefault()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitDefault.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitDefault()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitMax.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitMax.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitMax()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitOCRJobType() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitOCRJobType.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitOCRJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitOCRJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitDRJobType() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitDRJobType.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitDRJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitDRJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitVRFJobType() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitVRFJobType.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitVRFJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitVRFJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitFMJobType() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitFMJobType.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitFMJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitFMJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitKeeperJobType() (uint32, bool) {
+	if c.Overrides.GlobalEvmGasLimitKeeperJobType.Valid {
+		return uint32(c.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitKeeperJobType()
 }
 
 func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
@@ -759,10 +811,32 @@ func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 	return c.GeneralConfig.GlobalLinkContractAddress()
 }
 
-// GlobalOperatorFactoryAddress allows to override the LINK contract address
+// GlobalOperatorFactoryAddress allows to override the OperatorFactory contract address
 func (c *TestGeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
 	if c.Overrides.OperatorFactoryAddress.Valid {
 		return c.Overrides.OperatorFactoryAddress.String, true
 	}
 	return c.GeneralConfig.GlobalOperatorFactoryAddress()
+}
+
+// GlobalNodeNoNewHeadsThreshold overrides NodeNoNewHeadsThreshold for all chains
+func (c *TestGeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	if c.Overrides.NodeNoNewHeadsThreshold != nil {
+		return *c.Overrides.NodeNoNewHeadsThreshold, true
+	}
+	return c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
+}
+
+func (c *TestGeneralConfig) JobPipelineReaperInterval() time.Duration {
+	if c.Overrides.JobPipelineReaperInterval != nil {
+		return *c.Overrides.JobPipelineReaperInterval
+	}
+	return c.GeneralConfig.JobPipelineReaperInterval()
+}
+
+func (c *TestGeneralConfig) GlobalEvmUseForwarders() (bool, bool) {
+	if c.Overrides.GlobalEvmUseForwarders.Valid {
+		return c.Overrides.GlobalEvmUseForwarders.Bool, true
+	}
+	return c.GeneralConfig.GlobalEvmUseForwarders()
 }
