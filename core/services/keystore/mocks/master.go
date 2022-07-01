@@ -28,6 +28,38 @@ func (_m *Master) CSA() keystore.CSA {
 	return r0
 }
 
+// DKGEncrypt provides a mock function with given fields:
+func (_m *Master) DKGEncrypt() keystore.DKGEncrypt {
+	ret := _m.Called()
+
+	var r0 keystore.DKGEncrypt
+	if rf, ok := ret.Get(0).(func() keystore.DKGEncrypt); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.DKGEncrypt)
+		}
+	}
+
+	return r0
+}
+
+// DKGSign provides a mock function with given fields:
+func (_m *Master) DKGSign() keystore.DKGSign {
+	ret := _m.Called()
+
+	var r0 keystore.DKGSign
+	if rf, ok := ret.Get(0).(func() keystore.DKGSign); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.DKGSign)
+		}
+	}
+
+	return r0
+}
+
 // Eth provides a mock function with given fields:
 func (_m *Master) Eth() keystore.Eth {
 	ret := _m.Called()
@@ -137,6 +169,22 @@ func (_m *Master) Solana() keystore.Solana {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(keystore.Solana)
+		}
+	}
+
+	return r0
+}
+
+// StarkNet provides a mock function with given fields:
+func (_m *Master) StarkNet() keystore.StarkNet {
+	ret := _m.Called()
+
+	var r0 keystore.StarkNet
+	if rf, ok := ret.Get(0).(func() keystore.StarkNet); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.StarkNet)
 		}
 	}
 

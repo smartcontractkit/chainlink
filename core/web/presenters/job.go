@@ -120,6 +120,7 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 type OffChainReportingSpec struct {
 	ContractAddress                           ethkey.EIP55Address  `json:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray       `json:"p2pBootstrapPeers"`
+	P2PV2Bootstrappers                        pq.StringArray       `json:"p2pv2Bootstrappers"`
 	IsBootstrapPeer                           bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `json:"keyBundleID"`
 	TransmitterAddress                        *ethkey.EIP55Address `json:"transmitterAddress"`
@@ -150,6 +151,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
 		ContractAddress:                           spec.ContractAddress,
 		P2PBootstrapPeers:                         spec.P2PBootstrapPeers,
+		P2PV2Bootstrappers:                        spec.P2PV2Bootstrappers,
 		IsBootstrapPeer:                           spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                   spec.EncryptedOCRKeyBundleID,
 		TransmitterAddress:                        spec.TransmitterAddress,
@@ -291,6 +293,7 @@ type VRFSpec struct {
 	RequestTimeout                models.Duration       `json:"requestTimeout"`
 	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
 	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
+	MaxGasPriceGWei               *uint32               `json:"maxGasPriceGWei"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
@@ -309,6 +312,7 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
 		BackoffInitialDelay:      models.MustMakeDuration(spec.BackoffInitialDelay),
 		BackoffMaxDelay:          models.MustMakeDuration(spec.BackoffMaxDelay),
+		MaxGasPriceGWei:          spec.MaxGasPriceGWei,
 	}
 }
 
@@ -394,6 +398,7 @@ type JobResource struct {
 	Name                   string                  `json:"name"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
+	GasLimit               clnull.Uint32           `json:"gasLimit"`
 	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
 	ExternalJobID          uuid.UUID               `json:"externalJobID"`
 	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
@@ -417,6 +422,7 @@ func NewJobResource(j job.Job) *JobResource {
 		Name:            j.Name.ValueOrZero(),
 		Type:            JobSpecType(j.Type),
 		SchemaVersion:   j.SchemaVersion,
+		GasLimit:        j.GasLimit,
 		MaxTaskDuration: j.MaxTaskDuration,
 		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
 		ExternalJobID:   j.ExternalJobID,

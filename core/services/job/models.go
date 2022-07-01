@@ -126,6 +126,7 @@ type Job struct {
 	JobSpecErrors        []SpecError
 	Type                 Type
 	SchemaVersion        uint32
+	GasLimit             clnull.Uint32 `toml:"gasLimit"`
 	Name                 null.String
 	MaxTaskDuration      models.Interval
 	Pipeline             pipeline.Pipeline `toml:"observationSource"`
@@ -206,6 +207,7 @@ type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	P2PV2Bootstrappers                        pq.StringArray      `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
 	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
@@ -276,6 +278,10 @@ type OCR2PluginType string
 const (
 	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
+
+	DKG OCR2PluginType = "dkg"
+
+	OCR2VRF OCR2PluginType = "ocr2vrf"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -429,6 +435,23 @@ type VRFSpec struct {
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
+	// MaxGasPriceGwei sets the maximum gas price in gwei on the addresses
+	// specified in VRFSpec.FromAddresses.
+	//
+	// This is optional. If this is not set, then the job will not attempt to set any
+	// key specific gas prices on the addresses specified in VRFSpec.FromAddresses,
+	// and as a result, will use any previously set key specific max gas price (i.e, set via CLI or REST API)
+	// or the global max gas price if a key-specific gas price is not set.
+	//
+	// This is essentially the "gas lane" gas price.
+	//
+	// This will end up overriding any previously set key-specific gas prices
+	// set via CLI and/or REST API. However, environment variables can end up
+	// taking precedence depending on their values relative to the key-specific prices.
+	//
+	// V2 only.
+	MaxGasPriceGWei *uint32 `toml:"maxGasPriceGWei" db:"max_gas_price_gwei"`
+
 	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults
 	// to 20 if not provided.
 	ChunkSize uint32 `toml:"chunkSize"`
@@ -513,5 +536,6 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 		ContractConfigConfirmations:       s.ContractConfigConfirmations,
 		CreatedAt:                         s.CreatedAt,
 		UpdatedAt:                         s.UpdatedAt,
+		P2PV2Bootstrappers:                pq.StringArray{},
 	}
 }

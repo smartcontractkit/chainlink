@@ -47,6 +47,10 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusConflict, errors.New("old password does not match"))
 		return
 	}
+	if err := utils.VerifyPasswordComplexity(request.NewPassword, user.Email); err != nil {
+		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
+		return
+	}
 	if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		return

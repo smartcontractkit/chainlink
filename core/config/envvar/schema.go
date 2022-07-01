@@ -106,9 +106,9 @@ type ConfigSchema struct {
 	RPOrigin string `env:"MFA_RPORIGIN"`
 
 	// Web Server TLS
-	TLSCertPath string `env:"TLS_CERT_PATH" `
-	TLSHost     string `env:"CHAINLINK_TLS_HOST" `
-	TLSKeyPath  string `env:"TLS_KEY_PATH" `
+	TLSCertPath string `env:"TLS_CERT_PATH"`
+	TLSHost     string `env:"CHAINLINK_TLS_HOST"`
+	TLSKeyPath  string `env:"TLS_KEY_PATH"`
 	TLSPort     uint16 `env:"CHAINLINK_TLS_PORT" default:"6689"`
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
@@ -120,12 +120,13 @@ type ConfigSchema struct {
 	FeatureLogPoller bool `env:"FEATURE_LOG_POLLER" default:"false"` //nodoc
 
 	// General chains/RPC
-	EVMEnabled    bool   `env:"EVM_ENABLED" default:"true"`
-	EVMRPCEnabled bool   `env:"EVM_RPC_ENABLED" default:"true"`
-	SolanaEnabled bool   `env:"SOLANA_ENABLED" default:"false"`
-	SolanaNodes   string `env:"SOLANA_NODES"`
-	TerraEnabled  bool   `env:"TERRA_ENABLED" default:"false"`
-	TerraNodes    string `env:"TERRA_NODES"`
+	EVMEnabled      bool   `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled   bool   `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled   bool   `env:"SOLANA_ENABLED" default:"false"`
+	SolanaNodes     string `env:"SOLANA_NODES"`
+	TerraEnabled    bool   `env:"TERRA_ENABLED" default:"false"`
+	TerraNodes      string `env:"TERRA_NODES"`
+	StarkNetEnabled bool   `env:"STARKNET_ENABLED" default:"false"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars

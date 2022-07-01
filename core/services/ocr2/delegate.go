@@ -12,11 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 )
 
@@ -132,12 +135,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	}
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
-	// These are populated here because when the pipeline spec is
-	// run it uses them to create identifiable prometheus metrics.
-	// TODO SC-30421 Move pipeline population to job spawner
-	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
-	jobSpec.PipelineSpec.JobID = jobSpec.ID
-
 	var pluginOracle plugins.OraclePlugin
 	var ocr2Provider types.Plugin
 	switch spec.PluginType {
@@ -157,6 +154,36 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
+	case job.DKG:
+		dkgProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewDKGProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		ocr2Provider = dkgProvider
+		pluginOracle, err = dkg.NewDKG(lggr.Named("DKG"))
+	case job.OCR2VRF:
+		ocr2vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		ocr2Provider = ocr2vrfProvider
+		pluginOracle, err = ocr2vrf.NewOCR2VRF(lggr.Named("OCR2VRF"))
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

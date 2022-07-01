@@ -67,6 +67,21 @@ func (e *EnvVar[T]) Parse() (v T, invalid string) {
 	return
 }
 
+// ParsePtr attempts to parse the value from the environment, returning nil if the env var was empty or invalid.
+func (e *EnvVar[T]) ParsePtr() *T {
+	if os.Getenv(e.envVarName) == "" {
+		return nil
+	}
+	v, invalid, err := e.ParseFrom(os.Getenv)
+	if err != nil {
+		log.Fatal(e.envVarName, err)
+	}
+	if invalid != "" {
+		return nil
+	}
+	return &v
+}
+
 // ParseFrom attempts to parse the value returned from calling get with the env var name, falling back to the default
 // value when empty or invalid.
 func (e *EnvVar[T]) ParseFrom(get func(string) string) (v T, invalid string, err error) {
@@ -82,6 +97,7 @@ func (e *EnvVar[T]) ParseFrom(get func(string) string) (v T, invalid string, err
 			df = t
 		}
 		invalid = fmt.Sprintf(`Invalid value provided for %s, "%s" - falling back to default "%s": %v`, e.name, str, df, err)
+		err = nil
 	}
 
 	if !e.hasDefault {
