@@ -331,7 +331,6 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 }
 
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name       string
 		apiFile    string
