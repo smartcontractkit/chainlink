@@ -58,7 +58,7 @@ require (
 	github.com/smartcontractkit/chainlink-relay v0.1.2-0.20220621201358-49e57dd1264e
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
-	github.com/smartcontractkit/libocr v0.0.0-20220623210256-b7ae1e1c66f6
+	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20220622011836-190aa7f5b481
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
