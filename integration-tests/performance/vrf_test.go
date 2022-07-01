@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
@@ -102,12 +103,12 @@ var _ = Describe("VRF suite @vrf", func() {
 				log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 				pubKeyCompressed := nodeKey.Data.ID
 				jobUUID := uuid.NewV4()
-				os := &client.VRFTxPipelineSpec{
+				os := &networks.VRFTxPipelineSpec{
 					Address: coordinator.Address(),
 				}
 				ost, err := os.String()
 				Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-				job, err = chainlinkNode.CreateJob(&client.VRFJobSpec{
+				job, err = chainlinkNode.CreateJob(&networks.VRFJobSpec{
 					Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 					CoordinatorAddress:       coordinator.Address(),
 					MinIncomingConfirmations: 1,

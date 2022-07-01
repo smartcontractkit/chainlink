@@ -130,7 +130,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		ost, err := os.String()
 		Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-		_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+		_, err = chainlinkNodes[0].CreateJob(&networks.DirectRequestJobSpec{
 			Name:                     "direct_request",
 			MinIncomingConfirmations: "1",
 			ContractAddress:          oracle.Address(),

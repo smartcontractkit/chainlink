@@ -107,12 +107,12 @@ var _ = Describe("VRF suite @vrf", func() {
 			log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 			pubKeyCompressed := nodeKey.Data.ID
 			jobUUID := uuid.NewV4()
-			os := &client.VRFTxPipelineSpec{
+			os := &networks.VRFTxPipelineSpec{
 				Address: coordinator.Address(),
 			}
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-			job, err := n.CreateJob(&client.VRFJobSpec{
+			job, err := n.CreateJob(&networks.VRFJobSpec{
 				Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 				CoordinatorAddress:       coordinator.Address(),
 				MinIncomingConfirmations: 1,

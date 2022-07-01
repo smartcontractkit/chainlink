@@ -1,4 +1,4 @@
-package integration_tests
+package networks
 
 //revive:disable:dot-imports
 import (

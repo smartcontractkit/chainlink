@@ -89,7 +89,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 		err = chainlinkNode.CreateBridge(&bta)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating bridge in chainlink node shouldn't fail")
 
-		job, err = chainlinkNode.CreateJob(&client.CronJobSpec{
+		job, err = chainlinkNode.CreateJob(&networks.CronJobSpec{
 			Schedule:          "CRON_TZ=UTC * * * * * *",
 			ObservationSource: client.ObservationSourceSpecBridge(bta),
 		})

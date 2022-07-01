@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
@@ -107,7 +108,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-			_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+			_, err = chainlinkNodes[0].CreateJob(&networks.DirectRequestJobSpec{
 				Name:                     "direct_request",
 				MinIncomingConfirmations: "1",
 				ContractAddress:          oracle.Address(),

@@ -145,7 +145,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 			pubKeyCompressed := vrfKey.Data.ID
 			jobUUID := uuid.NewV4()
-			os := &client.VRFV2TxPipelineSpec{
+			os := &networks.VRFV2TxPipelineSpec{
 				Address: coordinator.Address(),
 			}
 			ost, err := os.String()
