@@ -349,7 +349,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 }
 
 func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser("user@chainlink.test"); err == nil {
+	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}
 	m.Count++
@@ -389,7 +389,7 @@ func (m *MockSessionRequestBuilder) Build(string) (sessions.SessionRequest, erro
 	if m.Error != nil {
 		return sessions.SessionRequest{}, m.Error
 	}
-	return sessions.SessionRequest{Email: APIEmail, Password: Password}, nil
+	return sessions.SessionRequest{Email: APIEmailAdmin, Password: Password}, nil
 }
 
 type MockSecretGenerator struct{}

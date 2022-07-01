@@ -165,7 +165,7 @@ func (f *gqlTestFramework) Timestamp() time.Time {
 func (f *gqlTestFramework) injectAuthenticatedUser() {
 	f.t.Helper()
 
-	user := clsessions.User{Email: "gqltester@chain.link"}
+	user := clsessions.User{Email: "gqltester@chain.link", Role: clsessions.UserRoleAdmin}
 
 	f.Ctx = auth.SetGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
 }

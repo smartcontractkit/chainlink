@@ -522,7 +522,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	userOnly := c.Bool("user-only")
 	var fixturePath = "../store/fixtures/fixtures.sql"
 	if userOnly {
-		fixturePath = "../store/fixtures/user_only_fixture.sql"
+		fixturePath = "../store/fixtures/users_only_fixture.sql"
 	}
 	if err := insertFixtures(cfg, fixturePath); err != nil {
 		return cli.errorOut(err)
@@ -538,7 +538,7 @@ func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg, "../store/fixtures/user_only_fixtures.sql"); err != nil {
+	if err := insertFixtures(cfg, "../store/fixtures/users_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil

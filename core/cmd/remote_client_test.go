@@ -249,7 +249,6 @@ func TestClient_DestroyExternalInitiator_NotFound(t *testing.T) {
 }
 
 func TestClient_RemoteLogin(t *testing.T) {
-	t.Parallel()
 
 	app := startNewApplication(t)
 
@@ -258,11 +257,11 @@ func TestClient_RemoteLogin(t *testing.T) {
 		email, pwd string
 		wantError  bool
 	}{
-		{"success prompt", "", cltest.APIEmail, cltest.Password, false},
+		{"success prompt", "", cltest.APIEmailAdmin, cltest.Password, false},
 		{"success file", "../internal/fixtures/apicredentials", "", "", false},
 		{"failure prompt", "", "wrong@email.com", "wrongpwd", true},
 		{"failure file", "/tmp/doesntexist", "", "", true},
-		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmail, cltest.Password, true},
+		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmailAdmin, cltest.Password, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -290,7 +289,7 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
 	client := app.NewAuthenticatingClient(prompter)
 
@@ -338,7 +337,7 @@ func TestClient_CheckRemoteBuildCompatibility(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			enteredStrings := []string{cltest.APIEmail, cltest.Password}
+			enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingClient(prompter)
 
@@ -400,7 +399,7 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	app := startNewApplication(t)
 
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
@@ -435,7 +434,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
@@ -459,7 +458,7 @@ func TestClient_Profile(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)

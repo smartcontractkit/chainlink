@@ -94,8 +94,11 @@ const (
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// APIEmail is the email of the fixture API user
-	APIEmail = "apiuser@chainlink.test"
+	// Collection of test fixture DB user emails per role
+	APIEmailAdmin       = "apiuser@chainlink.test"
+	APIEmailEdit        = "apiuser-edit@chainlink.test"
+	APIEmailEditMinimal = "apiuser-edit-minimal@chainlink.test"
+	APIEmailViewOnly    = "apiuser-view-only@chainlink.test"
 	// Password just a password we use everywhere for testing
 	Password = testutils.Password
 	// SessionSecret is the hardcoded secret solely used for test
@@ -567,7 +570,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() (id string) {
 	session := NewSession()
-	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, last_used, created_at) VALUES ($1, $2, NOW()) RETURNING id`, session.ID, session.LastUsed)
+	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, APIEmailAdmin, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id
 }

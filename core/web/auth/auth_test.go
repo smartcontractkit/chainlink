@@ -33,7 +33,7 @@ type userFindFailer struct {
 	err error
 }
 
-func (u userFindFailer) FindUser() (sessions.User, error) {
+func (u userFindFailer) FindUser(email string) (sessions.User, error) {
 	return sessions.User{}, u.err
 }
 
@@ -42,7 +42,7 @@ type userFindSuccesser struct {
 	user sessions.User
 }
 
-func (u userFindSuccesser) FindUser() (sessions.User, error) {
+func (u userFindSuccesser) FindUser(email string) (sessions.User, error) {
 	return u.user, nil
 }
 

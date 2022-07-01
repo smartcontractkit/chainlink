@@ -17,7 +17,7 @@ ALTER TABLE sessions ADD CONSTRAINT sessions_fk_email FOREIGN KEY(email) REFEREN
 ALTER TABLE users DROP COLUMN role;
 DROP TYPE user_roles;
 
+ALTER TABLE sessions DROP CONSTRAINT sessions_fk_email;
 ALTER TABLE sessions DROP COLUMN email;
-DROP CONSTRAINT sessions_fk_email;
 
 DROP INDEX unique_users_lowercase_email;

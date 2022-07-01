@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -54,7 +55,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 				clearSessions(t, db.DB)
 			})
 
-			_, err := db.Exec("INSERT INTO sessions (last_used, id, created_at) VALUES ($1, $2, now())", test.lastUsed, test.name)
+			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)
 			require.NoError(t, err)
 
 			r.WakeUp()

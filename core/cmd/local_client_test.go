@@ -225,8 +225,17 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-			// Clear out fixture
-			err := sessionORM.DeleteUser()
+
+			// Purge the fixture users to test assumption of single admin
+			// initialUser user created above
+			var err error
+			err = sessionORM.DeleteUser(cltest.APIEmailAdmin)
+			require.NoError(t, err)
+			err = sessionORM.DeleteUser(cltest.APIEmailEdit)
+			require.NoError(t, err)
+			err = sessionORM.DeleteUser(cltest.APIEmailEditMinimal)
+			require.NoError(t, err)
+			err = sessionORM.DeleteUser(cltest.APIEmailViewOnly)
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
@@ -339,9 +348,20 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-			// Clear out fixture
-			err := sessionORM.DeleteUser()
+
+			// Clear out fixture users/users created from the other test cases
+			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+			// create/run with a new admin user
+			var err error
+			err = sessionORM.DeleteUser(cltest.APIEmailAdmin)
 			require.NoError(t, err)
+			err = sessionORM.DeleteUser(cltest.APIEmailEdit)
+			require.NoError(t, err)
+			err = sessionORM.DeleteUser(cltest.APIEmailEditMinimal)
+			require.NoError(t, err)
+			err = sessionORM.DeleteUser(cltest.APIEmailViewOnly)
+			require.NoError(t, err)
+
 			keyStore := cltest.NewKeyStore(t, db, cfg)
 			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)

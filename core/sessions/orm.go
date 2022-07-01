@@ -97,7 +97,6 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 		if err := tx.Get(&email, "SELECT email FROM sessions WHERE id = $1 FOR UPDATE", sessionID); err != nil {
 			return errors.Wrap(err, "no matching user for provided session token")
 		}
-		// if err := o.db.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", *email); err != nil {
 		if err := tx.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
 			return errors.Wrap(err, "no matching user for provided session email")
 		}
