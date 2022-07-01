@@ -21,7 +21,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Get("/v2/ping")
 	defer cleanup()

@@ -103,7 +103,7 @@ func setupDKGSIgnKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, ke
 	require.NoError(t, app.Start(testutils.Context(t)))
 	app.KeyStore.DKGSign().Add(cltest.DefaultDKGSignKey)
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return client, app.GetKeyStore()
 }

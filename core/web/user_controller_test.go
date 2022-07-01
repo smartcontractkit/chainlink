@@ -20,7 +20,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	testCases := []struct {
 		name           string
@@ -73,7 +73,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -95,7 +95,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
@@ -111,7 +111,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -128,7 +128,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})

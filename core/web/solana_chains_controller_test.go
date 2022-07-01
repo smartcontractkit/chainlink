@@ -371,7 +371,7 @@ func setupSolanaChainsControllerTest(t *testing.T) *TestSolanaChainsController {
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestSolanaChainsController{
 		app:    app,

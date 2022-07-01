@@ -27,7 +27,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	db := app.GetSqlxDB()
 	borm := app.TxmORM()
 	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)        // tx1
@@ -69,7 +69,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
@@ -82,7 +82,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	borm := app.TxmORM()
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
@@ -115,7 +115,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	borm := app.TxmORM()
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)

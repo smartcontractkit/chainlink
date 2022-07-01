@@ -568,9 +568,9 @@ func (ta *TestApplication) Stop() error {
 	return err
 }
 
-func (ta *TestApplication) MustSeedNewSession() (id string) {
+func (ta *TestApplication) MustSeedNewSession(roleFixtureUserAPIEmail string) (id string) {
 	session := NewSession()
-	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, APIEmailAdmin, session.LastUsed)
+	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, roleFixtureUserAPIEmail, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id
 }
@@ -582,10 +582,10 @@ func (ta *TestApplication) Import(content string) {
 	require.NoError(ta.t, err)
 }
 
-func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
+func (ta *TestApplication) NewHTTPClient(roleFixtureUserAPIEmail string) HTTPClientCleaner {
 	ta.t.Helper()
 
-	sessionID := ta.MustSeedNewSession()
+	sessionID := ta.MustSeedNewSession(roleFixtureUserAPIEmail)
 
 	return HTTPClientCleaner{
 		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
@@ -599,7 +599,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
-	sessionID := ta.MustSeedNewSession()
+	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
@@ -770,7 +770,7 @@ func ReadLogs(dir string) (string, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -784,7 +784,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -798,7 +798,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -847,7 +847,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -866,7 +866,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),

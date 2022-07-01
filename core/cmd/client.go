@@ -689,8 +689,8 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
-	if adminUser := attemptAssumeAdminUser(dbUsers, orm, t.lggr); adminUser != nil {
-		return *adminUser, nil
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, t.lggr); found == false {
+		return adminUser, nil
 	}
 
 	// Otherwise, multiple admin users exist, prompt for which to use
@@ -736,8 +736,8 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
-	if adminUser := attemptAssumeAdminUser(dbUsers, orm, f.lggr); adminUser != nil {
-		return *adminUser, nil
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, f.lggr); found == false {
+		return adminUser, nil
 	}
 
 	// Otherwise, multiple admin users exist, attempt to load email specified in session request
@@ -748,35 +748,38 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 	return user, nil
 }
 
-func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) *sessions.User {
+func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) (sessions.User, bool) {
 	if len(users) == 0 {
-		return nil
+		return sessions.User{}, false
 	}
 
 	// If there is only a single DB user, select it within the context of CLI
 	if len(users) == 1 {
 		lggr.Infof("Defaulted to assume single DB API User", "email", users[0].Email)
-		return &users[0]
+		return users[0], true
 	}
 
 	// If there is only one admin user, use it within the context of CLI
-	var singleAdmin *sessions.User
+	var singleAdmin sessions.User
+	populatedUser := false
 	for _, user := range users {
 		if user.Role == sessions.UserRoleAdmin {
 			// If multiple admin users found, don't use assume any and clear to continue to prompt
-			if singleAdmin != nil {
-				singleAdmin = nil
+			if populatedUser {
+				// Clear flag to skip return
+				populatedUser = false
 				break
 			}
-			singleAdmin = &user
+			singleAdmin = user
+			populatedUser = true
 		}
 	}
-	if singleAdmin != nil {
-		lggr.Infof("Defaulted to assume single DB admin API User", "email", users[0].Email)
-		return singleAdmin
+	if populatedUser {
+		lggr.Infof("Defaulted to assume single DB admin API User", "email", singleAdmin)
+		return singleAdmin, false
 	}
 
-	return nil
+	return sessions.User{}, false
 }
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
