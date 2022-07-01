@@ -5,7 +5,10 @@ package mocks
 import (
 	big "math/big"
 
+	audit "github.com/smartcontractkit/chainlink/core/logger/audit"
+
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
+
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
 
 	config "github.com/smartcontractkit/chainlink/core/config"
@@ -102,6 +105,22 @@ func (_m *Application) EVMORM() types.ORM {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(types.ORM)
+		}
+	}
+
+	return r0
+}
+
+// GetAuditLogger provides a mock function with given fields:
+func (_m *Application) GetAuditLogger() audit.AuditLogger {
+	ret := _m.Called()
+
+	var r0 audit.AuditLogger
+	if rf, ok := ret.Get(0).(func() audit.AuditLogger); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(audit.AuditLogger)
 		}
 	}
 

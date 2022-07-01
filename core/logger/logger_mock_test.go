@@ -6,7 +6,6 @@ import (
 	io "io"
 
 	mock "github.com/stretchr/testify/mock"
-
 	zapcore "go.uber.org/zap/zapcore"
 )
 

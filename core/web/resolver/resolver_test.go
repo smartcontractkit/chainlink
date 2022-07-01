@@ -17,7 +17,6 @@ import (
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -84,9 +83,6 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		)
 		ctx = loader.InjectDataloader(context.Background(), app)
 	)
-
-	l := logger.TestLogger(t)
-	app.On("GetLogger").Return(l).Maybe()
 
 	// Setup mocks
 	// Note - If you add a new mock make sure you assert it's expectation below.
