@@ -616,11 +616,9 @@ func getKeeperSuite(
 					err = chainClient.WaitForEvents()
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for setting the permissions")
 
-					var counterBeforeMigration *big.Int
-
 					// Check that the first upkeep from the first registry is performing (before being migrated)
 					Eventually(func(g Gomega) {
-						counterBeforeMigration, err = consumers[0].Counter(context.Background())
+						counterBeforeMigration, err := consumers[0].Counter(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 						g.Expect(counterBeforeMigration.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
