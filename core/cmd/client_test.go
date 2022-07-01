@@ -140,15 +140,10 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
 
-			// Drop all test fixture users
-			var err error
-			err = orm.DeleteUser(cltest.APIEmailAdmin)
-			require.NoError(t, err)
-			err = orm.DeleteUser(cltest.APIEmailEdit)
-			require.NoError(t, err)
-			err = orm.DeleteUser(cltest.APIEmailEditMinimal)
-			require.NoError(t, err)
-			err = orm.DeleteUser(cltest.APIEmailViewOnly)
+			// Clear out fixture users/users created from the other test cases
+			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+			// create/run with a new admin user
+			_, err := db.Exec("DELETE FROM users;")
 			require.NoError(t, err)
 
 			user, err := tai.Initialize(orm)
@@ -175,16 +170,10 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	initialUser := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initialUser))
 
-	// Purge the fixture users to test assumption of single admin
-	// initialUser user created above
-	var err error
-	err = orm.DeleteUser(cltest.APIEmailAdmin)
-	require.NoError(t, err)
-	err = orm.DeleteUser(cltest.APIEmailEdit)
-	require.NoError(t, err)
-	err = orm.DeleteUser(cltest.APIEmailEditMinimal)
-	require.NoError(t, err)
-	err = orm.DeleteUser(cltest.APIEmailViewOnly)
+	// Clear out fixture users/users created from the other test cases
+	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+	// create/run with a new admin user
+	_, err := db.Exec("DELETE FROM users;")
 	require.NoError(t, err)
 
 	mock := &cltest.MockCountingPrompter{T: t}
@@ -213,15 +202,10 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
-			// Drop all test fixture users
-			var err error
-			err = orm.DeleteUser(cltest.APIEmailAdmin)
-			require.NoError(t, err)
-			err = orm.DeleteUser(cltest.APIEmailEdit)
-			require.NoError(t, err)
-			err = orm.DeleteUser(cltest.APIEmailEditMinimal)
-			require.NoError(t, err)
-			err = orm.DeleteUser(cltest.APIEmailViewOnly)
+			// Clear out fixture users/users created from the other test cases
+			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+			// create/run with a new admin user
+			_, err := db.Exec("DELETE FROM users;")
 			require.NoError(t, err)
 
 			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
