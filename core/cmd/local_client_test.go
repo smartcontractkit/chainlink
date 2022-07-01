@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -52,7 +53,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, &audit.AuditLoggerService{})
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -224,7 +225,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), &audit.AuditLoggerService{})
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
@@ -276,7 +277,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, &audit.AuditLoggerService{})
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -338,7 +339,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), &audit.AuditLoggerService{})
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)

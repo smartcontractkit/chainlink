@@ -20,7 +20,7 @@ type AuditLogger interface {
 	Audit(ctx context.Context, eventID EventID, data map[string]interface{})
 }
 
-type auditLogger struct {
+type AuditLoggerService struct {
 	logger          logger.Logger
 	enabled         bool
 	serviceURL      string
@@ -50,7 +50,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 		// Unset, return a disabled audit logger
 		logger.Info("No AUDIT_LOGS_FORWARDER_URL environment set, audit log events will not be captured")
 
-		return &auditLogger{}, nil
+		return &AuditLoggerService{}, nil
 	}
 
 	env := "production"
@@ -59,7 +59,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		return &auditLogger{}, errors.Errorf("Audit Log initialization error - unable to get hostname", "err", err)
+		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname", "err", err)
 	}
 
 	// Split and prepare optional service client headers from env variable
@@ -70,7 +70,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 		for _, header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return &auditLogger{}, errors.Errorf("Invalid AUDIT_LOGS_FORWARDER_HEADERS value, single pair split on || required, got: %s", keyValue)
+				return &AuditLoggerService{}, errors.Errorf("Invalid AUDIT_LOGS_FORWARDER_HEADERS value, single pair split on || required, got: %s", keyValue)
 			}
 			headers = append(headers, serviceHeader{
 				header: keyValue[0],
@@ -80,7 +80,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 	}
 
 	// Finally, create new auditLogger with parameters
-	auditLogger := auditLogger{
+	auditLogger := AuditLoggerService{
 		logger:          logger.Helper(1),
 		enabled:         true,
 		serviceURL:      auditLogsURL,
@@ -93,14 +93,14 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 	return &auditLogger, nil
 }
 
-func (l *auditLogger) Audit(ctx context.Context, eventID EventID, data map[string]interface{}) {
+func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data map[string]interface{}) {
 	if !l.enabled {
 		return
 	}
 	l.postLogToLogService(eventID, data)
 }
 
-func (l *auditLogger) postLogToLogService(eventID EventID, data map[string]interface{}) {
+func (l *AuditLoggerService) postLogToLogService(eventID EventID, data map[string]interface{}) {
 	// Audit log JSON data
 	logItem := map[string]interface{}{
 		"eventID":  eventID,
