@@ -850,12 +850,12 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	var filter string
 
 	if jobID != nil {
-		filter = "JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = $1 AND "
+		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d AND ", *jobID)
 	} else {
 		filter = "WHERE "
 	}
-	stmt := fmt.Sprintf(`SELECT p.id FROM pipeline_runs AS p %s p.id >= $4 AND p.id <= $5
-			ORDER BY p.id DESC OFFSET $2 LIMIT $3`, filter)
+	stmt := fmt.Sprintf(`SELECT p.id FROM pipeline_runs AS p %s p.id >= $3 AND p.id <= $4
+			ORDER BY p.id DESC OFFSET $1 LIMIT $2`, filter)
 	var res sql.NullInt64
 
 	if err = tx.Get(&res, "SELECT MAX(id) FROM pipeline_runs"); err != nil {
@@ -874,17 +874,39 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	//  this query requires a sort of all runs matching jobID, so we restrict it to the
 	//  range minID <-> maxID.
 
-	//batch := make([]int64, 0, limit)
-
 	for n := int64(1000); maxID > 0 && len(ids) < limit; n *= 2 {
 		minID := maxID - n
-		if err = tx.Select(&ids, stmt, jobID, offset, limit-len(ids), minID, maxID); err != nil {
+		if err = tx.Select(&ids, stmt, offset, limit-len(ids), minID, maxID); err != nil {
 			err = errors.Wrap(err, "error loading runs")
 			return
 		}
+		if offset > 0 {
+			if len(ids) > 0 {
+				// If we're already receiving rows back, then we no longer need an offset
+				offset = 0
+			} else {
+				var skipped int
+				// If no rows were returned, we need to know whether there were any ids skipped
+				//  in this batch due to the offset, and reduce it for the next batch
+				err = tx.Select(&skipped,
+					fmt.Sprintf(
+						`SELECT COUNT(p.id) FROM pipeline_runs AS p %s p.id >= $2 AND p.id <= $3`, filter,
+					),
+				)
+				if err != nil {
+					err = errors.Wrap(err, "error loading from pipeline_runs")
+					return
+				}
+				offset -= skipped
+				if offset < 0 { // sanity assertion, if this ever happened it would probably mean db corruption or pg bug
+					err = errors.Wrap(err, "internal db error while reading pipeline_runs")
+					return
+				}
+				o.lggr.Debugw("loadPipelineRunIDs empty batch", "minId", minID, "maxID", maxID, "n", n, "len(ids)", len(ids), "limit", limit, "offset", offset, "skipped", skipped)
 
+			}
+		}
 		maxID = minID - 1
-		//ids = append(ids, batch...)
 	}
 	return
 }
@@ -993,11 +1015,11 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
 	var filter string
 	if jobID != nil {
-		filter = "JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = $1"
+		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d", *jobID)
 	}
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
-		if err = tx.QueryRowx(sql, jobID).Scan(&count); err != nil {
+		if err = tx.QueryRowx(sql).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
 

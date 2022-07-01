@@ -85,13 +85,13 @@ func (_m *ORM) DeleteRun(id int64) error {
 	return r0
 }
 
-// DeleteRunsOlderThan provides a mock function with given fields: _a0, _a1
-func (_m *ORM) DeleteRunsOlderThan(_a0 context.Context, _a1 time.Duration) error {
-	ret := _m.Called(_a0, _a1)
+// DeleteRunsOlderThan provides a mock function with given fields: _a0, _a1, _a2
+func (_m *ORM) DeleteRunsOlderThan(_a0 context.Context, _a1 time.Duration, _a2 time.Duration) error {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Duration) error); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, time.Duration) error); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}
