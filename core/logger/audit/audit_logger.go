@@ -43,7 +43,6 @@ type serviceHeader struct {
 // AuditLogger instance. If the environment variables are not set, the logger
 // is disabled and short circuits execution via enabled flag.
 func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
-
 	// Start parsing environment variables for audit logger
 	auditLogsURL := os.Getenv("AUDIT_LOGS_FORWARDER_URL")
 	if auditLogsURL == "" {
@@ -59,7 +58,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname", "err", err)
+		return &AuditLoggerService{}, errors.Errorf("Audit Log initialization error - unable to get hostname: %s", err)
 	}
 
 	// Split and prepare optional service client headers from env variable
@@ -97,7 +96,7 @@ func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data ma
 	if !l.enabled {
 		return
 	}
-	l.postLogToLogService(eventID, data)
+	go l.postLogToLogService(eventID, data)
 }
 
 func (l *AuditLoggerService) postLogToLogService(eventID EventID, data map[string]interface{}) {
