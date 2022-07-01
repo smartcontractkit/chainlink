@@ -121,16 +121,6 @@ func getKeeperSuite(
 					eth.New(nil),
 					chainlink.New(0, nil),
 				),
-				Entry("Keeper suite on Metis Stardust @metis",
-					blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
-					eth.New(&eth.Props{
-						NetworkName: networks.MetisStardust.Name,
-						Simulated:   networks.MetisStardust.Simulated,
-					}),
-					chainlink.New(0, map[string]interface{}{
-						"env": networks.MetisStardust.ChainlinkValuesMap(),
-					}),
-				),
 			}
 		)
 
@@ -665,7 +655,9 @@ func getKeeperSuite(
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
-		}, testScenarios)
+		},
+			testScenarios,
+		)
 
 		AfterEach(func() {
 			By("Printing gas stats", func() {
