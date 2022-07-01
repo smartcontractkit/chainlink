@@ -171,6 +171,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
 		}
 
+<<<<<<< HEAD
 		By("Checking flux rounds")
 		// initial value set is performed before jobs creation
 		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
@@ -185,6 +186,34 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		Expect(data.LatestRoundData.AnsweredInRound.Int64()).Should(Equal(int64(1)), "Expected latest round's answered in round to be %d, but found %d", int64(1), data.LatestRoundData.AnsweredInRound.Int64())
 		Expect(data.AvailableFunds.Int64()).Should(Equal(int64(999999999999999997)), "Expected available funds to be %d, but found %d", int64(999999999999999997), data.AvailableFunds.Int64())
 		Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(3)), "Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
+=======
+				fluxSpec := &it.FluxMonitorJobSpec{
+					Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
+					ContractAddress:   fluxInstance.Address(),
+					Threshold:         0,
+					AbsoluteThreshold: 0,
+					PollTimerPeriod:   15 * time.Second, // min 15s
+					IdleTimerDisabled: true,
+					ObservationSource: client.ObservationSourceSpecBridge(bta),
+				}
+				_, err = n.CreateJob(fluxSpec)
+				Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
+			}
+			By("Checking flux rounds", func() {
+				// initial value set is performed before jobs creation
+				fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
+				c.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+				err = c.WaitForEvents()
+				Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
+				data, err := fluxInstance.GetContractData(context.Background())
+				Expect(err).ShouldNot(HaveOccurred(), "Getting contract data from flux aggregator contract shouldn't fail")
+				log.Info().Interface("Data", data).Msg("Round data")
+				Expect(data.LatestRoundData.Answer.Int64()).Should(Equal(int64(1e5)), "Expected latest round answer to be %d, but found %d", int64(1e5), data.LatestRoundData.Answer.Int64())
+				Expect(data.LatestRoundData.RoundId.Int64()).Should(Equal(int64(1)), "Expected latest round id to be %d, but found %d", int64(1), data.LatestRoundData.RoundId.Int64())
+				Expect(data.LatestRoundData.AnsweredInRound.Int64()).Should(Equal(int64(1)), "Expected latest round's answered in round to be %d, but found %d", int64(1), data.LatestRoundData.AnsweredInRound.Int64())
+				Expect(data.AvailableFunds.Int64()).Should(Equal(int64(999999999999999997)), "Expected available funds to be %d, but found %d", int64(999999999999999997), data.AvailableFunds.Int64())
+				Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(3)), "Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
+>>>>>>> 4a77bbd7a (Moving specs from CTF to core)
 
 		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
