@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
@@ -133,7 +134,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				err = n.CreateBridge(&bta)
 				Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
-				fluxSpec := &client.FluxMonitorJobSpec{
+				fluxSpec := &networks.FluxMonitorJobSpec{
 					Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 					ContractAddress:   fluxInstance.Address(),
 					Threshold:         0,

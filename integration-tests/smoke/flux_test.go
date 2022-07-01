@@ -158,7 +158,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			err = n.CreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
-			fluxSpec := &client.FluxMonitorJobSpec{
+			fluxSpec := &networks.FluxMonitorJobSpec{
 				Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 				ContractAddress:   fluxInstance.Address(),
 				Threshold:         0,
