@@ -46,6 +46,10 @@ func (u userFindSuccesser) FindUser(email string) (sessions.User, error) {
 	return u.user, nil
 }
 
+func (u userFindSuccesser) FindUserByAPIToken(token string) (sessions.User, error) {
+	return u.user, nil
+}
+
 func TestAuthenticateByToken_Success(t *testing.T) {
 	user := cltest.MustRandomUser(t)
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}

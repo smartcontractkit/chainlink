@@ -55,7 +55,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 				clearSessions(t, db.DB)
 			})
 
-			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)
+			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, $3, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)
 			require.NoError(t, err)
 
 			r.WakeUp()

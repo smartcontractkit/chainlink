@@ -3,6 +3,7 @@ package sessions_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
@@ -19,15 +20,15 @@ func TestNewUser(t *testing.T) {
 		role       sessions.UserRole
 		wantError  bool
 	}{
-		{"good@email.com", "goodpassword", sessions.UserRoleAdmin, false},
-		{"notld@email", "goodpassword", sessions.UserRoleEdit, false},
-		{"view@email", "goodpassword", sessions.UserRoleView, false},
+		{"good@email.com", cltest.Password, sessions.UserRoleAdmin, false},
+		{"notld@email", cltest.Password, sessions.UserRoleEdit, false},
+		{"view@email", cltest.Password, sessions.UserRoleView, false},
 		{"good@email.com", "badpd", sessions.UserRoleAdmin, true},
-		{"bademail", "goodpassword", sessions.UserRoleAdmin, true},
-		{"bad@", "goodpassword", sessions.UserRoleAdmin, true},
-		{"@email", "goodpassword", sessions.UserRoleAdmin, true},
-		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa50", sessions.UserRoleEditMinimal, false},
-		{"good@email.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa51", sessions.UserRoleAdmin, true},
+		{"bademail", cltest.Password, sessions.UserRoleAdmin, true},
+		{"bad@", cltest.Password, sessions.UserRoleAdmin, true},
+		{"@email", cltest.Password, sessions.UserRoleAdmin, true},
+		{"good@email.com", cltest.Password, sessions.UserRoleEditMinimal, false},
+		{"good@email-pass-too-long.com", cltest.Password + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sessions.UserRoleAdmin, true},
 	}
 
 	for _, test := range tests {

@@ -32,7 +32,7 @@ func NewUserResource(u sessions.User) *UserResource {
 	return &UserResource{
 		JAID:              NewJAID(u.Email),
 		Email:             u.Email,
-		Role:              u.Role,
+		Role:              sessions.UserRole(u.Role),
 		HasActiveApiToken: hasToken,
 		CreatedAt:         u.CreatedAt,
 		UpdatedAt:         u.UpdatedAt,

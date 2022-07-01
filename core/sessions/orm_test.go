@@ -33,8 +33,8 @@ func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
 	db, orm := setupORM(t)
-	user1 := cltest.MustNewUser(t, "test1@email1.net", "password1")
-	user2 := cltest.MustNewUser(t, "test2@email2.net", "password2")
+	user1 := cltest.MustNewUser(t, "test1@email1.net", cltest.Password)
+	user2 := cltest.MustNewUser(t, "test2@email2.net", cltest.Password)
 
 	require.NoError(t, orm.CreateUser(&user1))
 	require.NoError(t, orm.CreateUser(&user2))
@@ -68,12 +68,12 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t))
 
-			user := cltest.MustNewUser(t, "have@email", "password")
+			user := cltest.MustNewUser(t, "have@email", cltest.Password)
 			require.NoError(t, orm.CreateUser(&user))
 
 			prevSession := cltest.NewSession("correctID")
 			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
-			_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now())", prevSession.ID, cltest.APIEmailAdmin, prevSession.LastUsed)
+			_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, now())", prevSession.ID, user.Email, prevSession.LastUsed)
 			require.NoError(t, err)
 
 			expectedTime := utils.ISO8601UTC(time.Now())
@@ -112,7 +112,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	db, orm := setupORM(t)
 
 	session := sessions.NewSession()
-	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, now(), now())", session.ID, cltest.APIEmailAdmin)
+	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, cltest.APIEmailAdmin)
 	require.NoError(t, err)
 
 	err = orm.DeleteUserSession(session.ID)
@@ -255,7 +255,7 @@ func TestOrm_GenerateAuthToken(t *testing.T) {
 	token, err := orm.CreateAndSetAuthToken(&initial)
 	require.NoError(t, err)
 
-	dbUser, err := orm.FindUser(cltest.APIEmailAdmin)
+	dbUser, err := orm.FindUser(initial.Email)
 	require.NoError(t, err)
 
 	hashedSecret, err := auth.HashedSecret(token, dbUser.TokenSalt.String)
@@ -268,7 +268,7 @@ func TestOrm_GenerateAuthToken(t *testing.T) {
 	assert.Equal(t, dbUser.TokenHashedSecret.String, hashedSecret)
 
 	require.NoError(t, orm.DeleteAuthToken(&initial))
-	dbUser, err = orm.FindUser(cltest.APIEmailAdmin)
+	dbUser, err = orm.FindUser(initial.Email)
 	require.NoError(t, err)
 	assert.Empty(t, dbUser.TokenKey.ValueOrZero())
 	assert.Empty(t, dbUser.TokenSalt.ValueOrZero())

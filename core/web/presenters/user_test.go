@@ -18,6 +18,8 @@ func TestUserResource(t *testing.T) {
 	user := sessions.User{
 		Email:     "notreal@fakeemail.ch",
 		CreatedAt: ts,
+		UpdatedAt: ts,
+		Role:      sessions.UserRoleAdmin,
 	}
 
 	r := NewUserResource(user)
@@ -32,7 +34,10 @@ func TestUserResource(t *testing.T) {
 		   "id": "notreal@fakeemail.ch",
 		   "attributes": {
 			  "email": "notreal@fakeemail.ch",
-			  "createdAt": "2000-01-01T00:00:00Z"
+			  "createdAt": "2000-01-01T00:00:00Z",
+			  "updatedAt": "2000-01-01T00:00:00Z",
+			  "hasActiveApiToken": "false",
+			  "role": "admin"
 		   }
 		}
 	 }
