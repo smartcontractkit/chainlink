@@ -54,19 +54,19 @@ const (
 	defaultUpkeepsToDeploy = 10
 )
 
-//var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
-//var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
-//var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
-//var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
+var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
+var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
 var _ = Describe("Keeper v1.2 Migrate upkeep from a registry to another @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)))
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -614,7 +614,7 @@ func getKeeperSuite(
 					err := secondRegistry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
 					Expect(err).ShouldNot(HaveOccurred(), "Couldn't set bidirectional permissions for second registry")
 					err = chainClient.WaitForEvents()
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for migration permissions setting")
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for setting the permissions")
 
 					var counterBeforeMigration *big.Int
 
@@ -625,17 +625,6 @@ func getKeeperSuite(
 						g.Expect(counterBeforeMigration.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
 					}, "1m", "1s").Should(Succeed())
-
-					//upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepIDs[0])
-					//Expect(err).ShouldNot(HaveOccurred(), "Couldn't retrieve upkeep info")
-					//err = chainClient.WaitForEvents()
-					//Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for upkeep info retrieval")
-					//
-					//// Grant permission to the registry to fund the upkeep
-					//err = linkToken.Approve(registry.Address(), upkeepInfo.Balance)
-					//Expect(err).ShouldNot(HaveOccurred(), "Failed to approve")
-					//err = chainClient.WaitForEvents()
-					//Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
 					// Migrate the upkeep with index 0 from the first to the second registry
 					err = registry.Migrate([]*big.Int{upkeepIDs[0]}, common.HexToAddress(secondRegistry.Address()))
@@ -657,8 +646,7 @@ func getKeeperSuite(
 						currentCounter, err := consumers[0].Counter(context.Background())
 						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 						g.Expect(currentCounter.Int64()).Should(BeNumerically(">", counterAfterMigration.Int64()),
-							"Expected counterAfterMigration to be greater than %s, but got %s",
-							counterBeforeMigration, counterAfterMigration)
+							"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
 					}, "1m", "1s").Should(Succeed())
 				})
 			}
