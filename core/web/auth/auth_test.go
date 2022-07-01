@@ -37,6 +37,10 @@ func (u userFindFailer) FindUser(email string) (sessions.User, error) {
 	return sessions.User{}, u.err
 }
 
+func (u userFindFailer) FindUserByAPIToken(token string) (sessions.User, error) {
+	return sessions.User{}, u.err
+}
+
 type userFindSuccesser struct {
 	sessions.ORM
 	user sessions.User
