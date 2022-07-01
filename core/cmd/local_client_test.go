@@ -229,13 +229,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
 			var err error
-			err = sessionORM.DeleteUser(cltest.APIEmailAdmin)
-			require.NoError(t, err)
-			err = sessionORM.DeleteUser(cltest.APIEmailEdit)
-			require.NoError(t, err)
-			err = sessionORM.DeleteUser(cltest.APIEmailEditMinimal)
-			require.NoError(t, err)
-			err = sessionORM.DeleteUser(cltest.APIEmailViewOnly)
+			_, err = db.Exec("DELETE FROM users;")
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
@@ -352,13 +346,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
 			var err error
-			err = sessionORM.DeleteUser(cltest.APIEmailAdmin)
-			require.NoError(t, err)
-			err = sessionORM.DeleteUser(cltest.APIEmailEdit)
-			require.NoError(t, err)
-			err = sessionORM.DeleteUser(cltest.APIEmailEditMinimal)
-			require.NoError(t, err)
-			err = sessionORM.DeleteUser(cltest.APIEmailViewOnly)
+			_, err = db.Exec("DELETE FROM users;")
 			require.NoError(t, err)
 
 			keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -408,6 +396,8 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
+
+			// TODO: Andrew here prompt count changed?
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
 
 			app.AssertExpectations(t)
