@@ -1,15 +1,12 @@
-Dev = true
 ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
-ReaperExpiration = '168h0m0s'
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
 [Feature]
 FeedsManager = true
 LogPoller = true
-OffchainReporting2 = true
-OffchainReporting = true
+UICSA = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -32,9 +29,6 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
-Mode = 'advisory'
-AdvisoryCheckInterval = '5m0s'
-AdvisoryID = 345982730592843
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 
@@ -65,6 +59,7 @@ HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
+SessionReaperExpiration = '168h0m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -97,6 +92,7 @@ DefaultTransactionQueueDepth = 100
 SimulateTransactions = true
 
 [OCR2]
+Enabled = true
 ContractConfirmations = 11
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
@@ -106,6 +102,7 @@ DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 
 [OCR]
+Enabled = true
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
@@ -135,7 +132,7 @@ PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
 AnnounceAddresses = ['a', 'b', 'c']
-DefaultBootstrappers = ['1', '2', '3']
+DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']

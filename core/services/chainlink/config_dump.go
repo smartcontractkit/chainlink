@@ -12,9 +12,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -118,7 +120,7 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 			// no need to persist if enabled
 			evmChain.Enabled = nil
 		}
-		c.EVM = append(c.EVM, evmChain)
+		c.EVM = append(c.EVM, &evmChain)
 	}
 
 	for _, dbChain := range dbData.SolanaChains {
@@ -130,7 +132,7 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 			// no need to persist if enabled
 			solChain.Enabled = nil
 		}
-		c.Solana = append(c.Solana, solChain)
+		c.Solana = append(c.Solana, &solChain)
 	}
 
 	for _, dbChain := range dbData.TerraChains {
@@ -142,7 +144,7 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 			// no need to persist if enabled
 			terChain.Enabled = nil
 		}
-		c.Terra = append(c.Terra, terChain)
+		c.Terra = append(c.Terra, &terChain)
 	}
 
 	return nil
@@ -617,17 +619,13 @@ func (c *Config) loadLegacyEVMEnv() {
 
 // loadLegacyCoreEnv loads Core values from legacy environment variables.
 func (c *Config) loadLegacyCoreEnv() {
-	c.Dev = envvar.NewBool("Dev").ParsePtr()
 	c.ExplorerURL = envURL("ExplorerURL")
 	c.InsecureFastScrypt = envvar.NewBool("InsecureFastScrypt").ParsePtr()
-	c.ReaperExpiration = envDuration("ReaperExpiration")
 	c.RootDir = envvar.RootDir.ParsePtr()
 	c.ShutdownGracePeriod = envDuration("ShutdownGracePeriod")
 
 	c.Feature = &config.Feature{
-		FeedsManager:       envvar.NewBool("FeatureFeedsManager").ParsePtr(),
-		OffchainReporting2: envvar.NewBool("FeatureOffchainReporting2").ParsePtr(),
-		OffchainReporting:  envvar.NewBool("FeatureOffchainReporting").ParsePtr(),
+		FeedsManager: envvar.NewBool("FeatureFeedsManager").ParsePtr(),
 	}
 	if isZeroPtr(c.Feature) {
 		c.Feature = nil
@@ -646,11 +644,8 @@ func (c *Config) loadLegacyCoreEnv() {
 			FallbackPollInterval: envDuration("TriggerFallbackDBPollInterval"),
 		},
 		Lock: &config.DatabaseLock{
-			Mode:                  envvar.NewString("DatabaseLockingMode").ParsePtr(),
-			AdvisoryCheckInterval: envDuration("AdvisoryLockCheckInterval"),
-			AdvisoryID:            envvar.AdvisoryLockID.ParsePtr(),
-			LeaseDuration:         envDuration("LeaseLockDuration"),
-			LeaseRefreshInterval:  envDuration("LeaseLockRefreshInterval"),
+			LeaseDuration:        envDuration("LeaseLockDuration"),
+			LeaseRefreshInterval: envDuration("LeaseLockRefreshInterval"),
 		},
 		Backup: &config.DatabaseBackup{
 			Dir:              envvar.NewString("DatabaseBackupDir").ParsePtr(),
@@ -702,12 +697,13 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.WebServer = &config.WebServer{
-		AllowOrigins:      envvar.NewString("AllowOrigins").ParsePtr(),
-		BridgeResponseURL: envURL("BridgeResponseURL"),
-		HTTPWriteTimeout:  envDuration("HTTPServerWriteTimeout"),
-		HTTPPort:          envvar.NewUint16("Port").ParsePtr(),
-		SecureCookies:     envvar.NewBool("SecureCookies").ParsePtr(),
-		SessionTimeout:    envDuration("SessionTimeout"),
+		AllowOrigins:            envvar.NewString("AllowOrigins").ParsePtr(),
+		BridgeResponseURL:       envURL("BridgeResponseURL"),
+		HTTPWriteTimeout:        envDuration("HTTPServerWriteTimeout"),
+		HTTPPort:                envvar.NewUint16("Port").ParsePtr(),
+		SecureCookies:           envvar.NewBool("SecureCookies").ParsePtr(),
+		SessionTimeout:          envDuration("SessionTimeout"),
+		SessionReaperExpiration: envDuration("ReaperExpiration"),
 		MFA: &config.WebServerMFA{
 			RPID:     envvar.NewString("RPID").ParsePtr(),
 			RPOrigin: envvar.NewString("RPOrigin").ParsePtr(),
@@ -764,6 +760,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 
 	c.OCR2 = &config.OCR2{
+		Enabled:                            envvar.NewBool("FeatureOffchainReporting2").ParsePtr(),
 		ContractConfirmations:              envvar.NewUint32("OCR2ContractConfirmations").ParsePtr(),
 		BlockchainTimeout:                  envDuration("OCR2BlockchainTimeout"),
 		ContractPollInterval:               envDuration("OCR2ContractPollInterval"),
@@ -772,11 +769,15 @@ func (c *Config) loadLegacyCoreEnv() {
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
 	}
+	if e := c.OCR2.Enabled; e != nil && *e {
+		c.OCR2.Enabled = nil // no need to be explicit
+	}
 	if isZeroPtr(c.OCR2) {
 		c.OCR2 = nil
 	}
 
 	c.OCR = &config.OCR{
+		Enabled:                      envvar.NewBool("FeatureOffchainReporting").ParsePtr(),
 		ObservationTimeout:           envDuration("OCRObservationTimeout"),
 		BlockchainTimeout:            envDuration("OCRBlockchainTimeout"),
 		ContractPollInterval:         envDuration("OCRContractPollInterval"),
@@ -785,6 +786,9 @@ func (c *Config) loadLegacyCoreEnv() {
 		KeyBundleID:                  envvar.New("OCRKeyBundleID", models.Sha256HashFromHex).ParsePtr(),
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
+	}
+	if e := c.OCR.Enabled; e != nil && *e {
+		c.OCR.Enabled = nil // no need to be explicit
 	}
 	if isZeroPtr(c.OCR) {
 		c.OCR = nil
@@ -818,11 +822,14 @@ func (c *Config) loadLegacyCoreEnv() {
 		}
 		if ns == v2 || ns == v1v2 {
 			c.P2P.V2 = &config.P2PV2{
-				AnnounceAddresses:    envStringSlice("P2PV2AnnounceAddresses"),
-				DefaultBootstrappers: envStringSlice("P2PV2Bootstrappers"),
-				DeltaDial:            envDuration("P2PV2DeltaDial"),
-				DeltaReconcile:       envDuration("P2PV2DeltaReconcile"),
-				ListenAddresses:      envStringSlice("P2PV2ListenAddresses"),
+				AnnounceAddresses: envStringSlice("P2PV2AnnounceAddresses"),
+				DefaultBootstrappers: envSlice("P2PV2Bootstrappers", func(v *ocrcommontypes.BootstrapperLocator, b []byte) error {
+					fmt.Println("TEST", string(b))
+					return v.UnmarshalText(b)
+				}),
+				DeltaDial:       envDuration("P2PV2DeltaDial"),
+				DeltaReconcile:  envDuration("P2PV2DeltaReconcile"),
+				ListenAddresses: envStringSlice("P2PV2ListenAddresses"),
 			}
 		}
 	}
@@ -925,6 +932,27 @@ func envStringSlice(s string) *[]string {
 		// matching viper stringSlice logic
 		t := strings.TrimSuffix(strings.TrimPrefix(s, "["), "]")
 		return csv.NewReader(strings.NewReader(t)).Read()
+	}).ParsePtr()
+}
+
+func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
+	return envvar.New(s, func(v string) ([]T, error) {
+		// matching viper stringSlice logic
+		v = strings.TrimSuffix(strings.TrimPrefix(v, "["), "]")
+		ss, err := csv.NewReader(strings.NewReader(v)).Read()
+		if err != nil {
+			return nil, err
+		}
+		var ts []T
+		for _, s := range ss {
+			var t T
+			err := parse(&t, []byte(s))
+			if err != nil {
+				return nil, err
+			}
+			ts = append(ts, t)
+		}
+		return ts, nil
 	}).ParsePtr()
 }
 

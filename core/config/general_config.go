@@ -354,11 +354,6 @@ EVM_ENABLED=false
 			}
 		}
 	}
-	if me := c.OCRMonitoringEndpoint(); me != "" {
-		if _, err := url.Parse(me); err != nil {
-			return errors.Wrapf(err, "invalid monitoring url: %s", me)
-		}
-	}
 	if ct, set := c.GlobalChainType(); set && !ChainType(ct).IsValid() {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}

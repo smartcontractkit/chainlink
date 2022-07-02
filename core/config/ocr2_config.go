@@ -19,7 +19,6 @@ type OCR2Config interface {
 	OCR2DatabaseTimeout() time.Duration
 	OCR2ContractPollInterval() time.Duration
 	OCR2ContractSubscribeInterval() time.Duration
-	OCR2MonitoringEndpoint() string
 	OCR2KeyBundleID() (string, error)
 	// OCR2 config, cannot override in jobs
 	OCR2TraceLogging() bool
@@ -47,10 +46,6 @@ func (c *generalConfig) OCR2BlockchainTimeout() time.Duration {
 
 func (c *generalConfig) OCR2DatabaseTimeout() time.Duration {
 	return c.getWithFallback("OCR2DatabaseTimeout", parse.Duration).(time.Duration)
-}
-
-func (c *generalConfig) OCR2MonitoringEndpoint() string {
-	return c.viper.GetString(envvar.Name("OCR2MonitoringEndpoint"))
 }
 
 func (c *generalConfig) OCR2KeyBundleID() (string, error) {

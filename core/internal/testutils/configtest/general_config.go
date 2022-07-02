@@ -497,13 +497,6 @@ func (c *TestGeneralConfig) LogLevel() zapcore.Level {
 	return c.GeneralConfig.LogLevel()
 }
 
-func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
-	if c.Overrides.DefaultLogLevel != nil {
-		return *c.Overrides.DefaultLogLevel
-	}
-	return c.GeneralConfig.DefaultLogLevel()
-}
-
 func (c *TestGeneralConfig) LogSQL() bool {
 	if c.Overrides.LogSQL.Valid {
 		return c.Overrides.LogSQL.Bool
