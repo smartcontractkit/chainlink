@@ -3,6 +3,7 @@ package v2
 import (
 	"net"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -15,10 +16,8 @@ import (
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
-	Dev                 *bool
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
-	ReaperExpiration    *models.Duration
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
@@ -51,16 +50,15 @@ type Core struct {
 
 type Secrets struct {
 	DatabaseURL       *models.URL
-	ExplorerAccessKey string `toml:",omitempty"`
-	ExplorerSecret    string `toml:",omitempty"`
+	ExplorerAccessKey *string
+	ExplorerSecret    *string
 	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
 }
 
 type Feature struct {
-	FeedsManager       *bool
-	LogPoller          *bool
-	OffchainReporting2 *bool
-	OffchainReporting  *bool
+	FeedsManager *bool
+	LogPoller    *bool
+	UICSA        *bool
 }
 
 type Database struct {
@@ -85,11 +83,8 @@ type DatabaseListener struct {
 }
 
 type DatabaseLock struct {
-	Mode                  *string
-	AdvisoryCheckInterval *models.Duration
-	AdvisoryID            *int64
-	LeaseDuration         *models.Duration
-	LeaseRefreshInterval  *models.Duration
+	LeaseDuration        *models.Duration
+	LeaseRefreshInterval *models.Duration
 }
 
 type DatabaseBackup struct {
@@ -123,12 +118,13 @@ type Log struct {
 }
 
 type WebServer struct {
-	AllowOrigins      *string
-	BridgeResponseURL *models.URL
-	HTTPWriteTimeout  *models.Duration
-	HTTPPort          *uint16
-	SecureCookies     *bool
-	SessionTimeout    *models.Duration
+	AllowOrigins            *string
+	BridgeResponseURL       *models.URL
+	HTTPWriteTimeout        *models.Duration
+	HTTPPort                *uint16
+	SecureCookies           *bool
+	SessionTimeout          *models.Duration
+	SessionReaperExpiration *models.Duration
 
 	MFA *WebServerMFA
 
@@ -173,6 +169,7 @@ type FluxMonitor struct {
 }
 
 type OCR2 struct {
+	Enabled                            *bool //TODO disabled
 	ContractConfirmations              *uint32
 	BlockchainTimeout                  *models.Duration
 	ContractPollInterval               *models.Duration
@@ -183,6 +180,7 @@ type OCR2 struct {
 }
 
 type OCR struct {
+	Enabled                      *bool //TODO disabled
 	ObservationTimeout           *models.Duration
 	BlockchainTimeout            *models.Duration
 	ContractPollInterval         *models.Duration
@@ -233,7 +231,7 @@ type P2PV1 struct {
 
 type P2PV2 struct {
 	AnnounceAddresses    *[]string
-	DefaultBootstrappers *[]string
+	DefaultBootstrappers *[]ocrcommontypes.BootstrapperLocator
 	DeltaDial            *models.Duration
 	DeltaReconcile       *models.Duration
 	ListenAddresses      *[]string
@@ -255,7 +253,7 @@ type Keeper struct {
 }
 
 type AutoPprof struct {
-	Enabled              *bool
+	Enabled              *bool //TODO Disabled?
 	ProfileRoot          *string
 	PollInterval         *models.Duration
 	GatherDuration       *models.Duration

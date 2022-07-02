@@ -2502,20 +2502,6 @@ func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
 	return r0, r1
 }
 
-// OCR2MonitoringEndpoint provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2MonitoringEndpoint() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // OCR2TraceLogging provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2TraceLogging() bool {
 	ret := _m.Called()
@@ -2647,20 +2633,6 @@ func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
 	}
 
 	return r0, r1
-}
-
-// OCRMonitoringEndpoint provides a mock function with given fields:
-func (_m *GeneralConfig) OCRMonitoringEndpoint() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
 }
 
 // OCRNewStreamTimeout provides a mock function with given fields:

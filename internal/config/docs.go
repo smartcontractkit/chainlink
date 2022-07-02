@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -183,7 +183,7 @@ func (k keyval) String() string {
 }
 
 func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
-	defer func() { err = cfgtest.MultiErrorList(err) }()
+	defer func() { err = utils.MultiErrorList(err) }()
 	globalTable := table{name: "Global"}
 	currentTable := &globalTable
 	items = append(items, currentTable)

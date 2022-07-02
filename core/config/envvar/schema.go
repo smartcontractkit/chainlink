@@ -218,7 +218,6 @@ type ConfigSchema struct {
 	OCR2ContractTransmitterTransmitTimeout time.Duration `env:"OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"` //nodoc
 	OCR2DatabaseTimeout                    time.Duration `env:"OCR2_DATABASE_TIMEOUT" default:"10s"`                      //nodoc
 	OCR2KeyBundleID                        string        `env:"OCR2_KEY_BUNDLE_ID"`                                       //nodoc
-	OCR2MonitoringEndpoint                 string        `env:"OCR2_MONITORING_ENDPOINT"`                                 //nodoc
 
 	// OCR V1
 	FeatureOffchainReporting bool `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
@@ -235,7 +234,6 @@ type ConfigSchema struct {
 	OCRDefaultTransactionQueueDepth uint32        `env:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"` //nodoc
 	// Optional
 	OCRKeyBundleID          string `env:"OCR_KEY_BUNDLE_ID"`
-	OCRMonitoringEndpoint   string `env:"OCR_MONITORING_ENDPOINT"`
 	OCRSimulateTransactions bool   `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
 	OCRTraceLogging         bool   `env:"OCR_TRACE_LOGGING" default:"false"` //nodoc
 	OCRTransmitterAddress   string `env:"OCR_TRANSMITTER_ADDRESS"`

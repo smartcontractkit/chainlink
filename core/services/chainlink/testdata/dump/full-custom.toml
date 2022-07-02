@@ -1,14 +1,10 @@
-Dev = true
 ExplorerURL = 'http://explorer.com'
 InsecureFastScrypt = true
-ReaperExpiration = '10h0m0s'
 RootDir = 'root/dir'
 ShutdownGracePeriod = '10s'
 
 [Feature]
 FeedsManager = true
-OffchainReporting2 = true
-OffchainReporting = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -31,8 +27,6 @@ MinReconnectInterval = '10s'
 FallbackPollInterval = '10s'
 
 [Database.Lock]
-Mode = 'advisory'
-AdvisoryCheckInterval = '5s'
 LeaseDuration = '5s'
 LeaseRefreshInterval = '2s'
 
@@ -63,6 +57,7 @@ HTTPWriteTimeout = '5s'
 HTTPPort = 6080
 SecureCookies = false
 SessionTimeout = '10m0s'
+SessionReaperExpiration = '10h0m0s'
 
 [WebServer.MFA]
 RPID = 'mfa-rpid'
@@ -133,7 +128,7 @@ PeerstoreWriteInterval = '10m0s'
 
 [P2P.V2]
 AnnounceAddresses = ['1', '2', '3', '4']
-DefaultBootstrappers = ['a', 'b', 'c']
+DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
 DeltaReconcile = '30m0s'
 ListenAddresses = ['abcd']

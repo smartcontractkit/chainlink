@@ -1,12 +1,8 @@
-# Dev enables development mode. This setting is not recommended for production deployments. It can be useful for enabling experimental features and collecting debug information.
-Dev = false # Default
 # ExplorerURL is the websocket URL for the node to push stats to.
 ExplorerURL = 'ws://explorer.url' # Example
 # **ADVANCED**
 # InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
 InsecureFastScrypt = false # Default
-# ReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
-ReaperExpiration = '240h' # Default
 # RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 RootDir = '~/.chainlink' # Default
 # ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
@@ -17,10 +13,8 @@ ShutdownGracePeriod = '5s' # Default
 FeedsManager = false # Default
 # LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 LogPoller = false # Default
-# OffchainReporting2 enables OCR2 jobs.
-OffchainReporting2 = false # Default
-# OffchainReporting enables OCR jobs.
-OffchainReporting = false # Default
+# TODO
+UICSA = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.
@@ -78,34 +72,14 @@ FallbackPollInterval = '30s' # Default
 # **ADVANCED**
 # Ideally, you should use a container orchestration system like [Kubernetes](https://kubernetes.io/) to ensure that only one Chainlink node instance can ever use a specific Postgres database. However, some node operators do not have the technical capacity to do this. Common use cases run multiple Chainlink node instances in failover mode as recommended by our official documentation. The first instance takes a lock on the database and subsequent instances will wait trying to take this lock in case the first instance fails.
 #
-# By default, Chainlink nodes use the `dual` setting to provide both advisory locks and lease locks for backward and forward compatibility. Using advisory locks alone presents the following problems:
-#
 # - If your nodes or applications hold locks open for several hours or days, Postgres is unable to complete internal cleanup tasks. The Postgres maintainers explicitly discourage holding locks open for long periods of time.
-# - Advisory locks can silently disappear when you upgrade Postgres, so a new Chainlink node instance can take over even while the old node is still running.
-# - Advisory locks do not work well with pooling tools such as [pgbouncer](https://www.pgbouncer.org/).
-# - If the Chainlink node crashes, an advisory lock can hang around for up to several hours, which might require you to manually remove it so another instance of the Chainlink node will allow itself to boot.
 #
-# Because of the complications with advisory locks, Chainlink nodes with v1.1.0 and later support a new `lease` locking mode. This mode might become the default in future. The `lease` locking mode works using the following process:
+# Because of the complications with advisory locks, Chainlink nodes with v2.0 and later only support `lease` locking mode. The `lease` locking mode works using the following process:
 #
 # - Node A creates one row in the database with the client ID and updates it once per second.
 # - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 # - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
 [Database.Lock]
-# Mode variable can be set to 'dual', 'advisorylock', 'lease', or 'none'. It controls which mode to use to enforce that only one Chainlink node can use the database. It is recommended to set this to `lease`.
-#
-# - `dual` - The default: Uses both advisory locks and lease locks for backward and forward compatibility
-# - `advisorylock` - Advisory lock only
-# - `lease` - Lease lock only
-# - _none_ - No locking at all: This option useful for advanced deployment environments when you are sure that only one instance of a Chainlink node will ever be running.
-Mode = 'dual' # Default
-# AdvisoryCheckInterval controls how often the Chainlink node checks to make sure it still holds the advisory lock when advisory locking is enabled. If a node no longer holds the lock, it will try to re-acquire it. If the node cannot re-acquire the lock, the application will exit.
-#
-# This setting applies only if `Mode` is set to enable advisory locking.
-AdvisoryCheckInterval = '1s' # Default
-# AdvisoryID must match all other Chainlink nodes that might access this database. It is unlikely you will ever need to change this from the default.
-#
-# This setting applies only if `Mode` is set to enable advisory locking.
-AdvisoryID = 1027321974924625846 # Default
 # LeaseDuration is how long the lease lock will last before expiring.
 #
 # This setting applies only if `Mode` is set to enable lease locking.
@@ -181,6 +155,8 @@ HTTPPort = 6688 # Default
 SecureCookies = true # Default
 # SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
 SessionTimeout = '15m' # Default
+# SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
+SessionReaperExpiration = '240h' # Default
 
 [WebServer.RateLimit]
 # Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.
@@ -191,7 +167,6 @@ AuthenticatedPeriod = '1m' # Default
 Unauthenticated = 5 # Default
 # UnauthenticatedPeriod defines the period to which unauthenticated requests get limited.
 UnauthenticatedPeriod = '20s' # Default
-
 
 # The Operator UI frontend supports enabling Multi Factor Authentication via Webauthn per account. When enabled, logging in will require the account password and a hardware or OS security key such as Yubikey. To enroll, log in to the operator UI and click the circle purple profile button at the top right and then click **Register MFA Token**. Tap your hardware security key or use the OS public key management feature to enroll a key. Next time you log in, this key will be required to authenticate.
 [WebServer.MFA]
@@ -240,6 +215,8 @@ DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 
 [OCR2]
+# Enabled enables OCR2 jobs.
+Enabled = true # Default
 # ContractConfirmations is the number of block confirmations to wait for before enacting an on-chain
 # configuration change. This value doesn't need to be very high (in
 # particular, it does not need to protect against malicious re-orgs).
@@ -291,6 +268,8 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 
 # This section applies only if you are running off-chain reporting jobs.
 [OCR]
+# Enabled enables OCR jobs.
+Enabled = true # Default
 # ObservationTimeout is the timeout for making observations using the DataSource.Observe method.
 # (This is necessary because an oracle's operations are serialized, so
 # blocking forever on an observation would break the oracle.)
