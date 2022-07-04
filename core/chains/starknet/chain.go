@@ -2,8 +2,8 @@ package starknet
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-starknet/pkg/relay/starknet"
-	"github.com/smartcontractkit/chainlink-starknet/pkg/relay/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet"
+	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/core/logger"

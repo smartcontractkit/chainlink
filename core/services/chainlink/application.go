@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/pkg/relay"
+	starknetrelay "github.com/smartcontractkit/chainlink-starknet/pkg/chainlink"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
@@ -360,7 +360,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			subservices = append(subservices, terraRelayer)
 		}
 		if cfg.StarknetEnabled() {
-			starknetRelayer := pkgstarknet.NewRelayer(globalLogger.Named("Starknet.Relayer"), chains.Starknet)
+			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("Starknet.Relayer"), chains.Starknet)
 			relayers[relay.Starknet] = starknetRelayer
 			subservices = append(subservices, starknetRelayer)
 		}

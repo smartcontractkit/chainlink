@@ -7,22 +7,20 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-starknet/pkg/relay/starknet"
-	"github.com/smartcontractkit/chainlink-starknet/pkg/relay/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet"
+	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type ChainSetOpts struct {
-	Config           coreconfig.GeneralConfig
-	Logger           logger.Logger
-	DB               *sqlx.DB
-	EventBroadcaster pg.EventBroadcaster
-	ORM              types.ORM
+	Config coreconfig.GeneralConfig
+	Logger logger.Logger
+	DB     *sqlx.DB
+	ORM    types.ORM
 }
 
 func (o *ChainSetOpts) Validate() (err error) {
@@ -44,7 +42,7 @@ func (o *ChainSetOpts) Validate() (err error) {
 	return
 }
 
-func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, Node], logger.Logger) {
+func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node], logger.Logger) {
 	return o.ORM, o.Logger
 }
 
@@ -63,16 +61,13 @@ type ChainSet interface {
 	Configure(ctx context.Context, id string, enabled bool, config *db.ChainCfg) (types.DBChain, error)
 	Show(id string) (types.DBChain, error)
 	Index(offset, limit int) ([]types.DBChain, int, error)
-	GetNodes(ctx context.Context, offset, limit int) (nodes []Node, count int, err error)
-	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []Node, count int, err error)
-	CreateNode(ctx context.Context, data Node) (Node, error)
+	GetNodes(ctx context.Context, offset, limit int) (nodes []db.Node, count int, err error)
+	GetNodesForChain(ctx context.Context, chainID string, offset, limit int) (nodes []db.Node, count int, err error)
+	CreateNode(ctx context.Context, data db.Node) (db.Node, error)
 	DeleteNode(ctx context.Context, id int32) error
-}
-
-type Node struct {
 }
 
 // NewChainSet returns a new chain set for opts.
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, *db.ChainCfg, Node, starknet.Chain](&opts, func(s string) string { return s })
+	return chains.NewChainSet[string, *db.ChainCfg, db.Node, starknet.Chain](&opts, func(s string) string { return s })
 }
