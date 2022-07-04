@@ -156,7 +156,7 @@ type Chains struct {
 	EVM      evm.ChainSet
 	Solana   solana.ChainSet   // nil if disabled
 	Terra    terra.ChainSet    // nil if disabled
-	Starknet starknet.ChainSet // nil if disabled
+	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -169,8 +169,8 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.Terra != nil {
 		s = append(s, c.Terra)
 	}
-	if c.Starknet != nil {
-		s = append(s, c.Starknet)
+	if c.StarkNet != nil {
+		s = append(s, c.StarkNet)
 	}
 	return
 }
@@ -362,8 +362,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			subservices = append(subservices, terraRelayer)
 		}
 		if cfg.StarkNetEnabled() {
-			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("Starknet.Relayer"), chains.Starknet)
-			relayers[relay.Starknet] = starknetRelayer
+			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
+			relayers[relay.StarkNet] = starknetRelayer
 			subservices = append(subservices, starknetRelayer)
 		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(

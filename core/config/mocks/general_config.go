@@ -3244,6 +3244,20 @@ func (_m *GeneralConfig) StarkNetEnabled() bool {
 	return r0
 }
 
+// StarkNetNodes provides a mock function with given fields:
+func (_m *GeneralConfig) StarkNetNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // TLSCertPath provides a mock function with given fields:
 func (_m *GeneralConfig) TLSCertPath() string {
 	ret := _m.Called()

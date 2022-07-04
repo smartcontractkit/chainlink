@@ -1,4 +1,4 @@
-package terra
+package starknet
 
 import (
 	"encoding/json"
@@ -8,43 +8,43 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	starknetdb "github.com/smartcontractkit/chainlink-starknet/pkg/starknet/db"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type SetupConfig interface {
-	TerraNodes() string
+	StarkNetNodes() string
 	LogSQL() bool
 }
 
 // SetupNodes is a hack/shim method to allow node operators to specify multiple nodes via ENV.
 // See: https://app.shortcut.com/chainlinklabs/epic/33587/overhaul-config?cf_workflow=500000005&ct_workflow=all
 func SetupNodes(db *sqlx.DB, cfg SetupConfig, lggr logger.Logger) (err error) {
-	str := cfg.TerraNodes()
+	str := cfg.StarkNetNodes()
 	if str == "" {
 		return nil
 	}
 
-	var nodes []terradb.Node
+	var nodes []starknetdb.Node
 	if err = json.Unmarshal([]byte(str), &nodes); err != nil {
-		return errors.Wrapf(err, "invalid TERRA_NODES json: %q", str)
+		return errors.Wrapf(err, "invalid STARKNET_NODES json: %q", str)
 	}
 	// Sorting gives a consistent insert ordering
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Name < nodes[j].Name
 	})
 
-	lggr.Info("TERRA_NODES was set; clobbering terra_nodes table")
+	lggr.Info("STARKNET_NODES was set; clobbering starknet_nodes table")
 
 	orm := NewORM(db, lggr, cfg)
 	return orm.SetupNodes(nodes, uniqueIDs(nodes))
 }
 
-func uniqueIDs(ns []terradb.Node) (ids []string) {
+func uniqueIDs(ns []starknetdb.Node) (ids []string) {
 	m := map[string]struct{}{}
 	for _, n := range ns {
-		id := n.TerraChainID
+		id := n.ChainID
 		if _, ok := m[id]; ok {
 			continue
 		}

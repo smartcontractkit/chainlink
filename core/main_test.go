@@ -581,9 +581,10 @@ func ExampleRun_chains() {
 	//    core.test chains command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm     Commands for handling EVM chains
-	//    solana  Commands for handling Solana chains
-	//    terra   Commands for handling Terra chains
+	//    evm       Commands for handling EVM chains
+	//    solana    Commands for handling Solana chains
+	//    starknet  Commands for handling StarkNet chains
+	//    terra     Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -627,6 +628,25 @@ func ExampleRun_chains_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_chains_starknet() {
+	run("chains", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains starknet - Commands for handling StarkNet chains
+	//
+	// USAGE:
+	//    core.test chains starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create     Create a new StarkNet chain
+	//    delete     Delete an existing StarkNet chain
+	//    list       List all existing StarkNet chains
+	//    configure  Configure an existing StarkNet chain
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_chains_terra() {
 	run("chains", "terra", "--help")
 	// Output:
@@ -656,9 +676,10 @@ func ExampleRun_nodes() {
 	//    core.test nodes command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm     Commands for handling EVM node configuration
-	//    solana  Commands for handling Solana node configuration
-	//    terra   Commands for handling Terra node configuration
+	//    evm       Commands for handling EVM node configuration
+	//    solana    Commands for handling Solana node configuration
+	//    starknet  Commands for handling StarkNet node configuration
+	//    terra     Commands for handling Terra node configuration
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -695,6 +716,24 @@ func ExampleRun_nodes_solana() {
 	//    create  Create a new Solana node
 	//    delete  Delete an existing Solana node
 	//    list    List all existing Solana nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_starknet() {
+	run("nodes", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes starknet - Commands for handling StarkNet node configuration
+	//
+	// USAGE:
+	//    core.test nodes starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new StarkNet node
+	//    delete  Delete an existing StarkNet node
+	//    list    List all existing StarkNet nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

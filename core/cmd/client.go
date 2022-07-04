@@ -30,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -196,6 +197,24 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Solana chainset")
+		}
+	}
+
+	if cfg.StarkNetEnabled() {
+		starkLggr := appLggr.Named("StarkNet")
+		if err := starknet.SetupNodes(db, cfg, starkLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
+		}
+		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+			Config: cfg,
+			Logger: starkLggr,
+			DB:     db,
+			//TODO KeyStore:         keyStore.StarkNet(),
+			//TODO EventBroadcaster: eventBroadcaster,
+			ORM: starknet.NewORM(db, starkLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
 		}
 	}
 

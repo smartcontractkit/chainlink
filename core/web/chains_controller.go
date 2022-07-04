@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,15 @@ type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struc
 	errNotEnabled error
 	parseChainID  func(string) (I, error)
 	newResource   func(chains.DBChain[I, C]) R
+}
+
+type errChainDisabled struct {
+	name   string
+	envVar string
+}
+
+func (e errChainDisabled) Error() string {
+	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.envVar)
 }
 
 func newChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet chains.DBChainSet[I, C], errNotEnabled error,

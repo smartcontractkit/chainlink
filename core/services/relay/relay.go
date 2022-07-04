@@ -6,11 +6,11 @@ var (
 	EVM             Network = "evm"
 	Solana          Network = "solana"
 	Terra           Network = "terra"
-	Starknet        Network = "starknet"
+	StarkNet        Network = "starknet"
 	SupportedRelays         = map[Network]struct{}{
 		EVM:      {},
 		Solana:   {},
 		Terra:    {},
-		Starknet: {},
+		StarkNet: {},
 	}
 )
