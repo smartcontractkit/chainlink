@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
