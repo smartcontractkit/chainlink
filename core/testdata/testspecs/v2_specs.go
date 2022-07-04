@@ -182,12 +182,11 @@ chainID			= 1337
 )
 
 type KeeperSpecParams struct {
-	Name                     string
-	ContractAddress          string
-	FromAddress              string
-	EvmChainID               int
-	MinIncomingConfirmations int
-	ObservationSource        string
+	Name              string
+	ContractAddress   string
+	FromAddress       string
+	EvmChainID        int
+	ObservationSource string
 }
 
 type KeeperSpec struct {
@@ -207,14 +206,13 @@ name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
-minIncomingConfirmations	= %d
 externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
 observationSource = """%s"""
 `
 	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations, escapedObvSource),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, escapedObvSource),
 	}
 }
 
@@ -233,6 +231,7 @@ type VRFSpecParams struct {
 	RequestTimeout                time.Duration
 	V2                            bool
 	ChunkSize                     int
+	MaxGasPriceGWei               int
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
 }
@@ -282,6 +281,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	chunkSize := 20
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
+	}
+	maxGasPriceGWei := 200
+	if params.MaxGasPriceGWei != 0 {
+		maxGasPriceGWei = params.MaxGasPriceGWei
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -348,6 +351,7 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
+maxGasPriceGWei = %d
 observationSource = """
 %s
 """
@@ -356,7 +360,7 @@ observationSource = """
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), observationSource)
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), maxGasPriceGWei, observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {
@@ -442,6 +446,7 @@ externalJobID      =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
+p2pv2Bootstrappers = []
 isBootstrapPeer    = false
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 monitoringEndpoint = "chain.link:4321"

@@ -822,8 +822,10 @@ const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
 	StartStopOnce_Starting
+	StartStopOnce_StartFailed
 	StartStopOnce_Stopping
 	StartStopOnce_Stopped
+	StartStopOnce_StopFailed
 )
 
 func (s StartStopOnceState) String() string {
@@ -834,10 +836,14 @@ func (s StartStopOnceState) String() string {
 		return "Started"
 	case StartStopOnce_Starting:
 		return "Starting"
+	case StartStopOnce_StartFailed:
+		return "StartFailed"
 	case StartStopOnce_Stopping:
 		return "Stopping"
 	case StartStopOnce_Stopped:
 		return "Stopped"
+	case StartStopOnce_StopFailed:
+		return "StopFailed"
 	default:
 		return fmt.Sprintf("unrecognized state: %d", s)
 	}
@@ -850,7 +856,7 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
 
 	if !success {
-		return errors.Errorf("%v has already started once", name)
+		return errors.Errorf("%v has already been started once; state=%v", name, StartStopOnceState(once.state.Load()))
 	}
 
 	once.Lock()
@@ -858,7 +864,11 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 
 	err := fn()
 
-	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+	if err == nil {
+		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+	} else {
+		success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_StartFailed))
+	}
 
 	if !success {
 		// SAFETY: If this is reached, something must be very wrong: once.state
@@ -880,12 +890,16 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
-		return errors.Errorf("%v is unstarted or has already stopped once", name)
+		return errors.Errorf("%v is not started or has already been stopped; state=%v", name, StartStopOnceState(once.state.Load()))
 	}
 
 	err := fn()
 
-	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+	if err == nil {
+		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
+	} else {
+		success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_StopFailed))
+	}
 
 	if !success {
 		// SAFETY: If this is reached, something must be very wrong: once.state

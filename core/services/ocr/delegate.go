@@ -142,8 +142,16 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 	}
 
-	// OCR1 job spec does not support overriding v2 bootstrap nodes, they must be set in env var
-	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
+	v2Bootstrappers, err := ocrcommon.ParseBootstrapPeers(concreteSpec.P2PV2Bootstrappers)
+	if err != nil {
+		return nil, err
+	} else if len(v2Bootstrappers) == 0 {
+		// ParseBootstrapPeers() does not distinguish between no p2pv2Bootstrappers field
+		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
+		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
+		//  in P2PV2_BOOTSTRAPPERS config var.  Only a non-empty list will override the default list.
+		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
+	}
 
 	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
@@ -160,7 +168,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			V1Bootstrappers:       v1BootstrapPeers,
-			V2Bootstrappers:       v2BootstrapPeers,
+			V2Bootstrappers:       v2Bootstrappers,
 			ContractConfigTracker: tracker,
 			Database:              ocrDB,
 			LocalConfig:           lc,
@@ -172,12 +180,18 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		bootstrapperCtx := job.NewServiceAdapter(bootstrapper)
 		services = append(services, bootstrapperCtx)
 	} else {
-		if peerWrapper.Config().P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 {
+		// In V1 or V1V2 mode, p2pv1BootstrapPeers must be defined either in
+		//   node config or in job spec
+		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV2 {
 			if len(v1BootstrapPeers) < 1 {
 				return nil, errors.New("Need at least one v1 bootstrap peer defined")
 			}
-		} else {
-			if len(v2BootstrapPeers) < 1 {
+		}
+
+		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
+		//   node config or in job spec
+		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV1 {
+			if len(v2Bootstrappers) < 1 {
 				return nil, errors.New("Need at least one v2 bootstrap peer defined")
 			}
 		}
@@ -202,19 +216,21 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.New("TransmitterAddress is missing")
 		}
 
+		gasLimit := chain.Config().EvmGasLimitDefault()
+		if jb.GasLimit.Valid {
+			gasLimit = uint64(jb.GasLimit.Uint32)
+		}
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
-		jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
-		jb.PipelineSpec.JobID = jb.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -251,7 +267,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
-			V2Bootstrappers:              v2BootstrapPeers,
+			V2Bootstrappers:              v2Bootstrappers,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String()),
 			ConfigOverrider:              configOverrider,
 		})

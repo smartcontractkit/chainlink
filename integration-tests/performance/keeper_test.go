@@ -6,65 +6,70 @@ import (
 	"math/big"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/helmenv/environment"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 )
 
 var _ = Describe("Keeper suite @keeper", func() {
 	var (
 		err              error
-		networks         *blockchain.Networks
+		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
 		registry         contracts.KeeperRegistry
 		consumer         contracts.KeeperConsumer
 		linkToken        contracts.LinkToken
 		chainlinkNodes   []client.Chainlink
-		env              *environment.Environment
+		testEnvironment  *environment.Environment
 		profileTest      *testsetups.ChainlinkProfileTest
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			// Increase HTTP_SERVER_WRITE_TIMEOUT to be larger than profile duration.
-			config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["HTTP_SERVER_WRITE_TIMEOUT"] = "300s"
-
-			env, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(
-					environment.ChainlinkReplicas(6, config.ChainlinkVals()),
-					"chainlink-keeper-profiling",
-					config.GethNetworks()...,
-				),
-			)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
-			err = env.ConnectAll()
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to all nodes shouldn't fail")
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-keeper"}).
+				AddHelm(mockservercfg.New(nil)).
+				AddHelm(mockserver.New(nil)).
+				AddHelm(eth.New(nil)).
+				AddHelm(chainlink.New(0, map[string]interface{}{
+					"replicas": "5",
+					"env": map[string]interface{}{
+						"MIN_INCOMING_CONFIRMATIONS": "1",
+						"KEEPER_TURN_FLAG_ENABLED":   "true",
+						"HTTP_SERVER_WRITE_TIMEOUT":  "300s",
+					},
+				}))
+			err = testEnvironment.Run()
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := blockchain.NewDefaultNetworkRegistry()
-			networks, err = networkRegistry.GetNetworks(env)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			contractDeployer, err = contracts.NewContractDeployer(networks.Default)
+			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-			chainlinkNodes, err = client.ConnectChainlinkNodes(env)
+			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			networks.Default.ParallelTransactions(true)
+			chainClient.ParallelTransactions(true)
 		})
 
 		By("Funding Chainlink nodes", func() {
-			txCost, err := networks.Default.EstimateCostForChainlinkOperations(10)
+			txCost, err := chainClient.EstimateCostForChainlinkOperations(10)
 			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, networks.Default, txCost)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
 			Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 		})
 
@@ -72,7 +77,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			linkToken, err = contractDeployer.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
-			r, _, consumers, _:= actions.DeployKeeperContracts(
+			r, _, consumers, _ := actions.DeployKeeperContracts(
 				ethereum.RegistryVersion_1_1,
 				contracts.KeeperRegistrySettings{
 					PaymentPremiumPPB:    uint32(200000000),
@@ -90,7 +95,8 @@ var _ = Describe("Keeper suite @keeper", func() {
 				uint32(2500000), //upkeepGasLimit
 				linkToken,
 				contractDeployer,
-				networks,
+				chainClient,
+				big.NewInt(9e18),
 			)
 			consumer = consumers[0]
 			registry = r
@@ -105,7 +111,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				}
 
 				actions.CreateKeeperJobs(chainlinkNodes, registry)
-				err = networks.Default.WaitForEvents()
+				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
 				Eventually(func(g Gomega) {
@@ -121,7 +127,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				ProfileDuration: 10 * time.Second,
 				ChainlinkNodes:  chainlinkNodes,
 			})
-			profileTest.Setup(env)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -133,10 +139,10 @@ var _ = Describe("Keeper suite @keeper", func() {
 
 	AfterEach(func() {
 		By("Printing gas stats", func() {
-			networks.Default.GasStats().PrintStats()
+			chainClient.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, networks, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})

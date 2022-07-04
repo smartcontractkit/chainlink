@@ -9,21 +9,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type TestingLogger interface {
-	prometheusLogger | sentryLogger
-}
-
-var errTest error = errors.New("error")
+var errTest = errors.New("error")
 
 func TestLogger_Passthrough(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
-		create func(t *testing.T, passthrough Logger) Logger
+		create func(passthrough Logger) Logger
 	}{
-		{"prometheus", createTestLogger[prometheusLogger]},
-		{"sentry", createTestLogger[sentryLogger]},
+		{"prometheus", newPrometheusLogger},
+		{"sentry", newSentryLogger},
 	}
 
 	for _, test := range tests {
@@ -33,7 +29,7 @@ func TestLogger_Passthrough(t *testing.T) {
 			t.Parallel()
 
 			m := setupMockLogger()
-			l := test.create(t, m)
+			l := test.create(m)
 
 			l.With()
 			l.Named("xxx")
@@ -75,18 +71,6 @@ func TestLogger_Passthrough(t *testing.T) {
 			assert.True(t, ok)
 		})
 	}
-}
-
-func createTestLogger[TL TestingLogger](t *testing.T, passthrough Logger) Logger {
-	var ret TL
-	switch any(&ret).(type) {
-	case *prometheusLogger:
-		return newPrometheusLogger(passthrough)
-	case *sentryLogger:
-		return newSentryLogger(passthrough)
-	}
-	t.Fatal("unsupported logger")
-	return nil
 }
 
 func setupMockLogger() *MockLogger {

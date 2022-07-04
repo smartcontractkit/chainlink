@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.1.1
+	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/cosmos/cosmos-sdk v0.44.5
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -20,7 +21,7 @@ require (
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
-	github.com/gin-gonic/gin v1.7.7
+	github.com/gin-gonic/gin v1.8.1
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -44,6 +45,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.19.0
 	github.com/pelletier/go-toml v1.9.5
+	github.com/pelletier/go-toml/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.12.2
@@ -53,20 +55,21 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-relay v0.0.0-20220516224734-c4759cac049a
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220519124030-06ae6d2fe754
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220517130712-37c2baa48d68
-	github.com/smartcontractkit/libocr v0.0.0-20220623210256-b7ae1e1c66f6
+	github.com/smartcontractkit/chainlink-relay v0.1.2-0.20220621201358-49e57dd1264e
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
+	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220622011836-190aa7f5b481
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.2
 	github.com/tendermint/tendermint v0.34.15
 	github.com/terra-money/core v0.5.20
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
-	github.com/tidwall/gjson v1.9.3
+	github.com/tidwall/gjson v1.14.1
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.9
@@ -86,13 +89,9 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require (
-	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
-	github.com/torquem-ch/mdbx-go v0.24.2 // indirect
-)
+require github.com/torquem-ch/mdbx-go v0.24.2 // indirect
 
 require (
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
 	github.com/dontpanicdao/caigo v0.2.1-0.20220517132056-e34006317632 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -131,7 +130,7 @@ require (
 	github.com/cosmos/ibc-go v1.1.5 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.11.1 // indirect
 	github.com/cosmos/ledger-go v0.9.2 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/danieljoos/wincred v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect

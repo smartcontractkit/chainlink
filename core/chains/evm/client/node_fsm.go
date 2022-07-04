@@ -233,7 +233,7 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 		return
 	}
 	switch n.state {
-	case NodeStateDialed:
+	case NodeStateDialed, NodeStateOutOfSync:
 		n.disconnectAll()
 		n.state = NodeStateInvalidChainID
 	default:

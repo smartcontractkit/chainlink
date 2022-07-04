@@ -250,9 +250,11 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).chainSet = r.chainSet
+			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).chainSet = r.chainSet
+			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 		default:
 		}
 	}
@@ -609,8 +611,13 @@ func (r *runner) scheduleUnfinishedRuns() {
 	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
+	var wgRunsDone sync.WaitGroup
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {
+		wgRunsDone.Add(1)
+
 		go func() {
+			defer wgRunsDone.Done()
+
 			_, err := r.Run(ctx, &run, r.lggr, false, nil)
 			if ctx.Err() != nil {
 				return
@@ -618,8 +625,12 @@ func (r *runner) scheduleUnfinishedRuns() {
 				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()
+
 		return nil
 	})
+
+	wgRunsDone.Wait()
+
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {

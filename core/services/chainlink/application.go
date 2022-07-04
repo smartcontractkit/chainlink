@@ -68,6 +68,8 @@ type Application interface {
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
+	// ConfigDump returns a TOML configuration from the current environment and database configuration.
+	ConfigDump(context.Context) (string, error)
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
@@ -359,7 +361,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.Terra] = terraRelayer
 			subservices = append(subservices, terraRelayer)
 		}
-		if cfg.StarknetEnabled() {
+		if cfg.StarkNetEnabled() {
 			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("Starknet.Relayer"), chains.Starknet)
 			relayers[relay.Starknet] = starknetRelayer
 			subservices = append(subservices, starknetRelayer)
