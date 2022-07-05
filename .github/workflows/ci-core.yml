@@ -1,6 +1,9 @@
 name: CI Core
 
-on: push
+on:
+  push:
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   core:
@@ -73,6 +76,9 @@ jobs:
         run: ./tools/ci/install_solana
       - name: Setup DB
         run: go run ./core local db preparetest
+      - name: Increase Race Timeout
+        if: github.event.schedule != ''
+        run: echo "TIMEOUT=5m" >> $GITHUB_ENV
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }}
       - name: Store logs artifacts on failure
