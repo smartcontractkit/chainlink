@@ -202,7 +202,6 @@ func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
 		t.Fatalf("expected 1 conn, got %d", len(conns))
 	}
 	conn := conns[0]
-	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	err := conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	require.NoError(t, err)
 }
@@ -227,7 +226,6 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 		ts.mu.Unlock()
 		defer ts.wg.Done()
 		for {
-			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 			_, data, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
@@ -263,7 +261,6 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
 			ts.t.Logf("Sending message: %v", msg)
 			ts.mu.Lock()
-			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 			ts.mu.Unlock()
 			if err != nil {
@@ -276,7 +273,6 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
 				ts.t.Log("Sending message", msg)
 				ts.mu.Lock()
-				conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 				ts.mu.Unlock()
 				if err != nil {
