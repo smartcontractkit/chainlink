@@ -36,21 +36,10 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: ^1.18
-      - name: Go Cache
-        uses: actions/cache@v2
-        with:
-          # * Module download cache
-          # * Build cache (Linux)
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: go-mod-${{ matrix.cmd }}-${{ hashFiles('go.sum') }}
-          restore-keys: |
-            go-mod-${{ matrix.cmd }}-
-            go-mod-
+          go-version-file: 'go.mod'
+          cache: true
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
