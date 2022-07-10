@@ -155,6 +155,7 @@ type testWSServer struct {
 	s       *httptest.Server
 	mu      sync.RWMutex
 	wsconns []*websocket.Conn
+	wg      sync.WaitGroup
 }
 
 // NewWSServer starts a websocket server which invokes callback for each message received.
@@ -165,36 +166,32 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback JSONRPCHandler) (ts *t
 	ts.wsconns = make([]*websocket.Conn, 0)
 	handler := ts.newWSHandler(chainID, callback)
 	ts.s = httptest.NewServer(handler)
+	t.Cleanup(ts.Close)
 	return
 }
 
 func (ts *testWSServer) Close() {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	if ts.wsconns == nil {
-		ts.t.Log("Test WS server already closed")
-		return
+	if func() bool {
+		ts.mu.Lock()
+		defer ts.mu.Unlock()
+		if ts.wsconns == nil {
+			ts.t.Log("Test WS server already closed")
+			return false
+		}
+		ts.s.CloseClientConnections()
+		ts.s.Close()
+		for _, ws := range ts.wsconns {
+			ws.Close()
+		}
+		ts.wsconns = nil // nil indicates server closed
+		return true
+	}() {
+		ts.wg.Wait()
 	}
-	ts.s.CloseClientConnections()
-	ts.s.Close()
-	for _, ws := range ts.wsconns {
-		ws.Close()
-	}
-	ts.wsconns = nil // nil indicates server closed
 }
 
 func (ts *testWSServer) WSURL() *url.URL {
 	return WSServerURL(ts.t, ts.s)
-}
-
-func (ts *testWSServer) GetConns(t *testing.T) (conns []*websocket.Conn) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-	if ts.wsconns == nil {
-		t.Fatal("cannot get conns from closed server")
-	}
-	conns = append(conns, ts.wsconns...)
-	return
 }
 
 func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
@@ -205,6 +202,7 @@ func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
 		t.Fatalf("expected 1 conn, got %d", len(conns))
 	}
 	conn := conns[0]
+	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	err := conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	require.NoError(t, err)
 }
@@ -214,7 +212,7 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
-	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		require.NoError(t, err, "Failed to upgrade WS connection")
 		defer conn.Close()
@@ -225,8 +223,11 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			return
 		}
 		ts.wsconns = append(ts.wsconns, conn)
+		ts.wg.Add(1)
 		ts.mu.Unlock()
+		defer ts.wg.Done()
 		for {
+			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 			_, data, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
@@ -262,6 +263,7 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
 			ts.t.Logf("Sending message: %v", msg)
 			ts.mu.Lock()
+			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 			ts.mu.Unlock()
 			if err != nil {
@@ -274,6 +276,7 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
 				ts.t.Log("Sending message", msg)
 				ts.mu.Lock()
+				conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 				ts.mu.Unlock()
 				if err != nil {
@@ -282,8 +285,7 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				}
 			}
 		}
-	})
-	return handler
+	}
 }
 
 // WaitWithTimeout waits for the channel to close (or receive anything) and
