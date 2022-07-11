@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -50,7 +51,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 		orm:         solORM,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]verifiedCachedClient{},
 	}
 
 	// random nodes (happy path, all valid)
@@ -140,7 +141,7 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	testChain := chain{
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -175,7 +176,7 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 		id:          "devnet",
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -201,8 +202,8 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 
 	wg.Wait()
 	// check if pointers are all the same
-	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client0)
-	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client1)
+	assert.Equal(t, testChain.clientCache[mockServer.URL], client0)
+	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
 }
 
 var _ ORM = &mockORM{}
