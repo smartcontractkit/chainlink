@@ -74,7 +74,7 @@ func (v *verifiedCachedClient) verifyChainID() bool {
 
 	var err error
 
-	v.chainID, err = v.ChainID()
+	v.chainID, err = v.ReaderWriter.ChainID()
 	if err != nil {
 		v.chainIDVerified = false
 		v.verifyErr = errors.Wrap(err, "failed to fetch ChainID in checkClient")

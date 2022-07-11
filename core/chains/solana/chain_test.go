@@ -56,11 +56,11 @@ func TestSolanaChain_GetClient(t *testing.T) {
 
 	// random nodes (happy path, all valid)
 	solORM.nodesForChain = []db.Node{
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/2",
 		},
@@ -70,23 +70,23 @@ func TestSolanaChain_GetClient(t *testing.T) {
 
 	// random nodes (happy path, 1 valid + multiple invalid)
 	solORM.nodesForChain = []db.Node{
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/3",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/4",
 		},
@@ -101,11 +101,11 @@ func TestSolanaChain_GetClient(t *testing.T) {
 
 	// no valid nodes to select from
 	solORM.nodesForChain = []db.Node{
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/1",
 		},
-		db.Node{
+		{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
