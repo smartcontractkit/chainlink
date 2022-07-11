@@ -198,17 +198,18 @@ func getKeeperSuite(
 					// Check if the upkeeps are performing by analysing their counters and checking they are greater than 0
 					for i := 0; i < len(upkeepIDs); i++ {
 						counter, err := consumers[i].Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep at index "+strconv.Itoa(i))
 						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
-						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
+						log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 					}
 				}, "1m", "1s").Should(Succeed())
 
 				// Cancel all the registered upkeeps via the registry
 				for i := 0; i < len(upkeepIDs); i++ {
 					err := registry.CancelUpkeep(upkeepIDs[i])
-					Expect(err).ShouldNot(HaveOccurred(), "Upkeep should get cancelled successfully")
+					Expect(err).ShouldNot(HaveOccurred(), "Could not cancel upkeep at index "+strconv.Itoa(i))
 				}
 
 				err = chainClient.WaitForEvents()
@@ -219,15 +220,16 @@ func getKeeperSuite(
 				for i := 0; i < len(upkeepIDs); i++ {
 					// Obtain the amount of times the upkeep has been executed so far
 					countersAfterCancellation[i], err = consumers[i].Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					log.Info().Int64("Upkeep counter", countersAfterCancellation[i].Int64()).Msg("Upkeep cancelled")
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+					log.Info().Msg("Cancelled upkeep at index " + strconv.Itoa(i) + " which performed " +
+						strconv.Itoa(int(countersAfterCancellation[i].Int64())) + " times")
 				}
 
 				Consistently(func(g Gomega) {
 					for i := 0; i < len(upkeepIDs); i++ {
 						// Expect the counter to remain constant because the upkeep was cancelled, so it shouldn't increase anymore
 						latestCounter, err := consumers[i].Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
 						g.Expect(latestCounter.Int64()).Should(Equal(countersAfterCancellation[i].Int64()),
 							"Expected consumer counter to remain constant at %d, but got %d",
 							countersAfterCancellation[i].Int64(), latestCounter.Int64())
@@ -244,7 +246,7 @@ func getKeeperSuite(
 				Eventually(func(g Gomega) {
 					counter, err := consumers[0].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
-					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Num upkeeps performed")
+					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
 
 					upkeepInfo, err := registry.GetUpkeepInfo(context.Background(), upkeepID)
 					g.Expect(err).ShouldNot(HaveOccurred(), "Registry's getUpkeep shouldn't fail")
@@ -319,7 +321,7 @@ func getKeeperSuite(
 					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
 					g.Expect(cnt.Int64()).Should(
 						Equal(int64(0)),
-						"Expected consumer counter to to remain constant at %d, but got %d", 0, cnt.Int64(),
+						"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
 					)
 
 					// Not even reverted upkeeps should be performed. Last keeper for the upkeep should be 0 address
@@ -352,7 +354,7 @@ func getKeeperSuite(
 				// Initially performGas is set higher than defaultUpkeepGasLimit, so no upkeep should be performed
 				Consistently(func(g Gomega) {
 					cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 					g.Expect(cnt.Int64()).Should(
 						Equal(int64(0)),
 						"Expected consumer counter to remain constant at %d, but got %d", 0, cnt.Int64(),
@@ -361,14 +363,14 @@ func getKeeperSuite(
 
 				// Increase gas limit for the upkeep, higher than the performGasBurn
 				err = registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
-				Expect(err).ShouldNot(HaveOccurred(), "upkeep gas limit should be set successfully")
+				Expect(err).ShouldNot(HaveOccurred(), "Upkeep gas limit should be set successfully")
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error waiting for SetUpkeepGasLimit tx")
 
 				// Upkeep should now start performing
 				Eventually(func(g Gomega) {
 					cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 					g.Expect(cnt.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected consumer counter to be greater than 0, but got %d", cnt.Int64(),
 					)
@@ -382,14 +384,14 @@ func getKeeperSuite(
 
 				// Get existing performed count
 				existingCnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-				Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+				Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
 
 				// In most cases count should remain constant, but there might be a straggling perform tx which
-				// gets committed later. Hence we check that the upkeep count does not increase by more than 1
+				// gets committed later. Hence, we check that the upkeep count does not increase by more than 1
 				Consistently(func(g Gomega) {
 					cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
+					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 					g.Expect(cnt.Int64()).Should(
 						BeNumerically("<=", existingCnt.Int64()+1),
 						"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
@@ -424,13 +426,14 @@ func getKeeperSuite(
 					for i := 0; i < len(upkeepIDs); i++ {
 						counter, err := consumers[i].Counter(context.Background())
 						initialCounters[i] = counter
-						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep at index "+strconv.Itoa(i))
 						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 						log.Info().
 							Int64("Upkeep counter", counter.Int64()).
 							Int64("Upkeep ID", int64(i)).
-							Msg("Upkeeps performed")
+							Msg("Number of upkeeps performed")
 					}
 				}, "1m", "1s").Should(Succeed())
 
@@ -446,7 +449,7 @@ func getKeeperSuite(
 					g.Expect(err).ShouldNot(HaveOccurred(), "Calling newly deployed upkeep's counter shouldn't fail")
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
-					log.Info().Int64("Upkeep counter", counter.Int64()).Msg("Upkeeps performed")
+					log.Info().Msg("Newly registered upkeeps performed " + strconv.Itoa(int(counter.Int64())) + " times")
 				}, "1m", "1s").Should(Succeed())
 
 				Eventually(func(g Gomega) {
@@ -458,7 +461,7 @@ func getKeeperSuite(
 							Int64("Upkeep ID", int64(i)).
 							Int64("Upkeep counter", currentCounter.Int64()).
 							Int64("initial counter", initialCounters[i].Int64()).
-							Msg("Num Upkeeps performed")
+							Msg("Number of upkeeps performed")
 
 						g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
 							"Expected counter to have increased from initial value of %s, but got %s",
@@ -479,7 +482,8 @@ func getKeeperSuite(
 
 				// Grant permission to the registry to fund the upkeep
 				err = linkToken.Approve(registry.Address(), big.NewInt(9e18))
-				Expect(err).ShouldNot(HaveOccurred(), "Failed to approve")
+				Expect(err).ShouldNot(HaveOccurred(), "Could not approve permissions for the registry "+
+					"on the link token contract")
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
@@ -492,7 +496,7 @@ func getKeeperSuite(
 				// Now the new upkeep should be performing because we added enough funds
 				Eventually(func(g Gomega) {
 					counter, err := consumers[0].Counter(context.Background())
-					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve the consumer's counter")
+					g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				}, "1m", "1s").Should(Succeed())
@@ -506,13 +510,14 @@ func getKeeperSuite(
 					for upkeepID := 0; upkeepID < len(upkeepIDs); upkeepID++ {
 						counter, err := consumers[upkeepID].Counter(context.Background())
 						initialCounters[upkeepID] = counter
-						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(upkeepID))
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep with ID "+strconv.Itoa(upkeepID))
 						g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
 					}
 				}, "1m", "1s").Should(Succeed())
 
 				keepers, err := registry.GetKeeperList(context.Background())
-				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of keepers")
+				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when getting the list of Keepers")
 
 				// Remove the first keeper from the list
 				newKeeperList := keepers[1:]
@@ -521,11 +526,11 @@ func getKeeperSuite(
 				payees := make([]string, len(keepers)-1)
 				for i := 0; i < len(payees); i++ {
 					payees[i], err = chainlinkNodes[0].PrimaryEthAddress()
-					Expect(err).ShouldNot(HaveOccurred(), "Shouldn't encounter error when building the payee list")
+					Expect(err).ShouldNot(HaveOccurred(), "Encountered error when building the payee list")
 				}
 
 				err = registry.SetKeepers(newKeeperList, payees)
-				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new Keepers")
+				Expect(err).ShouldNot(HaveOccurred(), "Encountered error when setting the new list of Keepers")
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 				log.Info().Msg("Successfully removed keeper at address " + keepers[0] + " from the list of Keepers")
@@ -534,7 +539,8 @@ func getKeeperSuite(
 				Eventually(func(g Gomega) {
 					for i := 0; i < len(upkeepIDs); i++ {
 						counter, err := consumers[i].Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeep "+strconv.Itoa(i))
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep at index "+strconv.Itoa(i))
 						g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
 							"than initial counter which was %s, but got %s", initialCounters[i], counter)
 					}
@@ -547,7 +553,8 @@ func getKeeperSuite(
 				Eventually(func(g Gomega) {
 					for i := 0; i < len(upkeepIDs); i++ {
 						counter, err := consumers[i].Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep at index "+strconv.Itoa(i))
 						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
 							"Expected consumer counter to be greater than 0, but got %d")
 					}
@@ -563,7 +570,8 @@ func getKeeperSuite(
 				var countersAfterPause = make([]*big.Int, len(upkeepIDs))
 				for i := 0; i < len(upkeepIDs); i++ {
 					countersAfterPause[i], err = consumers[i].Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
 				}
 
 				// After we paused the registry, the counters of all the upkeeps should stay constant
@@ -571,7 +579,8 @@ func getKeeperSuite(
 				Consistently(func(g Gomega) {
 					for i := 0; i < len(upkeepIDs); i++ {
 						latestCounter, err := consumers[i].Counter(context.Background())
-						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer's counter")
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep at index "+strconv.Itoa(i))
 						g.Expect(latestCounter.Int64()).Should(Equal(countersAfterPause[i].Int64()),
 							"Expected consumer counter to remain constant at %d, but got %d",
 							countersAfterPause[i].Int64(), latestCounter.Int64())
@@ -617,7 +626,7 @@ func getKeeperSuite(
 				err = registry.Migrate([]*big.Int{upkeepIDs[0]}, common.HexToAddress(secondRegistry.Address()))
 				Expect(err).ShouldNot(HaveOccurred(), "Couldn't migrate the first upkeep")
 				err = chainClient.WaitForEvents()
-				Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for migration")
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for the migration")
 
 				// Pause the first registry, in that way we make sure that the upkeep is being performed by the second one
 				err = registry.Pause()
