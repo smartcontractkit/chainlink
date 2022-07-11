@@ -79,7 +79,7 @@ func (v *verifiedCachedClient) verifyChainID() bool {
 	v.chainID, err = v.ReaderWriter.ChainID()
 	if err != nil {
 		v.chainIDVerified = false
-		v.verifyErr = errors.Wrap(err, "failed to fetch ChainID in checkClient")
+		v.verifyErr = errors.Wrap(err, "failed to fetch ChainID in verifiedCachedClient")
 		return v.chainIDVerified
 	}
 
@@ -97,7 +97,7 @@ func (v *verifiedCachedClient) verifyChainID() bool {
 	return v.chainIDVerified
 }
 
-func (v verifiedCachedClient) SendTx(ctx context.Context, tx *solanago.Transaction) (solanago.Signature, error) {
+func (v *verifiedCachedClient) SendTx(ctx context.Context, tx *solanago.Transaction) (solanago.Signature, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return [64]byte{}, v.verifyErr
@@ -106,7 +106,7 @@ func (v verifiedCachedClient) SendTx(ctx context.Context, tx *solanago.Transacti
 	return v.ReaderWriter.SendTx(ctx, tx)
 }
 
-func (v verifiedCachedClient) SimulateTx(ctx context.Context, tx *solanago.Transaction, opts *rpc.SimulateTransactionOpts) (*rpc.SimulateTransactionResult, error) {
+func (v *verifiedCachedClient) SimulateTx(ctx context.Context, tx *solanago.Transaction, opts *rpc.SimulateTransactionOpts) (*rpc.SimulateTransactionResult, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return nil, v.verifyErr
@@ -115,7 +115,7 @@ func (v verifiedCachedClient) SimulateTx(ctx context.Context, tx *solanago.Trans
 	return v.ReaderWriter.SimulateTx(ctx, tx, opts)
 }
 
-func (v verifiedCachedClient) SignatureStatuses(ctx context.Context, sigs []solanago.Signature) ([]*rpc.SignatureStatusesResult, error) {
+func (v *verifiedCachedClient) SignatureStatuses(ctx context.Context, sigs []solanago.Signature) ([]*rpc.SignatureStatusesResult, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return nil, v.verifyErr
@@ -124,7 +124,7 @@ func (v verifiedCachedClient) SignatureStatuses(ctx context.Context, sigs []sola
 	return v.ReaderWriter.SignatureStatuses(ctx, sigs)
 }
 
-func (v verifiedCachedClient) Balance(addr solanago.PublicKey) (uint64, error) {
+func (v *verifiedCachedClient) Balance(addr solanago.PublicKey) (uint64, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return 0, v.verifyErr
@@ -133,7 +133,7 @@ func (v verifiedCachedClient) Balance(addr solanago.PublicKey) (uint64, error) {
 	return v.ReaderWriter.Balance(addr)
 }
 
-func (v verifiedCachedClient) SlotHeight() (uint64, error) {
+func (v *verifiedCachedClient) SlotHeight() (uint64, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return 0, v.verifyErr
@@ -142,7 +142,7 @@ func (v verifiedCachedClient) SlotHeight() (uint64, error) {
 	return v.ReaderWriter.SlotHeight()
 }
 
-func (v verifiedCachedClient) LatestBlockhash() (*rpc.GetLatestBlockhashResult, error) {
+func (v *verifiedCachedClient) LatestBlockhash() (*rpc.GetLatestBlockhashResult, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return nil, v.verifyErr
@@ -151,16 +151,16 @@ func (v verifiedCachedClient) LatestBlockhash() (*rpc.GetLatestBlockhashResult, 
 	return v.ReaderWriter.LatestBlockhash()
 }
 
-func (v verifiedCachedClient) ChainID() (string, error) {
+func (v *verifiedCachedClient) ChainID() (string, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return "", v.verifyErr
 	}
 
-	return v.ReaderWriter.ChainID()
+	return v.chainID, nil
 }
 
-func (v verifiedCachedClient) GetFeeForMessage(msg string) (uint64, error) {
+func (v *verifiedCachedClient) GetFeeForMessage(msg string) (uint64, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return 0, v.verifyErr
@@ -169,7 +169,7 @@ func (v verifiedCachedClient) GetFeeForMessage(msg string) (uint64, error) {
 	return v.ReaderWriter.GetFeeForMessage(msg)
 }
 
-func (v verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr solanago.PublicKey, opts *rpc.GetAccountInfoOpts) (*rpc.GetAccountInfoResult, error) {
+func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr solanago.PublicKey, opts *rpc.GetAccountInfoOpts) (*rpc.GetAccountInfoResult, error) {
 	verified := v.verifyChainID()
 	if !verified {
 		return nil, v.verifyErr
@@ -251,7 +251,9 @@ func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	return client, nil
 }
 
-// verifiedClient returns a client for node or an error if the chain id does not match.
+// verifiedClient returns a client for node or an error if fails to create the client.
+// The client will still be returned if the nodes are not valid, or the chain id doesn't match.
+// Further client calls will try and verify the client, and fail if the client is still not valid.
 func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) {
 	url := node.SolanaURL
 	var err error
@@ -268,8 +270,8 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 			return nil, errors.Wrap(err, "failed to create client")
 		}
 
-		// triggers verifyChainID() on advance
-		client.verifyChainID()
+		client.nodeURL = url
+		client.expectedChainID = c.id
 
 		c.clientLock.Lock()
 		// recheck when writing to prevent parallel writes (discard duplicate if exists)
@@ -281,7 +283,7 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 		c.clientLock.Unlock()
 	}
 
-	return client, nil
+	return &client, nil
 }
 
 func (c *chain) Start(ctx context.Context) error {

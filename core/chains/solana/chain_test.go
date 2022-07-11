@@ -111,7 +111,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 		},
 	}
 	_, err = testChain.getClient()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSolanaChain_VerifiedClient(t *testing.T) {
@@ -125,10 +125,12 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 		// handle getGenesisHash request
 		if strings.Contains(string(body), "getGenesisHash") {
 			// should only be called once, chainID will be cached in chain
-			if called {
+			// allowing `mismatch` to be ignored, since invalid nodes will try to verify the chain ID
+			// if it is not verified
+			if !strings.Contains(r.URL.Path, "/mismatch") && called {
 				assert.NoError(t, errors.New("rpc has been called once already"))
 			}
-			// devnet gensis hash
+			// devnet genesis hash
 			out = fmt.Sprintf(TestSolanaGenesisHashTemplate, client.DevnetGenesisHash)
 		}
 		_, err = w.Write([]byte(out))
@@ -157,10 +159,14 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(1234), slot)
 
-	// expect error from id mismatch (even if using a cached client)
+	node.SolanaURL = mockServer.URL + "/mismatch"
 	testChain.id = "incorrect"
-	_, err = testChain.verifiedClient(node)
+	c, err = testChain.verifiedClient(node)
+	assert.NoError(t, err)
+	_, err = c.ChainID()
+	// expect error from id mismatch (even if using a cached client) when performing RPC calls
 	assert.Error(t, err)
+	assert.Equal(t, fmt.Sprintf("client returned mismatched chain id (expected: %s, got: %s): %s", "incorrect", "devnet", node.SolanaURL), err.Error())
 }
 
 func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
@@ -201,9 +207,10 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	}()
 
 	wg.Wait()
+	p := testChain.clientCache[mockServer.URL]
 	// check if pointers are all the same
-	assert.Equal(t, testChain.clientCache[mockServer.URL], client0)
-	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
+	assert.Equal(t, &p, client0)
+	assert.Equal(t, &p, client1)
 }
 
 var _ ORM = &mockORM{}
