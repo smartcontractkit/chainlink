@@ -886,56 +886,7 @@ func main() {
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-universe-deploy":
-		cmd := flag.NewFlagSet("wrapper-universe-deploy", flag.ExitOnError)
-		linkAddress := cmd.String("link-address", "", "address of link token")
-		linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
-		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
-		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
-		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
-		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
-		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
-		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
-		subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
-		consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
-		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash")
-
-		amount, s := big.NewInt(0).SetString(*subFunding, 10)
-		if !s {
-			panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
-		}
-
-		wrapper, subID := wrapperDeploy(e,
-			common.HexToAddress(*linkAddress),
-			common.HexToAddress(*linkETHFeedAddress),
-			common.HexToAddress(*coordinatorAddress))
-
-		wrapperConfigure(e,
-			wrapper,
-			*wrapperGasOverhead,
-			*coordinatorGasOverhead,
-			*wrapperPremiumPercentage,
-			*keyHash,
-			*maxNumWords)
-
-		consumer := wrapperConsumerDeploy(e,
-			common.HexToAddress(*linkAddress),
-			wrapper)
-
-		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
-		helpers.PanicErr(err)
-
-		eoaFundSubscription(e, *coordinator, *linkAddress, amount, subID)
-
-		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
-		helpers.PanicErr(err)
-		consumerAmount, s := big.NewInt(0).SetString(*consumerFunding, 10)
-		if !s {
-			panic(fmt.Sprintf("failed to parse top up amount '%s'", *consumerFunding))
-		}
-
-		tx, err := link.Transfer(e.Owner, consumer, consumerAmount)
-		helpers.PanicErr(err)
-		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+		deployWrapperUniverse(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

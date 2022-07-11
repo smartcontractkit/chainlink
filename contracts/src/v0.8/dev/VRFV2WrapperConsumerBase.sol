@@ -11,8 +11,7 @@ import "./VRFV2WrapperInterface.sol";
  *
  * @dev Create VRF V2 requests without the need for subscription management. Rather than creating
  * @dev and funding a VRF V2 subscription, a user can use this wrapper to create one off requests,
- * @dev paying up front rather than at fulfillment. After fulfillment, a refund is issued for
- * @dev any unused gas in the callback (if any).
+ * @dev paying up front rather than at fulfillment.
  *
  * @dev Since the price is determined using the gas price of the request transaction rather than
  * @dev the fulfillment transaction, the wrapper charges an additional premium on callback gas
@@ -26,8 +25,7 @@ import "./VRFV2WrapperInterface.sol";
  * @dev paying for the request based on the current pricing.
  *
  * @dev Consumers must implement the fullfillRandomWords function, which will be called during
- * @dev fulfillment with the randomness result. The consumer will be issued a LINK refund for gas
- * @dev that was unused during the callback (if any).
+ * @dev fulfillment with the randomness result.
  */
 abstract contract VRFV2WrapperConsumerBase {
   LinkTokenInterface internal immutable LINK;
