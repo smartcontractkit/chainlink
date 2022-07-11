@@ -10,13 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
-
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -209,4 +210,61 @@ func binarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 	}
 
 	return bottom
+}
+
+func wrapperDeploy(
+	e helpers.Environment,
+	link, linkEthFeed, coordinator common.Address,
+) (common.Address, uint64) {
+	address, tx, _, err := vrfv2_wrapper.DeployVRFV2Wrapper(e.Owner, e.Ec,
+		link,
+		linkEthFeed,
+		coordinator)
+	helpers.PanicErr(err)
+
+	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	fmt.Printf("VRFV2Wrapper address: %s\n", address)
+
+	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(address, e.Ec)
+	helpers.PanicErr(err)
+
+	subID, err := wrapper.SUBSCRIPTIONID(nil)
+	helpers.PanicErr(err)
+
+	return address, subID
+}
+
+func wrapperConfigure(
+	e helpers.Environment,
+	wrapperAddress common.Address,
+	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
+	keyHash string,
+	maxNumWords uint,
+) {
+	wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(wrapperAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	tx, err := wrapper.SetConfig(
+		e.Owner,
+		uint32(wrapperGasOverhead),
+		uint32(coordinatorGasOverhead),
+		uint8(premiumPercentage),
+		common.HexToHash(keyHash),
+		uint8(maxNumWords))
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func wrapperConsumerDeploy(
+	e helpers.Environment,
+	link, wrapper common.Address,
+) common.Address {
+	address, tx, _, err := vrfv2_wrapper_consumer_example.DeployVRFV2WrapperConsumerExample(e.Owner, e.Ec,
+		link,
+		wrapper)
+	helpers.PanicErr(err)
+
+	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	fmt.Printf("VRFV2WrapperConsumerExample address: %s\n", address)
+	return address
 }
