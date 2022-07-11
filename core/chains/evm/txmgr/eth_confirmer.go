@@ -1617,7 +1617,7 @@ func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts 
 			// was created. We want to measure the amount of time taken from when a transaction is created
 			// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
 			// were needed to achieve this.
-			duration := time.Now().Sub(attempt.EthTx.CreatedAt)
+			duration := time.Since(attempt.EthTx.CreatedAt)
 			promTimeUntilTxConfirmed.
 				WithLabelValues(chainID.String()).
 				Observe(float64(duration))
