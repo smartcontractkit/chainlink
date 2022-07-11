@@ -23,6 +23,7 @@ type Spec struct {
 	DotDagSource    string          `json:"dotDagSource"`
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
+	GasLimit        *uint32         `json:"-"`
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`

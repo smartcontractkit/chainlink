@@ -6,8 +6,7 @@ import (
 	"math/big"
 
 	"github.com/rs/zerolog/log"
-	
-	it "github.com/smartcontractkit/chainlink/integration-tests"
+
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -20,7 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -55,13 +55,76 @@ const (
 )
 
 var _ = Describe("OCR chaos test @chaos-ocr", func() {
-	var e *environment.Environment
-	var chainlinkNodes []client.Chainlink
-	var c blockchain.EVMClient
+	var (
+		testScenarios = []TableEntry{
+			Entry("Must survive minority removal for 1m @chaos-ocr-fail-minority",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, defaultOCRSettings),
+				chaos.NewFailPods,
+				&chaos.Props{
+					LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
+					DurationStr:    "1m",
+				},
+			),
+			Entry("Must recover from majority removal @chaos-ocr-fail-majority",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, defaultOCRSettings),
+				chaos.NewFailPods,
+				&chaos.Props{
+					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+					DurationStr:    "1m",
+				},
+			),
+			Entry("Must recover from majority DB failure @chaos-ocr-fail-majority-db",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, defaultOCRSettings),
+				chaos.NewFailPods,
+				&chaos.Props{
+					LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
+					DurationStr:    "1m",
+					ContainerNames: &[]*string{a.Str("chainlink-db")},
+				},
+			),
+			Entry("Must recover from majority network failure @chaos-ocr-fail-majority-network",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, defaultOCRSettings),
+				chaos.NewNetworkPartition,
+				&chaos.Props{
+					FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
+					ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
+					DurationStr: "1m",
+				},
+			),
+			Entry("Must recover from blockchain node network failure @chaos-ocr-fail-blockchain-node",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				ethereum.New(nil),
+				chainlink.New(0, defaultOCRSettings),
+				chaos.NewNetworkPartition,
+				&chaos.Props{
+					FromLabels:  &map[string]*string{"app": a.Str("geth")},
+					ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
+					DurationStr: "1m",
+				},
+			),
+		}
 
-	var chaosStartRound int64 = 1
-	var chaosEndRound int64 = 4
-	var chaosApplied = false
+		testEnvironment *environment.Environment
+		chainlinkNodes  []client.Chainlink
+		chainClient     blockchain.EVMClient
+
+		chaosStartRound int64 = 1
+		chaosEndRound   int64 = 4
+		chaosApplied          = false
+	)
+
+	AfterEach(func() {
+		err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
+	})
 
 	DescribeTable("OCR chaos on different EVM networks", func(
 		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
@@ -71,45 +134,45 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 		chaosProps *chaos.Props,
 	) {
 		By("Deploying the environment")
-		e = environment.New(&environment.Config{NamespacePrefix: "chaos-core"}).
+		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "chaos-core"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(networkChart).
 			AddHelm(clChart)
-		err := e.Run()
+		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
-		err = e.Client.LabelChaosGroup(e.Cfg.Namespace, 1, 2, ChaosGroupMinority)
+		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
 		Expect(err).ShouldNot(HaveOccurred())
-		err = e.Client.LabelChaosGroup(e.Cfg.Namespace, 3, 5, ChaosGroupMajority)
+		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
 		Expect(err).ShouldNot(HaveOccurred())
-		err = e.Client.LabelChaosGroup(e.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
+		err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		c, err = clientFunc(e)
+		chainClient, err = clientFunc(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-		cd, err := contracts.NewContractDeployer(c)
+		cd, err := contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 
-		chainlinkNodes, err = client.ConnectChainlinkNodes(e)
+		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-		ms, err := client.ConnectMockServer(e)
+		ms, err := client.ConnectMockServer(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
-		c.ParallelTransactions(true)
+		chainClient.ParallelTransactions(true)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		lt, err := cd.DeployLinkTokenContract()
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, c, big.NewFloat(10))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Deploying OCR contracts")
-		ocrInstances := actions.DeployOCRContracts(1, lt, cd, chainlinkNodes, c)
-		err = c.WaitForEvents()
+		ocrInstances := actions.DeployOCRContracts(1, lt, cd, chainlinkNodes, chainClient)
+		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred())
 		By("Setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, ms))
 		By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, ms))
@@ -124,69 +187,12 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 			log.Info().Int64("RoundID", round.RoundId.Int64()).Send()
 			if round.RoundId.Int64() == chaosStartRound && !chaosApplied {
 				chaosApplied = true
-				_, err = e.Chaos.Run(chaosFunc(e.Cfg.Namespace, chaosProps))
+				_, err = testEnvironment.Chaos.Run(chaosFunc(testEnvironment.Cfg.Namespace, chaosProps))
 				Expect(err).ShouldNot(HaveOccurred())
 			}
 			g.Expect(round.RoundId.Int64()).Should(BeNumerically(">=", chaosEndRound))
 		}, "6m", "3s").Should(Succeed())
 	},
-		Entry("Must survive minority removal for 1m @chaos-ocr-fail-minority",
-			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMinority: a.Str("1")},
-				DurationStr:    "1m",
-			},
-		),
-		Entry("Must recover from majority removal @chaos-ocr-fail-majority",
-			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				DurationStr:    "1m",
-			},
-		),
-		Entry("Must recover from majority DB failure @chaos-ocr-fail-majority-db",
-			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewFailPods,
-			&chaos.Props{
-				LabelsSelector: &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				DurationStr:    "1m",
-				ContainerNames: &[]*string{a.Str("chainlink-db")},
-			},
-		),
-		Entry("Must recover from majority network failure @chaos-ocr-fail-majority-network",
-			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{ChaosGroupMajority: a.Str("1")},
-				ToLabels:    &map[string]*string{ChaosGroupMinority: a.Str("1")},
-				DurationStr: "1m",
-			},
-		),
-		Entry("Must recover from blockchain node network failure @chaos-ocr-fail-blockchain-node",
-			blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings),
-			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
-			chaos.NewNetworkPartition,
-			&chaos.Props{
-				FromLabels:  &map[string]*string{"app": a.Str("geth")},
-				ToLabels:    &map[string]*string{ChaosGroupMajorityPlus: a.Str("1")},
-				DurationStr: "1m",
-			},
-		),
+		testScenarios,
 	)
-
-	AfterEach(func() {
-		err := actions.TeardownSuite(e, utils.ProjectRoot, chainlinkNodes, nil, c)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-	})
 })
