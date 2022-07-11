@@ -51,7 +51,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 		orm:         solORM,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]verifiedCachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 
 	// random nodes (happy path, all valid)
@@ -143,7 +143,7 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	testChain := chain{
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]verifiedCachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -182,7 +182,7 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 		id:          "devnet",
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
-		clientCache: map[string]verifiedCachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -207,10 +207,10 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	}()
 
 	wg.Wait()
-	p := testChain.clientCache[mockServer.URL]
+
 	// check if pointers are all the same
-	assert.Equal(t, &p, client0)
-	assert.Equal(t, &p, client1)
+	assert.Equal(t, testChain.clientCache[mockServer.URL], client0)
+	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
 }
 
 var _ ORM = &mockORM{}

@@ -46,7 +46,7 @@ type chain struct {
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
-	clientCache map[string]verifiedCachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
+	clientCache map[string]*verifiedCachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
 	clientLock  sync.RWMutex
 }
 
@@ -187,7 +187,7 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 		cfg:         cfg,
 		orm:         orm,
 		lggr:        lggr.Named("Chain"),
-		clientCache: map[string]verifiedCachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient()
@@ -264,14 +264,15 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 	c.clientLock.RUnlock()
 
 	if !exists {
+		client = &verifiedCachedClient{
+			nodeURL:         url,
+			expectedChainID: c.id,
+		}
 		// create client
 		client.ReaderWriter, err = solanaclient.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}
-
-		client.nodeURL = url
-		client.expectedChainID = c.id
 
 		c.clientLock.Lock()
 		// recheck when writing to prevent parallel writes (discard duplicate if exists)
@@ -283,7 +284,7 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 		c.clientLock.Unlock()
 	}
 
-	return &client, nil
+	return client, nil
 }
 
 func (c *chain) Start(ctx context.Context) error {
