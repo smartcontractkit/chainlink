@@ -12,42 +12,41 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	it "github.com/smartcontractkit/chainlink/integration-tests"
 
-	"github.com/ethereum/go-ethereum/common"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	uuid "github.com/satori/go.uuid"
 )
 
 var _ = Describe("Flux monitor suite @flux", func() {
 	var (
 		err              error
-		c                blockchain.EVMClient
-		cd               contracts.ContractDeployer
-		lt               contracts.LinkToken
+		chainClient      blockchain.EVMClient
+		contractDeployer contracts.ContractDeployer
+		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
 		chainlinkNodes   []client.Chainlink
-		ms               *client.MockserverClient
+		mockServer       *client.MockserverClient
 		nodeAddresses    []common.Address
 		adapterPath      string
 		adapterUUID      string
 		fluxRoundTimeout = 2 * time.Minute
-		env              *environment.Environment
+		testEnvironment  *environment.Environment
 		profileTest      *testsetups.ChainlinkProfileTest
 	)
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			env = environment.New(nil).
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-flux"}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(nil)).
@@ -57,44 +56,44 @@ var _ = Describe("Flux monitor suite @flux", func() {
 						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
 					},
 				}))
-			err = env.Run()
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 
-			cd, err = contracts.NewContractDeployer(c)
+			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-			chainlinkNodes, err = client.ConnectChainlinkNodes(env)
+			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
 			nodeAddresses, err = actions.ChainlinkNodeAddresses(chainlinkNodes)
 			Expect(err).ShouldNot(HaveOccurred(), "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-			ms, err = client.ConnectMockServer(env)
+			mockServer, err = client.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mock server client shouldn't fail")
 
-			c.ParallelTransactions(true)
+			chainClient.ParallelTransactions(true)
 		})
 
 		By("Setting initial adapter value", func() {
 			adapterUUID = uuid.NewV4().String()
 			adapterPath = fmt.Sprintf("/variable-%s", adapterUUID)
-			err = ms.SetValuePath(adapterPath, 1e5)
+			err = mockServer.SetValuePath(adapterPath, 1e5)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting mockserver value path shouldn't fail")
 		})
 
 		By("Deploying and funding contract", func() {
-			lt, err = cd.DeployLinkTokenContract()
+			linkToken, err = contractDeployer.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-			fluxInstance, err = cd.DeployFluxAggregatorContract(lt.Address(), contracts.DefaultFluxAggregatorOptions())
+			fluxInstance, err = contractDeployer.DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Flux Aggregator Contract shouldn't fail")
-			err = c.WaitForEvents()
+			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for deployment of flux aggregator contract")
 
-			err = lt.Transfer(fluxInstance.Address(), big.NewInt(1e18))
+			err = linkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding Flux Aggregator Contract shouldn't fail")
-			err = c.WaitForEvents()
+			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for funding of flux aggregator contract")
 
 			err = fluxInstance.UpdateAvailableFunds()
@@ -102,7 +101,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		})
 
 		By("Funding Chainlink nodes", func() {
-			err = actions.FundChainlinkNodes(chainlinkNodes, c, big.NewFloat(1))
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(1))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 		})
 
@@ -117,7 +116,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 					RestartDelayRounds: 0,
 				})
 			Expect(err).ShouldNot(HaveOccurred(), "Setting oracle options in the Flux Aggregator contract shouldn't fail")
-			err = c.WaitForEvents()
+			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 			oracles, err := fluxInstance.GetOracles(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Getting oracle details from the Flux aggregator contract shouldn't fail")
@@ -125,7 +124,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		})
 
 		By("Creating flux jobs", func() {
-			adapterFullURL := fmt.Sprintf("%s%s", ms.Config.ClusterURL, adapterPath)
+			adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
 			bta := client.BridgeTypeAttributes{
 				Name: fmt.Sprintf("variable-%s", adapterUUID),
 				URL:  adapterFullURL,
@@ -157,8 +156,8 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				}
 				// initial value set is performed before jobs creation
 				fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
-				c.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-				err = c.WaitForEvents()
+				chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 				data, err := fluxInstance.GetContractData(context.Background())
 				Expect(err).ShouldNot(HaveOccurred(), "Getting contract data from flux aggregator contract shouldn't fail")
@@ -170,10 +169,10 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				Expect(data.AllocatedFunds.Int64()).Should(Equal(int64(3)), "Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
 				fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
-				c.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-				err = ms.SetValuePath(adapterPath, 1e10)
+				chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+				err = mockServer.SetValuePath(adapterPath, 1e10)
 				Expect(err).ShouldNot(HaveOccurred(), "Setting value path in mock server shouldn't fail")
-				err = c.WaitForEvents()
+				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 				data, err = fluxInstance.GetContractData(context.Background())
 				Expect(err).ShouldNot(HaveOccurred(), "Getting contract data from flux aggregator contract shouldn't fail")
@@ -195,7 +194,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				ProfileDuration: 30 * time.Second,
 				ChainlinkNodes:  chainlinkNodes,
 			})
-			profileTest.Setup(env)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -207,10 +206,10 @@ var _ = Describe("Flux monitor suite @flux", func() {
 
 	AfterEach(func() {
 		By("Printing gas stats", func() {
-			c.GasStats().PrintStats()
+			chainClient.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, c)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})
