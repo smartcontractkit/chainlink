@@ -1070,15 +1070,16 @@ func TryParseHex(s string) (b []byte, err error) {
 	return
 }
 
-// MinMap returns the minimum value of the given element array with respect
+// MinKey returns the minimum value of the given element array with respect
 // to the given key function. In the event U is not a compound type (e.g a
 // struct) an identity function can be provided.
-func MinMap[U any, T constraints.Ordered](elems []U, key func(U) T) T {
+func MinKey[U any, T constraints.Ordered](elems []U, key func(U) T) T {
+	var min T
 	if len(elems) == 0 {
-		return nil
+		return min
 	}
 
-	min := key(elems[0])
+	min = key(elems[0])
 	for i := 1; i < len(elems); i++ {
 		v := key(elems[i])
 		if v < min {

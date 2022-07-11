@@ -413,7 +413,6 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	}
 	cancel()
 
-	observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
 	if sendError.IsTxFeeExceedsCap() {
 		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
@@ -517,6 +516,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	}
 
 	if sendError == nil {
+		// We want to observe the time until the first _successful_ broadcast.
+		// Since we can re-enter this method by way of tryAgainBumpingGas,
+		// and we pass the same initialBroadcastAt timestamp there, when we re-enter
+		// this function we'll be using the same initialBroadcastAt.
+		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
+
 		return saveAttempt(eb.q, &etx, attempt, EthTxAttemptBroadcast)
 	}
 

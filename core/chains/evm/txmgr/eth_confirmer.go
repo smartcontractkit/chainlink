@@ -439,6 +439,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
+	var allReceipts []evmtypes.Receipt
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
@@ -458,8 +459,11 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
 
-		observeUntilTxConfirmed(ec.chainID, batch, receipts)
+		allReceipts = append(allReceipts, receipts...)
 	}
+
+	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
+
 	return nil
 }
 
@@ -1600,28 +1604,37 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	return nil
 }
 
+// observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
+// transaction.
 func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts []evmtypes.Receipt) {
 	for _, attempt := range attempts {
 		for _, r := range receipts {
-			if attempt.Hash.Hex() == r.TxHash.Hex() {
-				duration := time.Now().Sub(attempt.EthTx.CreatedAt)
-				promTimeUntilTxConfirmed.
-					WithLabelValues(chainID.String()).
-					Observe(float64(duration))
+			if attempt.Hash != r.TxHash {
+				continue
+			}
 
-				// get the earliest BroadcastBeforeBlockNum value for all attempts for a particular tx
-				broadcastBefore := utils.MinMap(attempts, func(attempt EthTxAttempt) int64 {
-					if attempt.BroadcastBeforeBlockNum != nil {
-						return *attempt.BroadcastBeforeBlockNum
-					}
-					return 0
-				})
-				if broadcastBefore > 0 {
-					blocksElapsed := r.BlockNumber.Int64() - broadcastBefore
-					promBlocksUntilTxConfirmed.
-						WithLabelValues(chainID.String()).
-						Observe(float64(blocksElapsed))
+			// We estimate the time until confirmation by subtracting from the time the eth tx (not the attempt)
+			// was created. We want to measure the amount of time taken from when a transaction is created
+			// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
+			// were needed to achieve this.
+			duration := time.Now().Sub(attempt.EthTx.CreatedAt)
+			promTimeUntilTxConfirmed.
+				WithLabelValues(chainID.String()).
+				Observe(float64(duration))
+
+			// Since a eth tx can have many attempts, we take the number of blocks to confirm as the block number
+			// of the receipt minus the block number of the first ever broadcast for this transaction.
+			broadcastBefore := utils.MinKey(attempt.EthTx.EthTxAttempts, func(attempt EthTxAttempt) int64 {
+				if attempt.BroadcastBeforeBlockNum != nil {
+					return *attempt.BroadcastBeforeBlockNum
 				}
+				return 0
+			})
+			if broadcastBefore > 0 {
+				blocksElapsed := r.BlockNumber.Int64() - broadcastBefore
+				promBlocksUntilTxConfirmed.
+					WithLabelValues(chainID.String()).
+					Observe(float64(blocksElapsed))
 			}
 		}
 	}
