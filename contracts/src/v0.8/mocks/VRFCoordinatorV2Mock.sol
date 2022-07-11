@@ -258,6 +258,51 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     emit ConsumerRemoved(_subId, _consumer);
   }
 
+  function getConfig()
+    external
+    view
+    returns (
+      uint16 minimumRequestConfirmations,
+      uint32 maxGasLimit,
+      uint32 stalenessSeconds,
+      uint32 gasAfterPaymentCalculation
+    )
+  {
+    return (4, 2_500_000, 2_700, 33285);
+  }
+
+  function getFeeConfig()
+    external
+    view
+    returns (
+      uint32 fulfillmentFlatFeeLinkPPMTier1,
+      uint32 fulfillmentFlatFeeLinkPPMTier2,
+      uint32 fulfillmentFlatFeeLinkPPMTier3,
+      uint32 fulfillmentFlatFeeLinkPPMTier4,
+      uint32 fulfillmentFlatFeeLinkPPMTier5,
+      uint24 reqsForTier2,
+      uint24 reqsForTier3,
+      uint24 reqsForTier4,
+      uint24 reqsForTier5
+    )
+  {
+    return (
+      100000, // 0.1 LINK
+      100000, // 0.1 LINK
+      100000, // 0.1 LINK
+      100000, // 0.1 LINK
+      100000, // 0.1 LINK
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
+  function getFallbackWeiPerUnitLink() external view returns (int256) {
+    return 4000000000000000; // 0.004 Ether
+  }
+
   function requestSubscriptionOwnerTransfer(uint64 _subId, address _newOwner) external pure override {
     revert("not implemented");
   }
