@@ -215,6 +215,61 @@ func (r *ChainConfigResolver) EvmGasLimitDefault() *int32 {
 	return nil
 }
 
+func (r *ChainConfigResolver) OCRJobGasLimit() *int32 {
+	if r.cfg.OCRJobGasLimit.Valid {
+		val := r.cfg.OCRJobGasLimit.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) DRJobGasLimit() *int32 {
+	if r.cfg.DRJobGasLimit.Valid {
+		val := r.cfg.DRJobGasLimit.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) VRFJobGasLimit() *int32 {
+	if r.cfg.VRFJobGasLimit.Valid {
+		val := r.cfg.VRFJobGasLimit.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) FMJobGasLimit() *int32 {
+	if r.cfg.FMJobGasLimit.Valid {
+		val := r.cfg.FMJobGasLimit.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
+func (r *ChainConfigResolver) KeeperJobGasLimit() *int32 {
+	if r.cfg.KeeperJobGasLimit.Valid {
+		val := r.cfg.KeeperJobGasLimit.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
 func (r *ChainConfigResolver) EvmGasLimitMultiplier() *float64 {
 	if r.cfg.EvmGasLimitMultiplier.Valid {
 		return r.cfg.EvmGasLimitMultiplier.Ptr()
@@ -433,6 +488,11 @@ type ChainConfigInput struct {
 	EvmGasBumpWei                         *string
 	EvmGasLimitDefault                    *int32
 	EvmGasLimitMultiplier                 *float64
+	OCRJobGasLimit                        *int32
+	DRJobGasLimit                         *int32
+	VRFJobGasLimit                        *int32
+	FMJobGasLimit                         *int32
+	KeeperJobGasLimit                     *int32
 	EvmGasPriceDefault                    *string
 	EvmGasTipCapDefault                   *string
 	EvmGasTipCapMinimum                   *string
@@ -518,6 +578,22 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 
 	if input.EvmGasLimitMultiplier != nil {
 		cfg.EvmGasLimitMultiplier = null.FloatFrom(*input.EvmGasLimitMultiplier)
+	}
+
+	if input.OCRJobGasLimit != nil {
+		cfg.OCRJobGasLimit = null.IntFrom(int64(*input.OCRJobGasLimit))
+	}
+	if input.DRJobGasLimit != nil {
+		cfg.DRJobGasLimit = null.IntFrom(int64(*input.DRJobGasLimit))
+	}
+	if input.VRFJobGasLimit != nil {
+		cfg.VRFJobGasLimit = null.IntFrom(int64(*input.VRFJobGasLimit))
+	}
+	if input.FMJobGasLimit != nil {
+		cfg.FMJobGasLimit = null.IntFrom(int64(*input.FMJobGasLimit))
+	}
+	if input.KeeperJobGasLimit != nil {
+		cfg.KeeperJobGasLimit = null.IntFrom(int64(*input.KeeperJobGasLimit))
 	}
 
 	if input.EvmGasPriceDefault != nil {

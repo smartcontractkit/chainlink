@@ -67,6 +67,11 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasPriceDefault                *big.Int
 	GlobalEvmGasTipCapDefault               *big.Int
 	GlobalEvmGasTipCapMinimum               *big.Int
+	GlobalOCRJobGasLimit                    null.Int
+	GlobalDRJobGasLimit                     null.Int
+	GlobalVRFJobGasLimit                    null.Int
+	GlobalFMJobGasLimit                     null.Int
+	GlobalKeeperJobGasLimit                 null.Int
 	GlobalEvmHeadTrackerHistoryDepth        null.Int
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
@@ -570,6 +575,41 @@ func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 		return uint64(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitDefault()
+}
+
+func (c *TestGeneralConfig) GlobalDRJobGasLimit() (uint64, bool) {
+	if c.Overrides.GlobalDRJobGasLimit.Valid {
+		return uint64(c.Overrides.GlobalDRJobGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalDRJobGasLimit()
+}
+
+func (c *TestGeneralConfig) GlobalVRFJobGasLimit() (uint64, bool) {
+	if c.Overrides.GlobalVRFJobGasLimit.Valid {
+		return uint64(c.Overrides.GlobalVRFJobGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalVRFJobGasLimit()
+}
+
+func (c *TestGeneralConfig) GlobalFMJobGasLimit() (uint64, bool) {
+	if c.Overrides.GlobalFMJobGasLimit.Valid {
+		return uint64(c.Overrides.GlobalFMJobGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalFMJobGasLimit()
+}
+
+func (c *TestGeneralConfig) GlobalKeeperJobGasLimit() (uint64, bool) {
+	if c.Overrides.GlobalKeeperJobGasLimit.Valid {
+		return uint64(c.Overrides.GlobalKeeperJobGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalKeeperJobGasLimit()
+}
+
+func (c *TestGeneralConfig) GlobalOCRJobGasLimit() (uint64, bool) {
+	if c.Overrides.GlobalOCRJobGasLimit.Valid {
+		return uint64(c.Overrides.GlobalOCRJobGasLimit.Int64), true
+	}
+	return c.GeneralConfig.GlobalOCRJobGasLimit()
 }
 
 func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {

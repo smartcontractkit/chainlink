@@ -492,6 +492,20 @@ func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) {
 	_m.Called(_a0)
 }
 
+// DRJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) DRJobGasLimit() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // DatabaseBackupDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseBackupDir() string {
 	ret := _m.Called()
@@ -1244,6 +1258,20 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// FMJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) FMJobGasLimit() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // FMSimulateTransactions provides a mock function with given fields:
 func (_m *ChainScopedConfig) FMSimulateTransactions() bool {
 	ret := _m.Called()
@@ -1554,6 +1582,27 @@ func (_m *ChainScopedConfig) GlobalChainType() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalDRJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalDRJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool
@@ -2168,6 +2217,27 @@ func (_m *ChainScopedConfig) GlobalEvmUseForwarders() (bool, bool) {
 	return r0, r1
 }
 
+// GlobalFMJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalFMJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalFlagsContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalFlagsContractAddress() (string, bool) {
 	ret := _m.Called()
@@ -2198,6 +2268,27 @@ func (_m *ChainScopedConfig) GlobalGasEstimatorMode() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalKeeperJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalKeeperJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool
@@ -2401,6 +2492,27 @@ func (_m *ChainScopedConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
 	return r0, r1
 }
 
+// GlobalOCRJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalOCRJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRObservationGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
 	ret := _m.Called()
@@ -2431,6 +2543,27 @@ func (_m *ChainScopedConfig) GlobalOperatorFactoryAddress() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalVRFJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalVRFJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool
@@ -2606,6 +2739,20 @@ func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// KeeperJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperJobGasLimit() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0
@@ -3233,6 +3380,20 @@ func (_m *ChainScopedConfig) OCRIncomingMessageBufferSize() int {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// OCRJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRJobGasLimit() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0
@@ -4292,6 +4453,20 @@ func (_m *ChainScopedConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// VRFJobGasLimit provides a mock function with given fields:
+func (_m *ChainScopedConfig) VRFJobGasLimit() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0

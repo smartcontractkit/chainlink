@@ -379,6 +379,11 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitDefault:       ptr[uint32](12),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
+					OCRJobLimit:        ptr[uint32](10),
+					DRJobLimit:         ptr[uint32](10),
+					VRFJobLimit:        ptr[uint32](10),
+					FMJobLimit:         ptr[uint32](10),
+					KeeperJobLimit:     ptr[uint32](10),
 					TipCapDefault:      utils.NewBigI(2).Wei(),
 					TipCapMinimum:      utils.NewBigI(1).Wei(),
 					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
@@ -738,6 +743,11 @@ PriceMin = '13 wei'
 LimitDefault = 12
 LimitMultiplier = '1.234'
 LimitTransfer = 100
+OCRJobLimit = 10
+DRJobLimit = 10
+VRFJobLimit = 10
+FMJobLimit = 10
+KeeperJobLimit = 10
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6

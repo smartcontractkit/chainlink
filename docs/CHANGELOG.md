@@ -9,7 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added 
 
-- Added job spec attribute `gasLimit` which allows job-specific overrides of the default `ETH_GAS_LIMIT_DEFAULT` value for gas limit.
+- Added job spec attribute `gasLimit` which allows job-spec to override the gas limit. In addition, the following config parameters were added:
+
+```
+OCR_JOB_GAS_LIMIT    # EVM.GasEstimator.OCRJobLimit
+DR_JOB_GAS_LIMIT     # EVM.GasEstimator.DRJobLimit
+VRF_JOB_GAS_LIMIT    # EVM.GasEstimator.VRFJobLimit
+FM_JOB_GAS_LIMIT     # EVM.GasEstimator.FMJobLimit
+KEEPER_JOB_GAS_LIMIT # EVM.GasEstimator.KeeperJobLimit
+```
+
+Altogether, this allows to control gas limit per job-spec, per job-type or use a global/chain default value. The following rule of precedence is applied:
+
+1. task-specific `gasLimit` overrides anything else when specified (e.g. ETH Tx Task has such the parameter).
+2. job-spec attribute `gasLimit` has the scope of the current job spec only.
+3. job-type limits `*_JOB_GAS_LIMIT` affect any jobs of the corresponding type.
+4. global `ETH_GAS_LIMIT_DEFAULT` (`EVM.GasEstimator.LimitDefault`) value is the last resort.
 
 ### Changed
 

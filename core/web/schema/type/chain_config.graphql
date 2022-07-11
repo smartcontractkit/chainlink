@@ -24,6 +24,11 @@ interface GeneralChainConfig {
     evmGasBumpWei: String
     evmGasLimitDefault: Int
     evmGasLimitMultiplier: Float
+    ocrJobGasLimit: Int
+    drJobGasLimit: Int
+    vrfJobGasLimit: Int
+    fmJobGasLimit: Int
+    keeperJobGasLimit: Int
     evmGasPriceDefault: String
     evmGasTipCapDefault: String
     evmGasTipCapMinimum: String
@@ -55,6 +60,11 @@ type ChainConfig implements GeneralChainConfig {
     evmGasBumpWei: String
     evmGasLimitDefault: Int
     evmGasLimitMultiplier: Float
+    ocrJobGasLimit: Int
+    drJobGasLimit: Int
+    vrfJobGasLimit: Int
+    fmJobGasLimit: Int
+    keeperJobGasLimit: Int
     evmGasPriceDefault: String
     evmGasTipCapDefault: String
     evmGasTipCapMinimum: String
@@ -92,6 +102,11 @@ input ChainConfigInput {
     evmGasBumpWei: String
     evmGasLimitDefault: Int
     evmGasLimitMultiplier: Float
+    ocrJobGasLimit: Int
+    drJobGasLimit: Int
+    vrfJobGasLimit: Int
+    fmJobGasLimit: Int
+    keeperJobGasLimit: Int
     evmGasPriceDefault: String
     evmGasTipCapDefault: String
     evmGasTipCapMinimum: String

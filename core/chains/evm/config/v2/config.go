@@ -65,6 +65,12 @@ type GasEstimator struct {
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 
+	OCRJobLimit    *uint32
+	DRJobLimit     *uint32
+	VRFJobLimit    *uint32
+	FMJobLimit     *uint32
+	KeeperJobLimit *uint32
+
 	BumpMin       *utils.Wei
 	BumpPercent   *uint16
 	BumpThreshold *uint32
@@ -246,6 +252,41 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		}
 		v := uint32(cfg.EvmGasLimitDefault.Int64)
 		c.GasEstimator.LimitDefault = &v
+	}
+	if cfg.OCRJobGasLimit.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.OCRJobGasLimit.Int64)
+		c.GasEstimator.OCRJobLimit = &v
+	}
+	if cfg.DRJobGasLimit.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.DRJobGasLimit.Int64)
+		c.GasEstimator.DRJobLimit = &v
+	}
+	if cfg.VRFJobGasLimit.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.VRFJobGasLimit.Int64)
+		c.GasEstimator.VRFJobLimit = &v
+	}
+	if cfg.FMJobGasLimit.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.FMJobGasLimit.Int64)
+		c.GasEstimator.FMJobLimit = &v
+	}
+	if cfg.KeeperJobGasLimit.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.KeeperJobGasLimit.Int64)
+		c.GasEstimator.KeeperJobLimit = &v
 	}
 
 	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {

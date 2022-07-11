@@ -46,6 +46,14 @@ InsecureFastScrypt = false # Default
 ReaperExpiration = '240h' # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
+BumpMin = '5 gwei' # Default
+BumpPercent = 20 # Default
+BumpThreshold = 3 # Default
+BumpTxDepth = 10 # Default
+EIP1559DynamicFees = false # Default
+FeeCapDefault = '100 gwei' # Default
+TipCapDefault = '1 wei' # Default
+TipCapMinimum = '1 wei' # Default
 ```
 
 
@@ -1284,6 +1292,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1349,6 +1362,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1414,6 +1432,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1479,6 +1502,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1545,6 +1573,11 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -1610,6 +1643,11 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1675,6 +1713,11 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1741,6 +1784,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1806,6 +1854,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -1870,6 +1923,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1934,6 +1992,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2000,6 +2063,11 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2066,6 +2134,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2131,6 +2204,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2196,6 +2274,11 @@ PriceMin = '30 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2261,6 +2344,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2326,6 +2414,11 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2391,6 +2484,11 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2456,6 +2554,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2522,6 +2625,11 @@ PriceMin = '1 micro'
 LimitDefault = 7000000
 LimitMultiplier = '1'
 LimitTransfer = 800000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2587,6 +2695,11 @@ PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2652,6 +2765,11 @@ PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2717,6 +2835,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2783,6 +2906,11 @@ PriceMin = '1 micro'
 LimitDefault = 7000000
 LimitMultiplier = '1'
 LimitTransfer = 800000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2848,6 +2976,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2913,6 +3046,11 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
+OCRJobLimit = 0
+DRJobLimit = 0
+VRFJobLimit = 0
+FMJobLimit = 0
+KeeperJobLimit = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3140,14 +3278,11 @@ PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
-BumpMin = '5 gwei' # Default
-BumpPercent = 20 # Default
-BumpThreshold = 3 # Default
-BumpTxDepth = 10 # Default
-EIP1559DynamicFees = false # Default
-FeeCapDefault = '100 gwei' # Default
-TipCapDefault = '1 wei' # Default
-TipCapMinimum = '1 wei' # Default
+OCRJobLimit = 0 # Default
+DRJobLimit = 0 # Default
+VRFJobLimit = 0 # Default
+FMJobLimit = 0 # Default
+KeeperJobLimit = 0 # Default
 ```
 
 
@@ -3223,31 +3358,61 @@ LimitTransfer = 21_000 # Default
 ```
 LimitTransfer is the gas limit used for an ordinary ETH transfer.
 
-### BumpMin<a id='EVM-GasEstimator-BumpMin'></a>
+### OCRJobLimit<a id='EVM-GasEstimator-OCRJobLimit'></a>
+```toml
+OCRJobLimit = 0 # Default
+```
+OCRJobLimit overrides `LimitDefault` for any OCR job.
+
+### DRJobLimit<a id='EVM-GasEstimator-DRJobLimit'></a>
+```toml
+DRJobLimit = 0 # Default
+```
+DRJobLimit overrides `LimitDefault` for any Direct Request job.
+
+### VRFJobLimit<a id='EVM-GasEstimator-VRFJobLimit'></a>
+```toml
+VRFJobLimit = 0 # Default
+```
+VRFJobLimit overrides `LimitDefault` for any VRF job.
+
+### FMJobLimit<a id='EVM-GasEstimator-FMJobLimit'></a>
+```toml
+FMJobLimit = 0 # Default
+```
+FMJobLimit overrides `LimitDefault` for any Flux Monitor job.
+
+### KeeperJobLimit<a id='EVM-GasEstimator-KeeperJobLimit'></a>
+```toml
+KeeperJobLimit = 0 # Default
+```
+KeeperJobLimit overrides `LimitDefault` for any Keeper job.
+
+### BumpMin<a id='BumpMin'></a>
 ```toml
 BumpMin = '5 gwei' # Default
 ```
 BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 
-### BumpPercent<a id='EVM-GasEstimator-BumpPercent'></a>
+### BumpPercent<a id='BumpPercent'></a>
 ```toml
 BumpPercent = 20 # Default
 ```
 BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
 
-### BumpThreshold<a id='EVM-GasEstimator-BumpThreshold'></a>
+### BumpThreshold<a id='BumpThreshold'></a>
 ```toml
 BumpThreshold = 3 # Default
 ```
 BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
 
-### BumpTxDepth<a id='EVM-GasEstimator-BumpTxDepth'></a>
+### BumpTxDepth<a id='BumpTxDepth'></a>
 ```toml
 BumpTxDepth = 10 # Default
 ```
 BumpTxDepth is the number of transactions to gas bump starting from oldest. Set to 0 for no limit (i.e. bump all).
 
-### EIP1559DynamicFees<a id='EVM-GasEstimator-EIP1559DynamicFees'></a>
+### EIP1559DynamicFees<a id='EIP1559DynamicFees'></a>
 ```toml
 EIP1559DynamicFees = false # Default
 ```
@@ -3296,13 +3461,13 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - `PriceMaxWei` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
 
-### FeeCapDefault<a id='EVM-GasEstimator-FeeCapDefault'></a>
+### FeeCapDefault<a id='FeeCapDefault'></a>
 ```toml
 FeeCapDefault = '100 gwei' # Default
 ```
 FeeCapDefault controls the fixed initial fee cap, if EIP1559 mode is enabled and `FixedPrice` gas estimator is used.
 
-### TipCapDefault<a id='EVM-GasEstimator-TipCapDefault'></a>
+### TipCapDefault<a id='TipCapDefault'></a>
 ```toml
 TipCapDefault = '1 wei' # Default
 ```
@@ -3310,7 +3475,7 @@ TipCapDefault is the default gas tip to use when submitting transactions to the 
 
 (Only applies to EIP-1559 transactions)
 
-### TipCapMinimum<a id='EVM-GasEstimator-TipCapMinimum'></a>
+### TipCapMinimum<a id='TipCapMinimum'></a>
 ```toml
 TipCapMinimum = '1 wei' # Default
 ```

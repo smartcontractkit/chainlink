@@ -995,6 +995,27 @@ func (_m *GeneralConfig) GlobalChainType() (string, bool) {
 	return r0, r1
 }
 
+// GlobalDRJobGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalDRJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEthTxReaperInterval provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEthTxReaperInterval() (time.Duration, bool) {
 	ret := _m.Called()
@@ -1597,6 +1618,27 @@ func (_m *GeneralConfig) GlobalEvmUseForwarders() (bool, bool) {
 	return r0, r1
 }
 
+// GlobalFMJobGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalFMJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalFlagsContractAddress provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalFlagsContractAddress() (string, bool) {
 	ret := _m.Called()
@@ -1627,6 +1669,27 @@ func (_m *GeneralConfig) GlobalGasEstimatorMode() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalKeeperJobGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalKeeperJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool
@@ -1830,6 +1893,27 @@ func (_m *GeneralConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
 	return r0, r1
 }
 
+// GlobalOCRJobGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalOCRJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRObservationGracePeriod provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
 	ret := _m.Called()
@@ -1860,6 +1944,27 @@ func (_m *GeneralConfig) GlobalOperatorFactoryAddress() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalVRFJobGasLimit provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalVRFJobGasLimit() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool

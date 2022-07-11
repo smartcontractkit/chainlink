@@ -599,6 +599,17 @@ LimitDefault = 500_000 # Default
 LimitMultiplier = '1.0' # Default
 # LimitTransfer is the gas limit used for an ordinary ETH transfer.
 LimitTransfer = 21_000 # Default
+# OCRJobLimit overrides `LimitDefault` for any OCR job.
+OCRJobLimit = 0 # Default
+# DRJobLimit overrides `LimitDefault` for any Direct Request job.
+DRJobLimit = 0 # Default
+# VRFJobLimit overrides `LimitDefault` for any VRF job.
+VRFJobLimit = 0 # Default
+# FMJobLimit overrides `LimitDefault` for any Flux Monitor job.
+FMJobLimit = 0 # Default
+# KeeperJobLimit overrides `LimitDefault` for any Keeper job.
+KeeperJobLimit = 0 # Default
+
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
 # BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.

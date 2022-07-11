@@ -353,6 +353,46 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].GasEstimator.LimitDefault = e
 		}
 	}
+	if e := envvar.NewUint32("OCRJobGasLimit").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.OCRJobLimit = e
+		}
+	}
+	if e := envvar.NewUint32("DRJobGasLimit").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.DRJobLimit = e
+		}
+	}
+	if e := envvar.NewUint32("VRFJobGasLimit").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.VRFJobLimit = e
+		}
+	}
+	if e := envvar.NewUint32("FMJobGasLimit").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.FMJobLimit = e
+		}
+	}
+	if e := envvar.NewUint32("KeeperJobGasLimit").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.KeeperJobLimit = e
+		}
+	}
 	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
