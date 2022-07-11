@@ -61,6 +61,12 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
 $SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile BatchVRFCoordinatorV2.sol
 
+# VRF V2 Wrapper
+$SCRIPTPATH/native_solc8_6_compile dev/VRFV2Wrapper.sol
+$SCRIPTPATH/native_solc8_6_compile dev/VRFV2WrapperInterface.sol
+$SCRIPTPATH/native_solc8_6_compile dev/VRFV2WrapperConsumerBase.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2WrapperConsumerExample.sol
+
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFSingleConsumerExample.sol
