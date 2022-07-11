@@ -22,6 +22,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -50,6 +51,67 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "topics":
+		randomWordsRequested := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()
+		randomWordsFulfilled := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()
+		fmt.Println("RandomWordsRequested:", randomWordsRequested.String(),
+			"RandomWordsFulfilled:", randomWordsFulfilled.String())
+	case "request-report":
+		cmd := flag.NewFlagSet("request-report", flag.ExitOnError)
+		txHashes := cmd.String("tx-hashes", "", "comma separated transaction hashes")
+		requestIDs := cmd.String("request-ids", "", "comma separated request IDs in decimal")
+		bhsAddress := cmd.String("bhs-address", "", "BHS contract address")
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator address")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "tx-hashes", "bhs-address", "request-ids", "coordinator-address")
+
+		hashes := helpers.ParseHashSlice(*txHashes)
+		reqIDs := helpers.ParseBigIntSlice(*requestIDs)
+		bhs, err := blockhash_store.NewBlockhashStore(
+			common.HexToAddress(*bhsAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(
+			common.HexToAddress(*coordinatorAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+
+		if len(hashes) != len(reqIDs) {
+			panic(fmt.Errorf("len(hashes) [%d] != len(reqIDs) [%d]", len(hashes), len(reqIDs)))
+		}
+
+		var bhsMissedBlocks []*big.Int
+		for i := range hashes {
+			receipt, err := e.Ec.TransactionReceipt(context.Background(), hashes[i])
+			helpers.PanicErr(err)
+
+			reqID := reqIDs[i]
+			commitment, err := coordinator.GetCommitment(nil, reqID)
+			helpers.PanicErr(err)
+			fulfilled := utils.IsEmpty(commitment[:])
+
+			_, err = bhs.GetBlockhash(nil, receipt.BlockNumber)
+			if err != nil {
+				fmt.Println("Blockhash for block", receipt.BlockNumber, "not stored (tx", hashes[i].String(),
+					", request ID", reqID, ", fulfilled:", fulfilled, ")")
+				if !fulfilled {
+					// not fulfilled and bh not stored means the feeder missed a store
+					bhsMissedBlocks = append(bhsMissedBlocks, receipt.BlockNumber)
+				}
+			} else {
+				fmt.Println("Blockhash for block", receipt.BlockNumber, "stored (tx", hashes[i].String(),
+					", request ID", reqID, ", fulfilled:", fulfilled, ")")
+			}
+		}
+
+		if len(bhsMissedBlocks) == 0 {
+			fmt.Println("Didn't miss any bh stores!")
+			return
+		}
+		fmt.Println("Missed stores:")
+		for _, blockNumber := range bhsMissedBlocks {
+			fmt.Println("\t* ", blockNumber.String())
+		}
 	case "keepers-vrf-consumer-deploy":
 		cmd := flag.NewFlagSet("keepers-vrf-consumer-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "vrf coordinator v2 address")
