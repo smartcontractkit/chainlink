@@ -86,7 +86,9 @@ var (
 			{
 				ChainID: utils.NewBigI(42),
 				Chain: evmcfg.Chain{
-					GasPriceDefault: utils.NewBigI(math.MaxInt64),
+					GasEstimator: &evmcfg.GasEstimator{
+						PriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
+					},
 				},
 				Nodes: []evmcfg.Node{
 					{
@@ -97,7 +99,9 @@ var (
 			{
 				ChainID: utils.NewBigI(137),
 				Chain: evmcfg.Chain{
-					GasEstimatorMode: ptr("FixedPrice"),
+					GasEstimator: &evmcfg.GasEstimator{
+						Mode: ptr("FixedPrice"),
+					},
 				},
 				Nodes: []evmcfg.Node{
 					{
@@ -279,7 +283,6 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractTransmitterTransmitTimeout: models.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
-		MonitoringEndpoint:                 ptr("test-mon-end"),
 	}
 	full.OCR = &config.OCR{
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
@@ -288,14 +291,13 @@ func TestConfig_Marshal(t *testing.T) {
 		ContractSubscribeInterval:    models.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
-		MonitoringEndpoint:           ptr("test-monitor"),
 		SimulateTransactions:         ptr(true),
-		TraceLogging:                 ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 	}
 	full.P2P = &config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
 		OutgoingMessageBufferSize: ptr[int64](17),
+		TraceLogging:              ptr(true),
 		V1: &config.P2PV1{
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
@@ -356,38 +358,48 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
-				BalanceMonitorEnabled: ptr(true),
-				BlockBackfillDepth:    ptr[uint32](100),
-				BlockBackfillSkip:     ptr(true),
-				BlockHistoryEstimator: &evmcfg.BlockHistoryEstimator{
-					BatchSize:                 ptr[uint32](17),
-					BlockDelay:                ptr[uint16](10),
-					BlockHistorySize:          ptr[uint16](12),
-					EIP1559FeeCapBufferBlocks: ptr[uint16](13),
-					TransactionPercentile:     ptr[uint16](15),
+				BalanceMonitor: &evmcfg.BalanceMonitor{
+					Enabled:    ptr(true),
+					BlockDelay: ptr[uint16](17),
 				},
+				BlockBackfillDepth:   ptr[uint32](100),
+				BlockBackfillSkip:    ptr(true),
 				ChainType:            ptr("Optimism"),
-				EIP1559DynamicFees:   ptr(true),
 				FinalityDepth:        ptr[uint32](42),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
-				GasBumpPercent:     ptr[uint16](10),
-				GasBumpThreshold:   utils.NewBigI(6),
-				GasBumpTxDepth:     ptr[uint16](6),
-				GasBumpWei:         utils.NewBigI(100),
-				GasEstimatorMode:   ptr("L2Suggested"),
-				GasFeeCapDefault:   utils.NewBigI(math.MaxInt64),
-				GasLimitDefault:    utils.NewBigI(12),
-				GasLimitMultiplier: mustDecimal("1.234"),
-				GasLimitTransfer:   utils.NewBigI(100),
-				GasPriceDefault:    utils.NewBigI(math.MaxInt64),
-				GasTipCapDefault:   utils.NewBigI(2),
-				GasTipCapMinimum:   utils.NewBigI(1),
+				GasEstimator: &evmcfg.GasEstimator{
+					Mode:               ptr("L2Suggested"),
+					EIP1559DynamicFees: ptr(true),
+					BumpPercent:        ptr[uint16](10),
+					BumpThreshold:      ptr[uint32](6),
+					BumpTxDepth:        ptr[uint16](6),
+					BumpMin:            utils.NewBigI(100).Wei(),
+					FeeCapDefault:      utils.NewBigI(math.MaxInt64).Wei(),
+					LimitDefault:       ptr[uint32](12),
+					LimitMultiplier:    mustDecimal("1.234"),
+					LimitTransfer:      ptr[uint32](100),
+					TipCapDefault:      utils.NewBigI(2).Wei(),
+					TipCapMinimum:      utils.NewBigI(1).Wei(),
+					PriceDefault:       utils.NewBigI(math.MaxInt64).Wei(),
+					PriceMax:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")).Wei(),
+					PriceMin:           utils.NewBigI(13).Wei(),
+
+					BlockHistory: &evmcfg.BlockHistoryEstimator{
+						BatchSize:                 ptr[uint32](17),
+						BlockDelay:                ptr[uint16](10),
+						BlockHistorySize:          ptr[uint16](12),
+						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
+						TransactionPercentile:     ptr[uint16](15),
+					},
+				},
 
 				KeySpecific: []evmcfg.KeySpecific{
 					{
-						Key:            mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
-						MaxGasPriceWei: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
+						Key: mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
+						GasEstimator: &evmcfg.KeySpecificGasEstimator{
+							PriceMax: utils.NewBig(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")).Wei(),
+						},
 					},
 				},
 
@@ -395,23 +407,14 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize: ptr[uint32](17),
 				LogPollInterval:      &minute,
 
-				MaxGasPriceWei:           utils.NewBig(utils.HexToBig("FFFFFFFFFFFF")),
 				MaxInFlightTransactions:  ptr[uint32](19),
 				MaxQueuedTransactions:    ptr[uint32](99),
-				MinGasPriceWei:           utils.NewBigI(13),
 				MinIncomingConfirmations: ptr[uint32](13),
 				MinimumContractPayment:   assets.NewLinkFromJuels(math.MaxInt64),
 
 				NonceAutoSync: ptr(true),
 
 				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-
-				OCRContractConfirmations:              ptr[uint16](11),
-				OCRContractTransmitterTransmitTimeout: &minute,
-				OCRDatabaseTimeout:                    &second,
-				OCRObservationTimeout:                 &second,
-				OCRObservationGracePeriod:             &second,
-				OCR2ContractConfirmations:             ptr[uint16](7),
 
 				RPCDefaultBatchSize:    ptr[uint32](17),
 				TxReaperInterval:       &minute,
@@ -430,6 +433,13 @@ func TestConfig_Marshal(t *testing.T) {
 					NoNewHeadsThreshold:  &minute,
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
+				},
+				OCR: &evmcfg.OCR{
+					ContractConfirmations:              ptr[uint16](11),
+					ContractTransmitterTransmitTimeout: &minute,
+					DatabaseTimeout:                    &second,
+					ObservationTimeout:                 &second,
+					ObservationGracePeriod:             &second,
 				},
 			},
 			Nodes: []evmcfg.Node{
@@ -616,9 +626,7 @@ ContractPollInterval = '1h0m0s'
 ContractSubscribeInterval = '1m0s'
 DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
-MonitoringEndpoint = 'test-monitor'
 SimulateTransactions = true
-TraceLogging = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
 		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
@@ -630,12 +638,12 @@ ContractSubscribeInterval = '1m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
-MonitoringEndpoint = 'test-mon-end'
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `
 [P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+TraceLogging = true
 
 [P2P.V1]
 AnnounceIP = '1.2.3.4'
@@ -698,41 +706,19 @@ Release = 'v1.2.3'
 [[EVM]]
 ChainID = '1'
 Enabled = false
-BalanceMonitorEnabled = true
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
-EIP1559DynamicFees = true
 FinalityDepth = 42
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
-GasBumpPercent = 10
-GasBumpThreshold = '6'
-GasBumpTxDepth = 6
-GasBumpWei = '100'
-GasEstimatorMode = 'L2Suggested'
-GasFeeCapDefault = '9223372036854775807'
-GasLimitDefault = '12'
-GasLimitMultiplier = '1.234'
-GasLimitTransfer = '100'
-GasPriceDefault = '9223372036854775807'
-GasTipCapDefault = '2'
-GasTipCapMinimum = '1'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxGasPriceWei = '281474976710655'
 MaxInFlightTransactions = 19
 MaxQueuedTransactions = 99
-MinGasPriceWei = '13'
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9223372036854775807'
+MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
-OCRContractConfirmations = 11
-OCRContractTransmitterTransmitTimeout = '1m0s'
-OCRDatabaseTimeout = '1s'
-OCRObservationTimeout = '1s'
-OCRObservationGracePeriod = '1s'
-OCR2ContractConfirmations = 7
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 TxReaperInterval = '1m0s'
@@ -740,7 +726,28 @@ TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
 UseForwarders = true
 
-[EVM.BlockHistoryEstimator]
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 17
+
+[EVM.GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '9.223372036854775807 ether'
+PriceMax = '281.474976710655 micro'
+PriceMin = '13 wei'
+LimitDefault = 12
+LimitMultiplier = '1.234'
+LimitTransfer = 100
+BumpMin = '100 wei'
+BumpPercent = 10
+BumpThreshold = 6
+BumpTxDepth = 6
+EIP1559DynamicFees = true
+FeeCapDefault = '9.223372036854775807 ether'
+TipCapDefault = '2 wei'
+TipCapMinimum = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
 BatchSize = 17
 BlockDelay = 10
 BlockHistorySize = 12
@@ -755,12 +762,21 @@ SamplingInterval = '1h0m0s'
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
-MaxGasPriceWei = '79228162514264337593543950335'
+
+[EVM.KeySpecific.GasEstimator]
+PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
+
+[EVM.OCR]
+ContractConfirmations = 11
+ContractTransmitterTransmitTimeout = '1m0s'
+DatabaseTimeout = '1s'
+ObservationTimeout = '1s'
+ObservationGracePeriod = '1s'
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -842,7 +858,9 @@ TendermintURL = 'http://bar.web'
 			var got Config
 			d := toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields()
 			require.NoError(t, d.Decode(&got))
-			assert.Equal(t, tt.config, got)
+			ts, err := got.TOMLString()
+			require.NoError(t, err)
+			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
 		})
 	}
 }

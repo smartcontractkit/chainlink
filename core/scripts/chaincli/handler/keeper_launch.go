@@ -126,9 +126,9 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		}
 
 		// Create authenticated client
-		remoteNodeURL, err := url.Parse(startedNode.url)
-		if err != nil {
-			log.Fatal(err)
+		remoteNodeURL, parseErr := url.Parse(startedNode.url)
+		if parseErr != nil {
+			log.Fatal(parseErr)
 		}
 		c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
 		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
@@ -259,11 +259,10 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			Name:                     fmt.Sprintf("keeper job - registry %s", registryAddr),
-			ContractAddress:          registryAddr,
-			FromAddress:              nodeAddr,
-			EvmChainID:               int(k.cfg.ChainID),
-			MinIncomingConfirmations: 1,
+			Name:            fmt.Sprintf("keeper job - registry %s", registryAddr),
+			ContractAddress: registryAddr,
+			FromAddress:     nodeAddr,
+			EvmChainID:      int(k.cfg.ChainID),
 		}).Toml(),
 	})
 	if err != nil {

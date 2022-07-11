@@ -25,7 +25,10 @@ type Environment struct {
 	ChainID int64
 }
 
-func SetupEnv() Environment {
+// SetupEnv returns an Environment object populated from environment variables.
+// If overrideNonce is set to true, the nonce will be set to what is returned
+// by NonceAt (rather than the typical PendingNonceAt).
+func SetupEnv(overrideNonce bool) Environment {
 	ethURL, set := os.LookupEnv("ETH_URL")
 	if !set {
 		panic("need eth url")
@@ -76,29 +79,33 @@ func SetupEnv() Environment {
 		owner.GasLimit = parsedGasLimit
 	}
 
-	// the execution environment for the scripts
-	return Environment{owner, ec, chainID}
+	if overrideNonce {
+		block, err := ec.BlockNumber(context.Background())
+		PanicErr(err)
 
-	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
-	//
-	//block, err := ec.BlockNumber(context.Background())
-	//helpers.PanicErr(err)
-	//
-	//nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
-	//helpers.PanicErr(err)
-	//
-	//owner.Nonce = big.NewInt(int64(nonce))
-	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+		nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
+		PanicErr(err)
+
+		owner.Nonce = big.NewInt(int64(nonce))
+		owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+	}
+
+	// the execution environment for the scripts
+	return Environment{
+		Owner:   owner,
+		Ec:      ec,
+		ChainID: chainID,
+	}
 }
 
-// PanicErr panic if error detected
+// PanicErr panics if error the given error is non-nil.
 func PanicErr(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
-// ParseArgs parses arguments and ensures required args are set
+// ParseArgs parses arguments and ensures required args are set.
 func ParseArgs(flagSet *flag.FlagSet, args []string, requiredArgs ...string) {
 	PanicErr(flagSet.Parse(args))
 	seen := map[string]bool{}
@@ -125,6 +132,8 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 		fmtURL = "https://rinkeby.etherscan.io/tx/%s"
 	case 42: // Kovan
 		fmtURL = "https://kovan.etherscan.io/tx/%s"
+	case 11155111: // Sepolia
+		fmtURL = "https://sepolia.etherscan.io/tx/%s"
 
 	case 56: // BSC mainnet
 		fmtURL = "https://bscscan.com/tx/%s"
@@ -158,6 +167,7 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	return fmt.Sprintf(fmtURL, txHash.String())
 }
 
+// ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
 func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) {
 	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
 	receipt, err := bind.WaitMined(context, client, transaction)
@@ -165,6 +175,7 @@ func ConfirmTXMined(context context.Context, client *ethclient.Client, transacti
 	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber, "\nGas Used: ", receipt.GasUsed)
 }
 
+// ConfirmContractDeployed confirms that the given contract deployment transaction completed and prints useful execution information.
 func ConfirmContractDeployed(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64) (address common.Address) {
 	fmt.Println("Executing contract deployment, TX:", ExplorerLink(chainID, transaction.Hash()))
 	contractAddress, err := bind.WaitDeployed(context, client, transaction)
@@ -173,6 +184,8 @@ func ConfirmContractDeployed(context context.Context, client *ethclient.Client, 
 	return contractAddress
 }
 
+// ParseBigIntSlice parses the given comma-separated string of integers into a slice
+// of *big.Int objects.
 func ParseBigIntSlice(arg string) (ret []*big.Int) {
 	parts := strings.Split(arg, ",")
 	ret = []*big.Int{}
@@ -182,6 +195,8 @@ func ParseBigIntSlice(arg string) (ret []*big.Int) {
 	return ret
 }
 
+// ParseIntSlice parses the given comma-separated string of integers into a slice
+// of int.
 func ParseIntSlice(arg string) (ret []int) {
 	parts := strings.Split(arg, ",")
 	for _, part := range parts {
@@ -192,6 +207,8 @@ func ParseIntSlice(arg string) (ret []int) {
 	return ret
 }
 
+// ParseAddressSlice parses the given comma-separated string of addresses into a slice
+// of common.Address objects.
 func ParseAddressSlice(arg string) (ret []common.Address) {
 	parts := strings.Split(arg, ",")
 	ret = []common.Address{}
@@ -201,6 +218,8 @@ func ParseAddressSlice(arg string) (ret []common.Address) {
 	return
 }
 
+// ParseHashSlice parses the given comma-separated string of hashes into a slice of
+// common.Hash objects.
 func ParseHashSlice(arg string) (ret []common.Hash) {
 	parts := strings.Split(arg, ",")
 	ret = []common.Hash{}

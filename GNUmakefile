@@ -97,16 +97,30 @@ test_install_ginkgo: ## Install ginkgo executable to run tests
 	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
 .PHONY: test_smoke
-test_smoke: # Run integration smoke tests.
+test_smoke: ## Run all integration smoke tests, including on live testnets
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
+.PHONY: test_smoke_simulated
+test_smoke_simulated: ## Run integration smoke tests, only using simulated networks
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress --focus @simulated $(args) ./integration-tests/smoke
+
 .PHONY: test_perf
-test_perf: # Run core node performance tests.
+test_perf: ## Run core node performance tests.
 	ginkgo -v -r --junit-report=tests-perf-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/performance
+
+.PHONY: test_chaos
+test_chaos: # run core node chaos tests.
+	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
+
+.PHONY: config-docs
+config-docs: # Generate core node configuration documentation
+	go run ./internal/config/docs/main.go > ./docs/CONFIG.md
 
 help:
 	@echo ""

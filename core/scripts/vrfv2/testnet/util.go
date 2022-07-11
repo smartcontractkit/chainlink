@@ -10,6 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -20,6 +23,12 @@ import (
 
 func deployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
 	_, tx, _, err := blockhash_store.DeployBlockhashStore(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployBatchBHS(e helpers.Environment, bhsAddress common.Address) (batchBHSAddress common.Address) {
+	_, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(e.Owner, e.Ec, bhsAddress)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -36,6 +45,12 @@ func deployCoordinator(
 		common.HexToAddress(linkAddress),
 		common.HexToAddress(bhsAddress),
 		common.HexToAddress(linkEthAddress))
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.Address) (batchCoordinatorAddress common.Address) {
+	_, tx, _, err := batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(e.Owner, e.Ec, coordinatorAddress)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -76,7 +91,7 @@ func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.V
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
 }
 
-func printCoordinatorConfig(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2) {
+func printCoordinatorConfig(coordinator *vrf_coordinator_v2.VRFCoordinatorV2) {
 	cfg, err := coordinator.GetConfig(nil)
 	helpers.PanicErr(err)
 

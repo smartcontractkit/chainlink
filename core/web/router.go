@@ -319,6 +319,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"solana", NewSolanaKeysController(app)},
 			{"terra", NewTerraKeysController(app)},
+			{"starknet", NewStarkNetKeysController(app)},
 			{"dkgsign", NewDKGSignKeysController(app)},
 			{"dkgencrypt", NewDKGEncryptKeysController(app)},
 		} {

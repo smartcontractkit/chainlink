@@ -151,7 +151,7 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
 	return r.spec.MinIncomingConfirmationsEnv
 }
 
-// MinContractPaymentLinkJuels resolves the spec's evm chain id.
+// MinContractPaymentLinkJuels resolves the spec's min contract payment link.
 func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
 }
@@ -696,6 +696,15 @@ func (r *VRFSpecResolver) BackoffInitialDelay() string {
 // BackoffMaxDelay resolves the spec's backoff max delay.
 func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
+}
+
+// MaxGasPriceGWei resolves the spec's max gas price gwei.
+func (r *VRFSpecResolver) MaxGasPriceGWei() *int32 {
+	if r.spec.MaxGasPriceGWei == nil {
+		return nil
+	}
+	maxGasPriceGWei := int32(*r.spec.MaxGasPriceGWei)
+	return &maxGasPriceGWei
 }
 
 type WebhookSpecResolver struct {

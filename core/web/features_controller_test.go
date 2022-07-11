@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -15,8 +14,6 @@ import (
 )
 
 func Test_FeaturesController_List(t *testing.T) {
-	t.Parallel()
-
 	_, client := setupFeaturesControllerTest(t)
 
 	resp, cleanup := client.Get("/v2/features")
@@ -36,7 +33,7 @@ func Test_FeaturesController_List(t *testing.T) {
 }
 
 func setupFeaturesControllerTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
-	os.Setenv("FEATURE_UI_CSA_KEYS", "true")
+	t.Setenv("FEATURE_UI_CSA_KEYS", "true")
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))

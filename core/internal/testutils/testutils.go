@@ -3,7 +3,6 @@ package testutils
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	mrand "math/rand"
@@ -32,7 +31,7 @@ import (
 
 const (
 	// Password just a password we use everywhere for testing
-	Password = "p4SsW0rD1!@#_"
+	Password = "16charlengthp4SsW0rD1!@#_"
 )
 
 // FixtureChainID matches the chain always added by fixtures.sql
@@ -156,6 +155,7 @@ type testWSServer struct {
 	s       *httptest.Server
 	mu      sync.RWMutex
 	wsconns []*websocket.Conn
+	wg      sync.WaitGroup
 }
 
 // NewWSServer starts a websocket server which invokes callback for each message received.
@@ -166,36 +166,32 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback JSONRPCHandler) (ts *t
 	ts.wsconns = make([]*websocket.Conn, 0)
 	handler := ts.newWSHandler(chainID, callback)
 	ts.s = httptest.NewServer(handler)
+	t.Cleanup(ts.Close)
 	return
 }
 
 func (ts *testWSServer) Close() {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	if ts.wsconns == nil {
-		ts.t.Log("Test WS server already closed")
-		return
+	if func() bool {
+		ts.mu.Lock()
+		defer ts.mu.Unlock()
+		if ts.wsconns == nil {
+			ts.t.Log("Test WS server already closed")
+			return false
+		}
+		ts.s.CloseClientConnections()
+		ts.s.Close()
+		for _, ws := range ts.wsconns {
+			ws.Close()
+		}
+		ts.wsconns = nil // nil indicates server closed
+		return true
+	}() {
+		ts.wg.Wait()
 	}
-	ts.s.CloseClientConnections()
-	ts.s.Close()
-	for _, ws := range ts.wsconns {
-		ws.Close()
-	}
-	ts.wsconns = nil // nil indicates server closed
 }
 
 func (ts *testWSServer) WSURL() *url.URL {
 	return WSServerURL(ts.t, ts.s)
-}
-
-func (ts *testWSServer) GetConns(t *testing.T) (conns []*websocket.Conn) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-	if ts.wsconns == nil {
-		t.Fatal("cannot get conns from closed server")
-	}
-	conns = append(conns, ts.wsconns...)
-	return
 }
 
 func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
@@ -215,41 +211,43 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
-	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		require.NoError(t, err, "Failed to upgrade WS connection")
 		defer conn.Close()
 		ts.mu.Lock()
 		if ts.wsconns == nil {
-			log.Println("Server closed")
+			ts.t.Log("Server closed")
 			ts.mu.Unlock()
 			return
 		}
 		ts.wsconns = append(ts.wsconns, conn)
+		ts.wg.Add(1)
 		ts.mu.Unlock()
+		defer ts.wg.Done()
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
-					log.Println("Websocket closing")
+					ts.t.Log("Websocket closing")
 					return
 				}
-				log.Printf("Failed to read message: %v", err)
+				ts.t.Logf("Failed to read message: %v", err)
 				return
 			}
-			log.Println("Received message", string(data))
+			ts.t.Log("Received message", string(data))
 			req := gjson.ParseBytes(data)
 			if !req.IsObject() {
-				log.Printf("Request must be object: %v", req.Type)
+				ts.t.Logf("Request must be object: %v", req.Type)
 				return
 			}
 			if e := req.Get("error"); e.Exists() {
-				log.Printf("Received jsonrpc error message: %v", e)
+				ts.t.Logf("Received jsonrpc error message: %v", e)
 				break
 			}
 			m := req.Get("method")
 			if m.Type != gjson.String {
-				log.Printf("Method must be string: %v", m.Type)
+				ts.t.Logf("Method must be string: %v", m.Type)
 				return
 			}
 
@@ -261,30 +259,29 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			}
 			id := req.Get("id")
 			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
-			log.Printf("Sending message: %v", msg)
+			ts.t.Logf("Sending message: %v", msg)
 			ts.mu.Lock()
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 			ts.mu.Unlock()
 			if err != nil {
-				log.Printf("Failed to write message: %v", err)
+				ts.t.Logf("Failed to write message: %v", err)
 				return
 			}
 
 			if notify != "" {
 				time.Sleep(100 * time.Millisecond)
 				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
-				log.Println("Sending message", msg)
+				ts.t.Log("Sending message", msg)
 				ts.mu.Lock()
 				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 				ts.mu.Unlock()
 				if err != nil {
-					log.Printf("Failed to write message: %v", err)
+					ts.t.Logf("Failed to write message: %v", err)
 					return
 				}
 			}
 		}
-	})
-	return handler
+	}
 }
 
 // WaitWithTimeout waits for the channel to close (or receive anything) and
@@ -337,8 +334,8 @@ func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 //
 // Get a *observer.ObservedLogs like so:
 //
-// 		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
-// 		lggr := logger.TestLogger(t, observedZapCore)
+//	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+//	lggr := logger.TestLogger(t, observedZapCore)
 func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
 	AssertEventually(t, func() bool {
 		for _, l := range observedLogs.All() {

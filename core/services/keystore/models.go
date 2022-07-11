@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -83,6 +84,7 @@ type keyRing struct {
 	P2P        map[string]p2pkey.KeyV2
 	Solana     map[string]solkey.Key
 	Terra      map[string]terrakey.Key
+	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
 	DKGEncrypt map[string]dkgencryptkey.Key
@@ -97,6 +99,7 @@ func newKeyRing() keyRing {
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Solana:     make(map[string]solkey.Key),
 		Terra:      make(map[string]terrakey.Key),
+		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
 		DKGEncrypt: make(map[string]dkgencryptkey.Key),
@@ -148,6 +151,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, terrakey := range kr.Terra {
 		rawKeys.Terra = append(rawKeys.Terra, terrakey.Raw())
 	}
+	for _, starkkey := range kr.StarkNet {
+		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
+	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
@@ -190,6 +196,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, terraKey := range kr.Terra {
 		terraIDs = append(terraIDs, terraKey.ID())
 	}
+	var starknetIDs []string
+	for _, starkkey := range kr.StarkNet {
+		starknetIDs = append(starknetIDs, starkkey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
@@ -223,6 +233,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(terraIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Terra keys", len(terraIDs)), "keys", terraIDs)
 	}
+	if len(starknetIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
@@ -245,6 +258,7 @@ type rawKeyRing struct {
 	P2P        []p2pkey.Raw
 	Solana     []solkey.Raw
 	Terra      []terrakey.Raw
+	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw
@@ -279,6 +293,10 @@ func (rawKeys rawKeyRing) keys() (keyRing, error) {
 	for _, rawTerraKey := range rawKeys.Terra {
 		terraKey := rawTerraKey.Key()
 		keyRing.Terra[terraKey.ID()] = terraKey
+	}
+	for _, rawStarkNetKey := range rawKeys.StarkNet {
+		starkKey := rawStarkNetKey.Key()
+		keyRing.StarkNet[starkKey.ID()] = starkKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()

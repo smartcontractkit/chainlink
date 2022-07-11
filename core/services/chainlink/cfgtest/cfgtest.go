@@ -13,10 +13,11 @@ import (
 )
 
 func AssertFieldsNotNil(t *testing.T, s interface{}) {
-	err := assertFieldsNotNil(t, "", reflect.ValueOf(s))
-	assert.NoError(t, err, multiErrorList(multierr.Errors(err)))
+	err := assertValNotNil(t, "", reflect.ValueOf(s))
+	assert.NoError(t, err, MultiErrorList(err))
 }
 
+// assertFieldsNotNil recursively checks the struct s for nil fields.
 func assertFieldsNotNil(t *testing.T, prefix string, s reflect.Value) (err error) {
 	t.Helper()
 	require.Equal(t, reflect.Struct, s.Kind())
@@ -36,6 +37,7 @@ func assertFieldsNotNil(t *testing.T, prefix string, s reflect.Value) (err error
 	return
 }
 
+// assertValuesNotNil recursively checks the map m for nil values.
 func assertValuesNotNil(t *testing.T, prefix string, m reflect.Value) (err error) {
 	t.Helper()
 	require.Equal(t, reflect.Map, m.Kind())
@@ -51,6 +53,7 @@ func assertValuesNotNil(t *testing.T, prefix string, m reflect.Value) (err error
 	return
 }
 
+// assertElementsNotNil recursively checks the slice s for nil values.
 func assertElementsNotNil(t *testing.T, prefix string, s reflect.Value) (err error) {
 	t.Helper()
 	require.Equal(t, reflect.Slice, s.Kind())
@@ -66,6 +69,7 @@ var (
 	textUnmarshalerType = reflect.TypeOf(&textUnmarshaler).Elem()
 )
 
+// assertValNotNil recursively checks that val is not nil. val must be a struct, map, slice, or point to one.
 func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 	t.Helper()
 	k := val.Kind()
@@ -97,6 +101,15 @@ func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 }
 
 type multiErrorList []error
+
+// MultiErrorList returns an error which formats underlying errors as a list, or nil if err is nil.
+func MultiErrorList(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return multiErrorList(multierr.Errors(err))
+}
 
 func (m multiErrorList) Error() string {
 	l := len(m)

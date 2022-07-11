@@ -46,7 +46,7 @@ func (c logconfig) LogSQL() bool {
 }
 
 func main() {
-	e := helpers.SetupEnv()
+	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
 	case "keepers-vrf-consumer-deploy":
@@ -66,10 +66,7 @@ func main() {
 			big.NewInt(*upkeepIntervalSeconds),       // upkeep interval seconds
 		)
 		helpers.PanicErr(err)
-		keepersVrfConsumer, err := bind.WaitDeployed(context.Background(), e.Ec, tx)
-		helpers.PanicErr(err)
-		fmt.Println("Deploy tx:", helpers.ExplorerLink(e.ChainID, tx.Hash()))
-		fmt.Println("Keepers vrf consumer:", keepersVrfConsumer.Hex())
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "batch-coordinatorv2-deploy":
 		cmd := flag.NewFlagSet("batch-coordinatorv2-deploy", flag.ExitOnError)
 		coordinatorAddr := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
@@ -250,9 +247,7 @@ func main() {
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
 		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
-		_, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(e.Owner, e.Ec, common.HexToAddress(*bhsAddr))
-		helpers.PanicErr(err)
-		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+		deployBatchBHS(e, common.HexToAddress(*bhsAddr))
 	case "batch-bhs-store":
 		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
@@ -363,7 +358,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		printCoordinatorConfig(e, *coordinator)
+		printCoordinatorConfig(coordinator)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")

@@ -14,8 +14,8 @@ var (
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
-	DefaultGasTip                        = big.NewInt(1)                           // go-ethereum requires the tip to be at least 1 wei
-	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10000000000000) // 0.00001 LINK
+	DefaultGasTip                        = big.NewInt(1)                               // go-ethereum requires the tip to be at least 1 wei
+	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
 )
 
 type (
@@ -229,7 +229,6 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.finalityDepth = 500  // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 	polygonMainnet.gasBumpThreshold = 5 // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
-	polygonMainnet.gasPriceDefault = *assets.GWei(1)
 	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
@@ -289,13 +288,15 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
+	fantomMainnet.balanceMonitorBlockDelay = 2
 	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	fantomMainnet.blockHistoryEstimatorBlockDelay = 2
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
-	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
-	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.logPollInterval = 1 * time.Second
+	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
+	fantomMainnet.minIncomingConfirmations = 3
+	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 
