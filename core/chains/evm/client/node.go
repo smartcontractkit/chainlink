@@ -288,10 +288,11 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 		promEVMPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
 	}
 
-	switch n.state {
+	st := n.State()
+	switch st {
 	case NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID:
 	default:
-		panic(fmt.Sprintf("cannot verify node in state %v", n.state))
+		panic(fmt.Sprintf("cannot verify node in state %v", st))
 	}
 
 	var chainID *big.Int
