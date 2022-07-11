@@ -59,20 +59,22 @@ type verifiedCachedClient struct {
 
 	verifyErr           error
 	chainIDVerified     bool
-	chainIDVerifiedLock *sync.RWMutex
+	chainIDVerifiedLock sync.RWMutex
 
 	solanaclient.ReaderWriter
 }
 
 func (v *verifiedCachedClient) verifyChainID() bool {
-	v.chainIDVerifiedLock.Lock()
-	defer v.chainIDVerifiedLock.Unlock()
-
+	v.chainIDVerifiedLock.RLock()
 	if v.chainIDVerified {
 		return true
 	}
+	v.chainIDVerifiedLock.RUnlock()
 
 	var err error
+
+	v.chainIDVerifiedLock.Lock()
+	defer v.chainIDVerifiedLock.Unlock()
 
 	v.chainID, err = v.ReaderWriter.ChainID()
 	if err != nil {
