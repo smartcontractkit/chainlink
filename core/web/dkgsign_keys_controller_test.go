@@ -19,7 +19,7 @@ import (
 func TestDKGSignKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupDKGSIgnKeysControllerTests(t)
+	client, keyStore := setupDKGSignKeysControllerTests(t)
 	keys, _ := keyStore.DKGSign().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/dkgsign")
@@ -39,7 +39,7 @@ func TestDKGSignKeysController_Index_HappyPath(t *testing.T) {
 func TestDKGSignKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupDKGSIgnKeysControllerTests(t)
+	client, keyStore := setupDKGSignKeysControllerTests(t)
 
 	response, cleanup := client.Post("/v2/keys/dkgsign", nil)
 	t.Cleanup(cleanup)
@@ -70,7 +70,7 @@ func TestDKGSignKeysController_Create_HappyPath(t *testing.T) {
 func TestDKGSignKeysController_Delete_NonExistentDKGSignKeyID(t *testing.T) {
 	t.Parallel()
 
-	client, _ := setupDKGSIgnKeysControllerTests(t)
+	client, _ := setupDKGSignKeysControllerTests(t)
 
 	response, cleanup := client.Delete("/v2/keys/dkgsign/" + "nonexistentKey")
 	t.Cleanup(cleanup)
@@ -80,7 +80,7 @@ func TestDKGSignKeysController_Delete_NonExistentDKGSignKeyID(t *testing.T) {
 func TestDKGSignKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	client, keyStore := setupDKGSIgnKeysControllerTests(t)
+	client, keyStore := setupDKGSignKeysControllerTests(t)
 
 	keys, _ := keyStore.DKGSign().GetAll()
 	initialLength := len(keys)
@@ -96,7 +96,7 @@ func TestDKGSignKeysController_Delete_HappyPath(t *testing.T) {
 
 }
 
-func setupDKGSIgnKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
+func setupDKGSignKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
 
 	app := cltest.NewApplication(t)
