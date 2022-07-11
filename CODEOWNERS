@@ -40,7 +40,7 @@
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
-/integration-tests/ @kalverra
+/integration-tests/ @kalverra @tateexon @skudasov @anieeg
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 
 # Misc
@@ -51,6 +51,10 @@
 
 # CI/CD
 /.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
+/.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/build-custom.yml @kalverra @tateexon @skudasov @anieeg
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
