@@ -78,7 +78,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	lggr := cli.Logger.Named("SetupDKGJob")
 	err := cli.Config.Validate()
 	if err != nil {
-		return nil, errors.Wrap(err, "config validation failed")
+		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
 	}
 	lggr.Infow(fmt.Sprintf("Configuring Chainlink Node FOR DKG %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
@@ -99,7 +99,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	keyStore := app.GetKeyStore()
 	err = setupDKGKeystore(cli, c, app, keyStore)
 	if err != nil {
-		return nil, err
+		return nil, cli.errorOut(err)
 	}
 
 	// Get all configuration parameters.
@@ -134,7 +134,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	if c.Bool("isBootstrapper") {
 		err = setupBootstrapperJob(cli, c, app)
 		if err != nil {
-			return nil, err
+			return nil, cli.errorOut(err)
 		}
 	}
 
@@ -152,7 +152,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	}
 	err = createDKGJob(cli, c, app, *dkgTemplateArgs)
 	if err != nil {
-		return nil, err
+		return nil, cli.errorOut(err)
 	}
 
 	return &SetupDKGNodePayload{
