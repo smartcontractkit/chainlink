@@ -140,7 +140,7 @@ func validateHexString(val string, expectedLengthInBytes uint) error {
 		return errors.Wrap(err, fmt.Sprintf("expected hex string but received %s", val))
 	}
 	if len(decoded) != int(expectedLengthInBytes) {
-		return errors.New(fmt.Sprintf("value: %s has unexpected length. Expected %d bytes", val, expectedLengthInBytes))
+		return fmt.Errorf("value: %s has unexpected length. Expected %d bytes", val, expectedLengthInBytes)
 	}
 	return nil
 }

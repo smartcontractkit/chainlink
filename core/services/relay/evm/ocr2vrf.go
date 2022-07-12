@@ -3,8 +3,9 @@ package evm
 import (
 	"encoding/json"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
 )

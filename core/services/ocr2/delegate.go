@@ -168,9 +168,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.New("chainID must be provided in relay conig")
 		}
 		chainID := int64(chainIDInterface.(float64))
-		chain, err := d.chainSet.Get(big.NewInt(chainID))
-		if err != nil {
-			return nil, errors.Wrap(err, "get chainset")
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
 		}
 		dkgProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewDKGProvider(
 			types.RelayArgs{
