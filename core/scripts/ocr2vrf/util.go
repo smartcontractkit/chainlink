@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	dkgContract "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
 	"github.com/smartcontractkit/ocr2vrf/gethwrappers/vrf"
-	"github.com/smartcontractkit/ocr2vrf/pkg/crypto/point_translation"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 
@@ -81,7 +81,7 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 
 	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
 
-	offchainConfig, err := dkg.OffchainConfig(dkg.EncryptionPublicKeys(encryptionKeys), dkg.SigningPublicKeys(signingKeys), &altbn_128.G1{}, &point_translation.PairingTranslation{
+	offchainConfig, err := dkg.OffchainConfig(dkg.EncryptionPublicKeys(encryptionKeys), dkg.SigningPublicKeys(signingKeys), &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
 		&altbn_128.PairingSuite{},
 	})
 	helpers.PanicErr(err)

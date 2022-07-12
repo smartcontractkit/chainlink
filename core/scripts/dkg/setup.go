@@ -7,13 +7,14 @@ import (
 	"os"
 	"strings"
 
+	dkgContract "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	dkgContract "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
-	"github.com/urfave/cli"
 )
 
 func main() {
@@ -23,9 +24,8 @@ func main() {
 }
 
 func Run(client *cmd.Client, args ...string) {
-
 	app := cmd.NewApp(client)
-	e := helpers.SetupEnv()
+	e := helpers.SetupEnv(false)
 
 	_, tx, _, err := dkgContract.DeployDKG(e.Owner, e.Ec)
 	helpers.PanicErr(err)
