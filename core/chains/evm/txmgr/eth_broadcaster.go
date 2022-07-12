@@ -213,7 +213,11 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
 		if err := eb.ProcessUnstartedEthTxs(ctx, k); err != nil {
-			eb.logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
+			if errors.Is(err, context.DeadlineExceeded) {
+				eb.logger.Errorw("Timed out while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
+			} else {
+				eb.logger.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported", "err", err)
+			}
 		}
 
 		select {
