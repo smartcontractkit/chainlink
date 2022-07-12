@@ -37,7 +37,7 @@ type dkgSetConfigArgs struct {
 }
 
 func main() {
-	e := helpers.SetupEnv()
+	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
 
