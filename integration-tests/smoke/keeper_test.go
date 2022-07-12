@@ -80,29 +80,10 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
-var _ = Describe("Keeper v1.1 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 basic smoke test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.1 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 BCPT test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Perform simulation test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Check/Perform Gas limit test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.1 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Register upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.1 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
-var _ = Describe("Keeper v1.2 Add funds to upkeep test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)))
-var _ = Describe("Keeper v1.1 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Removing one keeper test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Pause registry test @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)))
-var _ = Describe("Keeper v1.2 Migrate upkeep from a registry to another @keeper", getKeeperSuite(ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)))
+var _ = DescribeTable(
+	"Keeper Suite @keeper", func(registryVersion ethereum.KeeperRegistryVersion, registryConfig contracts.KeeperRegistrySettings,
+		consumerContract KeeperConsumerContracts, testToRun KeeperTests, linkFundsForEachUpkeep *big.Int) {
 
-func getKeeperSuite(
-	registryVersion ethereum.KeeperRegistryVersion,
-	registryConfig contracts.KeeperRegistrySettings,
-	consumerContract KeeperConsumerContracts,
-	testToRun KeeperTests,
-	linkFundsForEachUpkeep *big.Int,
-) func() {
-	return func() {
 		var (
 			err                  error
 			chainClient          blockchain.EVMClient
@@ -657,5 +638,19 @@ func getKeeperSuite(
 			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
-	}
-}
+
+	},
+	Entry("v1.1 basic smoke test", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 basic smoke test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.1 BCPT test", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 BCPT test", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 Perform simulation test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 Check/Perform Gas limit test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 Register upkeep test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.1 Add funds to upkeep test", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+	Entry("v1.2 Add funds to upkeep test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+	Entry("v1.1 Removing one keeper test", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 Removing one keeper test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 Pause registry test", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
+	Entry("v1.2 Migrate upkeep from a registry to another", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+)
