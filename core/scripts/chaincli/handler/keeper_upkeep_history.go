@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	registry11 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -30,6 +32,8 @@ const (
 var (
 	checkUpkeepArguments1 abi.Arguments
 	checkUpkeepArguments2 abi.Arguments
+	registry11ABI         = keeper.Registry1_1ABI
+	registry12ABI         = keeper.Registry1_2ABI
 )
 
 type result struct {
@@ -46,12 +50,12 @@ type result struct {
 }
 
 func init() {
-	checkUpkeepArguments1 = keeper.Registry1_1ABI.Methods["checkUpkeep"].Outputs
-	checkUpkeepArguments2 = keeper.Registry1_2ABI.Methods["checkUpkeep"].Outputs
+	checkUpkeepArguments1 = registry11ABI.Methods["checkUpkeep"].Outputs
+	checkUpkeepArguments2 = registry12ABI.Methods["checkUpkeep"].Outputs
 }
 
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
-func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, gasPrice uint64) {
+func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to, gasPrice uint64) {
 	// There must not be a large different between boundaries
 	if to-from > defaultMaxBlocksRange {
 		log.Fatalf("blocks range difference must not more than %d", defaultMaxBlocksRange)
@@ -69,11 +73,15 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 	}
 
 	// Get positioning constant of the current registry
-	positioningConstant, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
-	if err != nil {
-		log.Fatal("failed to get positioning constant: ", err)
+	var positioningConstant int32
+	var err error
+	if !isVersion12 {
+		positioningConstant, err = keeper.CalcPositioningConstant(utils.NewBig(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
+		if err != nil {
+			log.Fatal("failed to get positioning constant: ", err)
+		}
+		log.Println("Calculated Positioning Constant for the registry: ", positioningConstant)
 	}
-	log.Println("Calculated Positioning Constant for the registry: ", positioningConstant)
 
 	log.Println("Preparing a batch call request")
 	var reqs []rpc.BatchElem
@@ -81,34 +89,71 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 	var keeperPerBlockIndex []uint64
 	var keeperPerBlockAddress []common.Address
 	for block := from; block <= to; block++ {
-		callOpts := bind.CallOpts{
+		callOpts := &bind.CallOpts{
 			Context:     ctx,
 			BlockNumber: big.NewInt(0).SetUint64(block),
 		}
 
 		var keepers []common.Address
-		var blockCountPerTurn uint64
+		var bcpt uint64
+		var payload []byte
+		var keeperIndex uint64
+
 		if isVersion12 {
-			state, err := keeperRegistry12.GetState(&callOpts)
+			state, err := keeperRegistry12.GetState(callOpts)
 			if err != nil {
 				log.Fatal("failed to fetch registry state: ", err)
 			}
-			blockCountPerTurn = state.Config.BlockCountPerTurn.Uint64()
+			bcpt = state.Config.BlockCountPerTurn.Uint64()
 			keepers = state.Keepers
+			keepersCnt := uint64(len(state.Keepers))
+
+			upkeep, err := keeperRegistry12.GetUpkeep(callOpts, upkeepId)
+			if err != nil {
+				log.Fatal("failed to fetch the upkeep: ", err)
+			}
+
+			turnBinary, err := turnBlockHashBinary(block, bcpt, 1000, k.client)
+			if err != nil {
+				log.Fatal("failed to calculate turn block hash: ", err)
+			}
+
+			// least_significant(uint256_to_bit(upkeep_registrations.upkeep_id), 32)
+			max32 := big.NewInt(math.MaxUint32)
+			lhs := big.NewInt(0).And(upkeepId, max32)
+
+			// least_significant($4, 32)
+			var rhs uint64
+			for i := len(turnBinary) - 1; i >= len(turnBinary)-32; i-- {
+				if turnBinary[i] == '1' {
+					rhs += 1 << (len(turnBinary) - 1 - i)
+				}
+			}
+
+			// bitwise XOR
+			turn := lhs.Uint64() ^ rhs
+
+			keeperIndex = turn % keepersCnt
+			if keepers[keeperIndex] == upkeep.LastKeeper {
+				keeperIndex = (keeperIndex + keepersCnt - 1) % keepersCnt
+			}
+			payload, err = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
 		} else {
-			config, err := keeperRegistry11.GetConfig(&callOpts)
+			config, err := keeperRegistry11.GetConfig(callOpts)
 			if err != nil {
 				log.Fatal("failed to fetch registry config: ", err)
 			}
-			blockCountPerTurn = config.BlockCountPerTurn.Uint64()
-			keepers, err = keeperRegistry11.GetKeeperList(&callOpts)
+
+			bcpt = config.BlockCountPerTurn.Uint64()
+			keepers, err = keeperRegistry11.GetKeeperList(callOpts)
 			if err != nil {
 				log.Fatal("failed to fetch keepers list: ", err)
 			}
+
+			keeperIndex = (uint64(positioningConstant) + ((block - (block % bcpt)) / bcpt)) % uint64(len(keepers))
+			payload, err = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
 		}
 
-		keeperIndex := (uint64(positioningConstant) + ((block - (block % blockCountPerTurn)) / blockCountPerTurn)) % uint64(len(keepers))
-		payload, err := keeper.Registry1_2ABI.Pack("checkUpkeep", big.NewInt(upkeepId), keepers[keeperIndex])
 		if err != nil {
 			log.Fatal("failed to pack checkUpkeep: ", err)
 		}
@@ -210,4 +255,15 @@ func printResultsToConsole(parsedResults []result) {
 		)
 	}
 	fmt.Fprintf(writer, "\n %s\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", "----", "----", "----", "----", "----", "----", "----", "----", "----", "----")
+}
+
+func turnBlockHashBinary(blockNum, bcpt, lookback uint64, ethClient *ethclient.Client) (string, error) {
+	turnBlock := blockNum - (blockNum % bcpt) - lookback
+	block, err := ethClient.BlockByNumber(context.Background(), big.NewInt(int64(turnBlock)))
+	if err != nil {
+		return "", err
+	}
+	hashAtHeight := block.Hash()
+	binaryString := fmt.Sprintf("%b", hashAtHeight.Big())
+	return binaryString, nil
 }

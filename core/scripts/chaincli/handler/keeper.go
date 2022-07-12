@@ -30,6 +30,13 @@ type Keeper struct {
 	addFundsAmount *big.Int
 }
 
+// canceller describes the behavior to cancel upkeeps
+type canceller interface {
+	CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
+	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error)
+	RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error)
+}
+
 // upkeepDeployer contains functions needed to deploy an upkeep
 type upkeepDeployer interface {
 	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error)
@@ -160,7 +167,7 @@ func (k *Keeper) deployRegistry2(ctx context.Context) (common.Address, *registry
 	return registryAddr, registryInstance
 }
 
-// deployRegistry2 deploys a version 1.1 keeper registry
+// deployRegistry1 deploys a version 1.1 keeper registry
 func (k *Keeper) deployRegistry1(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry11.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
@@ -288,7 +295,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", helpers.ExplorerLink(k.cfg.ChainID, registerUpkeepTx.Hash()))
 
 		// Fund
-		addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), big.NewInt(int64(i)), k.addFundsAmount)
+		addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), big.NewInt(i), k.addFundsAmount)
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
@@ -360,6 +367,20 @@ func (k *Keeper) authenticate(urlStr, email, password string, lggr logger.Logger
 	return cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr), nil
 }
 
+// getActiveUpkeepIds retrieves active upkeep ids from registry 1.2
+func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry *registry12.KeeperRegistry) []*big.Int {
+	activeUpkeepIds, err := registry.GetActiveUpkeepIDs(&bind.CallOpts{
+		Pending: false,
+		From:    k.fromAddr,
+		Context: ctx,
+	}, big.NewInt(0), big.NewInt(0))
+	if err != nil {
+		log.Fatal(registry.Address().Hex(), ": failed to get active upkeep Ids - ", err)
+	}
+	return activeUpkeepIds
+}
+
+// getConfigForRegistry12 returns a config object for registry 1.2
 func (k *Keeper) getConfigForRegistry12() *registry12.Config {
 	return &registry12.Config{
 		PaymentPremiumPPB:    k.cfg.PaymentPremiumPBB,

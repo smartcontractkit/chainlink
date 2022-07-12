@@ -21,13 +21,14 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	registry12 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
@@ -38,13 +39,6 @@ const (
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
 	defaultChainlinkNodePassword = "twochains"
 )
-
-// canceller describes the behavior to cancel upkeeps
-type canceller interface {
-	CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*ethtypes.Transaction, error)
-	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*ethtypes.Transaction, error)
-	RecoverFunds(opts *bind.TransactOpts) (*ethtypes.Transaction, error)
-}
 
 type startedNodeData struct {
 	url     string
@@ -159,15 +153,59 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Cancel upkeeps and withdraw funds
 	if withdraw {
+		isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 		log.Println("Canceling upkeeps...")
-		if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
-			log.Fatal("Failed to cancel upkeeps: ", err)
+		if isVersion12 {
+			registry, err := registry12.NewKeeperRegistry(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry)
+
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
+		} else {
+			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
 		}
 		log.Println("Upkeeps successfully canceled")
 	}
 }
 
-// cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
+// cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds for registry 1.1
+func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
+	var err error
+	for i := 0; i < len(activeUpkeepIds); i++ {
+		var tx *ethtypes.Transaction
+		upkeepId := activeUpkeepIds[i]
+		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId); err != nil {
+			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
+		}
+		k.waitTx(ctx, tx)
+
+		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr); err != nil {
+			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
+		}
+		k.waitTx(ctx, tx)
+
+		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
+	}
+
+	var tx *ethtypes.Transaction
+	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+		return fmt.Errorf("failed to recover funds: %s", err)
+	}
+	k.waitTx(ctx, tx)
+
+	return nil
+}
+
+// cancelAndWithdrawUpkeeps cancels all upkeeps for 1.1 registry and withdraws funds
 func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.Int, canceller canceller) error {
 	var err error
 	for i := int64(0); i < upkeepCount.Int64(); i++ {

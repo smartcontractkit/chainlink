@@ -24,21 +24,12 @@ func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 		if err != nil {
 			log.Fatal("Registry failed: ", err)
 		}
-
-		state, err := keeperRegistry12.GetState(&bind.CallOpts{
-			Pending: false,
-			From:    k.fromAddr,
-			Context: ctx,
-		})
-		if err != nil {
-			log.Fatal(keeperRegistry12.Address().Hex(), ": failed to get state - ", err)
-		}
+		activeUpkeepIds := k.getActiveUpkeepIds(ctx, keeperRegistry12)
 
 		log.Println("Canceling upkeeps...")
-		if err = k.cancelAndWithdrawUpkeeps(ctx, state.State.NumUpkeeps, keeperRegistry12); err != nil {
+		if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, keeperRegistry12); err != nil {
 			log.Fatal("Failed to cancel upkeeps: ", err)
 		}
-		log.Println("Upkeeps successfully canceled")
 	} else {
 		keeperRegistry11, err := registry11.NewKeeperRegistry(
 			registryAddr,
@@ -54,9 +45,9 @@ func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 		}
 
 		log.Println("Canceling upkeeps...")
-		if err := k.cancelAndWithdrawUpkeeps(ctx, upkeepCount, keeperRegistry11); err != nil {
+		if err = k.cancelAndWithdrawUpkeeps(ctx, upkeepCount, keeperRegistry11); err != nil {
 			log.Fatal("Failed to cancel upkeeps: ", err)
 		}
-		log.Println("Upkeeps successfully canceled")
 	}
+	log.Println("Upkeeps successfully canceled")
 }
