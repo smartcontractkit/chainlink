@@ -35,7 +35,6 @@ func validate(s interface{}) (err error) {
 	v := reflect.ValueOf(s)
 	if t.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			//TODO error if required? https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
 			return
 		}
 		t = t.Elem()
@@ -46,7 +45,6 @@ func validate(s interface{}) (err error) {
 		reflect.Func, reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8, reflect.Interface,
 		reflect.Invalid, reflect.Ptr, reflect.String, reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Uint8, reflect.Uintptr, reflect.UnsafePointer:
-		//TODO additional field validation? e.g. struct tags? https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
 		return
 	case reflect.Struct:
 		for i := 0; i < t.NumField(); i++ {
