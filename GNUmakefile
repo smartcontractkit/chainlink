@@ -118,6 +118,10 @@ test_perf: ## Run core node performance tests.
 test_chaos: # run core node chaos tests.
 	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
 
+.PHONY: test_benchmark_keeper
+test_benchmark_keeper:
+	go test -count=1 -v -timeout 10m -run ^TestKeeperBenchmark  ./integration-tests/benchmark
+
 .PHONY: config-docs
 config-docs: # Generate core node configuration documentation
 	go run ./internal/config/docs/main.go > ./docs/CONFIG.md
