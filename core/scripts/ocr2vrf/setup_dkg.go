@@ -10,11 +10,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/urfave/cli"
 )
 
 func setupDKGNodes(e helpers.Environment) {
@@ -28,7 +29,7 @@ func setupDKGNodes(e helpers.Environment) {
 	passwordFile := cmd.String("password", "../../../tools/secrets/password.txt", "password file")
 	databasePrefix := cmd.String("database-prefix", "postgres://postgres:postgres@localhost:5432/dkg-test", "database prefix")
 	databaseSuffixes := cmd.String("database-suffixes", "sslmode=disable", "database parameters to be added")
-	nodeCount := cmd.Int("node-cout", 5, "number of nodes")
+	nodeCount := cmd.Int("node-cout", 6, "number of nodes")
 	fundingAmount := cmd.Int64("funding-amount", 10000000000000000, "amount to fund nodes") // .1 ETH
 	helpers.ParseArgs(cmd, os.Args[2:])
 
@@ -36,6 +37,9 @@ func setupDKGNodes(e helpers.Environment) {
 		fmt.Println("Node count too low for DKG job.")
 		os.Exit(1)
 	}
+
+	// Configure environment variables.
+	configureEnvironmentVariables()
 
 	//Deploy DKG contract.
 	// uncomment for faster txs
@@ -66,7 +70,7 @@ func setupDKGNodes(e helpers.Environment) {
 		if len(peerIDs) != 0 {
 			bootstrapperPeerID = peerIDs[0]
 		}
-		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "is first node")
+		flagSet.String("bootstrapperPeerID", bootstrapperPeerID, "peerID of first node")
 
 		// Create context from flags.
 		context := cli.NewContext(app, flagSet, nil)
@@ -96,13 +100,13 @@ func setupDKGNodes(e helpers.Environment) {
 		"go run . dkg-set-config --dkg-address %s -key-id %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -dkg-encryption-pub-keys %s -dkg-signing-pub-keys %s -schedule 1,1,1,1,1",
 		dkgAddress,
 		*keyID,
-		strings.Join(onChainPublicKeys, ","),
-		strings.Join(offChainPublicKeys, ","),
-		strings.Join(configPublicKeys, ","),
-		strings.Join(peerIDs, ","),
-		strings.Join(transmitters, ","),
-		strings.Join(dkgEncrypters, ","),
-		strings.Join(dkgSigners, ","),
+		strings.Join(onChainPublicKeys[1:], ","),
+		strings.Join(offChainPublicKeys[1:], ","),
+		strings.Join(configPublicKeys[1:], ","),
+		strings.Join(peerIDs[1:], ","),
+		strings.Join(transmitters[1:], ","),
+		strings.Join(dkgEncrypters[1:], ","),
+		strings.Join(dkgSigners[1:], ","),
 	)
 
 	fmt.Println(command)
@@ -117,7 +121,7 @@ func fundNodes(e helpers.Environment, transmitters []string, fundingAmount int64
 	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
 	helpers.PanicErr(err)
 
-	for i := 0; i < len(transmitters); i++ {
+	for i := 1; i < len(transmitters); i++ {
 		tx := types.NewTransaction(
 			nonce+uint64(i),
 			common.HexToAddress(transmitters[i]),
@@ -140,6 +144,11 @@ func setupDKGNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.Setup
 	helpers.PanicErr(err)
 
 	return payload
+}
+
+func configureEnvironmentVariables() {
+	os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true")
+	os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true")
 }
 
 func resetDatbase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
