@@ -37,6 +37,9 @@ func setupDKGNodes(e helpers.Environment) {
 		os.Exit(1)
 	}
 
+	// Set environment variables needed to set up DKG jobs.
+	configureEnvironmentVariables()
+
 	//Deploy DKG contract.
 	// uncomment for faster txs
 	// e.Owner.GasPrice = e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
@@ -140,6 +143,10 @@ func setupDKGNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.Setup
 	helpers.PanicErr(err)
 
 	return payload
+}
+
+func configureEnvironmentVariables() {
+	os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true")
 }
 
 func resetDatbase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
