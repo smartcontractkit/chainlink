@@ -12,7 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry11 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -46,7 +47,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 }
 
 func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
-	var registry *keeper.KeeperRegistry
+	var registry *registry11.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
 	if k.cfg.RegistryAddress != "" {
@@ -114,8 +115,8 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	return registryAddr
 }
 
-func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
-	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
+func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
+	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry11.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -137,9 +138,9 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.Ke
 }
 
 // GetRegistry is used to attach to an existing registry
-func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
+func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
 	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
-	registryInstance, err := keeper.NewKeeperRegistry(
+	registryInstance, err := registry11.NewKeeperRegistry(
 		registryAddr,
 		k.client,
 	)
@@ -168,8 +169,64 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 	return registryAddr, registryInstance
 }
 
+// getRegistry2 attaches to an existing 1.2 registry and possibly updates registry config
+func (k *Keeper) getRegistry2(ctx context.Context) (common.Address, *registry12.KeeperRegistry) {
+	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
+	keeperRegistry12, err := registry12.NewKeeperRegistry(
+		registryAddr,
+		k.client,
+	)
+	if err != nil {
+		log.Fatal("Registry failed: ", err)
+	}
+	log.Println("KeeperRegistry at:", k.cfg.RegistryAddress)
+	if k.cfg.RegistryConfigUpdate {
+		transaction, err := keeperRegistry12.SetConfig(k.buildTxOpts(ctx), *k.getConfigForRegistry12())
+		if err != nil {
+			log.Fatal("Registry config update: ", err)
+		}
+		k.waitTx(ctx, transaction)
+		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
+	} else {
+		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
+	}
+	return registryAddr, keeperRegistry12
+}
+
+// getRegistry1 attaches to an existing 1.1 registry and possibly updates registry config
+func (k *Keeper) getRegistry1(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
+	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
+	keeperRegistry11, err := registry11.NewKeeperRegistry(
+		registryAddr,
+		k.client,
+	)
+	if err != nil {
+		log.Fatal("Registry failed: ", err)
+	}
+	log.Println("KeeperRegistry at:", k.cfg.RegistryAddress)
+	if k.cfg.RegistryConfigUpdate {
+		transaction, err := keeperRegistry11.SetConfig(k.buildTxOpts(ctx),
+			k.cfg.PaymentPremiumPBB,
+			k.cfg.FlatFeeMicroLink,
+			big.NewInt(k.cfg.BlockCountPerTurn),
+			k.cfg.CheckGasLimit,
+			big.NewInt(k.cfg.StalenessSeconds),
+			k.cfg.GasCeilingMultiplier,
+			big.NewInt(k.cfg.FallbackGasPrice),
+			big.NewInt(k.cfg.FallbackLinkPrice))
+		if err != nil {
+			log.Fatal("Registry config update: ", err)
+		}
+		k.waitTx(ctx, transaction)
+		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
+	} else {
+		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
+	}
+	return registryAddr, keeperRegistry11
+}
+
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
-func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistry, existingCount int64) {
+func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *registry11.KeeperRegistry, existingCount int64) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
@@ -255,4 +312,22 @@ func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registry
 		return err
 	}
 	return nil
+}
+
+// getConfigForRegistry12 returns a config object for registry 1.2
+func (k *Keeper) getConfigForRegistry12() *registry12.Config {
+	return &registry12.Config{
+		PaymentPremiumPPB:    k.cfg.PaymentPremiumPBB,
+		FlatFeeMicroLink:     k.cfg.FlatFeeMicroLink,
+		BlockCountPerTurn:    big.NewInt(k.cfg.BlockCountPerTurn),
+		CheckGasLimit:        k.cfg.CheckGasLimit,
+		StalenessSeconds:     big.NewInt(k.cfg.StalenessSeconds),
+		GasCeilingMultiplier: k.cfg.GasCeilingMultiplier,
+		MinUpkeepSpend:       big.NewInt(k.cfg.MinUpkeepSpend),
+		MaxPerformGas:        k.cfg.MaxPerformGas,
+		FallbackGasPrice:     big.NewInt(k.cfg.FallbackGasPrice),
+		FallbackLinkPrice:    big.NewInt(k.cfg.FallbackLinkPrice),
+		Transcoder:           common.HexToAddress(k.cfg.Transcoder),
+		Registrar:            common.HexToAddress(k.cfg.Registrar),
+	}
 }

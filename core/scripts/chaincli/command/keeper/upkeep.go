@@ -4,6 +4,7 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -11,6 +12,8 @@ import (
 )
 
 // upkeepEventsCmd represents the command to run the upkeep events counter command
+// In order to use this command, deploy, register, and fund the UpkeepCounter contract and run this command after it
+// emits events on chain.
 var upkeepEventsCmd = &cobra.Command{
 	Use:   "upkeep-events",
 	Short: "Print upkeep perform events(stdout and csv file)",
@@ -36,9 +39,13 @@ var upkeepHistoryCmd = &cobra.Command{
 	Short: "Print checkUpkeep history",
 	Long:  `Print checkUpkeep status and keeper responsibility for a given upkeep in a set block range`,
 	Run: func(cmd *cobra.Command, args []string) {
-		upkeepId, err := cmd.Flags().GetInt64("upkeep-id")
+		upkeepIdStr, err := cmd.Flags().GetString("upkeep-id")
 		if err != nil {
 			log.Fatal("failed to get 'upkeep-id' flag: ", err)
+		}
+		upkeepId, ok := math.ParseBig256(upkeepIdStr)
+		if !ok {
+			log.Fatal("failed to parse upkeep-id")
 		}
 
 		fromBlock, err := cmd.Flags().GetUint64("from")
@@ -64,7 +71,7 @@ var upkeepHistoryCmd = &cobra.Command{
 }
 
 func init() {
-	upkeepHistoryCmd.Flags().Int64("upkeep-id", 0, "upkeep ID")
+	upkeepHistoryCmd.Flags().String("upkeep-id", "", "upkeep ID")
 	upkeepHistoryCmd.Flags().Uint64("from", 0, "from block")
 	upkeepHistoryCmd.Flags().Uint64("to", 0, "to block")
 	upkeepHistoryCmd.Flags().Uint64("gas-price", 0, "gas price to use")
