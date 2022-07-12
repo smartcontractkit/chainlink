@@ -29,7 +29,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 	}
 	// If empty filename is provided, the password will be empty and err will be nil.
 	passwordFile := c.String("password")
-	password, err := passwordFromFile(passwordFile)
+	password, err := PasswordFromFile(passwordFile)
 	if err != nil {
 		return errors.Wrap(err, "error reading password from file")
 	}
