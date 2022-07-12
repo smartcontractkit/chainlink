@@ -19,12 +19,12 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 	}{
 		{"thispasswordislongenough", "", []error{}},
 		{"exactlyrightlen1", "", []error{}},
-		{"notlongenough", "", []error{errors.New("Password is 13 characters long")}},
+		{"notlongenough", "", []error{errors.New("password is 13 characters long")}},
 		{"whitespace in password is ok", "", []error{}},
 		{"\t leading whitespace not ok", "", []error{utils.ErrWhitespace}},
 		{"trailing whitespace not ok\n", "", []error{utils.ErrWhitespace}},
-		{"contains bad string", "bad", []error{errors.New("Password may not contain: \"bad\"")}},
-		{"contains bAd string 2", "bad", []error{errors.New("Password may not contain: \"bad\"")}},
+		{"contains bad string", "bad", []error{errors.New("password may not contain: \"bad\"")}},
+		{"contains bAd string 2", "bad", []error{errors.New("password may not contain: \"bad\"")}},
 	}
 
 	for _, test := range tests {
