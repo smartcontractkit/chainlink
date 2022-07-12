@@ -59,7 +59,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220622011836-190aa7f5b481
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220712172118-220bff5a7847
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -345,5 +345,3 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
-
-replace github.com/smartcontractkit/ocr2vrf v0.0.0-20220622011836-190aa7f5b481 => ../ocr2vrf
