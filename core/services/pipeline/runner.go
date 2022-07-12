@@ -244,6 +244,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config
+			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
+			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
@@ -251,10 +253,12 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).chainSet = r.chainSet
 			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
+			task.(*EstimateGasLimitTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).chainSet = r.chainSet
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
+			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
 		default:
 		}
 	}

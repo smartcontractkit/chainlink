@@ -33,8 +33,10 @@ type ETHCallTask struct {
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	chainSet evm.ChainSet
-	config   Config
+	specGasLimit *uint32
+	chainSet     evm.ChainSet
+	config       Config
+	jobType      string
 }
 
 var _ Task = (*ETHCallTask)(nil)
@@ -84,11 +86,22 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: errors.Wrapf(ErrBadInput, "data param must not be empty")}, runInfo
 	}
 
+	chain, err := getChainByString(t.chainSet, string(chainID))
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+	var selectedGas uint64
+	if gas > 0 {
+		selectedGas = uint64(gas)
+	} else {
+		selectedGas = SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
+	}
+
 	call := ethereum.CallMsg{
 		To:        (*common.Address)(&contractAddr),
 		From:      (common.Address)(from),
 		Data:      []byte(data),
-		Gas:       uint64(gas),
+		Gas:       selectedGas,
 		GasPrice:  gasPrice.BigInt(),
 		GasTipCap: gasTipCap.BigInt(),
 		GasFeeCap: gasFeeCap.BigInt(),
@@ -98,12 +111,6 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		With("gasPrice", call.GasPrice).
 		With("gasTipCap", call.GasTipCap).
 		With("gasFeeCap", call.GasFeeCap)
-
-	chain, err := getChainByString(t.chainSet, string(chainID))
-	if err != nil {
-		lggr.Errorf("Invalid chain ID %s", chainID)
-		return Result{Error: err}, runInfo
-	}
 
 	start := time.Now()
 	resp, err := chain.Client().CallContract(ctx, call, nil)

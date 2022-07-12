@@ -583,15 +583,19 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 	if input.OCRJobGasLimit != nil {
 		cfg.OCRJobGasLimit = null.IntFrom(int64(*input.OCRJobGasLimit))
 	}
+
 	if input.DRJobGasLimit != nil {
 		cfg.DRJobGasLimit = null.IntFrom(int64(*input.DRJobGasLimit))
 	}
+
 	if input.VRFJobGasLimit != nil {
 		cfg.VRFJobGasLimit = null.IntFrom(int64(*input.VRFJobGasLimit))
 	}
+
 	if input.FMJobGasLimit != nil {
 		cfg.FMJobGasLimit = null.IntFrom(int64(*input.FMJobGasLimit))
 	}
+
 	if input.KeeperJobGasLimit != nil {
 		cfg.KeeperJobGasLimit = null.IntFrom(int64(*input.KeeperJobGasLimit))
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -26,6 +27,8 @@ import (
 )
 
 func TestETHCallTask(t *testing.T) {
+	const gasLimit uint64 = 500_000
+
 	tests := []struct {
 		name                  string
 		contract              string
@@ -52,7 +55,7 @@ func TestETHCallTask(t *testing.T) {
 			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: gasLimit, Data: []byte("foo bar")}, (*big.Int)(nil)).
 					Return([]byte("baz quux"), nil)
 			},
 			[]byte("baz quux"), nil, "",
@@ -71,7 +74,7 @@ func TestETHCallTask(t *testing.T) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				fromAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, From: fromAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: gasLimit, From: fromAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
 					Return([]byte("baz quux"), nil)
 			},
 			[]byte("baz quux"), nil, "",
@@ -178,6 +181,7 @@ func TestETHCallTask(t *testing.T) {
 			test.setupClientMocks(ethClient, config)
 
 			cfg := configtest.NewTestGeneralConfig(t)
+			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(int64(gasLimit))
 
 			keyStore := new(keystoremocks.Eth)
 			keyStore.Test(t)

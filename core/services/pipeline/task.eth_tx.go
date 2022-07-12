@@ -41,6 +41,7 @@ type ETHTxTask struct {
 	specGasLimit *uint32
 	keyStore     ETHKeyStore
 	chainSet     evm.ChainSet
+	jobType      string
 }
 
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
@@ -73,10 +74,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
-	maximumGasLimit := chain.Config().EvmGasLimitDefault()
-	if t.specGasLimit != nil {
-		maximumGasLimit = uint64(*t.specGasLimit)
-	}
+	maximumGasLimit := SelectGasLimit(cfg, t.jobType, t.specGasLimit)
 
 	var (
 		fromAddrs             AddressSliceParam

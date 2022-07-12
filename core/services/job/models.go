@@ -28,16 +28,16 @@ import (
 )
 
 const (
-	Cron               Type = "cron"
-	DirectRequest      Type = "directrequest"
-	FluxMonitor        Type = "fluxmonitor"
-	OffchainReporting  Type = "offchainreporting"
-	OffchainReporting2 Type = "offchainreporting2"
-	Keeper             Type = "keeper"
-	VRF                Type = "vrf"
-	BlockhashStore     Type = "blockhashstore"
-	Webhook            Type = "webhook"
-	Bootstrap          Type = "bootstrap"
+	Cron               Type = (Type)(pipeline.CronJobType)
+	DirectRequest      Type = (Type)(pipeline.DirectRequestJobType)
+	FluxMonitor        Type = (Type)(pipeline.FluxMonitorJobType)
+	OffchainReporting  Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2 Type = (Type)(pipeline.OffchainReporting2JobType)
+	Keeper             Type = (Type)(pipeline.KeeperJobType)
+	VRF                Type = (Type)(pipeline.VRFJobType)
+	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
+	Webhook            Type = (Type)(pipeline.WebhookJobType)
+	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
 )
 
 //revive:disable:redefines-builtin-id
