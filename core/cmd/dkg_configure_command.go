@@ -86,13 +86,13 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	rootCtx, _ := context.WithCancel(context.Background())
 
 	if err = ldb.Open(rootCtx); err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "opening db"))
+		return nil, errors.Wrap(err, "opening db")
 	}
 	defer lggr.ErrorIfClosing(ldb, "db")
 
 	app, err := cli.AppFactory.NewApplication(cli.Config, ldb.DB())
 	if err != nil {
-		return nil, cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return nil, errors.Wrap(err, "fatal error instantiating application")
 	}
 
 	// Initialize keystore and generate keys.
@@ -125,7 +125,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 		}
 	}
 	if ocr2 == nil {
-		return nil, cli.errorOut(errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
+		return nil, errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found")
 	}
 	offChainPublicKey := ocr2.OffchainPublicKey()
 	configPublicKey := ocr2.ConfigEncryptionPublicKey()

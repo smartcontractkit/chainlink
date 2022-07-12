@@ -143,7 +143,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	var fileErr error
 	vrfPasswordFile := c.String("vrfpassword")
 	if len(vrfPasswordFile) != 0 {
-		vrfpwd, fileErr = passwordFromFile(vrfPasswordFile)
+		vrfpwd, fileErr = PasswordFromFile(vrfPasswordFile)
 		if fileErr != nil {
 			return errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
@@ -336,7 +336,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	return nil
 }
 
-func passwordFromFile(pwdFile string) (string, error) {
+func PasswordFromFile(pwdFile string) (string, error) {
 	if len(pwdFile) == 0 {
 		return "", nil
 	}
@@ -386,7 +386,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, serr)
 		}
 	}()
-	pwd, err := passwordFromFile(c.String("password"))
+	pwd, err := PasswordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
