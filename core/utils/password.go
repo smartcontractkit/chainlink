@@ -34,7 +34,7 @@ Must not comprise:
 
 Faults:
 `, MinRequiredLen)
-	ErrWhitespace = errors.New("Password contains a leading or trailing whitespace")
+	ErrWhitespace = errors.New("password contains a leading or trailing whitespace")
 )
 
 func VerifyPasswordComplexity(password string, disallowedStrings ...string) (merr error) {
@@ -46,12 +46,12 @@ func VerifyPasswordComplexity(password string, disallowedStrings ...string) (mer
 	}
 
 	if len(password) < MinRequiredLen {
-		stringErrs = append(stringErrs, fmt.Sprintf("Password is %d characters long", len(password)))
+		stringErrs = append(stringErrs, fmt.Sprintf("password is %d characters long", len(password)))
 	}
 
 	for _, s := range disallowedStrings {
 		if strings.Contains(strings.ToLower(password), strings.ToLower(s)) {
-			stringErrs = append(stringErrs, fmt.Sprintf("Password may not contain: %q", s))
+			stringErrs = append(stringErrs, fmt.Sprintf("password may not contain: %q", s))
 		}
 	}
 
