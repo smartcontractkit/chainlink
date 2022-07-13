@@ -33,6 +33,7 @@ func Test_Eth_Errors(t *testing.T) {
 
 		tests := []errorCase{
 			{"nonce too low", true, "Geth"},
+			{"Nonce too low", true, "Besu"},
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
 			{"transaction rejected: nonce too low", true, "Arbitrum"},
 			{"invalid transaction nonce", true, "Arbitrum"},
@@ -72,6 +73,7 @@ func Test_Eth_Errors(t *testing.T) {
 
 		tests := []errorCase{
 			{"replacement transaction underpriced", true, "geth"},
+			{"Replacement transaction underpriced", true, "Besu"},
 			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"gas price too low", false, "Arbitrum"},
@@ -95,6 +97,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"already known", true, "Geth"},
 			// This one is present in the light client (?!)
 			{"Known transaction (7f65)", true, "Geth"},
+			{"Known transaction", true, "Besu"},
 			{"Transaction with the same hash was already imported.", true, "Parity"},
 			{"call failed: AlreadyKnown", true, "Nethermind"},
 			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
@@ -113,6 +116,7 @@ func Test_Eth_Errors(t *testing.T) {
 		tests := []errorCase{
 			{"transaction underpriced", true, "geth"},
 			{"replacement transaction underpriced", false, "geth"},
+			{"Gas price below configured minimum gas price", true, "Besu"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true, "Parity"},
 			{"gas price too low", true, "Arbitrum"},
@@ -122,9 +126,9 @@ func Test_Eth_Errors(t *testing.T) {
 
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
-			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect)
+			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect, "expected %q to match %s for client %s", err, "IsTerminallyUnderpriced", test.network)
 			err = newSendErrorWrapped(test.message)
-			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect)
+			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect, "expected %q to match %s for client %s", err, "IsTerminallyUnderpriced", test.network)
 		}
 	})
 
@@ -147,6 +151,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for transfer", true, "Geth"},
 			{"insufficient funds for gas * price + value", true, "Geth"},
 			{"insufficient balance for transfer", true, "Geth"},
+			{"Upfront cost exceeds account balance", true, "Besu"},
 			{"Insufficient balance for transaction. Balance=100.25, Cost=200.50", true, "Parity"},
 			{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.", true, "Parity"},
 			{"transaction rejected: insufficient funds for gas * price + value", true, "Arbitrum"},
@@ -167,6 +172,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "geth"},
 			{"tx fee (1.10 FTM) exceeds the configured cap (1.00 FTM)", true, "geth"},
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
+			{"Transaction fee cap exceeded", true, "Besu"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -242,6 +248,10 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"gas uint64 overflow", true, "Geth"},
 		{"intrinsic gas too low", true, "Geth"},
 		{"nonce too high", true, "Geth"},
+
+		{"Intrinsic gas exceeds gas limit", true, "Besu"},
+		{"Transaction gas limit exceeds block gas limit", true, "Besu"},
+		{"Invalid signature", true, "Besu"},
 
 		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false, "Parity"},
 		{"Supplied gas is beyond limit.", true, "Parity"},
