@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ethdeploy "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -41,9 +39,21 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				ethdeploy.New(&ethdeploy.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
+					WsURLs:      networks.MetisStardust.URLs,
 				}),
 				chainlink.New(0, map[string]interface{}{
 					"env": networks.MetisStardust.ChainlinkValuesMap(),
+				}),
+			),
+			Entry("VRFv2 suite on Sepolia Testnet @sepolia",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				ethdeploy.New(&ethdeploy.Props{
+					NetworkName: networks.SepoliaTestnet.Name,
+					Simulated:   networks.SepoliaTestnet.Simulated,
+					WsURLs:      networks.SepoliaTestnet.URLs,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.SepoliaTestnet.ChainlinkValuesMap(),
 				}),
 			),
 		}
@@ -69,8 +79,6 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	) {
 		By("Deploying the environment")
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrfv2"}).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart)
 		for _, chainlinkChart := range chainlinkCharts {
 			testEnvironment.AddHelm(chainlinkChart)
@@ -98,7 +106,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		consumer, err := contractDeployer.DeployVRFConsumerV2(linkToken.Address(), coordinator.Address())
 		Expect(err).ShouldNot(HaveOccurred())
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(1))
 		Expect(err).ShouldNot(HaveOccurred())
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred())

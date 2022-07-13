@@ -46,9 +46,7 @@ type KeeperConsumerContracts int32
 const (
 	BasicCounter KeeperConsumerContracts = iota
 	PerformanceCounter
-)
 
-const (
 	defaultUpkeepGasLimit  = uint32(2500000)
 	defaultLinkFunds       = int64(9e18)
 	defaultUpkeepsToDeploy = 10

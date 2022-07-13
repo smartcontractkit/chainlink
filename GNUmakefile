@@ -108,6 +108,14 @@ test_smoke_simulated: ## Run integration smoke tests, only using simulated netwo
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
 
+.PHONY: test_soak_ocr
+test_soak_ocr: ## Run the OCR soak test
+	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
+
+.PHONY: test_soak_keeper
+test_soak_keeper: ## Run the OCR soak test
+	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
+
 .PHONY: test_perf
 test_perf: ## Run core node performance tests.
 	ginkgo -v -r --junit-report=tests-perf-report.xml \

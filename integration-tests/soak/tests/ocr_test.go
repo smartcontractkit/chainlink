@@ -38,6 +38,7 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: soakNetwork.Name,
 					Simulated:   soakNetwork.Simulated,
+					WsURLs:      soakNetwork.URLs,
 				})).
 				AddHelm(chainlink.New(0, nil)).
 				AddHelm(chainlink.New(1, nil)).
@@ -51,16 +52,16 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 		})
 
 		By("Setting up Soak Test", func() {
-			chainClient, err := blockchain.NewMetisMultiNodeClientSetup(soakNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 				BlockchainClient:     chainClient,
-				TestDuration:         time.Minute * 5,
-				NumberOfContracts:    4,
-				ChainlinkNodeFunding: big.NewFloat(.1),
-				ExpectedRoundTime:    time.Minute,
-				RoundTimeout:         time.Minute * 10,
-				TimeBetweenRounds:    time.Minute,
+				TestDuration:         time.Hour * 48,
+				NumberOfContracts:    2,
+				ChainlinkNodeFunding: big.NewFloat(10),
+				ExpectedRoundTime:    time.Minute * 15,
+				RoundTimeout:         time.Minute * 5000,
+				TimeBetweenRounds:    time.Minute * 15,
 				StartingAdapterValue: 5,
 			})
 			ocrSoakTest.Setup(testEnvironment)

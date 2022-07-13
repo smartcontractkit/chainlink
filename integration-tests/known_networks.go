@@ -17,7 +17,7 @@ var (
 
 	// MetisStardust holds default values for the Metis Stardust testnet
 	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
-		Name:                      "Metis Stardust Network",
+		Name:                      "Metis Stardust",
 		ChainID:                   588,
 		URLs:                      []string{"wss://stardust-ws.metis.io/"},
 		Simulated:                 false,
@@ -26,5 +26,18 @@ var (
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+	}
+
+	// SepoliaTestnet holds default values for the Sepolia testnet
+	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Sepolia Testnet",
+		ChainID:                   11155111,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000000,
+		Timeout:                   time.Minute * 30,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
 	}
 )
