@@ -198,7 +198,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 		ctx, cancel := pg.DefaultQueryCtx()
 		defer cancel()
-		pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
+		err := pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
 			_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 			return err
 		})
@@ -242,7 +242,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
-	pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
+	err = pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
 		_, err = o.db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 		return err
 	})

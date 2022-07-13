@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -72,11 +73,17 @@ func (errBlockhashNotInStore) Error() string {
 	return "Blockhash not in store"
 }
 
+// keyConfigUpdater can update key-specific max gas prices for a given chain.
+type keyConfigUpdater interface {
+	UpdateConfig(id *big.Int, updaters ...evm.ChainConfigUpdater) error
+}
+
 func newListenerV2(
 	cfg Config,
 	l logger.Logger,
 	ethClient evmclient.Client,
 	chainID *big.Int,
+	keyUpdater keyConfigUpdater,
 	logBroadcaster log.Broadcaster,
 	q pg.Q,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
@@ -115,6 +122,7 @@ func newListenerV2(
 		wg:                 &sync.WaitGroup{},
 		aggregator:         aggregator,
 		deduper:            deduper,
+		keyUpdater:         keyUpdater,
 	}
 }
 
@@ -149,6 +157,9 @@ type listenerV2 struct {
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
+
+	// to update key-specific max gas prices if job spec field is set.
+	keyUpdater keyConfigUpdater
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
@@ -560,7 +571,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+		fromAddresses := lsn.fromAddresses()
+		err = setMaxGasPriceGWei(fromAddresses, lsn.job.VRFSpec.MaxGasPriceGWei, lsn.keyUpdater, lsn.chainID)
+		if err != nil {
+			l.Warnw("Couldn't set max gas price gwei on configured from addresses, processing anyway",
+				"err", err, "fromAddresses", fromAddresses)
+		}
+
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 		if err != nil {
 			l.Errorw("Couldn't get next from address", "err", err)
 			continue
@@ -703,7 +721,14 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+		fromAddresses := lsn.fromAddresses()
+		err = setMaxGasPriceGWei(fromAddresses, lsn.job.VRFSpec.MaxGasPriceGWei, lsn.keyUpdater, lsn.chainID)
+		if err != nil {
+			l.Warnw("Couldn't set max gas price gwei on configured from addresses, processing anyway",
+				"err", err, "fromAddresses", fromAddresses)
+		}
+
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 		if err != nil {
 			l.Errorw("Couldn't get next from address", "err", err)
 			continue
@@ -764,9 +789,10 @@ func (lsn *listenerV2) processRequestsPerSub(
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					GasLimit:       p.gasLimit,
 					Meta: &txmgr.EthTxMeta{
-						RequestID: &requestID,
-						MaxLink:   &maxLinkString,
-						SubID:     &p.req.req.SubId,
+						RequestID:     &requestID,
+						MaxLink:       &maxLinkString,
+						SubID:         &p.req.req.SubId,
+						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgr.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{

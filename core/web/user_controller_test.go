@@ -43,6 +43,20 @@ func TestUserController_UpdatePassword(t *testing.T) {
 			wantErrMessage: "old password does not match",
 		},
 		{
+			name:           "Insufficient length of new password",
+			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, "foo", cltest.Password),
+			wantStatusCode: http.StatusUnprocessableEntity,
+			wantErrCount:   1,
+			wantErrMessage: "password does not meet the requirements: must be longer than 16 characters",
+		},
+		{
+			name:           "New password includes api email",
+			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, fmt.Sprintf("%slonglonglonglong", cltest.APIEmailAdmin), cltest.Password),
+			wantStatusCode: http.StatusUnprocessableEntity,
+			wantErrCount:   1,
+			wantErrMessage: "password does not meet the requirements: password may not contain: \"apiuser@chainlink.test\"",
+		},
+		{
 			name:           "Success",
 			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, cltest.Password, cltest.Password),
 			wantStatusCode: http.StatusOK,

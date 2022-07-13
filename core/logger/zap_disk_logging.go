@@ -97,7 +97,7 @@ func (cfg zapDiskLoggerConfig) newLogger(zcfg zap.Config, cores ...zapcore.Core)
 		pollDiskSpaceDone: make(chan struct{}),
 		zapLogger: zapLogger{
 			level:         zcfg.Level,
-			SugaredLogger: zap.New(core, zap.ErrorOutput(errWriter)).Sugar(),
+			SugaredLogger: zap.New(core, zap.ErrorOutput(errWriter), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
 		},
 		diskLogLevel: diskLogLevel,
 	}

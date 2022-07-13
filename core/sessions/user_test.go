@@ -27,7 +27,7 @@ func TestNewUser(t *testing.T) {
 		{"bademail", cltest.Password, sessions.UserRoleAdmin, true},
 		{"bad@", cltest.Password, sessions.UserRoleAdmin, true},
 		{"@email", cltest.Password, sessions.UserRoleAdmin, true},
-		{"good@email.com", cltest.Password, sessions.UserRoleEditMinimal, false},
+		{"good@email.com", cltest.Password, sessions.UserRoleRun, false},
 		{"good@email-pass-too-long.com", cltest.Password + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", sessions.UserRoleAdmin, true},
 	}
 

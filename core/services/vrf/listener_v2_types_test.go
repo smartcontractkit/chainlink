@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
@@ -20,6 +22,9 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 			req: pendingRequest{
 				req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
 					RequestId: big.NewInt(1),
+					Raw: types.Log{
+						TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+					},
 				},
 				lb: &mocks.Broadcast{},
 			},
@@ -36,6 +41,9 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 		req: pendingRequest{
 			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
 				RequestId: big.NewInt(1),
+				Raw: types.Log{
+					TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+				},
 			},
 			lb: &mocks.Broadcast{},
 		},

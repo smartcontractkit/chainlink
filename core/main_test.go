@@ -199,15 +199,17 @@ func ExampleRun_keys() {
 	//    core.test keys command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    eth      Remote commands for administering the node's Ethereum keys
-	//    p2p      Remote commands for administering the node's p2p keys
-	//    csa      Remote commands for administering the node's CSA keys
-	//    ocr      Remote commands for administering the node's legacy off chain reporting keys
-	//    ocr2     Remote commands for administering the node's off chain reporting keys
-	//    solana   Remote commands for administering the node's Solana keys
-	//    terra    Remote commands for administering the node's Terra keys
-	//    dkgsign  Remote commands for administering the node's DKGSign keys
-	//    vrf      Remote commands for administering the node's vrf keys
+	//    eth         Remote commands for administering the node's Ethereum keys
+	//    p2p         Remote commands for administering the node's p2p keys
+	//    csa         Remote commands for administering the node's CSA keys
+	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
+	//    ocr2        Remote commands for administering the node's off chain reporting keys
+	//    solana      Remote commands for administering the node's Solana keys
+	//    terra       Remote commands for administering the node's Terra keys
+	//    starknet    Remote commands for administering the node's StarkNet keys
+	//    dkgsign     Remote commands for administering the node's DKGSign keys
+	//    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
+	//    vrf         Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -353,6 +355,26 @@ func ExampleRun_keys_terra() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_keys_starknet() {
+	run("keys", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys starknet - Remote commands for administering the node's StarkNet keys
+	//
+	// USAGE:
+	//    core.test keys starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a StarkNet key
+	//    import  Import StarkNet key from keyfile
+	//    export  Export StarkNet key to keyfile
+	//    delete  Delete StarkNet key if present
+	//    list    List the StarkNet keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_keys_vrf() {
 	run("keys", "vrf", "--help")
 	// Output:
@@ -388,6 +410,26 @@ func ExampleRun_keys_dkgsign() {
 	//    export  Export DKGSign key to keyfile
 	//    delete  Delete DKGSign key if present
 	//    list    List the DKGSign keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_dkgencrypt() {
+	run("keys", "dkgencrypt", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys dkgencrypt - Remote commands for administering the node's DKGEncrypt keys
+	//
+	// USAGE:
+	//    core.test keys dkgencrypt command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a DKGEncrypt key
+	//    import  Import DKGEncrypt key from keyfile
+	//    export  Export DKGEncrypt key to keyfile
+	//    delete  Delete DKGEncrypt key if present
+	//    list    List the DKGEncrypt keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help

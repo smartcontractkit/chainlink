@@ -127,9 +127,9 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		isTerminal     bool
 		isError        bool
 	}{
-		{"correct", []string{email, "p4SsW0rD1!@#_"}, true, false},
-		{"bad pwd then correct", []string{email, "p4SsW0r", email, "p4SsW0rD1!@#_"}, true, false},
-		{"bad email then correct", []string{"", "p4SsW0rD1!@#_", email, "p4SsW0rD1!@#_"}, true, false},
+		{"correct", []string{email, cltest.Password}, true, false},
+		{"bad pwd then correct", []string{email, "p4SsW0r", email, cltest.Password}, true, false},
+		{"bad email then correct", []string{"", cltest.Password, email, cltest.Password}, true, false},
 		{"not a terminal", []string{}, false, true},
 	}
 	for _, test := range tests {
@@ -167,18 +167,19 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
-	initialUser := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&initialUser))
-
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 	// create/run with a new admin user
 	_, err := db.Exec("DELETE FROM users;")
 	require.NoError(t, err)
 
+	initialUser := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&initialUser))
+
 	mock := &cltest.MockCountingPrompter{T: t}
 	tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
 
+	// If there is an existing user, and we are in the Terminal prompt, no input prompts required
 	user, err := tai.Initialize(orm)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, mock.Count)

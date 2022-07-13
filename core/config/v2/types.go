@@ -180,7 +180,6 @@ type OCR2 struct {
 	ContractTransmitterTransmitTimeout *models.Duration
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
-	MonitoringEndpoint                 *string
 }
 
 type OCR struct {
@@ -191,9 +190,7 @@ type OCR struct {
 	DefaultTransactionQueueDepth *uint32
 	// Optional
 	KeyBundleID          *models.Sha256Hash
-	MonitoringEndpoint   *string
 	SimulateTransactions *bool
-	TraceLogging         *bool
 	TransmitterAddress   *ethkey.EIP55Address
 }
 
@@ -201,6 +198,7 @@ type P2P struct {
 	// V1 and V2
 	IncomingMessageBufferSize *int64
 	OutgoingMessageBufferSize *int64
+	TraceLogging              *bool
 
 	V1 *P2PV1
 

@@ -41,7 +41,7 @@ func (c *UserController) Index(ctx *gin.Context) {
 	jsonAPIResponse(ctx, presenters.NewUserResources(users), "users")
 }
 
-// Create creates a new API user with provided context arugments.
+// Create creates a new API user with provided context arguments.
 func (c *UserController) Create(ctx *gin.Context) {
 	type newUserRequest struct {
 		Email    string `json:"email"`
@@ -204,7 +204,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	}
 
 	if err = c.App.SessionORM().DeleteUser(email); err != nil {
-		c.App.GetLogger().Errorf("Error deleting API user", "err", err, "email", email)
+		c.App.GetLogger().Errorf("Error deleting API user", "err", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error deleting API user"))
 		return
 	}
@@ -232,6 +232,10 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
 		jsonAPIError(ctx, http.StatusConflict, errors.New("old password does not match"))
+		return
+	}
+	if err := utils.VerifyPasswordComplexity(request.NewPassword, user.Email); err != nil {
+		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
 		return
 	}
 	if err := c.updateUserPassword(ctx, &user, request.NewPassword); err != nil {

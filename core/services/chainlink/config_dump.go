@@ -12,10 +12,15 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
+	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -27,12 +32,72 @@ import (
 )
 
 func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error) {
+	var chains dbData
+	if app != nil {
+		var err error
+		if app.Chains.EVM != nil {
+			chains.EVMChains, _, err = app.Chains.EVM.Index(0, -1)
+			if err != nil {
+				return "", err
+			}
+			chains.EVMNodes = make(map[string][]evmtyp.Node)
+			for _, dbChain := range chains.EVMChains {
+				chains.EVMNodes[dbChain.ID.String()], _, err = app.Chains.EVM.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to get nodes for evm chain %v", dbChain.ID)
+				}
+			}
+		}
+
+		if app.Chains.Solana != nil {
+			chains.SolanaChains, _, err = app.Chains.Solana.Index(0, -1)
+			if err != nil {
+				return "", err
+			}
+
+			chains.SolanaNodes = make(map[string][]soldb.Node)
+			for _, dbChain := range chains.SolanaChains {
+				chains.SolanaNodes[dbChain.ID], _, err = app.Chains.Solana.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to get nodes for solana chain %s", dbChain.ID)
+				}
+			}
+		}
+
+		if app.Chains.Terra != nil {
+			chains.TerraChains, _, err = app.Chains.Terra.Index(0, -1)
+			if err != nil {
+				return "", err
+			}
+
+			chains.TerraNodes = make(map[string][]terdb.Node)
+			for _, dbChain := range chains.TerraChains {
+				chains.TerraNodes[dbChain.ID], _, err = app.Chains.Terra.GetNodesForChain(ctx, dbChain.ID, 0, -1)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to get nodes for terra chain %s", dbChain.ID)
+				}
+			}
+		}
+	}
+	return configDump(chains)
+}
+
+type dbData struct {
+	EVMChains []evmtyp.DBChain
+	EVMNodes  map[string][]evmtyp.Node
+
+	SolanaChains []solana.DBChain
+	SolanaNodes  map[string][]soldb.Node
+
+	TerraChains []tertyp.DBChain
+	TerraNodes  map[string][]terdb.Node
+}
+
+func configDump(data dbData) (string, error) {
 	var c Config
 
-	if app != nil {
-		if err := c.loadChainsAndNodes(ctx, app.Chains); err != nil {
-			return "", err
-		}
+	if err := c.loadChainsAndNodes(data); err != nil {
+		return "", err
 	}
 
 	c.loadLegacyEVMEnv()
@@ -43,71 +108,41 @@ func (app *ChainlinkApplication) ConfigDump(ctx context.Context) (string, error)
 }
 
 // loadChainsAndNodes initializes chains & nodes from configurations persisted in the database.
-func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
-	if chains.EVM != nil {
-		dbChains, _, err := chains.EVM.Index(0, -1)
-		if err != nil {
-			return err
+func (c *Config) loadChainsAndNodes(dbData dbData) error {
+	for _, dbChain := range dbData.EVMChains {
+		var evmChain EVMConfig
+		if err := evmChain.setFromDB(dbChain, dbData.EVMNodes[dbChain.ID.String()]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for evm chain %v", dbChain.ID)
 		}
-		for _, dbChain := range dbChains {
-			dbNodes, _, err := chains.EVM.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get nodes for chain %v", dbChain.ID)
-			}
-			var evmChain EVMConfig
-			if err := evmChain.setFromDB(dbChain, dbNodes); err != nil {
-				return errors.Wrapf(err, "failed to convert db config for chain %v", dbChain.ID)
-			}
-			if *evmChain.Enabled {
-				// no need to persist if enabled
-				evmChain.Enabled = nil
-			}
-			c.EVM = append(c.EVM, evmChain)
+		if *evmChain.Enabled {
+			// no need to persist if enabled
+			evmChain.Enabled = nil
 		}
+		c.EVM = append(c.EVM, evmChain)
 	}
 
-	if chains.Solana != nil {
-		dbChains, _, err := chains.Solana.Index(0, -1)
-		if err != nil {
-			return err
+	for _, dbChain := range dbData.SolanaChains {
+		var solChain SolanaConfig
+		if err := solChain.setFromDB(dbChain, dbData.SolanaNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for solana chain %s", dbChain.ID)
 		}
-		for _, dbChain := range dbChains {
-			dbNodes, _, err := chains.Solana.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
-			}
-			var solChain SolanaConfig
-			if err := solChain.setFromDB(dbChain, dbNodes); err != nil {
-				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
-			}
-			if *solChain.Enabled {
-				// no need to persist if enabled
-				solChain.Enabled = nil
-			}
-			c.Solana = append(c.Solana, solChain)
+		if *solChain.Enabled {
+			// no need to persist if enabled
+			solChain.Enabled = nil
 		}
+		c.Solana = append(c.Solana, solChain)
 	}
 
-	if chains.Terra != nil {
-		dbChains, _, err := chains.Terra.Index(0, -1)
-		if err != nil {
-			return err
+	for _, dbChain := range dbData.TerraChains {
+		var terChain TerraConfig
+		if err := terChain.setFromDB(dbChain, dbData.TerraNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for terra chain %s", dbChain.ID)
 		}
-		for _, dbChain := range dbChains {
-			dbNodes, _, err := chains.Terra.GetNodesForChain(ctx, dbChain.ID, 0, -1)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get nodes for chain %s", dbChain.ID)
-			}
-			var terChain TerraConfig
-			if err := terChain.setFromDB(dbChain, dbNodes); err != nil {
-				return errors.Wrapf(err, "failed to convert db config for chain %s", dbChain.ID)
-			}
-			if *terChain.Enabled {
-				// no need to persist if enabled
-				terChain.Enabled = nil
-			}
-			c.Terra = append(c.Terra, terChain)
+		if *terChain.Enabled {
+			// no need to persist if enabled
+			terChain.Enabled = nil
 		}
+		c.Terra = append(c.Terra, terChain)
 	}
 
 	return nil
@@ -117,7 +152,10 @@ func (c *Config) loadChainsAndNodes(ctx context.Context, chains Chains) error {
 func (c *Config) loadLegacyEVMEnv() {
 	if e := envvar.NewBool("BalanceMonitorEnabled").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].BalanceMonitorEnabled = e
+			if c.EVM[i].BalanceMonitor == nil {
+				c.EVM[i].BalanceMonitor = &evmcfg.BalanceMonitor{}
+			}
+			c.EVM[i].BalanceMonitor.Enabled = e
 		}
 	}
 	if e := envvar.NewUint32("BlockBackfillDepth").ParsePtr(); e != nil {
@@ -208,6 +246,11 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].RPCDefaultBatchSize = e
 		}
 	}
+	if e := envvar.New("FlagsContractAddress", ethkey.NewEIP55Address).ParsePtr(); e != nil {
+		for i := range c.EVM {
+			c.EVM[i].FlagsContractAddress = e
+		}
+	}
 	if e := envvar.New("LinkContractAddress", ethkey.NewEIP55Address).ParsePtr(); e != nil {
 		for i := range c.EVM {
 			c.EVM[i].LinkContractAddress = e
@@ -264,170 +307,250 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewBool("EvmEIP1559DynamicFees").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].EIP1559DynamicFees = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.EIP1559DynamicFees = e
 		}
 	}
 	if e := envvar.NewUint16("EvmGasBumpPercent").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpPercent = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpPercent = e
 		}
 	}
-	if e := envvar.New("EvmGasBumpThreshold", parse.BigInt).ParsePtr(); e != nil {
+	if e := envvar.NewUint32("EvmGasBumpThreshold").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpThreshold = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpThreshold = e
 		}
 	}
 	if e := envvar.New("EvmGasBumpWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasBumpWei = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpMin = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasFeeCapDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasFeeCapDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.FeeCapDefault = utils.NewWei(*e)
 		}
 	}
-	if e := envvar.New("EvmGasLimitDefault", parse.BigInt).ParsePtr(); e != nil {
+	if e := envvar.NewUint32("EvmGasLimitDefault").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasLimitDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitDefault = e
 		}
 	}
 	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasLimitMultiplier = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitMultiplier = e
 		}
 	}
-	if e := envvar.New("EvmGasLimitTransfer", parse.BigInt).ParsePtr(); e != nil {
+	if e := envvar.NewUint32("EvmGasLimitTransfer").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasLimitTransfer = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitTransfer = e
 		}
 	}
 	if e := envvar.New("EvmGasPriceDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasPriceDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.PriceDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapDefault", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasTipCapDefault = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.TipCapDefault = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmGasTipCapMinimum", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasTipCapMinimum = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.TipCapMinimum = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMaxGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MaxGasPriceWei = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.PriceMax = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.New("EvmMinGasPriceWei", parse.BigInt).ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].MinGasPriceWei = utils.NewBig(*e)
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.PriceMin = utils.NewWei(*e)
 		}
 	}
 	if e := envvar.NewString("GasEstimatorMode").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			c.EVM[i].GasEstimatorMode = e
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.Mode = e
 		}
-	} else if e, ok := os.LookupEnv("GAS_UPDATER_ENABLED"); ok {
+	} else if e, ok := os.LookupEnv("GAS_UPDATER_ENABLED"); ok && e != "" {
 		v := "FixedPrice"
 		if b, err := strconv.ParseBool(e); err != nil && b {
 			v = "BlockHistory"
 		}
 		for i := range c.EVM {
-			c.EVM[i].GasEstimatorMode = &v
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.Mode = &v
+		}
+	}
+	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.BumpTxDepth = e
 		}
 	}
 	if e := envvar.NewUint32("BlockHistoryEstimatorBatchSize").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.BatchSize = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BatchSize = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BATCH_SIZE"); ok {
 		l, err := parse.Uint32(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.BatchSize = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BatchSize = &l
 			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.BlockDelay = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BlockDelay = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.BlockDelay = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BlockDelay = &l
 			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockHistorySize").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.BlockHistorySize = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.BlockHistorySize = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.BlockHistorySize = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.BlockHistorySize = &l
 			}
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.EIP1559FeeCapBufferBlocks = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks = e
 		}
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorTransactionPercentile").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].BlockHistoryEstimator == nil {
-				c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			c.EVM[i].BlockHistoryEstimator.TransactionPercentile = e
+			if c.EVM[i].GasEstimator.BlockHistory == nil {
+				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+			}
+			c.EVM[i].GasEstimator.BlockHistory.TransactionPercentile = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].BlockHistoryEstimator == nil {
-					c.EVM[i].BlockHistoryEstimator = &evmcfg.BlockHistoryEstimator{}
+				if c.EVM[i].GasEstimator == nil {
+					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 				}
-				c.EVM[i].BlockHistoryEstimator.TransactionPercentile = &l
+				if c.EVM[i].GasEstimator.BlockHistory == nil {
+					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
+				}
+				c.EVM[i].GasEstimator.BlockHistory.TransactionPercentile = &l
 			}
 		}
 	}
 	for i := range c.EVM {
-		if isZeroPtr(c.EVM[i].BlockHistoryEstimator) {
-			c.EVM[i].BlockHistoryEstimator = nil
-		}
-	}
-	if e := envvar.NewUint16("EvmGasBumpTxDepth").ParsePtr(); e != nil {
-		for i := range c.EVM {
-			c.EVM[i].GasBumpTxDepth = e
+		if c.EVM[i].GasEstimator != nil {
+			if isZeroPtr(c.EVM[i].GasEstimator.BlockHistory) {
+				c.EVM[i].GasEstimator.BlockHistory = nil
+			}
+			if isZeroPtr(c.EVM[i].GasEstimator) {
+				c.EVM[i].GasEstimator = nil
+			}
 		}
 	}
 	if e := envvar.NewUint32("EvmMaxInFlightTransactions").ParsePtr(); e != nil {
@@ -608,7 +731,6 @@ func (c *Config) loadLegacyCoreEnv() {
 		ContractTransmitterTransmitTimeout: envDuration("OCR2ContractTransmitterTransmitTimeout"),
 		DatabaseTimeout:                    envDuration("OCR2DatabaseTimeout"),
 		KeyBundleID:                        envvar.New("OCR2KeyBundleID", models.Sha256HashFromHex).ParsePtr(),
-		MonitoringEndpoint:                 envvar.NewString("OCR2MonitoringEndpoint").ParsePtr(),
 	}
 	if isZeroPtr(c.OCR2) {
 		c.OCR2 = nil
@@ -621,9 +743,7 @@ func (c *Config) loadLegacyCoreEnv() {
 		ContractSubscribeInterval:    envDuration("OCRContractSubscribeInterval"),
 		DefaultTransactionQueueDepth: envvar.NewUint32("OCRDefaultTransactionQueueDepth").ParsePtr(),
 		KeyBundleID:                  envvar.New("OCRKeyBundleID", models.Sha256HashFromHex).ParsePtr(),
-		MonitoringEndpoint:           envvar.NewString("OCRMonitoringEndpoint").ParsePtr(),
 		SimulateTransactions:         envvar.NewBool("OCRSimulateTransactions").ParsePtr(),
-		TraceLogging:                 envvar.NewBool("OCRTraceLogging").ParsePtr(),
 		TransmitterAddress:           envvar.New("OCRTransmitterAddress", ethkey.NewEIP55Address).ParsePtr(),
 	}
 	if isZeroPtr(c.OCR) {
@@ -633,6 +753,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.P2P = &config.P2P{
 		IncomingMessageBufferSize: first(envvar.NewInt64("OCRIncomingMessageBufferSize"), envvar.NewInt64("P2PIncomingMessageBufferSize")),
 		OutgoingMessageBufferSize: first(envvar.NewInt64("OCROutgoingMessageBufferSize"), envvar.NewInt64("P2POutgoingMessageBufferSize")),
+		TraceLogging:              envvar.NewBool("OCRTraceLogging").ParsePtr(),
 	}
 	if p := envvar.New("P2PNetworkingStack", func(s string) (ns ocrnetworking.NetworkingStack, err error) {
 		err = ns.UnmarshalText([]byte(s))

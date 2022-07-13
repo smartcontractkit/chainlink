@@ -174,11 +174,15 @@ func NewFromJobSpec(
 		return nil, err
 	}
 
+	gasLimit := cfg.EvmGasLimitDefault()
+	if jobSpec.GasLimit.Valid {
+		gasLimit = uint64(jobSpec.GasLimit.Uint32)
+	}
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
 		fluxAggregator,
 		orm,
 		keyStore,
-		cfg.EvmGasLimitDefault(),
+		gasLimit,
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress(), ethClient)
@@ -193,9 +197,6 @@ func NewFromJobSpec(
 		MinContractPayment: cfg.MinimumContractPayment(),
 		MinJobPayment:      fmSpec.MinPayment,
 	}
-
-	jobSpec.PipelineSpec.JobID = jobSpec.ID
-	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 
 	min, err := fluxAggregator.MinSubmissionValue(nil)
 	if err != nil {

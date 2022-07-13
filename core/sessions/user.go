@@ -29,10 +29,10 @@ type User struct {
 type UserRole string
 
 const (
-	UserRoleAdmin       UserRole = "admin"
-	UserRoleEdit        UserRole = "edit"
-	UserRoleEditMinimal UserRole = "edit_minimal"
-	UserRoleView        UserRole = "view"
+	UserRoleAdmin UserRole = "admin"
+	UserRoleEdit  UserRole = "edit"
+	UserRoleRun   UserRole = "run"
+	UserRoleView  UserRole = "view"
 )
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -97,8 +97,8 @@ func GetUserRole(role string) (UserRole, error) {
 	if role == string(UserRoleEdit) {
 		return UserRoleEdit, nil
 	}
-	if role == string(UserRoleEditMinimal) {
-		return UserRoleEditMinimal, nil
+	if role == string(UserRoleRun) {
+		return UserRoleRun, nil
 	}
 	if role == string(UserRoleView) {
 		return UserRoleView, nil
@@ -109,7 +109,7 @@ func GetUserRole(role string) (UserRole, error) {
 		role,
 		UserRoleAdmin,
 		UserRoleEdit,
-		UserRoleEditMinimal,
+		UserRoleRun,
 		UserRoleView,
 	)
 	return UserRole(""), errors.Errorf(errStr)

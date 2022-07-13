@@ -139,7 +139,7 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:     "role",
-									Usage:    "Permission level of new user. Options: 'admin', 'edit', 'edit_minimal', 'view'.",
+									Usage:    "Permission level of new user. Options: 'admin', 'edit', 'run', 'view'.",
 									Required: true,
 								},
 							},
@@ -161,7 +161,7 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:     "newrole",
-									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'edit_minimal', 'view'.",
+									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
 									Required: false,
 								},
 								cli.BoolFlag{
@@ -665,7 +665,9 @@ func NewApp(client *Client) *cli.App {
 
 				keysCommand("Solana", NewSolanaKeysClient(client)),
 				keysCommand("Terra", NewTerraKeysClient(client)),
+				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
+				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
 
 				{
 					Name:  "vrf",
