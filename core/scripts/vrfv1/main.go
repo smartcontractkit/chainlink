@@ -14,6 +14,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	vrfltoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_ownerless_consumer"
@@ -27,6 +28,98 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "topics":
+		randomnessRequestTopic := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic()
+		randomnessFulfilledTopic := solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic()
+		fmt.Println("RandomnessRequest:", randomnessRequestTopic.String(),
+			"RandomnessRequestFulfilled:", randomnessFulfilledTopic.String())
+	case "request-report":
+		cmd := flag.NewFlagSet("request-report", flag.ExitOnError)
+		txHashes := cmd.String("tx-hashes", "", "comma separated transaction hashes")
+		requestIDs := cmd.String("request-ids", "", "comma separated request IDs in hex")
+		bhsAddress := cmd.String("bhs-address", "", "BHS contract address")
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator address")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "tx-hashes", "bhs-address", "request-ids", "coordinator-address")
+
+		hashes := helpers.ParseHashSlice(*txHashes)
+		reqIDs := parseRequestIDs(*requestIDs)
+		bhs, err := blockhash_store.NewBlockhashStore(
+			common.HexToAddress(*bhsAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+		coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
+			common.HexToAddress(*coordinatorAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+
+		if len(hashes) != len(reqIDs) {
+			panic(fmt.Errorf("len(hashes) [%d] != len(reqIDs) [%d]", len(hashes), len(reqIDs)))
+		}
+
+		var bhsMissedBlocks []*big.Int
+		for i := range hashes {
+			receipt, err := e.Ec.TransactionReceipt(context.Background(), hashes[i])
+			helpers.PanicErr(err)
+
+			reqID := reqIDs[i]
+			callbacks, err := coordinator.Callbacks(nil, reqID)
+			helpers.PanicErr(err)
+			fulfilled := utils.IsEmpty(callbacks.SeedAndBlockNum[:])
+
+			_, err = bhs.GetBlockhash(nil, receipt.BlockNumber)
+			if err != nil {
+				fmt.Println("Blockhash for block", receipt.BlockNumber, "not stored (tx", hashes[i].String(),
+					", request ID", hex.EncodeToString(reqID[:]), ", fulfilled:", fulfilled, ")")
+				if !fulfilled {
+					// not fulfilled and bh not stored means the feeder missed a store
+					bhsMissedBlocks = append(bhsMissedBlocks, receipt.BlockNumber)
+				}
+			} else {
+				fmt.Println("Blockhash for block", receipt.BlockNumber, "stored (tx", hashes[i].String(),
+					", request ID", hex.EncodeToString(reqID[:]), ", fulfilled:", fulfilled, ")")
+			}
+		}
+
+		if len(bhsMissedBlocks) == 0 {
+			fmt.Println("Didn't miss any bh stores!")
+			return
+		}
+		fmt.Println("Missed stores:")
+		for _, blockNumber := range bhsMissedBlocks {
+			fmt.Println("\t* ", blockNumber.String())
+		}
+	case "get-receipt":
+		cmd := flag.NewFlagSet("get-tx", flag.ExitOnError)
+		txHashes := cmd.String("tx-hashes", "", "comma separated transaction hashes")
+		helpers.ParseArgs(cmd, os.Args[2:], "tx-hashes")
+		hashes := helpers.ParseHashSlice(*txHashes)
+
+		for _, h := range hashes {
+			receipt, err := e.Ec.TransactionReceipt(context.Background(), h)
+			helpers.PanicErr(err)
+			fmt.Println("Tx", h.String(), "Included in block:", receipt.BlockNumber,
+				", blockhash:", receipt.BlockHash.String())
+		}
+	case "get-callback":
+		cmd := flag.NewFlagSet("get-callback", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF coordinator address")
+		requestIDs := cmd.String("request-ids", "", "comma separated request IDs in hex")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-ids")
+		coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
+			common.HexToAddress(*coordinatorAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+		reqIDs := parseRequestIDs(*requestIDs)
+		for _, reqID := range reqIDs {
+			callbacks, err := coordinator.Callbacks(nil, reqID)
+			helpers.PanicErr(err)
+			if utils.IsEmpty(callbacks.SeedAndBlockNum[:]) {
+				fmt.Println("request", hex.EncodeToString(reqID[:]), "fulfilled")
+			} else {
+				fmt.Println("request", hex.EncodeToString(reqID[:]), "not fulfilled")
+			}
+		}
 	case "coordinator-deploy":
 		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		linkAddress := cmd.String("link-address", "", "LINK token contract address")
@@ -131,4 +224,19 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Println("randomness:", output)
 	}
+}
+
+func parseRequestIDs(arg string) (ret [][32]byte) {
+	split := strings.Split(arg, ",")
+	for _, rid := range split {
+		if strings.HasPrefix(rid, "0x") {
+			rid = strings.Replace(rid, "0x", "", 1)
+		}
+		reqID, err := hex.DecodeString(rid)
+		helpers.PanicErr(err)
+		var reqIDFixed [32]byte
+		copy(reqIDFixed[:], reqID)
+		ret = append(ret, reqIDFixed)
+	}
+	return
 }
