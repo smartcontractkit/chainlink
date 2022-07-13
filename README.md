@@ -75,12 +75,12 @@ Any Ethereum based network will work once you've [configured](https://github.com
 Ethereum node versions currently tested and supported:
 
 [Officially supported]
-- [Parity/Openethereum](https://github.com/openethereum/openethereum)
+- [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
 - [Nethermind](https://github.com/NethermindEth/nethermind)
+- [Besu](https://github.com/hyperledger/besu)
 
 [Unofficially supported]
-- [Besu](https://github.com/hyperledger/besu)
 - [Erigon](https://github.com/ledgerwatch/erigon)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
