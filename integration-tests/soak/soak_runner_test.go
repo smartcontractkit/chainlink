@@ -98,6 +98,40 @@ func TestKeeperSoak(t *testing.T) {
 	soakTestHelper(t, "@soak-keeper", testEnvironment, activeEVMNetwork)
 }
 
+func TestVrfv2Soak(t *testing.T) {
+	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to soak test on
+
+	baseEnvironmentConfig.NamespacePrefix = "soak-vrfv2"
+	testEnvironment := environment.New(baseEnvironmentConfig)
+
+	// Values you want each node to have the exact same of (e.g. eth_chain_id)
+	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
+	dynamicValues := []map[string]interface{}{
+		{
+			"dynamic_value": "0",
+		},
+		{
+			"dynamic_value": "1",
+		},
+		{
+			"dynamic_value": "2",
+		},
+		{
+			"dynamic_value": "3",
+		},
+		{
+			"dynamic_value": "4",
+		},
+		{
+			"dynamic_value": "5",
+		},
+	}
+	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+
+	soakTestHelper(t, "@soak-vrfv2", testEnvironment, activeEVMNetwork)
+}
+
 // adds distinct Chainlink deployments to the test environment, using staticVals on all of them, while distributing
 // a single dynamicVal to each Chainlink deployment
 func addSeparateChainlinkDeployments(
