@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 )
 
-// Implementation of Blockhashes interface that returns blockhashes with fixed-sized windows relative to current block height
+// FixedBlockhashProvider returns blockhashes with fixed-sized windows relative to current block height
 type FixedBlockhashProvider struct {
 	client client.Client
 	// end block = current head - waitBlocks
