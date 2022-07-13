@@ -35,6 +35,7 @@ func TestETHCallTask(t *testing.T) {
 		from                  string
 		data                  string
 		evmChainID            string
+		gas                   string
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(ethClient *evmmocks.Client, config *pipelinemocks.Config)
@@ -47,6 +48,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
+			"",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
@@ -61,10 +63,31 @@ func TestETHCallTask(t *testing.T) {
 			[]byte("baz quux"), nil, "",
 		},
 		{
+			"happy with gas limit per task",
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
+			"$(foo)",
+			"",
+			"$(gasLimit)",
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo":      []byte("foo bar"),
+				"gasLimit": 100_000,
+			}),
+			nil,
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
+				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				ethClient.
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: 100_000, Data: []byte("foo bar")}, (*big.Int)(nil)).
+					Return([]byte("baz quux"), nil)
+			},
+			[]byte("baz quux"), nil, "",
+		},
+		{
 			"happy with from addr",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"$(foo)",
+			"",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
@@ -85,6 +108,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xThisAintGonnaWork",
 			"$(foo)",
 			"",
+			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -97,6 +121,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbee",
 			"",
 			"$(foo)",
+			"",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
@@ -111,6 +136,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"$(foo)",
 			"",
+			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"zork": []byte("foo bar"),
 			}),
@@ -123,6 +149,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
+			"",
 			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte(nil),
@@ -137,6 +164,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"$(foo)",
 			"",
+			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -150,6 +178,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"$(foo)",
 			"$(evmChainID)",
+			"",
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":        []byte("foo bar"),
 				"evmChainID": "123",
@@ -174,6 +203,7 @@ func TestETHCallTask(t *testing.T) {
 				From:       test.from,
 				Data:       test.data,
 				EVMChainID: test.evmChainID,
+				Gas:        test.gas,
 			}
 
 			ethClient := new(evmmocks.Client)
