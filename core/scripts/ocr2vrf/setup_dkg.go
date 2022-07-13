@@ -29,11 +29,11 @@ func setupDKGNodes(e helpers.Environment) {
 	passwordFile := cmd.String("password", "../../../tools/secrets/password.txt", "password file")
 	databasePrefix := cmd.String("database-prefix", "postgres://postgres:postgres@localhost:5432/dkg-test", "database prefix")
 	databaseSuffixes := cmd.String("database-suffixes", "sslmode=disable", "database parameters to be added")
-	nodeCount := cmd.Int("node-cout", 6, "number of nodes")
+	nodeCount := cmd.Int("node-count", 6, "number of nodes")
 	fundingAmount := cmd.Int64("funding-amount", 10000000000000000, "amount to fund nodes") // .1 ETH
 	helpers.ParseArgs(cmd, os.Args[2:])
 
-	if *nodeCount < 5 {
+	if *nodeCount < 6 {
 		fmt.Println("Node count too low for DKG job.")
 		os.Exit(1)
 	}

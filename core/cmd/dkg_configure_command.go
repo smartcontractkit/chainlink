@@ -134,12 +134,9 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	if c.Bool("isBootstrapper") {
 		// Set up bootstrapper job if bootstrapper.
 		err = createBootstrapperJob(cli, c, app)
-		if err != nil {
-			return nil, cli.errorOut(err)
-		}
 	} else {
 		// Set up DKG job.
-		dkgTemplateArgs := &DKGTemplateArgs{
+		err = createDKGJob(cli, c, app, DKGTemplateArgs{
 			contractID:              c.String("contractID"),
 			ocrKeyBundleID:          ocr2.ID(),
 			p2pv2BootstrapperPeerID: peerID,
@@ -149,11 +146,10 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 			EncryptionPublicKey:     dkgEncryptKey,
 			KeyID:                   keyID,
 			SigningPublicKey:        dkgSignKey,
-		}
-		err = createDKGJob(cli, c, app, *dkgTemplateArgs)
-		if err != nil {
-			return nil, err
-		}
+		})
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return &SetupDKGNodePayload{
