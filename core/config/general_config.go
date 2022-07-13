@@ -440,11 +440,11 @@ func validateDBURL(dbURI url.URL) error {
 	}
 	userInfo := dbURI.User
 	if userInfo == nil {
-		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed (got: %s)", dbURI.Redacted())
+		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
 	}
 	pw, pwSet := userInfo.Password()
 	if !pwSet {
-		return errors.Errorf("DB URL must be authenticated; password is required (got: %s)", dbURI.Redacted())
+		return errors.Errorf("DB URL must be authenticated; password is required")
 	}
 	return utils.VerifyPasswordComplexity(pw)
 }

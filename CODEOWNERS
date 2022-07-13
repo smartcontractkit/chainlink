@@ -4,7 +4,7 @@
 /core/chains/evm/estimator @samsondav @archseer
 /core/chains/evm/headtracker @pinebit @samsondav
 /core/chains/evm/log @jmank88 @spooktheducks 
-/core/chains/evm @samsondav
+/core/chains/evm @samsondav @prashantkumar1982
 /core/chains/terra @connorwstein @jmank88
 
 # Services
