@@ -29,6 +29,7 @@ var baseEnvironmentConfig = &environment.Config{
 	TTL: time.Hour * 720, // 30 days,
 }
 
+// Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
 	activeEVMNetwork := networks.SepoliaTestnet // Environment currently being used to soak test on
 
@@ -42,7 +43,6 @@ func TestOCRSoak(t *testing.T) {
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	staticValues := activeEVMNetwork.ChainlinkValuesMap()
-	staticValues["ETH_MAX_GAS_PRICE_WEI"] = "100000000000"
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
@@ -69,7 +69,7 @@ func TestOCRSoak(t *testing.T) {
 	soakTestHelper(t, "@soak-ocr", testEnvironment, activeEVMNetwork)
 }
 
-// Cannot boot Chainlink: fatal error instantiating application: failed to load EVM chainset: cannot create new chain with ID 11155111, config validation failed: EVM_GAS_FEE_CAP_DEFAULT (100000000000) must be less than or equal to ETH_MAX_GAS_PRICE_WEI (1000); ETH_MAX_GAS_PRICE_WEI must be greater than or equal to ETH_GAS_PRICE_DEFAULT
+// Run the keeper soak test defined in ./tests/keeper_test.go
 func TestKeeperSoak(t *testing.T) {
 	activeEVMNetwork := networks.SepoliaTestnet // Environment currently being used to soak test on
 
@@ -81,7 +81,6 @@ func TestKeeperSoak(t *testing.T) {
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	staticValues := activeEVMNetwork.ChainlinkValuesMap()
-	staticValues["ETH_MAX_GAS_PRICE_WEI"] = "100000000000"
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
