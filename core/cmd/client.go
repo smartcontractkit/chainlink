@@ -704,9 +704,9 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 
 	user, err := sessions.NewUser(request.Email, request.Password)
 	if err != nil {
-		return user, err
+		return user, errors.Wrap(err, "failed to instantiate new user")
 	}
-	return user, orm.CreateUser(&user)
+	return user, errors.Wrap(orm.CreateUser(&user), "failed to insert new user")
 }
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")

@@ -88,9 +88,9 @@ jobs:
         with:
           repository: ${{ inputs.cl_repo }}
           ref: ${{ github.event.inputs.cl_ref }}
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v3
         with:
-          go-version: ^1.18
+          go-version-file: 'go.mod'
       - name: Replace GHA URL
         run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
       - name: Replace Solana deps manual flow

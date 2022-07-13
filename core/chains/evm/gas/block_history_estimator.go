@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -116,15 +115,17 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	// set latest base fee here to avoid potential lag introduced by block delay
 	// it is really important that base fee be as up-to-date as possible
-	b.setLatestBaseFee(head.BaseFeePerGas)
+	b.setLatestBaseFee(head)
 	b.mb.Deliver(head)
 }
 
-func (b *BlockHistoryEstimator) setLatestBaseFee(baseFee *utils.Big) {
+func (b *BlockHistoryEstimator) setLatestBaseFee(head *evmtypes.Head) {
 	// Non-eip1559 blocks don't include base fee; just ignore
+	baseFee := head.BaseFeePerGas
 	if baseFee == nil {
 		return
 	}
+	b.logger.Debugw("Set latest base fee", "baseFee", baseFee, "blockNum", head.Number, "blockHash", head.Hash)
 	promBlockHistoryEstimatorCurrentBaseFee.WithLabelValues(b.chainID.String()).Set(float64(baseFee.ToInt().Int64()))
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -152,7 +153,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 			b.logger.Warnw("initial check for latest head failed, head was unexpectedly nil")
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
-			b.setLatestBaseFee(latestHead.BaseFeePerGas)
+			b.setLatestBaseFee(latestHead)
 			b.FetchBlocksAndRecalculate(fetchCtx, latestHead)
 		}
 
@@ -177,7 +178,7 @@ func (b *BlockHistoryEstimator) Close() error {
 	})
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint64, maxGasPriceWei *big.Int, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		gasPrice = b.getGasPrice()
@@ -188,6 +189,7 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt
 	if gasPrice == nil {
 		return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 	}
+	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.config)
 	return
 }
 
@@ -202,11 +204,11 @@ func (b *BlockHistoryEstimator) getTipCap() *big.Int {
 	return b.tipCap
 }
 
-func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit)
+func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64, maxGasPriceWei *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit, maxGasPriceWei)
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64, maxGasPriceWei *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	if !b.config.EvmEIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
@@ -222,15 +224,16 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 			err = errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 			return
 		}
+		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config)
 		if b.config.EvmGasBumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
-			feeCap = b.config.EvmMaxGasPriceWei()
+			feeCap = maxGasPrice
 		} else if b.latestBaseFee != nil {
 			// HACK: due to a flaw of how EIP-1559 is implemented we have to
 			// set a much lower FeeCap than the actual maximum we are willing
 			// to pay in order to give ourselves headroom for bumping
 			// See: https://github.com/ethereum/go-ethereum/issues/24284
-			feeCap = calcFeeCap(b.latestBaseFee, b.config, tipCap)
+			feeCap = calcFeeCap(b.latestBaseFee, b.config, tipCap, maxGasPrice)
 		} else {
 			// This shouldn't happen on EIP-1559 blocks, since if the tip cap
 			// is set, Start must have succeeded and we would expect an initial
@@ -250,7 +253,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 	return
 }
 
-func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.Int) (feeCap *big.Int) {
+func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.Int, maxGasPriceWei *big.Int) (feeCap *big.Int) {
 	const maxBaseFeeIncreasePerBlock float64 = 1.125
 
 	bufferBlocks := int(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks())
@@ -266,14 +269,14 @@ func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, cfg Config, tipCap *big.I
 	baseFeeInt, _ := baseFee.Int(nil)
 	feeCap = new(big.Int).Add(baseFeeInt, tipCap)
 
-	if feeCap.Cmp(cfg.EvmMaxGasPriceWei()) > 0 {
-		return cfg.EvmMaxGasPriceWei()
+	if feeCap.Cmp(maxGasPriceWei) > 0 {
+		return maxGasPriceWei
 	}
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit)
+func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit, maxGasPriceWei)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {
@@ -422,15 +425,18 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		return err
 	}
 
+	var missingBlocks []int64
 	for _, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			if strings.Contains(err.Error(), "failed to decode block number while unmarshalling block") {
-				lggr.Errorw(
-					fmt.Sprintf("Failed to fetch block: RPC node returned an empty block on query for block number %d even though the WS subscription already sent us this block. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
-						HexToInt64(req.Args[0]), blockDelay,
+			if errors.Is(err, ErrMissingBlock) {
+				num := HexToInt64(req.Args[0])
+				missingBlocks = append(missingBlocks, num)
+				lggr.Debugw(
+					fmt.Sprintf("Failed to fetch block: RPC node returned a missing block on query for block number %d even though the WS subscription already sent us this block. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
+						num, blockDelay,
 					),
-					"err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+					"err", err, "blockNum", num, "headNum", head.Number)
 			} else {
 				lggr.Warnw("Failed to fetch block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
 			}
@@ -452,7 +458,16 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		blocks[block.Number] = *block
 	}
 
+	if len(missingBlocks) > 1 {
+		lggr.Errorw(
+			fmt.Sprintf("RPC node returned multiple missing blocks on query for block numbers %v even though the WS subscription already sent us these blocks. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
+				missingBlocks, blockDelay,
+			),
+			"blockNums", missingBlocks, "headNum", head.Number)
+	}
+
 	newBlockHistory := make([]Block, 0)
+
 	for _, block := range blocks {
 		newBlockHistory = append(newBlockHistory, block)
 	}

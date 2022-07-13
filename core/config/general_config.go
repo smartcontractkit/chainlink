@@ -60,6 +60,7 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
+	StarkNetEnabled() bool
 }
 
 type GeneralOnlyConfig interface {
@@ -403,15 +404,26 @@ EVM_ENABLED=false
 		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
-	if !c.Dev() {
-		if err := validateDBURL(c.DatabaseURL()); err != nil {
-			// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
-			c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink.\n\n", err, utils.PasswordComplexityRequirements)
+	{
+		str := os.Getenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK")
+		var skipDatabasePasswordComplexityCheck bool
+		if str != "" {
+			var err error
+			skipDatabasePasswordComplexityCheck, err = strconv.ParseBool(str)
+			if err != nil {
+				return errors.Errorf("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK has invalid value for bool: %s", str)
+			}
+		}
+		if !(c.Dev() || skipDatabasePasswordComplexityCheck) {
+			if err := validateDBURL(c.DatabaseURL()); err != nil {
+				// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
+				c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s.\nDatabase should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink. To bypass this check at your own risk, you may set SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true\n\n", err, utils.PasswordComplexityRequirements)
+			}
 		}
 	}
 
 	if str := c.viper.GetString("MIN_OUTGOING_CONFIRMATIONS"); str != "" {
-		c.lggr.Errorf("MIN_OUTGOING_CONFIRMATIONS has been removed and no longer has any effect. EVM_FINALITY_DEPTH is now used as the default for ethtx confirmations instead. You may override this on a per-task basis by setting `minConfirmations` e.g. `foo [type=ethtx minConfirmations=%s ...]`", str)
+		c.lggr.Errorf("MIN_OUTGOING_CONFIRMATIONS has been removed and no longer has any effect. ETH_FINALITY_DEPTH is now used as the default for ethtx confirmations instead. You may override this on a per-task basis by setting `minConfirmations` e.g. `foo [type=ethtx minConfirmations=%s ...]`", str)
 	}
 
 	return nil
@@ -423,11 +435,11 @@ func validateDBURL(dbURI url.URL) error {
 	}
 	userInfo := dbURI.User
 	if userInfo == nil {
-		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed (got: %s)", dbURI.Redacted())
+		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
 	}
 	pw, pwSet := userInfo.Password()
 	if !pwSet {
-		return errors.Errorf("DB URL must be authenticated; password is required (got: %s)", dbURI.Redacted())
+		return errors.Errorf("DB URL must be authenticated; password is required")
 	}
 	return utils.VerifyPasswordComplexity(pw)
 }
@@ -544,9 +556,11 @@ func (c *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	return getEnvWithFallback(c, envvar.NewDuration("DatabaseListenerMaxReconnectDuration"))
 }
 
+var DatabaseBackupModeEnvVar = envvar.New("DatabaseBackupMode", parseDatabaseBackupMode)
+
 // DatabaseBackupMode sets the database backup mode
 func (c *generalConfig) DatabaseBackupMode() DatabaseBackupMode {
-	return getEnvWithFallback(c, envvar.New("DatabaseBackupMode", parseDatabaseBackupMode))
+	return getEnvWithFallback(c, DatabaseBackupModeEnvVar)
 }
 
 // DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
@@ -747,6 +761,11 @@ func (c *generalConfig) SolanaEnabled() bool {
 // TerraEnabled allows Terra to be used
 func (c *generalConfig) TerraEnabled() bool {
 	return c.viper.GetBool(envvar.Name("TerraEnabled"))
+}
+
+// StarkNetEnabled allows StarkNet to be used
+func (c *generalConfig) StarkNetEnabled() bool {
+	return c.viper.GetBool(envvar.Name("StarkNetEnabled"))
 }
 
 // P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol

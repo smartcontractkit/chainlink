@@ -33,6 +33,7 @@ yarndep: ## Ensure all yarn dependencies are installed.
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
 	mkdir -p $(GOBIN)
+	rm -f $(GOBIN)/chainlink
 	cp $< $(GOBIN)/chainlink
 
 chainlink: operator-ui ## Build the chainlink binary.
@@ -41,6 +42,7 @@ chainlink: operator-ui ## Build the chainlink binary.
 .PHONY: chainlink-build
 chainlink-build: ## Build & install the chainlink binary.
 	go build $(GOFLAGS) -o chainlink ./core/
+	rm -f $(GOBIN)/chainlink
 	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
@@ -58,7 +60,7 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and their go wrappers.
+go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
 
@@ -79,7 +81,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.12.2
+	go install github.com/vektra/mockery/v2@v2.13.0-beta.1
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -95,7 +97,7 @@ test_install_ginkgo: ## Install ginkgo executable to run tests
 	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
 .PHONY: test_smoke
-test_smoke: # Run integration smoke tests.
+test_smoke: ## Run all integration smoke tests, including on live testnets
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
@@ -103,9 +105,22 @@ test_smoke: # Run integration smoke tests.
 .PHONY: test_soak_vrfv2
 test_soak_vrfv2: # Run integration soak vrfv2 tests.
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --focus=@soak_vrfv2 --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/soak
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress --focus @simulated $(args) ./integration-tests/smoke
 
+.PHONY: test_perf
+test_perf: ## Run core node performance tests.
+	ginkgo -v -r --junit-report=tests-perf-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress $(args) ./integration-tests/performance
+
+.PHONY: test_chaos
+test_chaos: # run core node chaos tests.
+	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
+
+.PHONY: config-docs
+config-docs: # Generate core node configuration documentation
+	go run ./internal/config/docs/main.go > ./docs/CONFIG.md
 
 help:
 	@echo ""

@@ -141,12 +141,19 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	var vrfpwd string
 	var fileErr error
-	if len(c.String("vrfpassword")) != 0 {
-		vrfpwd, fileErr = passwordFromFile(c.String("vrfpassword"))
+	vrfPasswordFile := c.String("vrfpassword")
+	if len(vrfPasswordFile) != 0 {
+		vrfpwd, fileErr = passwordFromFile(vrfPasswordFile)
 		if fileErr != nil {
 			return errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
-				c.String("vrfpassword"))
+				vrfPasswordFile)
+		}
+		if strings.TrimSpace(vrfpwd) != vrfpwd {
+			return ErrPasswordWhitespace
+		}
+		if len(vrfpwd) == 0 {
+			return ErrEmptyPasswordInFile
 		}
 	}
 
@@ -204,6 +211,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		err2 := app.GetKeyStore().Terra().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure terra key")
+		}
+	}
+	if cli.Config.StarkNetEnabled() {
+		err2 := app.GetKeyStore().StarkNet().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure starknet key")
 		}
 	}
 
@@ -328,7 +341,8 @@ func passwordFromFile(pwdFile string) (string, error) {
 		return "", nil
 	}
 	dat, err := ioutil.ReadFile(pwdFile)
-	return strings.TrimSpace(string(dat)), err
+	// handle POSIX case, when text files may have a trailing \n
+	return strings.TrimSuffix(string(dat), "\n"), err
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of

@@ -115,16 +115,6 @@ type Logger interface {
 	Recover(panicErr interface{})
 }
 
-// Constants for service names for package specific logging configuration
-const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
-)
-
 // newZapConfigProd returns a new production zap.Config.
 func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
 	config := newZapConfigBase()
@@ -243,12 +233,11 @@ type Config struct {
 func (c *Config) New() (Logger, func() error) {
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, close, err := zapLoggerConfig{
+	l, close, err := zapDiskLoggerConfig{
 		local:          *c,
-		Config:         cfg,
 		diskStats:      utils.NewDiskStatsProvider(),
 		diskPollConfig: newDiskPollConfig(diskPollInterval),
-	}.newLogger()
+	}.newLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}

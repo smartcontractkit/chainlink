@@ -7,87 +7,89 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/helmenv/environment"
 )
 
 var _ = Describe("VRF suite @vrf", func() {
 	var (
 		err                error
-		nets               *blockchain.Networks
-		cd                 contracts.ContractDeployer
+		chainClient        blockchain.EVMClient
+		contractDeployer   contracts.ContractDeployer
 		consumer           contracts.VRFConsumer
 		coordinator        contracts.VRFCoordinator
 		encodedProvingKeys = make([][2]*big.Int, 0)
-		lt                 contracts.LinkToken
+		linkToken          contracts.LinkToken
 		chainlinkNodes     []client.Chainlink
-		e                  *environment.Environment
+		testEnvironment    *environment.Environment
 		job                *client.Job
 		profileTest        *testsetups.ChainlinkProfileTest
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			// Increase HTTP_SERVER_WRITE_TIMEOUT to be larger than profile duration.
-			config.ProjectConfig.FrameworkConfig.ChainlinkEnvValues["HTTP_SERVER_WRITE_TIMEOUT"] = "300s"
-
-			e, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(
-					config.ChainlinkVals(),
-					"chainlink-vrf-profiling",
-					config.GethNetworks()...,
-				),
-			)
-			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
-			err = e.ConnectAll()
-			Expect(err).ShouldNot(HaveOccurred(), "Connecting to all nodes shouldn't fail")
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-vrf"}).
+				AddHelm(mockservercfg.New(nil)).
+				AddHelm(mockserver.New(nil)).
+				AddHelm(ethereum.New(nil)).
+				AddHelm(chainlink.New(0, map[string]interface{}{
+					"env": map[string]interface{}{
+						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
+					},
+				}))
+			err = testEnvironment.Run()
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := blockchain.NewDefaultNetworkRegistry()
-			nets, err = networkRegistry.GetNetworks(e)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			cd, err = contracts.NewContractDeployer(nets.Default)
+			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-			chainlinkNodes, err = client.ConnectChainlinkNodes(e)
+			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			nets.Default.ParallelTransactions(true)
+			chainClient.ParallelTransactions(true)
 		})
 
 		By("Funding Chainlink nodes", func() {
-			txCost, err := nets.Default.EstimateCostForChainlinkOperations(1)
+			txCost, err := chainClient.EstimateCostForChainlinkOperations(1)
 			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, nets.Default, txCost)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
 			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 		})
 
 		By("Deploying VRF contracts", func() {
-			lt, err = cd.DeployLinkTokenContract()
+			linkToken, err = contractDeployer.DeployLinkTokenContract()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-			bhs, err := cd.DeployBlockhashStore()
+			bhs, err := contractDeployer.DeployBlockhashStore()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying Blockhash store shouldn't fail")
-			coordinator, err = cd.DeployVRFCoordinator(lt.Address(), bhs.Address())
+			coordinator, err = contractDeployer.DeployVRFCoordinator(linkToken.Address(), bhs.Address())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF coordinator shouldn't fail")
-			consumer, err = cd.DeployVRFConsumer(lt.Address(), coordinator.Address())
+			consumer, err = contractDeployer.DeployVRFConsumer(linkToken.Address(), coordinator.Address())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF consumer contract shouldn't fail")
-			err = nets.Default.WaitForEvents()
+			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for VRF setup contracts to deploy")
 
-			err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
+			err = linkToken.Transfer(consumer.Address(), big.NewInt(2e18))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding consumer contract shouldn't fail")
-			_, err = cd.DeployVRFContract()
+			_, err = contractDeployer.DeployVRFContract()
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF contract shouldn't fail")
-			err = nets.Default.WaitForEvents()
+			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 		})
 
@@ -164,7 +166,7 @@ var _ = Describe("VRF suite @vrf", func() {
 				ProfileDuration: 30 * time.Second,
 				ChainlinkNodes:  chainlinkNodes,
 			})
-			profileTest.Setup(e)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -176,10 +178,10 @@ var _ = Describe("VRF suite @vrf", func() {
 
 	AfterEach(func() {
 		By("Printing gas stats", func() {
-			nets.Default.GasStats().PrintStats()
+			chainClient.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})

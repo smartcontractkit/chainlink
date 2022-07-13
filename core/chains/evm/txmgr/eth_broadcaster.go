@@ -10,6 +10,7 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgconn"
+	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
@@ -204,16 +205,37 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	}
 }
 
+func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
+}
+
 func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{}) {
 	ctx, cancel := utils.ContextFromChan(eb.chStop)
 	defer cancel()
+
+	// errorRetryCh allows retry on exponential backoff in case of timeout or
+	// other unknown error
+	var errorRetryCh <-chan time.Time
+	bf := eb.newResendBackoff()
 
 	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
 		if err := eb.ProcessUnstartedEthTxs(ctx, k); err != nil {
-			eb.logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
+			errorRetryCh = time.After(bf.Duration())
+			if errors.Is(err, context.DeadlineExceeded) {
+				eb.logger.Errorw("Timed out while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
+			} else {
+				eb.logger.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported", "err", err)
+			}
+		} else {
+			bf = eb.newResendBackoff()
+			errorRetryCh = nil
 		}
 
 		select {
@@ -231,6 +253,9 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 			continue
 		case <-pollDBTimer.C:
 			// DB poller timed out
+			continue
+		case <-errorRetryCh:
+			// Error backoff period reached
 			continue
 		}
 	}
@@ -258,7 +283,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "processUnstartedEthTxs failed")
+		return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 	}
 	for {
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
@@ -279,30 +304,31 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		}
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+			return errors.Wrap(err, "processUnstartedEthTxs failed on nextUnstartedTransactionWithNonce")
 		}
 		if etx == nil {
 			return nil
 		}
 		n++
 		var a EthTxAttempt
+		keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 		if eb.config.EvmEIP1559DynamicFees() {
-			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit)
+			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit, keySpecificMaxGasPriceWei)
 			if err != nil {
 				return errors.Wrap(err, "failed to get dynamic gas fee")
 			}
 			a, err = eb.NewDynamicFeeAttempt(*etx, fee, gasLimit)
 			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed")
+				return errors.Wrap(err, "processUnstartedEthTxs failed on NewDynamicFeeAttempt")
 			}
 		} else {
-			gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit)
+			gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei)
 			if err != nil {
 				return errors.Wrap(err, "failed to estimate gas")
 			}
 			a, err = eb.NewLegacyAttempt(*etx, gasPrice, gasLimit)
 			if err != nil {
-				return errors.Wrap(err, "processUnstartedEthTxs failed")
+				return errors.Wrap(err, "processUnstartedEthTxs failed on NewLegacyAttempt")
 			}
 		}
 
@@ -310,11 +336,11 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+			return errors.Wrap(err, "processUnstartedEthTxs failed on saveInProgressTransaction")
 		}
 
 		if err := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
-			return errors.Wrap(err, "processUnstartedEthTxs failed")
+			return errors.Wrap(err, "processUnstartedEthTxs failed on handleAnyInProgressEthTx")
 		}
 	}
 }
@@ -396,7 +422,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	cancel()
 
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
-	if sendError.IsTooExpensive() {
+	if sendError.IsTxFeeExceedsCap() {
 		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"ethTxID", etx.ID,
 			"err", sendError,
@@ -464,9 +490,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		return eb.tryAgainBumpingGas(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 	}
 
-	// Optimism-specific cases
-	if sendError.IsFeeTooLow() || sendError.IsFeeTooHigh() {
-		return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
+	// Optimism/Metis-specific cases
+	if sendError.IsOptimismFeeTooLow() || sendError.IsOptimismFeeTooHigh() {
+		if eb.ChainKeyStore.config.ChainType().IsOptimismClone() {
+			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
+		}
+		return errors.Wrap(sendError, "this error type only handled for Optimism and clones")
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -613,7 +642,8 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, lgr logger.Log
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit)
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit, keySpecificMaxGasPriceWei)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainBumpingLegacyGas failed")
 	}
@@ -624,7 +654,8 @@ func (eb *EthBroadcaster) tryAgainBumpingLegacyGas(ctx context.Context, lgr logg
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	bumpedFee, bumpedGasLimit, err := eb.estimator.BumpDynamicFee(attempt.DynamicFee(), etx.GasLimit)
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	bumpedFee, bumpedGasLimit, err := eb.estimator.BumpDynamicFee(attempt.DynamicFee(), etx.GasLimit, keySpecificMaxGasPriceWei)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainBumpingDynamicFeeGas failed")
 	}
@@ -638,11 +669,12 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 	if attempt.TxType == 0x2 {
 		return errors.Errorf("AssumptionViolation: re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug.", sendError.Error())
 	}
-	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
+	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, gas.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}
-	lgr.Warnw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
+	lgr.Warnw("Optimism/Metis rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }

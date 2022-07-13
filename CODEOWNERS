@@ -4,7 +4,7 @@
 /core/chains/evm/estimator @samsondav @archseer
 /core/chains/evm/headtracker @pinebit @samsondav
 /core/chains/evm/log @jmank88 @spooktheducks 
-/core/chains/evm @samsondav
+/core/chains/evm @samsondav @prashantkumar1982
 /core/chains/terra @connorwstein @jmank88
 
 # Services
@@ -22,7 +22,7 @@
 /core/services/pipeline @spooktheducks @connorwstein @archseer @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
-/core/services/vrf @connorwstein @Nic0s @makramkd
+/core/services/vrf @connorwstein @makramkd
 /core/services/webhook @spooktheducks @archseer
 
 # API
@@ -36,10 +36,12 @@
 
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
-/contracts/**/Keeper* @smartcontractkit/keepers
+/contracts/**/*Keeper* @smartcontractkit/keepers
+/contracts/**/*Upkeep* @smartcontractkit/keepers
 
 # Tests
-/integration-tests/ @kalverra
+/integration-tests/ @kalverra @tateexon @skudasov @anieeg
+/integration-tests/**/*keeper* @smartcontractkit/keepers
 
 # Misc
 /core/store @archseer @samsondav @jmank88
@@ -49,6 +51,10 @@
 
 # CI/CD
 /.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
+/.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg
+/.github/workflows/build-custom.yml @kalverra @tateexon @skudasov @anieeg
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
@@ -58,5 +64,12 @@ package.json @smartcontractkit/prodsec-public
 yarn.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public
 go.sum @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/prodsec-public
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
+
+# Config
+./core/config @samsondav @jmank88
+./docs/CONFIG.md @samsondav @jmank88 @dwightjl
+./internal/config/docs.toml @samsondav @jmank88 @dwightjl

@@ -8,7 +8,7 @@ python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.6.6
 solc-select install 0.7.6
 solc-select install 0.8.6
-solc-select install 0.8.13
+solc-select install 0.8.15
 
 $SCRIPTPATH/native_solc6_compile Flags.sol
 $SCRIPTPATH/native_solc6_compile Oracle.sol
@@ -37,7 +37,8 @@ $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 $SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
-$SCRIPTPATH/native_solc8_13_compile KeeperRegistry.sol
+$SCRIPTPATH/native_solc8_6_compile KeeperRegistry.sol
+$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -58,7 +59,13 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
 
 $SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
-$SCRIPTPATH/native_solc8_13_compile BatchVRFCoordinatorV2.sol
+$SCRIPTPATH/native_solc8_6_compile BatchVRFCoordinatorV2.sol
+
+# VRF V2 Wrapper
+$SCRIPTPATH/native_solc8_6_compile dev/VRFV2Wrapper.sol
+$SCRIPTPATH/native_solc8_6_compile dev/VRFV2WrapperInterface.sol
+$SCRIPTPATH/native_solc8_6_compile dev/VRFV2WrapperConsumerBase.sol
+$SCRIPTPATH/native_solc8_6_compile tests/VRFV2WrapperConsumerExample.sol
 
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol
@@ -68,7 +75,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestOwnerlessConsumer.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFLoadTestExternalSubOwner.sol
 
 # Keepers x VRF v2
-$SCRIPTPATH/native_solc8_13_compile KeepersVRFConsumer.sol
+$SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
 
 $SCRIPTPATH/native_solc8_6_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile VRFCoordinatorV2.sol

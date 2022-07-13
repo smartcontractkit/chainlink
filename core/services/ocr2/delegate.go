@@ -1,6 +1,8 @@
 package ocr2
 
 import (
+	"math/big"
+
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
@@ -12,11 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 )
 
@@ -30,6 +35,8 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
+	dkgSignKs             keystore.DKGSign
+	dkgEncryptKs          keystore.DKGEncrypt
 	relayers              map[relay.Network]types.Relayer
 }
 
@@ -45,6 +52,8 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
+	dkgSignKs keystore.DKGSign,
+	dkgEncryptKs keystore.DKGEncrypt,
 	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
@@ -57,6 +66,8 @@ func NewDelegate(
 		cfg,
 		lggr,
 		ks,
+		dkgSignKs,
+		dkgEncryptKs,
 		relayers,
 	}
 }
@@ -132,12 +143,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	}
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
-	// These are populated here because when the pipeline spec is
-	// run it uses them to create identifiable prometheus metrics.
-	// TODO SC-30421 Move pipeline population to job spawner
-	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
-	jobSpec.PipelineSpec.JobID = jobSpec.ID
-
 	var pluginOracle plugins.OraclePlugin
 	var ocr2Provider types.Plugin
 	switch spec.PluginType {
@@ -157,6 +162,57 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
+	case job.DKG:
+		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
+		}
+		dkgProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewDKGProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		ocr2Provider = dkgProvider
+		pluginOracle, err = dkg.NewDKG(
+			jobSpec,
+			dkgProvider,
+			lggr.Named("DKG"),
+			ocrLogger,
+			d.dkgSignKs,
+			d.dkgEncryptKs,
+			chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "error while instantiating DKG")
+		}
+	case job.OCR2VRF:
+		ocr2vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
+		if err2 != nil {
+			return nil, err2
+		}
+		ocr2Provider = ocr2vrfProvider
+		pluginOracle, err = ocr2vrf.NewOCR2VRF(lggr.Named("OCR2VRF"))
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}

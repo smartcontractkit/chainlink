@@ -43,8 +43,12 @@ func NewUser(email, plainPwd string) (User, error) {
 		return User{}, errors.New("Invalid email format")
 	}
 
-	if len(plainPwd) < 8 || len(plainPwd) > MaxBcryptPasswordLength {
-		return User{}, fmt.Errorf("must enter a password with 8 - %v characters", MaxBcryptPasswordLength)
+	if len(plainPwd) > MaxBcryptPasswordLength {
+		return User{}, fmt.Errorf("max length is %v characters", MaxBcryptPasswordLength)
+	}
+
+	if err := utils.VerifyPasswordComplexity(plainPwd, email); err != nil {
+		return User{}, err
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)

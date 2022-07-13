@@ -151,7 +151,7 @@ func (r *DirectRequestSpecResolver) MinIncomingConfirmationsEnv() bool {
 	return r.spec.MinIncomingConfirmationsEnv
 }
 
-// MinContractPaymentLinkJuels resolves the spec's evm chain id.
+// MinContractPaymentLinkJuels resolves the spec's min contract payment link.
 func (r *DirectRequestSpecResolver) MinContractPaymentLinkJuels() string {
 	return r.spec.MinContractPayment.String()
 }
@@ -467,6 +467,17 @@ func (r *OCRSpecResolver) P2PBootstrapPeers() *[]string {
 	return &peers
 }
 
+// P2PV2Bootstrappers resolves the OCR1 spec's p2pv2 bootstrappers
+func (r *OCRSpecResolver) P2PV2Bootstrappers() *[]string {
+	if len(r.spec.P2PV2Bootstrappers) == 0 {
+		return nil
+	}
+
+	peers := []string(r.spec.P2PV2Bootstrappers)
+
+	return &peers
+}
+
 // TransmitterAddress resolves the spec's transmitter address
 func (r *OCRSpecResolver) TransmitterAddress() *string {
 	if r.spec.TransmitterAddress == nil {
@@ -543,7 +554,7 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 	return &r.spec.MonitoringEndpoint.String
 }
 
-// P2PV2Bootstrappers resolves the spec's p2pv2 bootstrappers
+// P2PV2Bootstrappers resolves the OCR2 spec's p2pv2 bootstrappers
 func (r *OCR2SpecResolver) P2PV2Bootstrappers() *[]string {
 	if len(r.spec.P2PV2Bootstrappers) == 0 {
 		return nil
@@ -685,6 +696,15 @@ func (r *VRFSpecResolver) BackoffInitialDelay() string {
 // BackoffMaxDelay resolves the spec's backoff max delay.
 func (r *VRFSpecResolver) BackoffMaxDelay() string {
 	return r.spec.BackoffMaxDelay.String()
+}
+
+// MaxGasPriceGWei resolves the spec's max gas price gwei.
+func (r *VRFSpecResolver) MaxGasPriceGWei() *int32 {
+	if r.spec.MaxGasPriceGWei == nil {
+		return nil
+	}
+	maxGasPriceGWei := int32(*r.spec.MaxGasPriceGWei)
+	return &maxGasPriceGWei
 }
 
 type WebhookSpecResolver struct {

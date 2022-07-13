@@ -1,12 +1,17 @@
 package validate
 
 import (
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 )
@@ -90,11 +95,52 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
+	case job.DKG:
+		err := validateDKGSpec(spec.OCR2OracleSpec.PluginConfig)
+		return err
+	case job.OCR2VRF:
+		return nil
 	case "":
 		return errors.New("no plugin specified")
 	default:
 		return errors.Errorf("invalid pluginType %s", spec.OCR2OracleSpec.PluginType)
 	}
 
+	return nil
+}
+
+func validateDKGSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var pluginConfig config.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return errors.Wrap(err, "error while unmarshaling plugin config")
+	}
+	err = validateHexString(pluginConfig.EncryptionPublicKey, 32)
+	if err != nil {
+		return errors.Wrap(err, "validation error for encryptedPublicKey")
+	}
+	err = validateHexString(pluginConfig.SigningPublicKey, 32)
+	if err != nil {
+		return errors.Wrap(err, "validation error for signingPublicKey")
+	}
+	err = validateHexString(pluginConfig.KeyID, 32)
+	if err != nil {
+		return errors.Wrap(err, "validation error for keyID")
+	}
+
+	return nil
+}
+
+func validateHexString(val string, expectedLengthInBytes uint) error {
+	decoded, err := hex.DecodeString(val)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("expected hex string but received %s", val))
+	}
+	if len(decoded) != int(expectedLengthInBytes) {
+		return fmt.Errorf("value: %s has unexpected length. Expected %d bytes", val, expectedLengthInBytes)
+	}
 	return nil
 }

@@ -172,7 +172,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	}
 	rs.logger.Debugw("updated db for UpkeepPerformed log",
 		"jobID", rs.job.ID,
-		"upkeepID", log.UpkeepID.Int64(),
+		"upkeepID", log.UpkeepID.String(),
 		"blockNumber", int64(broadcast.RawLog().BlockNumber),
 		"fromAddr", ethkey.EIP55AddressFromAddress(log.FromKeeper))
 
