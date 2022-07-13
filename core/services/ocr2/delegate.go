@@ -165,7 +165,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	case job.DKG:
 		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
 		if !ok {
-			return nil, errors.New("chainID must be provided in relay conig")
+			return nil, errors.New("chainID must be provided in relay config")
 		}
 		chainID := int64(chainIDInterface.(float64))
 		chain, err2 := d.chainSet.Get(big.NewInt(chainID))

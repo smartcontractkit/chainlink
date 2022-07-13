@@ -29,16 +29,16 @@ type SetupDKGNodePayload struct {
 	DkgSign           string
 }
 
-type DKGTemplateArgs struct {
+type dkgTemplateArgs struct {
 	contractID              string
 	ocrKeyBundleID          string
 	p2pv2BootstrapperPeerID string
 	p2pv2BootstrapperPort   string
 	transmitterID           string
 	chainID                 int64
-	EncryptionPublicKey     string
-	KeyID                   string
-	SigningPublicKey        string
+	encryptionPublicKey     string
+	keyID                   string
+	signingPublicKey        string
 }
 
 const dkgTemplate = `
@@ -84,7 +84,8 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	lggr.Infow(fmt.Sprintf("Configuring Chainlink Node FOR DKG %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
 	ldb := pg.NewLockedDB(cli.Config, lggr)
-	rootCtx, _ := context.WithCancel(context.Background())
+	rootCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if err = ldb.Open(rootCtx); err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "opening db"))
@@ -133,19 +134,19 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 
 	if c.Bool("isBootstrapper") {
 		// Set up bootstrapper job if bootstrapper.
-		err = createBootstrapperJob(cli, c, app)
+		err = createBootstrapperJob(c, app)
 	} else {
 		// Set up DKG job.
-		err = createDKGJob(cli, c, app, DKGTemplateArgs{
+		err = createDKGJob(app, dkgTemplateArgs{
 			contractID:              c.String("contractID"),
 			ocrKeyBundleID:          ocr2.ID(),
 			p2pv2BootstrapperPeerID: peerID,
 			p2pv2BootstrapperPort:   c.String("bootstrapPort"),
 			transmitterID:           transmitterID,
 			chainID:                 c.Int64("chainID"),
-			EncryptionPublicKey:     dkgEncryptKey,
-			KeyID:                   keyID,
-			SigningPublicKey:        dkgSignKey,
+			encryptionPublicKey:     dkgEncryptKey,
+			keyID:                   keyID,
+			signingPublicKey:        dkgSignKey,
 		})
 	}
 	if err != nil {
@@ -206,7 +207,7 @@ func setupDKGKeystore(cli *Client, c *clipkg.Context, app chainlink.Application,
 	return nil
 }
 
-func createBootstrapperJob(cli *Client, c *clipkg.Context, app chainlink.Application) error {
+func createBootstrapperJob(c *clipkg.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(bootstrapTemplate,
 		c.String("contractID"),
 		c.Int64("chainID"),
@@ -235,8 +236,7 @@ func createBootstrapperJob(cli *Client, c *clipkg.Context, app chainlink.Applica
 	return nil
 }
 
-func createDKGJob(cli *Client, c *clipkg.Context, app chainlink.Application, args DKGTemplateArgs) error {
-	// Set up DKG job if.
+func createDKGJob(app chainlink.Application, args dkgTemplateArgs) error {
 	sp := fmt.Sprintf(dkgTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
@@ -244,9 +244,9 @@ func createDKGJob(cli *Client, c *clipkg.Context, app chainlink.Application, arg
 		args.p2pv2BootstrapperPort,
 		args.transmitterID,
 		args.chainID,
-		args.EncryptionPublicKey,
-		args.KeyID,
-		args.SigningPublicKey,
+		args.encryptionPublicKey,
+		args.keyID,
+		args.signingPublicKey,
 	)
 
 	var jb job.Job

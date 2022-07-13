@@ -20,25 +20,6 @@ type onchainContract struct {
 	dkgAddress common.Address
 }
 
-func (o *onchainContract) CurrentCommittee(ctx context.Context) (ocr2vrftypes.OCRCommittee, error) {
-	// TODO: implement me
-	panic("implement me")
-}
-
-func (o *onchainContract) InitiateDKG(
-	ctx context.Context,
-	committee ocr2vrftypes.OCRCommittee,
-	f ocr2vrftypes.PlayerIdxInt,
-	keyID dkg.KeyID,
-	epks dkg.EncryptionPublicKeys,
-	spks dkg.SigningPublicKeys,
-	encGroup anon.Suite,
-	translator ocr2vrftypes.PubKeyTranslation,
-) error {
-	// TODO: implement me
-	panic("implement me")
-}
-
 var _ dkg.DKG = &onchainContract{}
 
 func newOnchainDKGClient(dkgAddress string, ethClient evmclient.Client) (*onchainContract, error) {
@@ -75,10 +56,29 @@ func (o *onchainContract) AddClient(
 	keyID [32]byte,
 	clientAddress common.Address,
 ) error {
-	// TODO: implement!!
-	panic("unimplemented!")
+	// TODO: implement me
+	panic("implement me")
 }
 
 func (o *onchainContract) Address() common.Address {
 	return o.dkgAddress
+}
+
+func (o *onchainContract) CurrentCommittee(ctx context.Context) (ocr2vrftypes.OCRCommittee, error) {
+	// TODO: implement me
+	panic("implement me")
+}
+
+func (o *onchainContract) InitiateDKG(
+	ctx context.Context,
+	committee ocr2vrftypes.OCRCommittee,
+	f ocr2vrftypes.PlayerIdxInt,
+	keyID dkg.KeyID,
+	epks dkg.EncryptionPublicKeys,
+	spks dkg.SigningPublicKeys,
+	encGroup anon.Suite,
+	translator ocr2vrftypes.PubKeyTranslation,
+) error {
+	// TODO: implement me
+	panic("implement me")
 }

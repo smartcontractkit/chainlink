@@ -19,10 +19,9 @@ import (
 )
 
 func setupDKGNodes(e helpers.Environment) {
-	client := NewProductionClient()
+	client := newDKGSetupClient()
 	app := cmd.NewApp(client)
 
-	// Parse os arguments.
 	cmd := flag.NewFlagSet("dkg-setup", flag.ExitOnError)
 	keyID := cmd.String("key-id", "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc", "key ID")
 	apiFile := cmd.String("api", "../../../tools/secrets/apicredentials", "api file")
@@ -76,7 +75,7 @@ func setupDKGNodes(e helpers.Environment) {
 		context := cli.NewContext(app, flagSet, nil)
 
 		// Reset DKG node database.
-		resetDatbase(client, context, i, *databasePrefix, *databaseSuffixes)
+		resetDatabase(client, context, i, *databasePrefix, *databaseSuffixes)
 
 		// Setup DKG node.
 		payload := setupDKGNodeFromClient(client, context)
@@ -147,16 +146,16 @@ func setupDKGNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.Setup
 }
 
 func configureEnvironmentVariables() {
-	os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true")
-	os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true")
+	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
+	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
 }
 
-func resetDatbase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
-	os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes))
-	client.ResetDatabase(context)
+func resetDatabase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
+	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+	helpers.PanicErr(client.ResetDatabase(context))
 }
 
-func NewProductionClient() *cmd.Client {
+func newDKGSetupClient() *cmd.Client {
 	lggr, closeLggr := logger.NewLogger()
 	cfg := config.NewGeneralConfig(lggr)
 
