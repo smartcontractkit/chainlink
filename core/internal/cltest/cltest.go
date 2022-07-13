@@ -235,7 +235,6 @@ type TestApplication struct {
 // If chainID is set, then eth_chainId calls will be automatically handled.
 func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandler) string {
 	server := testutils.NewWSServer(t, chainID, callback)
-	t.Cleanup(server.Close)
 	return server.WSURL().String()
 }
 

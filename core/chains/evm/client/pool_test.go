@@ -149,6 +149,7 @@ func TestPool_Dial(t *testing.T) {
 				assert.Contains(t, err.Error(), test.errStr)
 			} else {
 				require.NoError(t, err)
+				p.Close()
 			}
 		})
 	}
