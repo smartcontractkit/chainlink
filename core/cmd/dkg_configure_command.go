@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -134,10 +135,10 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 
 	if c.Bool("isBootstrapper") {
 		// Set up bootstrapper job if bootstrapper.
-		err = createBootstrapperJob(c, app)
+		err = createBootstrapperJob(lggr, c, app)
 	} else {
 		// Set up DKG job.
-		err = createDKGJob(app, dkgTemplateArgs{
+		err = createDKGJob(lggr, app, dkgTemplateArgs{
 			contractID:              c.String("contractID"),
 			ocrKeyBundleID:          ocr2.ID(),
 			p2pv2BootstrapperPeerID: peerID,
@@ -207,7 +208,7 @@ func setupDKGKeystore(cli *Client, c *clipkg.Context, app chainlink.Application,
 	return nil
 }
 
-func createBootstrapperJob(c *clipkg.Context, app chainlink.Application) error {
+func createBootstrapperJob(lggr logger.Logger, c *clipkg.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(bootstrapTemplate,
 		c.String("contractID"),
 		c.Int64("chainID"),
@@ -228,7 +229,7 @@ func createBootstrapperJob(c *clipkg.Context, app chainlink.Application) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}
-	fmt.Println(sp)
+	lggr.Info("bootstrap spec:", sp)
 
 	// Give a cooldown
 	time.Sleep(time.Second)
@@ -236,7 +237,7 @@ func createBootstrapperJob(c *clipkg.Context, app chainlink.Application) error {
 	return nil
 }
 
-func createDKGJob(app chainlink.Application, args dkgTemplateArgs) error {
+func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
 	sp := fmt.Sprintf(dkgTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
@@ -265,7 +266,7 @@ func createDKGJob(app chainlink.Application, args dkgTemplateArgs) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}
-	fmt.Println(sp)
+	lggr.Info("dkg spec:", sp)
 
 	return nil
 }
