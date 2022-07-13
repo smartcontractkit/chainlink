@@ -66,7 +66,7 @@ type verifiedCachedClient struct {
 func (v *verifiedCachedClient) verifyChainID() (bool, error) {
 	v.chainIDVerifiedLock.RLock()
 	if v.chainIDVerified {
-		defer v.chainIDVerifiedLock.RUnlock()
+		v.chainIDVerifiedLock.RUnlock()
 		return true, nil
 	}
 	v.chainIDVerifiedLock.RUnlock()
