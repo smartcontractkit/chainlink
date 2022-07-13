@@ -57,17 +57,17 @@ type verifiedCachedClient struct {
 
 	lggr logger.Logger
 
-	verifyErr           error
 	chainIDVerified     bool
 	chainIDVerifiedLock sync.RWMutex
 
 	solanaclient.ReaderWriter
 }
 
-func (v *verifiedCachedClient) verifyChainID() bool {
+func (v *verifiedCachedClient) verifyChainID() (bool, error) {
 	v.chainIDVerifiedLock.RLock()
 	if v.chainIDVerified {
-		return true
+		defer v.chainIDVerifiedLock.RUnlock()
+		return true, nil
 	}
 	v.chainIDVerifiedLock.RUnlock()
 
@@ -79,100 +79,97 @@ func (v *verifiedCachedClient) verifyChainID() bool {
 	v.chainID, err = v.ReaderWriter.ChainID()
 	if err != nil {
 		v.chainIDVerified = false
-		v.verifyErr = errors.Wrap(err, "failed to fetch ChainID in verifiedCachedClient")
-		return v.chainIDVerified
+		return v.chainIDVerified, errors.Wrap(err, "failed to fetch ChainID in verifiedCachedClient")
 	}
 
 	// check chainID matches expected chainID
 	expectedChainID := strings.ToLower(v.expectedChainID)
 	if v.chainID != expectedChainID {
 		v.chainIDVerified = false
-		v.verifyErr = errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedChainID, v.chainID, v.nodeURL)
-		return v.chainIDVerified
+		return v.chainIDVerified, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedChainID, v.chainID, v.nodeURL)
 	}
 
-	v.verifyErr = nil
 	v.chainIDVerified = true
 
-	return v.chainIDVerified
+	return v.chainIDVerified, nil
 }
 
 func (v *verifiedCachedClient) SendTx(ctx context.Context, tx *solanago.Transaction) (solanago.Signature, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return [64]byte{}, v.verifyErr
+		return [64]byte{}, err
 	}
 
 	return v.ReaderWriter.SendTx(ctx, tx)
 }
 
 func (v *verifiedCachedClient) SimulateTx(ctx context.Context, tx *solanago.Transaction, opts *rpc.SimulateTransactionOpts) (*rpc.SimulateTransactionResult, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return nil, v.verifyErr
+		return nil, err
 	}
 
 	return v.ReaderWriter.SimulateTx(ctx, tx, opts)
 }
 
 func (v *verifiedCachedClient) SignatureStatuses(ctx context.Context, sigs []solanago.Signature) ([]*rpc.SignatureStatusesResult, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return nil, v.verifyErr
+		return nil, err
 	}
 
 	return v.ReaderWriter.SignatureStatuses(ctx, sigs)
 }
 
 func (v *verifiedCachedClient) Balance(addr solanago.PublicKey) (uint64, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return 0, v.verifyErr
+		return 0, err
 	}
 
 	return v.ReaderWriter.Balance(addr)
 }
 
 func (v *verifiedCachedClient) SlotHeight() (uint64, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return 0, v.verifyErr
+		return 0, err
 	}
 
 	return v.ReaderWriter.SlotHeight()
 }
 
 func (v *verifiedCachedClient) LatestBlockhash() (*rpc.GetLatestBlockhashResult, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return nil, v.verifyErr
+		return nil, err
 	}
 
 	return v.ReaderWriter.LatestBlockhash()
 }
 
 func (v *verifiedCachedClient) ChainID() (string, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return "", v.verifyErr
+		return "", err
 	}
 
 	return v.chainID, nil
 }
 
 func (v *verifiedCachedClient) GetFeeForMessage(msg string) (uint64, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return 0, v.verifyErr
+		return 0, err
 	}
 
 	return v.ReaderWriter.GetFeeForMessage(msg)
 }
 
 func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr solanago.PublicKey, opts *rpc.GetAccountInfoOpts) (*rpc.GetAccountInfoResult, error) {
-	verified := v.verifyChainID()
+	verified, err := v.verifyChainID()
 	if !verified {
-		return nil, v.verifyErr
+		return nil, err
 	}
 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
