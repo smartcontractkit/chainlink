@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added 
 
 - Added job spec attribute `gasLimit` which allows job-specific overrides of the default `ETH_GAS_LIMIT_DEFAULT` value for gas limit.
+- Added official support for Besu execution client
 
 ### Changed
 
