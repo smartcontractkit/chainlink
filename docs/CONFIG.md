@@ -2251,7 +2251,7 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
+BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2271,7 +2271,7 @@ TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
+BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
 
@@ -2446,7 +2446,7 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
+BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2466,7 +2466,7 @@ TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
+BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
 

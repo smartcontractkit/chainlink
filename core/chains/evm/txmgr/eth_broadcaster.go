@@ -10,6 +10,7 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgconn"
+	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
@@ -204,16 +205,37 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	}
 }
 
+func (eb *EthBroadcaster) newResendBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
+}
+
 func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{}) {
 	ctx, cancel := utils.ContextFromChan(eb.chStop)
 	defer cancel()
+
+	// errorRetryCh allows retry on exponential backoff in case of timeout or
+	// other unknown error
+	var errorRetryCh <-chan time.Time
+	bf := eb.newResendBackoff()
 
 	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
 		if err := eb.ProcessUnstartedEthTxs(ctx, k); err != nil {
-			eb.logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
+			errorRetryCh = time.After(bf.Duration())
+			if errors.Is(err, context.DeadlineExceeded) {
+				eb.logger.Errorw("Timed out while handling eth_tx queue in ProcessUnstartedEthTxs", "err", err)
+			} else {
+				eb.logger.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported", "err", err)
+			}
+		} else {
+			bf = eb.newResendBackoff()
+			errorRetryCh = nil
 		}
 
 		select {
@@ -231,6 +253,9 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 			continue
 		case <-pollDBTimer.C:
 			// DB poller timed out
+			continue
+		case <-errorRetryCh:
+			// Error backoff period reached
 			continue
 		}
 	}
