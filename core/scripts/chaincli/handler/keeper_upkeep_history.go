@@ -120,19 +120,17 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 			}
 
 			// least significant 32 bits of upkeep id
-			max32 := big.NewInt(math.MaxUint32)
-			lhs := big.NewInt(0).And(upkeepId, max32)
+			lhs := keeper.LeastSignificant32(upkeepId)
 
 			// least significant 32 bits of the turn block hash
-			var rhs uint64
-			for i := len(turnBinary) - 1; i >= len(turnBinary)-32; i-- {
-				if turnBinary[i] == '1' {
-					rhs += 1 << (len(turnBinary) - 1 - i)
-				}
+			turnBinaryPtr, ok := math.ParseBig256(string([]byte(turnBinary)[len(turnBinary)-32:]))
+			if !ok {
+				log.Fatal("failed to parse turn binary ", turnBinary)
 			}
+			rhs := keeper.LeastSignificant32(turnBinaryPtr)
 
 			// bitwise XOR
-			turn := lhs.Uint64() ^ rhs
+			turn := lhs ^ rhs
 
 			keeperIndex = turn % keepersCnt
 			if keepers[keeperIndex] == upkeep.LastKeeper {

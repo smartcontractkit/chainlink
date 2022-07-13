@@ -4,11 +4,11 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 )
 
 // upkeepEventsCmd represents the command to run the upkeep events counter command
@@ -43,7 +43,7 @@ var upkeepHistoryCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal("failed to get 'upkeep-id' flag: ", err)
 		}
-		upkeepId, ok := math.ParseBig256(upkeepIdStr)
+		upkeepId, ok := keeper.ParseUpkeepId(upkeepIdStr)
 		if !ok {
 			log.Fatal("failed to parse upkeep-id")
 		}
