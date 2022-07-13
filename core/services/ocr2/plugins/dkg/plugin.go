@@ -13,7 +13,6 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
@@ -77,14 +76,19 @@ func (d *DKGContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, err
 		d.jb.OCR2OracleSpec.ContractID,
 		d.ethClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "ew onchain dkg client")
+		return nil, errors.Wrap(err, "new onchain dkg client")
 	}
 	onchainContract := dkg.NewOnchainContract(onchainDKGClient, &altbn_128.G2{})
 	keyConsumer := newDummyKeyConsumer()
+	keyID, err := decodeKeyID(d.pluginConfig.KeyID)
+	if err != nil {
+		return nil, errors.Wrap(err, "decode key ID")
+	}
+
 	factory := dkg.NewReportingPluginFactory(
 		encryptKey.KyberScalar(),
 		signKey.KyberScalar(),
-		dkg.KeyID(decodeKeyID(d.pluginConfig.KeyID)),
+		keyID,
 		onchainContract,
 		d.ocrLogger,
 		keyConsumer,
@@ -96,11 +100,13 @@ func (d *DKGContainer) GetServices() ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{}, nil
 }
 
-func decodeKeyID(val string) (byteArray [32]byte) {
+func decodeKeyID(val string) (byteArray [32]byte, err error) {
 	decoded, err := hex.DecodeString(val)
-	helpers.PanicErr(err)
+	if err != nil {
+		return [32]byte{}, errors.Wrap(err, "hex decode string")
+	}
 	if len(decoded) != 32 {
-		panic(fmt.Sprintf("expected value to be 32 bytes but received %d bytes", len(decoded)))
+		return [32]byte{}, fmt.Errorf("expected value to be 32 bytes but received %d bytes", len(decoded))
 	}
 	copy(byteArray[:], decoded)
 	return
