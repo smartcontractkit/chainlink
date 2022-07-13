@@ -1,8 +1,13 @@
 package evm
 
 import (
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"encoding/json"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
 )
 
 // DKGProvider provides all components needed for a DKG plugin.
@@ -36,6 +41,7 @@ func NewOCR2VRFRelayer(relayer interface{}) OCR2VRFRelayer {
 type dkgProvider struct {
 	*configWatcher
 	contractTransmitter *ContractTransmitter
+	pluginConfig        config.PluginConfig
 }
 
 var _ DKGProvider = (*dkgProvider)(nil)
@@ -49,9 +55,17 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	if err != nil {
 		return nil, err
 	}
+
+	var pluginConfig config.PluginConfig
+	err = json.Unmarshal(pargs.PluginConfig, &pluginConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dkgProvider{
 		configWatcher:       configWatcher,
 		contractTransmitter: contractTransmitter,
+		pluginConfig:        pluginConfig,
 	}, nil
 }
 
