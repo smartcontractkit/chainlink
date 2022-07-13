@@ -125,7 +125,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, func() {
 				By("watches all the registered upkeeps perform and then cancels them from the registry")
 				Eventually(func(g Gomega) {
@@ -170,7 +169,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, func() {
 				By("tests that keeper pairs change turn every blockCountPerTurn")
 				keepersPerformed := make([]string, 0)
@@ -242,7 +240,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					keepersPerformed = append(keepersPerformed, latestKeeper)
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, func() {
 				By("tests that keeper pairs change turn every blockCountPerTurn")
 				keepersPerformed := make([]string, 0)
@@ -314,7 +311,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					keepersPerformed = append(keepersPerformed, latestKeeper)
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, func() {
 				By("tests that performUpkeep simulation is run before tx is broadcast")
 				consumerPerformance := consumersPerformance[0]
@@ -351,7 +347,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					)
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, func() {
 				By("tests that check/perform gas limits are respected for upkeeps")
 				consumerPerformance := consumersPerformance[0]
@@ -421,7 +416,59 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					)
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, func() {
+				By("registers a new upkeep after the initial one was already registered and watches all of them perform")
+				var initialCounters = make([]*big.Int, len(upkeepIDs))
 
+				// Observe that the upkeeps which are initially registered are performing and
+				// store the value of their initial counters in order to compare later on that the value increased.
+				Eventually(func(g Gomega) {
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(context.Background())
+						initialCounters[i] = counter
+						g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+							" for upkeep at index "+strconv.Itoa(i))
+						g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+							"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+						log.Info().
+							Int64("Upkeep counter", counter.Int64()).
+							Int64("Upkeep ID", int64(i)).
+							Msg("Number of upkeeps performed")
+					}
+				}, "1m", "1s").Should(Succeed())
+
+				newConsumers, _ := actions.RegisterNewUpkeeps(contractDeployer, chainClient, linkToken,
+					registry, registrar, defaultUpkeepGasLimit, 1)
+
+				// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
+				newUpkeep := newConsumers[0]
+
+				// Test that the newly registered upkeep is also performing.
+				Eventually(func(g Gomega) {
+					counter, err := newUpkeep.Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Calling newly deployed upkeep's counter shouldn't fail")
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
+					log.Info().Msg("Newly registered upkeeps performed " + strconv.Itoa(int(counter.Int64())) + " times")
+				}, "1m", "1s").Should(Succeed())
+
+				Eventually(func(g Gomega) {
+					for i := 0; i < len(upkeepIDs); i++ {
+						currentCounter, err := consumers[i].Counter(context.Background())
+						g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
+
+						log.Info().
+							Int64("Upkeep ID", int64(i)).
+							Int64("Upkeep counter", currentCounter.Int64()).
+							Int64("initial counter", initialCounters[i].Int64()).
+							Msg("Number of upkeeps performed")
+
+						g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+							"Expected counter to have increased from initial value of %s, but got %s",
+							initialCounters[i], currentCounter)
+					}
+				}, "1m", "1s").Should(Succeed())
+			}, big.NewInt(defaultLinkFunds)),
 			Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, func() {
 				By("registers a new upkeep after the initial one was already registered and watches all of them perform")
 				var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -475,7 +522,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, func() {
 				By("adds funds to a new underfunded upkeep")
 				// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -507,7 +553,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(1)),
-
 			Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, func() {
 				By("adds funds to a new underfunded upkeep")
 				// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -539,7 +584,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 						"Expected newly registered upkeep's counter to be greater than 0, but got %d", counter.Int64())
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(1)),
-
 			Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, func() {
 				By("removes one keeper and makes sure the upkeeps are not affected by this and still perform")
 				var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -584,7 +628,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, func() {
 				By("removes one keeper and makes sure the upkeeps are not affected by this and still perform")
 				var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -629,7 +672,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, func() {
 				By("pauses the registry and makes sure that the upkeeps are no longer performed")
 				// Observe that the upkeeps which are initially registered are performing
@@ -670,7 +712,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}, "1m", "1s").Should(Succeed())
 			}, big.NewInt(defaultLinkFunds)),
-
 			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, func() {
 				By("creates another registry and migrates one upkeep to the new registry")
 				// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
