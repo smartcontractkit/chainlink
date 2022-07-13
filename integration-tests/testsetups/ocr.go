@@ -16,13 +16,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-github.com/smartcontractkit/chainlink/integration-tests/client""
-"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 // OCRSoakTest defines a typical OCR soak test
@@ -31,7 +32,7 @@ type OCRSoakTest struct {
 	TestReporter      testreporters.OCRSoakTestReporter
 	ocrInstances      []contracts.OffchainAggregator
 	roundResponseData map[string]map[int64]int64
-	mockServer        *client.MockserverClient
+	mockServer        *ctfClient.MockserverClient
 	env               *environment.Environment
 	chainlinkNodes    []client.Chainlink
 	chainClient       blockchain.EVMClient
@@ -75,7 +76,7 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 	t.chainlinkNodes, err = client.ConnectChainlinkNodes(env)
 	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-	t.mockServer, err = client.ConnectMockServer(env)
+	t.mockServer, err = ctfClient.ConnectMockServer(env)
 	Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 	t.chainClient.ParallelTransactions(true)
 
@@ -122,7 +123,7 @@ func (t *OCRSoakTest) Run() {
 	defer testCancel()
 
 	stopTestChannel := make(chan struct{}, 1)
-	StartRemoteControlServer("OCR Soak Test", stopTestChannel)
+	testsetups.StartRemoteControlServer("OCR Soak Test", stopTestChannel)
 
 	// Test Loop
 	roundNumber := 1

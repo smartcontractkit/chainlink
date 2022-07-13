@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are

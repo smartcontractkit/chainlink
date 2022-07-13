@@ -63,9 +63,9 @@ type Chainlink interface {
 	ReadTxKeys(chain string) (*TxKeys, error)
 	DeleteTxKey(chain, id string) error
 
-	ReadTransactionAttempts() (*TransactionsData, error)
-	ReadTransactions() (*TransactionsData, error)
-	SendNativeToken(amount *big.Int, fromAddress, toAddress string) (TransactionData, error)
+	ReadTransactionAttempts() (*ctfClient.TransactionsData, error)
+	ReadTransactions() (*ctfClient.TransactionsData, error)
+	SendNativeToken(amount *big.Int, fromAddress, toAddress string) (ctfClient.TransactionData, error)
 
 	CreateVRFKey() (*VRFKey, error)
 	ReadVRFKeys() (*VRFKeys, error)
@@ -90,7 +90,7 @@ type Chainlink interface {
 
 	SetPageSize(size int)
 
-	Profile(profileTime time.Duration, profileFunction func(Chainlink)) (*ChainlinkProfileResults, error)
+	Profile(profileTime time.Duration, profileFunction func(Chainlink)) (*ctfClient.ChainlinkProfileResults, error)
 
 	// SetClient is used for testing
 	SetClient(client *http.Client)
@@ -360,23 +360,23 @@ func (c *chainlink) DeleteTxKey(chain string, id string) error {
 }
 
 // ReadTransactionAttempts reads all transaction attempts on the chainlink node
-func (c *chainlink) ReadTransactionAttempts() (*TransactionsData, error) {
-	txsData := &TransactionsData{}
+func (c *chainlink) ReadTransactionAttempts() (*ctfClient.TransactionsData, error) {
+	txsData := &ctfClient.TransactionsData{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Transaction Attempts")
 	err := c.do(http.MethodGet, "/v2/tx_attempts", nil, txsData, http.StatusOK)
 	return txsData, err
 }
 
 // ReadTransactions reads all transactions made by the chainlink node
-func (c *chainlink) ReadTransactions() (*TransactionsData, error) {
-	txsData := &TransactionsData{}
+func (c *chainlink) ReadTransactions() (*ctfClient.TransactionsData, error) {
+	txsData := &ctfClient.TransactionsData{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Transactions")
 	return txsData, c.do(http.MethodGet, "/v2/transactions", nil, txsData, http.StatusOK)
 }
 
 // SendNativeToken sends native token (ETH usually) of a specified amount from one of its addresses to the target address
 // WARNING: The txdata object that chainlink sends back is almost always blank.
-func (c *chainlink) SendNativeToken(amount *big.Int, fromAddress, toAddress string) (TransactionData, error) {
+func (c *chainlink) SendNativeToken(amount *big.Int, fromAddress, toAddress string) (ctfClient.TransactionData, error) {
 	request := SendEtherRequest{
 		DestinationAddress: toAddress,
 		FromAddress:        fromAddress,
@@ -550,9 +550,9 @@ func (c *chainlink) SetSessionCookie() error {
 
 // Profile starts a profile session on the Chainlink node for a pre-determined length, then runs the provided function
 // to profile it.
-func (c *chainlink) Profile(profileTime time.Duration, profileFunction func(Chainlink)) (*ChainlinkProfileResults, error) {
+func (c *chainlink) Profile(profileTime time.Duration, profileFunction func(Chainlink)) (*ctfClient.ChainlinkProfileResults, error) {
 	profileSeconds := int(profileTime.Seconds())
-	profileResults := NewBlankChainlinkProfileResults()
+	profileResults := ctfClient.NewBlankChainlinkProfileResults()
 	profileErrorGroup := new(errgroup.Group)
 	var profileExecutedGroup sync.WaitGroup
 	log.Info().Int("Seconds to Profile", profileSeconds).Str("Node URL", c.Config.URL).Msg("Starting Node PPROF session")

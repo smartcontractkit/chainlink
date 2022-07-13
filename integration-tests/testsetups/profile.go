@@ -17,9 +17,8 @@ import (
 type ChainlinkProfileTest struct {
 	Inputs       ChainlinkProfileTestInputs
 	TestReporter testreporters.ChainlinkProfileTestReporter
-
-	env *environment.Environment
-	c   blockchain.EVMClient
+	env          *environment.Environment
+	c            blockchain.EVMClient
 }
 
 // ChainlinkProfileTestInputs are the inputs necessary to run a profiling tests

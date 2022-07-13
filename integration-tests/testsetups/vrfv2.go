@@ -11,9 +11,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-github.com/smartcontractkit/chainlink/integration-tests/client""
-"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 // VRFV2SoakTest defines a typical VRFV2 soak test
@@ -21,7 +21,7 @@ type VRFV2SoakTest struct {
 	Inputs *VRFV2SoakTestInputs
 
 	TestReporter testreporters.VRFV2SoakTestReporter
-	mockServer   *client.MockserverClient
+	mockServer   *ctfClient.MockserverClient
 
 	testEnvironment *environment.Environment
 	ChainlinkNodes  []client.Chainlink
@@ -67,7 +67,7 @@ func (t *VRFV2SoakTest) Setup(env *environment.Environment, isLocal bool) {
 	// Make connections to soak test resources
 	t.ChainlinkNodes, err = client.ConnectChainlinkNodes(env)
 	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-	t.mockServer, err = client.ConnectMockServer(env)
+	t.mockServer, err = ctfClient.ConnectMockServer(env)
 	Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
 	t.chainClient.ParallelTransactions(true)
@@ -122,7 +122,7 @@ func (t *VRFV2SoakTest) Run() {
 func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 	defer GinkgoRecover()
 	// Errors in goroutines cause some weird behavior with how ginkgo returns the error
-	// We are having the TestFunc return any errors it sees so we can then propogate them in
+	// We are having the TestFunc return any errors it sees so we can then propagate them in
 	//  the main thread and get proper ginkgo behavior on test failures
 	log.Info().Int("Request Number", requestNumber).Msg("Making a Request")
 	err := t.Inputs.TestFunc(t, requestNumber)
