@@ -769,7 +769,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 	})
 
 	DescribeTable("Keeper Suite on different EVM networks", func(registryVersion ethereum.KeeperRegistryVersion,
-		registryConfig contracts.KeeperRegistrySettings, consumerContract KeeperConsumerContracts, linkFundsForEachUpkeep *big.Int) {
+		registryConfig contracts.KeeperRegistrySettings, consumerContract KeeperConsumerContracts, testToRun func(), linkFundsForEachUpkeep *big.Int) {
 
 		switch consumerContract {
 		case BasicCounter:
@@ -804,6 +804,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		actions.CreateKeeperJobs(chainlinkNodes, registry)
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
+
+		testToRun()
 	},
 		testScenarios,
 	)
