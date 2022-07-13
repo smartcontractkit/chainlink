@@ -13,14 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 1. task-specific parameter `gasLimit` overrides anything else when specified (e.g. ETH Tx Task has such the parameter).
 2. job-spec attribute `gasLimit` has the scope of the current job spec only.
-3. job-type limits `*_JOB_GAS_LIMIT` affect any jobs of the corresponding type:
+3. job-type limits `ETH_GAS_LIMIT_*_JOB_TYPE` affect any jobs of the corresponding type:
 
 ```
-OCR_JOB_GAS_LIMIT    # EVM.GasEstimator.OCRJobLimit
-DR_JOB_GAS_LIMIT     # EVM.GasEstimator.DRJobLimit
-VRF_JOB_GAS_LIMIT    # EVM.GasEstimator.VRFJobLimit
-FM_JOB_GAS_LIMIT     # EVM.GasEstimator.FMJobLimit
-KEEPER_JOB_GAS_LIMIT # EVM.GasEstimator.KeeperJobLimit
+ETH_GAS_LIMIT_OCR_JOB_TYPE    # EVM.GasEstimator.LimitOCRJobType
+ETH_GAS_LIMIT_DR_JOB_TYPE     # EVM.GasEstimator.LimitDRJobType
+ETH_GAS_LIMIT_VRF_JOB_TYPE    # EVM.GasEstimator.LimitVRFJobType
+ETH_GAS_LIMIT_FM_JOB_TYPE     # EVM.GasEstimator.LimitFMJobType
+ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 ```
 
 4. global `ETH_GAS_LIMIT_DEFAULT` (`EVM.GasEstimator.LimitDefault`) value is the last resort.

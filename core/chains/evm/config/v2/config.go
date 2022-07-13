@@ -65,11 +65,11 @@ type GasEstimator struct {
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 
-	OCRJobLimit    *uint32
-	DRJobLimit     *uint32
-	VRFJobLimit    *uint32
-	FMJobLimit     *uint32
-	KeeperJobLimit *uint32
+	LimitOCRJobType    *uint32
+	LimitDRJobType     *uint32
+	LimitVRFJobType    *uint32
+	LimitFMJobType     *uint32
+	LimitKeeperJobType *uint32
 
 	BumpMin       *utils.Wei
 	BumpPercent   *uint16
@@ -253,40 +253,40 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		v := uint32(cfg.EvmGasLimitDefault.Int64)
 		c.GasEstimator.LimitDefault = &v
 	}
-	if cfg.OCRJobGasLimit.Valid {
+	if cfg.EvmGasLimitOCRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.OCRJobGasLimit.Int64)
-		c.GasEstimator.OCRJobLimit = &v
+		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
+		c.GasEstimator.LimitOCRJobType = &v
 	}
-	if cfg.DRJobGasLimit.Valid {
+	if cfg.EvmGasLimitDRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.DRJobGasLimit.Int64)
-		c.GasEstimator.DRJobLimit = &v
+		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
+		c.GasEstimator.LimitDRJobType = &v
 	}
-	if cfg.VRFJobGasLimit.Valid {
+	if cfg.EvmGasLimitVRFJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.VRFJobGasLimit.Int64)
-		c.GasEstimator.VRFJobLimit = &v
+		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
+		c.GasEstimator.LimitVRFJobType = &v
 	}
-	if cfg.FMJobGasLimit.Valid {
+	if cfg.EvmGasLimitFMJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.FMJobGasLimit.Int64)
-		c.GasEstimator.FMJobLimit = &v
+		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
+		c.GasEstimator.LimitFMJobType = &v
 	}
-	if cfg.KeeperJobGasLimit.Valid {
+	if cfg.EvmGasLimitKeeperJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.KeeperJobGasLimit.Int64)
-		c.GasEstimator.KeeperJobLimit = &v
+		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
+		c.GasEstimator.LimitKeeperJobType = &v
 	}
 
 	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {

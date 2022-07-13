@@ -49,11 +49,11 @@ type ChainScopedOnlyConfig interface {
 	EvmGasLimitDefault() uint64
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint64
-	OCRJobGasLimit() uint64
-	DRJobGasLimit() uint64
-	VRFJobGasLimit() uint64
-	FMJobGasLimit() uint64
-	KeeperJobGasLimit() uint64
+	EvmGasLimitOCRJobType() uint64
+	EvmGasLimitDRJobType() uint64
+	EvmGasLimitVRFJobType() uint64
+	EvmGasLimitFMJobType() uint64
+	EvmGasLimitKeeperJobType() uint64
 	EvmGasPriceDefault() *big.Int
 	EvmGasTipCapDefault() *big.Int
 	EvmGasTipCapMinimum() *big.Int
@@ -405,89 +405,89 @@ func (c *chainScopedConfig) EvmGasLimitDefault() uint64 {
 	return c.defaultSet.gasLimitDefault
 }
 
-// OCRJobGasLimit overrides the default gas limit for OCR jobs.
-func (c *chainScopedConfig) OCRJobGasLimit() uint64 {
-	val, ok := c.GeneralConfig.GlobalOCRJobGasLimit()
+// EvmGasLimitOCRJobType overrides the default gas limit for OCR jobs.
+func (c *chainScopedConfig) EvmGasLimitOCRJobType() uint64 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitOCRJobType()
 	if ok {
-		c.logEnvOverrideOnce("OCRJobGasLimit", val)
+		c.logEnvOverrideOnce("EvmGasLimitOCRJobType", val)
 		return val
 	}
 	c.persistMu.RLock()
-	p := c.persistedCfg.OCRJobGasLimit
+	p := c.persistedCfg.EvmGasLimitOCRJobType
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("OCRJobGasLimit", p.Int64)
+		c.logPersistedOverrideOnce("EvmGasLimitOCRJobType", p.Int64)
 		return uint64(p.Int64)
 	}
-	return c.defaultSet.ocrJobGasLimit
+	return c.defaultSet.gasLimitOCRJobType
 }
 
-// DRJobGasLimit overrides the default gas limit for Direct Request jobs.
-func (c *chainScopedConfig) DRJobGasLimit() uint64 {
-	val, ok := c.GeneralConfig.GlobalDRJobGasLimit()
+// EvmGasLimitDRJobType overrides the default gas limit for Direct Request jobs.
+func (c *chainScopedConfig) EvmGasLimitDRJobType() uint64 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitDRJobType()
 	if ok {
-		c.logEnvOverrideOnce("DRJobGasLimit", val)
+		c.logEnvOverrideOnce("EvmGasLimitDRJobType", val)
 		return val
 	}
 	c.persistMu.RLock()
-	p := c.persistedCfg.DRJobGasLimit
+	p := c.persistedCfg.EvmGasLimitDRJobType
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("DRJobGasLimit", p.Int64)
+		c.logPersistedOverrideOnce("EvmGasLimitDRJobType", p.Int64)
 		return uint64(p.Int64)
 	}
-	return c.defaultSet.drJobGasLimit
+	return c.defaultSet.gasLimitDRJobType
 }
 
-// VRFJobGasLimit overrides the default gas limit for VRF jobs.
-func (c *chainScopedConfig) VRFJobGasLimit() uint64 {
-	val, ok := c.GeneralConfig.GlobalVRFJobGasLimit()
+// EvmGasLimitVRFJobType overrides the default gas limit for VRF jobs.
+func (c *chainScopedConfig) EvmGasLimitVRFJobType() uint64 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitVRFJobType()
 	if ok {
-		c.logEnvOverrideOnce("VRFJobGasLimit", val)
+		c.logEnvOverrideOnce("EvmGasLimitVRFJobType", val)
 		return val
 	}
 	c.persistMu.RLock()
-	p := c.persistedCfg.VRFJobGasLimit
+	p := c.persistedCfg.EvmGasLimitVRFJobType
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("VRFJobGasLimit", p.Int64)
+		c.logPersistedOverrideOnce("EvmGasLimitVRFJobType", p.Int64)
 		return uint64(p.Int64)
 	}
-	return c.defaultSet.vrfJobGasLimit
+	return c.defaultSet.gasLimitVRFJobType
 }
 
-// FMJobGasLimit overrides the default gas limit for Flux Monitor jobs.
-func (c *chainScopedConfig) FMJobGasLimit() uint64 {
-	val, ok := c.GeneralConfig.GlobalFMJobGasLimit()
+// EvmGasLimitFMJobType overrides the default gas limit for Flux Monitor jobs.
+func (c *chainScopedConfig) EvmGasLimitFMJobType() uint64 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitFMJobType()
 	if ok {
-		c.logEnvOverrideOnce("FMJobGasLimit", val)
+		c.logEnvOverrideOnce("EvmGasLimitFMJobType", val)
 		return val
 	}
 	c.persistMu.RLock()
-	p := c.persistedCfg.FMJobGasLimit
+	p := c.persistedCfg.EvmGasLimitFMJobType
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("FMJobGasLimit", p.Int64)
+		c.logPersistedOverrideOnce("EvmGasLimitFMJobType", p.Int64)
 		return uint64(p.Int64)
 	}
-	return c.defaultSet.fmJobGasLimit
+	return c.defaultSet.gasLimitFMJobType
 }
 
-// KeeperJobGasLimit overrides the default gas limit for Keeper jobs.
-func (c *chainScopedConfig) KeeperJobGasLimit() uint64 {
-	val, ok := c.GeneralConfig.GlobalKeeperJobGasLimit()
+// EvmGasLimitKeeperJobType overrides the default gas limit for Keeper jobs.
+func (c *chainScopedConfig) EvmGasLimitKeeperJobType() uint64 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitKeeperJobType()
 	if ok {
-		c.logEnvOverrideOnce("KeeperJobGasLimit", val)
+		c.logEnvOverrideOnce("EvmGasLimitKeeperJobType", val)
 		return val
 	}
 	c.persistMu.RLock()
-	p := c.persistedCfg.KeeperJobGasLimit
+	p := c.persistedCfg.EvmGasLimitKeeperJobType
 	c.persistMu.RUnlock()
 	if p.Valid {
-		c.logPersistedOverrideOnce("KeeperJobGasLimit", p.Int64)
+		c.logPersistedOverrideOnce("EvmGasLimitKeeperJobType", p.Int64)
 		return uint64(p.Int64)
 	}
-	return c.defaultSet.keeperJobGasLimit
+	return c.defaultSet.gasLimitKeeperJobType
 }
 
 // EvmGasLimitTransfer is the gas limit for an ordinary eth->eth transfer

@@ -176,11 +176,11 @@ type ConfigSchema struct {
 	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
 	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	// Gas limits per job type
-	OCRJobGasLimit    uint64 `env:"OCR_JOB_GAS_LIMIT"`
-	DRJobGasLimit     uint64 `env:"DR_JOB_GAS_LIMIT"`
-	VRFJobGasLimit    uint64 `env:"VRF_JOB_GAS_LIMIT"`
-	FMJobGasLimit     uint64 `env:"FM_JOB_GAS_LIMIT"`
-	KeeperJobGasLimit uint64 `env:"KEEPER_JOB_GAS_LIMIT"`
+	EvmGasLimitOCRJobType    uint64 `env:"ETH_GAS_LIMIT_OCR_JOB_TYPE"`
+	EvmGasLimitDRJobType     uint64 `env:"ETH_GAS_LIMIT_DR_JOB_TYPE"`
+	EvmGasLimitVRFJobType    uint64 `env:"ETH_GAS_LIMIT_VRF_JOB_TYPE"`
+	EvmGasLimitFMJobType     uint64 `env:"ETH_GAS_LIMIT_FM_JOB_TYPE"`
+	EvmGasLimitKeeperJobType uint64 `env:"ETH_GAS_LIMIT_KEEPER_JOB_TYPE"`
 	// Gas Estimation
 	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
 	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`

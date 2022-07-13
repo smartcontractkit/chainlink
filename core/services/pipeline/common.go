@@ -468,15 +468,15 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 	var jobTypeGasLimit uint64
 	switch jobType {
 	case DirectRequestJobType:
-		jobTypeGasLimit = cfg.DRJobGasLimit()
+		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
 	case FluxMonitorJobType:
-		jobTypeGasLimit = cfg.FMJobGasLimit()
+		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
 	case OffchainReportingJobType:
-		jobTypeGasLimit = cfg.OCRJobGasLimit()
+		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
 	case KeeperJobType:
-		jobTypeGasLimit = cfg.KeeperJobGasLimit()
+		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
 	case VRFJobType:
-		jobTypeGasLimit = cfg.VRFJobGasLimit()
+		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
 	}
 
 	if jobTypeGasLimit > 0 {

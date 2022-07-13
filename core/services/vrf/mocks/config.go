@@ -42,6 +42,20 @@ func (_m *Config) EvmGasLimitDefault() uint64 {
 	return r0
 }
 
+// EvmGasLimitVRFJobType provides a mock function with given fields:
+func (_m *Config) EvmGasLimitVRFJobType() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
 func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
 	ret := _m.Called(addr)

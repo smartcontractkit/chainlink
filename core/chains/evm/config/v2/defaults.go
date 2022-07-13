@@ -183,20 +183,20 @@ func (c *Chain) SetFrom(f *Chain) {
 		if v := g.LimitTransfer; v != nil {
 			c.GasEstimator.LimitTransfer = v
 		}
-		if v := g.OCRJobLimit; v != nil {
-			c.GasEstimator.OCRJobLimit = v
+		if v := g.LimitOCRJobType; v != nil {
+			c.GasEstimator.LimitOCRJobType = v
 		}
-		if v := g.DRJobLimit; v != nil {
-			c.GasEstimator.DRJobLimit = v
+		if v := g.LimitDRJobType; v != nil {
+			c.GasEstimator.LimitDRJobType = v
 		}
-		if v := g.VRFJobLimit; v != nil {
-			c.GasEstimator.VRFJobLimit = v
+		if v := g.LimitVRFJobType; v != nil {
+			c.GasEstimator.LimitVRFJobType = v
 		}
-		if v := g.FMJobLimit; v != nil {
-			c.GasEstimator.FMJobLimit = v
+		if v := g.LimitFMJobType; v != nil {
+			c.GasEstimator.LimitFMJobType = v
 		}
-		if v := g.KeeperJobLimit; v != nil {
-			c.GasEstimator.KeeperJobLimit = v
+		if v := g.LimitKeeperJobType; v != nil {
+			c.GasEstimator.LimitKeeperJobType = v
 		}
 		if v := g.PriceDefault; v != nil {
 			c.GasEstimator.PriceDefault = v

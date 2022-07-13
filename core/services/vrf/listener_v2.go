@@ -208,11 +208,15 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
+		gasLimit := lsn.cfg.EvmGasLimitDefault()
+		if lsn.cfg.EvmGasLimitVRFJobType() > 0 {
+			gasLimit = lsn.cfg.EvmGasLimitVRFJobType()
+		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
-		} else if conf.MaxGasLimit+(GasProofVerification*2) > uint32(lsn.cfg.EvmGasLimitDefault()) {
+		} else if conf.MaxGasLimit+(GasProofVerification*2) > uint32(gasLimit) {
 			lsn.l.Criticalw("Node gas limit setting may not be high enough to fulfill all requests; it should be increased. Starting anyway.",
-				"currentGasLimit", lsn.cfg.EvmGasLimitDefault(),
+				"currentGasLimit", gasLimit,
 				"neededGasLimit", conf.MaxGasLimit+(GasProofVerification*2),
 				"callbackGasLimit", conf.MaxGasLimit,
 				"proofVerificationGas", GasProofVerification)

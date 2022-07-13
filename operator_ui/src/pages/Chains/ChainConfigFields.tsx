@@ -286,6 +286,91 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
       <Grid item xs={6}>
         <Grid item xs={6}>
           <TextField
+            label="Evm Gas Limit for OCR Jobs"
+            name="EvmGasLimitOCRJobType"
+            placeholder="EvmGasLimitOCRJobType"
+            value={getFieldValue('EvmGasLimitOCRJobType')}
+            type="number"
+            fullWidth
+            onChange={handleOverrideChange}
+          />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
+        </Grid>
+      </Grid>
+
+      <Grid item xs={6}>
+        <Grid item xs={6}>
+          <TextField
+            label="Evm Gas Limit for Direct Request Jobs"
+            name="EvmGasLimitDRJobType"
+            placeholder="EvmGasLimitDRJobType"
+            value={getFieldValue('EvmGasLimitDRJobType')}
+            type="number"
+            fullWidth
+            onChange={handleOverrideChange}
+          />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
+        </Grid>
+      </Grid>
+
+      <Grid item xs={6}>
+        <Grid item xs={6}>
+          <TextField
+            label="Evm Gas Limit for VRF Jobs"
+            name="EvmGasLimitVRFJobType"
+            placeholder="EvmGasLimitVRFJobType"
+            value={getFieldValue('EvmGasLimitVRFJobType')}
+            type="number"
+            fullWidth
+            onChange={handleOverrideChange}
+          />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
+        </Grid>
+      </Grid>
+
+      <Grid item xs={6}>
+        <Grid item xs={6}>
+          <TextField
+            label="Evm Gas Limit for Flux Monitor Jobs"
+            name="EvmGasLimitFMJobType"
+            placeholder="EvmGasLimitFMJobType"
+            value={getFieldValue('EvmGasLimitFMJobType')}
+            type="number"
+            fullWidth
+            onChange={handleOverrideChange}
+          />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
+        </Grid>
+      </Grid>
+
+      <Grid item xs={6}>
+        <Grid item xs={6}>
+          <TextField
+            label="Evm Gas Limit for Keeper Jobs"
+            name="EvmGasLimitKeeperJobType"
+            placeholder="EvmGasLimitKeeperJobType"
+            value={getFieldValue('EvmGasLimitKeeperJobType')}
+            type="number"
+            fullWidth
+            onChange={handleOverrideChange}
+          />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
+        </Grid>
+      </Grid>
+
+      <Grid item xs={6}>
+        <Grid item xs={6}>
+          <TextField
             label="Evm Gas Limit Multiplier"
             name="EvmGasLimitMultiplier"
             placeholder="EvmGasLimitMultiplier"

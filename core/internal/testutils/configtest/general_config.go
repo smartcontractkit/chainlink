@@ -67,11 +67,11 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasPriceDefault                *big.Int
 	GlobalEvmGasTipCapDefault               *big.Int
 	GlobalEvmGasTipCapMinimum               *big.Int
-	GlobalOCRJobGasLimit                    null.Int
-	GlobalDRJobGasLimit                     null.Int
-	GlobalVRFJobGasLimit                    null.Int
-	GlobalFMJobGasLimit                     null.Int
-	GlobalKeeperJobGasLimit                 null.Int
+	GlobalEvmGasLimitOCRJobType             null.Int
+	GlobalEvmGasLimitDRJobType              null.Int
+	GlobalEvmGasLimitVRFJobType             null.Int
+	GlobalEvmGasLimitFMJobType              null.Int
+	GlobalEvmGasLimitKeeperJobType          null.Int
 	GlobalEvmHeadTrackerHistoryDepth        null.Int
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
@@ -577,39 +577,39 @@ func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 	return c.GeneralConfig.GlobalEvmGasLimitDefault()
 }
 
-func (c *TestGeneralConfig) GlobalDRJobGasLimit() (uint64, bool) {
-	if c.Overrides.GlobalDRJobGasLimit.Valid {
-		return uint64(c.Overrides.GlobalDRJobGasLimit.Int64), true
+func (c *TestGeneralConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitOCRJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitOCRJobType.Int64), true
 	}
-	return c.GeneralConfig.GlobalDRJobGasLimit()
+	return c.GeneralConfig.GlobalEvmGasLimitOCRJobType()
 }
 
-func (c *TestGeneralConfig) GlobalVRFJobGasLimit() (uint64, bool) {
-	if c.Overrides.GlobalVRFJobGasLimit.Valid {
-		return uint64(c.Overrides.GlobalVRFJobGasLimit.Int64), true
+func (c *TestGeneralConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitDRJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitDRJobType.Int64), true
 	}
-	return c.GeneralConfig.GlobalVRFJobGasLimit()
+	return c.GeneralConfig.GlobalEvmGasLimitDRJobType()
 }
 
-func (c *TestGeneralConfig) GlobalFMJobGasLimit() (uint64, bool) {
-	if c.Overrides.GlobalFMJobGasLimit.Valid {
-		return uint64(c.Overrides.GlobalFMJobGasLimit.Int64), true
+func (c *TestGeneralConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitVRFJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitVRFJobType.Int64), true
 	}
-	return c.GeneralConfig.GlobalFMJobGasLimit()
+	return c.GeneralConfig.GlobalEvmGasLimitVRFJobType()
 }
 
-func (c *TestGeneralConfig) GlobalKeeperJobGasLimit() (uint64, bool) {
-	if c.Overrides.GlobalKeeperJobGasLimit.Valid {
-		return uint64(c.Overrides.GlobalKeeperJobGasLimit.Int64), true
+func (c *TestGeneralConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitFMJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitFMJobType.Int64), true
 	}
-	return c.GeneralConfig.GlobalKeeperJobGasLimit()
+	return c.GeneralConfig.GlobalEvmGasLimitFMJobType()
 }
 
-func (c *TestGeneralConfig) GlobalOCRJobGasLimit() (uint64, bool) {
-	if c.Overrides.GlobalOCRJobGasLimit.Valid {
-		return uint64(c.Overrides.GlobalOCRJobGasLimit.Int64), true
+func (c *TestGeneralConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitKeeperJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), true
 	}
-	return c.GeneralConfig.GlobalOCRJobGasLimit()
+	return c.GeneralConfig.GlobalEvmGasLimitKeeperJobType()
 }
 
 func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {

@@ -492,20 +492,6 @@ func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) {
 	_m.Called(_a0)
 }
 
-// DRJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) DRJobGasLimit() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
 // DatabaseBackupDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseBackupDir() string {
 	ret := _m.Called()
@@ -938,8 +924,50 @@ func (_m *ChainScopedConfig) EvmGasFeeCapDefault() *big.Int {
 	return r0
 }
 
+// EvmGasLimitDRJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasLimitDRJobType() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // EvmGasLimitDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasLimitDefault() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// EvmGasLimitFMJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasLimitFMJobType() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// EvmGasLimitKeeperJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasLimitKeeperJobType() uint64 {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -966,8 +994,36 @@ func (_m *ChainScopedConfig) EvmGasLimitMultiplier() float32 {
 	return r0
 }
 
+// EvmGasLimitOCRJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasLimitOCRJobType() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // EvmGasLimitTransfer provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasLimitTransfer() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// EvmGasLimitVRFJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasLimitVRFJobType() uint64 {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -1253,20 +1309,6 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// FMJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) FMJobGasLimit() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0
@@ -1594,27 +1636,6 @@ func (_m *ChainScopedConfig) GlobalChainType() (string, bool) {
 	return r0, r1
 }
 
-// GlobalDRJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalDRJobGasLimit() (uint64, bool) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
 // GlobalEthTxReaperInterval provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEthTxReaperInterval() (time.Duration, bool) {
 	ret := _m.Called()
@@ -1829,8 +1850,71 @@ func (_m *ChainScopedConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	return r0, r1
 }
 
+// GlobalEvmGasLimitDRJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmGasLimitDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitFMJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitKeeperJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -1871,8 +1955,50 @@ func (_m *ChainScopedConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmGasLimitOCRJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmGasLimitTransfer provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitVRFJobType provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -2217,27 +2343,6 @@ func (_m *ChainScopedConfig) GlobalEvmUseForwarders() (bool, bool) {
 	return r0, r1
 }
 
-// GlobalFMJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalFMJobGasLimit() (uint64, bool) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
 // GlobalFlagsContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalFlagsContractAddress() (string, bool) {
 	ret := _m.Called()
@@ -2268,27 +2373,6 @@ func (_m *ChainScopedConfig) GlobalGasEstimatorMode() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
-// GlobalKeeperJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalKeeperJobGasLimit() (uint64, bool) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool
@@ -2492,27 +2576,6 @@ func (_m *ChainScopedConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
 	return r0, r1
 }
 
-// GlobalOCRJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalOCRJobGasLimit() (uint64, bool) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
 // GlobalOCRObservationGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
 	ret := _m.Called()
@@ -2543,27 +2606,6 @@ func (_m *ChainScopedConfig) GlobalOperatorFactoryAddress() (string, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
-// GlobalVRFJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalVRFJobGasLimit() (uint64, bool) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 bool
@@ -2739,20 +2781,6 @@ func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// KeeperJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperJobGasLimit() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0
@@ -3380,20 +3408,6 @@ func (_m *ChainScopedConfig) OCRIncomingMessageBufferSize() int {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// OCRJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRJobGasLimit() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0
@@ -4453,20 +4467,6 @@ func (_m *ChainScopedConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// VRFJobGasLimit provides a mock function with given fields:
-func (_m *ChainScopedConfig) VRFJobGasLimit() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
 	}
 
 	return r0

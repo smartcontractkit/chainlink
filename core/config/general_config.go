@@ -204,14 +204,14 @@ type GlobalConfig interface {
 	GlobalEvmGasLimitDefault() (uint64, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
+	GlobalEvmGasLimitOCRJobType() (uint64, bool)
+	GlobalEvmGasLimitDRJobType() (uint64, bool)
+	GlobalEvmGasLimitVRFJobType() (uint64, bool)
+	GlobalEvmGasLimitFMJobType() (uint64, bool)
+	GlobalEvmGasLimitKeeperJobType() (uint64, bool)
 	GlobalEvmGasPriceDefault() (*big.Int, bool)
 	GlobalEvmGasTipCapDefault() (*big.Int, bool)
 	GlobalEvmGasTipCapMinimum() (*big.Int, bool)
-	GlobalOCRJobGasLimit() (uint64, bool)
-	GlobalDRJobGasLimit() (uint64, bool)
-	GlobalVRFJobGasLimit() (uint64, bool)
-	GlobalFMJobGasLimit() (uint64, bool)
-	GlobalKeeperJobGasLimit() (uint64, bool)
 	GlobalEvmHeadTrackerHistoryDepth() (uint32, bool)
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
@@ -1260,20 +1260,20 @@ func (c *generalConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
 func (c *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasPriceDefault"), parse.BigInt)
 }
-func (c *generalConfig) GlobalOCRJobGasLimit() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("OCRJobGasLimit"), parse.Uint64)
+func (c *generalConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitOCRJobType"), parse.Uint64)
 }
-func (c *generalConfig) GlobalDRJobGasLimit() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("DRJobGasLimit"), parse.Uint64)
+func (c *generalConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitDRJobType"), parse.Uint64)
 }
-func (c *generalConfig) GlobalVRFJobGasLimit() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("VRFJobGasLimit"), parse.Uint64)
+func (c *generalConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitVRFJobType"), parse.Uint64)
 }
-func (c *generalConfig) GlobalFMJobGasLimit() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("FMJobGasLimit"), parse.Uint64)
+func (c *generalConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitFMJobType"), parse.Uint64)
 }
-func (c *generalConfig) GlobalKeeperJobGasLimit() (uint64, bool) {
-	return lookupEnv(c, envvar.Name("KeeperJobGasLimit"), parse.Uint64)
+func (c *generalConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitKeeperJobType"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmHeadTrackerHistoryDepth() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmHeadTrackerHistoryDepth"), parse.Uint32)
