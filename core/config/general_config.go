@@ -434,14 +434,24 @@ func validateDBURL(dbURI url.URL) error {
 	if strings.Contains(dbURI.Redacted(), "_test") {
 		return nil
 	}
-	userInfo := dbURI.User
-	if userInfo == nil {
-		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+
+	// url params take priority if present, multiple params are ignored by postgres (it picks the first)
+	q := dbURI.Query()
+	// careful, this is a raw database password
+	pw := q.Get("password")
+	if pw == "" {
+		// fallback to user info
+		userInfo := dbURI.User
+		if userInfo == nil {
+			return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+		}
+		var pwSet bool
+		pw, pwSet = userInfo.Password()
+		if !pwSet {
+			return errors.Errorf("DB URL must be authenticated; password is required")
+		}
 	}
-	pw, pwSet := userInfo.Password()
-	if !pwSet {
-		return errors.Errorf("DB URL must be authenticated; password is required")
-	}
+
 	return utils.VerifyPasswordComplexity(pw)
 }
 
