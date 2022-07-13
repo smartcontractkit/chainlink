@@ -16,7 +16,6 @@ jobs:
               - '**/*go.sum'
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
-
   build-chainlink:
     environment: integration
     permissions:
@@ -103,43 +102,3 @@ jobs:
   #     QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
   #     QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
   #     QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-  # Comment out terra for now but keep here in case we need to turn it back on
-  # terra:
-  #   name: Terra Tests
-  #   needs: [changes, build-chainlink]
-  #   if: ${{ needs.changes.outputs.src == 'true' }}
-  #   uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
-  #   with:
-  #     repo_name: smartcontractkit/chainlink-terra
-  #     ref: develop
-  #     cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
-  #     cl_image: latest.${{ github.sha }}
-  #   secrets:
-  #     QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #     QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #     QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-  #     QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-  #     QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
-
-  soak:
-    environment: integration
-    name: VRFV2 Soak Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Run Soak Test
-        uses: smartcontractkit/ctf-ci-e2e-action@v1.0.2
-        with:
-          test_command_to_run: SOAK_NAMESPACE=ci make test_soak_vrfv2 args="-nodes=10"
-          test_download_vendor_packages_command: make gomod
-          test_download_ginkgo_command: make test_install_ginkgo
-          cl_repo: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
-          cl_image_tag: latest.${{ github.sha }}
-          artifacts_location: ./integration-tests/smoke/logs
-          QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          QA_AWS_REGION: ${{ secrets.AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

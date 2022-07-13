@@ -102,8 +102,8 @@ test_smoke: ## Run all integration smoke tests, including on live testnets
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress $(args) ./integration-tests/smoke
 
-.PHONY: test_soak_vrfv2
-test_soak_vrfv2: # Run integration soak vrfv2 tests.
+.PHONY: test_smoke_simulated
+test_smoke_simulated: ## Run integration smoke tests, only using simulated networks
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
@@ -117,6 +117,12 @@ test_perf: ## Run core node performance tests.
 .PHONY: test_chaos
 test_chaos: # run core node chaos tests.
 	ginkgo -r --focus @chaos --nodes 3 ./integration-tests/chaos
+
+.PHONY: test_soak_vrfv2
+test_soak_vrfv2: # Run integration soak vrfv2 tests.
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --focus=@soak_vrfv2 --trace --randomize-all --randomize-suites \
+	--progress $(args) ./integration-tests/soak
 
 .PHONY: config-docs
 config-docs: # Generate core node configuration documentation
