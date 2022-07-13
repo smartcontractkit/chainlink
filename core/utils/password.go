@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
+// PasswordComplexityRequirements defines the complexity requirements message
 // Note that adding an entropy requirement wouldn't add much, since a 16
 // character password already has an entropy score of 75 even if it's all
 // lowercase characters
@@ -25,27 +25,41 @@ var LeadingWhitespace = regexp.MustCompile(`^\s+`)
 var TrailingWhitespace = regexp.MustCompile(`\s+$`)
 
 var (
-	ErrPasswordMinLength = errors.Errorf("must be longer than %d characters", MinRequiredLen)
-	ErrWhitespace        = errors.New("must not contain leading or trailing whitespace characters")
+	ErrMsgHeader = fmt.Sprintf(`
+Expected password complexity:
+Must be longer than %d characters
+Must not comprise:
+	Leading or trailing whitespace
+	A user's API email
+
+Faults:
+`, MinRequiredLen)
+	ErrWhitespace = errors.New("password contains a leading or trailing whitespace")
 )
 
 func VerifyPasswordComplexity(password string, disallowedStrings ...string) (merr error) {
+	errMsg := ErrMsgHeader
+	var stringErrs []string
+
 	if LeadingWhitespace.MatchString(password) || TrailingWhitespace.MatchString(password) {
-		merr = multierr.Append(merr, ErrWhitespace)
+		stringErrs = append(stringErrs, ErrWhitespace.Error())
 	}
 
 	if len(password) < MinRequiredLen {
-		merr = multierr.Append(merr, ErrPasswordMinLength)
+		stringErrs = append(stringErrs, fmt.Sprintf("password is %d characters long", len(password)))
 	}
 
 	for _, s := range disallowedStrings {
 		if strings.Contains(strings.ToLower(password), strings.ToLower(s)) {
-			merr = multierr.Append(merr, errors.Errorf("password may not contain: %q", s))
+			stringErrs = append(stringErrs, fmt.Sprintf("password may not contain: %q", s))
 		}
 	}
 
-	if merr != nil {
-		merr = fmt.Errorf("password does not meet the requirements: %s", merr.Error())
+	if len(stringErrs) > 0 {
+		for _, stringErr := range stringErrs {
+			errMsg = fmt.Sprintf("%s	%s\n", errMsg, stringErr)
+		}
+		merr = errors.New(errMsg)
 	}
 
 	return

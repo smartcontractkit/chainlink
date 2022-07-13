@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestVerifyPasswordComplexity(t *testing.T) {
@@ -18,7 +19,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 	}{
 		{"thispasswordislongenough", "", []error{}},
 		{"exactlyrightlen1", "", []error{}},
-		{"notlongenough", "", []error{utils.ErrPasswordMinLength}},
+		{"notlongenough", "", []error{errors.New("password is 13 characters long")}},
 		{"whitespace in password is ok", "", []error{}},
 		{"\t leading whitespace not ok", "", []error{utils.ErrWhitespace}},
 		{"trailing whitespace not ok\n", "", []error{utils.ErrWhitespace}},
@@ -41,7 +42,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 				assert.NoError(t, err)
 			} else {
 				assert.Error(t, err)
-				assert.ErrorContains(t, err, "password does not meet the requirements")
+				assert.ErrorContains(t, err, utils.ErrMsgHeader)
 				for _, subErr := range test.errors {
 					assert.ErrorContains(t, err, subErr.Error())
 				}

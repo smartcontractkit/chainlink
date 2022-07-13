@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
@@ -47,14 +48,14 @@ func TestUserController_UpdatePassword(t *testing.T) {
 			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, "foo", cltest.Password),
 			wantStatusCode: http.StatusUnprocessableEntity,
 			wantErrCount:   1,
-			wantErrMessage: "password does not meet the requirements: must be longer than 16 characters",
+			wantErrMessage: fmt.Sprintf("%s	%s\n", utils.ErrMsgHeader, "password is 3 characters long"),
 		},
 		{
 			name:           "New password includes api email",
 			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, fmt.Sprintf("%slonglonglonglong", cltest.APIEmail), cltest.Password),
 			wantStatusCode: http.StatusUnprocessableEntity,
 			wantErrCount:   1,
-			wantErrMessage: "password does not meet the requirements: password may not contain: \"apiuser@chainlink.test\"",
+			wantErrMessage: fmt.Sprintf("%s	%s\n", utils.ErrMsgHeader, "password may not contain: \"apiuser@chainlink.test\""),
 		},
 		{
 			name:           "Success",
