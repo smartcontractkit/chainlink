@@ -13,7 +13,7 @@ type Config interface {
 	FlagsContractAddress() string
 	MinimumContractPayment() *assets.Link
 	EvmGasLimitDefault() uint64
-	EvmGasLimitFMJobType() uint64
+	EvmGasLimitFMJobType() *uint64
 	EvmMaxQueuedTransactions() uint64
 	FMDefaultTransactionQueueDepth() uint32
 	LogSQL() bool

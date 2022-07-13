@@ -209,8 +209,8 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		defer cancel()
 		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
 		gasLimit := lsn.cfg.EvmGasLimitDefault()
-		if lsn.cfg.EvmGasLimitVRFJobType() > 0 {
-			gasLimit = lsn.cfg.EvmGasLimitVRFJobType()
+		if lsn.cfg.EvmGasLimitVRFJobType() != nil {
+			gasLimit = *lsn.cfg.EvmGasLimitVRFJobType()
 		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)

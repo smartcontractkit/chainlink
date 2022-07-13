@@ -45,11 +45,11 @@ type (
 		gasLimitDefault                                uint64
 		gasLimitMultiplier                             float32
 		gasLimitTransfer                               uint64
-		gasLimitOCRJobType                             uint64
-		gasLimitDRJobType                              uint64
-		gasLimitVRFJobType                             uint64
-		gasLimitFMJobType                              uint64
-		gasLimitKeeperJobType                          uint64
+		gasLimitOCRJobType                             *uint64
+		gasLimitDRJobType                              *uint64
+		gasLimitVRFJobType                             *uint64
+		gasLimitFMJobType                              *uint64
+		gasLimitKeeperJobType                          *uint64
 		gasPriceDefault                                big.Int
 		gasTipCapDefault                               big.Int
 		gasTipCapMinimum                               big.Int

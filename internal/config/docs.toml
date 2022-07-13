@@ -593,22 +593,22 @@ PriceMin = '1 gwei' # Default
 # LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 # Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
 LimitDefault = 500_000 # Default
+# LimitOCRJobType overrides LimitDefault for OCR jobs.
+LimitOCRJobType = 100_000 # Example
+# LimitDRJobType overrides LimitDefault for Direct Request jobs.
+LimitDRJobType = 100_000 # Example
+# LimitVRFJobType overrides LimitDefault for VRF jobs.
+LimitVRFJobType = 100_000 # Example
+# LimitFMJobType overrides LimitDefault for Flux Monitor jobs.
+LimitFMJobType = 100_000 # Example
+# LimitKeeperJobType overrides LimitDefault for Keeper jobs.
+LimitKeeperJobType = 100_000 # Example
 # LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 #
 # This factor is always applied, so includes Optimism L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
 LimitMultiplier = '1.0' # Default
 # LimitTransfer is the gas limit used for an ordinary ETH transfer.
 LimitTransfer = 21_000 # Default
-# LimitOCRJobType overrides `LimitDefault` for any OCR job.
-LimitOCRJobType = 0 # Default
-# LimitDRJobType overrides `LimitDefault` for any Direct Request job.
-LimitDRJobType = 0 # Default
-# LimitVRFJobType overrides `LimitDefault` for any VRF job.
-LimitVRFJobType = 0 # Default
-# LimitFMJobType overrides `LimitDefault` for any Flux Monitor job.
-LimitFMJobType = 0 # Default
-# LimitKeeperJobType overrides `LimitDefault` for any Keeper job.
-LimitKeeperJobType = 0 # Default
 
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default

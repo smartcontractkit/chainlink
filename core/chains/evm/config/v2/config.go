@@ -65,11 +65,11 @@ type GasEstimator struct {
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 
-	LimitOCRJobType    *uint32
-	LimitDRJobType     *uint32
-	LimitVRFJobType    *uint32
-	LimitFMJobType     *uint32
-	LimitKeeperJobType *uint32
+	LimitOCRJobType    *uint64
+	LimitDRJobType     *uint64
+	LimitVRFJobType    *uint64
+	LimitFMJobType     *uint64
+	LimitKeeperJobType *uint64
 
 	BumpMin       *utils.Wei
 	BumpPercent   *uint16
@@ -257,35 +257,35 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.EvmGasLimitOCRJobType.Int64)
+		v := uint64(cfg.EvmGasLimitOCRJobType.Int64)
 		c.GasEstimator.LimitOCRJobType = &v
 	}
 	if cfg.EvmGasLimitDRJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.EvmGasLimitDRJobType.Int64)
+		v := uint64(cfg.EvmGasLimitDRJobType.Int64)
 		c.GasEstimator.LimitDRJobType = &v
 	}
 	if cfg.EvmGasLimitVRFJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.EvmGasLimitVRFJobType.Int64)
+		v := uint64(cfg.EvmGasLimitVRFJobType.Int64)
 		c.GasEstimator.LimitVRFJobType = &v
 	}
 	if cfg.EvmGasLimitFMJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.EvmGasLimitFMJobType.Int64)
+		v := uint64(cfg.EvmGasLimitFMJobType.Int64)
 		c.GasEstimator.LimitFMJobType = &v
 	}
 	if cfg.EvmGasLimitKeeperJobType.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
-		v := uint32(cfg.EvmGasLimitKeeperJobType.Int64)
+		v := uint64(cfg.EvmGasLimitKeeperJobType.Int64)
 		c.GasEstimator.LimitKeeperJobType = &v
 	}
 

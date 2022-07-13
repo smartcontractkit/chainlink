@@ -1292,11 +1292,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1362,11 +1357,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1432,11 +1422,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1502,11 +1487,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1573,11 +1553,6 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -1643,11 +1618,6 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1713,11 +1683,6 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1784,11 +1749,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1854,11 +1814,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -1923,11 +1878,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -1992,11 +1942,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2063,11 +2008,6 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2134,11 +2074,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2204,11 +2139,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2274,11 +2204,6 @@ PriceMin = '30 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2344,11 +2269,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2414,11 +2334,6 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2484,11 +2399,6 @@ PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2554,11 +2464,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2625,11 +2530,6 @@ PriceMin = '1 micro'
 LimitDefault = 7000000
 LimitMultiplier = '1'
 LimitTransfer = 800000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2695,11 +2595,6 @@ PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2765,11 +2660,6 @@ PriceMin = '25 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -2835,11 +2725,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '20 gwei'
 BumpPercent = 20
 BumpThreshold = 5
@@ -2906,11 +2791,6 @@ PriceMin = '1 micro'
 LimitDefault = 7000000
 LimitMultiplier = '1'
 LimitTransfer = 800000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2976,11 +2856,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3046,11 +2921,6 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-LimitOCRJobType = 0
-LimitDRJobType = 0
-LimitVRFJobType = 0
-LimitFMJobType = 0
-LimitKeeperJobType = 0
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -3276,13 +3146,13 @@ PriceDefault = '20 gwei' # Default
 PriceMax = '100 micro' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
+LimitOCRJobType = 100_000 # Example
+LimitDRJobType = 100_000 # Example
+LimitVRFJobType = 100_000 # Example
+LimitFMJobType = 100_000 # Example
+LimitKeeperJobType = 100_000 # Example
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
-LimitOCRJobType = 0 # Default
-LimitDRJobType = 0 # Default
-LimitVRFJobType = 0 # Default
-LimitFMJobType = 0 # Default
-LimitKeeperJobType = 0 # Default
 ```
 
 
@@ -3344,6 +3214,36 @@ LimitDefault = 500_000 # Default
 LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
 
+### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
+```toml
+LimitOCRJobType = 100_000 # Example
+```
+LimitOCRJobType overrides LimitDefault for OCR jobs.
+
+### LimitDRJobType<a id='EVM-GasEstimator-LimitDRJobType'></a>
+```toml
+LimitDRJobType = 100_000 # Example
+```
+LimitDRJobType overrides LimitDefault for Direct Request jobs.
+
+### LimitVRFJobType<a id='EVM-GasEstimator-LimitVRFJobType'></a>
+```toml
+LimitVRFJobType = 100_000 # Example
+```
+LimitVRFJobType overrides LimitDefault for VRF jobs.
+
+### LimitFMJobType<a id='EVM-GasEstimator-LimitFMJobType'></a>
+```toml
+LimitFMJobType = 100_000 # Example
+```
+LimitFMJobType overrides LimitDefault for Flux Monitor jobs.
+
+### LimitKeeperJobType<a id='EVM-GasEstimator-LimitKeeperJobType'></a>
+```toml
+LimitKeeperJobType = 100_000 # Example
+```
+LimitKeeperJobType overrides LimitDefault for Keeper jobs.
+
 ### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
 ```toml
 LimitMultiplier = '1.0' # Default
@@ -3357,36 +3257,6 @@ This factor is always applied, so includes Optimism L2 transactions which uses a
 LimitTransfer = 21_000 # Default
 ```
 LimitTransfer is the gas limit used for an ordinary ETH transfer.
-
-### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
-```toml
-LimitOCRJobType = 0 # Default
-```
-LimitOCRJobType overrides `LimitDefault` for any OCR job.
-
-### LimitDRJobType<a id='EVM-GasEstimator-LimitDRJobType'></a>
-```toml
-LimitDRJobType = 0 # Default
-```
-LimitDRJobType overrides `LimitDefault` for any Direct Request job.
-
-### LimitVRFJobType<a id='EVM-GasEstimator-LimitVRFJobType'></a>
-```toml
-LimitVRFJobType = 0 # Default
-```
-LimitVRFJobType overrides `LimitDefault` for any VRF job.
-
-### LimitFMJobType<a id='EVM-GasEstimator-LimitFMJobType'></a>
-```toml
-LimitFMJobType = 0 # Default
-```
-LimitFMJobType overrides `LimitDefault` for any Flux Monitor job.
-
-### LimitKeeperJobType<a id='EVM-GasEstimator-LimitKeeperJobType'></a>
-```toml
-LimitKeeperJobType = 0 # Default
-```
-LimitKeeperJobType overrides `LimitDefault` for any Keeper job.
 
 ### BumpMin<a id='BumpMin'></a>
 ```toml

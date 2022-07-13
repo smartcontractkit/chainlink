@@ -925,14 +925,16 @@ func (_m *ChainScopedConfig) EvmGasFeeCapDefault() *big.Int {
 }
 
 // EvmGasLimitDRJobType provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasLimitDRJobType() uint64 {
+func (_m *ChainScopedConfig) EvmGasLimitDRJobType() *uint64 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 *uint64
+	if rf, ok := ret.Get(0).(func() *uint64); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*uint64)
+		}
 	}
 
 	return r0
@@ -953,28 +955,32 @@ func (_m *ChainScopedConfig) EvmGasLimitDefault() uint64 {
 }
 
 // EvmGasLimitFMJobType provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasLimitFMJobType() uint64 {
+func (_m *ChainScopedConfig) EvmGasLimitFMJobType() *uint64 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 *uint64
+	if rf, ok := ret.Get(0).(func() *uint64); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*uint64)
+		}
 	}
 
 	return r0
 }
 
 // EvmGasLimitKeeperJobType provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasLimitKeeperJobType() uint64 {
+func (_m *ChainScopedConfig) EvmGasLimitKeeperJobType() *uint64 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 *uint64
+	if rf, ok := ret.Get(0).(func() *uint64); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*uint64)
+		}
 	}
 
 	return r0
@@ -995,14 +1001,16 @@ func (_m *ChainScopedConfig) EvmGasLimitMultiplier() float32 {
 }
 
 // EvmGasLimitOCRJobType provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasLimitOCRJobType() uint64 {
+func (_m *ChainScopedConfig) EvmGasLimitOCRJobType() *uint64 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 *uint64
+	if rf, ok := ret.Get(0).(func() *uint64); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*uint64)
+		}
 	}
 
 	return r0
@@ -1023,14 +1031,16 @@ func (_m *ChainScopedConfig) EvmGasLimitTransfer() uint64 {
 }
 
 // EvmGasLimitVRFJobType provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasLimitVRFJobType() uint64 {
+func (_m *ChainScopedConfig) EvmGasLimitVRFJobType() *uint64 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 *uint64
+	if rf, ok := ret.Get(0).(func() *uint64); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*uint64)
+		}
 	}
 
 	return r0

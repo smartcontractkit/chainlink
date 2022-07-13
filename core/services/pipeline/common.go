@@ -465,7 +465,7 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 		return uint64(*specGasLimit)
 	}
 
-	var jobTypeGasLimit uint64
+	var jobTypeGasLimit *uint64
 	switch jobType {
 	case DirectRequestJobType:
 		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
@@ -479,8 +479,8 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
 	}
 
-	if jobTypeGasLimit > 0 {
-		return jobTypeGasLimit
+	if jobTypeGasLimit != nil {
+		return *jobTypeGasLimit
 	}
 	return cfg.EvmGasLimitDefault()
 }

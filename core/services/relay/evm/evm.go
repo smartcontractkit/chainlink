@@ -137,8 +137,8 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() > 0 {
-		gasLimit = configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
+		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
 	}
 	return NewOCRContractTransmitter(
 		configWatcher.contractAddress,
