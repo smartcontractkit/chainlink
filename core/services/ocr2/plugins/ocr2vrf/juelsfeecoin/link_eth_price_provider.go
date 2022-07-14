@@ -1,7 +1,9 @@
-package ocr2vrf
+package juelsfeecoin
 
 import (
+	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,20 +17,23 @@ import (
 // linkEthPriceProvider provides conversation rate between Link and native token using price feeds
 type linkEthPriceProvider struct {
 	aggregator aggregator_v3_interface.AggregatorV3InterfaceInterface
+	timeout    time.Duration
 }
 
 var _ types.JuelsPerFeeCoin = (*linkEthPriceProvider)(nil)
 
-func NewLinkEthPriceProvider(linkEthFeedAddress common.Address, client evmclient.Client) (types.JuelsPerFeeCoin, error) {
+func NewLinkEthPriceProvider(linkEthFeedAddress common.Address, client evmclient.Client, timeout time.Duration) (types.JuelsPerFeeCoin, error) {
 	aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "new aggregator v3 interface")
 	}
-	return &linkEthPriceProvider{aggregator: aggregator}, nil
+	return &linkEthPriceProvider{aggregator: aggregator, timeout: timeout}, nil
 }
 
 func (p *linkEthPriceProvider) JuelsPerFeeCoin() (*big.Int, error) {
-	roundData, err := p.aggregator.LatestRoundData(&bind.CallOpts{})
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
+	roundData, err := p.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "get aggregator latest answer")
 	}

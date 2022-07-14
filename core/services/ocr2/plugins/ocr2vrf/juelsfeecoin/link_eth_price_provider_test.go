@@ -1,4 +1,4 @@
-package ocr2vrf
+package juelsfeecoin
 
 import (
 	"errors"
