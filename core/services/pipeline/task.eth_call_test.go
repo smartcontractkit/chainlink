@@ -27,7 +27,9 @@ import (
 )
 
 func TestETHCallTask(t *testing.T) {
+	var specGasLimit uint32 = 123
 	const gasLimit uint64 = 500_000
+	const drJobTypeGasLimit uint32 = 789
 
 	tests := []struct {
 		name                  string
@@ -36,6 +38,7 @@ func TestETHCallTask(t *testing.T) {
 		data                  string
 		evmChainID            string
 		gas                   string
+		specGasLimit          *uint32
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(ethClient *evmmocks.Client, config *pipelinemocks.Config)
@@ -50,6 +53,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -57,7 +61,7 @@ func TestETHCallTask(t *testing.T) {
 			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: gasLimit, Data: []byte("foo bar")}, (*big.Int)(nil)).
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: uint64(drJobTypeGasLimit), Data: []byte("foo bar")}, (*big.Int)(nil)).
 					Return([]byte("baz quux"), nil)
 			},
 			[]byte("baz quux"), nil, "",
@@ -69,6 +73,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"$(gasLimit)",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":      []byte("foo bar"),
 				"gasLimit": 100_000,
@@ -83,12 +88,33 @@ func TestETHCallTask(t *testing.T) {
 			[]byte("baz quux"), nil, "",
 		},
 		{
+			"happy with gas limit per spec",
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"",
+			"$(foo)",
+			"",
+			"",
+			&specGasLimit,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": []byte("foo bar"),
+			}),
+			nil,
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
+				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				ethClient.
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: uint64(specGasLimit), Data: []byte("foo bar")}, (*big.Int)(nil)).
+					Return([]byte("baz quux"), nil)
+			},
+			[]byte("baz quux"), nil, "",
+		},
+		{
 			"happy with from addr",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -97,7 +123,7 @@ func TestETHCallTask(t *testing.T) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				fromAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: gasLimit, From: fromAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
+					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: uint64(drJobTypeGasLimit), From: fromAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
 					Return([]byte("baz quux"), nil)
 			},
 			[]byte("baz quux"), nil, "",
@@ -109,6 +135,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -123,6 +150,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -137,6 +165,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"zork": []byte("foo bar"),
 			}),
@@ -151,6 +180,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte(nil),
 			}),
@@ -165,6 +195,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
@@ -179,6 +210,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"$(evmChainID)",
 			"",
+			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":        []byte("foo bar"),
 				"evmChainID": "123",
@@ -212,6 +244,7 @@ func TestETHCallTask(t *testing.T) {
 
 			cfg := configtest.NewTestGeneralConfig(t)
 			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(int64(gasLimit))
+			cfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(int64(drJobTypeGasLimit))
 
 			keyStore := new(keystoremocks.Eth)
 			keyStore.Test(t)
@@ -226,7 +259,7 @@ func TestETHCallTask(t *testing.T) {
 				cc = cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			}
 
-			task.HelperSetDependencies(cc, cfg)
+			task.HelperSetDependencies(cc, cfg, test.specGasLimit, pipeline.DirectRequestJobType)
 
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
