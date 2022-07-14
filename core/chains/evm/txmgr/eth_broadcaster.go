@@ -266,6 +266,7 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 }
 
 // ProcessUnstartedEthTxs picks up and handles all eth_txes in the queue
+// revive:disable:error-return
 func (eb *EthBroadcaster) ProcessUnstartedEthTxs(ctx context.Context, keyState ethkey.State) (err error, retryable bool) {
 	return eb.processUnstartedEthTxs(ctx, keyState.Address.Address())
 }
@@ -711,7 +712,9 @@ func (eb *EthBroadcaster) tryAgainBumpingDynamicFeeGas(ctx context.Context, lgr 
 
 func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) (err error, retryable bool) {
 	if attempt.TxType == 0x2 {
-		return errors.Errorf("AssumptionViolation: re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug.", sendError.Error()), false
+		err = errors.Errorf("re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug", sendError.Error())
+		logger.Sugared(eb.logger).AssumptionViolation(err.Error())
+		return err, false
 	}
 	keySpecificMaxGasPriceWei := eb.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
 	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, keySpecificMaxGasPriceWei, gas.OptForceRefetch)
