@@ -1,4 +1,4 @@
-package ocr2vrf_test
+package blockhashes
 
 import (
 	"context"
@@ -13,14 +13,13 @@ import (
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_FixedBlockhashProvider(t *testing.T) {
 	client := cltest.NewEthClientMockWithDefaultChain(t)
 
-	p := ocr2vrf.NewFixedBlockhashProvider(client, 0, 0)
+	p := NewFixedBlockhashProvider(client, 0, 0)
 	ctx := context.Background()
 
 	t.Run("returns current height", func(t *testing.T) {
@@ -63,7 +62,7 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 			}
 		}).Times(5)
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
+		p := NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.NoError(t, err)
@@ -84,7 +83,7 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		e := errors.New("network error")
 		client.On("BatchCallContext", ctx, mock.Anything).Return(e).Once()
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
+		p := NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)
@@ -106,7 +105,7 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 			}
 		}).Times(5)
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
+		p := NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)
@@ -127,7 +126,7 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 			}
 		}).Times(5)
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
+		p := NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)

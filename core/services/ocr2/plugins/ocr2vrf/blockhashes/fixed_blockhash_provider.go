@@ -1,4 +1,4 @@
-package ocr2vrf
+package blockhashes
 
 import (
 	"context"
@@ -9,23 +9,24 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/ocr2vrf/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/ocr2vrf/types"
 )
 
 // fixedBlockhashProvider returns blockhashes with fixed-sized windows relative to current block height
 type fixedBlockhashProvider struct {
 	client client.Client
 	// start block = current head - lookbackBlocks
-	lookbackBlocks uint
+	lookbackBlocks uint64
 	// number of blocks to query in a batch
-	batchSize uint
+	batchSize uint64
 }
 
 var _ types.Blockhashes = (*fixedBlockhashProvider)(nil)
 
-func NewFixedBlockhashProvider(client client.Client, lookbackBlocks, batchSize uint) types.Blockhashes {
+func NewFixedBlockhashProvider(client client.Client, lookbackBlocks, batchSize uint64) types.Blockhashes {
 	return &fixedBlockhashProvider{
 		client,
 		lookbackBlocks,
@@ -40,13 +41,13 @@ func (b *fixedBlockhashProvider) OnchainVerifiableBlocks(
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "current height")
 	}
-	fromBlock := toBlock - uint64(b.lookbackBlocks)
+	fromBlock := toBlock - b.lookbackBlocks
 	var reqs []rpc.BatchElem
 
 	for i := fromBlock; i <= toBlock; i++ {
 		req := rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{hexutil.EncodeBig(big.NewInt(int64(i))), true},
+			Args:   []interface{}{hexutil.EncodeBig(big.NewInt(int64(i))), false},
 			Result: &evmtypes.Head{},
 		}
 		reqs = append(reqs, req)
