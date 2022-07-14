@@ -163,7 +163,6 @@ func main() {
 			job.ExternalJobIDEncodeStringToTopic(uid),
 		)
 		helpers.PanicErr(err)
-
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "ownerless-consumer-deploy":
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
