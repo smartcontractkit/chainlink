@@ -6,9 +6,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type DKGFactory struct {
