@@ -123,4 +123,5 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/aniee/projects/chainlink-testing-framework
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.4.3-0.20220713222526-62f1d3773715
+
