@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
@@ -29,7 +30,27 @@ type Keeper struct {
 	addFundsAmount *big.Int
 }
 
-// NewKeeper is the constructor of Keeper
+// canceller describes the behavior to cancel upkeeps
+type canceller interface {
+	CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
+	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error)
+	RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error)
+}
+
+// upkeepDeployer contains functions needed to deploy an upkeep
+type upkeepDeployer interface {
+	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error)
+	AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error)
+}
+
+// keepersDeployer contains functions needed to deploy keepers
+type keepersDeployer interface {
+	canceller
+	upkeepDeployer
+	SetKeepers(opts *bind.TransactOpts, keepers []common.Address, payees []common.Address) (*types.Transaction, error)
+}
+
+// NewKeeper creates new instance of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
 	addFundsAmount := big.NewInt(0)
 	addFundsAmount.SetString(cfg.AddFundsAmount, 10)
@@ -43,32 +64,7 @@ func NewKeeper(cfg *config.Config) *Keeper {
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
 	keepers, owners := k.keepers()
-	k.deployKeepers(ctx, keepers, owners)
-}
-
-func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
-	var registry *registry11.KeeperRegistry
-	var registryAddr common.Address
-	var upkeepCount int64
-	if k.cfg.RegistryAddress != "" {
-		// Get existing keeper registry
-		registryAddr, registry = k.GetRegistry(ctx)
-		callOpts := bind.CallOpts{
-			Pending: false,
-			From:    k.fromAddr,
-			Context: ctx,
-		}
-		count, err := registry.GetUpkeepCount(&callOpts)
-		if err != nil {
-			log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
-		}
-		upkeepCount = count.Int64()
-	} else {
-		// Deploy keeper registry
-		registryAddr, registry = k.deployRegistry(ctx)
-		upkeepCount = 0
-	}
-	log.Println("Upkeep Count: ", upkeepCount)
+	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
 
 	// Create Keeper Jobs on Nodes for Registry
 	for i, keeperAddr := range k.cfg.Keepers {
@@ -89,33 +85,91 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	}
 
 	// Approve keeper registry
+	k.approveFunds(ctx, registryAddr)
+
+	// Deploy Upkeeps
+	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
+
+	// Set Keepers on the registry
+	k.setKeepers(ctx, deployer, keepers, owners)
+}
+
+func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, keepersDeployer) {
+	var upkeepCount int64
+	var registryAddr common.Address
+	var deployer keepersDeployer
+	var keeperRegistry11 *registry11.KeeperRegistry
+	var keeperRegistry12 *registry12.KeeperRegistry
+	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
+	if k.cfg.RegistryAddress != "" {
+		callOpts := bind.CallOpts{
+			Pending: false,
+			From:    k.fromAddr,
+			Context: ctx,
+		}
+		// Get existing keeper registry
+		if isVersion12 {
+			registryAddr, keeperRegistry12 = k.getRegistry2(ctx)
+			state, err := keeperRegistry12.GetState(&callOpts)
+			if err != nil {
+				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
+			}
+			upkeepCount = state.State.NumUpkeeps.Int64()
+			deployer = keeperRegistry12
+		} else {
+			registryAddr, keeperRegistry11 = k.getRegistry1(ctx)
+			count, err := keeperRegistry11.GetUpkeepCount(&callOpts)
+			if err != nil {
+				log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
+			}
+			upkeepCount = count.Int64()
+			deployer = keeperRegistry11
+		}
+	} else {
+		// Deploy keeper registry
+		upkeepCount = 0
+		if isVersion12 {
+			registryAddr, deployer = k.deployRegistry2(ctx)
+		} else {
+			registryAddr, deployer = k.deployRegistry1(ctx)
+		}
+	}
+
+	log.Println("Upkeep Count: ", upkeepCount)
+	return upkeepCount, registryAddr, deployer
+}
+
+func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) {
+	// Approve keeper registry
 	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
 	if err != nil {
 		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
 	}
+	log.Println("approved ", k.approveAmount)
 	k.waitTx(ctx, approveRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
-
-	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
-
-	// Set Keepers
-	if len(keepers) > 0 {
-		log.Println("Set keepers...")
-		setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
-		if err != nil {
-			log.Fatal("SetKeepers failed: ", err)
-		}
-		k.waitTx(ctx, setKeepersTx)
-		log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
-	} else {
-		log.Println("No Keepers to register")
-	}
-
-	return registryAddr
 }
 
-func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
+// deployRegistry2 deploys a version 1.2 keeper registry
+func (k *Keeper) deployRegistry2(ctx context.Context) (common.Address, *registry12.KeeperRegistry) {
+	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry12.DeployKeeperRegistry(
+		k.buildTxOpts(ctx),
+		k.client,
+		common.HexToAddress(k.cfg.LinkTokenAddr),
+		common.HexToAddress(k.cfg.LinkETHFeedAddr),
+		common.HexToAddress(k.cfg.FastGasFeedAddr),
+		*k.getConfigForRegistry12(),
+	)
+	if err != nil {
+		log.Fatal("DeployAbi failed: ", err)
+	}
+	k.waitDeployment(ctx, deployKeeperRegistryTx)
+	log.Println("KeeperRegistry deployed:", registryAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryTx.Hash()))
+	return registryAddr, registryInstance
+}
+
+// deployRegistry1 deploys a version 1.1 keeper registry
+func (k *Keeper) deployRegistry1(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry11.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
@@ -137,36 +191,14 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *registry1
 	return registryAddr, registryInstance
 }
 
-// GetRegistry is used to attach to an existing registry
-func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
-	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
-	registryInstance, err := registry11.NewKeeperRegistry(
-		registryAddr,
-		k.client,
-	)
-	if err != nil {
-		log.Fatal("Registry failed: ", err)
-	}
-	log.Println("KeeperRegistry at:", k.cfg.RegistryAddress)
-	if k.cfg.RegistryConfigUpdate {
-		transaction, err := registryInstance.SetConfig(k.buildTxOpts(ctx),
-			k.cfg.PaymentPremiumPBB,
-			k.cfg.FlatFeeMicroLink,
-			big.NewInt(k.cfg.BlockCountPerTurn),
-			k.cfg.CheckGasLimit,
-			big.NewInt(k.cfg.StalenessSeconds),
-			k.cfg.GasCeilingMultiplier,
-			big.NewInt(k.cfg.FallbackGasPrice),
-			big.NewInt(k.cfg.FallbackLinkPrice))
-		if err != nil {
-			log.Fatal("Registry config update: ", err)
-		}
-		k.waitTx(ctx, transaction)
-		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
+// GetRegistry attaches to an existing registry and possibly updates registry config
+func (k *Keeper) GetRegistry(ctx context.Context) {
+	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
+	if isVersion12 {
+		k.getRegistry2(ctx)
 	} else {
-		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
+		k.getRegistry1(ctx)
 	}
-	return registryAddr, registryInstance
 }
 
 // getRegistry2 attaches to an existing 1.2 registry and possibly updates registry config
@@ -225,10 +257,11 @@ func (k *Keeper) getRegistry1(ctx context.Context) (common.Address, *registry11.
 	return registryAddr, keeperRegistry11
 }
 
-// deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
-func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *registry11.KeeperRegistry, existingCount int64) {
+// deployUpkeeps deploys upkeeps and funds upkeeps
+func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, deployer upkeepDeployer, existingCount int64) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
+	var upkeepAddrs []common.Address
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
 		fmt.Println()
 		// Deploy
@@ -250,16 +283,8 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		k.waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
 
-		// Approve
-		approveUpkeepTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
-		if err != nil {
-			log.Fatal(i, upkeepAddr.Hex(), ": Approve failed - ", err)
-		}
-		k.waitTx(ctx, approveUpkeepTx)
-		log.Println(i, upkeepAddr.Hex(), ": Upkeep approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveUpkeepTx.Hash()))
-
 		// Register
-		registerUpkeepTx, err := registryInstance.RegisterUpkeep(k.buildTxOpts(ctx),
+		registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
 			upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData),
 		)
 		if err != nil {
@@ -268,15 +293,93 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		k.waitTx(ctx, registerUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", helpers.ExplorerLink(k.cfg.ChainID, registerUpkeepTx.Hash()))
 
+		upkeepAddrs = append(upkeepAddrs, upkeepAddr)
+	}
+
+	keeperRegistry12, err := registry12.NewKeeperRegistry(
+		registryAddr,
+		k.client,
+	)
+	if err != nil {
+		log.Fatal("Registry failed: ", err)
+	}
+
+	activeUpkeepIds := k.getActiveUpkeepIds(ctx, keeperRegistry12, big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
+	log.Println("upkeepAddrs=", upkeepAddrs)
+	log.Println("activeUpkeepIds=", activeUpkeepIds)
+
+	for index, upkeepAddr := range upkeepAddrs {
+		// Approve
+		k.approveFunds(ctx, registryAddr)
+
+		upkeepId := activeUpkeepIds[index]
 		// Fund
-		addFundsTx, err := registryInstance.AddFunds(k.buildTxOpts(ctx), big.NewInt(int64(i)), k.addFundsAmount)
+		addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), upkeepId, k.addFundsAmount)
 		if err != nil {
-			log.Fatal(i, upkeepAddr.Hex(), ": AddFunds failed - ", err)
+			log.Fatal(upkeepId, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
 		k.waitTx(ctx, addFundsTx)
-		log.Println(i, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
+		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
+
+	//for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
+	//	fmt.Println()
+	//	// Deploy
+	//	var upkeepAddr common.Address
+	//	var deployUpkeepTx *types.Transaction
+	//	var err error
+	//	if k.cfg.UpkeepAverageEligibilityCadence > 0 {
+	//		upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
+	//			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+	//		)
+	//	} else {
+	//		upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
+	//			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
+	//		)
+	//	}
+	//	if err != nil {
+	//		log.Fatal(i, ": Deploy Upkeep failed - ", err)
+	//	}
+	//	k.waitDeployment(ctx, deployUpkeepTx)
+	//	log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+	//
+	//	// Approve
+	//	k.approveFunds(ctx, registryAddr)
+	//
+	//	// Register
+	//	registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
+	//		upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData),
+	//	)
+	//	if err != nil {
+	//		log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+	//	}
+	//	k.waitTx(ctx, registerUpkeepTx)
+	//	log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", helpers.ExplorerLink(k.cfg.ChainID, registerUpkeepTx.Hash()))
+	//
+	//	// Fund
+	//	addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), big.NewInt(i), k.addFundsAmount)
+	//	if err != nil {
+	//		log.Fatal(i, upkeepAddr.Hex(), ": AddFunds failed - ", err)
+	//	}
+	//	k.waitTx(ctx, addFundsTx)
+	//	log.Println(i, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
+	//}
 	fmt.Println()
+}
+
+// setKeepers set the keeper list for a registry
+func (k *Keeper) setKeepers(ctx context.Context, deployer keepersDeployer, keepers, owners []common.Address) {
+	if len(keepers) > 0 {
+		log.Println("Set keepers...")
+		setKeepersTx, err := deployer.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
+		if err != nil {
+			log.Fatal("SetKeepers failed: ", err)
+		}
+		k.waitTx(ctx, setKeepersTx)
+		log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+	} else {
+		log.Println("No Keepers to register")
+	}
 }
 
 func (k *Keeper) keepers() ([]common.Address, []common.Address) {
@@ -291,27 +394,52 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 
 // createKeeperJobOnExistingNode connect to existing node to create keeper job
 func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registryAddr, nodeAddr string) error {
-	remoteNodeURL, err := url.Parse(urlStr)
+	lggr, close := logger.NewLogger()
+	defer close()
+
+	cl, err := k.authenticate(urlStr, email, password, lggr)
 	if err != nil {
 		return err
 	}
-	c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
-	sr := sessions.SessionRequest{Email: email, Password: password}
-	store := &cmd.MemoryCookieStore{}
-	lggr, close := logger.NewLogger()
-	defer close()
-	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
-	if _, err := tca.Authenticate(sr); err != nil {
-		log.Println("failed to authenticate: ", err)
-		return err
-	}
-	cl := cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr)
 
-	if err := k.createKeeperJob(cl, registryAddr, nodeAddr); err != nil {
+	if err = k.createKeeperJob(cl, registryAddr, nodeAddr); err != nil {
 		log.Println("Failed to create keeper job: ", err)
 		return err
 	}
 	return nil
+}
+
+// authenticate creates a http client with URL, email and password
+func (k *Keeper) authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPClient, error) {
+	remoteNodeURL, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
+	sr := sessions.SessionRequest{Email: email, Password: password}
+	store := &cmd.MemoryCookieStore{}
+
+	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
+	if _, err = tca.Authenticate(sr); err != nil {
+		log.Println("failed to authenticate: ", err)
+		return nil, err
+	}
+
+	return cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr), nil
+}
+
+// getActiveUpkeepIds retrieves active upkeep ids from registry 1.2
+func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry *registry12.KeeperRegistry, from, to *big.Int) []*big.Int {
+	activeUpkeepIds, err := registry.GetActiveUpkeepIDs(&bind.CallOpts{
+		Pending: false,
+		From:    k.fromAddr,
+		Context: ctx,
+	}, from, to)
+	if err != nil {
+		log.Fatal(registry.Address().Hex(), ": failed to get active upkeep Ids - ", err)
+	}
+	return activeUpkeepIds
 }
 
 // getConfigForRegistry12 returns a config object for registry 1.2

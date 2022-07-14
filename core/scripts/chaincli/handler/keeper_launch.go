@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
-	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -22,26 +21,24 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeperRegV1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry12 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 const (
-	defaultChainlinkNodeImage = "smartcontract/chainlink:latest"
-	defaultPOSTGRESImage      = "postgres:13"
+	defaultChainlinkNodeImage = "smartcontract/chainlink:1.5.1-root"
+	defaultPOSTGRESImage      = "postgres:latest"
 
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
-	defaultChainlinkNodePassword = "twochains"
+	defaultChainlinkNodePassword = "0123ABCabc!@#"
 )
 
 type startedNodeData struct {
@@ -80,38 +77,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	wg.Wait()
 
 	// Deploy keeper registry or get an existing one
-	var registry *keeperRegV1.KeeperRegistry
-	var registryAddr common.Address
-	var upkeepCount int64
-	if k.cfg.RegistryAddress != "" {
-		// Get existing keeper registry
-		registryAddr, registry = k.GetRegistry(ctx)
-		callOpts := bind.CallOpts{
-			Pending: false,
-			From:    k.fromAddr,
-			Context: ctx,
-		}
-		count, err := registry.GetUpkeepCount(&callOpts)
-		if err != nil {
-			log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
-		}
-		upkeepCount = count.Int64()
-	} else {
-		// Deploy keeper registry
-		registryAddr, registry = k.deployRegistry(ctx)
-		upkeepCount = 0
-	}
+	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
 
 	// Approve keeper registry
-	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
-	if err != nil {
-		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
-	}
-	k.waitTx(ctx, approveRegistryTx)
-	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
+	k.approveFunds(ctx, registryAddr)
 
 	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
+	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
 
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
@@ -121,24 +93,17 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	var owners []common.Address
 	for _, startedNode := range startedNodes {
 		if startedNode.err != nil {
-			log.Println("Failed to start node: ", err)
+			log.Println("Failed to start node: ", startedNode.err)
 			continue
 		}
 
 		// Create authenticated client
-		remoteNodeURL, parseErr := url.Parse(startedNode.url)
-		if parseErr != nil {
-			log.Fatal(parseErr)
+		var cl cmd.HTTPClient
+		var err error
+		cl, err = k.authenticate(startedNode.url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
+		if err != nil {
+			log.Fatal("Authentication failed, ", err)
 		}
-		c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
-		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
-		store := &cmd.MemoryCookieStore{}
-		tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
-		if _, err = tca.Authenticate(sr); err != nil {
-			log.Println("failed to authenticate: ", err)
-			continue
-		}
-		cl := cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr)
 
 		// Get node's wallet address
 		var nodeAddrHex string
@@ -173,13 +138,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	}
 
 	// Set Keepers
-	log.Println("Set keepers...")
-	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
-	if err != nil {
-		log.Fatal("SetKeepers failed: ", err)
-	}
-	k.waitTx(ctx, setKeepersTx)
-	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+	k.setKeepers(ctx, deployer, keepers, owners)
 
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -195,29 +154,69 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 	// Cancel upkeeps and withdraw funds
 	if withdraw {
+		isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
 		log.Println("Canceling upkeeps...")
-		if err = k.cancelAndWithdrawUpkeeps(ctx, registry); err != nil {
-			log.Fatal("Failed to cancel upkeeps: ", err)
+		if isVersion12 {
+			registry, err := registry12.NewKeeperRegistry(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
+
+			if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
+		} else {
+			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
 		}
 		log.Println("Upkeeps successfully canceled")
 	}
 }
 
-// cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
-func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeperRegV1.KeeperRegistry) error {
-	count, err := registryInstance.GetUpkeepCount(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get upkeeps count: %s", err)
+// cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds for registry 1.2
+func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
+	var err error
+	for i := 0; i < len(activeUpkeepIds); i++ {
+		var tx *ethtypes.Transaction
+		upkeepId := activeUpkeepIds[i]
+		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId); err != nil {
+			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
+		}
+		k.waitTx(ctx, tx)
+
+		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr); err != nil {
+			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
+		}
+		k.waitTx(ctx, tx)
+
+		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
 	}
 
-	for i := int64(0); i < count.Int64(); i++ {
+	var tx *ethtypes.Transaction
+	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+		return fmt.Errorf("failed to recover funds: %s", err)
+	}
+	k.waitTx(ctx, tx)
+
+	return nil
+}
+
+// cancelAndWithdrawUpkeeps cancels all upkeeps for 1.1 registry and withdraws funds
+func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.Int, canceller canceller) error {
+	var err error
+	for i := int64(0); i < upkeepCount.Int64(); i++ {
 		var tx *ethtypes.Transaction
-		if tx, err = registryInstance.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
+		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
 			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
 		}
 		k.waitTx(ctx, tx)
 
-		if tx, err = registryInstance.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
+		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
 		}
 		k.waitTx(ctx, tx)
@@ -226,7 +225,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance 
 	}
 
 	var tx *ethtypes.Transaction
-	if tx, err = registryInstance.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
 	k.waitTx(ctx, tx)
@@ -263,6 +262,46 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 			ContractAddress: registryAddr,
 			FromAddress:     nodeAddr,
 			EvmChainID:      int(k.cfg.ChainID),
+			ObservationSource: `
+encode_check_upkeep_tx   [type=ethabiencode
+                          abi="checkUpkeep(uint256 id, address from)"
+                          data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
+                          gasTipCap="$(jobSpec.gasTipCap)"
+                          gasFeeCap="$(jobSpec.gasFeeCap)"
+                          data="$(encode_check_upkeep_tx)"]
+decode_check_upkeep_tx   [type=ethabidecode
+                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+encode_perform_upkeep_tx [type=ethabiencode
+                          abi="performUpkeep(uint256 id, bytes calldata performData)"
+                          data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
+simulate_perform_upkeep_tx  [type=ethcall
+                          extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
+                          contract="$(jobSpec.contractAddress)"
+                          from="$(jobSpec.fromAddress)"
+                          gas="$(jobSpec.performUpkeepGasLimit)"
+                          data="$(encode_perform_upkeep_tx)"]
+decode_check_perform_tx  [type=ethabidecode
+                          abi="bool success"]
+check_success            [type=conditional
+                          failEarly=true
+                          data="$(decode_check_perform_tx.success)"]
+perform_upkeep_tx        [type=ethtx
+                          minConfirmations=0
+                          to="$(jobSpec.contractAddress)"
+                          from="[$(jobSpec.fromAddress)]"
+                          evmChainID="$(jobSpec.evmChainID)"
+                          data="$(encode_perform_upkeep_tx)"
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                          txMeta="{\"jobID\":$(jobSpec.jobID),\"upkeepID\":$(jobSpec.prettyID)}"]
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx`,
 		}).Toml(),
 	})
 	if err != nil {

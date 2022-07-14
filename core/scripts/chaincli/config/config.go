@@ -98,7 +98,7 @@ func init() {
 	viper.SetDefault("UPKEEP_INTERVAL", 10)
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
-	viper.SetDefault("UPKEEP_COUNT", 5)
+	viper.SetDefault("UPKEEP_COUNT", 2)
 	viper.SetDefault("KEEPERS_COUNT", 2)
 
 	viper.SetDefault("FEED_DECIMALS", 18)
@@ -109,4 +109,5 @@ func init() {
 	viper.SetDefault("TRANSCODER", "0x0000000000000000000000000000000000000000")
 	viper.SetDefault("REGISTRAR", "0x0000000000000000000000000000000000000000")
 	viper.SetDefault("KEEPER_REGISTRY_VERSION", 2)
+	viper.SetDefault("FUND_CHAINLINK_NODE", "20000000000000000000")
 }
