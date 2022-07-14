@@ -421,7 +421,8 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 
 	err = q.ExecQ("VACUUM ANALYZE pipeline_runs")
 	if err != nil {
-		return errors.Wrap(err, "DeleteRunsOlderThan successfully deleted old pipeline_runs rows, but failed to run VACUUM ANALYZE")
+		o.lggr.Warnw("DeleteRunsOlderThan successfully deleted old pipeline_runs rows, but failed to run VACUUM ANALYZE", "err", err.Error())
+		err = nil
 	}
 
 	o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(mark))
