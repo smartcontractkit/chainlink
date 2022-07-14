@@ -3,8 +3,10 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -39,6 +41,7 @@ const (
 	RemovingKeeperTest
 	PauseRegistryTest
 	MigrateUpkeepTest
+	HandleKeeperNodesGoingDown
 )
 
 type KeeperConsumerContracts int32
@@ -95,20 +98,22 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
-			Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			//Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			//Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 		}
 	)
 
@@ -640,6 +645,79 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				g.Expect(currentCounter.Int64()).Should(BeNumerically(">", counterAfterMigration.Int64()),
 					"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
 			}, "1m", "1s").Should(Succeed())
+		}
+
+		if testToRun == HandleKeeperNodesGoingDown {
+			By("takes down half of the keeper nodes and watches upkeeps get performed slower")
+			// Record how much time it takes to have all the registered upkeeps perform 5 times each
+			const numberOfTimesUpkeepsShouldPerform int64 = 5
+			var completedUpkeepsFirstTime = 0
+			var alreadyMarkedFirstTime = make([]bool, len(upkeepIDs))
+			for i := 0; i < len(alreadyMarkedFirstTime); i++ {
+				alreadyMarkedFirstTime[i] = false
+			}
+
+			firstStart := time.Now()
+			for completedUpkeepsFirstTime < len(upkeepIDs) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
+
+					if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform)) == 0 && !alreadyMarkedFirstTime[i] {
+						completedUpkeepsFirstTime++
+						alreadyMarkedFirstTime[i] = true
+					}
+				}
+			}
+			firstElapsed := time.Since(firstStart)
+			fmt.Printf("First time it took %s\n", firstElapsed)
+
+			// Now we need to take down half of the keeper nodes
+			nodesToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
+
+			// We take the nodes down by return funds from them, in this way they won't be able to execute anything anymore.
+			// --------------------------------------------------------------------------------
+			fmt.Println("Beginning the process of returning the funds from the chainlink nodes")
+
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, nodesToTakeDown, nil, chainClient)
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to take down half of the Keeper nodes")
+
+			//for _, node := range nodesToTakeDown {
+			//	err := node.SetSessionCookie()
+			//	Expect(err).ShouldNot(HaveOccurred(), "Failed to set the session cookie")
+			//}
+			//log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+			//
+			//addressMap, err := actions.SendFunds(nodesToTakeDown, chainClient)
+			//Expect(err).ShouldNot(HaveOccurred(), "Failed to send funds")
+			//
+			//err = actions.CheckFunds(nodesToTakeDown, addressMap, strings.ToLower(chainClient.GetDefaultWallet().Address()))
+			//Expect(err).ShouldNot(HaveOccurred(), "Failed to check funds")
+			//
+			//addressMap, err = actions.SendFunds(nodesToTakeDown, chainClient)
+
+			fmt.Println("Returned funds from all the chainlink nodes")
+			// --------------------------------------------------------------------------------
+
+			var completedUpkeepsSecondTime = 0
+			var alreadyMarkedSecondTime = make([]bool, len(upkeepIDs))
+			for i := 0; i < len(alreadyMarkedSecondTime); i++ {
+				alreadyMarkedSecondTime[i] = false
+			}
+
+			secondStart := time.Now()
+			for completedUpkeepsSecondTime < len(upkeepIDs) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
+					if counter.Cmp(big.NewInt(10)) == 0 && !alreadyMarkedSecondTime[i] {
+						completedUpkeepsSecondTime++
+						alreadyMarkedSecondTime[i] = true
+					}
+				}
+			}
+			secondElapsed := time.Since(secondStart)
+			fmt.Printf("Second time it took %s", secondElapsed)
 		}
 
 		By("Printing gas stats")
