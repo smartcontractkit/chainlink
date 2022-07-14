@@ -1,6 +1,8 @@
 package ocr2
 
 import (
+	"math/big"
+
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
@@ -33,6 +35,8 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
+	dkgSignKs             keystore.DKGSign
+	dkgEncryptKs          keystore.DKGEncrypt
 	relayers              map[relay.Network]types.Relayer
 }
 
@@ -48,6 +52,8 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
+	dkgSignKs keystore.DKGSign,
+	dkgEncryptKs keystore.DKGEncrypt,
 	relayers map[relay.Network]types.Relayer,
 ) *Delegate {
 	return &Delegate{
@@ -60,6 +66,8 @@ func NewDelegate(
 		cfg,
 		lggr,
 		ks,
+		dkgSignKs,
+		dkgEncryptKs,
 		relayers,
 	}
 }
@@ -155,6 +163,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		ocr2Provider = medianProvider
 		pluginOracle, err = median.NewMedian(jobSpec, medianProvider, d.pipelineRunner, runResults, lggr, ocrLogger)
 	case job.DKG:
+		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "get chainset")
+		}
 		dkgProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewDKGProvider(
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
@@ -163,12 +180,23 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
 			return nil, err2
 		}
 		ocr2Provider = dkgProvider
-		pluginOracle, err = dkg.NewDKG(lggr.Named("DKG"))
+		pluginOracle, err = dkg.NewDKG(
+			jobSpec,
+			dkgProvider,
+			lggr.Named("DKG"),
+			ocrLogger,
+			d.dkgSignKs,
+			d.dkgEncryptKs,
+			chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "error while instantiating DKG")
+		}
 	case job.OCR2VRF:
 		ocr2vrfProvider, err2 := evmrelay.NewOCR2VRFRelayer(relayer).NewOCR2VRFProvider(
 			types.RelayArgs{
@@ -178,6 +206,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
 			})
 		if err2 != nil {
 			return nil, err2
