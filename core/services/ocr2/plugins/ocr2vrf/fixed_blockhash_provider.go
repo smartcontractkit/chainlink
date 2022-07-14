@@ -3,62 +3,51 @@ package ocr2vrf
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/smartcontractkit/ocr2vrf/types"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/ocr2vrf/types"
 )
 
-// FixedBlockhashProvider returns blockhashes with fixed-sized windows relative to current block height
-type FixedBlockhashProvider struct {
+// fixedBlockhashProvider returns blockhashes with fixed-sized windows relative to current block height
+type fixedBlockhashProvider struct {
 	client client.Client
-	// end block = current head - waitBlocks
-	waitBlocks uint
 	// start block = current head - lookbackBlocks
 	lookbackBlocks uint
 	// number of blocks to query in a batch
 	batchSize uint
 }
 
-type Block struct {
-	Number    int64
-	Hash      common.Hash
-	Timestamp time.Time
-}
+var _ types.Blockhashes = (*fixedBlockhashProvider)(nil)
 
-var _ types.Blockhashes = (*FixedBlockhashProvider)(nil)
-
-func NewFixedBlockhashProvider(client client.Client, waitBlocks, lookbackBlocks, batchSize uint) *FixedBlockhashProvider {
-	return &FixedBlockhashProvider{
+func NewFixedBlockhashProvider(client client.Client, lookbackBlocks, batchSize uint) types.Blockhashes {
+	return &fixedBlockhashProvider{
 		client,
-		waitBlocks,
 		lookbackBlocks,
 		batchSize,
 	}
 }
 
-func (b *FixedBlockhashProvider) OnchainVerifiableBlocks(
+func (b *fixedBlockhashProvider) OnchainVerifiableBlocks(
 	ctx context.Context,
 ) (startHeight uint64, hashes []common.Hash, err error) {
-	height, err := b.CurrentHeight(ctx)
+	toBlock, err := b.CurrentHeight(ctx)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errors.Wrap(err, "current height")
 	}
-	fromBlock := height - uint64(b.lookbackBlocks)
-	toBlock := height - uint64(b.waitBlocks)
-	reqs := []rpc.BatchElem{}
+	fromBlock := toBlock - uint64(b.lookbackBlocks)
+	var reqs []rpc.BatchElem
 
 	for i := fromBlock; i <= toBlock; i++ {
 		req := rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
 			Args:   []interface{}{hexutil.EncodeBig(big.NewInt(int64(i))), true},
-			Result: &Block{},
+			Result: &evmtypes.Head{},
 		}
 		reqs = append(reqs, req)
 	}
@@ -72,18 +61,18 @@ func (b *FixedBlockhashProvider) OnchainVerifiableBlocks(
 		err := b.client.BatchCallContext(ctx, reqs[i:j])
 
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, errors.Wrap(err, "batch call context eth_getBlockByNumber")
 		}
 	}
 
-	blockhashes := []common.Hash{}
+	var blockhashes []common.Hash
 	for _, r := range reqs {
 		if r.Error != nil {
-			return 0, nil, r.Error
+			return 0, nil, errors.Wrap(r.Error, "error found in eth_getBlockByNumber response")
 		}
-		block, is := r.Result.(*Block)
+		block, is := r.Result.(*evmtypes.Head)
 		if !is {
-			return 0, nil, errors.Errorf("expected result to be a %T, got %T", &Block{}, r.Result)
+			return 0, nil, errors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
 		}
 		if block == nil {
 			return 0, nil, errors.New("invariant violation: got nil block")
@@ -97,10 +86,10 @@ func (b *FixedBlockhashProvider) OnchainVerifiableBlocks(
 	return fromBlock, blockhashes, nil
 }
 
-func (b *FixedBlockhashProvider) CurrentHeight(ctx context.Context) (uint64, error) {
+func (b *fixedBlockhashProvider) CurrentHeight(ctx context.Context) (uint64, error) {
 	h, err := b.client.HeadByNumber(ctx, nil)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "head by number")
 	}
 	if h.Number < 0 {
 		return 0, errors.Errorf("unexpected head number: %d", h.Number)

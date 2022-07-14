@@ -20,7 +20,7 @@ import (
 func Test_FixedBlockhashProvider(t *testing.T) {
 	client := cltest.NewEthClientMockWithDefaultChain(t)
 
-	p := ocr2vrf.NewFixedBlockhashProvider(client, 0, 0, 0)
+	p := ocr2vrf.NewFixedBlockhashProvider(client, 0, 0)
 	ctx := context.Background()
 
 	t.Run("returns current height", func(t *testing.T) {
@@ -59,15 +59,15 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		client.On("BatchCallContext", ctx, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			reqs := args.Get(1).([]rpc.BatchElem)
 			for i := 0; i < len(reqs); i++ {
-				reqs[i].Result = &ocr2vrf.Block{Hash: utils.NewHash()}
+				reqs[i].Result = &evmtypes.Head{Hash: utils.NewHash()}
 			}
 		}).Times(5)
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 2, 10, 2)
+		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.NoError(t, err)
-		assert.Equal(t, uint64(100-10), startHeight)
+		assert.Equal(t, uint64(100-8), startHeight)
 		assert.Equal(t, 9, len(hashes))
 		for _, hash := range hashes {
 			assert.NotEmpty(t, hash)
@@ -84,11 +84,11 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		e := errors.New("network error")
 		client.On("BatchCallContext", ctx, mock.Anything).Return(e).Once()
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 2, 10, 2)
+		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)
-		assert.Equal(t, e.Error(), err.Error())
+		assert.Equal(t, "batch call context eth_getBlockByNumber: network error", err.Error())
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
 		client.AssertExpectations(t)
@@ -106,10 +106,32 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 			}
 		}).Times(5)
 
-		p := ocr2vrf.NewFixedBlockhashProvider(client, 2, 10, 2)
+		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
 		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
 
 		require.Error(t, err)
+		assert.Equal(t, uint64(0), startHeight)
+		assert.Nil(t, hashes)
+		client.AssertExpectations(t)
+	})
+
+	t.Run("returns error when empty blockhash received", func(t *testing.T) {
+		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
+			return val == nil
+		})).Return(h, nil).Once()
+
+		client.On("BatchCallContext", ctx, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			reqs := args.Get(1).([]rpc.BatchElem)
+			for i := 0; i < len(reqs); i++ {
+				reqs[i].Result = &evmtypes.Head{Hash: utils.EmptyHash}
+			}
+		}).Times(5)
+
+		p := ocr2vrf.NewFixedBlockhashProvider(client, 8, 2)
+		startHeight, hashes, err := p.OnchainVerifiableBlocks(ctx)
+
+		require.Error(t, err)
+		assert.Equal(t, "missing block hash", err.Error())
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
 		client.AssertExpectations(t)
