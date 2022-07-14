@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simplified the Keepers job spec by removing the observation source from the required parameters.
 
+### Fixed
+- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
+
 ## Added
 
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
