@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## Unreleased
+## 0.4.1 - 2022-07-14
 
 ### Changed
 
@@ -8,6 +8,7 @@
 - Reintroduce v0.6 `EACAggregatorProxy` after removing it in [this commit](https://github.com/smartcontractkit/chainlink/commit/558f42f5122779cb2e05dc8c2b84d1ae78cc0d71)
 - Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
 - Revert to using current Arbitrum seq status flag in `ArbitrumSequencerUptimeFeed`
+- Moved `VRFV2Wrapper`, `VRFV2WrapperConsumerBase` and `interfaces/VRFV2WrapperInterface` out of `dev` folder.
 
 ## 0.4.0 - 2022-02-07
 
