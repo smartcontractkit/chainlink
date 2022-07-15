@@ -10,20 +10,27 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	dkg_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
 	vrf_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/vrfbeaconcoordinator"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"golang.org/x/exp/constraints"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
+
+var (
+	dkgABI = evmtypes.MustGetABI(dkg_wrapper.DKGMetaData.ABI)
+	vrfABI = evmtypes.MustGetABI(vrf_wrapper.VRFBeaconCoordinatorMetaData.ABI)
+)
 
 const (
 	// VRF-only events.
@@ -36,29 +43,77 @@ const (
 	configSetEvent = "ConfigSet"
 )
 
-type coordinator struct {
-	lggr logger.Logger
-
-	lp                                  logpoller.LogPoller
+type topics struct {
 	randomnessRequestedTopic            common.Hash
 	randomnessFulfillmentRequestedTopic common.Hash
 	randomWordsFulfilledTopic           common.Hash
 	configSetTopic                      common.Hash
 	newTransmissionTopic                common.Hash
-	lookbackBlocks                      int64
+}
 
-	// TODO: would be better if this was an interface for easier mocking.
+type coordinator struct {
+	lggr logger.Logger
+
+	lp logpoller.LogPoller
+	topics
+	lookbackBlocks int64
+
 	coordinatorContract VRFBeaconCoordinator
-	coordinatorABI      *abi.ABI
 	coordinatorAddress  common.Address
 
 	// We need to keep track of DKG ConfigSet events as well.
-	dkgABI      *abi.ABI
 	dkgAddress  common.Address
 	dkgContract *dkg_wrapper.DKG
 
 	evmClient evmclient.Client
 	headsORM  headtracker.ORM
+}
+
+func newTopics() (topics, error) {
+	requestedEvent, ok := vrfABI.Events[randomnessRequestedEvent]
+	if !ok {
+		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", randomnessRequestedEvent, vrfABI.Events)
+	}
+
+	fulfillmentRequestedEvent, ok := vrfABI.Events[randomnessFulfillmentRequestedEvent]
+	if !ok {
+		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", randomnessFulfillmentRequestedEvent, vrfABI.Events)
+	}
+
+	fulfilledEvent, ok := vrfABI.Events[randomWordsFulfilledEvent]
+	if !ok {
+		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", randomWordsFulfilledEvent, vrfABI.Events)
+	}
+
+	transmissionEvent, ok := vrfABI.Events[newTransmissionEvent]
+	if !ok {
+		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", newTransmissionEvent, vrfABI.Events)
+	}
+
+	configSet, ok := vrfABI.Events[configSetEvent]
+	if !ok {
+		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", configSetEvent, vrfABI.Events)
+	}
+
+	dkgConfigSet, ok := dkgABI.Events[configSetEvent]
+	if !ok {
+		return topics{}, fmt.Errorf("could not find event %s in dkgABI %+v", configSetEvent, dkgABI.Events)
+	}
+
+	// DKG set config and VRF set config should be equal
+	if dkgConfigSet.ID != configSet.ID {
+		return topics{}, fmt.Errorf(
+			"invariant violation: dkg ConfigSet topic (%s) != vrf ConfigSet topic (%s)",
+			dkgConfigSet.ID.Hex(), configSet.ID.Hex())
+	}
+
+	return topics{
+		randomnessRequestedTopic:            requestedEvent.ID,
+		randomnessFulfillmentRequestedTopic: fulfillmentRequestedEvent.ID,
+		randomWordsFulfilledTopic:           fulfilledEvent.ID,
+		configSetTopic:                      configSet.ID,
+		newTransmissionTopic:                transmissionEvent.ID,
+	}, nil
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -76,76 +131,38 @@ func New(
 		return nil, errors.Wrap(err, "dkg wrapper creation")
 	}
 
-	dkgABI, err := dkg_wrapper.DKGMetaData.GetAbi()
-	if err != nil {
-		return nil, errors.Wrap(err, "dkg get abi")
-	}
-
 	coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "coordinator wrapper creation")
 	}
 
-	coordinatorABI, err := vrf_wrapper.VRFBeaconCoordinatorMetaData.GetAbi()
-	if err != nil {
-		return nil, errors.Wrap(err, "vrf get abi")
-	}
-
-	requestedEvent, ok := coordinatorABI.Events[randomnessRequestedEvent]
-	if !ok {
-		return nil, fmt.Errorf("could not find event %s in coordinatorABI %+v", randomnessRequestedEvent, coordinatorABI.Events)
-	}
-
-	fulfillmentRequestedEvent, ok := coordinatorABI.Events[randomnessFulfillmentRequestedEvent]
-	if !ok {
-		return nil, fmt.Errorf("could not find event %s in coordinatorABI %+v", randomnessFulfillmentRequestedEvent, coordinatorABI.Events)
-	}
-
-	fulfilledEvent, ok := coordinatorABI.Events[randomWordsFulfilledEvent]
-	if !ok {
-		return nil, fmt.Errorf("could not find event %s in coordinatorABI %+v", randomWordsFulfilledEvent, coordinatorABI.Events)
-	}
-
-	transmissionEvent, ok := coordinatorABI.Events[newTransmissionEvent]
-	if !ok {
-		return nil, fmt.Errorf("could not find event %s in coordinatorABI %+v", newTransmissionEvent, coordinatorABI.Events)
-	}
-
-	configSet, ok := coordinatorABI.Events[configSetEvent]
-	if !ok {
-		return nil, fmt.Errorf("could not find event %s in coordinatorABI %+v", configSetEvent, coordinatorABI.Events)
-	}
+	t, err := newTopics()
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	logPoller.MergeFilter([]common.Hash{
-		requestedEvent.ID,
-		fulfillmentRequestedEvent.ID,
-		fulfilledEvent.ID,
-		configSet.ID,
+		t.randomnessRequestedTopic,
+		t.randomnessFulfillmentRequestedTopic,
+		t.randomWordsFulfilledTopic,
+		t.configSetTopic,
+		t.newTransmissionTopic,
 	}, coordinatorAddress)
 
 	// We need ConfigSet events from the DKG contract as well.
 	logPoller.MergeFilter([]common.Hash{
-		configSet.ID,
+		t.configSetTopic,
 	}, dkgAddress)
 
 	return &coordinator{
 		coordinatorContract: coordinatorContract,
 		coordinatorAddress:  coordinatorAddress,
-		coordinatorABI:      coordinatorABI,
 
 		dkgAddress:  dkgAddress,
-		dkgABI:      dkgABI,
 		dkgContract: dkgContract,
 
-		lp:                                  logPoller,
-		randomnessRequestedTopic:            requestedEvent.ID,
-		randomnessFulfillmentRequestedTopic: fulfillmentRequestedEvent.ID,
-		randomWordsFulfilledTopic:           fulfilledEvent.ID,
-		configSetTopic:                      configSet.ID,
-		newTransmissionTopic:                transmissionEvent.ID,
-		lookbackBlocks:                      lookbackBlocks,
+		lp:             logPoller,
+		topics:         t,
+		lookbackBlocks: lookbackBlocks,
 
 		evmClient: client,
 		headsORM:  headsORM,
@@ -177,14 +194,14 @@ func (c *coordinator) ReportBlocks(
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
 	// TODO: use head broadcaster instead?
-	currentHead, err := c.evmClient.HeaderByNumber(ctx, nil)
+	currentHead, err := c.evmClient.HeadByNumber(ctx, nil)
 	if err != nil {
 		err = errors.Wrap(err, "header by number")
 		return
 	}
-	currentHeight := currentHead.Number.Int64()
+	currentHeight := currentHead.Number
 
-	logs, err := c.lp.LogsWithTopics(
+	logs, err := c.lp.LogsWithSigs(
 		currentHeight-c.lookbackBlocks,
 		currentHeight-1,
 		[]common.Hash{
@@ -209,35 +226,31 @@ func (c *coordinator) ReportBlocks(
 	for _, lg := range logs {
 		switch {
 		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
-			unpacked, err2 := unmarshalLog[vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested](
-				c.coordinatorABI, randomnessRequestedEvent, lg)
+			unpacked, err2 := unmarshalRandomnessRequested(lg) // FIXME
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, unpacked)
 		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
-			unpacked, err2 := unmarshalLog[vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested](
-				c.coordinatorABI, randomnessFulfillmentRequestedEvent, lg)
+			unpacked, err2 := unmarshalRandomnessFulfillmentRequested(lg) // FIXME
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, unpacked)
 		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
-			unpacked, err2 := unmarshalLog[vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled](
-				c.coordinatorABI, randomWordsFulfilledEvent, lg)
+			unpacked, err2 := unmarshalRandomWordsFulfilled(lg) // FIXME
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, unpacked)
 		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
-			unpacked, err2 := unmarshalLog[vrf_wrapper.VRFBeaconCoordinatorNewTransmission](
-				c.coordinatorABI, "RandomnessRequested", lg)
+			unpacked, err2 := unmarshalNewTransmission(lg) // FIXME
 			if err2 != nil {
 				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
+				err = errors.Wrap(err2, "unmarshal NewTransmission log")
 			}
 			newTransmissionLogs = append(newTransmissionLogs, unpacked)
 		}
@@ -320,6 +333,8 @@ func (c *coordinator) ReportBlocks(
 	for k, _ := range blocksRequested {
 		blockHeights = append(blockHeights, k.blockNumber)
 	}
+
+	// TODO: is it possible that the head saver doesn't have some of these heights?
 	heads, err := c.headsORM.HeadsByNumbers(ctx, blockHeights)
 	if err != nil {
 		err = errors.Wrap(err, "heads by numbers")
@@ -421,14 +436,14 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	}
 
 	var vrfConfigSetLog vrf_wrapper.VRFBeaconCoordinatorConfigSet
-	err = c.coordinatorABI.UnpackIntoInterface(&vrfConfigSetLog, configSetEvent, latestVRF.Data)
+	err = vrfABI.UnpackIntoInterface(&vrfConfigSetLog, configSetEvent, latestVRF.Data)
 	if err != nil {
 		err = errors.Wrap(err, "unpack vrf ConfigSet into interface")
 		return
 	}
 
 	var dkgConfigSetLog dkg_wrapper.DKGConfigSet
-	err = c.dkgABI.UnpackIntoInterface(&dkgConfigSetLog, configSetEvent, latestDKG.Data)
+	err = dkgABI.UnpackIntoInterface(&dkgConfigSetLog, configSetEvent, latestDKG.Data)
 	if err != nil {
 		err = errors.Wrap(err, "unpack dkg ConfigSet into interface")
 		return
@@ -479,21 +494,120 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 	return uint16(beaconPeriodBlocks.Int64()), nil
 }
 
-func minKey[T constraints.Ordered, U any](m map[T]U) T {
-	var min T
-	for k, _ := range m {
-		if k < min {
-			min = k
-		}
+func unindexedArgs(tabi abi.ABI, eventName string) (u abi.Arguments) {
+	for _, a := range tabi.Events[eventName].Inputs {
+		u = append(u, abi.Argument{
+			Name:    a.Name,
+			Type:    a.Type,
+			Indexed: false,
+		})
 	}
-	return min
+	return
 }
 
-func unmarshalLog[T any](tabi *abi.ABI, name string, lg logpoller.Log) (r T, err error) {
-	var unpacked T
-	err = tabi.UnpackIntoInterface(&unpacked, name, lg.Data)
+func unmarshalRandomnessRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested, err error) {
+	args := unindexedArgs(vrfABI, randomnessRequestedEvent)
+
+	m := make(map[string]any)
+	err = args.UnpackIntoMap(m, lg.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "unpack into interface")
+		return r, errors.Wrapf(err, "unpack %s into map (RandomnessRequested)", hexutil.Encode(lg.Data))
 	}
+
+	r.ConfDelay = *abi.ConvertType(m["confDelay"], new(*big.Int)).(**big.Int)
+	r.NextBeaconOutputHeight = *abi.ConvertType(m["nextBeaconOutputHeight"], new(uint64)).(*uint64)
+	r.Raw = types.Log{
+		Data:        lg.Data,
+		Address:     lg.Address,
+		BlockHash:   lg.BlockHash,
+		BlockNumber: uint64(lg.BlockNumber),
+		TxHash:      lg.TxHash,
+		//Topics:      lg.Topics,
+		Index:   uint(lg.LogIndex),
+		Removed: false,
+	}
+
+	return
+}
+
+func unmarshalRandomnessFulfillmentRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, err error) {
+	args := unindexedArgs(vrfABI, randomnessFulfillmentRequestedEvent)
+
+	m := make(map[string]any)
+	err = args.UnpackIntoMap(m, lg.Data)
+	if err != nil {
+		return r, errors.Wrapf(err, "unpack %s into map (RandomnessFulfillmentRequested)", hexutil.Encode(lg.Data))
+	}
+
+	r.ConfDelay = *abi.ConvertType(m["confDelay"], new(*big.Int)).(**big.Int)
+	r.NextBeaconOutputHeight = *abi.ConvertType(m["nextBeaconOutputHeight"], new(uint64)).(*uint64)
+	r.SubID = *abi.ConvertType(m["subID"], new(uint64)).(*uint64)
+	r.Callback = *abi.ConvertType(m["callback"], new(vrf_wrapper.VRFBeaconTypesCallback)).(*vrf_wrapper.VRFBeaconTypesCallback)
+	r.Raw = types.Log{
+		Data:        lg.Data,
+		Address:     lg.Address,
+		BlockHash:   lg.BlockHash,
+		BlockNumber: uint64(lg.BlockNumber),
+		TxHash:      lg.TxHash,
+		//Topics:      lg.Topics,
+		Index:   uint(lg.LogIndex),
+		Removed: false,
+	}
+
+	return
+}
+
+func unmarshalRandomWordsFulfilled(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled, err error) {
+	args := unindexedArgs(vrfABI, randomWordsFulfilledEvent)
+
+	m := make(map[string]any)
+	err = args.UnpackIntoMap(m, lg.Data)
+	if err != nil {
+		return r, errors.Wrapf(err, "unpack %s into map (RandomWordsFulfilled)", hexutil.Encode(lg.Data))
+	}
+
+	r.SuccessfulFulfillment = *abi.ConvertType(m["successfulFulfillment"], new([]byte)).(*[]byte)
+	r.TruncatedErrorData = *abi.ConvertType(m["truncatedErrorData"], new([][]byte)).(*[][]byte)
+	r.RequestIDs = *abi.ConvertType(m["requestIDs"], new([]*big.Int)).(*[]*big.Int)
+	r.Raw = types.Log{
+		Data:        lg.Data,
+		Address:     lg.Address,
+		BlockHash:   lg.BlockHash,
+		BlockNumber: uint64(lg.BlockNumber),
+		TxHash:      lg.TxHash,
+		//Topics:      lg.Topics,
+		Index:   uint(lg.LogIndex),
+		Removed: false,
+	}
+
+	return
+}
+
+func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorNewTransmission, err error) {
+	args := unindexedArgs(vrfABI, newTransmissionEvent)
+
+	m := make(map[string]any)
+	err = args.UnpackIntoMap(m, lg.Data)
+	if err != nil {
+		return r, errors.Wrapf(err, "unpack %s into map (RandomWordsFulfilled)", hexutil.Encode(lg.Data))
+	}
+
+	r.EpochAndRound = *abi.ConvertType(m["epochAndRound"], new(*big.Int)).(**big.Int)
+	r.OutputsServed = *abi.ConvertType(m["outputsServed"], new([]vrf_wrapper.VRFBeaconReportOutputServed)).(*[]vrf_wrapper.VRFBeaconReportOutputServed)
+	r.ConfigDigest = *abi.ConvertType(m["configDigest"], new([32]byte)).(*[32]byte)
+	r.JuelsPerFeeCoin = *abi.ConvertType(m["juelsPerFeeCoin"], new(*big.Int)).(**big.Int)
+	r.Transmitter = *abi.ConvertType(m["transmitter"], new(common.Address)).(*common.Address)
+	r.AggregatorRoundId = *abi.ConvertType(m["aggregatorRoundId"], new(uint32)).(*uint32)
+	r.Raw = types.Log{
+		Data:        lg.Data,
+		Address:     lg.Address,
+		BlockHash:   lg.BlockHash,
+		BlockNumber: uint64(lg.BlockNumber),
+		TxHash:      lg.TxHash,
+		//Topics:      lg.Topics,
+		Index:   uint(lg.LogIndex),
+		Removed: false,
+	}
+
 	return
 }

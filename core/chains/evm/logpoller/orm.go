@@ -131,9 +131,9 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 	return logs, nil
 }
 
-// SelectLogsWithTopicsByBlockRangeFilter finds the logs in the given block range with the given event signatures
+// SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
 // emitted from the given address.
-func (o *ORM) SelectLogsWithTopicsByBlockRangeFilter(start, end int64, address common.Address, eventSigs [][]byte, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ORM) SelectLogsWithSigsByBlockRangeFilter(start, end int64, address common.Address, eventSigs [][]byte, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs, `
