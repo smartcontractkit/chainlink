@@ -118,7 +118,3 @@ func TestORM_LatestHeads_NoRows(t *testing.T) {
 	require.Zero(t, len(heads))
 	require.NoError(t, err)
 }
-
-func TestOrm_HeadsByNumbers(t *testing.T) {
-
-}

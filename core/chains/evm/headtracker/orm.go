@@ -16,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	// IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 	// No advisory lock required because this is thread safe.
