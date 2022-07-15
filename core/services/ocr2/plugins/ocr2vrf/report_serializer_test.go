@@ -37,8 +37,30 @@ func Test_Serialize_Deserialize(t *testing.T) {
 			}},
 		}},
 	}
-	_, err := reportSerializer.SerializeReport(unserializedReport)
+	r, err := reportSerializer.SerializeReport(unserializedReport)
 	require.NoError(t, err)
+
+	report, err := reportSerializer.DeserializeReport(r)
+	require.NoError(t, err)
+
+	require.Equal(t, unserializedReport, types.AbstractReport{
+		JulesPerFeeCoin:   report.JulesPerFeeCoin,
+		RecentBlockHeight: report.RecentBlockHeight,
+		RecentBlockHash:   common.Hash(report.RecentBlockHash),
+		Outputs: []types.AbstractVRFOutput{{
+			BlockHeight:       report.Outputs[0].BlockHeight,
+			ConfirmationDelay: uint32(report.Outputs[0].ConfirmationDelay.Int64()),
+			Callbacks: []types.AbstractCostedCallbackRequest{{
+				RequestID:      report.Outputs[0].Callbacks[0].Callback.RequestID.Uint64(),
+				NumWords:       report.Outputs[0].Callbacks[0].Callback.NumWords,
+				Requester:      report.Outputs[0].Callbacks[0].Callback.Requester,
+				Arguments:      report.Outputs[0].Callbacks[0].Callback.Arguments,
+				SubscriptionID: report.Outputs[0].Callbacks[0].Callback.SubID,
+				GasAllowance:   report.Outputs[0].Callbacks[0].Callback.GasAllowance,
+				Price:          report.Outputs[0].Callbacks[0].Price,
+			}},
+		}},
+	})
 }
 
 func Test_Serialize_Length(t *testing.T) {

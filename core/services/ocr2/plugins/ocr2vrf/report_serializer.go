@@ -28,8 +28,17 @@ func (serializer *ReportSerializer) SerializeReport(r types.AbstractReport) ([]b
 	return packed, nil
 }
 
-func (serializer *ReportSerializer) DeserializeReport(reportBytes []byte) (types.AbstractReport, error) {
-	panic("not implemented.")
+func (serializer *ReportSerializer) DeserializeReport(reportBytes []byte) (types.BeaconReport, error) {
+	s := ocr2vrf.ReportSerializer{
+		G: serializer.G,
+	}
+	r, err := s.DeserializeReport(reportBytes)
+
+	if err != nil {
+		return types.BeaconReport{}, errors.Wrap(err, "deserialize report")
+	}
+
+	return r, nil
 }
 
 // Return the longest possible report which can be passed onchain
