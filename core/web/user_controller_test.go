@@ -51,7 +51,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		},
 		{
 			name:           "New password includes api email",
-			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, fmt.Sprintf("%slonglonglonglong", cltest.APIEmailAdmin), cltest.Password),
+			reqBody:        fmt.Sprintf(`{"newPassword": "%slonglonglonglong", "oldPassword": "%s"}`, cltest.APIEmailAdmin, cltest.Password),
 			wantStatusCode: http.StatusUnprocessableEntity,
 			wantErrCount:   1,
 			wantErrMessage: "password does not meet the requirements: password may not contain: \"apiuser@chainlink.test\"",

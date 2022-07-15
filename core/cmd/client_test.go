@@ -143,8 +143,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
-			_, err := db.Exec("DELETE FROM users;")
-			require.NoError(t, err)
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			user, err := tai.Initialize(orm)
 			if test.isError {
@@ -206,8 +205,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
-			_, err := db.Exec("DELETE FROM users;")
-			require.NoError(t, err)
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
 			user, err := tfi.Initialize(orm)

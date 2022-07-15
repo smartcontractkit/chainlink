@@ -17,7 +17,7 @@ func authenticateUser(ctx context.Context) error {
 }
 
 // Authenticates the user from the session cookie and asserts at least 'run' role.
-func authenticateUserCanEditMinimal(ctx context.Context) error {
+func authenticateUserCanRun(ctx context.Context) error {
 	session, ok := auth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
 		return unauthorizedError{}
@@ -34,7 +34,8 @@ func authenticateUserCanEdit(ctx context.Context) error {
 	if !ok {
 		return unauthorizedError{}
 	}
-	if session.User.Role == sessions.UserRoleView || session.User.Role == sessions.UserRoleRun {
+	switch session.User.Role {
+	case sessions.UserRoleView, sessions.UserRoleRun:
 		return errors.Errorf("Not permitted with current role %s\n", session.User.Role)
 	}
 	return nil

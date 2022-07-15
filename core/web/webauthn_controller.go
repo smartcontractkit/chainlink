@@ -2,11 +2,12 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	pkgerrors "github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -30,14 +31,15 @@ func NewWebAuthnController(app chainlink.Application) WebAuthnController {
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	user, ok := auth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 
 	orm := c.App.SessionORM()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
+		c.App.GetLogger().Errorf("error in GetUserWebAuthn: %+v", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user MFA tokens."))
 		return
 	}
 
@@ -58,8 +60,8 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	user, ok := auth.GetAuthenticatedUser(ctx)
 	if !ok {
-		c.App.GetLogger().Errorf("failed to obtain current user from context")
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user from context"))
+		logger.Sugared(c.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
 		return
 	}
 
@@ -67,7 +69,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("error in GetUserWebAuthn: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user MFA tokens"))
 		return
 	}
 

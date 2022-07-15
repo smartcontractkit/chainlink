@@ -96,10 +96,10 @@ const (
 	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Collection of test fixture DB user emails per role
-	APIEmailAdmin       = "apiuser@chainlink.test"
-	APIEmailEdit        = "apiuser-edit@chainlink.test"
-	APIEmailEditMinimal = "apiuser-edit-minimal@chainlink.test"
-	APIEmailViewOnly    = "apiuser-view-only@chainlink.test"
+	APIEmailAdmin    = "apiuser@chainlink.test"
+	APIEmailEdit     = "apiuser-edit@chainlink.test"
+	APIEmailRun      = "apiuser-run@chainlink.test"
+	APIEmailViewOnly = "apiuser-view-only@chainlink.test"
 	// Password just a password we use everywhere for testing
 	Password = testutils.Password
 	// SessionSecret is the hardcoded secret solely used for test

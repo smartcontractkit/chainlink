@@ -183,7 +183,7 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 }
 
 // Logout removes local and remote session.
-func (cli *Client) Logout(c *clipkg.Context) error {
+func (cli *Client) Logout(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Delete("/sessions")
 	if err != nil {
 		return cli.errorOut(err)

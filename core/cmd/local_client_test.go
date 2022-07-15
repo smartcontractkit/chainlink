@@ -228,8 +228,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
-			_, err := db.Exec("DELETE FROM users;")
-			require.NoError(t, err)
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
@@ -344,11 +343,10 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
 			// create/run with a new admin user
-			_, err := db.Exec("DELETE FROM users;")
-			require.NoError(t, err)
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
+			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := cltest.NewEthClientMock(t)

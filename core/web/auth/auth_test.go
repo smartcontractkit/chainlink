@@ -1,7 +1,6 @@
 package auth_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -343,8 +342,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 			case "PUT":
 				resp, cleanup = client.Put(route.path, nil)
 			default:
-				fmt.Printf("Unknown HTTP verb %s\n", route.verb)
-				t.Fail()
+				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
 			defer cleanup()
 
@@ -380,8 +378,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 			case "PUT":
 				resp, cleanup = client.Put(route.path, nil)
 			default:
-				fmt.Printf("Unknown HTTP verb %s\n", route.verb)
-				t.Fail()
+				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
 			defer cleanup()
 
@@ -396,7 +393,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 	}
 }
 
-func TestRBAC_Routemap_EditMinimal(t *testing.T) {
+func TestRBAC_Routemap_Run(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -405,7 +402,7 @@ func TestRBAC_Routemap_EditMinimal(t *testing.T) {
 	defer ts.Close()
 
 	// Assert all edit routes
-	client := app.NewHTTPClient(cltest.APIEmailEditMinimal)
+	client := app.NewHTTPClient(cltest.APIEmailRun)
 	for _, route := range routesRolesMap {
 		func() {
 			var resp *http.Response
@@ -423,8 +420,7 @@ func TestRBAC_Routemap_EditMinimal(t *testing.T) {
 			case "PUT":
 				resp, cleanup = client.Put(route.path, nil)
 			default:
-				fmt.Printf("Unknown HTTP verb %s\n", route.verb)
-				t.Fail()
+				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
 			defer cleanup()
 
@@ -466,8 +462,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			case "PUT":
 				resp, cleanup = client.Put(route.path, nil)
 			default:
-				fmt.Printf("Unknown HTTP verb %s\n", route.verb)
-				t.Fail()
+				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
 			defer cleanup()
 

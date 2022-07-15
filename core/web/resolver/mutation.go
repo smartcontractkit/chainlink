@@ -1199,7 +1199,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 func (r *Resolver) RunJob(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*RunJobPayloadResolver, error) {
-	if err := authenticateUserCanEditMinimal(ctx); err != nil {
+	if err := authenticateUserCanRun(ctx); err != nil {
 		return nil, err
 	}
 
