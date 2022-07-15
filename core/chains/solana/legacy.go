@@ -5,8 +5,10 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
-	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/sqlx"
+
+	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
