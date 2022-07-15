@@ -8,6 +8,7 @@ ALTER TABLE users ADD role user_roles NOT NULL DEFAULT 'view';
 CREATE UNIQUE INDEX unique_users_lowercase_email ON users (lower(email));
 
 -- Update sessions table include email column to key on user tied to session
+DELETE FROM sessions;
 ALTER TABLE sessions ADD email text NOT NULL;
 
 ALTER TABLE sessions ADD CONSTRAINT sessions_fk_email FOREIGN KEY(email) REFERENCES users(email) ON DELETE cascade;

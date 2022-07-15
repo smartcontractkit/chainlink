@@ -188,51 +188,56 @@ func GetAuthenticatedExternalInitiator(c *gin.Context) (*bridges.ExternalInitiat
 
 // RequiresRunRole extracts the user object from the context, and asserts the the user's role is at least
 // 'run'
-func RequiresRunRole(c *gin.Context) {
-	user, ok := GetAuthenticatedUser(c)
-	if !ok {
-		c.Abort()
-		jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
-		return
+func RequiresRunRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			return
+		}
+		if user.Role == clsessions.UserRoleView {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			return
+		}
+		handler(c)
 	}
-	if user.Role == clsessions.UserRoleView {
-		c.Abort()
-		jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
-		return
-	}
-	c.Next()
 }
 
 // RequiresEditRole extracts the user object from the context, and asserts the the user's role is at least
 // 'edit'
-func RequiresEditRole(c *gin.Context) {
-	user, ok := GetAuthenticatedUser(c)
-	if !ok {
-		c.Abort()
-		jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
-		return
+func RequiresEditRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			return
+		}
+		if user.Role == clsessions.UserRoleView || user.Role == clsessions.UserRoleRun {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			return
+		}
+		handler(c)
 	}
-	switch user.Role {
-	case clsessions.UserRoleView, clsessions.UserRoleRun:
-		c.Abort()
-		jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
-		return
-	}
-	c.Next()
 }
 
 // RequiresAdminRole extracts the user object from the context, and asserts the the user's role is 'admin'
-func RequiresAdminRole(c *gin.Context) {
-	user, ok := GetAuthenticatedUser(c)
-	if !ok {
-		c.Abort()
-		jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
-		return
+func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
+	return func(c *gin.Context) {
+		user, ok := GetAuthenticatedUser(c)
+		if !ok {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			return
+		}
+		if user.Role != clsessions.UserRoleAdmin {
+			c.Abort()
+			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			return
+		}
+		handler(c)
 	}
-	if user.Role != clsessions.UserRoleAdmin {
-		c.Abort()
-		jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
-		return
-	}
-	c.Next()
 }
