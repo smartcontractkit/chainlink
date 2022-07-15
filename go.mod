@@ -90,6 +90,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+require github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
@@ -350,3 +352,7 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+
+// Fix go mod tidy issue for ambiguous imports from go-ethereum
+// See https://github.com/ugorji/go/issues/279
+replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1

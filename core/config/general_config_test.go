@@ -3,8 +3,9 @@ package config
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/test-go/testify/assert"
 )
 
 func Test_validateDBURL(t *testing.T) {
