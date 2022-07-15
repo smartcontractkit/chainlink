@@ -131,6 +131,26 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 	return logs, nil
 }
 
+// SelectLogsWithTopicsByBlockRangeFilter finds the logs in the given block range with the given event signatures
+// emitted from the given address.
+func (o *ORM) SelectLogsWithTopicsByBlockRangeFilter(start, end int64, address common.Address, eventSigs [][]byte, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs, `
+SELECT
+	*
+FROM logs
+WHERE logs.block_number BETWEEN $1 AND $2
+	AND logs.evm_chain_id = $3
+	AND logs.address = $4
+	AND logs.event_sig IN ($5)
+ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSigs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 // LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events
 func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log

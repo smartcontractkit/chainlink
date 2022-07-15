@@ -8,11 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type ORM interface {
@@ -27,6 +28,10 @@ type ORM interface {
 	LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error)
 	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
 	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
+	// HeadByNumber fetches the head with the given number from the db, returns nil if none exists
+	HeadByNumber(ctx context.Context, number uint64) (head *evmtypes.Head, err error)
+	// HeadsByNumbers fetches the heads with the given numbers from the db, returns nil if none exist
+	HeadsByNumbers(ctx context.Context, numbers []uint64) (heads []*evmtypes.Head, err error)
 }
 
 type orm struct {
@@ -90,4 +95,23 @@ func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtype
 		return nil, nil
 	}
 	return head, err
+}
+
+func (orm *orm) HeadByNumber(ctx context.Context, number uint64) (head *evmtypes.Head, err error) {
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	head = new(evmtypes.Head)
+	err = q.Get(head, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 AND number = $2`, orm.chainID, number)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return head, err
+}
+
+func (orm *orm) HeadsByNumbers(ctx context.Context, numbers []uint64) (heads []*evmtypes.Head, err error) {
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Select(heads, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 AND number IN ($2)`, orm.chainID, numbers)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return heads, err
 }

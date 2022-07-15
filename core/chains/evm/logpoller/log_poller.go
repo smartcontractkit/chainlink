@@ -32,6 +32,7 @@ type LogPoller interface {
 
 	// General queries
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
+	LogsWithTopics(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
 	LatestLogEventSigsAddrs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, qopts ...pg.QOpt) ([]Log, error)
 
@@ -438,6 +439,14 @@ func (lp *logPoller) findLCA(h common.Hash) (int64, error) {
 // which are canonical at time of query.
 func (lp *logPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig[:], qopts...)
+}
+
+func (lp *logPoller) LogsWithTopics(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
+	sigs := make([][]byte, 0, len(eventSigs))
+	for _, sig := range eventSigs {
+		sigs = append(sigs, sig.Bytes())
+	}
+	return lp.orm.SelectLogsWithTopicsByBlockRangeFilter(start, end, address, sigs, qopts...)
 }
 
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.

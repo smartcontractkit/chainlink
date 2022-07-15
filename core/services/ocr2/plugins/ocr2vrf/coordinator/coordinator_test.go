@@ -208,9 +208,3 @@ func getTopics(t *testing.T) (configSetTopic common.Hash) {
 
 	return dkgConfigSetTopic
 }
-
-func printAddressSlice(t *testing.T, s []common.Address) {
-	for i, a := range s {
-		t.Logf("index: %d, elem: %s\n", i, a.Hex())
-	}
-}
