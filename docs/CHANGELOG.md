@@ -35,6 +35,9 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 
 - Simplified the Keepers job spec by removing the observation source from the required parameters.
 
+### Fixed
+- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
+
 ## Added
 
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param

@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -227,6 +228,17 @@ func (s *SendError) IsOptimismFeeTooLow() bool {
 // IsOptimismFeeTooHigh is an optimism-specific error returned when total fee is too high
 func (s *SendError) IsOptimismFeeTooHigh() bool {
 	return s.is(OptimismFeeTooHigh)
+}
+
+// IsTimeout indicates if the error was caused by an exceeded context deadline
+func (s *SendError) IsTimeout() bool {
+	if s == nil {
+		return false
+	}
+	if s.err == nil {
+		return false
+	}
+	return errors.Is(s.err, context.DeadlineExceeded)
 }
 
 func NewFatalSendError(e error) *SendError {
