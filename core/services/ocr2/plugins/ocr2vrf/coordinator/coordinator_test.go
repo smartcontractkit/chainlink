@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ht_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -230,8 +229,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		htORM := &ht_mocks.ORM{}
-		htORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
+		cORM := &mocks.ORM{}
+		cORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
 			Return([]*evmtypes.Head{
 				{
 					Number: 195,
@@ -242,7 +241,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			headsORM:           htORM,
+			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -306,8 +305,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		htORM := &ht_mocks.ORM{}
-		htORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
+		cORM := &mocks.ORM{}
+		cORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
 			Return([]*evmtypes.Head{
 				{
 					Number: 195,
@@ -318,7 +317,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			headsORM:           htORM,
+			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -391,15 +390,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		htORM := &ht_mocks.ORM{}
+		cORM := &mocks.ORM{}
 		var r []uint64
-		htORM.On("HeadsByNumbers", mock.Anything, r).
+		cORM.On("HeadsByNumbers", mock.Anything, r).
 			Return(nil, nil)
 
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			headsORM:           htORM,
+			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -478,15 +477,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		htORM := &ht_mocks.ORM{}
+		cORM := &mocks.ORM{}
 		var r []uint64
-		htORM.On("HeadsByNumbers", mock.Anything, r).
+		cORM.On("HeadsByNumbers", mock.Anything, r).
 			Return(nil, nil)
 
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			headsORM:           htORM,
+			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,

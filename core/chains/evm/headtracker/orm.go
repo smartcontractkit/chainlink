@@ -30,8 +30,6 @@ type ORM interface {
 	LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error)
 	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
 	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
-	// HeadsByNumbers fetches the heads with the given numbers from the db, returns nil if none exist
-	HeadsByNumbers(ctx context.Context, numbers []uint64) (heads []*evmtypes.Head, err error)
 }
 
 type orm struct {
@@ -95,27 +93,4 @@ func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtype
 		return nil, nil
 	}
 	return head, err
-}
-
-func (orm *orm) HeadsByNumbers(ctx context.Context, numbers []uint64) (heads []*evmtypes.Head, err error) {
-	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
-	a := map[string]any{
-		"chainid": orm.chainID,
-		"numbers": numbers,
-	}
-	query, args, err := sqlx.Named(`SELECT * FROM evm_heads WHERE evm_chain_id = :chainid AND number IN (:numbers)`, a)
-	if err != nil {
-		return nil, errors.Wrap(err, "sqlx Named")
-	}
-	query, args, err = sqlx.In(query, args...)
-	if err != nil {
-		return nil, errors.Wrap(err, "sqlx In")
-	}
-
-	query = q.Rebind(query)
-	err = q.Select(&heads, query, args...)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	return heads, err
 }

@@ -40,29 +40,6 @@ func (_m *ORM) HeadByHash(ctx context.Context, hash common.Hash) (*types.Head, e
 	return r0, r1
 }
 
-// HeadsByNumbers provides a mock function with given fields: ctx, numbers
-func (_m *ORM) HeadsByNumbers(ctx context.Context, numbers []uint64) ([]*types.Head, error) {
-	ret := _m.Called(ctx, numbers)
-
-	var r0 []*types.Head
-	if rf, ok := ret.Get(0).(func(context.Context, []uint64) []*types.Head); ok {
-		r0 = rf(ctx, numbers)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Head)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, []uint64) error); ok {
-		r1 = rf(ctx, numbers)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // IdempotentInsertHead provides a mock function with given fields: ctx, head
 func (_m *ORM) IdempotentInsertHead(ctx context.Context, head *types.Head) error {
 	ret := _m.Called(ctx, head)

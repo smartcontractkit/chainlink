@@ -15,11 +15,11 @@ import (
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -41,7 +41,9 @@ const (
 )
 
 type coordinator struct {
-	lggr logger.Logger
+	q       pg.Q
+	chainID utils.Big
+	lggr    logger.Logger
 
 	lp logpoller.LogPoller
 	topics
@@ -55,7 +57,15 @@ type coordinator struct {
 	dkgContract *dkg_wrapper.DKG
 
 	evmClient evmclient.Client
-	headsORM  headtracker.ORM
+	orm       ORM
+}
+
+var _ pg.LogConfig = &sqlConfig{}
+
+type sqlConfig struct{}
+
+func (sqlConfig) LogSQL() bool {
+	return false
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -66,7 +76,7 @@ func New(
 	client evmclient.Client,
 	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
-	headsORM headtracker.ORM,
+	orm ORM,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
 	dkgContract, err := dkg_wrapper.NewDKG(dkgAddress, client)
 	if err != nil {
@@ -107,7 +117,7 @@ func New(
 		lookbackBlocks: lookbackBlocks,
 
 		evmClient: client,
-		headsORM:  headsORM,
+		orm:       orm,
 		lggr:      lggr.Named("OCR2VRFCoordinator"),
 	}, nil
 }
@@ -277,7 +287,7 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	// TODO: is it possible that the head saver doesn't have some of these heights?
-	heads, err := c.headsORM.HeadsByNumbers(ctx, blockHeights)
+	heads, err := c.orm.HeadsByNumbers(ctx, blockHeights)
 	if err != nil {
 		err = errors.Wrap(err, "heads by numbers")
 		return

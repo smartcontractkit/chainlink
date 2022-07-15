@@ -120,27 +120,5 @@ func TestORM_LatestHeads_NoRows(t *testing.T) {
 }
 
 func TestOrm_HeadsByNumbers(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	lg := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	orm := headtracker.NewORM(db, lg, cfg, cltest.FixtureChainID)
 
-	var expectedHashes []common.Hash
-	for i := 0; i < 10; i++ {
-		head := cltest.Head(i + 1)
-		require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), head))
-		expectedHashes = append(expectedHashes, head.Hash)
-	}
-
-	dbHeads, err := orm.HeadsByNumbers(testutils.Context(t), []uint64{
-		1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	})
-	require.NoError(t, err)
-	require.Len(t, dbHeads, len(expectedHashes))
-	var dbHashes []common.Hash
-
-	for _, dbh := range dbHeads {
-		dbHashes = append(dbHashes, dbh.Hash)
-	}
-	require.ElementsMatch(t, expectedHashes, dbHashes)
 }
