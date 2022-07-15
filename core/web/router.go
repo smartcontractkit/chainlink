@@ -366,6 +366,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"evm", NewEVMChainsController(app)},
 			{"solana", NewSolanaChainsController(app)},
+			{"starknet", NewStarkNetChainsController(app)},
 			{"terra", NewTerraChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
@@ -382,6 +383,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		}{
 			{"evm", NewEVMNodesController(app)},
 			{"solana", NewSolanaNodesController(app)},
+			{"starknet", NewStarkNetNodesController(app)},
 			{"terra", NewTerraNodesController(app)},
 		} {
 			if chain.path == "evm" {
