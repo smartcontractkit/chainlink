@@ -7,11 +7,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	dkg_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
 	vrf_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/vrfbeaconcoordinator"
@@ -43,14 +40,6 @@ const (
 	configSetEvent = "ConfigSet"
 )
 
-type topics struct {
-	randomnessRequestedTopic            common.Hash
-	randomnessFulfillmentRequestedTopic common.Hash
-	randomWordsFulfilledTopic           common.Hash
-	configSetTopic                      common.Hash
-	newTransmissionTopic                common.Hash
-}
-
 type coordinator struct {
 	lggr logger.Logger
 
@@ -67,53 +56,6 @@ type coordinator struct {
 
 	evmClient evmclient.Client
 	headsORM  headtracker.ORM
-}
-
-func newTopics() (topics, error) {
-	requestedEvent, ok := vrfABI.Events[randomnessRequestedEvent]
-	if !ok {
-		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", randomnessRequestedEvent, vrfABI.Events)
-	}
-
-	fulfillmentRequestedEvent, ok := vrfABI.Events[randomnessFulfillmentRequestedEvent]
-	if !ok {
-		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", randomnessFulfillmentRequestedEvent, vrfABI.Events)
-	}
-
-	fulfilledEvent, ok := vrfABI.Events[randomWordsFulfilledEvent]
-	if !ok {
-		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", randomWordsFulfilledEvent, vrfABI.Events)
-	}
-
-	transmissionEvent, ok := vrfABI.Events[newTransmissionEvent]
-	if !ok {
-		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", newTransmissionEvent, vrfABI.Events)
-	}
-
-	configSet, ok := vrfABI.Events[configSetEvent]
-	if !ok {
-		return topics{}, fmt.Errorf("could not find event %s in vrfABI %+v", configSetEvent, vrfABI.Events)
-	}
-
-	dkgConfigSet, ok := dkgABI.Events[configSetEvent]
-	if !ok {
-		return topics{}, fmt.Errorf("could not find event %s in dkgABI %+v", configSetEvent, dkgABI.Events)
-	}
-
-	// DKG set config and VRF set config should be equal
-	if dkgConfigSet.ID != configSet.ID {
-		return topics{}, fmt.Errorf(
-			"invariant violation: dkg ConfigSet topic (%s) != vrf ConfigSet topic (%s)",
-			dkgConfigSet.ID.Hex(), configSet.ID.Hex())
-	}
-
-	return topics{
-		randomnessRequestedTopic:            requestedEvent.ID,
-		randomnessFulfillmentRequestedTopic: fulfillmentRequestedEvent.ID,
-		randomWordsFulfilledTopic:           fulfilledEvent.ID,
-		configSetTopic:                      configSet.ID,
-		newTransmissionTopic:                transmissionEvent.ID,
-	}, nil
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -492,122 +434,4 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 	}
 
 	return uint16(beaconPeriodBlocks.Int64()), nil
-}
-
-func unindexedArgs(tabi abi.ABI, eventName string) (u abi.Arguments) {
-	for _, a := range tabi.Events[eventName].Inputs {
-		u = append(u, abi.Argument{
-			Name:    a.Name,
-			Type:    a.Type,
-			Indexed: false,
-		})
-	}
-	return
-}
-
-func unmarshalRandomnessRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested, err error) {
-	args := unindexedArgs(vrfABI, randomnessRequestedEvent)
-
-	m := make(map[string]any)
-	err = args.UnpackIntoMap(m, lg.Data)
-	if err != nil {
-		return r, errors.Wrapf(err, "unpack %s into map (RandomnessRequested)", hexutil.Encode(lg.Data))
-	}
-
-	r.ConfDelay = *abi.ConvertType(m["confDelay"], new(*big.Int)).(**big.Int)
-	r.NextBeaconOutputHeight = *abi.ConvertType(m["nextBeaconOutputHeight"], new(uint64)).(*uint64)
-	r.Raw = types.Log{
-		Data:        lg.Data,
-		Address:     lg.Address,
-		BlockHash:   lg.BlockHash,
-		BlockNumber: uint64(lg.BlockNumber),
-		TxHash:      lg.TxHash,
-		//Topics:      lg.Topics,
-		Index:   uint(lg.LogIndex),
-		Removed: false,
-	}
-
-	return
-}
-
-func unmarshalRandomnessFulfillmentRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, err error) {
-	args := unindexedArgs(vrfABI, randomnessFulfillmentRequestedEvent)
-
-	m := make(map[string]any)
-	err = args.UnpackIntoMap(m, lg.Data)
-	if err != nil {
-		return r, errors.Wrapf(err, "unpack %s into map (RandomnessFulfillmentRequested)", hexutil.Encode(lg.Data))
-	}
-
-	r.ConfDelay = *abi.ConvertType(m["confDelay"], new(*big.Int)).(**big.Int)
-	r.NextBeaconOutputHeight = *abi.ConvertType(m["nextBeaconOutputHeight"], new(uint64)).(*uint64)
-	r.SubID = *abi.ConvertType(m["subID"], new(uint64)).(*uint64)
-	r.Callback = *abi.ConvertType(m["callback"], new(vrf_wrapper.VRFBeaconTypesCallback)).(*vrf_wrapper.VRFBeaconTypesCallback)
-	r.Raw = types.Log{
-		Data:        lg.Data,
-		Address:     lg.Address,
-		BlockHash:   lg.BlockHash,
-		BlockNumber: uint64(lg.BlockNumber),
-		TxHash:      lg.TxHash,
-		//Topics:      lg.Topics,
-		Index:   uint(lg.LogIndex),
-		Removed: false,
-	}
-
-	return
-}
-
-func unmarshalRandomWordsFulfilled(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled, err error) {
-	args := unindexedArgs(vrfABI, randomWordsFulfilledEvent)
-
-	m := make(map[string]any)
-	err = args.UnpackIntoMap(m, lg.Data)
-	if err != nil {
-		return r, errors.Wrapf(err, "unpack %s into map (RandomWordsFulfilled)", hexutil.Encode(lg.Data))
-	}
-
-	r.SuccessfulFulfillment = *abi.ConvertType(m["successfulFulfillment"], new([]byte)).(*[]byte)
-	r.TruncatedErrorData = *abi.ConvertType(m["truncatedErrorData"], new([][]byte)).(*[][]byte)
-	r.RequestIDs = *abi.ConvertType(m["requestIDs"], new([]*big.Int)).(*[]*big.Int)
-	r.Raw = types.Log{
-		Data:        lg.Data,
-		Address:     lg.Address,
-		BlockHash:   lg.BlockHash,
-		BlockNumber: uint64(lg.BlockNumber),
-		TxHash:      lg.TxHash,
-		//Topics:      lg.Topics,
-		Index:   uint(lg.LogIndex),
-		Removed: false,
-	}
-
-	return
-}
-
-func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorNewTransmission, err error) {
-	args := unindexedArgs(vrfABI, newTransmissionEvent)
-
-	m := make(map[string]any)
-	err = args.UnpackIntoMap(m, lg.Data)
-	if err != nil {
-		return r, errors.Wrapf(err, "unpack %s into map (RandomWordsFulfilled)", hexutil.Encode(lg.Data))
-	}
-
-	r.EpochAndRound = *abi.ConvertType(m["epochAndRound"], new(*big.Int)).(**big.Int)
-	r.OutputsServed = *abi.ConvertType(m["outputsServed"], new([]vrf_wrapper.VRFBeaconReportOutputServed)).(*[]vrf_wrapper.VRFBeaconReportOutputServed)
-	r.ConfigDigest = *abi.ConvertType(m["configDigest"], new([32]byte)).(*[32]byte)
-	r.JuelsPerFeeCoin = *abi.ConvertType(m["juelsPerFeeCoin"], new(*big.Int)).(**big.Int)
-	r.Transmitter = *abi.ConvertType(m["transmitter"], new(common.Address)).(*common.Address)
-	r.AggregatorRoundId = *abi.ConvertType(m["aggregatorRoundId"], new(uint32)).(*uint32)
-	r.Raw = types.Log{
-		Data:        lg.Data,
-		Address:     lg.Address,
-		BlockHash:   lg.BlockHash,
-		BlockNumber: uint64(lg.BlockNumber),
-		TxHash:      lg.TxHash,
-		//Topics:      lg.Topics,
-		Index:   uint(lg.LogIndex),
-		Removed: false,
-	}
-
-	return
 }
