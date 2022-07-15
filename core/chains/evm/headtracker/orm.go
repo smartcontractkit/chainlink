@@ -99,7 +99,21 @@ func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtype
 
 func (orm *orm) HeadsByNumbers(ctx context.Context, numbers []uint64) (heads []*evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Select(heads, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 AND number IN ($2)`, orm.chainID, numbers)
+	a := map[string]any{
+		"chainid": orm.chainID,
+		"numbers": numbers,
+	}
+	query, args, err := sqlx.Named(`SELECT * FROM evm_heads WHERE evm_chain_id = :chainid AND number IN (:numbers)`, a)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx Named")
+	}
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx In")
+	}
+
+	query = q.Rebind(query)
+	err = q.Select(&heads, query, args...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
