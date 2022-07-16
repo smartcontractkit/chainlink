@@ -1024,6 +1024,7 @@ func NewApp(client *Client) *cli.App {
 				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
+				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Terra", TerraChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
@@ -1052,6 +1053,15 @@ func NewApp(client *Client) *cli.App {
 					cli.StringFlag{
 						Name:  "chain-id",
 						Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+					},
+					cli.StringFlag{
+						Name:  "url",
+						Usage: "URL",
+					}),
+				nodeCommand("StarkNet", NewStarkNetNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID",
 					},
 					cli.StringFlag{
 						Name:  "url",
