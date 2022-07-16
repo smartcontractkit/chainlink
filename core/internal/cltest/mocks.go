@@ -322,9 +322,33 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
+// MustRandomUser inserts a new admin user with a random email into the test DB
 func MustRandomUser(t testing.TB) sessions.User {
 	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
 	r, err := sessions.NewUser(email, Password, sessions.UserRoleAdmin)
+	if err != nil {
+		logger.TestLogger(t).Panic(err)
+	}
+	return r
+}
+
+// CreateUserWithRole inserts a new user with specified role and associated test DB email into the test DB
+func CreateUserWithRole(t testing.TB, role sessions.UserRole) sessions.User {
+	email := ""
+	switch role {
+	case sessions.UserRoleAdmin:
+		email = APIEmailAdmin
+	case sessions.UserRoleEdit:
+		email = APIEmailEdit
+	case sessions.UserRoleRun:
+		email = APIEmailRun
+	case sessions.UserRoleView:
+		email = APIEmailViewOnly
+	default:
+		t.Fatal("Unexpected role for CreateUserWithRole")
+	}
+
+	r, err := sessions.NewUser(email, Password, role)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)
 	}

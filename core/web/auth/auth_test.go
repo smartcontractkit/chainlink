@@ -359,8 +359,12 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
+	// Create a test edit user to work with
+	testUser := cltest.CreateUserWithRole(t, sessions.UserRoleEdit)
+	require.NoError(t, app.SessionORM().CreateUser(&testUser))
+	client := app.NewHTTPClient(testUser.Email)
+
 	// Assert all edit routes
-	client := app.NewHTTPClient(cltest.APIEmailEdit)
 	for _, route := range routesRolesMap {
 		func() {
 			var resp *http.Response
@@ -401,8 +405,12 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	// Assert all edit routes
-	client := app.NewHTTPClient(cltest.APIEmailRun)
+	// Create a test run user to work with
+	testUser := cltest.CreateUserWithRole(t, sessions.UserRoleRun)
+	require.NoError(t, app.SessionORM().CreateUser(&testUser))
+	client := app.NewHTTPClient(testUser.Email)
+
+	// Assert all run routes
 	for _, route := range routesRolesMap {
 		func() {
 			var resp *http.Response
@@ -443,8 +451,12 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	// Assert all edit routes
-	client := app.NewHTTPClient(cltest.APIEmailViewOnly)
+	// Create a test run user to work with
+	testUser := cltest.CreateUserWithRole(t, sessions.UserRoleView)
+	require.NoError(t, app.SessionORM().CreateUser(&testUser))
+	client := app.NewHTTPClient(testUser.Email)
+
+	// Assert all view only routes
 	for _, route := range routesRolesMap {
 		func() {
 			var resp *http.Response
