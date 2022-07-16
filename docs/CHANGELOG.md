@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added official support for Besu execution client.
 - Added per job spec and per job type gas limit control. The following rule of precedence is applied:
 
-1. task-specific parameter `gasLimit` overrides anything else when specified (e.g. ETH Tx Task has such the parameter).
+1. task-specific parameter `gasLimit` overrides anything else when specified (e.g. `ethtx` task has such a parameter).
 2. job-spec attribute `gasLimit` has the scope of the current job spec only.
 3. job-type limits `ETH_GAS_LIMIT_*_JOB_TYPE` affect any jobs of the corresponding type:
 
