@@ -229,7 +229,9 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 
 		{"xDai", 100, 500000, "0.00001"},
 	}
-	for _, tt := range tests {
+	for _, test := range tests {
+		tt := test
+
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 

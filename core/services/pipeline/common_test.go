@@ -338,51 +338,37 @@ func TestSelectGasLimit(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 	t.Run("spec defined gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		var specGasLimit uint32 = 1
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.DirectRequestJobType, &specGasLimit)
 		assert.Equal(t, uint64(1), gasLimit)
 	})
 
 	t.Run("direct request specific gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.DirectRequestJobType, nil)
 		assert.Equal(t, uint64(gcfg.Overrides.GlobalEvmGasLimitDRJobType.Int64), gasLimit)
 	})
 
 	t.Run("OCR specific gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.OffchainReportingJobType, nil)
 		assert.Equal(t, uint64(gcfg.Overrides.GlobalEvmGasLimitOCRJobType.Int64), gasLimit)
 	})
 
 	t.Run("VRF specific gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.VRFJobType, nil)
 		assert.Equal(t, uint64(gcfg.Overrides.GlobalEvmGasLimitVRFJobType.Int64), gasLimit)
 	})
 
 	t.Run("flux monitor specific gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.FluxMonitorJobType, nil)
 		assert.Equal(t, uint64(gcfg.Overrides.GlobalEvmGasLimitFMJobType.Int64), gasLimit)
 	})
 
 	t.Run("keeper specific gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.KeeperJobType, nil)
 		assert.Equal(t, uint64(gcfg.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), gasLimit)
 	})
 
 	t.Run("fallback to default gas limit", func(t *testing.T) {
-		t.Parallel()
-
 		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.WebhookJobType, nil)
 		assert.Equal(t, uint64(gcfg.Overrides.GlobalEvmGasLimitDefault.Int64), gasLimit)
 	})
