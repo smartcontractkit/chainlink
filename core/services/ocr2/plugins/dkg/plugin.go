@@ -20,7 +20,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
 
-type DKGContainer struct {
+type container struct {
 	jb           job.Job
 	logger       logger.Logger
 	ocrLogger    commontypes.Logger
@@ -31,7 +31,7 @@ type DKGContainer struct {
 	ethClient    evmclient.Client
 }
 
-var _ plugins.OraclePlugin = &DKGContainer{}
+var _ plugins.OraclePlugin = &container{}
 
 func NewDKG(
 	jb job.Job,
@@ -40,18 +40,18 @@ func NewDKG(
 	ocrLogger commontypes.Logger,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
-	ethClient evmclient.Client) (*DKGContainer, error) {
+	ethClient evmclient.Client) (plugins.OraclePlugin, error) {
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return &DKGContainer{}, err
+		return &container{}, err
 	}
 	err = config.ValidatePluginConfig(pluginConfig, dkgSignKs, dkgEncryptKs)
 	if err != nil {
-		return &DKGContainer{}, err
+		return &container{}, err
 	}
 
-	return &DKGContainer{
+	return &container{
 		logger:       l,
 		jb:           jb,
 		ocrLogger:    ocrLogger,
@@ -63,7 +63,7 @@ func NewDKG(
 	}, nil
 }
 
-func (d *DKGContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
+func (d *container) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
 	signKey, err := d.dkgSignKs.Get(d.pluginConfig.SigningPublicKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "get dkgsign key")
@@ -96,7 +96,7 @@ func (d *DKGContainer) GetPluginFactory() (ocr2types.ReportingPluginFactory, err
 	return factory, nil
 }
 
-func (d *DKGContainer) GetServices() ([]job.ServiceCtx, error) {
+func (d *container) GetServices() ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{}, nil
 }
 
