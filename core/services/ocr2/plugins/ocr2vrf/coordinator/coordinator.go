@@ -134,7 +134,7 @@ func (c *coordinator) ReportBlocks(
 
 	logs, err := c.lp.LogsWithSigs(
 		currentHeight-c.lookbackBlocks,
-		currentHeight-1,
+		currentHeight,
 		[]common.Hash{
 			c.randomnessRequestedTopic,
 			c.randomnessFulfillmentRequestedTopic,
