@@ -15,17 +15,19 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	starknetrelay "github.com/smartcontractkit/chainlink-starknet/pkg/chainlink"
+	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -151,9 +153,10 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM    evm.ChainSet
-	Solana solana.ChainSet // nil if disabled
-	Terra  terra.ChainSet  // nil if disabled
+	EVM      evm.ChainSet
+	Solana   solana.ChainSet   // nil if disabled
+	Terra    terra.ChainSet    // nil if disabled
+	StarkNet starknet.ChainSet // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -165,6 +168,9 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	}
 	if c.Terra != nil {
 		s = append(s, c.Terra)
+	}
+	if c.StarkNet != nil {
+		s = append(s, c.StarkNet)
 	}
 	return
 }
@@ -355,6 +361,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relayers[relay.Terra] = terraRelayer
 			subservices = append(subservices, terraRelayer)
 		}
+		if cfg.StarkNetEnabled() {
+			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
+			relayers[relay.StarkNet] = starknetRelayer
+			subservices = append(subservices, starknetRelayer)
+		}
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
@@ -365,6 +376,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
+			keyStore.DKGSign(),
+			keyStore.DKGEncrypt(),
 			relayers,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
