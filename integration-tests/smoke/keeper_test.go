@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -651,6 +652,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			By("takes down half of the keeper nodes and watches upkeeps get performed slower")
 			// Record how much time it takes to have all the registered upkeeps perform 5 times each
 			const numberOfTimesUpkeepsShouldPerform int64 = 5
+
 			var completedUpkeepsFirstTime = 0
 			var alreadyMarkedFirstTime = make([]bool, len(upkeepIDs))
 			for i := 0; i < len(alreadyMarkedFirstTime); i++ {
@@ -675,29 +677,26 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			// Now we need to take down half of the keeper nodes
 			nodesToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
 
-			// We take the nodes down by return funds from them, in this way they won't be able to execute anything anymore.
-			// --------------------------------------------------------------------------------
+			// We take the nodes down by returning funds from them, in this way they won't be able to execute anything anymore
+			// ------------------------------------------------------------------------------------------
 			fmt.Println("Beginning the process of returning the funds from the chainlink nodes")
 
-			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, nodesToTakeDown, nil, chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to take down half of the Keeper nodes")
+			for _, node := range nodesToTakeDown {
+				err := node.SetSessionCookie()
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to set the session cookie")
+			}
+			log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 
-			//for _, node := range nodesToTakeDown {
-			//	err := node.SetSessionCookie()
-			//	Expect(err).ShouldNot(HaveOccurred(), "Failed to set the session cookie")
-			//}
-			//log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-			//
-			//addressMap, err := actions.SendFunds(nodesToTakeDown, chainClient)
-			//Expect(err).ShouldNot(HaveOccurred(), "Failed to send funds")
-			//
-			//err = actions.CheckFunds(nodesToTakeDown, addressMap, strings.ToLower(chainClient.GetDefaultWallet().Address()))
-			//Expect(err).ShouldNot(HaveOccurred(), "Failed to check funds")
-			//
-			//addressMap, err = actions.SendFunds(nodesToTakeDown, chainClient)
+			addressMap, err := actions.SendFunds(nodesToTakeDown, chainClient)
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to send funds")
+
+			err = actions.CheckFunds(nodesToTakeDown, addressMap, strings.ToLower(chainClient.GetDefaultWallet().Address()))
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to check funds")
+
+			addressMap, err = actions.SendFunds(nodesToTakeDown, chainClient)
 
 			fmt.Println("Returned funds from all the chainlink nodes")
-			// --------------------------------------------------------------------------------
+			// ------------------------------------------------------------------------------------------
 
 			var completedUpkeepsSecondTime = 0
 			var alreadyMarkedSecondTime = make([]bool, len(upkeepIDs))
