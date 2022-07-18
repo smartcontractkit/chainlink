@@ -135,7 +135,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
@@ -164,7 +164,8 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
 
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -200,7 +201,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -224,7 +225,8 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
 
 	tests := []struct {
 		name      string

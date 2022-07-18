@@ -52,7 +52,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr)
+	pCfg := cltest.NewTestGeneralConfig(t)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -224,7 +225,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -277,7 +278,8 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr)
+	pCfg := cltest.NewTestGeneralConfig(t)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -338,7 +340,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
