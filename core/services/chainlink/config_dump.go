@@ -358,8 +358,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			v := uint64(*e)
-			c.EVM[i].GasEstimator.LimitOCRJobType = &v
+			c.EVM[i].GasEstimator.LimitOCRJobType = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitDRJobType").ParsePtr(); e != nil {
@@ -367,8 +366,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			v := uint64(*e)
-			c.EVM[i].GasEstimator.LimitDRJobType = &v
+			c.EVM[i].GasEstimator.LimitDRJobType = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitVRFJobType").ParsePtr(); e != nil {
@@ -376,8 +374,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			v := uint64(*e)
-			c.EVM[i].GasEstimator.LimitVRFJobType = &v
+			c.EVM[i].GasEstimator.LimitVRFJobType = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitFMJobType").ParsePtr(); e != nil {
@@ -385,8 +382,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			v := uint64(*e)
-			c.EVM[i].GasEstimator.LimitFMJobType = &v
+			c.EVM[i].GasEstimator.LimitFMJobType = e
 		}
 	}
 	if e := envvar.NewUint32("EvmGasLimitKeeperJobType").ParsePtr(); e != nil {
@@ -394,8 +390,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
 			}
-			v := uint64(*e)
-			c.EVM[i].GasEstimator.LimitKeeperJobType = &v
+			c.EVM[i].GasEstimator.LimitKeeperJobType = e
 		}
 	}
 	if e := envvar.New("EvmGasLimitMultiplier", decimal.NewFromString).ParsePtr(); e != nil {

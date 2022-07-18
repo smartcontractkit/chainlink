@@ -420,7 +420,11 @@ func (c *chainScopedConfig) EvmGasLimitOCRJobType() *uint64 {
 		var v uint64 = uint64(p.Int64)
 		return &v
 	}
-	return c.defaultSet.gasLimitOCRJobType
+	if c.defaultSet.gasLimitOCRJobType == nil {
+		return nil
+	}
+	v := uint64(*c.defaultSet.gasLimitOCRJobType)
+	return &v
 }
 
 // EvmGasLimitDRJobType overrides the default gas limit for Direct Request jobs.
@@ -438,7 +442,11 @@ func (c *chainScopedConfig) EvmGasLimitDRJobType() *uint64 {
 		var v uint64 = uint64(p.Int64)
 		return &v
 	}
-	return c.defaultSet.gasLimitDRJobType
+	if c.defaultSet.gasLimitDRJobType == nil {
+		return nil
+	}
+	v := uint64(*c.defaultSet.gasLimitDRJobType)
+	return &v
 }
 
 // EvmGasLimitVRFJobType overrides the default gas limit for VRF jobs.
@@ -456,7 +464,11 @@ func (c *chainScopedConfig) EvmGasLimitVRFJobType() *uint64 {
 		var v uint64 = uint64(p.Int64)
 		return &v
 	}
-	return c.defaultSet.gasLimitVRFJobType
+	if c.defaultSet.gasLimitVRFJobType == nil {
+		return nil
+	}
+	v := uint64(*c.defaultSet.gasLimitVRFJobType)
+	return &v
 }
 
 // EvmGasLimitFMJobType overrides the default gas limit for Flux Monitor jobs.
@@ -474,7 +486,11 @@ func (c *chainScopedConfig) EvmGasLimitFMJobType() *uint64 {
 		var v uint64 = uint64(p.Int64)
 		return &v
 	}
-	return c.defaultSet.gasLimitFMJobType
+	if c.defaultSet.gasLimitFMJobType == nil {
+		return nil
+	}
+	v := uint64(*c.defaultSet.gasLimitFMJobType)
+	return &v
 }
 
 // EvmGasLimitKeeperJobType overrides the default gas limit for Keeper jobs.
@@ -492,7 +508,11 @@ func (c *chainScopedConfig) EvmGasLimitKeeperJobType() *uint64 {
 		var v uint64 = uint64(p.Int64)
 		return &v
 	}
-	return c.defaultSet.gasLimitKeeperJobType
+	if c.defaultSet.gasLimitKeeperJobType == nil {
+		return nil
+	}
+	v := uint64(*c.defaultSet.gasLimitKeeperJobType)
+	return &v
 }
 
 // EvmGasLimitTransfer is the gas limit for an ordinary eth->eth transfer
