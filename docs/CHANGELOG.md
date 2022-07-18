@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added 
 
 - Added job spec attribute `gasLimit` which allows job-specific overrides of the default `ETH_GAS_LIMIT_DEFAULT` value for gas limit.
+- Added official support for Besu execution client
 
 ### Changed
 
@@ -19,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 3. User passwords must not contain the user's API email
 
 - Simplified the Keepers job spec by removing the observation source from the required parameters.
+
+### Fixed
+- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
 
 ## Added
 

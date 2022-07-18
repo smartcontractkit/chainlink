@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	solanago "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -44,13 +46,133 @@ type chain struct {
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
-	clientCache map[string]cachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
+	clientCache map[string]*verifiedCachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
 	clientLock  sync.RWMutex
 }
 
-type cachedClient struct {
-	id string
-	rw solanaclient.ReaderWriter
+type verifiedCachedClient struct {
+	chainID         string
+	expectedChainID string
+	nodeURL         string
+
+	lggr logger.Logger
+
+	chainIDVerified     bool
+	chainIDVerifiedLock sync.RWMutex
+
+	solanaclient.ReaderWriter
+}
+
+func (v *verifiedCachedClient) verifyChainID() (bool, error) {
+	v.chainIDVerifiedLock.RLock()
+	if v.chainIDVerified {
+		v.chainIDVerifiedLock.RUnlock()
+		return true, nil
+	}
+	v.chainIDVerifiedLock.RUnlock()
+
+	var err error
+
+	v.chainIDVerifiedLock.Lock()
+	defer v.chainIDVerifiedLock.Unlock()
+
+	v.chainID, err = v.ReaderWriter.ChainID()
+	if err != nil {
+		v.chainIDVerified = false
+		return v.chainIDVerified, errors.Wrap(err, "failed to fetch ChainID in verifiedCachedClient")
+	}
+
+	// check chainID matches expected chainID
+	expectedChainID := strings.ToLower(v.expectedChainID)
+	if v.chainID != expectedChainID {
+		v.chainIDVerified = false
+		return v.chainIDVerified, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedChainID, v.chainID, v.nodeURL)
+	}
+
+	v.chainIDVerified = true
+
+	return v.chainIDVerified, nil
+}
+
+func (v *verifiedCachedClient) SendTx(ctx context.Context, tx *solanago.Transaction) (solanago.Signature, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return [64]byte{}, err
+	}
+
+	return v.ReaderWriter.SendTx(ctx, tx)
+}
+
+func (v *verifiedCachedClient) SimulateTx(ctx context.Context, tx *solanago.Transaction, opts *rpc.SimulateTransactionOpts) (*rpc.SimulateTransactionResult, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return nil, err
+	}
+
+	return v.ReaderWriter.SimulateTx(ctx, tx, opts)
+}
+
+func (v *verifiedCachedClient) SignatureStatuses(ctx context.Context, sigs []solanago.Signature) ([]*rpc.SignatureStatusesResult, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return nil, err
+	}
+
+	return v.ReaderWriter.SignatureStatuses(ctx, sigs)
+}
+
+func (v *verifiedCachedClient) Balance(addr solanago.PublicKey) (uint64, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return 0, err
+	}
+
+	return v.ReaderWriter.Balance(addr)
+}
+
+func (v *verifiedCachedClient) SlotHeight() (uint64, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return 0, err
+	}
+
+	return v.ReaderWriter.SlotHeight()
+}
+
+func (v *verifiedCachedClient) LatestBlockhash() (*rpc.GetLatestBlockhashResult, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return nil, err
+	}
+
+	return v.ReaderWriter.LatestBlockhash()
+}
+
+func (v *verifiedCachedClient) ChainID() (string, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return "", err
+	}
+
+	return v.chainID, nil
+}
+
+func (v *verifiedCachedClient) GetFeeForMessage(msg string) (uint64, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return 0, err
+	}
+
+	return v.ReaderWriter.GetFeeForMessage(msg)
+}
+
+func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr solanago.PublicKey, opts *rpc.GetAccountInfoOpts) (*rpc.GetAccountInfoResult, error) {
+	verified, err := v.verifyChainID()
+	if !verified {
+		return nil, err
+	}
+
+	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
 // NewChain returns a new chain backed by node.
@@ -62,7 +184,7 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 		cfg:         cfg,
 		orm:         orm,
 		lggr:        lggr.Named("Chain"),
-		clientCache: map[string]cachedClient{},
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient()
@@ -126,7 +248,9 @@ func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	return client, nil
 }
 
-// verifiedClient returns a client for node or an error if the chain id does not match.
+// verifiedClient returns a client for node or an error if fails to create the client.
+// The client will still be returned if the nodes are not valid, or the chain id doesn't match.
+// Further client calls will try and verify the client, and fail if the client is still not valid.
 func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) {
 	url := node.SolanaURL
 	var err error
@@ -137,27 +261,16 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 	c.clientLock.RUnlock()
 
 	if !exists {
+		client = &verifiedCachedClient{
+			nodeURL:         url,
+			expectedChainID: c.id,
+		}
 		// create client
-		client.rw, err = solanaclient.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
+		client.ReaderWriter, err = solanaclient.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}
 
-		client.id, err = client.rw.ChainID()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch ChainID in checkClient")
-		}
-	}
-
-	// check chainID matches expected chainID
-	expectedID := strings.ToLower(c.id)
-	if client.id != expectedID {
-		return nil, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, client.id, url)
-	}
-
-	// save client if doesn't exist and checks have passed
-	// if checks failed, client is not saved and can retry when a new client is requested
-	if !exists {
 		c.clientLock.Lock()
 		// recheck when writing to prevent parallel writes (discard duplicate if exists)
 		if cached, exists := c.clientCache[url]; !exists {
@@ -168,7 +281,7 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 		c.clientLock.Unlock()
 	}
 
-	return client.rw, nil
+	return client, nil
 }
 
 func (c *chain) Start(ctx context.Context) error {
