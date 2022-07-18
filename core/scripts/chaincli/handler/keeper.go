@@ -135,7 +135,6 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 		}
 	}
 
-	log.Println("Upkeep Count: ", upkeepCount)
 	return upkeepCount, registryAddr, deployer
 }
 
@@ -145,7 +144,6 @@ func (k *Keeper) approveFunds(ctx context.Context, registryAddr common.Address) 
 	if err != nil {
 		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
 	}
-	log.Println("approved ", k.approveAmount)
 	k.waitTx(ctx, approveRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
 }
@@ -194,11 +192,13 @@ func (k *Keeper) deployRegistry1(ctx context.Context) (common.Address, *registry
 // GetRegistry attaches to an existing registry and possibly updates registry config
 func (k *Keeper) GetRegistry(ctx context.Context) {
 	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
+	var registryAddr common.Address
 	if isVersion12 {
-		k.getRegistry2(ctx)
+		registryAddr, _ = k.getRegistry2(ctx)
 	} else {
-		k.getRegistry1(ctx)
+		registryAddr, _ = k.getRegistry1(ctx)
 	}
+	log.Println("KeeperRegistry at:", registryAddr)
 }
 
 // getRegistry2 attaches to an existing 1.2 registry and possibly updates registry config
@@ -211,7 +211,6 @@ func (k *Keeper) getRegistry2(ctx context.Context) (common.Address, *registry12.
 	if err != nil {
 		log.Fatal("Registry failed: ", err)
 	}
-	log.Println("KeeperRegistry at:", k.cfg.RegistryAddress)
 	if k.cfg.RegistryConfigUpdate {
 		transaction, err := keeperRegistry12.SetConfig(k.buildTxOpts(ctx), *k.getConfigForRegistry12())
 		if err != nil {
@@ -235,7 +234,6 @@ func (k *Keeper) getRegistry1(ctx context.Context) (common.Address, *registry11.
 	if err != nil {
 		log.Fatal("Registry failed: ", err)
 	}
-	log.Println("KeeperRegistry at:", k.cfg.RegistryAddress)
 	if k.cfg.RegistryConfigUpdate {
 		transaction, err := keeperRegistry11.SetConfig(k.buildTxOpts(ctx),
 			k.cfg.PaymentPremiumPBB,
@@ -305,8 +303,6 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	}
 
 	activeUpkeepIds := k.getActiveUpkeepIds(ctx, keeperRegistry12, big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount))
-	log.Println("upkeepAddrs=", upkeepAddrs)
-	log.Println("activeUpkeepIds=", activeUpkeepIds)
 
 	for index, upkeepAddr := range upkeepAddrs {
 		// Approve
@@ -321,49 +317,6 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		k.waitTx(ctx, addFundsTx)
 		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
-
-	//for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
-	//	fmt.Println()
-	//	// Deploy
-	//	var upkeepAddr common.Address
-	//	var deployUpkeepTx *types.Transaction
-	//	var err error
-	//	if k.cfg.UpkeepAverageEligibilityCadence > 0 {
-	//		upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
-	//			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
-	//		)
-	//	} else {
-	//		upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
-	//			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
-	//		)
-	//	}
-	//	if err != nil {
-	//		log.Fatal(i, ": Deploy Upkeep failed - ", err)
-	//	}
-	//	k.waitDeployment(ctx, deployUpkeepTx)
-	//	log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
-	//
-	//	// Approve
-	//	k.approveFunds(ctx, registryAddr)
-	//
-	//	// Register
-	//	registerUpkeepTx, err := deployer.RegisterUpkeep(k.buildTxOpts(ctx),
-	//		upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, []byte(k.cfg.UpkeepCheckData),
-	//	)
-	//	if err != nil {
-	//		log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
-	//	}
-	//	k.waitTx(ctx, registerUpkeepTx)
-	//	log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", helpers.ExplorerLink(k.cfg.ChainID, registerUpkeepTx.Hash()))
-	//
-	//	// Fund
-	//	addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), big.NewInt(i), k.addFundsAmount)
-	//	if err != nil {
-	//		log.Fatal(i, upkeepAddr.Hex(), ": AddFunds failed - ", err)
-	//	}
-	//	k.waitTx(ctx, addFundsTx)
-	//	log.Println(i, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
-	//}
 	fmt.Println()
 }
 

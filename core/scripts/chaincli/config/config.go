@@ -89,7 +89,7 @@ func init() {
 	viper.SetDefault("BLOCK_COUNT_PER_TURN", 1)
 	viper.SetDefault("CHECK_GAS_LIMIT", 650000000)
 	viper.SetDefault("STALENESS_SECONDS", 90000)
-	viper.SetDefault("GAS_CEILING_MULTIPLIER", 3)
+	viper.SetDefault("GAS_CEILING_MULTIPLIER", 1)
 	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
 	// Represented in WEI, which is 100 Ether
@@ -98,7 +98,7 @@ func init() {
 	viper.SetDefault("UPKEEP_INTERVAL", 10)
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
-	viper.SetDefault("UPKEEP_COUNT", 2)
+	viper.SetDefault("UPKEEP_COUNT", 5)
 	viper.SetDefault("KEEPERS_COUNT", 2)
 
 	viper.SetDefault("FEED_DECIMALS", 18)
