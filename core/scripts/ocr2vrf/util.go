@@ -13,11 +13,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
-	dkgContract "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
 	"github.com/smartcontractkit/ocr2vrf/gethwrappers/vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+
+	dkgContract "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/dkg"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
