@@ -56,12 +56,12 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 				BlockchainClient:     chainClient,
-				TestDuration:         time.Hour * 48,
+				TestDuration:         time.Minute * 15,
 				NumberOfContracts:    2,
-				ChainlinkNodeFunding: big.NewFloat(10),
-				ExpectedRoundTime:    time.Minute * 15,
-				RoundTimeout:         time.Minute * 5000,
-				TimeBetweenRounds:    time.Minute * 15,
+				ChainlinkNodeFunding: big.NewFloat(1),
+				ExpectedRoundTime:    time.Minute * 2,
+				RoundTimeout:         time.Minute * 15,
+				TimeBetweenRounds:    time.Minute * 1,
 				StartingAdapterValue: 5,
 			})
 			ocrSoakTest.Setup(testEnvironment)

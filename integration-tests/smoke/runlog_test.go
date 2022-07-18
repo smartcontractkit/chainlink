@@ -35,6 +35,17 @@ var _ = Describe("Direct request suite @runlog", func() {
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
+			Entry("Runlog suite on General EVM @general",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.GeneralEVM.Name,
+					Simulated:   networks.GeneralEVM.Simulated,
+					WsURLs:      networks.GeneralEVM.URLs,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.GeneralEVM.ChainlinkValuesMap(),
+				}),
+			),
 			Entry("Runlog suite on Metis Stardust @metis",
 				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{

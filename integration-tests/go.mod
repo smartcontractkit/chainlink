@@ -120,3 +120,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+// Fix go mod tidy issue for ambiguous imports from go-ethereum
+// See https://github.com/ugorji/go/issues/279
+replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1

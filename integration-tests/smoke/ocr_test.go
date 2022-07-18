@@ -33,6 +33,18 @@ var _ = Describe("OCR Feed @ocr", func() {
 					"replicas": 6,
 				}),
 			),
+			Entry("OCR suite on General EVM @general",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.GeneralEVM.Name,
+					Simulated:   networks.GeneralEVM.Simulated,
+					WsURLs:      networks.GeneralEVM.URLs,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env":      networks.GeneralEVM.ChainlinkValuesMap(),
+					"replicas": 6,
+				}),
+			),
 			Entry("OCR suite on Metis Stardust @metis",
 				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
