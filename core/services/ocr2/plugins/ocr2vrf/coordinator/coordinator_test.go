@@ -204,7 +204,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber-1,
+			latestHeadNumber,
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -280,7 +280,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber-1,
+			latestHeadNumber,
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -356,7 +356,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber-1,
+			latestHeadNumber,
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
@@ -437,7 +437,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
-			latestHeadNumber-1,
+			latestHeadNumber,
 			[]common.Hash{
 				tp.randomnessRequestedTopic,
 				tp.randomnessFulfillmentRequestedTopic,
