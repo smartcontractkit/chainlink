@@ -38,7 +38,7 @@ const (
 	defaultPOSTGRESImage      = "postgres:latest"
 
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
-	defaultChainlinkNodePassword = "0123ABCabc!@#"
+	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs"
 )
 
 type startedNodeData struct {
