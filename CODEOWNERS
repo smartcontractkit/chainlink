@@ -51,7 +51,6 @@
 /.github/workflows/integration-tests.yml @kalverra @tateexon @skudasov @anieeg
 /.github/workflows/integration-chaos-tests.yml @kalverra @tateexon @skudasov @anieeg
 /.github/workflows/performance-tests.yml @kalverra @tateexon @skudasov @anieeg
-/.github/workflows/build-custom.yml @kalverra @tateexon @skudasov @anieeg
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
