@@ -68,9 +68,9 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 					},
 					CheckGasToBurn:       1,
 					PerformGasToBurn:     1,
-					BlockRange:           12000,
-					BlockInterval:        500,
-					ChainlinkNodeFunding: big.NewFloat(3),
+					BlockRange:           1000,
+					BlockInterval:        50,
+					ChainlinkNodeFunding: big.NewFloat(1),
 				},
 			)
 			keeperBlockTimeTest.Setup(testEnvironment)

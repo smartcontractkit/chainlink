@@ -9,7 +9,7 @@ require (
 	github.com/rs/zerolog v1.27.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/smartcontractkit/chainlink-env v0.2.19
-	github.com/smartcontractkit/chainlink-testing-framework v1.4.3-0.20220713131628-197a2d7b0215
+	github.com/smartcontractkit/chainlink-testing-framework v1.4.8
 	github.com/stretchr/testify v1.8.0
 )
 
