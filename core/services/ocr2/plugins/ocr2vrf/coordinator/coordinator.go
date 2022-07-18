@@ -157,28 +157,28 @@ func (c *coordinator) ReportBlocks(
 	for _, lg := range logs {
 		switch {
 		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
-			unpacked, err2 := unmarshalRandomnessRequested(lg) // FIXME
+			unpacked, err2 := unmarshalRandomnessRequested(lg)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
 			}
 			randomnessRequestedLogs = append(randomnessRequestedLogs, unpacked)
 		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
-			unpacked, err2 := unmarshalRandomnessFulfillmentRequested(lg) // FIXME
+			unpacked, err2 := unmarshalRandomnessFulfillmentRequested(lg)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
 			}
 			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, unpacked)
 		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
-			unpacked, err2 := unmarshalRandomWordsFulfilled(lg) // FIXME
+			unpacked, err2 := unmarshalRandomWordsFulfilled(lg)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
 			}
 			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, unpacked)
 		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
-			unpacked, err2 := unmarshalNewTransmission(lg) // FIXME
+			unpacked, err2 := unmarshalNewTransmission(lg)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal NewTransmission log")
@@ -195,19 +195,17 @@ func (c *coordinator) ReportBlocks(
 	}
 	blocksRequested := make(map[key]struct{})
 	for _, r := range randomnessRequestedLogs {
+		// The on-chain machinery will revert requests that specify an unsupported
+		// confirmation delay, so this is more of a sanity check than anything else.
 		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
 			// if we can't find the conf delay in the map then just ignore this request
-			c.lggr.Infow("ignoring bad request, unsupported conf delay",
+			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
 				"confDelay", r.ConfDelay.String(),
 				"supportedConfDelays", confirmationDelays)
 			continue
 		}
-		// If the next beacon output height is less than currentHeight - conf delay
-		// AND the log has enough confirmations, then we can schedule it to be fulfilled.
-		cond := r.ConfDelay.Int64() < currentHeight // TODO: is this necessary? Won't this always be true?
-		cond = cond && r.NextBeaconOutputHeight < uint64(currentHeight-r.ConfDelay.Int64())
-		cond = cond && currentHeight >= int64(r.Raw.BlockNumber+r.ConfDelay.Uint64()) // TODO: is this redundant?
-		if cond {
+
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			blocksRequested[key{
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
@@ -218,20 +216,17 @@ func (c *coordinator) ReportBlocks(
 	// Scan for blocks where a callback is requested
 	var callbacksRequested []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested
 	for _, r := range randomnessFulfillmentRequestedLogs {
+		// The on-chain machinery will revert requests that specify an unsupported
+		// confirmation delay, so this is more of a sanity check than anything else.
 		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
 			// if we can't find the conf delay in the map then just ignore this request
-			c.lggr.Infow("ignoring bad request, unsupported conf delay",
+			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
 				"confDelay", r.ConfDelay.String(),
 				"supportedConfDelays", confirmationDelays)
 			continue
 		}
 
-		// If the next beacon output height is less than currentHeight - conf delay
-		// AND the log has enough confirmations, then we can schedule it to be fulfilled.
-		cond := r.ConfDelay.Int64() < currentHeight // TODO: is this necessary? Won't this always be true?
-		cond = cond && r.NextBeaconOutputHeight < uint64(currentHeight-r.ConfDelay.Int64())
-		cond = cond && currentHeight >= int64(r.Raw.BlockNumber+r.ConfDelay.Uint64()) // TODO: is this redundant?
-		if cond {
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			callbacksRequested = append(callbacksRequested, r)
 
 			// We could have a callback request that was made in a different block than what we
@@ -302,17 +297,17 @@ func (c *coordinator) ReportBlocks(
 	for _, r := range callbacksRequested {
 		requestID := r.Callback.RequestID
 		if _, ok := fulfilledRequestIDs[requestID.Uint64()]; !ok {
+			// The on-chain machinery will revert requests that specify an unsupported
+			// confirmation delay, so this is more of a sanity check than anything else.
 			if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
 				// if we can't find the conf delay in the map then just ignore this request
-				c.lggr.Infow("ignoring bad request, unsupported conf delay",
+				c.lggr.Errorw("ignoring bad request, unsupported conf delay",
 					"confDelay", r.ConfDelay.String(),
 					"supportedConfDelays", confirmationDelays)
 				continue
 			}
-			cond := r.ConfDelay.Int64() < currentHeight // TODO: is this necessary? Won't this always be true?
-			cond = cond && r.NextBeaconOutputHeight < uint64(currentHeight-r.ConfDelay.Int64())
-			cond = cond && currentHeight >= int64(r.Raw.BlockNumber+r.ConfDelay.Uint64()) // TODO: is this redundant?
-			if cond {
+
+			if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 				callbacks = append(callbacks, ocr2vrftypes.AbstractCostedCallbackRequest{
 					BeaconHeight:      r.NextBeaconOutputHeight,
 					ConfirmationDelay: uint32(r.ConfDelay.Uint64()),
@@ -423,4 +418,17 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 	}
 
 	return uint16(beaconPeriodBlocks.Int64()), nil
+}
+
+// isBlockEligible returns true if and only if the nextBeaconOutputHeight plus
+// the confDelay is less than the current blockchain height, meaning that the beacon
+// output height has enough confirmations.
+//
+// NextBeaconOutputHeight is always greater than the request block, therefore
+// a number of confirmations on the beacon block is always enough confirmations
+// for the request block.
+func isBlockEligible(nextBeaconOutputHeight uint64, confDelay *big.Int, currentHeight int64) bool {
+	cond := confDelay.Int64() < currentHeight // Edge case: for simulated chains with low block numbers
+	cond = cond && (nextBeaconOutputHeight+confDelay.Uint64()) < uint64(currentHeight)
+	return cond
 }
