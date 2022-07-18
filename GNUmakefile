@@ -64,6 +64,11 @@ go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrapp
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
 
+.PHONY: go-solidity-wrappers-ocr2vrf
+go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_ocr2vrf
+	go generate ./core/internal/gethwrappers/ocr2vrf
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run ./core/main.go local db preparetest
