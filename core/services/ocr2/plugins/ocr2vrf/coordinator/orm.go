@@ -22,6 +22,14 @@ type ORM interface {
 
 var _ ORM = &orm{}
 
+var _ pg.LogConfig = &sqlConfig{}
+
+type sqlConfig struct{}
+
+func (sqlConfig) LogSQL() bool {
+	return true
+}
+
 type orm struct {
 	q       pg.Q
 	chainID utils.Big

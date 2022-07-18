@@ -16,6 +16,3 @@ type VRFBeaconCoordinator interface {
 	// IBeaconPeriodBlocks retrieves the beacon period in blocks from the on-chain contract.
 	IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error)
 }
-
-type DKG interface {
-}

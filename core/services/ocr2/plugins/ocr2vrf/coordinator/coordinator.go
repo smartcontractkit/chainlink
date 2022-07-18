@@ -19,7 +19,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -41,9 +40,7 @@ const (
 )
 
 type coordinator struct {
-	q       pg.Q
-	chainID utils.Big
-	lggr    logger.Logger
+	lggr logger.Logger
 
 	lp logpoller.LogPoller
 	topics
@@ -53,19 +50,10 @@ type coordinator struct {
 	coordinatorAddress  common.Address
 
 	// We need to keep track of DKG ConfigSet events as well.
-	dkgAddress  common.Address
-	dkgContract *dkg_wrapper.DKG
+	dkgAddress common.Address
 
 	evmClient evmclient.Client
 	orm       ORM
-}
-
-var _ pg.LogConfig = &sqlConfig{}
-
-type sqlConfig struct{}
-
-func (sqlConfig) LogSQL() bool {
-	return false
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -78,11 +66,6 @@ func New(
 	logPoller logpoller.LogPoller,
 	orm ORM,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
-	dkgContract, err := dkg_wrapper.NewDKG(dkgAddress, client)
-	if err != nil {
-		return nil, errors.Wrap(err, "dkg wrapper creation")
-	}
-
 	coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "coordinator wrapper creation")
@@ -108,17 +91,13 @@ func New(
 	return &coordinator{
 		coordinatorContract: coordinatorContract,
 		coordinatorAddress:  coordinatorAddress,
-
-		dkgAddress:  dkgAddress,
-		dkgContract: dkgContract,
-
-		lp:             logPoller,
-		topics:         t,
-		lookbackBlocks: lookbackBlocks,
-
-		evmClient: client,
-		orm:       orm,
-		lggr:      lggr.Named("OCR2VRFCoordinator"),
+		dkgAddress:          dkgAddress,
+		lp:                  logPoller,
+		topics:              t,
+		lookbackBlocks:      lookbackBlocks,
+		evmClient:           client,
+		orm:                 orm,
+		lggr:                lggr.Named("OCR2VRFCoordinator"),
 	}, nil
 }
 
