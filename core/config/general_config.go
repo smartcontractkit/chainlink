@@ -158,6 +158,7 @@ type GeneralOnlyConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SolanaNodes() string
+	StarkNetNodes() string
 	TerraNodes() string
 	TLSCertPath() string
 	TLSDir() string
@@ -435,11 +436,11 @@ func validateDBURL(dbURI url.URL) error {
 	}
 	userInfo := dbURI.User
 	if userInfo == nil {
-		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed (got: %s)", dbURI.Redacted())
+		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
 	}
 	pw, pwSet := userInfo.Password()
 	if !pwSet {
-		return errors.Errorf("DB URL must be authenticated; password is required (got: %s)", dbURI.Redacted())
+		return errors.Errorf("DB URL must be authenticated; password is required")
 	}
 	return utils.VerifyPasswordComplexity(pw)
 }
@@ -758,14 +759,14 @@ func (c *generalConfig) SolanaEnabled() bool {
 	return c.viper.GetBool(envvar.Name("SolanaEnabled"))
 }
 
+// StarkNetEnabled allows StarkNet to be used
+func (c *generalConfig) StarkNetEnabled() bool {
+	return c.viper.GetBool(envvar.Name("StarknetEnabled"))
+}
+
 // TerraEnabled allows Terra to be used
 func (c *generalConfig) TerraEnabled() bool {
 	return c.viper.GetBool(envvar.Name("TerraEnabled"))
-}
-
-// StarkNetEnabled allows StarkNet to be used
-func (c *generalConfig) StarkNetEnabled() bool {
-	return c.viper.GetBool(envvar.Name("StarkNetEnabled"))
 }
 
 // P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol
@@ -894,6 +895,12 @@ func (c *generalConfig) ExplorerSecret() string {
 // sets up multiple nodes
 func (c *generalConfig) SolanaNodes() string {
 	return c.viper.GetString(envvar.Name("SolanaNodes"))
+}
+
+// StarkNetNodes is a hack to allow node operators to give a JSON string that
+// sets up multiple nodes
+func (c *generalConfig) StarkNetNodes() string {
+	return c.viper.GetString(envvar.Name("StarknetNodes"))
 }
 
 // TerraNodes is a hack to allow node operators to give a JSON string that

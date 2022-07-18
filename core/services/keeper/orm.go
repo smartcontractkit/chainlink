@@ -130,7 +130,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 // -- is it my turn AND my keeper was not the last perform for this upkeep OR my keeper was the last before BUT it is past the grace period
 // -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
 // DEV: note we cast upkeep_id and binaryHash as 32 bits, even though both are 256 bit numbers when performing XOR. This is enough information
-// to disribute the upkeeps over the keepers so long as num keepers < 4294967296
+// to distribute the upkeeps over the keepers so long as num keepers < 4294967296
 func (korm ORM) NewEligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
 	stmt := `
 SELECT upkeep_registrations.*
