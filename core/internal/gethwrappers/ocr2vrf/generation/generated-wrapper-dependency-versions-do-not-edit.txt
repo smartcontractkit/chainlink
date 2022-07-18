@@ -1,0 +1,3 @@
+GETH_VERSION: 1.10.18
+dkg: ../../../../contracts/solc/v0.8.15/DKG.abi ../../../../contracts/solc/v0.8.15/DKG.bin 5cb68130d77b31a4711c9a8905ed1ccfb293d50eea1af4c656aeff2b66b543cd
+vrf_beacon_coordinator: ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 434246ebae0e27a8059fc2bbd21252bd478629b7c74e1b49320caa5f1039b9a6
