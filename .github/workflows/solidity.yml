@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: "16"
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -61,7 +61,7 @@ jobs:
         with:
           node-version: "16"
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
       - name: Yarn cache
         uses: actions/cache@v2
         env:

@@ -30,7 +30,7 @@ jobs:
     if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v2.4.1
       - name: Build Image
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
         with:
@@ -54,7 +54,7 @@ jobs:
     if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v2.4.1
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
         env:
@@ -95,7 +95,7 @@ jobs:
     if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v2.4.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
@@ -117,7 +117,7 @@ jobs:
     if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v2.4.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
