@@ -678,14 +678,11 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 		if testToRun == HandleKeeperNodesGoingDown {
 			By("takes down half of the keeper nodes and watches upkeeps get performed slower")
-			// Record how much time it takes to have all the registered upkeeps perform 5 times each
+			// Record how much time it takes to have all the registered upkeeps perform 5 times each (the first time)
 			const numberOfTimesUpkeepsShouldPerform int64 = 5
 
 			var completedUpkeepsFirstTime = 0
 			var alreadyMarkedFirstTime = make([]bool, len(upkeepIDs))
-			for i := 0; i < len(alreadyMarkedFirstTime); i++ {
-				alreadyMarkedFirstTime[i] = false
-			}
 
 			firstStart := time.Now()
 			for completedUpkeepsFirstTime < len(upkeepIDs) {
@@ -699,44 +696,43 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					}
 				}
 			}
-			firstElapsed := time.Since(firstStart)
-			fmt.Printf("First time it took %s\n", firstElapsed)
+
+			firstDuration := time.Since(firstStart)
+			log.Info().Msg("Executing each upkeep " + strconv.Itoa(int(numberOfTimesUpkeepsShouldPerform)) +
+				" amount of times for the first time took " + firstDuration.String())
 
 			// Now we need to take down half of the keeper nodes
 			nodesToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
-
-			// We take the nodes down by returning funds from them, in this way they won't be able to execute anything anymore
-			// --------------------------------------------------------------------------------------------------
-			fmt.Println("Beginning the process of taking down all the nodes.")
-
 			for _, nodeToTakeDown := range nodesToTakeDown {
-				//jobID := "keeper-test-" + registry.Address()
 				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from the node")
 			}
+			log.Info().Msg("Successfully managed to take down half of the nodes")
 
-			fmt.Println("Successfully managed to take down all the nodes.")
-			// --------------------------------------------------------------------------------------------------
-
+			// Record how much time it takes to have all the registered upkeeps perform 5 times each (the second time)
 			var completedUpkeepsSecondTime = 0
 			var alreadyMarkedSecondTime = make([]bool, len(upkeepIDs))
-			for i := 0; i < len(alreadyMarkedSecondTime); i++ {
-				alreadyMarkedSecondTime[i] = false
-			}
 
 			secondStart := time.Now()
 			for completedUpkeepsSecondTime < len(upkeepIDs) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
-					if counter.Cmp(big.NewInt(10)) == 0 && !alreadyMarkedSecondTime[i] {
+					if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform*2)) == 0 && !alreadyMarkedSecondTime[i] {
 						completedUpkeepsSecondTime++
 						alreadyMarkedSecondTime[i] = true
 					}
 				}
 			}
-			secondElapsed := time.Since(secondStart)
-			fmt.Printf("Second time it took %s", secondElapsed)
+
+			secondDuration := time.Since(secondStart)
+			log.Info().Msg("Executing each upkeep " + strconv.Itoa(int(numberOfTimesUpkeepsShouldPerform)) +
+				" amount of times for the second time took " + secondDuration.String())
+
+			// Make sure that the second time it took significantly longer to execute
+			// each upkeep the given amount of times
+			Expect(secondDuration.Seconds()-firstDuration.Seconds()).Should(BeNumerically(">", 20),
+				"Expected the second measurement to be considerably slower than the first")
 		}
 
 		By("Printing gas stats")
