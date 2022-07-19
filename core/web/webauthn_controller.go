@@ -38,8 +38,8 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	orm := c.App.SessionORM()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
-		c.App.GetLogger().Errorf("error in GetUserWebAuthn: %+v", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user MFA tokens."))
+		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("Unable to register key"))
 		return
 	}
 
@@ -61,15 +61,15 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	user, ok := auth.GetAuthenticatedUser(ctx)
 	if !ok {
 		logger.Sugared(c.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("Unable to register key"))
 		return
 	}
 
 	orm := c.App.SessionORM()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
-		c.App.GetLogger().Errorf("error in GetUserWebAuthn: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user MFA tokens"))
+		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("Unable to register key"))
 		return
 	}
 

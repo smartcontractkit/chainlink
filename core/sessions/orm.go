@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -28,11 +28,10 @@ type ORM interface {
 	AuthorizedUserWithSession(sessionID string) (User, error)
 	DeleteUser(email string) error
 	DeleteUserSession(sessionID string) error
-	DeleteSessionByUser(email string) error
 	CreateSession(sr SessionRequest) (string, error)
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
-	UpdateUser(email string, user *User) error
+	UpdateUser(email, newEmail, newPassword, newRole string) (User, error)
 	SetAuthToken(user *User, token *auth.Token) error
 	CreateAndSetAuthToken(user *User) (*auth.Token, error)
 	DeleteAuthToken(user *User) error
@@ -139,12 +138,6 @@ func (o *orm) DeleteUser(email string) error {
 // DeleteUserSession will delete a session by ID.
 func (o *orm) DeleteUserSession(sessionID string) error {
 	_, err := o.q.Exec("DELETE FROM sessions WHERE id = $1", sessionID)
-	return err
-}
-
-// DeleteSessionByUser clears all sessions tied to a specific user email.
-func (o *orm) DeleteSessionByUser(email string) error {
-	_, err := o.q.Exec("DELETE FROM sessions WHERE email = $1", email)
 	return err
 }
 
@@ -272,9 +265,72 @@ func (o *orm) CreateUser(user *User) error {
 }
 
 // UpdateUser overwrites key fields of the user specified by email using new values present in the passed user struct.
-func (o *orm) UpdateUser(email string, user *User) error {
-	sql := "UPDATE users SET email = $1, hashed_password = $2, role = $3, updated_at = now() WHERE email = $4 RETURNING *"
-	return o.q.Get(user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role, email)
+func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, error) {
+	var userToEdit User
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		// First, attempt to load specified user by email
+		if err := tx.Get(&userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
+			return errors.Errorf("no matching user for provided email")
+		}
+
+		// Changes to the user may require the entries in the sessions table to be removed
+		purgeSessions := false
+
+		// Patch validated email is newEmail is specified
+		if newEmail != "" {
+			if err := ValidateEmail(newEmail); err != nil {
+				return err
+			}
+			userToEdit.Email = newEmail
+
+			// Email changed, purge associated sessions at final step
+			purgeSessions = true
+		}
+
+		// Patch validated password is newPassword is specified
+		if newPassword != "" {
+			pwd, err := ValidateAndHashPassword(newPassword)
+			if err != nil {
+				return err
+			}
+			userToEdit.HashedPassword = pwd
+			// Password changed, purge associated sessions at final step
+			purgeSessions = true
+		}
+
+		// Patch validated role is newRole is specified
+		if newRole != "" {
+			userRole, err := GetUserRole(newRole)
+			if err != nil {
+				return err
+			}
+			userToEdit.Role = userRole
+			purgeSessions = true
+		}
+
+		if purgeSessions {
+			_, err := tx.Exec("DELETE FROM sessions WHERE email = $1", email)
+			if err != nil {
+				o.lggr.Errorf("Failed to purge user sessions via DeleteSessionByUser", "err", err)
+				return errors.Errorf("error updating API user")
+			}
+		}
+
+		sql := "UPDATE users SET email = $1, hashed_password = $2, role = $3, updated_at = now() WHERE lower(email) = lower($4) RETURNING *"
+		if err := tx.Get(userToEdit, sql, strings.ToLower(userToEdit.Email), userToEdit.HashedPassword, userToEdit.Role, email); err != nil {
+			// If this is a duplicate key error (code 23505), return a nicer error message
+			if err, ok := err.(*pgconn.PgError); ok {
+				if err.Code == "23505" {
+					return errors.Errorf("user with email %s already exists", userToEdit.Email)
+				}
+			}
+			o.lggr.Errorf("Error updating API user", "err", err)
+			return errors.Errorf("error updating API user")
+		}
+
+		return nil
+	})
+	return userToEdit, err
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.

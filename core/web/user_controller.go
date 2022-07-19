@@ -96,14 +96,6 @@ func (c *UserController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// First, attempt to load specified user by email
-	// This user object will have its fields patched for a final update call
-	user, err := c.App.SessionORM().FindUser(request.Email)
-	if err != nil {
-		jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("specified user not found: %s", request.Email))
-		return
-	}
-
 	// Don't allow current admin user to edit self
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
@@ -115,62 +107,9 @@ func (c *UserController) Update(ctx *gin.Context) {
 		return
 	}
 
-	// Changes to the user may require the entries in the sessions table to be removed
-	purgeSessions := false
-
-	// Patch validated email is newEmail is specified
-	if request.NewEmail != "" {
-		if err := clsession.ValidateEmail(request.NewEmail); err != nil {
-			jsonAPIError(ctx, http.StatusBadRequest, err)
-			return
-		}
-		user.Email = request.NewEmail
-
-		// Email changed, purge associated sessions at final step
-		purgeSessions = true
-	}
-
-	// Patch validated password is newPassword is specified
-	if request.NewPassword != "" {
-		pwd, err := clsession.ValidateAndHashPassword(request.NewPassword)
-		if err != nil {
-			jsonAPIError(ctx, http.StatusBadRequest, err)
-			return
-		}
-		user.HashedPassword = pwd
-
-		// Password changed, purge associated sessions at final step
-		purgeSessions = true
-	}
-
-	// Patch validated role is newRole is specified
-	if request.NewRole != "" {
-		userRole, err := clsession.GetUserRole(request.NewRole)
-		if err != nil {
-			jsonAPIError(ctx, http.StatusBadRequest, err)
-			return
-		}
-		user.Role = userRole
-	}
-
-	if purgeSessions {
-		err := c.App.SessionORM().DeleteSessionByUser(request.Email)
-		if err != nil {
-			c.App.GetLogger().Errorf("Failed to purge user sessions via DeleteSessionByUser", "err", err)
-			jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error updating API user"))
-			return
-		}
-	}
-
-	if err = c.App.SessionORM().UpdateUser(request.Email, &user); err != nil {
-		// If this is a duplicate key error (code 23505), return a nicer error message
-		if err, ok := err.(*pgconn.PgError); ok {
-			if err.Code == "23505" {
-				jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("user with email %s already exists", request.Email))
-				return
-			}
-		}
-		c.App.GetLogger().Errorf("Error updating new API user", "err", err)
+	user, err := c.App.SessionORM().UpdateUser(request.Email, request.NewEmail, request.NewPassword, request.NewRole)
+	if err != nil {
+		c.App.GetLogger().Errorf("Error updating API user", "err", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error updating API user"))
 		return
 	}
@@ -224,7 +163,8 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	}
 	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user record: %+v", err))
+		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("unable to update password"))
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
@@ -258,7 +198,8 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 	}
 	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user record: %+v", err))
+		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("unable to creatae API token"))
 		return
 	}
 	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
@@ -289,7 +230,8 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	}
 	user, err := c.App.SessionORM().FindUser(sessionUser.Email)
 	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user record: %+v", err))
+		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("unable to delete API token"))
 		return
 	}
 	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
@@ -321,10 +263,12 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.Us
 	}
 	orm := c.App.SessionORM()
 	if err := orm.ClearNonCurrentSessions(sessionID); err != nil {
-		return pkgerrors.Errorf("failed to clear non current user sessions: %+v", err)
+		c.App.GetLogger().Errorf("failed to clear non current user sessions: %s", err)
+		return pkgerrors.Errorf("unable to update password")
 	}
 	if err := orm.SetPassword(user, newPassword); err != nil {
-		return pkgerrors.Errorf("failed to update current user password: %+v", err)
+		c.App.GetLogger().Errorf("failed to update current user password: %s", err)
+		return pkgerrors.Errorf("unable to update password")
 	}
 	return nil
 }

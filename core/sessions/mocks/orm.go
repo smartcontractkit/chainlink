@@ -123,20 +123,6 @@ func (_m *ORM) DeleteAuthToken(user *sessions.User) error {
 	return r0
 }
 
-// DeleteSessionByUser provides a mock function with given fields: email
-func (_m *ORM) DeleteSessionByUser(email string) error {
-	ret := _m.Called(email)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(email)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // DeleteUser provides a mock function with given fields: email
 func (_m *ORM) DeleteUser(email string) error {
 	ret := _m.Called(email)
