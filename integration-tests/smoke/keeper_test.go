@@ -710,8 +710,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			fmt.Println("Beginning the process of taking down all the nodes.")
 
 			for _, nodeToTakeDown := range nodesToTakeDown {
-				jobID := "keeper-test-" + registry.Address()
-				err := nodeToTakeDown.DeleteJob(jobID)
+				//jobID := "keeper-test-" + registry.Address()
+				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from the node")
 			}
 
