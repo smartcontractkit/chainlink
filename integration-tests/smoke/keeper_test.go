@@ -681,7 +681,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			}, "1m", "1s").Should(Succeed())
 
 			// Take down the other half of the Keeper nodes
-			secondHalfToTakeDown := chainlinkNodes[:]
+			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2:]
 			for _, nodeToTakeDown := range secondHalfToTakeDown {
 				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
