@@ -7,6 +7,7 @@ import { evmRevert } from '../test-helpers/matchers'
 
 let getterSetterFactory: ContractFactory
 let forwarderFactory: ContractFactory
+let brokenFactory: ContractFactory
 let linkTokenFactory: ContractFactory
 
 let roles: Roles
@@ -18,6 +19,10 @@ before(async () => {
   roles = users.roles
   getterSetterFactory = await ethers.getContractFactory(
     'src/v0.4/tests/GetterSetter.sol:GetterSetter',
+    roles.defaultAccount,
+  )
+  brokenFactory = await ethers.getContractFactory(
+    'src/v0.4/tests/Broken.sol:Broken',
     roles.defaultAccount,
   )
   forwarderFactory = await ethers.getContractFactory(
@@ -190,6 +195,43 @@ describe('AuthorizedForwarder', () => {
         await forwarder
           .connect(roles.defaultAccount)
           .setAuthorizedSenders([await roles.defaultAccount.getAddress()])
+      })
+
+      describe('when destination call reverts', () => {
+        let brokenMock: Contract
+        let brokenPayload: string
+        let brokenMsgPayload: string
+
+        beforeEach(async () => {
+          brokenMock = await brokenFactory.connect(roles.defaultAccount).deploy()
+          brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertWithMessage'),
+            ['failure message'],
+          )
+
+          brokenPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revert'),
+            [],
+          )
+        })
+
+        describe('when reverts with message', () => {
+          it('return revert message', async () => {
+            await evmRevert(
+              forwarder.connect(roles.defaultAccount).forward(brokenMock.address, brokenMsgPayload),
+              'failure message'
+            )
+          })
+        })
+
+        describe('when reverts without message', () => {
+          it('return silent failure message', async () => {
+            await evmRevert(
+              forwarder.connect(roles.defaultAccount).forward(brokenMock.address, brokenPayload),
+              'Forwarded call failed silently'
+            )
+          })
+        })
       })
 
       describe('when sending to a non-contract address', () => {

@@ -77,7 +77,25 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    */
   function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
-    (bool status, ) = to.call(data);
-    require(status, "Forwarded call failed");
+    (bool status, bytes memory result) = to.call(data);
+
+    if (!status) {
+        revert(_getRevertMessage(result));
+    }
+  }
+
+  /**
+   * @notice extracts revert message from .call() result.
+   * @dev this extracts revert message by discarding the first 4 bytes of the
+   * encoded result, the signature for Error(msg), and decode the rest as string.
+   * @param result encoded bytes returned from .call()
+   * @return string decoded revert message.
+   */
+  function _getRevertMessage(bytes memory result) internal pure returns (string memory) {
+    if (result.length < 68) return "Forwarded call failed silently";
+    assembly {
+      result := add(result, 0x04)
+    }
+    return abi.decode(result, (string));
   }
 }
