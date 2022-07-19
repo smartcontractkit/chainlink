@@ -395,7 +395,6 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 				assert.NoError(t, client.RunNode(c))
 			}
 
-			// TODO: Andrew here prompt count changed?
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
 
 			app.AssertExpectations(t)
