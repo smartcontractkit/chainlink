@@ -29,7 +29,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
-			Entry("Cronjob suite on General EVM @general",
+			Entry("Cronjob suite on General EVM Network read from env vars @general",
 				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM.Name,

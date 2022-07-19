@@ -33,7 +33,7 @@ var (
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
-		GasEstimationBuffer:       0,
+		GasEstimationBuffer:       1000,
 	}
 
 	// SepoliaTestnet holds default values for the Sepolia testnet https://sepolia.dev/
