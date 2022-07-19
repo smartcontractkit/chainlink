@@ -1,24 +1,15 @@
 name: Integration Tests
 on:
   pull_request:
+     # keep these paths identical to the integration-tests-ignored.yml
+    paths:
+      - '**/*.go'
+      - '**/*go.sum'
+      - '**/*go.mod'
+      - '.github/workflows/integration-tests.yml'
 env:
   solana_ref: develop # Note: this may not make sense to be develop and may need to be a more stable branch
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      src: ${{ steps.changes.outputs.src }}
-    steps:
-      - uses: dorny/paths-filter@v2
-        id: changes
-        with:
-          filters: |
-            src:
-              - '**/*.go'
-              - '**/*go.sum'
-              - '**/*go.mod'
-              - '.github/workflows/integration-tests.yml'
-
   build-chainlink:
     environment: integration
     permissions:
@@ -26,8 +17,6 @@ jobs:
       contents: read
     name: Build Chainlink Image
     runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
@@ -50,8 +39,7 @@ jobs:
       contents: read
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [changes, build-chainlink]
-    if: ${{ needs.changes.outputs.src == 'true' }}
+    needs: [build-chainlink]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
@@ -74,7 +62,6 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-
   ### Solana Section
 
   solana-build-contracts:
@@ -91,8 +78,6 @@ jobs:
       env:
         RUSTUP_HOME: "/root/.rustup"
         FORCE_COLOR: 1
-    needs: [changes]
-    if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the solana repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
@@ -113,8 +98,7 @@ jobs:
       contents: read
     name: Solana Smoke Tests
     runs-on: ubuntu-latest
-    needs: [changes, build-chainlink, solana-build-contracts]
-    if: ${{ needs.changes.outputs.src == 'true' }}
+    needs: [build-chainlink, solana-build-contracts]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
@@ -129,6 +113,7 @@ jobs:
           cl_image_tag: latest.${{ github.sha }}
           download_contract_artifacts_path: contracts/target/deploy
           artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/tests/e2e/logs
+          publish_check_name: Solana Smoke Test Results
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
