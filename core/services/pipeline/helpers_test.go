@@ -43,12 +43,16 @@ func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, un
 	t.unrestrictedHTTPClient = unrestrictedHTTPClient
 }
 
-func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
+func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config, specGasLimit *uint32, jobType string) {
 	t.chainSet = cc
 	t.config = config
+	t.specGasLimit = specGasLimit
+	t.jobType = jobType
 }
 
-func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore) {
+func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore, specGasLimit *uint32, jobType string) {
 	t.chainSet = cc
 	t.keyStore = keyStore
+	t.specGasLimit = specGasLimit
+	t.jobType = jobType
 }
