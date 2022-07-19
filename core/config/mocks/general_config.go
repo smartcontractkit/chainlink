@@ -1209,8 +1209,71 @@ func (_m *GeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	return r0, r1
 }
 
+// GlobalEvmGasLimitDRJobType provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmGasLimitDefault provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitFMJobType provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitKeeperJobType provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -1251,8 +1314,50 @@ func (_m *GeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmGasLimitOCRJobType provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmGasLimitTransfer provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitVRFJobType provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -3239,6 +3344,20 @@ func (_m *GeneralConfig) StarkNetEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// StarkNetNodes provides a mock function with given fields:
+func (_m *GeneralConfig) StarkNetNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
