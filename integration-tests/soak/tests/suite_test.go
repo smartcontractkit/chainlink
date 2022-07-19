@@ -4,11 +4,11 @@ package soak_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 )
 
 func Test_Suite(t *testing.T) {
 	actions.GinkgoSuite()
-	RunSpecs(t, "Soak")
+	ginkgo.RunSpecs(t, "Soak")
 }

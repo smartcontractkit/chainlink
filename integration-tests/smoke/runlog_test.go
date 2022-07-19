@@ -35,14 +35,37 @@ var _ = Describe("Direct request suite @runlog", func() {
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
+			Entry("Runlog suite on General EVM @general",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.GeneralEVM().Name,
+					Simulated:   networks.GeneralEVM().Simulated,
+					WsURLs:      networks.GeneralEVM().URLs,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.GeneralEVM().ChainlinkValuesMap(),
+				}),
+			),
 			Entry("Runlog suite on Metis Stardust @metis",
 				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
+					WsURLs:      networks.MetisStardust.URLs,
 				}),
 				chainlink.New(0, map[string]interface{}{
 					"env": networks.MetisStardust.ChainlinkValuesMap(),
+				}),
+			),
+			Entry("Runlog suite on Sepolia Testnet @sepolia",
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				ethereum.New(&ethereum.Props{
+					NetworkName: networks.SepoliaTestnet.Name,
+					Simulated:   networks.SepoliaTestnet.Simulated,
+					WsURLs:      networks.SepoliaTestnet.URLs,
+				}),
+				chainlink.New(0, map[string]interface{}{
+					"env": networks.SepoliaTestnet.ChainlinkValuesMap(),
 				}),
 			),
 		}
@@ -93,7 +116,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Funding Chainlink nodes")
-		ethAmount, err := chainClient.EstimateCostForChainlinkOperations(1)
+		ethAmount, err := chainClient.EstimateCostForChainlinkOperations(2)
 		Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
 		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, ethAmount)
 		Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")

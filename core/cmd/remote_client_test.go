@@ -567,6 +567,21 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
 
+func TestClient_ConfigDump(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	dumpedConfig, err := client.ConfigDumpStr()
+	require.NoError(t, err)
+
+	appConfig, err := app.ConfigDump(testutils.Context(t))
+	require.NoError(t, err)
+
+	assert.Equal(t, appConfig, dumpedConfig)
+}
+
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 
