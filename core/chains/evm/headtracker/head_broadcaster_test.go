@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -20,6 +21,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
+	t.Helper()
+
+	subscriber := &cltest.MockHeadTrackable{}
+	_, unsubscribe := hb.Subscribe(subscriber)
+	defer unsubscribe()
+
+	hb.BroadcastNewLongestChain(cltest.Head(1))
+	g := gomega.NewWithT(t)
+	g.Eventually(func() int32 {
+		return subscriber.OnNewLongestChainCount()
+	}).Should(gomega.Equal(int32(1)))
+}
 
 func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
@@ -33,7 +48,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	logger := logger.TestLogger(t)
 
 	sub := new(evmmocks.Subscription)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
@@ -49,14 +64,14 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hr := headtracker.NewHeadBroadcaster(logger)
+	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hr, hs)
-	require.NoError(t, hr.Start(testutils.Context(t)))
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hb, hs)
+	require.NoError(t, hb.Start(testutils.Context(t)))
 	require.NoError(t, ht.Start(testutils.Context(t)))
 
-	latest1, unsubscribe1 := hr.Subscribe(checker1)
+	latest1, unsubscribe1 := hb.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet
 	assert.Equal(t, (*evmtypes.Head)(nil), latest1)
 
@@ -65,7 +80,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	headers <- &h
 	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
-	latest2, _ := hr.Subscribe(checker2)
+	latest2, _ := hb.Subscribe(checker2)
 	// "latest head" is set here to the most recent head received
 	assert.NotNil(t, latest2)
 	assert.Equal(t, h.Number, latest2.Number)
@@ -76,7 +91,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Close())
-	require.NoError(t, hr.Close())
+	require.NoError(t, hb.Close())
 }
 
 func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
@@ -89,8 +104,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	// no subscribers - shall do nothing
-	broadcaster.BroadcastNewLongestChain(cltest.Head(0))
+	waitHeadBroadcasterToStart(t, broadcaster)
 
 	subscriber1 := &cltest.MockHeadTrackable{}
 	subscriber2 := &cltest.MockHeadTrackable{}
@@ -114,8 +128,13 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 
 	unsubscribe3()
 
+	// no subscribers - shall do nothing
+	broadcaster.BroadcastNewLongestChain(cltest.Head(0))
+
 	err = broadcaster.Close()
 	require.NoError(t, err)
+
+	require.Equal(t, int32(1), subscriber3.OnNewLongestChainCount())
 }
 
 func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
@@ -127,6 +146,8 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
 
+	waitHeadBroadcasterToStart(t, broadcaster)
+
 	slowAwaiter := cltest.NewAwaiter()
 	fastAwaiter := cltest.NewAwaiter()
 	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: headtracker.TrackableCallbackTimeout * 2}
@@ -135,8 +156,8 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	_, unsubscribe2 := broadcaster.Subscribe(fast)
 
 	broadcaster.BroadcastNewLongestChain(cltest.Head(1))
-	slowAwaiter.AwaitOrFail(t)
-	fastAwaiter.AwaitOrFail(t)
+	slowAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
+	fastAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 
 	require.True(t, slow.contextDone)
 	require.False(t, fast.contextDone)
