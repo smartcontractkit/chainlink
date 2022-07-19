@@ -233,7 +233,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 			"upkeepID":              upkeep.UpkeepID,
 			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
+			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
 			"gasPrice":   gasPrice,
 			"gasTipCap":  gasTipCap,

@@ -200,7 +200,7 @@ func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 
 type RegistryConfig struct {
 	BlockCountPerTurn int32
-	CheckGas          int32
+	CheckGas          uint32
 	KeeperAddresses   []common.Address
 }
 
@@ -217,7 +217,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 		}
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(config.BlockCountPerTurn.Int64()),
-			CheckGas:          int32(config.CheckGasLimit),
+			CheckGas:          config.CheckGasLimit,
 			KeeperAddresses:   keeperAddresses,
 		}, nil
 	case RegistryVersion_1_2:
@@ -228,7 +228,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(state.Config.BlockCountPerTurn.Int64()),
-			CheckGas:          int32(state.Config.CheckGasLimit),
+			CheckGas:          state.Config.CheckGasLimit,
 			KeeperAddresses:   state.Keepers,
 		}, nil
 	default:

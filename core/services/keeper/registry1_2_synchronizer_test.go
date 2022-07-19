@@ -194,7 +194,7 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 
 	require.NoError(t, db.Get(&upkeepRegistration, `SELECT * FROM upkeep_registrations`))
 	require.Equal(t, upkeepConfig1_2.CheckData, upkeepRegistration.CheckData)
-	require.Equal(t, uint64(upkeepConfig1_2.ExecuteGas), upkeepRegistration.ExecuteGas)
+	require.Equal(t, upkeepConfig1_2.ExecuteGas, upkeepRegistration.ExecuteGas)
 
 	assertUpkeepIDs(t, db, []int64{3, 69, 420})
 	ethMock.AssertExpectations(t)
@@ -499,13 +499,13 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
-	getExecuteGas := func() uint64 {
+	getExecuteGas := func() uint32 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.ExecuteGas
 	}
-	g.Eventually(getExecuteGas, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(uint64(2_000_000)))
+	g.Eventually(getExecuteGas, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(uint32(2_000_000)))
 
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
 	newConfig := upkeepConfig1_2
@@ -526,7 +526,7 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	// Do the thing
 	synchronizer.HandleLog(logBroadcast)
 
-	g.Eventually(getExecuteGas, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(uint64(4_000_000)))
+	g.Eventually(getExecuteGas, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(uint32(4_000_000)))
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }

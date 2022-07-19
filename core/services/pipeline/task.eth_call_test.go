@@ -28,7 +28,7 @@ import (
 
 func TestETHCallTask(t *testing.T) {
 	var specGasLimit uint32 = 123
-	const gasLimit uint64 = 500_000
+	const gasLimit uint32 = 500_000
 	const drJobTypeGasLimit uint32 = 789
 
 	tests := []struct {

@@ -460,12 +460,12 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 	return chainSet.Get(id)
 }
 
-func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint64 {
+func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
 	if specGasLimit != nil {
-		return uint64(*specGasLimit)
+		return *specGasLimit
 	}
 
-	var jobTypeGasLimit *uint64
+	var jobTypeGasLimit *uint32
 	switch jobType {
 	case DirectRequestJobType:
 		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()

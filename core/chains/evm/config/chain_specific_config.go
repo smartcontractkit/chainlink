@@ -12,7 +12,7 @@ import (
 var (
 	// DefaultGasFeeCap is the default value to use for Fee Cap in EIP-1559 transactions
 	DefaultGasFeeCap                     = assets.GWei(100)
-	DefaultGasLimit               uint64 = 500000
+	DefaultGasLimit               uint32 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
 	DefaultGasTip                        = big.NewInt(1)                               // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
@@ -42,9 +42,9 @@ type (
 		gasBumpWei                                     big.Int
 		gasEstimatorMode                               string
 		gasFeeCapDefault                               big.Int
-		gasLimitDefault                                uint64
+		gasLimitDefault                                uint32
 		gasLimitMultiplier                             float32
-		gasLimitTransfer                               uint64
+		gasLimitTransfer                               uint32
 		gasLimitOCRJobType                             *uint32
 		gasLimitDRJobType                              *uint32
 		gasLimitVRFJobType                             *uint32

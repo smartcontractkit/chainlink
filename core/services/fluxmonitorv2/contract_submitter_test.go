@@ -18,7 +18,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 		fluxAggregator = new(mocks.FluxAggregator)
 		orm            = new(fmmocks.ORM)
 		keyStore       = new(fmmocks.KeyStoreInterface)
-		gasLimit       = uint64(2100)
+		gasLimit       = uint32(2100)
 		submitter      = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit)
 
 		toAddress   = testutils.NewAddress()

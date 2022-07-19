@@ -293,7 +293,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	genesisData := core.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000)},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b)
 	require.NoError(t, err)
@@ -623,7 +623,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
@@ -1039,7 +1039,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	estimator := chain.TxManager().GetGasEstimator()
 	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(500000), gasLimit)
+	assert.Equal(t, uint32(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 

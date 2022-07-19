@@ -29,7 +29,7 @@ func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRF
 	require.NoError(t, err, "failed to create root ethereum identity")
 	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")

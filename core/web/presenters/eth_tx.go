@@ -40,7 +40,7 @@ func NewEthTxResource(tx txmgr.EthTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
 		From:       &tx.FromAddress,
-		GasLimit:   strconv.FormatUint(tx.GasLimit, 10),
+		GasLimit:   strconv.FormatUint(uint64(tx.GasLimit), 10),
 		State:      string(tx.State),
 		To:         &tx.ToAddress,
 		Value:      tx.Value.String(),

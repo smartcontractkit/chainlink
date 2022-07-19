@@ -22,13 +22,13 @@ type Transmitter interface {
 type transmitter struct {
 	txm         txManager
 	fromAddress common.Address
-	gasLimit    uint64
+	gasLimit    uint32
 	strategy    txmgr.TxStrategy
 	checker     txmgr.TransmitCheckerSpec
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint64, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
+func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint32, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
 	return &transmitter{
 		txm:         txm,
 		fromAddress: fromAddress,

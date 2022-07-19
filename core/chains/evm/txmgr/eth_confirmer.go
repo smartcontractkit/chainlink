@@ -1056,7 +1056,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 	switch previousAttempt.TxType {
 	case 0x0: // Legacy
 		var bumpedGasPrice *big.Int
-		var bumpedGasLimit uint64
+		var bumpedGasLimit uint32
 		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
@@ -1065,7 +1065,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 		}
 	case 0x2: // EIP1559
 		var bumpedFee gas.DynamicFee
-		var bumpedGasLimit uint64
+		var bumpedGasLimit uint32
 		original := previousAttempt.DynamicFee()
 		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
@@ -1460,7 +1460,7 @@ func unbroadcastAttempt(q pg.Queryer, attempt EthTxAttempt) error {
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
+func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint32) error {
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
@@ -1496,7 +1496,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 	return nil
 }
 
-func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint64, gasPriceWei uint64) (gethCommon.Hash, error) {
+func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (gethCommon.Hash, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
