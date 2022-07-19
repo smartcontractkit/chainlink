@@ -15,8 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
+	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -278,6 +280,26 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "decode DKG key ID")
 		}
+
+		coordinatorORM := ocr2coordinator.NewORM(
+			d.db,
+			*utils.NewBig(chain.ID()),
+			lggr.Named("OCR2VRFCoordinatorORM"),
+		)
+
+		coordinator, err2 := ocr2coordinator.New(
+			lggr.Named("OCR2VRFCoordinator"),
+			common.HexToAddress(spec.ContractID),
+			common.HexToAddress(cfg.DKGContractAddress),
+			chain.Client(),
+			cfg.LookbackBlocks,
+			chain.LogPoller(),
+			coordinatorORM,
+		)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
+		}
+
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
 			Logger:                       ocrLogger,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
@@ -299,7 +321,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Blockhashes:                  blockhashes.NewFixedBlockhashProvider(chain.Client(), 256, 256),
 			Serializer:                   reportserializer.NewReportSerializer(&altbn_128.G1{}),
 			JulesPerFeeCoin:              juelsPerFeeCoin,
-			Coordinator:                  nil, // TODO: set once merged
+			Coordinator:                  coordinator,
 			ConfirmationDelays:           cfg.ConfirmationDelays,
 			Esk:                          encryptionSecretKey.KyberScalar(),
 			Ssk:                          signingSecretKey.KyberScalar(),
