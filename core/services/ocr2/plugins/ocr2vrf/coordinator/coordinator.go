@@ -101,6 +101,12 @@ func New(
 	}, nil
 }
 
+// block is used to key into a set that tracks unfulfilled beacon blocks.
+type block struct {
+	blockNumber uint64
+	confDelay   uint32
+}
+
 // ReportBlocks returns the heights and hashes of the blocks which require VRF
 // proofs in the current report, and the callback requests which should be
 // served as part of processing that report. Everything returned by this
@@ -148,110 +154,63 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	var (
-		randomnessRequestedLogs            []vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested
-		randomnessFulfillmentRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested
-		randomWordsFulfilledLogs           []vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled
-		newTransmissionLogs                []vrf_wrapper.VRFBeaconCoordinatorNewTransmission
-	)
-	for _, lg := range logs {
-		switch {
-		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
-			unpacked, err2 := unmarshalRandomnessRequested(lg)
-			if err2 != nil {
-				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
-			}
-			randomnessRequestedLogs = append(randomnessRequestedLogs, unpacked)
-		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
-			unpacked, err2 := unmarshalRandomnessFulfillmentRequested(lg)
-			if err2 != nil {
-				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
-			}
-			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, unpacked)
-		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
-			unpacked, err2 := unmarshalRandomWordsFulfilled(lg)
-			if err2 != nil {
-				// should never happen
-				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
-			}
-			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, unpacked)
-		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
-			unpacked, err2 := unmarshalNewTransmission(lg)
-			if err2 != nil {
-				// should never happen
-				err = errors.Wrap(err2, "unmarshal NewTransmission log")
-			}
-			newTransmissionLogs = append(newTransmissionLogs, unpacked)
-		}
-	}
+	randomnessRequestedLogs,
+		randomnessFulfillmentRequestedLogs,
+		randomWordsFulfilledLogs,
+		newTransmissionLogs,
+		err := c.unmarshalLogs(logs)
 
-	// Scan for blocks where an output is required
 	// blocksRequested maps block number to the block object.
-	type key struct {
-		blockNumber uint64
-		confDelay   uint32
-	}
-	blocksRequested := make(map[key]struct{})
-	for _, r := range randomnessRequestedLogs {
-		// The on-chain machinery will revert requests that specify an unsupported
-		// confirmation delay, so this is more of a sanity check than anything else.
-		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
-			// if we can't find the conf delay in the map then just ignore this request
-			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
-				"confDelay", r.ConfDelay.String(),
-				"supportedConfDelays", confirmationDelays)
-			continue
-		}
-
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
-			blocksRequested[key{
-				blockNumber: r.NextBeaconOutputHeight,
-				confDelay:   uint32(r.ConfDelay.Uint64()),
-			}] = struct{}{}
-		}
+	blocksRequested := make(map[block]struct{})
+	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
+	for _, uf := range unfulfilled {
+		blocksRequested[uf] = struct{}{}
 	}
 
-	// Scan for blocks where a callback is requested
-	var callbacksRequested []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested
-	for _, r := range randomnessFulfillmentRequestedLogs {
-		// The on-chain machinery will revert requests that specify an unsupported
-		// confirmation delay, so this is more of a sanity check than anything else.
-		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
-			// if we can't find the conf delay in the map then just ignore this request
-			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
-				"confDelay", r.ConfDelay.String(),
-				"supportedConfDelays", confirmationDelays)
-			continue
-		}
-
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
-			callbacksRequested = append(callbacksRequested, r)
-
-			// We could have a callback request that was made in a different block than what we
-			// have possibly already received from regular requests.
-			blocksRequested[key{
-				blockNumber: r.NextBeaconOutputHeight,
-				confDelay:   uint32(r.ConfDelay.Uint64()),
-			}] = struct{}{}
-		}
+	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
+	for _, uf := range unfulfilled {
+		blocksRequested[uf] = struct{}{}
 	}
 
 	// Prune blocks that have already received responses so that we don't
 	// respond to them again.
-	for _, r := range newTransmissionLogs {
-		for _, o := range r.OutputsServed {
-			k := key{
-				blockNumber: o.Height,
-				confDelay:   uint32(o.ConfirmationDelay.Uint64()),
-			}
-			if _, ok := blocksRequested[k]; ok {
-				delete(blocksRequested, k)
-			}
-		}
+	fulfilledBlocks := c.getFulfilledBlocks(newTransmissionLogs)
+	for _, f := range fulfilledBlocks {
+		delete(blocksRequested, f)
 	}
 
+	// Construct the slice of blocks to return. At this point
+	// we only need to fetch the blockhashes of the blocks that
+	// need a VRF output.
+	blocks, err = c.getBlocks(ctx, blocksRequested)
+	if err != nil {
+		return
+	}
+
+	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
+	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
+	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
+
+	return
+}
+
+func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []vrf_wrapper.VRFBeaconCoordinatorNewTransmission) (fulfilled []block) {
+	for _, r := range newTransmissionLogs {
+		for _, o := range r.OutputsServed {
+			fulfilled = append(fulfilled, block{
+				blockNumber: o.Height,
+				confDelay:   uint32(o.ConfirmationDelay.Uint64()),
+			})
+		}
+	}
+	return
+}
+
+// getBlocks returns the blocks that require a VRF output.
+func (c *coordinator) getBlocks(
+	ctx context.Context,
+	blocksRequested map[block]struct{},
+) (blocks []ocr2vrftypes.Block, err error) {
 	// Get all the block hashes for the blocks that we need to service from the head saver.
 	// Note that we do this to avoid making an RPC call for each block height separately.
 	// Alternatively, we could do a batch RPC call.
@@ -270,19 +229,26 @@ func (c *coordinator) ReportBlocks(
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockHeights), len(heads))
 		return
 	}
-	for k, _ := range blocksRequested {
-		for _, head := range heads {
-			if k.blockNumber == uint64(head.Number) {
-				blocks = append(blocks, ocr2vrftypes.Block{
-					Hash:              head.Hash,
-					Height:            k.blockNumber,
-					ConfirmationDelay: k.confDelay,
-				})
-			}
-		}
+
+	headSet := make(map[uint64]*evmtypes.Head)
+	for _, h := range heads {
+		headSet[uint64(h.Number)] = h
 	}
 
-	// Find the callback requests that have been fulfilled on-chain
+	for k, _ := range blocksRequested {
+		if head, ok := headSet[k.blockNumber]; ok {
+			blocks = append(blocks, ocr2vrftypes.Block{
+				Hash:              head.Hash,
+				Height:            k.blockNumber,
+				ConfirmationDelay: k.confDelay,
+			})
+		}
+	}
+	return
+}
+
+// getFulfilledRequestIDs returns the request IDs referenced by the given RandomWordsFulfilled logs slice.
+func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
 	fulfilledRequestIDs := make(map[uint64]struct{})
 	for _, r := range randomWordsFulfilledLogs {
 		for i, requestID := range r.RequestIDs {
@@ -291,8 +257,17 @@ func (c *coordinator) ReportBlocks(
 			}
 		}
 	}
+	return fulfilledRequestIDs
+}
 
-	// Find unfulfilled callback requests
+// filterUnfulfilledCallbacks returns unfulfilled callback requests given the
+// callback request logs and the already fulfilled callback request IDs.
+func (c *coordinator) filterUnfulfilledCallbacks(
+	callbacksRequested []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	fulfilledRequestIDs map[uint64]struct{},
+	confirmationDelays map[uint32]struct{},
+	currentHeight int64,
+) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
 	// TODO: check if subscription has enough funds (eventually)
 	for _, r := range callbacksRequested {
 		requestID := r.Callback.RequestID
@@ -324,7 +299,115 @@ func (c *coordinator) ReportBlocks(
 			}
 		}
 	}
+	return callbacks
+}
 
+// filterEligibleCallbacks extracts valid callback requests from the given logs,
+// based on their readiness to be fulfilled. It also returns any unfulfilled blocks
+// associated with those callbacks.
+func (c *coordinator) filterEligibleCallbacks(
+	randomnessFulfillmentRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	confirmationDelays map[uint32]struct{},
+	currentHeight int64,
+) (callbacks []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
+	for _, r := range randomnessFulfillmentRequestedLogs {
+		// The on-chain machinery will revert requests that specify an unsupported
+		// confirmation delay, so this is more of a sanity check than anything else.
+		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
+			// if we can't find the conf delay in the map then just ignore this request
+			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
+				"confDelay", r.ConfDelay.String(),
+				"supportedConfDelays", confirmationDelays)
+			continue
+		}
+
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+			callbacks = append(callbacks, r)
+
+			// We could have a callback request that was made in a different block than what we
+			// have possibly already received from regular requests.
+			unfulfilled = append(unfulfilled, block{
+				blockNumber: r.NextBeaconOutputHeight,
+				confDelay:   uint32(r.ConfDelay.Uint64()),
+			})
+		}
+	}
+	return
+}
+
+// filterEligibleRandomnessRequests extracts valid randomness requests from the given logs,
+// based on their readiness to be fulfilled.
+func (c *coordinator) filterEligibleRandomnessRequests(
+	randomnessRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
+	confirmationDelays map[uint32]struct{},
+	currentHeight int64,
+) (unfulfilled []block) {
+	for _, r := range randomnessRequestedLogs {
+		// The on-chain machinery will revert requests that specify an unsupported
+		// confirmation delay, so this is more of a sanity check than anything else.
+		if _, ok := confirmationDelays[uint32(r.ConfDelay.Uint64())]; !ok {
+			// if we can't find the conf delay in the map then just ignore this request
+			c.lggr.Errorw("ignoring bad request, unsupported conf delay",
+				"confDelay", r.ConfDelay.String(),
+				"supportedConfDelays", confirmationDelays)
+			continue
+		}
+
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+			unfulfilled = append(unfulfilled, block{
+				blockNumber: r.NextBeaconOutputHeight,
+				confDelay:   uint32(r.ConfDelay.Uint64()),
+			})
+		}
+	}
+	return
+}
+
+func (c *coordinator) unmarshalLogs(
+	logs []logpoller.Log,
+) (
+	randomnessRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
+	randomnessFulfillmentRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	randomWordsFulfilledLogs []vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled,
+	newTransmissionLogs []vrf_wrapper.VRFBeaconCoordinatorNewTransmission,
+	err error,
+) {
+	for _, lg := range logs {
+		switch {
+		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
+			unpacked, err2 := unmarshalRandomnessRequested(lg)
+			if err2 != nil {
+				// should never happen
+				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
+				return
+			}
+			randomnessRequestedLogs = append(randomnessRequestedLogs, unpacked)
+		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
+			unpacked, err2 := unmarshalRandomnessFulfillmentRequested(lg)
+			if err2 != nil {
+				// should never happen
+				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
+				return
+			}
+			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, unpacked)
+		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
+			unpacked, err2 := unmarshalRandomWordsFulfilled(lg)
+			if err2 != nil {
+				// should never happen
+				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
+				return
+			}
+			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, unpacked)
+		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
+			unpacked, err2 := unmarshalNewTransmission(lg)
+			if err2 != nil {
+				// should never happen
+				err = errors.Wrap(err2, "unmarshal NewTransmission log")
+				return
+			}
+			newTransmissionLogs = append(newTransmissionLogs, unpacked)
+		}
+	}
 	return
 }
 
@@ -375,26 +458,21 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		return
 	}
 
-	// NOTE: is it guaranteed that len(signers) == len(transmitters)?
-	// in that case, we can simplify the below to a single loop.
-	for _, signer := range vrfConfigSetLog.Signers {
-		vrfCommittee.Signers = append(vrfCommittee.Signers, signer)
-	}
-	for _, transmitter := range vrfConfigSetLog.Transmitters {
-		vrfCommittee.Transmitters = append(vrfCommittee.Transmitters, transmitter)
+	// len(signers) == len(transmitters), this is guaranteed by libocr.
+	for i := range vrfConfigSetLog.Signers {
+		vrfCommittee.Signers = append(vrfCommittee.Signers, vrfConfigSetLog.Signers[i])
+		vrfCommittee.Transmitters = append(vrfCommittee.Transmitters, vrfConfigSetLog.Transmitters[i])
 	}
 
-	for _, signer := range dkgConfigSetLog.Signers {
-		dkgCommittee.Signers = append(dkgCommittee.Signers, signer)
-	}
-	for _, transmitter := range dkgConfigSetLog.Transmitters {
-		dkgCommittee.Transmitters = append(dkgCommittee.Transmitters, transmitter)
+	for i := range dkgConfigSetLog.Signers {
+		dkgCommittee.Signers = append(dkgCommittee.Signers, dkgConfigSetLog.Signers[i])
+		dkgCommittee.Transmitters = append(dkgCommittee.Transmitters, dkgConfigSetLog.Transmitters[i])
 	}
 
 	return
 }
 
-// ProvingKeyHash returns the VRF current proving key, in view of the local
+// ProvingKeyHash returns the VRF current proving block, in view of the local
 // node. On ethereum this can be retrieved from the VRF contract's attribute
 // s_provingKeyHash
 func (c *coordinator) ProvingKeyHash(ctx context.Context) (common.Hash, error) {
@@ -402,7 +480,7 @@ func (c *coordinator) ProvingKeyHash(ctx context.Context) (common.Hash, error) {
 		Context: ctx,
 	})
 	if err != nil {
-		return [32]byte{}, errors.Wrap(err, "get proving key hash")
+		return [32]byte{}, errors.Wrap(err, "get proving block hash")
 	}
 
 	return h, nil
