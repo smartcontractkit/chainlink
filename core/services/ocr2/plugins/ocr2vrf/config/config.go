@@ -54,6 +54,6 @@ func ValidatePluginConfig(config PluginConfig, dkgSignKs keystore.DKGSign, dkgEn
 		// However that's not possible at the moment, since that field is private.
 		return errors.New("confirmationDelays field must be an array of 8 elements")
 	}
-	
+
 	return nil
 }

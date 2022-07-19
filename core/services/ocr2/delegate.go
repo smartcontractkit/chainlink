@@ -275,7 +275,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		signingSecretKey, _ := d.dkgSignKs.Get(cfg.DKGSigningPublicKey)
 		keyID, err2 := dkg.DecodeKeyID(cfg.DKGKeyID)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "decode DKG key ID")
+			return nil, errors.Wrap(err2, "decode DKG key ID")
 		}
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
 			Logger:                       ocrLogger,
@@ -304,6 +304,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Ssk:                          signingSecretKey.KyberScalar(),
 			KeyID:                        keyID,
 		})
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "new ocr2vrf")
+		}
 
 		// RunResultSaver needs to be started first, so it's available
 		// to read odb writes. It is stopped last after the OraclePlugin is shut down
@@ -318,7 +321,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		// and exported from the ocr2vrf library. It takes care of running the DKG and OCR2VRF
 		// oracles under the hood together.
 		oracleCtx := job.NewServiceAdapter(oracles)
-		return append([]job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}), nil
+		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
