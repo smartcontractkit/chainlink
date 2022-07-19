@@ -27,6 +27,7 @@ type Spec struct {
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
+	JobType string `json:"-"`
 }
 
 func (s Spec) Pipeline() (*Pipeline, error) {

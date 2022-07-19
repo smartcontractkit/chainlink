@@ -3138,6 +3138,11 @@ PriceDefault = '20 gwei' # Default
 PriceMax = '100 micro' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
+LimitOCRJobType = 100_000 # Example
+LimitDRJobType = 100_000 # Example
+LimitVRFJobType = 100_000 # Example
+LimitFMJobType = 100_000 # Example
+LimitKeeperJobType = 100_000 # Example
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 BumpMin = '5 gwei' # Default
@@ -3208,6 +3213,36 @@ LimitDefault = 500_000 # Default
 ```
 LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+
+### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
+```toml
+LimitOCRJobType = 100_000 # Example
+```
+LimitOCRJobType overrides LimitDefault for OCR jobs.
+
+### LimitDRJobType<a id='EVM-GasEstimator-LimitDRJobType'></a>
+```toml
+LimitDRJobType = 100_000 # Example
+```
+LimitDRJobType overrides LimitDefault for Direct Request jobs.
+
+### LimitVRFJobType<a id='EVM-GasEstimator-LimitVRFJobType'></a>
+```toml
+LimitVRFJobType = 100_000 # Example
+```
+LimitVRFJobType overrides LimitDefault for VRF jobs.
+
+### LimitFMJobType<a id='EVM-GasEstimator-LimitFMJobType'></a>
+```toml
+LimitFMJobType = 100_000 # Example
+```
+LimitFMJobType overrides LimitDefault for Flux Monitor jobs.
+
+### LimitKeeperJobType<a id='EVM-GasEstimator-LimitKeeperJobType'></a>
+```toml
+LimitKeeperJobType = 100_000 # Example
+```
+LimitKeeperJobType overrides LimitDefault for Keeper jobs.
 
 ### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
 ```toml
