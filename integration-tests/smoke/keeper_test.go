@@ -665,6 +665,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			for _, nodeToTakeDown := range firstHalfToTakeDown {
 				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
+				err2 := nodeToTakeDown.DeleteJob("2")
+				Expect(err2).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 			}
 			log.Info().Msg("Successfully managed to take down the first half of the nodes")
 
@@ -681,10 +683,12 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			}, "1m", "1s").Should(Succeed())
 
 			// Take down the other half of the Keeper nodes
-			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2:]
+			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
 			for _, nodeToTakeDown := range secondHalfToTakeDown {
 				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
+				err2 := nodeToTakeDown.DeleteJob("2")
+				Expect(err2).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 			}
 			log.Info().Msg("Successfully managed to take down the second half of the nodes")
 
