@@ -169,7 +169,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.
-	if !constantTimeEmailCompare(sr.Email, user.Email) {
+	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
 		return "", errors.New("Invalid email")
 	}
 
