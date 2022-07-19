@@ -44,11 +44,11 @@ func NewDKG(
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return &container{}, err
+		return nil, errors.Wrap(err, "json unmarshal plugin config")
 	}
 	err = config.ValidatePluginConfig(pluginConfig, dkgSignKs, dkgEncryptKs)
 	if err != nil {
-		return &container{}, err
+		return nil, errors.Wrap(err, "validate plugin config")
 	}
 
 	return &container{
@@ -72,7 +72,7 @@ func (d *container) GetPluginFactory() (ocr2types.ReportingPluginFactory, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "get dkgencrypt key")
 	}
-	onchainDKGClient, err := newOnchainDKGClient(
+	onchainDKGClient, err := NewOnchainDKGClient(
 		d.jb.OCR2OracleSpec.ContractID,
 		d.ethClient)
 	if err != nil {
@@ -80,7 +80,7 @@ func (d *container) GetPluginFactory() (ocr2types.ReportingPluginFactory, error)
 	}
 	onchainContract := dkg.NewOnchainContract(onchainDKGClient, &altbn_128.G2{})
 	keyConsumer := newDummyKeyConsumer()
-	keyID, err := decodeKeyID(d.pluginConfig.KeyID)
+	keyID, err := DecodeKeyID(d.pluginConfig.KeyID)
 	if err != nil {
 		return nil, errors.Wrap(err, "decode key ID")
 	}
@@ -100,7 +100,7 @@ func (d *container) GetServices() ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{}, nil
 }
 
-func decodeKeyID(val string) (byteArray [32]byte, err error) {
+func DecodeKeyID(val string) (byteArray [32]byte, err error) {
 	decoded, err := hex.DecodeString(val)
 	if err != nil {
 		return [32]byte{}, errors.Wrap(err, "hex decode string")
