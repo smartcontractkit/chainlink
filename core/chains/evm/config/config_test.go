@@ -203,6 +203,8 @@ func TestChainScopedConfig_BSCDefaults(t *testing.T) {
 }
 
 func TestChainScopedConfig_Profiles(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name                           string
 		chainID                        int64
@@ -227,13 +229,22 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 
 		{"xDai", 100, 500000, "0.00001"},
 	}
-	for _, tt := range tests {
+	for _, test := range tests {
+		tt := test
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			gcfg := configtest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			config := evmconfig.NewChainScopedConfig(big.NewInt(tt.chainID), evmtypes.ChainCfg{}, nil, lggr, gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
+			assert.Nil(t, config.EvmGasLimitOCRJobType())
+			assert.Nil(t, config.EvmGasLimitDRJobType())
+			assert.Nil(t, config.EvmGasLimitVRFJobType())
+			assert.Nil(t, config.EvmGasLimitFMJobType())
+			assert.Nil(t, config.EvmGasLimitKeeperJobType())
 			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.MinimumContractPayment().Link(), "0"))
 		})
 	}
