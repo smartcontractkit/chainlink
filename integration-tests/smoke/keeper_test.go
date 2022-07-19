@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -84,91 +83,6 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	MaxPerformGas:        uint32(5000000),
 	FallbackGasPrice:     big.NewInt(2e11),
 	FallbackLinkPrice:    big.NewInt(2e18),
-}
-
-// Requests that all the chainlink nodes send their funds back to the network's default wallet
-// This is surprisingly tricky, and fairly annoying due to Go's lack of syntactic sugar and how chainlink nodes handle txs
-func sendFunds(chainlinkNodes []client.Chainlink, network blockchain.EVMClient) (map[int]string, error) {
-	chainlinkTransactionAddresses := make(map[int]string)
-	sendFundsErrGroup := new(errgroup.Group)
-	for ni, n := range chainlinkNodes {
-		nodeIndex := ni // https://golang.org/doc/faq#closures_and_goroutines
-		node := n
-		// Send async request to each chainlink node to send a transaction back to the network default wallet
-		sendFundsErrGroup.Go(
-			func() error {
-				primaryEthKeyData, err := node.ReadPrimaryETHKey()
-				if err != nil {
-					// TODO: Support non-EVM chain fund returns
-					if strings.Contains(err.Error(), "No ETH keys present") {
-						log.Warn().Msg("Not returning any funds. Only support EVM chains for fund returns at the moment")
-						return nil
-					}
-					return err
-				}
-
-				nodeBalanceString := primaryEthKeyData.Attributes.ETHBalance
-				if nodeBalanceString != "0" { // If key has a non-zero balance, attempt to transfer it back
-					gasCost, err := network.EstimateTransactionGasCost()
-					if err != nil {
-						return err
-					}
-
-					// TODO: Imperfect gas calculation buffer of 50 Gwei. Seems to be the result of differences in chainlink
-					// gas handling. Working with core team on a better solution
-					gasCost = gasCost.Add(gasCost, big.NewInt(50000000000))
-					nodeBalance, _ := big.NewInt(0).SetString(nodeBalanceString, 10)
-					transferAmount := nodeBalance.Sub(nodeBalance, gasCost)
-					_, err = node.SendNativeToken(transferAmount, primaryEthKeyData.Attributes.Address, network.GetDefaultWallet().Address())
-					if err != nil {
-						return err
-					}
-					// Add the address to our map to check for later (hashes aren't returned, sadly)
-					chainlinkTransactionAddresses[nodeIndex] = strings.ToLower(primaryEthKeyData.Attributes.Address)
-				}
-				return nil
-			},
-		)
-
-	}
-	return chainlinkTransactionAddresses, sendFundsErrGroup.Wait()
-}
-
-// checks that the funds made it from the chainlink node to the network address
-// this turns out to be tricky to do, given how chainlink handles pending transactions, thus the complexity
-func checkFunds(chainlinkNodes []client.Chainlink, sentFromAddressesMap map[int]string, toAddress string) error {
-	successfulConfirmations := make(map[int]bool)
-	err := retry.Do( // Might take some time for txs to confirm, check up on the nodes a few times
-		func() error {
-			log.Debug().Msg("Attempting to confirm chainlink nodes transferred back funds")
-			transactionErrGroup := new(errgroup.Group)
-			for i, n := range chainlinkNodes {
-				nodeIndex := i
-				node := n // https://golang.org/doc/faq#closures_and_goroutines
-				sentFromAddress, nodeHasFunds := sentFromAddressesMap[nodeIndex]
-				successfulConfirmation := successfulConfirmations[nodeIndex]
-				// Async check on all the nodes if their transactions are confirmed
-				if nodeHasFunds && !successfulConfirmation { // Only if node has funds and hasn't already sent them
-					transactionErrGroup.Go(func() error {
-						err := confirmTransaction(node, sentFromAddress, toAddress, transactionErrGroup)
-						if err == nil {
-							successfulConfirmations[nodeIndex] = true
-						}
-						return err
-					})
-				} else {
-					log.Debug().Int("Node Number", nodeIndex).Msg("Chainlink node had no funds to return")
-				}
-			}
-
-			return transactionErrGroup.Wait()
-		},
-		retry.Delay(time.Second*5),
-		retry.MaxDelay(time.Second*5),
-		retry.Attempts(20),
-	)
-
-	return err
 }
 
 // helper to confirm that the latest attempted transaction on the chainlink node with the expected from and to addresses
@@ -792,25 +706,17 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			nodesToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
 
 			// We take the nodes down by returning funds from them, in this way they won't be able to execute anything anymore
-			// ------------------------------------------------------------------------------------------
-			fmt.Println("Beginning the process of returning the funds from the chainlink nodes")
+			// --------------------------------------------------------------------------------------------------
+			fmt.Println("Beginning the process of taking down all the nodes.")
 
-			for _, node := range nodesToTakeDown {
-				err := node.SetSessionCookie()
-				Expect(err).ShouldNot(HaveOccurred(), "Failed to set the session cookie")
+			for _, nodeToTakeDown := range nodesToTakeDown {
+				jobID := "keeper-test-" + registry.Address()
+				err := nodeToTakeDown.DeleteJob(jobID)
+				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from the node")
 			}
-			log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 
-			addressMap, err := sendFunds(nodesToTakeDown, chainClient)
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to send funds")
-
-			err = checkFunds(nodesToTakeDown, addressMap, strings.ToLower(chainClient.GetDefaultWallet().Address()))
-			Expect(err).ShouldNot(HaveOccurred(), "Failed to check funds")
-
-			addressMap, err = sendFunds(nodesToTakeDown, chainClient)
-
-			fmt.Println("Returned funds from all the chainlink nodes")
-			// ------------------------------------------------------------------------------------------
+			fmt.Println("Successfully managed to take down all the nodes.")
+			// --------------------------------------------------------------------------------------------------
 
 			var completedUpkeepsSecondTime = 0
 			var alreadyMarkedSecondTime = make([]bool, len(upkeepIDs))
