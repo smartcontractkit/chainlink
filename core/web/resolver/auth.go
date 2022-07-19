@@ -2,8 +2,8 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
@@ -23,7 +23,7 @@ func authenticateUserCanRun(ctx context.Context) error {
 		return unauthorizedError{}
 	}
 	if session.User.Role == sessions.UserRoleView {
-		return errors.Errorf("Not permitted with current role %s\n", session.User.Role)
+		return RoleNotPermittedErr{session.User.Role}
 	}
 	return nil
 }
@@ -36,7 +36,7 @@ func authenticateUserCanEdit(ctx context.Context) error {
 	}
 	switch session.User.Role {
 	case sessions.UserRoleView, sessions.UserRoleRun:
-		return errors.Errorf("Not permitted with current role %s\n", session.User.Role)
+		return RoleNotPermittedErr{session.User.Role}
 	}
 	return nil
 }
@@ -48,7 +48,7 @@ func authenticateUserIsAdmin(ctx context.Context) error {
 		return unauthorizedError{}
 	}
 	if session.User.Role != sessions.UserRoleAdmin {
-		return errors.Errorf("Not permitted with current role %s\n", session.User.Role)
+		return RoleNotPermittedErr{session.User.Role}
 	}
 	return nil
 }
@@ -63,4 +63,12 @@ func (e unauthorizedError) Extensions() map[string]interface{} {
 	return map[string]interface{}{
 		"code": "UNAUTHORIZED",
 	}
+}
+
+type RoleNotPermittedErr struct {
+	Role sessions.UserRole
+}
+
+func (e RoleNotPermittedErr) Error() string {
+	return fmt.Sprintf("Not permitted with current role: %s", e.Role)
 }
