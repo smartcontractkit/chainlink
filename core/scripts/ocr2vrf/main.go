@@ -36,6 +36,7 @@ type dkgSetConfigArgs struct {
 	dkgSigningPubKeys    string
 	keyID                string
 }
+
 type vrfBeaconCoordinatorSetConfigArgs struct {
 	commonSetConfigArgs
 	keyID      string
@@ -55,9 +56,9 @@ func main() {
 		linkEthFeedAddress := cmd.String("link-eth-feed-address", "", "link eth feed contract address")
 		dkgAddress := cmd.String("dkg-address", "", "dkg contract address")
 		keyID := cmd.String("key-id", "", "key ID")
-		beaconPeriodBlocks := cmd.Uint("beacon-period-blocks", 1, "beacon period in number of blocks")
+		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-eth-feed-address", "dkg-address", "key-id", "beacon-period-blocks")
-		deployVRFBeaconCoordinator(e, *linkEthFeedAddress, *dkgAddress, *keyID, big.NewInt(int64(*beaconPeriodBlocks)))
+		deployVRFBeaconCoordinator(e, *linkEthFeedAddress, *dkgAddress, *keyID, big.NewInt(*beaconPeriodBlocks))
 
 	case "dkg-add-client":
 		cmd := flag.NewFlagSet("dkg-add-client", flag.ExitOnError)
@@ -208,17 +209,41 @@ func main() {
 		cmd := flag.NewFlagSet("coordinator-request-randomness", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
 		numWords := cmd.Uint("num-words", 1, "number of words to request")
-		subID := cmd.Uint("sub-id", 0, "subscription ID")
-		confDelay := cmd.Uint("conf-delay", 1, "confirmation delay")
+		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id")
-		requestRandomness(e, *coordinatorAddress, uint16(*numWords), uint64(*subID), big.NewInt(int64(*confDelay)))
+		requestRandomness(e, *coordinatorAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
 
 	case "coordinator-get-randomness":
 		cmd := flag.NewFlagSet("coordinator-get-randomness", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
-		requestID := cmd.Uint("request-id", 0, "request ID")
+		requestID := cmd.Int64("request-id", 0, "request ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-id")
-		getRandomness(e, *coordinatorAddress, big.NewInt(int64(*requestID)))
+		getRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
+
+	case "consumer-deploy":
+		cmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator address")
+		shouldFail := cmd.Bool("should-fail", false, "shouldFail flag")
+		beaconPeriodBlocks := cmd.Int64("beacon-period-blocks", 1, "beacon period in number of blocks")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "beacon-period-blocks")
+		deployVRFBeaconCoordinatorConsumer(e, *coordinatorAddress, *shouldFail, big.NewInt(*beaconPeriodBlocks))
+
+	case "consumer-request-randomness":
+		cmd := flag.NewFlagSet("consumer-request-randomness", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		numWords := cmd.Uint("num-words", 1, "number of words to request")
+		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "sub-id")
+		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
+
+	case "consumer-get-randomness":
+		cmd := flag.NewFlagSet("coordinator-get-randomness", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		requestID := cmd.Int64("request-id", 0, "request ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
+		getRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID))
 
 	case "dkg-setup":
 		setupDKGNodes(e)
