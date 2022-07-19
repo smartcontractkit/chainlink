@@ -27,7 +27,7 @@ var TrailingWhitespace = regexp.MustCompile(`\s+$`)
 var (
 	ErrMsgHeader = fmt.Sprintf(`
 Expected password complexity:
-Must be longer than %d characters
+Must be a least %d characters long
 Must not comprise:
 	Leading or trailing whitespace
 	A user's API email
