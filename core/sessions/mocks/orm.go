@@ -327,18 +327,25 @@ func (_m *ORM) SetPassword(user *sessions.User, newPassword string) error {
 	return r0
 }
 
-// UpdateUser provides a mock function with given fields: email, user
-func (_m *ORM) UpdateUser(email string, user *sessions.User) error {
-	ret := _m.Called(email, user)
+// UpdateUser provides a mock function with given fields: email, newEmail, newPassword, newRole
+func (_m *ORM) UpdateUser(email string, newEmail string, newPassword string, newRole string) (sessions.User, error) {
+	ret := _m.Called(email, newEmail, newPassword, newRole)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *sessions.User) error); ok {
-		r0 = rf(email, user)
+	var r0 sessions.User
+	if rf, ok := ret.Get(0).(func(string, string, string, string) sessions.User); ok {
+		r0 = rf(email, newEmail, newPassword, newRole)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(sessions.User)
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string, string, string) error); ok {
+		r1 = rf(email, newEmail, newPassword, newRole)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 type mockConstructorTestingTNewORM interface {
