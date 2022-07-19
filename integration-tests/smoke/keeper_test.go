@@ -648,24 +648,25 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		if testToRun == HandleKeeperNodesGoingDown {
 			By("takes down half of the keeper nodes and watches upkeeps get performed slower")
 			// Record how much time it takes to have all the registered upkeeps perform 5 times each (the first time)
-			const numberOfTimesUpkeepsShouldPerform int64 = 5
+			const numberOfTimesUpkeepsShouldPerform int64 = 1
 
 			var completedUpkeepsFirstTime = 0
 			var alreadyMarkedFirstTime = make([]bool, len(upkeepIDs))
 
 			firstStart := time.Now()
-			for completedUpkeepsFirstTime < len(upkeepIDs) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
+			Eventually(func(g Gomega) {
+				for completedUpkeepsFirstTime < len(upkeepIDs) {
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(context.Background())
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
 
-					if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform)) == 0 && !alreadyMarkedFirstTime[i] {
-						completedUpkeepsFirstTime++
-						alreadyMarkedFirstTime[i] = true
+						if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform)) == 0 && !alreadyMarkedFirstTime[i] {
+							completedUpkeepsFirstTime++
+							alreadyMarkedFirstTime[i] = true
+						}
 					}
 				}
-			}
-
+			}, "1m", "1s").Should(Succeed())
 			firstDuration := time.Since(firstStart)
 			log.Info().Msg("Executing each upkeep " + strconv.Itoa(int(numberOfTimesUpkeepsShouldPerform)) +
 				" amount of times for the first time took " + firstDuration.String())
@@ -683,17 +684,18 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			var alreadyMarkedSecondTime = make([]bool, len(upkeepIDs))
 
 			secondStart := time.Now()
-			for completedUpkeepsSecondTime < len(upkeepIDs) {
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(context.Background())
-					Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
-					if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform*2)) == 0 && !alreadyMarkedSecondTime[i] {
-						completedUpkeepsSecondTime++
-						alreadyMarkedSecondTime[i] = true
+			Eventually(func(g Gomega) {
+				for completedUpkeepsSecondTime < len(upkeepIDs) {
+					for i := 0; i < len(upkeepIDs); i++ {
+						counter, err := consumers[i].Counter(context.Background())
+						Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
+						if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform*2)) == 0 && !alreadyMarkedSecondTime[i] {
+							completedUpkeepsSecondTime++
+							alreadyMarkedSecondTime[i] = true
+						}
 					}
 				}
-			}
-
+			})
 			secondDuration := time.Since(secondStart)
 			log.Info().Msg("Executing each upkeep " + strconv.Itoa(int(numberOfTimesUpkeepsShouldPerform)) +
 				" amount of times for the second time took " + secondDuration.String())
