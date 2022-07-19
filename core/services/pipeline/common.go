@@ -19,10 +19,24 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+const (
+	CronJobType               string = "cron"
+	DirectRequestJobType      string = "directrequest"
+	FluxMonitorJobType        string = "fluxmonitor"
+	OffchainReportingJobType  string = "offchainreporting"
+	OffchainReporting2JobType string = "offchainreporting2"
+	KeeperJobType             string = "keeper"
+	VRFJobType                string = "vrf"
+	BlockhashStoreJobType     string = "blockhashstore"
+	WebhookJobType            string = "webhook"
+	BootstrapJobType          string = "bootstrap"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
@@ -444,6 +458,31 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
 	}
 	return chainSet.Get(id)
+}
+
+func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint64 {
+	if specGasLimit != nil {
+		return uint64(*specGasLimit)
+	}
+
+	var jobTypeGasLimit *uint64
+	switch jobType {
+	case DirectRequestJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+	case FluxMonitorJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+	case OffchainReportingJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+	case KeeperJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+	case VRFJobType:
+		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+	}
+
+	if jobTypeGasLimit != nil {
+		return *jobTypeGasLimit
+	}
+	return cfg.EvmGasLimitDefault()
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings
