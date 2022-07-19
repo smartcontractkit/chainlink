@@ -127,6 +127,24 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	require.Empty(t, sessions)
 }
 
+func TestORM_DeleteUserCascade(t *testing.T) {
+	db, orm := setupORM(t)
+
+	session := sessions.NewSession()
+	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, cltest.APIEmailAdmin)
+	require.NoError(t, err)
+
+	err = orm.DeleteUser(cltest.APIEmailAdmin)
+	require.NoError(t, err)
+
+	_, err = orm.FindUser(cltest.APIEmailAdmin)
+	require.Error(t, err)
+
+	sessions, err := orm.Sessions(0, 10)
+	assert.NoError(t, err)
+	require.Empty(t, sessions)
+}
+
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
