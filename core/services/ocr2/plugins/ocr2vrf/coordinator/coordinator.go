@@ -160,7 +160,6 @@ func (c *coordinator) ReportBlocks(
 		newTransmissionLogs,
 		err := c.unmarshalLogs(logs)
 
-	// blocksRequested maps block number to the block object.
 	blocksRequested := make(map[block]struct{})
 	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
 	for _, uf := range unfulfilled {
@@ -172,7 +171,7 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	// Prune blocks that have already received responses so that we don't
+	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
 	fulfilledBlocks := c.getFulfilledBlocks(newTransmissionLogs)
 	for _, f := range fulfilledBlocks {
