@@ -5,7 +5,6 @@ import (
 	"context"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -647,63 +646,67 @@ var _ = Describe("Keeper Suite @keeper", func() {
 
 		if testToRun == HandleKeeperNodesGoingDown {
 			By("takes down half of the keeper nodes and watches upkeeps get performed slower")
-			// Record how much time it takes to have all the registered upkeeps perform 5 times each (the first time)
-			const numberOfTimesUpkeepsShouldPerform int64 = 1
+			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
-			var completedUpkeepsFirstTime = 0
-			var alreadyMarkedFirstTime = make([]bool, len(upkeepIDs))
-
-			firstStart := time.Now()
+			// Watch upkeeps being performed and store their counters in order to compare them later in the test
 			Eventually(func(g Gomega) {
-				for completedUpkeepsFirstTime < len(upkeepIDs) {
-					for i := 0; i < len(upkeepIDs); i++ {
-						counter, err := consumers[i].Counter(context.Background())
-						Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
-
-						if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform)) == 0 && !alreadyMarkedFirstTime[i] {
-							completedUpkeepsFirstTime++
-							alreadyMarkedFirstTime[i] = true
-						}
-					}
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					initialCounters[i] = counter
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
 				}
 			}, "1m", "1s").Should(Succeed())
-			firstDuration := time.Since(firstStart)
-			log.Info().Msg("Executing each upkeep " + strconv.Itoa(int(numberOfTimesUpkeepsShouldPerform)) +
-				" amount of times for the first time took " + firstDuration.String())
 
-			// Now we need to take down half of the keeper nodes
-			nodesToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
-			for _, nodeToTakeDown := range nodesToTakeDown {
+			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
+			firstHalfToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
+			for _, nodeToTakeDown := range firstHalfToTakeDown {
 				err := nodeToTakeDown.DeleteJob("1")
-				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from the node")
+				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 			}
-			log.Info().Msg("Successfully managed to take down half of the nodes")
+			log.Info().Msg("Successfully managed to take down the first half of the nodes")
 
-			// Record how much time it takes to have all the registered upkeeps perform 5 times each (the second time)
-			var completedUpkeepsSecondTime = 0
-			var alreadyMarkedSecondTime = make([]bool, len(upkeepIDs))
-
-			secondStart := time.Now()
+			// Assert that upkeeps are still performed and their counters have increased
 			Eventually(func(g Gomega) {
-				for completedUpkeepsSecondTime < len(upkeepIDs) {
-					for i := 0; i < len(upkeepIDs); i++ {
-						counter, err := consumers[i].Counter(context.Background())
-						Expect(err).ShouldNot(HaveOccurred(), "Failed to get counter for upkeepID"+strconv.Itoa(i))
-						if counter.Cmp(big.NewInt(numberOfTimesUpkeepsShouldPerform*2)) == 0 && !alreadyMarkedSecondTime[i] {
-							completedUpkeepsSecondTime++
-							alreadyMarkedSecondTime[i] = true
-						}
-					}
+				for i := 0; i < len(upkeepIDs); i++ {
+					currentCounter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+						"Expected counter to have increased from initial value of %s, but got %s",
+						initialCounters[i], currentCounter)
 				}
-			})
-			secondDuration := time.Since(secondStart)
-			log.Info().Msg("Executing each upkeep " + strconv.Itoa(int(numberOfTimesUpkeepsShouldPerform)) +
-				" amount of times for the second time took " + secondDuration.String())
+			}, "1m", "1s").Should(Succeed())
 
-			// Make sure that the second time it took significantly longer to execute
-			// each upkeep the given amount of times
-			Expect(secondDuration.Seconds()-firstDuration.Seconds()).Should(BeNumerically(">", 20),
-				"Expected the second measurement to be considerably slower than the first")
+			// Take down the other half of the Keeper nodes
+			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
+			for _, nodeToTakeDown := range secondHalfToTakeDown {
+				err := nodeToTakeDown.DeleteJob("1")
+				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
+			}
+			log.Info().Msg("Successfully managed to take down the second half of the nodes")
+
+			// See how many times each upkeep was executed
+			var countersAfterNoMoreNodes = make([]*big.Int, len(upkeepIDs))
+			for i := 0; i < len(upkeepIDs); i++ {
+				countersAfterNoMoreNodes[i], err = consumers[i].Counter(context.Background())
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+				log.Info().Msg("Cancelled upkeep at index " + strconv.Itoa(i) + " which performed " +
+					strconv.Itoa(int(countersAfterNoMoreNodes[i].Int64())) + " times")
+			}
+
+			// Make sure the counters remain constant once all the nodes were taken down
+			Consistently(func(g Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					latestCounter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+					g.Expect(latestCounter.Int64()).Should(Equal(countersAfterNoMoreNodes[i].Int64()),
+						"Expected consumer counter to remain constant at %d, but got %d",
+						countersAfterNoMoreNodes[i].Int64(), latestCounter.Int64())
+				}
+			}, "1m", "1s").Should(Succeed())
 		}
 
 		By("Printing gas stats")
