@@ -62,7 +62,6 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-
   ### Solana Section
 
   solana-build-contracts:
@@ -114,6 +113,7 @@ jobs:
           cl_image_tag: latest.${{ github.sha }}
           download_contract_artifacts_path: contracts/target/deploy
           artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/tests/e2e/logs
+          publish_check_name: Solana Smoke Test Results
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
