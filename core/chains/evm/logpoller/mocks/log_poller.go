@@ -314,6 +314,36 @@ func (_m *LogPoller) LogsDataWordRange(eventSig common.Hash, address common.Addr
 	return r0, r1
 }
 
+// LogsWithTopics provides a mock function with given fields: start, end, eventSigs, address, qopts
+func (_m *LogPoller) LogsWithSigs(start int64, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, start, end, eventSigs, address)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	if rf, ok := ret.Get(0).(func(int64, int64, []common.Hash, common.Address, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(start, end, eventSigs, address, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, int64, []common.Hash, common.Address, ...pg.QOpt) error); ok {
+		r1 = rf(start, end, eventSigs, address, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // MergeFilter provides a mock function with given fields: topics, address
 func (_m *LogPoller) MergeFilter(topics []common.Hash, address common.Address) {
 	_m.Called(topics, address)
