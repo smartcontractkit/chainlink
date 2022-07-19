@@ -160,77 +160,75 @@ func (o *orm) GetUserWebAuthn(email string) ([]WebAuthn, error) {
 // the hashed API User password in the db. Also will check WebAuthn if it's
 // enabled for that user.
 func (o *orm) CreateSession(sr SessionRequest) (string, error) {
-	session := NewSession()
-	if err := o.q.Transaction(func(tx pg.Queryer) error {
-		user, err := o.FindUser(sr.Email)
-		if err != nil {
-			return err
-		}
-		lggr := o.lggr.With("user", user.Email)
-		lggr.Debugw("Found user")
+	user, err := o.FindUser(sr.Email)
+	if err != nil {
+		return "", err
+	}
+	lggr := o.lggr.With("user", user.Email)
+	lggr.Debugw("Found user")
 
-		// Do email and password check first to prevent extra database look up
-		// for MFA tokens leaking if an account has MFA tokens or not.
-		if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
-			return errors.New("Invalid email")
-		}
+	// Do email and password check first to prevent extra database look up
+	// for MFA tokens leaking if an account has MFA tokens or not.
+	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
+		return "", errors.New("Invalid email")
+	}
 
-		if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-			return errors.New("Invalid password")
-		}
+	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		return "", errors.New("Invalid password")
+	}
 
-		// Load all valid MFA tokens associated with user's email
-		uwas, err := o.GetUserWebAuthn(user.Email)
-		if err != nil {
-			// There was an error with the database query
-			lggr.Errorf("Could not fetch user's MFA data: %v", err)
-			return errors.New("MFA Error")
-		}
+	// Load all valid MFA tokens associated with user's email
+	uwas, err := o.GetUserWebAuthn(user.Email)
+	if err != nil {
+		// There was an error with the database query
+		lggr.Errorf("Could not fetch user's MFA data: %v", err)
+		return "", errors.New("MFA Error")
+	}
 
-		// No webauthn tokens registered for the current user, so normal authentication is now complete
-		if len(uwas) == 0 {
-			lggr.Infof("No MFA for user. Creating Session")
-			_, err = tx.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
-			return err
-		}
-
-		// Next check if this session request includes the required WebAuthn challenge data
-		// if not, return a 401 error for the frontend to prompt the user to provide this
-		// data in the next round trip request (tap key to include webauthn data on the login page)
-		if sr.WebAuthnData == "" {
-			lggr.Warnf("Attempted login to MFA user. Generating challenge for user.")
-			options, webauthnError := BeginWebAuthnLogin(user, uwas, sr)
-			if webauthnError != nil {
-				lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
-				return errors.New("MFA Error")
-			}
-
-			j, jsonError := json.Marshal(options)
-			if jsonError != nil {
-				lggr.Errorf("Could not serialize WebAuthn challenge: %v", jsonError)
-				return errors.New("MFA Error")
-			}
-
-			return errors.New(string(j))
-		}
-
-		// The user is at the final stage of logging in with MFA. We have an
-		// attestation back from the user, we now need to verify that it is
-		// correct.
-		err = FinishWebAuthnLogin(user, uwas, sr)
-
-		if err != nil {
-			// The user does have WebAuthn enabled but failed the check
-			lggr.Errorf("User sent an invalid attestation: %v", err)
-			return errors.New("MFA Error")
-		}
-
-		lggr.Infof("User passed MFA authentication and login will proceed")
-		// This is a success so we can create the sessions
+	// No webauthn tokens registered for the current user, so normal authentication is now complete
+	if len(uwas) == 0 {
+		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
-		_, err = tx.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
-		return err
-	}); err != nil {
+		_, err = o.q.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+		return session.ID, err
+	}
+
+	// Next check if this session request includes the required WebAuthn challenge data
+	// if not, return a 401 error for the frontend to prompt the user to provide this
+	// data in the next round trip request (tap key to include webauthn data on the login page)
+	if sr.WebAuthnData == "" {
+		lggr.Warnf("Attempted login to MFA user. Generating challenge for user.")
+		options, webauthnError := BeginWebAuthnLogin(user, uwas, sr)
+		if webauthnError != nil {
+			lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
+			return "", errors.New("MFA Error")
+		}
+
+		j, jsonError := json.Marshal(options)
+		if jsonError != nil {
+			lggr.Errorf("Could not serialize WebAuthn challenge: %v", jsonError)
+			return "", errors.New("MFA Error")
+		}
+
+		return "", errors.New(string(j))
+	}
+
+	// The user is at the final stage of logging in with MFA. We have an
+	// attestation back from the user, we now need to verify that it is
+	// correct.
+	err = FinishWebAuthnLogin(user, uwas, sr)
+
+	if err != nil {
+		// The user does have WebAuthn enabled but failed the check
+		lggr.Errorf("User sent an invalid attestation: %v", err)
+		return "", errors.New("MFA Error")
+	}
+
+	lggr.Infof("User passed MFA authentication and login will proceed")
+	// This is a success so we can create the sessions
+	session := NewSession()
+	_, err = o.q.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
+	if err != nil {
 		return "", err
 	}
 
