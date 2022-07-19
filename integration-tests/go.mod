@@ -10,7 +10,7 @@ require (
 	github.com/rs/zerolog v1.27.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/smartcontractkit/chainlink-env v0.2.19
-	github.com/smartcontractkit/chainlink-testing-framework v1.4.8
+	github.com/smartcontractkit/chainlink-testing-framework v1.4.3-0.20220719182121-93f9cd58c26a
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.9.0
 )

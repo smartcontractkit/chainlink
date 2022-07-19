@@ -20,9 +20,6 @@ var (
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 
-	// GeneralEVM is used for a general EVM network
-	GeneralEVM *blockchain.EVMNetwork = blockchain.LoadNetworkFromEnvironment()
-
 	// MetisStardust holds default values for the Metis Stardust testnet https://www.metis.io/
 	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Metis Stardust",
@@ -62,3 +59,8 @@ var (
 		GasEstimationBuffer:       0,
 	}
 )
+
+// GeneralEVM loads general EVM settings from env vars
+func GeneralEVM() *blockchain.EVMNetwork {
+	return blockchain.LoadNetworkFromEnvironment()
+}
