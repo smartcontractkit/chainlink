@@ -68,6 +68,11 @@ type ChainCfg struct {
 	EvmGasFeeCapDefault                            *utils.Big
 	EvmGasLimitDefault                             null.Int
 	EvmGasLimitMultiplier                          null.Float
+	EvmGasLimitOCRJobType                          null.Int
+	EvmGasLimitDRJobType                           null.Int
+	EvmGasLimitVRFJobType                          null.Int
+	EvmGasLimitFMJobType                           null.Int
+	EvmGasLimitKeeperJobType                       null.Int
 	EvmGasPriceDefault                             *utils.Big
 	EvmGasTipCapDefault                            *utils.Big
 	EvmGasTipCapMinimum                            *utils.Big
