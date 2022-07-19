@@ -168,11 +168,12 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 }
 
 // ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
-func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) {
+func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) (receipt *types.Receipt) {
 	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
 	receipt, err := bind.WaitMined(context, client, transaction)
 	PanicErr(err)
 	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber, "\nGas Used: ", receipt.GasUsed)
+	return
 }
 
 // ConfirmContractDeployed confirms that the given contract deployment transaction completed and prints useful execution information.
