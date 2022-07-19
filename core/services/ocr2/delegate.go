@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/reportserializer"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -296,7 +297,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			DKGLocalConfig:               lc,
 			DKGMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
 			Blockhashes:                  blockhashes.NewFixedBlockhashProvider(chain.Client(), 256, 256),
-			Serializer:                   nil, // TODO: set once merged
+			Serializer:                   reportserializer.NewReportSerializer(&altbn_128.G1{}),
 			JulesPerFeeCoin:              juelsPerFeeCoin,
 			Coordinator:                  nil, // TODO: set once merged
 			ConfirmationDelays:           cfg.ConfirmationDelays,
