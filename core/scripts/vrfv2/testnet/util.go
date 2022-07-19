@@ -10,10 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper"
@@ -30,6 +33,20 @@ func deployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
 
 func deployBatchBHS(e helpers.Environment, bhsAddress common.Address) (batchBHSAddress common.Address) {
 	_, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(e.Owner, e.Ec, bhsAddress)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployLinkToken(e helpers.Environment) common.Address {
+	_, tx, _, err := link_token_interface.DeployLinkToken(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployLinkEthFeed(e helpers.Environment, linkAddress string, weiPerUnitLink decimal.Decimal) common.Address {
+	_, tx, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			e.Owner, e.Ec, 18, weiPerUnitLink.BigInt())
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }

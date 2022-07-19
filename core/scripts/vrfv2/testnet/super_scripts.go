@@ -23,7 +23,7 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
-	subscriptionBalanceString := deployCmd.String("subscription-balance", "", "amount to fund subscription")
+	subscriptionBalanceString := deployCmd.String("subscription-balance", "10000000000000000000", "amount to fund subscription")
 
 	// optional flags
 	fallbackWeiPerUnitLink := deployCmd.String("fallback-wei-per-unit-link", "60000000000000000", "fallback wei/link ratio")
@@ -45,9 +45,6 @@ func deployUniverse(e helpers.Environment) {
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
-		"link-address",
-		"link-eth-feed",
-		"subscription-balance",
 	)
 
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
@@ -55,6 +52,18 @@ func deployUniverse(e helpers.Environment) {
 	// Put key in ECDSA format
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
 		*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
+	}
+
+	if len(*linkAddress) == 0 {
+		fmt.Println("\nDeploying LINK Token...")
+		address := deployLinkToken(e).String()
+		linkAddress = &address
+	}
+
+	if len(*linkEthAddress) == 0 {
+		fmt.Println("\nDeploying LINK/ETH Feed...")
+		address := deployLinkEthFeed(e, *linkAddress, decimal.RequireFromString(*fallbackWeiPerUnitLink)).String()
+		linkEthAddress = &address
 	}
 
 	fmt.Println("\nDeploying BHS...")
@@ -131,6 +140,8 @@ func deployUniverse(e helpers.Environment) {
 	fmt.Printf("Subscription %+v\n", s)
 	fmt.Println(
 		"\nDeployment complete.",
+		"\nLINK Token contract address:", *linkAddress,
+		"\nLINK/ETH Feed contract address:", *linkEthAddress,
 		"\nBlockhash Store contract address:", bhsContractAddress,
 		"\nBatch Blockhash Store contract address:", batchBHSAddress,
 		"\nVRF Coordinator Address:", coordinatorAddress,
