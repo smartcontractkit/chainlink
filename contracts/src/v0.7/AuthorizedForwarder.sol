@@ -80,7 +80,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     (bool status, bytes memory result) = to.call(data);
 
     if (!status) {
-        revert(_getRevertMessage(result));
+      revert(_getRevertMessage(result));
     }
   }
 

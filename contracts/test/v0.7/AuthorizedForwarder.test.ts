@@ -203,7 +203,9 @@ describe('AuthorizedForwarder', () => {
         let brokenMsgPayload: string
 
         beforeEach(async () => {
-          brokenMock = await brokenFactory.connect(roles.defaultAccount).deploy()
+          brokenMock = await brokenFactory
+            .connect(roles.defaultAccount)
+            .deploy()
           brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
             brokenFactory.interface.getFunction('revertWithMessage'),
             ['failure message'],
@@ -218,8 +220,10 @@ describe('AuthorizedForwarder', () => {
         describe('when reverts with message', () => {
           it('return revert message', async () => {
             await evmRevert(
-              forwarder.connect(roles.defaultAccount).forward(brokenMock.address, brokenMsgPayload),
-              'failure message'
+              forwarder
+                .connect(roles.defaultAccount)
+                .forward(brokenMock.address, brokenMsgPayload),
+              'failure message',
             )
           })
         })
@@ -227,8 +231,10 @@ describe('AuthorizedForwarder', () => {
         describe('when reverts without message', () => {
           it('return silent failure message', async () => {
             await evmRevert(
-              forwarder.connect(roles.defaultAccount).forward(brokenMock.address, brokenPayload),
-              'Forwarded call failed silently'
+              forwarder
+                .connect(roles.defaultAccount)
+                .forward(brokenMock.address, brokenPayload),
+              'Forwarded call failed silently',
             )
           })
         })
