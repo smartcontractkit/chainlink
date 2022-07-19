@@ -31,9 +31,7 @@ func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
 
 	hb.BroadcastNewLongestChain(cltest.Head(1))
 	g := gomega.NewWithT(t)
-	g.Eventually(func() int32 {
-		return subscriber.OnNewLongestChainCount()
-	}).Should(gomega.Equal(int32(1)))
+	g.Eventually(subscriber.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 }
 
 func TestHeadBroadcaster_Subscribe(t *testing.T) {
@@ -78,7 +76,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	headers := <-chchHeaders
 	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	headers <- &h
-	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker1.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	latest2, _ := hb.Subscribe(checker2)
 	// "latest head" is set here to the most recent head received
@@ -88,7 +86,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	unsubscribe1()
 
 	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
-	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker2.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Close())
 	require.NoError(t, hb.Close())
@@ -112,19 +110,19 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	_, unsubscribe2 := broadcaster.Subscribe(subscriber2)
 
 	broadcaster.BroadcastNewLongestChain(cltest.Head(1))
-	g.Eventually(func() int32 { return subscriber1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+	g.Eventually(subscriber1.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	unsubscribe1()
 
 	broadcaster.BroadcastNewLongestChain(cltest.Head(2))
-	g.Eventually(func() int32 { return subscriber2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(2)))
+	g.Eventually(subscriber2.OnNewLongestChainCount).Should(gomega.Equal(int32(2)))
 
 	unsubscribe2()
 
 	subscriber3 := &cltest.MockHeadTrackable{}
 	_, unsubscribe3 := broadcaster.Subscribe(subscriber3)
 	broadcaster.BroadcastNewLongestChain(cltest.Head(1))
-	g.Eventually(func() int32 { return subscriber3.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+	g.Eventually(subscriber3.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	unsubscribe3()
 
