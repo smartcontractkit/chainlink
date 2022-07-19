@@ -9,18 +9,18 @@
 /core/services/directrequest @spooktheducks @connorwstein @samsondav
 /core/services/feeds @jkongie
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
-/core/services/health @archseer @samsondav
-/core/services/job @spooktheducks @connorwstein @archseer
+/core/services/health @samsondav
+/core/services/job @spooktheducks @connorwstein
 /core/services/keeper @smartcontractkit/keepers
 /core/services/keystore @RyanRHall
-/core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
+/core/services/offchainreporting @spooktheducks @connorwstein @samsondav
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pg @samsondav
-/core/services/pipeline @spooktheducks @connorwstein @archseer @prashantkumar1982
+/core/services/pipeline @spooktheducks @connorwstein @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
 /core/services/vrf @connorwstein @makramkd
-/core/services/webhook @spooktheducks @archseer
+/core/services/webhook @spooktheducks
 
 # API
 /core/web @jkongie
@@ -41,10 +41,10 @@
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 
 # Misc
-/core/store @archseer @samsondav @jmank88
+/core/store @samsondav @jmank88
 /core/chains @samsondav
 /core/logger @jmank88
-/core/internal @samsondav @jmank88 @archseer
+/core/internal @samsondav @jmank88
 
 # CI/CD
 /.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
