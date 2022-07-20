@@ -26,8 +26,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
-	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/aws/constructs-go/constructs/v10 v10.1.43 // indirect
 	github.com/aws/jsii-runtime-go v1.61.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
@@ -66,7 +64,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
-	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/lib/pq v1.10.6 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -109,7 +106,6 @@ require (
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/guregu/null.v4 v4.0.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -154,4 +150,3 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
-
