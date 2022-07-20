@@ -62,5 +62,3 @@ integration-tests/**/logs/
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
-
-.chainlink-rinkeby/*
