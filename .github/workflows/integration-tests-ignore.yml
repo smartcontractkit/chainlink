@@ -1,8 +1,8 @@
 # This is a dummy file so when changes occur that do not need smoke tests ran we can still have the check be required
 name: Integration Tests
+# keep these paths identical to the integration-tests.yml
 on:
   pull_request:
-    # keep these paths identical to the integration-tests.yml
     paths-ignore:
       - '**/*.go'
       - '**/*go.sum'
