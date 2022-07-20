@@ -212,19 +212,22 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		require.NoError(t, err, "Failed to upgrade WS connection")
-		defer conn.Close()
 		ts.mu.Lock()
-		if ts.wsconns == nil {
-			ts.t.Log("Server closed")
+		if ts.wsconns == nil { // closed
 			ts.mu.Unlock()
 			return
 		}
-		ts.wsconns = append(ts.wsconns, conn)
 		ts.wg.Add(1)
-		ts.mu.Unlock()
 		defer ts.wg.Done()
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if !assert.NoError(t, err, "Failed to upgrade WS connection") {
+			ts.mu.Unlock()
+			return
+		}
+		defer conn.Close()
+		ts.wsconns = append(ts.wsconns, conn)
+		ts.mu.Unlock()
+
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {

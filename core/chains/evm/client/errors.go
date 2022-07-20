@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -86,6 +87,19 @@ var geth = ClientErrors{
 	Fatal:                             gethFatal,
 }
 
+// Besu
+// See: https://github.com/hyperledger/besu/blob/81f25e15f9891787829b532f2fb38c8c43fd6b2e/ethereum/api/src/main/java/org/hyperledger/besu/ethereum/api/jsonrpc/internal/response/JsonRpcError.java
+var besuFatal = regexp.MustCompile(`^(Intrinsic gas exceeds gas limit|Transaction gas limit exceeds block gas limit|Invalid signature)$`)
+var besu = ClientErrors{
+	NonceTooLow:                       regexp.MustCompile(`^Nonce too low$`),
+	ReplacementTransactionUnderpriced: regexp.MustCompile(`^Replacement transaction underpriced$`),
+	TransactionAlreadyInMempool:       regexp.MustCompile(`^Known transaction$`),
+	TerminallyUnderpriced:             regexp.MustCompile(`^Gas price below configured minimum gas price$`),
+	InsufficientEth:                   regexp.MustCompile(`^Upfront cost exceeds account balance$`),
+	TxFeeExceedsCap:                   regexp.MustCompile(`^Transaction fee cap exceeded$`),
+	Fatal:                             besuFatal,
+}
+
 // Arbitrum
 // https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
 var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address|execution reverted: error code)$`)
@@ -146,7 +160,7 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -214,6 +228,17 @@ func (s *SendError) IsOptimismFeeTooLow() bool {
 // IsOptimismFeeTooHigh is an optimism-specific error returned when total fee is too high
 func (s *SendError) IsOptimismFeeTooHigh() bool {
 	return s.is(OptimismFeeTooHigh)
+}
+
+// IsTimeout indicates if the error was caused by an exceeded context deadline
+func (s *SendError) IsTimeout() bool {
+	if s == nil {
+		return false
+	}
+	if s.err == nil {
+		return false
+	}
+	return errors.Is(s.err, context.DeadlineExceeded)
 }
 
 func NewFatalSendError(e error) *SendError {
