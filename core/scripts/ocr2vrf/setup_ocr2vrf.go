@@ -93,6 +93,9 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 		flagSet.String("job-type", string(jobTypeOCR2VRF), "the job type")
 
+		// used by bootstrap template instantiation
+		flagSet.String("contractID", vrfAddress.String(), "the contract to get peers from")
+
 		// DKG args
 		flagSet.String("keyID", *keyID, "")
 		flagSet.String("dkg-address", dkgAddress.String(), "the contract address of the DKG")
