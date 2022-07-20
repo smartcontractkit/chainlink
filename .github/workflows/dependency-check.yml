@@ -1,0 +1,33 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       dependency-check-paths-ignore.yml
+##
+
+name: Dependency Vulnerability Check
+
+on: 
+  push:
+    paths:
+      - '**/go.mod'
+      - '**/go.sum'
+jobs:
+  Go:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: 'go.mod'
+        id: go
+
+      - name: Write Go Modules list
+        run: go list -json -m all > go.list
+
+      - name: Check vulnerabilities
+        uses: sonatype-nexus-community/nancy-github-action@main
+        with:
+          nancyVersion: "v1.0.22"
+

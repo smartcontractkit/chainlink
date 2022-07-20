@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -e
+
+yarn setup:contracts
+yarn workspace @chainlink/contracts prepublishOnly

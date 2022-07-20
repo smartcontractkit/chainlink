@@ -1,0 +1,64 @@
+# dependencies
+node_modules/
+tmp/
+.pnp
+.pnp.js
+tools/bin/abigen
+
+/chainlink
+core/chainlink
+
+# GUI
+operator_ui/dist
+operator_ui/artifacts
+
+# SQLite
+tools/clroot/db.sqlite3-shm
+tools/clroot/db.sqlite3-wal
+
+# Tooling caches
+*.tsbuildinfo
+.eslintcache
+
+# Log files
+*.log
+
+# misc
+.DS_Store
+.envrc
+.env*
+.direnv
+.idea
+.vscode/
+
+# codeship
+*.aes
+dockercfg
+env
+credentials.env
+gcr_creds.env
+
+# DB backups
+
+cl_backup_*.tar.gz
+
+# Test artifacts
+core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+output.txt
+race.*
+
+# DB state
+db/
+.s.PGSQL.5432.lock
+
+# can be left behind by tests
+core/cmd/vrfkey1
+
+# left behind by webpack - compiled frontend assets
+core/web/assets
+
+# Integration Tests
+integration-tests/**/logs/
+tests-*.xml
+*.test
+tmp-manifest-*.yaml

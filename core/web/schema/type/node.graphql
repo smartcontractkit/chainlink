@@ -1,0 +1,37 @@
+type Node {
+    id: ID!
+    name: String!
+    wsURL: String!
+    httpURL: String!
+    chain: Chain!
+    createdAt: Time!
+    updatedAt: Time!
+    state: String!
+}
+
+union NodePayload = Node | NotFoundError
+
+type NodesPayload implements PaginatedPayload {
+    results: [Node!]!
+    metadata: PaginationMetadata!
+}
+
+input CreateNodeInput {
+    name: String!
+    evmChainID: Int!
+    wsURL: String!
+    httpURL: String!
+    sendOnly: Boolean!
+}
+
+type CreateNodeSuccess {
+    node: Node!
+}
+
+union CreateNodePayload = CreateNodeSuccess
+
+type DeleteNodeSuccess {
+    node: Node!
+}
+
+union DeleteNodePayload = DeleteNodeSuccess | NotFoundError

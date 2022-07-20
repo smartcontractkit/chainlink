@@ -1,0 +1,32 @@
+version: '3.5'
+services:
+  node:
+    entrypoint: '/bin/sh -c "while sleep 1000; do :; done"'
+    build:
+      context: ../../
+      dockerfile: tools/docker/cldev.Dockerfile
+      args:
+        - SRCROOT
+    command: ''
+    image: smartcontract/chainlink-dev
+    volumes:
+      - ../..:$SRCROOT
+  operator-ui:
+    container_name: operator-ui
+    image: smartcontract/operator-ui
+    build:
+      context: ../../
+      dockerfile: tools/docker/operatorui.Dockerfile
+      args:
+        - SRCROOT
+    entrypoint: /bin/sh -c 'yarn && yarn workspace @chainlink/operator-ui start'
+    environment:
+      - CHAINLINK_PORT
+    ports:
+      - 3000:3000
+      - 4000:4000
+    volumes:
+      - ../..:$SRCROOT
+    depends_on:
+      - node
+      - explorer

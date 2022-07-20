@@ -1,0 +1,30 @@
+#
+# This action checks PRs to see if any CHANGELOG* files were updated.
+# If none were, it will add a message to the PR asking if it would make sense to do so.
+#
+name: Changelog
+
+on: pull_request
+
+jobs:
+  changelog:
+    # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
+    # This check skips the job if it is detected we are running on a fork.
+    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
+    name: Changelog checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for changed files
+        id: changedfiles
+        uses: umani/changed-files@1d252c611c64289d35243fc37ece7323ea5e93e1 # Version 3.3.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: '^docs/CHANGELOG.*$'
+      - name: Make a comment
+        uses: unsplash/comment-on-pr@ffe8f97ccc63ce12c3c23c6885b169db67958d3b # Version v1.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: contains(steps.changedfiles.outputs.files_updated, 'CHANGELOG') != true && contains(steps.changedfiles.outputs.files_created, 'CHANGELOG') != true
+        with:
+          msg: "I see that you haven't updated any CHANGELOG files. Would it make sense to do so?"
+          check_for_duplicate_msg: true

@@ -1,0 +1,70 @@
+type Bridge {
+    id: ID!
+    name: String!
+    url: String!
+    confirmations: Int!
+    outgoingToken: String!
+    minimumContractPayment: String!
+    createdAt: Time!
+}
+
+# BridgePayload defines the response to fetch a single bridge by name
+union BridgePayload = Bridge | NotFoundError
+
+# BridgesPayload defines the response when fetching a page of bridges
+type BridgesPayload implements PaginatedPayload {
+    results: [Bridge!]!
+    metadata: PaginationMetadata!
+}
+
+# CreateBridgeInput defines the input to create a bridge
+input CreateBridgeInput {
+    name: String!
+    url: String!
+    confirmations: Int!
+    minimumContractPayment: String!
+}
+
+# CreateBridgeSuccess defines the success response when creating a bridge
+type CreateBridgeSuccess {
+    bridge: Bridge!
+    incomingToken: String!
+}
+
+# CreateBridgeInput defines the response when creating a bridge
+union CreateBridgePayload = CreateBridgeSuccess
+
+# UpdateBridgeInput defines the input to update a bridge
+input UpdateBridgeInput {
+    name: String!
+    url: String!
+    confirmations: Int!
+    minimumContractPayment: String!
+}
+
+# UpdateBridgeSuccess defines the success response when updating a bridge
+type UpdateBridgeSuccess {
+    bridge: Bridge!
+}
+
+# CreateBridgeInput defines the response when updating a bridge
+union UpdateBridgePayload = UpdateBridgeSuccess | NotFoundError
+
+type DeleteBridgeSuccess {
+    bridge: Bridge!
+}
+
+type DeleteBridgeInvalidNameError implements Error {
+    code: ErrorCode!
+    message: String!
+}
+
+type DeleteBridgeConflictError implements Error {
+    code: ErrorCode!
+    message: String!
+}
+
+union DeleteBridgePayload = DeleteBridgeSuccess
+    | DeleteBridgeInvalidNameError
+    | DeleteBridgeConflictError
+    | NotFoundError

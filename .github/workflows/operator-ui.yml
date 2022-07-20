@@ -1,0 +1,52 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       operator-ui-paths-ignore.yml
+##
+
+name: Operator UI
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+      - rollup
+    paths:
+      - 'operator_ui/**'
+      - yarn.lock
+      - 'tools/ci/**'
+  pull_request:
+    paths:
+      - 'operator_ui/**'
+      - yarn.lock
+      - 'tools/ci/**'
+
+jobs:
+  operator-ui:
+    name: Operator UI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: "16"
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - name: Run yarn install
+        run: yarn install --frozen-lockfile
+      - name: Run Operator UI tests
+        run: ./tools/ci/operator_ui_test

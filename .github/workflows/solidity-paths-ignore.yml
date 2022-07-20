@@ -1,0 +1,38 @@
+##
+# This workflow needs to be ran because `Solidity` is a required check and we 
+# conditionally only run the `Solidity` workflow when certain paths change.
+# If the workflow does not run, the required check will never pass. This is
+# GitHub's workaround:
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/troubleshooting-required-status-checks#example
+##
+
+name: Solidity
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+      - rollup
+    paths-ignore:
+      - 'contracts/**'
+      - yarn.lock
+      - 'tools/ci/**'
+  pull_request:
+    paths-ignore:
+      - 'contracts/**'
+      - yarn.lock
+      - 'tools/ci/**'
+
+jobs:
+  solidity-coverage:
+    name: Solidity Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No job required" '
+  solidity:
+    name: Solidity
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No job required" '
+

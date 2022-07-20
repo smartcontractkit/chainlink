@@ -1,0 +1,12 @@
+name: Lint GH Workflows
+on:
+  push:
+jobs:
+  lint_workflows:
+    name: Validate Github Action Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Code
+        uses: actions/checkout@v3
+      - name: Run actionlint
+        uses: reviewdog/action-actionlint@a0541743e79d2ce4ee65276807ac493a93149b7c # v1.23.0

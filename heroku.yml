@@ -1,0 +1,6 @@
+build:
+  docker:
+    web: Dockerfile.web
+  config:
+    REACT_APP_INFURA_KEY:
+    REACT_APP_GA_ID:

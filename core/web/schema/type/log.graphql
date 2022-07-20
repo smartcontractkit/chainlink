@@ -1,0 +1,56 @@
+enum LogLevel {
+    DEBUG
+    INFO
+    WARN
+    ERROR
+}
+
+type GlobalLogLevel {
+    level: LogLevel!
+}
+
+union GlobalLogLevelPayload = GlobalLogLevel
+
+type LogLevelConfig {
+    keeper: LogLevel
+    headTracker: LogLevel
+    fluxMonitor: LogLevel
+}
+
+input LogLevelConfigInput {
+    keeper: LogLevel
+    headTracker: LogLevel
+    fluxMonitor: LogLevel
+}
+
+input SetServicesLogLevelsInput {
+   config: LogLevelConfigInput!
+}
+
+type SetServicesLogLevelsSuccess {
+    config: LogLevelConfig!
+}
+
+union SetServicesLogLevelsPayload = SetServicesLogLevelsSuccess | InputErrors
+
+type SQLLogging {
+    enabled: Boolean!
+}
+
+input SetSQLLoggingInput {
+    enabled: Boolean!
+}
+
+type SetSQLLoggingSuccess {
+    sqlLogging: SQLLogging!
+}
+
+union SetSQLLoggingPayload = SetSQLLoggingSuccess
+
+union GetSQLLoggingPayload = SQLLogging
+
+type SetGlobalLogLevelSuccess {
+    globalLogLevel: GlobalLogLevel!
+}
+
+union SetGlobalLogLevelPayload = SetGlobalLogLevelSuccess | InputErrors

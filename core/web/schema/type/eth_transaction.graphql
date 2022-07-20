@@ -1,0 +1,23 @@
+type EthTransaction {
+	state: String!
+	data: Bytes!
+	from: String!
+	to: String!
+	gasLimit: String!
+	value: String!
+	evmChainID: ID!
+	nonce: String
+	gasPrice: String!
+	hash: String!
+	hex: String!
+	sentAt: String
+	chain: Chain!
+	attempts: [EthTransactionAttempt!]!
+}
+
+union EthTransactionPayload = EthTransaction | NotFoundError
+
+type EthTransactionsPayload implements PaginatedPayload {
+    results: [EthTransaction!]!
+    metadata: PaginationMetadata!
+}

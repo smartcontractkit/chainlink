@@ -1,0 +1,17 @@
+# https://github.com/bors-ng/bors-ng/issues/730
+status = [
+  "lint",  
+  "Core Tests (go_core_tests)",
+  "Core Tests (go_core_race_tests)",
+  "Solidity",  
+  "Operator UI Tests",
+  "Prettier Formatting" 
+]
+block_labels = [ "S-do-not-merge-yet" ]
+timeout_sec = 3600 # one hour
+required_approvals = 1
+up_to_date_approvals = true
+delete_merged_branches = true
+update_base_for_deletes = true
+use_codeowners = true
+use_squash_merge = true

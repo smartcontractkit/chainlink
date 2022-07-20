@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -e
+
+yarn workspace @chainlink/contracts compile
+yarn workspace @chainlink/contracts test

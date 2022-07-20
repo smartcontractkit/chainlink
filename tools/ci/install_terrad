@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+version=0.5.14
+wget https://github.com/terra-money/core/releases/download/v${version}/terra_${version}_Linux_x86_64.tar.gz
+tar -xvf terra_${version}_Linux_x86_64.tar.gz
+rm terra_${version}_Linux_x86_64.tar.gz
+echo "aa79fb6ecdb74a67ef165667a31e6051503242bb364e0062f9824ae448b725fe ./terrad" > check
+sha256sum --check check
+rm check
+cp terrad $(go env GOPATH)/bin

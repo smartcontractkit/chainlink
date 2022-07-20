@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -e
+
+yarn setup:contracts
+
+# These should be merged into a global test command
+yarn workspace @chainlink/contracts test "$1"

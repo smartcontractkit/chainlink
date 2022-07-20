@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -ex
+
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Export Explorer docker tag to be used in docker-compose files
+if [ -z $EXPLORER_DOCKER_TAG ]; then
+  export EXPLORER_DOCKER_TAG="develop"
+fi
+
+base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
+# Allow for choosing between geth or parity
+if [ $GETH_MODE ]; then
+  base_files="$base_files -f docker-compose.gethnet.yaml"
+else
+  base_files="$base_files -f docker-compose.paritynet.yaml"
+fi
+
+# Build Explorer from source if path is set
+if [ $EXPLORER_SOURCE_PATH ]; then
+  base_files="$base_files -f docker-compose.explorer-source.yaml"
+else
+  base_files="$base_files -f docker-compose.explorer.yaml"
+fi
+
+base="docker-compose $base_files"                                       # base config, used standalone for acceptance
+dev="$base -f docker-compose.dev.yaml"                                  # config for cldev
+
+clean_docker() {
+  $base down -v --remove-orphans
+  $dev down -v --remove-orphans
+}
+
+function usage() {
+  echo "compose -- A helper script for running common docker-compose commands\
+
+Commands:
+    help                  Displays this help menu
+    clean                 Remove any containers and volumes related to compose files
+    logs                  Display the logs of any service(s) by name
+
+    cld                   Runs the chainlink node container in dev mode
+    cldo                  cld in addition to operator-ui in dev mode
+
+    acceptance            Run the services required to perform an acceptance test
+
+    dev                   Run docker-compose with dev config for the core node and operator-ui
+
+    eth:restart             Reset blockchain data to genesis state
+    cl:restart              Reset chainlink database
+
+    *                     Run docker-compose with base config"
+}
+
+case "$1" in
+help)
+  usage
+  ;;
+clean)
+  clean_docker
+  ;;
+logs)
+  $base logs -f ${@:2}
+  ;;
+cld)
+  $dev build
+  $dev up -d node
+  docker exec -it chainlink-node bash
+  $dev down -v --remove-orphans
+  ;;
+cldo)
+  $dev build
+  $dev up -d operator-ui
+  docker exec -it chainlink-node bash
+  $dev down -v --remove-orphans
+  ;;
+
+acceptance)
+  $base up
+  ;;
+
+dev)
+  $dev ${@:2}
+  ;;
+
+eth:restart)
+  $base rm --force --stop devnet
+  if [ $GETH_MODE ]; then
+    docker volume rm --force docker_geth-db-data
+  else
+    docker volume rm --force docker_parity-db-data
+  fi
+  $base up -d devnet
+  ;;
+cl:restart)
+  $base stop node
+  $base rm --force --stop node-db
+  docker volume rm --force docker_node-db-data
+  ./compose eth:restart
+  $base start node
+  ;;
+*)
+  $base $@
+  ;;
+esac

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Generate contract artifacts
+yarn install
+
+yarn setup:contracts
+
+# Run golang coverage
+go get -u github.com/smartcontractkit/goverage
+goverage -v -parallel 2 ./...

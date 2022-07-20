@@ -1,0 +1,12 @@
+type                = "directrequest"
+schemaVersion       = 1
+name                = "example eth request event spec"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
+observationSource   = """
+    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+    ds1_merge    [type=merge left="{}"]
+    ds1_parse    [type=jsonparse path="USD"];
+    ds1_multiply [type=multiply times=100];
+    ds1 -> ds1_parse -> ds1_multiply;
+"""

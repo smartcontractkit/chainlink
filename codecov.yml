@@ -1,0 +1,17 @@
+comment: false
+
+coverage:
+  status:
+    project:
+      default:
+        threshold: 1%
+
+github_checks:
+  annotations: false
+
+ignore:
+  - 'contracts/src/v0.4'
+  - 'contracts/src/v0.5'
+  - 'contracts/src/v0.8' # Disabled due to solidity-coverage not reporting coverage
+  - 'core/internal'
+  - 'core/scripts'

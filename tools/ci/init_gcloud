@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+if [ -z "$GCLOUD_SERVICE_KEY" ]
+then
+  echo "Skipping gcloud initiation because no service key is set"
+  exit 0
+else
+  echo $GCLOUD_SERVICE_KEY > ${HOME}/gcloud-service-key.json
+  gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+  gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+  gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+fi

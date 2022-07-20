@@ -1,0 +1,39 @@
+enum JobRunStatus {
+    UNKNOWN
+    RUNNING
+    SUSPENDED
+    ERRORED
+    COMPLETED
+}
+
+type JobRun {
+    id: ID!
+    outputs: [String]!
+    allErrors: [String!]!
+    fatalErrors: [String!]!
+    inputs: String!
+    createdAt: Time!
+    finishedAt: Time
+    taskRuns: [TaskRun!]!
+    status: JobRunStatus!
+    job: Job!
+}
+
+# JobRunsPayload defines the response when fetching a page of runs
+type JobRunsPayload implements PaginatedPayload {
+    results: [JobRun!]!
+    metadata: PaginationMetadata!
+}
+
+union JobRunPayload = JobRun | NotFoundError
+
+type RunJobSuccess {
+    jobRun: JobRun!
+}
+
+type RunJobCannotRunError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+union RunJobPayload = RunJobSuccess | NotFoundError | RunJobCannotRunError

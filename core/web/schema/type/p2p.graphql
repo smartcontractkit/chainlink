@@ -1,0 +1,22 @@
+type P2PKey {
+    id: ID!
+    peerID: String!
+    publicKey: String!
+}
+
+type P2PKeysPayload {
+    results: [P2PKey!]!
+}
+
+type CreateP2PKeySuccess {
+    p2pKey: P2PKey!
+}
+
+union CreateP2PKeyPayload = CreateP2PKeySuccess
+
+
+type DeleteP2PKeySuccess {
+    p2pKey: P2PKey!
+}
+
+union DeleteP2PKeyPayload = DeleteP2PKeySuccess | NotFoundError

@@ -1,0 +1,311 @@
+package vrf
+
+import (
+	"encoding/hex"
+	"math/big"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/theodesp/go-heaps/pairing"
+
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+type Delegate struct {
+	q    pg.Q
+	pr   pipeline.Runner
+	porm pipeline.ORM
+	ks   keystore.Master
+	cc   evm.ChainSet
+	lggr logger.Logger
+}
+
+//go:generate mockery --name GethKeyStore --output ./mocks/ --case=underscore
+type GethKeyStore interface {
+	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
+}
+
+//go:generate mockery --name Config --output ./mocks/ --case=underscore
+type Config interface {
+	EvmFinalityDepth() uint32
+	EvmGasLimitDefault() uint64
+	EvmGasLimitVRFJobType() *uint64
+	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	MinIncomingConfirmations() uint32
+}
+
+func NewDelegate(
+	db *sqlx.DB,
+	ks keystore.Master,
+	pr pipeline.Runner,
+	porm pipeline.ORM,
+	chainSet evm.ChainSet,
+	lggr logger.Logger,
+	cfg pg.LogConfig) *Delegate {
+	return &Delegate{
+		q:    pg.NewQ(db, lggr, cfg),
+		ks:   ks,
+		pr:   pr,
+		porm: porm,
+		cc:   chainSet,
+		lggr: lggr,
+	}
+}
+
+func (d *Delegate) JobType() job.Type {
+	return job.VRF
+}
+
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+
+// ServicesForSpec satisfies the job.Delegate interface.
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
+		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
+	}
+	pl, err := jb.PipelineSpec.Pipeline()
+	if err != nil {
+		return nil, err
+	}
+	chain, err := d.cc.Get(jb.VRFSpec.EVMChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
+	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, err
+	}
+	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, err
+	}
+
+	// If the batch coordinator address is not provided, we will fall back to non-batched
+	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
+	if jb.VRFSpec.BatchCoordinatorAddress != nil {
+		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
+			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "create batch coordinator wrapper")
+		}
+	}
+
+	l := d.lggr.With(
+		"jobID", jb.ID,
+		"externalJobID", jb.ExternalJobID,
+		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
+	)
+	lV1 := l.Named("VRFListener")
+	lV2 := l.Named("VRFListenerV2")
+
+	// This is not a terminal error, but it isn't ideal.
+	// We can operate under these potentially degraded conditions, however.
+	err = setMaxGasPriceGWei(
+		toAddrSlice(jb.VRFSpec.FromAddresses),
+		jb.VRFSpec.MaxGasPriceGWei,
+		d.cc,
+		chain.ID())
+	if err != nil {
+		l.With("err", err).Warn("unable to set max gas price gwei on from addresses, continuing anyway")
+	}
+
+	for _, task := range pl.Tasks {
+		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			if err != nil {
+				return nil, err
+			}
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			if err != nil {
+				return nil, err
+			}
+
+			return []job.ServiceCtx{newListenerV2(
+				chain.Config(),
+				lV2,
+				chain.Client(),
+				chain.ID(),
+				d.cc,
+				chain.LogBroadcaster(),
+				d.q,
+				coordinatorV2,
+				batchCoordinatorV2,
+				aggregator,
+				chain.TxManager(),
+				d.pr,
+				d.ks.Eth(),
+				jb,
+				utils.NewHighCapacityMailbox[log.Broadcast](),
+				func() {},
+				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				chain.HeadBroadcaster(),
+				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+		}
+		if _, ok := task.(*pipeline.VRFTask); ok {
+			return []job.ServiceCtx{&listenerV1{
+				cfg:             chain.Config(),
+				l:               lV1,
+				headBroadcaster: chain.HeadBroadcaster(),
+				logBroadcaster:  chain.LogBroadcaster(),
+				q:               d.q,
+				txm:             chain.TxManager(),
+				coordinator:     coordinator,
+				pipelineRunner:  d.pr,
+				gethks:          d.ks.Eth(),
+				job:             jb,
+				// Note the mailbox size effectively sets a limit on how many logs we can replay
+				// in the event of a VRF outage.
+				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
+				chStop:             make(chan struct{}),
+				waitOnStop:         make(chan struct{}),
+				newHead:            make(chan struct{}, 1),
+				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				blockNumberToReqID: pairing.New(),
+				reqAdded:           func() {},
+				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
+			}}, nil
+		}
+	}
+	return nil, errors.New("invalid job spec expected a vrf task")
+}
+
+func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
+	respCounts := map[[32]byte]uint64{}
+
+	// Only check as far back as the evm finality depth for completed transactions.
+	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
+		return respCounts
+	}
+
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
+		}
+		var reqID [32]byte
+		copy(reqID[:], b)
+		respCounts[reqID] = uint64(c.Count)
+	}
+
+	return respCounts
+}
+
+func GetStartingResponseCountsV2(
+	q pg.Q,
+	l logger.Logger,
+	chainID uint64,
+	evmFinalityDepth uint32,
+) map[string]uint64 {
+	respCounts := map[string]uint64{}
+
+	// Only check as far back as the evm finality depth for completed transactions.
+	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
+		return respCounts
+	}
+
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
+		}
+		bi := new(big.Int).SetBytes(b)
+		respCounts[bi.String()] = uint64(c.Count)
+	}
+	return respCounts
+}
+
+func getRespCounts(q pg.Q, chainID uint64, evmFinalityDepth uint32) (
+	[]struct {
+		RequestID string
+		Count     int
+	},
+	error,
+) {
+	counts := []struct {
+		RequestID string
+		Count     int
+	}{}
+	// This query should use the idx_eth_txes_state_from_address_evm_chain_id
+	// index, since the quantity of unconfirmed/unstarted/in_progress transactions _should_ be small
+	// relative to the rest of the data.
+	unconfirmedQuery := `
+SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
+FROM eth_txes et
+WHERE et.meta->'RequestID' IS NOT NULL
+AND et.state IN ('unconfirmed', 'unstarted', 'in_progress')
+GROUP BY meta->'RequestID'
+	`
+	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
+	// a table scan of the eth_txes table, which could be large if it is unpruned.
+	confirmedQuery := `
+SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
+FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
+	join eth_receipts er on eta.hash = er.tx_hash
+WHERE et.meta->'RequestID' is not null
+AND er.block_number >= (SELECT number FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
+GROUP BY meta->'RequestID'
+	`
+	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery
+	err := q.Select(&counts, query, chainID, evmFinalityDepth)
+	if err != nil {
+		return nil, err
+	}
+	return counts, nil
+}
+
+// setMaxGasPriceGWei attempts to set the max gas price for each key in the fromAddresses slice
+// of the VRF job spec to the given maxGasPriceGWei parameter.
+// If maxGasPriceGWei is nil, this is a no-op.
+func setMaxGasPriceGWei(fromAddresses []common.Address, maxGasPriceGWei *uint32, keyUpdater keyConfigUpdater, chainID *big.Int) error {
+	if maxGasPriceGWei == nil {
+		return nil
+	}
+
+	for _, addr := range fromAddresses {
+		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.GWei(int64(*maxGasPriceGWei)))
+		err := keyUpdater.UpdateConfig(chainID, updater)
+		if err != nil {
+			return errors.Wrap(err, "update key specific max gas price")
+		}
+	}
+
+	return nil
+}
+
+func toAddrSlice(addrs []ethkey.EIP55Address) (r []common.Address) {
+	for _, a := range addrs {
+		r = append(r, a.Address())
+	}
+	return
+}

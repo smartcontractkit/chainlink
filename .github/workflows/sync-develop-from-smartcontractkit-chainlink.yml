@@ -1,0 +1,29 @@
+name: Sync develop from smartcontractkit/chainlink
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron: '*/30 * * * *'
+
+jobs:
+  sync:
+    name: Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: develop
+        if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
+      - name: Sync
+        run: |
+          git remote add upstream "https://github.com/smartcontractkit/chainlink.git"
+          COMMIT_HASH_UPSTREAM=$(git ls-remote upstream develop | grep -P '^[0-9a-f]{40}\trefs/heads/develop$' | cut -f 1)
+          COMMIT_HASH_ORIGIN=$(git ls-remote origin develop | grep -P '^[0-9a-f]{40}\trefs/heads/develop$' | cut -f 1)
+          if [ "$COMMIT_HASH_UPSTREAM" = "$COMMIT_HASH_ORIGIN" ]; then
+            echo "Both remotes have develop at $COMMIT_HASH_UPSTREAM. No need to sync."
+          else
+            echo "upstream has develop at $COMMIT_HASH_UPSTREAM. origin has develop at $COMMIT_HASH_ORIGIN. Syncing..."
+            git fetch upstream
+            git push origin upstream/develop:develop
+          fi
+        if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'

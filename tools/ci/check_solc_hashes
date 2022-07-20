@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# This script checks that the locally installed solc binaries match the given hashes.
+# It is intended to be run on CI to give some guarantee of the integrity of the installed solidity compilers.
+# Only supports linux-amd64 binaries.
+
+set -e
+
+SOLC_6_6_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.6.6"
+SOLC_7_6_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.7.6"
+SOLC_8_6_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.8.6"
+SOLC_8_15_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.8.15"
+
+SOLC_6_6_LOCAL_SHA=`sha256sum -b $SOLC_6_6_LOCAL_PATH | cut -d " " -f1`
+SOLC_6_6_EXPECTED_SHA="5d8cd4e0cc02e9946497db68c06d56326a78ff95a21c9265cfedb819a10a539d"
+
+SOLC_7_6_LOCAL_SHA=`sha256sum -b $SOLC_7_6_LOCAL_PATH | cut -d " " -f1`
+SOLC_7_6_EXPECTED_SHA="bd69ea85427bf2f4da74cb426ad951dd78db9dfdd01d791208eccc2d4958a6bb"
+
+SOLC_8_6_LOCAL_SHA=`sha256sum -b $SOLC_8_6_LOCAL_PATH | cut -d " " -f1`
+SOLC_8_6_EXPECTED_SHA="abd5c4f3f262bc3ed7951b968c63f98e83f66d9a5c3568ab306eac49250aec3e"
+
+SOLC_8_15_LOCAL_SHA=`sha256sum -b $SOLC_8_15_LOCAL_PATH | cut -d " " -f1`
+SOLC_8_15_EXPECTED_SHA="5189155ce322d57fb75e8518d9b39139627edea4fb25b5f0ebed0391c52e74cc"
+
+if [ "$SOLC_6_6_LOCAL_SHA" != "$SOLC_6_6_EXPECTED_SHA" ]; then
+  printf "solc 0.6.6 did not match checksum.\nGot '$SOLC_6_6_LOCAL_SHA'\nExpected '$SOLC_6_6_EXPECTED_SHA']\n"
+  exit 1
+fi
+
+if [ "$SOLC_7_6_LOCAL_SHA" != "$SOLC_7_6_EXPECTED_SHA" ]; then
+  printf "solc 0.7.6 did not match checksum.\nGot '$SOLC_7_6_LOCAL_SHA'\nExpected '$SOLC_7_6_EXPECTED_SHA'\n"
+  exit 1
+fi
+
+if [ "$SOLC_8_6_LOCAL_SHA" != "$SOLC_8_6_EXPECTED_SHA" ]; then
+  printf "solc 0.8.6 did not match checksum.\nGot '$SOLC_8_6_LOCAL_SHA'\nExpected '$SOLC_8_6_EXPECTED_SHA'\n"
+  exit 1
+fi
+
+if [ "$SOLC_8_15_LOCAL_SHA" != "$SOLC_8_15_EXPECTED_SHA" ]; then
+  printf "solc 0.8.15 did not match checksum.\nGot '$SOLC_8_15_LOCAL_SHA'\nExpected '$SOLC_8_15_EXPECTED_SHA'\n"
+  exit 1
+fi

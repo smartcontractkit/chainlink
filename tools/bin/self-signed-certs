@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+GIT_ROOT=`git rev-parse --show-toplevel`
+pushd $GIT_ROOT >/dev/null
+
+printf -- "WARNING: This is generating a self signed certificate which is recommended for development purposes only!\n\n"
+
+openssl req -x509 -out tools/clroot/tls/server.crt  -keyout tools/clroot/tls/server.key \
+  -newkey rsa:2048 -nodes -sha256 \
+  -subj '/CN=localhost' -extensions EXT -config <( \
+   printf "[dn]\nCN=localhost\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
+
+popd >/dev/null

@@ -1,0 +1,24 @@
+##
+# This workflow needs to be ran in case it is a required check and
+# we conditionally only run the `dependency-check` workflow when certain
+# paths change.
+# If the workflow does not run, and it is ever marked as required,
+# then the check will never pass.
+# This is GitHub's workaround:
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/troubleshooting-required-status-checks#example
+##
+
+name: Dependency Vulnerability Check
+
+on: 
+  push:
+    paths-ignore:
+      - '**/go.mod'
+      - '**/go.sum'
+jobs:
+  Go:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No job required" '
+
+

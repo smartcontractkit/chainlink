@@ -1,0 +1,29 @@
+ChainID = '80001'
+FinalityDepth = 500
+MaxQueuedTransactions = 5000
+LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
+LogPollInterval = '1s'
+MinIncomingConfirmations = 5
+TxResendAfterThreshold = '1m'
+
+[BalanceMonitor]
+BlockDelay = 13
+
+[GasEstimator]
+PriceDefault = '1 gwei'
+PriceMax = '0.2 milli'
+PriceMin = '1 gwei'
+BumpMin = '20 gwei'
+BumpThreshold = 5
+
+[GasEstimator.BlockHistory]
+BlockDelay = 10
+BlockHistorySize = 24
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+HistoryDepth = 2000
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '30s'

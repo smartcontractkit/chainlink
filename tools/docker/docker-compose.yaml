@@ -1,0 +1,94 @@
+version: '3.5'
+
+services:
+  node:
+    container_name: chainlink-node
+    image: smartcontract/chainlink
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    # Note that the keystore import allows us to submit transactions
+    # immediately because addresses are specified when starting the
+    # parity/geth node to be prefunded with eth.
+    entrypoint: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    restart: always
+    environment:
+      - ETH_CHAIN_ID
+      - LOG_LEVEL
+      - ROOT
+      - ETH_URL
+      - MIN_OUTGOING_CONFIRMATIONS
+      - MIN_INCOMING_CONFIRMATIONS
+      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
+      - DEFAULT_HTTP_TIMEOUT
+      - CHAINLINK_DEV
+      - EXPLORER_URL
+      - EXPLORER_ACCESS_KEY
+      - EXPLORER_SECRET
+      - SECURE_COOKIES
+      - CHAINLINK_TLS_PORT
+    env_file:
+      - chainlink-variables.env
+    ports:
+      - 6688:6688
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore
+    depends_on:
+      - explorer
+
+  node-2:
+    container_name: chainlink-node-2
+    image: smartcontract/chainlink
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    entrypoint: /bin/sh -c "chainlink node import /run/secrets/keystore && chainlink node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    restart: always
+    environment:
+      - ETH_CHAIN_ID
+      - LOG_LEVEL
+      - ROOT
+      - ETH_URL
+      - MIN_OUTGOING_CONFIRMATIONS
+      - MIN_INCOMING_CONFIRMATIONS
+      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
+      - DEFAULT_HTTP_TIMEOUT
+      - CHAINLINK_DEV
+      - SECURE_COOKIES
+      - CHAINLINK_TLS_PORT
+    env_file:
+      - chainlink-variables.env
+    ports:
+      - 6699:6688
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore
+
+  explorer-db:
+    container_name: chainlink-explorer-db
+    image: postgres:11.6
+    volumes:
+      - explorer-db-data:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_DB: $EXPLORER_DB_NAME
+      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
+
+# TODO
+# - replace clroot with secrets
+# - extract explorer and tools into separate docker-compose files
+
+secrets:
+  node_password:
+    file: ../clroot/password.txt
+  apicredentials:
+    file: ../clroot/apicredentials
+  keystore:
+    file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
+
+volumes:
+  explorer-db-data:

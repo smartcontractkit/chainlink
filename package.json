@@ -1,0 +1,65 @@
+{
+  "private": true,
+  "license": "MIT",
+  "workspaces": {
+    "packages": [
+      "contracts",
+      "operator_ui",
+      "tools",
+      "tools/external-adapter"
+    ],
+    "nohoist": [
+      "**/typechain",
+      "**/typechain/**",
+      "**/@typechain/ethers-v5",
+      "**/@typechain/ethers-v5/**",
+      "**/@graphql-codegen",
+      "**/@graphql-codegen/**"
+    ]
+  },
+  "engines": {
+    "node": "^16.0.0"
+  },
+  "scripts": {
+    "lint": "eslint --ext js,jsx,ts,tsx .",
+    "prettier:check": "yarn prettier . --check --ignore-unknown",
+    "prettier:write": "yarn prettier . --write --ignore-unknown",
+    "setup": "wsrun -me -t setup",
+    "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
+    "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
+    "clean": "wsrun -me clean"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-etherscan": "^2.1.8",
+    "@typescript-eslint/eslint-plugin": "^2.34.0",
+    "@typescript-eslint/parser": "^2.34.0",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.15.0",
+    "eslint-plugin-prettier": "^3.4.1",
+    "eslint-plugin-react": "^7.23.2",
+    "eslint-plugin-react-hooks": "^4.0.0",
+    "postinstall-postinstall": "^2.1.0",
+    "prettier": "2.4.1",
+    "ts-node": "^10.0.0",
+    "typescript": "^3.7.4",
+    "wsrun": "^5.2.4"
+  },
+  "resolutions": {
+    "**/decompress": "^4.2.1 ",
+    "**/dot-prop": "^5.1.1",
+    "**/elliptic": "^6.5.3",
+    "**/http-proxy": "^1.18.1",
+    "**/keccak": "^3.0.0",
+    "**/lodash": "^4.17.9",
+    "**/prismjs": "^1.21.0",
+    "**/serialize-javascript": "^3.1.0",
+    "**/sha3": "^2.0.7",
+    "**/solc": "^0.6.4",
+    "**/source-map-support": "0.5.16",
+    "**/bl": "^3.0.1",
+    "**/y18n": "^5.0.5"
+  },
+  "dependencies": {
+    "tslib": "^1.11.1"
+  }
+}

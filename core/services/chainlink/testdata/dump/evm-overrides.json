@@ -1,0 +1,100 @@
+{
+  "EVMChains": [
+    {
+      "ID": "0",
+      "CFG": {
+        "Enabled": true,
+        "BlockHistoryEstimatorBlockDelay": "99",
+        "BlockHistoryEstimatorBlockHistorySize": "99",
+        "BlockHistoryEstimatorEIP1559FeeCapBufferBlocks": "99",
+        "ChainType": "foobar",
+        "EthTxReaperThreshold": "10m",
+        "EthTxResendAfterThreshold": "5m10s",
+        "EvmEIP1559DynamicFees": true,
+        "EvmFinalityDepth": "99",
+        "EvmGasBumpPercent": "99",
+        "EvmGasBumpTxDepth": "99",
+        "EvmGasBumpWei": "159",
+        "EvmGasFeeCapDefault": "9876",
+        "EvmGasLimitDefault": "99",
+        "EvmGasLimitMultiplier": 1.75,
+        "EvmGasPriceDefault": "3456",
+        "EvmGasTipCapDefault": "4321",
+        "EvmGasTipCapMinimum": "7",
+        "EvmGasLimitOCRJobType": "11",
+        "EvmGasLimitDRJobType": "12",
+        "EvmGasLimitVRFJobType": "13",
+        "EvmGasLimitFMJobType": "14",
+        "EvmGasLimitKeeperJobType": "15",
+        "EvmHeadTrackerHistoryDepth": "99",
+        "EvmHeadTrackerMaxBufferSize": "99",
+        "EvmHeadTrackerSamplingInterval": "1h7s",
+        "EvmLogBackfillBatchSize": "99",
+        "EvmLogPollInterval": "43s",
+        "EvmMaxGasPriceWei": "9000000",
+        "EvmNonceAutoSync": false,
+        "EvmUseForwarders": false,
+        "EvmRPCDefaultBatchSize": "99",
+        "FlagsContractAddress": "0xae4E781a6218A8031764928E88d457937A954fC3",
+        "GasEstimatorMode": "FixedPrice",
+        "KeySpecific": null,
+        "LinkContractAddress": "0x538aAaB4ea120b2bC2fe5D296852D948F07D849e",
+        "OperatorFactoryAddress": "0xa5B85635Be42F21f94F28034B7DA440EeFF0F418",
+        "MinIncomingConfirmations": "99",
+        "MinimumContractPayment": "7",
+        "OCRObservationTimeout": "8m",
+        "NodeNoNewHeadsThreshold": "99h"
+      }
+    },
+    {"ID":"42", "Enabled": false },
+    {"ID":"43", "Enabled": true },
+    {"ID":"1337", "Enabled": false }
+  ],
+  "EVMNodes": {
+    "0": [
+      {
+        "name": "primary_0_1",
+        "wsUrl": "ws://test1.invalid",
+        "sendOnly": false
+      },
+      {
+        "name": "primary_0_2",
+        "wsUrl": "ws://test2.invalid",
+        "httpUrl": "https://test2.invalid",
+        "sendOnly": false
+      },
+      {
+        "name": "sendonly_0_1",
+        "httpUrl": "http://test5.invalid",
+        "sendOnly": true
+      }
+    ],
+    "1337": [
+      {
+        "name": "primary_1337_1",
+        "wsUrl": "ws://test3.invalid",
+        "httpUrl": "http://test3.invalid",
+        "sendOnly": false
+      },
+      {
+        "name": "sendonly_1337_1",
+        "httpUrl": "http://test4.invalid",
+        "sendOnly": true
+      }
+    ],
+    "42": [
+      {
+        "name": "primary_42_1",
+        "wsUrl": "ws://test6.invalid",
+        "sendOnly": false
+      }
+    ],
+    "43": [
+      {
+        "name": "sendonly_43_1",
+        "httpUrl": "http://test7.invalid",
+        "sendOnly": true
+      }
+    ]
+  }
+}

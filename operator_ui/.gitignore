@@ -1,0 +1,4 @@
+# Generated
+src/types/*
+graphql.schema.json
+coverage

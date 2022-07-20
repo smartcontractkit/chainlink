@@ -1,0 +1,132 @@
+enum GasEstimatorMode {
+    BLOCK_HISTORY
+    FIXED_PRICE
+    OPTIMISM
+    OPTIMISM2
+}
+
+enum ChainType {
+    ARBITRUM
+    EXCHAIN
+    OPTIMISM
+    XDAI
+}
+
+interface GeneralChainConfig {
+    blockHistoryEstimatorBlockDelay: Int
+    blockHistoryEstimatorBlockHistorySize: Int
+    ethTxReaperThreshold: String
+    ethTxResendAfterThreshold: String
+    evmEIP1559DynamicFees: Boolean
+    evmFinalityDepth: Int
+    evmGasBumpPercent: Int
+    evmGasBumpTxDepth: Int
+    evmGasBumpWei: String
+    evmGasLimitDefault: Int
+    evmGasLimitMultiplier: Float
+    evmGasLimitOCRJobType: Int
+    evmGasLimitDRJobType: Int
+    evmGasLimitVRFJobType: Int
+    evmGasLimitFMJobType: Int
+    evmGasLimitKeeperJobType: Int
+    evmGasPriceDefault: String
+    evmGasTipCapDefault: String
+    evmGasTipCapMinimum: String
+    evmHeadTrackerHistoryDepth: Int
+    evmHeadTrackerMaxBufferSize: Int
+    evmHeadTrackerSamplingInterval: String
+    evmLogBackfillBatchSize: Int
+    evmMaxGasPriceWei: String
+    evmNonceAutoSync: Boolean
+    evmRPCDefaultBatchSize: Int
+    flagsContractAddress: String
+    gasEstimatorMode: GasEstimatorMode
+    chainType: ChainType
+    minIncomingConfirmations: Int
+    minimumContractPayment: String
+    ocrObservationTimeout: String
+    linkContractAddress: String
+}
+
+type ChainConfig implements GeneralChainConfig {
+    blockHistoryEstimatorBlockDelay: Int
+    blockHistoryEstimatorBlockHistorySize: Int
+    ethTxReaperThreshold: String
+    ethTxResendAfterThreshold: String
+    evmEIP1559DynamicFees: Boolean
+    evmFinalityDepth: Int
+    evmGasBumpPercent: Int
+    evmGasBumpTxDepth: Int
+    evmGasBumpWei: String
+    evmGasLimitDefault: Int
+    evmGasLimitMultiplier: Float
+    evmGasLimitOCRJobType: Int
+    evmGasLimitDRJobType: Int
+    evmGasLimitVRFJobType: Int
+    evmGasLimitFMJobType: Int
+    evmGasLimitKeeperJobType: Int
+    evmGasPriceDefault: String
+    evmGasTipCapDefault: String
+    evmGasTipCapMinimum: String
+    evmHeadTrackerHistoryDepth: Int
+    evmHeadTrackerMaxBufferSize: Int
+    evmHeadTrackerSamplingInterval: String
+    evmLogBackfillBatchSize: Int
+    evmMaxGasPriceWei: String
+    evmNonceAutoSync: Boolean
+    evmRPCDefaultBatchSize: Int
+    flagsContractAddress: String
+    gasEstimatorMode: GasEstimatorMode
+    chainType: ChainType
+    minIncomingConfirmations: Int
+    minimumContractPayment: String
+    ocrObservationTimeout: String
+    linkContractAddress: String
+    keySpecificConfigs: [KeySpecificChainConfig]!
+}
+
+type KeySpecificChainConfig {
+    address: String!
+    config: ChainConfig!
+}
+
+input ChainConfigInput {
+    blockHistoryEstimatorBlockDelay: Int
+    blockHistoryEstimatorBlockHistorySize: Int
+    ethTxReaperThreshold: String
+    ethTxResendAfterThreshold: String
+    evmEIP1559DynamicFees: Boolean
+    evmFinalityDepth: Int
+    evmGasBumpPercent: Int
+    evmGasBumpTxDepth: Int
+    evmGasBumpWei: String
+    evmGasLimitDefault: Int
+    evmGasLimitMultiplier: Float
+    evmGasLimitOCRJobType: Int
+    evmGasLimitDRJobType: Int
+    evmGasLimitVRFJobType: Int
+    evmGasLimitFMJobType: Int
+    evmGasLimitKeeperJobType: Int
+    evmGasPriceDefault: String
+    evmGasTipCapDefault: String
+    evmGasTipCapMinimum: String
+    evmHeadTrackerHistoryDepth: Int
+    evmHeadTrackerMaxBufferSize: Int
+    evmHeadTrackerSamplingInterval: String
+    evmLogBackfillBatchSize: Int
+    evmMaxGasPriceWei: String
+    evmNonceAutoSync: Boolean
+    evmRPCDefaultBatchSize: Int
+    flagsContractAddress: String
+    gasEstimatorMode: GasEstimatorMode
+    chainType: ChainType
+    minIncomingConfirmations: Int
+    minimumContractPayment: String
+    ocrObservationTimeout: String
+    linkContractAddress: String
+}
+
+input KeySpecificChainConfigInput {
+    address: String!
+    config: ChainConfigInput!
+}

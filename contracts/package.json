@@ -1,0 +1,56 @@
+{
+  "name": "@chainlink/contracts",
+  "version": "0.4.2",
+  "description": "Chainlink smart contracts",
+  "author": "Chainlink devs",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "test": "hardhat test",
+    "size": "hardhat size-contracts",
+    "clean": "hardhat clean",
+    "compile:native": "./scripts/native_solc_compile_all",
+    "compile": "hardhat compile",
+    "coverage": "hardhat coverage",
+    "setup": "yarn compile",
+    "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder",
+    "publish-beta": "yarn publish --tag beta",
+    "publish-prod": "yarn tag add @chainlink/contracts@0.4.2 latest"
+  },
+  "files": [
+    "src/",
+    "abi/"
+  ],
+  "devDependencies": {
+    "@ethereum-waffle/mock-contract": "^3.3.0",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/contracts": "^4.3.3",
+    "@openzeppelin/contracts-v0.7": "npm:@openzeppelin/contracts@v3.4.2",
+    "@openzeppelin/test-helpers": "^0.5.11",
+    "@typechain/ethers-v5": "^7.0.1",
+    "@typechain/hardhat": "^3.0.0",
+    "@types/cbor": "5.0.1",
+    "@types/chai": "^4.2.18",
+    "@types/debug": "^4.1.7",
+    "@types/mocha": "^8.2.2",
+    "@types/node": "^15.12.2",
+    "chai": "^4.3.4",
+    "debug": "^4.3.2",
+    "ethereum-waffle": "^3.3.0",
+    "ethers": "^5.3.1",
+    "hardhat": "^2.4.1",
+    "hardhat-abi-exporter": "^2.2.1",
+    "hardhat-contract-sizer": "^2.5.1",
+    "prettier-plugin-solidity": "1.0.0-beta.18",
+    "solhint": "^3.3.6",
+    "solhint-plugin-prettier": "^0.0.5",
+    "solidity-coverage": "^0.7.17",
+    "ts-node": "^10.0.0",
+    "typechain": "^5.0.0",
+    "typescript": "^4.3.2"
+  },
+  "dependencies": {
+    "@eth-optimism/contracts": "^0.5.21"
+  }
+}
