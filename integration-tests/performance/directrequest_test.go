@@ -8,12 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -30,6 +29,7 @@ import (
 
 var _ = Describe("Directrequest suite @directrequest", func() {
 	var (
+		err              error
 		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
 		chainlinkNodes   []client.Chainlink
@@ -52,7 +52,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 						"HTTP_SERVER_WRITE_TIMEOUT": "300s",
 					},
 				}))
-			err := testEnvironment.Run()
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
@@ -88,7 +88,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Creating directrequest job", func() {
-			err := mockServerClient.SetValuePath("/variable", 5)
+			err = mockServerClient.SetValuePath("/variable", 5)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting mockserver value path shouldn't fail")
 
 			jobUUID = uuid.NewV4()
@@ -127,7 +127,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 				jobUUIDReplaces := strings.Replace(jobUUID.String(), "-", "", 4)
 				var jobID [32]byte
 				copy(jobID[:], jobUUIDReplaces)
-				err := consumer.CreateRequestTo(
+				err = consumer.CreateRequestTo(
 					oracle.Address(),
 					jobID,
 					big.NewInt(1e18),
@@ -164,7 +164,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
 			chainClient.GasStats().PrintStats()
-			err := actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 
@@ -159,6 +160,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 
 		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+
 		ms, err := ctfClient.ConnectMockServer(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
