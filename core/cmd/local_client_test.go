@@ -208,8 +208,6 @@ CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -244,7 +242,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
-
+	
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			lggr := logger.TestLogger(t)
 
