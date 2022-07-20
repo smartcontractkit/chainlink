@@ -93,20 +93,20 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
-			Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
-			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			//Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			//Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
+			//Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
 			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 		}
@@ -643,7 +643,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		}
 
 		if testToRun == HandleKeeperNodesGoingDown {
-			By("takes down half of the keeper nodes and watches upkeeps get performed slower")
+			By("taking down Keeper nodes has a visible effect on the upkeep servicing")
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
 			// Watch upkeeps being performed and store their counters in order to compare them later in the test
@@ -663,8 +663,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			for _, nodeToTakeDown := range firstHalfToTakeDown {
 				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
-				err2 := nodeToTakeDown.DeleteJob("2")
-				Expect(err2).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 			}
 			log.Info().Msg("Successfully managed to take down the first half of the nodes")
 
@@ -685,8 +683,6 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			for _, nodeToTakeDown := range secondHalfToTakeDown {
 				err := nodeToTakeDown.DeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
-				err2 := nodeToTakeDown.DeleteJob("2")
-				Expect(err2).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 			}
 			log.Info().Msg("Successfully managed to take down the second half of the nodes")
 
