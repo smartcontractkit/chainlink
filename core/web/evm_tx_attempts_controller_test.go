@@ -21,7 +21,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	borm := app.TxmORM()
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
@@ -51,7 +51,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)

@@ -255,7 +255,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
