@@ -133,6 +133,7 @@ type GeneralOnlyConfig interface {
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
 	KeyFile() string
+	KeystorePassword() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 	LogFileDir() string
@@ -174,6 +175,7 @@ type GeneralOnlyConfig interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
+	VRFPassword() string
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -1399,4 +1401,14 @@ func (c *generalConfig) LogFileDir() string {
 		return c.RootDir()
 	}
 	return s
+}
+
+// Implemented only in config V2. V1 uses a --password flag.
+func (c *generalConfig) KeystorePassword() string {
+	return ""
+}
+
+// Implemented only in config V2. V1 uses a --password flag.
+func (c *generalConfig) VRFPassword() string {
+	return ""
 }

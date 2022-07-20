@@ -57,9 +57,18 @@ func NewApp(client *Client) *cli.App {
 			Usage:  "TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.", //TODO
 			EnvVar: "CL_CONFIG",
 		},
+		cli.StringFlag{
+			Name:  "secrets, s",
+			Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+		},
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
+			if !c.IsSet("secrets") {
+				panic("secrets config file must be provided alongside regular config")
+			}
+			var err error
+
 			// TOML
 			configTOML := os.Getenv("CL_CONFIG")
 			if configTOML == "" {
@@ -70,13 +79,21 @@ func NewApp(client *Client) *cli.App {
 				}
 				configTOML = string(b)
 			}
-			var err error
-			client.Config, err = chainlink.NewGeneralConfig(configTOML, client.Logger)
+
+			secretsFileName := c.String("secrets")
+			b, err := os.ReadFile(secretsFileName)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+			}
+			secretsTOML := string(b)
+
+			client.Config, err = chainlink.NewGeneralConfig(configTOML, secretsTOML, client.Logger)
 			if err != nil {
 				return err
 			}
 			//TODO error if any legacy env vars set
 		} else {
+			// TODO: assert secrets are not set
 			// Legacy ENV
 			client.Config = config.NewGeneralConfig(client.Logger)
 		}

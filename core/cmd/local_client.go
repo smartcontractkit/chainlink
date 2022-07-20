@@ -134,7 +134,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
-	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
+	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
@@ -143,6 +143,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	var fileErr error
 	vrfPasswordFile := c.String("vrfpassword")
 	if len(vrfPasswordFile) != 0 {
+		// TODO: deprecate when config V2 is rolled out.
 		vrfpwd, fileErr = passwordFromFile(vrfPasswordFile)
 		if fileErr != nil {
 			return errors.Wrapf(fileErr,
@@ -155,6 +156,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		if len(vrfpwd) == 0 {
 			return ErrEmptyPasswordInFile
 		}
+	} else {
+		vrfpwd = cli.Config.VRFPassword()
 	}
 
 	evmChainSet := app.GetChains().EVM

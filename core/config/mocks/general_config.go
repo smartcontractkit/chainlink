@@ -2257,6 +2257,20 @@ func (_m *GeneralConfig) KeyFile() string {
 	return r0
 }
 
+// KeystorePassword provides a mock function with given fields:
+func (_m *GeneralConfig) KeystorePassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // LeaseLockDuration provides a mock function with given fields:
 func (_m *GeneralConfig) LeaseLockDuration() time.Duration {
 	ret := _m.Called()
@@ -3594,6 +3608,20 @@ func (_m *GeneralConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// VRFPassword provides a mock function with given fields:
+func (_m *GeneralConfig) VRFPassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

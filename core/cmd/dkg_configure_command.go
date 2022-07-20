@@ -166,7 +166,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 }
 
 func setupDKGKeystore(cli *Client, c *clipkg.Context, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore)
+	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}

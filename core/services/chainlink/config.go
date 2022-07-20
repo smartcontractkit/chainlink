@@ -67,6 +67,23 @@ func (c *Config) SetDefaults() {
 	//TODO terra and solana defaults
 }
 
+type Secrets struct {
+	config.Secrets
+}
+
+func (s *Secrets) TOMLString() (string, error) {
+	b, err := toml.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	// remove runs of line breaks
+	str := multiLineBreak.ReplaceAllLiteralString(string(b), "\n")
+	// restore them preceding keys
+	str = strings.Replace(str, "\n[", "\n\n[", -1)
+	str = strings.TrimPrefix(str, "\n")
+	return str, nil
+}
+
 type EVMConfigs []*EVMConfig
 
 func (cs EVMConfigs) ValidateConfig() (err error) {
