@@ -27,11 +27,11 @@ func deployUniverse(e helpers.Environment) {
 	subscriptionBalanceString := deployCmd.String("subscription-balance", assets.Ether(10).String(), "amount to fund subscription")
 
 	// optional flags
-	fallbackWeiPerUnitLink := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60000000).String(), "fallback wei/link ratio")
+	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60_000_000).String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
 	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
 	minConfs := deployCmd.Int("min-confs", 3, "min confs")
-	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100000000).Int64(), "amount to fund sending oracle")
+	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100_000_000).Int64(), "amount to fund sending oracle")
 	maxGasLimit := deployCmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
 	stalenessSeconds := deployCmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 	gasAfterPayment := deployCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
@@ -49,6 +49,7 @@ func deployUniverse(e helpers.Environment) {
 		deployCmd, os.Args[2:],
 	)
 
+	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
 
 	// Put key in ECDSA format
@@ -58,13 +59,13 @@ func deployUniverse(e helpers.Environment) {
 
 	if len(*linkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
-		address := deployLinkToken(e).String()
+		address := helpers.DeployLinkToken(e).String()
 		linkAddress = &address
 	}
 
 	if len(*linkEthAddress) == 0 {
 		fmt.Println("\nDeploying LINK/ETH Feed...")
-		address := deployLinkEthFeed(e, *linkAddress, decimal.RequireFromString(*fallbackWeiPerUnitLink)).String()
+		address := helpers.DeployLinkEthFeed(e, *linkAddress, fallbackWeiPerUnitLink).String()
 		linkEthAddress = &address
 	}
 
@@ -90,7 +91,7 @@ func deployUniverse(e helpers.Environment) {
 		uint32(*maxGasLimit),
 		uint32(*stalenessSeconds),
 		uint32(*gasAfterPayment),
-		decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
+		fallbackWeiPerUnitLink,
 		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 			FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
 			FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
@@ -143,7 +144,7 @@ func deployUniverse(e helpers.Environment) {
 
 	if len(*registerKeyOracleAddress) > 0 {
 		fmt.Println("\nFunding oracle...")
-		fundOracle(e, *registerKeyOracleAddress, *oracleFundingAmount)
+		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
 	}
 
 	fmt.Println(

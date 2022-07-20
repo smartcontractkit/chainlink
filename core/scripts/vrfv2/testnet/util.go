@@ -7,17 +7,14 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper"
@@ -34,20 +31,6 @@ func deployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
 
 func deployBatchBHS(e helpers.Environment, bhsAddress common.Address) (batchBHSAddress common.Address) {
 	_, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(e.Owner, e.Ec, bhsAddress)
-	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func deployLinkToken(e helpers.Environment) common.Address {
-	_, tx, _, err := link_token_interface.DeployLinkToken(e.Owner, e.Ec)
-	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func deployLinkEthFeed(e helpers.Environment, linkAddress string, weiPerUnitLink decimal.Decimal) common.Address {
-	_, tx, _, err :=
-		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			e.Owner, e.Ec, 18, weiPerUnitLink.BigInt())
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -108,28 +91,6 @@ func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.V
 	tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
-}
-
-func fundOracle(e helpers.Environment, oracleAddress string, fundingAmount int64) {
-	block, err := e.Ec.BlockNumber(context.Background())
-	helpers.PanicErr(err)
-
-	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
-	helpers.PanicErr(err)
-
-	tx := types.NewTransaction(
-		nonce,
-		common.HexToAddress(oracleAddress),
-		big.NewInt(fundingAmount),
-		uint64(21000),
-		e.Owner.GasPrice,
-		nil,
-	)
-	signedTx, err := e.Owner.Signer(e.Owner.From, tx)
-	helpers.PanicErr(err)
-	err = e.Ec.SendTransaction(context.Background(), signedTx)
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx, e.ChainID)
 }
 
 func printCoordinatorConfig(coordinator *vrf_coordinator_v2.VRFCoordinatorV2) {
