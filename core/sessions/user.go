@@ -112,7 +112,7 @@ func GetUserRole(role string) (UserRole, error) {
 		UserRoleRun,
 		UserRoleView,
 	)
-	return UserRole(""), errors.Errorf(errStr)
+	return UserRole(""), errors.New(errStr)
 }
 
 // SessionRequest encapsulates the fields needed to generate a new SessionID,

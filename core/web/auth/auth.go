@@ -193,12 +193,12 @@ func RequiresRunRole(handler func(*gin.Context)) func(*gin.Context) {
 		user, ok := GetAuthenticatedUser(c)
 		if !ok {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("not a valid session"))
 			return
 		}
 		if user.Role == clsessions.UserRoleView {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
 			return
 		}
 		handler(c)
@@ -212,12 +212,12 @@ func RequiresEditRole(handler func(*gin.Context)) func(*gin.Context) {
 		user, ok := GetAuthenticatedUser(c)
 		if !ok {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("not a valid session"))
 			return
 		}
 		if user.Role == clsessions.UserRoleView || user.Role == clsessions.UserRoleRun {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
 			return
 		}
 		handler(c)
@@ -230,12 +230,12 @@ func RequiresAdminRole(handler func(*gin.Context)) func(*gin.Context) {
 		user, ok := GetAuthenticatedUser(c)
 		if !ok {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("not a valid session"))
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("not a valid session"))
 			return
 		}
 		if user.Role != clsessions.UserRoleAdmin {
 			c.Abort()
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("Unauthorized"))
+			jsonAPIError(c, http.StatusUnauthorized, errors.New("Unauthorized"))
 			return
 		}
 		handler(c)

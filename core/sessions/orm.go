@@ -264,7 +264,7 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		// First, attempt to load specified user by email
 		if err := tx.Get(&userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
-			return errors.Errorf("no matching user for provided email")
+			return errors.New("no matching user for provided email")
 		}
 
 		// Changes to the user may require the entries in the sessions table to be removed
@@ -306,7 +306,7 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 			_, err := tx.Exec("DELETE FROM sessions WHERE email = $1", email)
 			if err != nil {
 				o.lggr.Errorf("Failed to purge user sessions via DeleteSessionByUser", "err", err)
-				return errors.Errorf("error updating API user")
+				return errors.New("error updating API user")
 			}
 		}
 
@@ -320,7 +320,7 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 				}
 			}
 			o.lggr.Errorf("Error updating API user", "err", err)
-			return errors.Errorf("error updating API user")
+			return errors.New("error updating API user")
 		}
 
 		return nil
