@@ -15,7 +15,7 @@ import (
 )
 
 // ErrTerraNotEnabled is returned when TERRA_ENABLED is not true.
-var ErrTerraNotEnabled = errors.New("Terra is disabled. Set TERRA_ENABLED=true to enable.")
+var ErrTerraNotEnabled = errChainDisabled{name: "Terra", envVar: "TERRA_ENABLED"}
 
 func NewTerraNodesController(app chainlink.Application) NodesController {
 	parse := func(s string) (string, error) { return s, nil }

@@ -64,6 +64,11 @@ go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrapp
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
 
+.PHONY: go-solidity-wrappers-ocr2vrf
+go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
+	./contracts/scripts/native_solc_compile_all_ocr2vrf
+	go generate ./core/internal/gethwrappers/ocr2vrf
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run ./core/main.go local db preparetest
@@ -81,7 +86,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.13.0-beta.1
+	go install github.com/vektra/mockery/v2@v2.14.0
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -107,6 +112,14 @@ test_smoke_simulated: ## Run integration smoke tests, only using simulated netwo
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
+
+.PHONY: test_soak_ocr
+test_soak_ocr: ## Run the OCR soak test
+	cd ./integration-tests && go test -v -run ^TestOCRSoak$$ ./soak -count=1 && cd ..
+
+.PHONY: test_soak_keeper
+test_soak_keeper: ## Run the OCR soak test
+	cd ./integration-tests && go test -v -run ^TestKeeperSoak$$ ./soak -count=1 && cd ..
 
 .PHONY: test_perf
 test_perf: ## Run core node performance tests.
