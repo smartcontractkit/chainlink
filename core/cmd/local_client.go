@@ -259,7 +259,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		return nil
 	})
 
-	lggr.Debug("Environment variables\n", config.NewConfigPrinter(cli.Config))
+	cli.Config.LogConfiguration(lggr.Debug)
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 

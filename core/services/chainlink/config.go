@@ -45,14 +45,12 @@ func NewConfig(tomlString string, lggr logger.Logger) (coreconfig.GeneralConfig,
 	var c Config
 	err := toml.Unmarshal([]byte(tomlString), &c)
 	if err != nil {
-		//TODO check for strict error to unroll friendlier String() format; lock in with test
 		return nil, err
 	}
 	input, err := c.TOMLString()
 	if err != nil {
 		return nil, err
 	}
-	lggr.Info("Input Configuration:\n", input)
 
 	c.SetDefaults()
 
@@ -60,8 +58,7 @@ func NewConfig(tomlString string, lggr logger.Logger) (coreconfig.GeneralConfig,
 	if err != nil {
 		return nil, err
 	}
-	lggr.Info("Effective Configuration, with defaults applied:\n", effective)
-	return &legacyGeneralConfig{c: &c, lggr: lggr}, nil
+	return &legacyGeneralConfig{c: &c, input: input, effective: effective}, nil
 }
 
 // TOMLString returns a pretty-printed TOML encoded string, with extra line breaks removed.
