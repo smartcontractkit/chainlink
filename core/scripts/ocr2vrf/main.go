@@ -247,6 +247,8 @@ func main() {
 
 	case "dkg-setup":
 		setupDKGNodes(e)
+	case "ocr2vrf-setup":
+		setupOCR2VRFNodes(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

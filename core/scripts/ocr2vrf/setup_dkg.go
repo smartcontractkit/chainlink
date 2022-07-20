@@ -19,12 +19,12 @@ import (
 )
 
 func setupDKGNodes(e helpers.Environment) {
-	client := newDKGSetupClient()
+	client := newSetupClient()
 	app := cmd.NewApp(client)
 
 	cmd := flag.NewFlagSet("dkg-setup", flag.ExitOnError)
 	keyID := cmd.String("key-id", "aee00d81f822f882b6fe28489822f59ebb21ea95c0ae21d9f67c0239461148fc", "key ID")
-	apiFile := cmd.String("api", "../../../tools/secrets/apicredentials", "api file")
+	apiFile := cmd.String("api", "../../../tools/secrets/apicredentials", "api credentials file")
 	passwordFile := cmd.String("password", "../../../tools/secrets/password.txt", "password file")
 	databasePrefix := cmd.String("database-prefix", "postgres://postgres:postgres@localhost:5432/dkg-test", "database prefix")
 	databaseSuffixes := cmd.String("database-suffixes", "sslmode=disable", "database parameters to be added")
@@ -33,7 +33,7 @@ func setupDKGNodes(e helpers.Environment) {
 	helpers.ParseArgs(cmd, os.Args[2:])
 
 	if *nodeCount < 6 {
-		fmt.Println("Node count too low for DKG job.")
+		fmt.Println("Node count too low for DKG job, need at least 6.")
 		os.Exit(1)
 	}
 
@@ -60,6 +60,7 @@ func setupDKGNodes(e helpers.Environment) {
 		flagSet.String("api", *apiFile, "api file")
 		flagSet.String("password", *passwordFile, "password file")
 		flagSet.String("bootstrapPort", fmt.Sprintf("%d", 8000), "port of bootstrap")
+		flagSet.String("job-type", string(jobTypeDKG), "the job type")
 		flagSet.String("keyID", *keyID, "")
 		flagSet.String("contractID", dkgAddress, "the contract address of the DKG")
 		flagSet.Int64("chainID", e.ChainID, "the chain ID")
@@ -78,7 +79,7 @@ func setupDKGNodes(e helpers.Environment) {
 		resetDatabase(client, context, i, *databasePrefix, *databaseSuffixes)
 
 		// Setup DKG node.
-		payload := setupDKGNodeFromClient(client, context)
+		payload := setupOCR2VRFNodeFromClient(client, context)
 
 		// Append arguments for dkg-set-config command.
 		onChainPublicKeys = append(onChainPublicKeys, payload.OnChainPublicKey)
@@ -138,8 +139,8 @@ func fundNodes(e helpers.Environment, transmitters []string, fundingAmount int64
 	}
 }
 
-func setupDKGNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupDKGNodePayload {
-	payload, err := client.ConfigureDKGNode(context)
+func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
+	payload, err := client.ConfigureOCR2VRFNode(context)
 	helpers.PanicErr(err)
 
 	return payload
@@ -155,7 +156,7 @@ func resetDatabase(client *cmd.Client, context *cli.Context, index int, database
 	helpers.PanicErr(client.ResetDatabase(context))
 }
 
-func newDKGSetupClient() *cmd.Client {
+func newSetupClient() *cmd.Client {
 	lggr, closeLggr := logger.NewLogger()
 	cfg := config.NewGeneralConfig(lggr)
 
