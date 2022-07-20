@@ -1,9 +1,9 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
@@ -34,7 +34,7 @@ func TestTask_HexDecode(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			vars := pipeline.NewVarsFrom(nil)
 			task := pipeline.HexDecodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Input: test.input}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
 
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
@@ -57,7 +57,7 @@ func TestTask_HexDecode(t *testing.T) {
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    "$(foo.bar)",
 			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{})
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
 
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)

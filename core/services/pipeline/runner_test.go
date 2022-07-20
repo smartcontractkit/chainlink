@@ -819,12 +819,12 @@ func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{
-		"first": "0x12345678",
+		"astring": "0x12345678",
 	}
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
-a [type=hexdecode input="$(first)"]
+a [type=hexdecode input="$(astring)"]
 `,
 	}, pipeline.NewVarsFrom(input), lggr)
 	require.NoError(t, err)
@@ -841,12 +841,12 @@ func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{
-		"first": "SGVsbG8sIHBsYXlncm91bmQ=",
+		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
 	}
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
-a [type=base64decode input="$(first)"]
+a [type=base64decode input="$(astring)"]
 `,
 	}, pipeline.NewVarsFrom(input), lggr)
 	require.NoError(t, err)
