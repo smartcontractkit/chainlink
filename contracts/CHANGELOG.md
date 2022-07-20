@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.4.1 - 2022-07-14
+## 0.4.2 - 2022-07-20
 
 ### Changed
 
@@ -9,6 +9,12 @@
 - Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
 - Revert to using current Arbitrum seq status flag in `ArbitrumSequencerUptimeFeed`
 - Moved `VRFV2Wrapper`, `VRFV2WrapperConsumerBase` and `interfaces/VRFV2WrapperInterface` out of `dev` folder.
+
+## 0.4.1 - 2022-05-09
+
+### Changed
+
+- VRFv2 contract pragma versions changed from `^0.8.0` to `^0.8.4`.
 
 ## 0.4.0 - 2022-02-07
 
