@@ -163,6 +163,8 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeLowercase, &pipeline.LowercaseTask{}},
 		{pipeline.TaskTypeUppercase, &pipeline.UppercaseTask{}},
 		{pipeline.TaskTypeConditional, &pipeline.ConditionalTask{}},
+		{pipeline.TaskTypeHexDecode, &pipeline.HexDecodeTask{}},
+		{pipeline.TaskTypeBase64Decode, &pipeline.Base64DecodeTask{}},
 	}
 
 	for _, test := range tests {
