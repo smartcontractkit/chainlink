@@ -67,8 +67,9 @@ func (c *UserController) Create(ctx *gin.Context) {
 	}
 	if err = c.App.SessionORM().CreateUser(&user); err != nil {
 		// If this is a duplicate key error (code 23505), return a nicer error message
-		if err, ok := err.(*pgconn.PgError); ok {
-			if err.Code == "23505" {
+		var pgErr *pgconn.PgError
+		if ok := errors.As(err, &pgErr); ok {
+			if pgErr.Code == "23505" {
 				jsonAPIError(ctx, http.StatusBadRequest, pkgerrors.Errorf("user with email %s already exists", request.Email))
 				return
 			}
@@ -109,7 +110,6 @@ func (c *UserController) Update(ctx *gin.Context) {
 
 	user, err := c.App.SessionORM().UpdateUser(request.Email, request.NewEmail, request.NewPassword, request.NewRole)
 	if err != nil {
-		c.App.GetLogger().Errorf("Error updating API user", "err", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("error updating API user"))
 		return
 	}

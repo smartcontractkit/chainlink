@@ -37,6 +37,7 @@ func authenticateUserCanEdit(ctx context.Context) error {
 	switch session.User.Role {
 	case sessions.UserRoleView, sessions.UserRoleRun:
 		return RoleNotPermittedErr{session.User.Role}
+	default:
 	}
 	return nil
 }

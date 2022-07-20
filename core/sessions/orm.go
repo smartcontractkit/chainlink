@@ -313,8 +313,9 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 		sql := "UPDATE users SET email = $1, hashed_password = $2, role = $3, updated_at = now() WHERE lower(email) = lower($4) RETURNING *"
 		if err := tx.Get(&userToEdit, sql, strings.ToLower(userToEdit.Email), userToEdit.HashedPassword, userToEdit.Role, email); err != nil {
 			// If this is a duplicate key error (code 23505), return a nicer error message
-			if err, ok := err.(*pgconn.PgError); ok {
-				if err.Code == "23505" {
+			var pgErr *pgconn.PgError
+			if ok := errors.As(err, &pgErr); ok {
+				if pgErr.Code == "23505" {
 					return errors.Errorf("user with email %s already exists", userToEdit.Email)
 				}
 			}

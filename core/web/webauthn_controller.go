@@ -1,12 +1,11 @@
 package web
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
-	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -31,7 +30,7 @@ func NewWebAuthnController(app chainlink.Application) WebAuthnController {
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	user, ok := auth.GetAuthenticatedUser(ctx)
 	if !ok {
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("failed to obtain current user from context"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.Errorf("failed to obtain current user from context"))
 		return
 	}
 
@@ -39,7 +38,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("Unable to register key"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.Errorf("Unable to register key"))
 		return
 	}
 
@@ -61,7 +60,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	user, ok := auth.GetAuthenticatedUser(ctx)
 	if !ok {
 		logger.Sugared(c.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("Unable to register key"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.Errorf("Unable to register key"))
 		return
 	}
 
@@ -69,7 +68,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, pkgerrors.Errorf("Unable to register key"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.Errorf("Unable to register key"))
 		return
 	}
 
