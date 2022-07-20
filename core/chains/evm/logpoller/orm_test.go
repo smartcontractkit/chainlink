@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"bytes"
 	"database/sql"
 	"math/big"
 	"testing"
@@ -318,4 +319,97 @@ func TestORM_DataWords(t *testing.T) {
 	lgs, err = o1.SelectDataWordGreaterThan(addr, eventSig[:], 0, EvmWord(1), 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
+}
+
+func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
+	o1, _ := setup(t)
+
+	// Insert logs on different topics, should be able to read them
+	// back using SelectLogsWithSigsByBlockRangeFilter and specifying
+	// said topics.
+	topic := common.HexToHash("0x1599")
+	topic2 := common.HexToHash("0x1600")
+	sourceAddr := common.HexToAddress("0x12345")
+	inputLogs := []Log{
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    1,
+			BlockHash:   common.HexToHash("0x1234"),
+			BlockNumber: int64(10),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     sourceAddr,
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello1"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    2,
+			BlockHash:   common.HexToHash("0x1235"),
+			BlockNumber: int64(11),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     sourceAddr,
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello2"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    3,
+			BlockHash:   common.HexToHash("0x1236"),
+			BlockNumber: int64(12),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1235"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello3"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    4,
+			BlockHash:   common.HexToHash("0x1237"),
+			BlockNumber: int64(13),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1235"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello4"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    5,
+			BlockHash:   common.HexToHash("0x1238"),
+			BlockNumber: int64(14),
+			EventSig:    topic2[:],
+			Topics:      [][]byte{topic2[:]},
+			Address:     sourceAddr,
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello5"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    6,
+			BlockHash:   common.HexToHash("0x1239"),
+			BlockNumber: int64(15),
+			EventSig:    topic2[:],
+			Topics:      [][]byte{topic2[:]},
+			Address:     sourceAddr,
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello6"),
+		},
+	}
+	require.NoError(t, o1.InsertLogs(inputLogs))
+
+	startBlock, endBlock := int64(10), int64(15)
+	logs, err := o1.SelectLogsWithSigsByBlockRangeFilter(startBlock, endBlock, sourceAddr, [][]byte{
+		topic.Bytes(),
+		topic2.Bytes(),
+	})
+	require.NoError(t, err)
+	assert.Len(t, logs, 4)
+	for _, l := range logs {
+		assert.Equal(t, sourceAddr, l.Address, "wrong log address")
+		assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig) || bytes.Equal(topic2.Bytes(), l.EventSig), "wrong log topic")
+		assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
+	}
 }

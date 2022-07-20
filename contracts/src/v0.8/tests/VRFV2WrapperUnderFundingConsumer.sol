@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../ConfirmedOwner.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "../dev/VRFV2WrapperInterface.sol";
+import "../interfaces/VRFV2WrapperInterface.sol";
 
 contract VRFV2WrapperUnderFundingConsumer is ConfirmedOwner {
   LinkTokenInterface internal immutable LINK;
