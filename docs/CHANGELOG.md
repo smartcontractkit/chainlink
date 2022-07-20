@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `hexdecode` and `base64decode` tasks (pipeline).
 - Added official support for Besu execution client.
+- Added the functionality to allow the root admin CLI user (and any additional admin users created) to create and assign tiers of role based access to new users. These new API users will be able to log in to the Operator UI independently, and can each have specific roles tied to their account. There are four roles: `admin`, `edit`, `run`, and `view`.
+  - User management can be configured through the use of the new admin CLI command `chainlink admin users`. Be sure to run `chainlink adamin login`. For example, a readonly user can be created with: `chainlink admin users create --email=operator-ui-read-only@test.com --role=view`.
+  - Updated documentation repo with a break down of actions to required role level
 - Added per job spec and per job type gas limit control. The following rule of precedence is applied:
 
 1. task-specific parameter `gasLimit` overrides anything else when specified (e.g. `ethtx` task has such a parameter).
