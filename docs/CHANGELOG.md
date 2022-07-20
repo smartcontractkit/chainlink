@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added 
 
+- Added `hexdecode` and `base64decode` tasks (pipeline).
 - Added official support for Besu execution client.
 - Added per job spec and per job type gas limit control. The following rule of precedence is applied:
 
