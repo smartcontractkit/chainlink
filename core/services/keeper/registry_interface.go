@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"math/big"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -23,6 +25,8 @@ const (
 	RegistryVersion_1_2
 )
 
+const ActiveUpkeepIDBatchSize int64 = 10000
+
 // RegistryWrapper implements a layer on top of different versions of registry wrappers
 // to provide a unified layer to rest of the codebase
 type RegistryWrapper struct {
@@ -30,6 +34,7 @@ type RegistryWrapper struct {
 	Version     RegistryVersion
 	contract1_1 *registry1_1.KeeperRegistry
 	contract1_2 *registry1_2.KeeperRegistry
+	evmClient   bind.ContractBackend
 }
 
 func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBackend) (*RegistryWrapper, error) {
@@ -65,6 +70,7 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 		Version:     *version,
 		contract1_1: contract1_1,
 		contract1_2: contract1_2,
+		evmClient:   backend,
 	}, nil
 }
 
@@ -119,8 +125,41 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 		}
 		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
-		// TODO (sc-37024): Get active upkeep IDs from contract in batches
-		return rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(0), big.NewInt(0))
+		if opts == nil || opts.BlockNumber.Int64() == 0 {
+			// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
+			header, err := rw.evmClient.HeaderByNumber(context.Background(), nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to fetch EVM block header")
+			}
+			if opts != nil {
+				opts.BlockNumber = header.Number
+			} else {
+				opts = &bind.CallOpts{
+					BlockNumber: header.Number,
+				}
+			}
+		}
+
+		state, err := rw.contract1_2.GetState(opts)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get contract state at block number %d", opts.BlockNumber.Int64())
+		}
+
+		activeUpkeepIDs := make([]*big.Int, 0)
+		for int64(len(activeUpkeepIDs)) < state.State.NumUpkeeps.Int64() {
+			startIndex := int64(len(activeUpkeepIDs))
+			maxCount := state.State.NumUpkeeps.Int64() - int64(len(activeUpkeepIDs))
+			if maxCount > ActiveUpkeepIDBatchSize {
+				maxCount = ActiveUpkeepIDBatchSize
+			}
+			activeUpkeepIDBatch, err := rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %d to %d (both inclusive)", startIndex, startIndex+maxCount-1)
+			}
+			activeUpkeepIDs = append(activeUpkeepIDs, activeUpkeepIDBatch...)
+		}
+
+		return activeUpkeepIDs, nil
 	default:
 		return nil, newUnsupportedVersionError("GetActiveUpkeepIDs", rw.Version)
 	}
@@ -172,7 +211,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract config")
 		}
-		keeperAddresses, err := rw.contract1_1.GetKeeperList(nil)
+		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get keeper list")
 		}
@@ -182,7 +221,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			KeeperAddresses:   keeperAddresses,
 		}, nil
 	case RegistryVersion_1_2:
-		state, err := rw.contract1_2.GetState(nil)
+		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get contract state")
 		}

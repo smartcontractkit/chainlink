@@ -213,6 +213,12 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			return errors.Wrap(err2, "failed to ensure terra key")
 		}
 	}
+	if cli.Config.StarkNetEnabled() {
+		err2 := app.GetKeyStore().StarkNet().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure starknet key")
+		}
+	}
 
 	err2 := app.GetKeyStore().CSA().EnsureKey()
 	if err2 != nil {

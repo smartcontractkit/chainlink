@@ -59,7 +59,7 @@ export default {
         settings: COMPILER_SETTINGS,
       },
       {
-        version: '0.8.13',
+        version: '0.8.15',
         settings: COMPILER_SETTINGS,
       },
     ],

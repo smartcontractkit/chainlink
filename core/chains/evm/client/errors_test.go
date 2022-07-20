@@ -162,24 +162,23 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 	})
 
-	t.Run("IsTooExpensive", func(t *testing.T) {
+	t.Run("IsTxFeeExceedsCap", func(t *testing.T) {
 		tests := []errorCase{
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "geth"},
 			{"tx fee (1.10 FTM) exceeds the configured cap (1.00 FTM)", true, "geth"},
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
-			{"call failed: InsufficientFunds", true, "Nethermind"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
-			assert.Equal(t, err.IsTooExpensive(), test.expect)
+			assert.Equal(t, err.IsTxFeeExceedsCap(), test.expect)
 			err = newSendErrorWrapped(test.message)
-			assert.Equal(t, err.IsTooExpensive(), test.expect)
+			assert.Equal(t, err.IsTxFeeExceedsCap(), test.expect)
 		}
 
-		assert.False(t, randomError.IsTooExpensive())
+		assert.False(t, randomError.IsTxFeeExceedsCap())
 		// Nil
 		err = evmclient.NewSendError(nil)
-		assert.False(t, err.IsTooExpensive())
+		assert.False(t, err.IsTxFeeExceedsCap())
 	})
 
 	t.Run("Optimism Fees errors", func(t *testing.T) {

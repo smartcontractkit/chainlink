@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -29,6 +30,14 @@ func NewEIP55Address(s string) (EIP55Address, error) {
 		return EIP55Address(""), fmt.Errorf(`"%s" is not a valid EIP55 formatted address`, s)
 	}
 	return EIP55Address(s), nil
+}
+
+func MustEIP55Address(s string) EIP55Address {
+	addr, err := NewEIP55Address(s)
+	if err != nil {
+		panic(err)
+	}
+	return addr
 }
 
 // EIP55AddressFromAddress forces an address into EIP55Address format

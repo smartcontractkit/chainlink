@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.EthTxState, maxLink string, subID uint64) {
+func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.EthTxState, maxLink string, subID uint64, reqTxHash common.Hash) {
 	_, err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
 		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11
@@ -38,8 +38,9 @@ func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.EthTxS
 		0,              // limit
 		state,
 		txmgr.EthTxMeta{
-			MaxLink: &maxLink,
-			SubID:   &subID,
+			MaxLink:       &maxLink,
+			SubID:         &subID,
+			RequestTxHash: &reqTxHash,
 		},
 		uuid.NullUUID{},
 		1337,
@@ -101,9 +102,10 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	require.NoError(t, err)
 
 	subID := uint64(1)
+	reqTxHash := common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")
 
 	// Insert an unstarted eth tx with link metadata
-	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", subID)
+	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", subID, reqTxHash)
 	start, err := MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
@@ -115,7 +117,7 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	assert.Equal(t, "90000", start.String())
 
 	// An unconfirmed tx _should_ affect the starting balance.
-	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", subID)
+	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", subID, reqTxHash)
 	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
@@ -123,7 +125,7 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	// One subscriber's reserved link should not affect other subscribers prospective balance.
 	otherSubID := uint64(2)
 	require.NoError(t, err)
-	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", otherSubID)
+	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", otherSubID, reqTxHash)
 	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
@@ -133,14 +135,14 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	require.NoError(t, err)
 
 	anotherSubID := uint64(3)
-	addEthTx(t, db, k2.Address.Address(), txmgr.EthTxUnstarted, "10000", anotherSubID)
+	addEthTx(t, db, k2.Address.Address(), txmgr.EthTxUnstarted, "10000", anotherSubID, reqTxHash)
 	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// A subscriber's balance is deducted with the link reserved across multiple keys,
 	// i.e, gas lanes.
-	addEthTx(t, db, k2.Address.Address(), txmgr.EthTxUnstarted, "10000", subID)
+	addEthTx(t, db, k2.Address.Address(), txmgr.EthTxUnstarted, "10000", subID, reqTxHash)
 	start, err = MaybeSubtractReservedLink(q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "70000", start.String())

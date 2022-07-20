@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -196,7 +197,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 const constantTimeEmailLength = 256
 
 func constantTimeEmailCompare(left, right string) bool {
-	length := utils.MaxInt(constantTimeEmailLength, len(left), len(right))
+	length := mathutil.Max(constantTimeEmailLength, len(left), len(right))
 	leftBytes := make([]byte, length)
 	rightBytes := make([]byte, length)
 	copy(leftBytes, left)

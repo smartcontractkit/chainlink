@@ -297,7 +297,7 @@ func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, origin
 	var priceByIncrement = new(big.Int)
 	priceByIncrement.Add(originalGasPrice, cfg.EvmGasBumpWei())
 
-	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
+	bumpedGasPrice := bigmath.Max(priceByPercentage, priceByIncrement)
 	if currentGasPrice != nil {
 		if currentGasPrice.Cmp(maxGasPrice) > 0 {
 			// Shouldn't happen because the estimator should not be allowed to
@@ -320,13 +320,6 @@ func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, origin
 			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
 	}
 	return bumpedGasPrice, nil
-}
-
-func max(a, b *big.Int) *big.Int {
-	if a.Cmp(b) >= 0 {
-		return a
-	}
-	return b
 }
 
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
@@ -403,7 +396,7 @@ func increaseByPercentageOrIncrement(original *big.Int, percentage uint16, incre
 
 	incrementBump := new(big.Int).Add(original, increment)
 
-	return max(percentageBump, incrementBump)
+	return bigmath.Max(percentageBump, incrementBump)
 }
 
 func increaseByPercentage(original *big.Int, percentage uint16) (bumped *big.Int) {

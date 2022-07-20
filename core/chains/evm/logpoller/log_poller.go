@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/mathutil"
 )
 
 //go:generate mockery --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
@@ -93,9 +94,8 @@ func (lp *logPoller) MergeFilter(topics []common.Hash, address common.Address) {
 	}
 }
 
+// Assumes caller holds filterMu lock
 func (lp *logPoller) filterAddresses() []common.Address {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
 	var addresses []common.Address
 	for addr := range lp.addresses {
 		addresses = append(addresses, addr)
@@ -106,9 +106,8 @@ func (lp *logPoller) filterAddresses() []common.Address {
 	return addresses
 }
 
+// Assumes caller holds filterMu lock
 func (lp *logPoller) filterTopics() [][]common.Hash {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
 	var topics [][]common.Hash
 	for idx := 0; idx < len(lp.topics); idx++ {
 		var topicPosition []common.Hash
@@ -121,6 +120,20 @@ func (lp *logPoller) filterTopics() [][]common.Hash {
 		topics = append(topics, topicPosition)
 	}
 	return topics
+}
+
+func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+	topics := lp.filterTopics()
+	addresses := lp.filterAddresses()
+	if len(topics) == 0 && len(addresses) == 0 {
+		// If no filter specified, ignore everything.
+		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
+		// then as jobs are added dynamically start using their filters.
+		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
+	}
+	return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: topics, Addresses: addresses}
 }
 
 // Replay signals that the poller should resume from a new block.
@@ -200,13 +213,6 @@ func (lp *logPoller) run() {
 	}
 }
 
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func convertLogs(chainID *big.Int, logs []types.Log) []Log {
 	var lgs []Log
 	for _, l := range logs {
@@ -241,16 +247,11 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 			logs []types.Log
 			err  error
 		)
-		to := min(from+lp.backfillBatchSize-1, end)
+		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
 		// Retry forever to query for logs,
 		// unblocked by resolving node connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
-			logs, err = lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
-				FromBlock: big.NewInt(from),
-				ToBlock:   big.NewInt(to),
-				Addresses: lp.filterAddresses(),
-				Topics:    lp.filterTopics(),
-			})
+			logs, err = lp.ec.FilterLogs(ctx, lp.filter(big.NewInt(from), big.NewInt(to), nil))
 			if err != nil {
 				lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
 				return true
@@ -380,11 +381,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 
 		h := currentBlock.Hash()
-		logs, err2 := lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
-			BlockHash: &h,
-			Addresses: lp.filterAddresses(),
-			Topics:    lp.filterTopics(),
-		})
+		logs, err2 := lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
 		if err2 != nil {
 			lp.lggr.Warnw("Unable query for logs, retrying", "err", err2, "block", currentBlock.Number())
 			return currentBlockNumber

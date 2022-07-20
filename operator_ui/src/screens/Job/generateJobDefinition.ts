@@ -163,6 +163,7 @@ export const generateJobDefinition = (
           'keyBundleID',
           'observationTimeout',
           'p2pBootstrapPeers',
+          'p2pv2Bootstrappers',
           'transmitterAddress',
         ),
         ...extractObservationSourceField(job),

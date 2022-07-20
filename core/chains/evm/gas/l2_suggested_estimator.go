@@ -18,7 +18,7 @@ var (
 	_ Estimator = &l2SuggestedEstimator{}
 )
 
-//go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname OptimismRPCClient
+//go:generate mockery --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
 	Call(result interface{}, method string, args ...interface{}) error
 }
