@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "../dev/VRFV2WrapperConsumerBase.sol";
+import "../VRFV2WrapperConsumerBase.sol";
 import "../ConfirmedOwner.sol";
 
 contract VRFV2WrapperRevertingConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {

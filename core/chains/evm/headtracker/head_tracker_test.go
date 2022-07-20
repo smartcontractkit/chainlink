@@ -83,7 +83,7 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	logger := logger.TestLogger(t)
 	config := newCfg(t)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
 	for idx := 0; idx < 200; idx++ {
@@ -129,7 +129,7 @@ func TestHeadTracker_Get(t *testing.T) {
 			config := newCfg(t)
 			orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			chStarted := make(chan struct{})
 			mockEth := &evmtest.MockEth{
 				EthClient: ethClient,
@@ -175,7 +175,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	chStarted := make(chan struct{})
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
@@ -203,7 +203,7 @@ func TestHeadTracker_Start_CancelContext(t *testing.T) {
 	logger := logger.TestLogger(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	chStarted := make(chan struct{})
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Run(func(args mock.Arguments) {
 		ctx := args.Get(0).(context.Context)
@@ -244,7 +244,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
@@ -267,7 +267,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 	headers := <-chchHeaders
 	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)})
-	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	ht.Stop(t)
 	assert.Equal(t, int32(1), checker.OnNewLongestChainCount())
@@ -282,7 +282,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
@@ -306,9 +306,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	// trigger reconnect loop
 	mockEth.SubsErr(errors.New("test error to force reconnect"))
-	g.Eventually(func() int32 {
-		return checker.OnNewLongestChainCount()
-	}).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 }
 
 func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
@@ -320,7 +318,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
@@ -353,7 +351,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	headers.CloseCh()
 
 	// wait for full disconnect and a new subscription
-	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }, 5*time.Second, 5*time.Millisecond).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker.OnNewLongestChainCount, 5*time.Second, 5*time.Millisecond).Should(gomega.Equal(int32(1)))
 }
 
 func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
@@ -362,7 +360,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 	config := newCfg(t)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
@@ -422,7 +420,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	d := 2500 * time.Millisecond
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
@@ -556,7 +554,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	d := 0 * time.Second
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
@@ -788,7 +786,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
@@ -807,7 +805,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
@@ -845,7 +843,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
@@ -880,7 +878,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
@@ -900,7 +898,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
@@ -930,7 +928,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil).
@@ -963,7 +961,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).
 			Return(&head10, nil)
