@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -514,6 +516,7 @@ ds1 -> ds1_parse;
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
 		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
+		config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{}
 		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
 		config.Overrides.OCRTransmitterAddress = &tAddress
 		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
@@ -626,6 +629,7 @@ ds1 -> ds1_parse;
 
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{}
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))

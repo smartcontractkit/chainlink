@@ -72,7 +72,7 @@ func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 	}
 	ips, err := net.LookupIP(dbURL.String())
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to lookup IP for DB URL: %v", dbURL.Redacted())
+		return true, errors.Wrapf(err, "failed to lookup IP for DB URL")
 	}
 	for _, dbIP := range ips {
 		if dbIP.Equal(ip) {

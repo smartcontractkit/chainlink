@@ -80,5 +80,5 @@ func (key KeyV2) GoString() string {
 func ed25519PubKeyFromPrivKey(privKey ed25519.PrivateKey) ed25519.PublicKey {
 	publicKey := make([]byte, ed25519.PublicKeySize)
 	copy(publicKey, privKey[32:])
-	return ed25519.PublicKey(publicKey)
+	return publicKey
 }

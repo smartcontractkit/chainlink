@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -36,7 +36,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
 	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
-	event1 := logpoller.EmitterABI.Events["Log1"].ID
+	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
 
@@ -121,9 +121,9 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
-		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
+		cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
-	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log1"].ID}, emitterAddress1)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, emitterAddress1)
 	require.NoError(t, lp.Start(context.Background()))
 
 	// Emit some logs in blocks 3->7.
@@ -138,13 +138,13 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// We should eventually receive all those Log1 logs.
 	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log1"].ID, emitterAddress1)
+		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log1"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 5)
 		return len(logs) == 5
 	})
 	// Now let's update the filter and replay to get Log2 logs.
-	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log2"].ID}, emitterAddress1)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, emitterAddress1)
 	// Replay an invalid block should error
 	assert.Error(t, lp.Replay(context.Background(), 0))
 	assert.Error(t, lp.Replay(context.Background(), 20))
@@ -153,7 +153,7 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// We should eventually see 4 logs2 logs.
 	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log2"].ID, emitterAddress1)
+		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log2"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 4)
 		return len(logs) == 4

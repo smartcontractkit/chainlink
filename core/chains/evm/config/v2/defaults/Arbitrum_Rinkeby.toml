@@ -1,0 +1,22 @@
+ChainID = '421611'
+ChainType = 'arbitrum'
+LinkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+BumpThreshold = 0
+Mode = 'FixedPrice'
+PriceDefault = '1000 gwei'
+PriceMax = '1000 gwei'
+PriceMin = '1000 gwei'
+LimitDefault = 7_000_000
+LimitTransfer = 800_000
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0'
+
+[NodePool]
+NoNewHeadsThreshold = '0'

@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -189,9 +190,11 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[1].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 }
 
+// cannot randomize bridge names here since they are ordered by name on the API
+// leading in random order for assertion...
 func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("indexbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -201,7 +204,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	}
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges2"),
+		Name:          bridges.MustParseBridgeName("indexbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
@@ -244,14 +247,16 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
+	bridgeName := testutils.RandomizeName("BRidgea")
 	bt := &bridges.BridgeType{
-		Name: bridges.MustParseBridgeName("BRidgea"),
+		Name: bridges.MustParseBridgeName(bridgeName),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
-	ud := bytes.NewBuffer([]byte(`{"name": "BRidgea","url":"http://yourbridge"}`))
-	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
+	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
+	ud := bytes.NewBuffer([]byte(body))
+	resp, cleanup := client.Patch("/v2/bridge_types/"+bridgeName, ud)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -269,7 +274,7 @@ func TestBridgeController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustParseBridgeName("testingbridges1"),
+		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}

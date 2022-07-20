@@ -102,7 +102,8 @@ func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string, empty bool) (s
 	parsed.Path = "/postgres"
 	db, err := sql.Open(string(dialects.Postgres), parsed.String())
 	if err != nil {
-		return "", fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+		return "", fmt.Errorf("In order to drop the test database, we need to connect to a separate database"+
+			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
 	}
 	defer db.Close()
 

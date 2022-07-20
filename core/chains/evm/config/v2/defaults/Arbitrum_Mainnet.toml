@@ -1,0 +1,30 @@
+# Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
+ChainID = '42161'
+ChainType = 'arbitrum'
+LinkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'FixedPrice'
+# Arbitrum uses something like a Vickrey auction model where gas price represents a "max bid". In practice we usually pay much less
+PriceDefault = '1000 gwei'
+# Fix the gas price
+PriceMax = '1000 gwei'
+# Fix the gas price
+PriceMin = '1000 gwei'
+LimitDefault = 7_000_000
+# estimating gas returns 695,344 so 800,000 should be safe with some buffer
+LimitTransfer = 800_000
+# Disable gas bumping on arbitrum
+BumpThreshold = 0
+
+[GasEstimator.BlockHistory]
+# Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
+BlockHistorySize = 0
+
+[HeadTracker]
+# Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
+BlockEmissionIdleWarningThreshold = '0'
+
+[NodePool]
+NoNewHeadsThreshold = '0'

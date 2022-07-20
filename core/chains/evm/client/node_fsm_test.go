@@ -44,7 +44,6 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (string, string) {
 		return "", ""
 	})
-	defer s.Close()
 	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil)
 	n := iN.(*node)
 
@@ -52,9 +51,9 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 
 	t.Run("setState", func(t *testing.T) {
 		n.setState(NodeStateAlive)
-		assert.Equal(t, NodeStateAlive, n.state)
+		assert.Equal(t, NodeStateAlive, n.State())
 		n.setState(NodeStateUndialed)
-		assert.Equal(t, NodeStateUndialed, n.state)
+		assert.Equal(t, NodeStateUndialed, n.State())
 	})
 
 	// must dial to set rpc client for use in state transitions

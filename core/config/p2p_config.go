@@ -65,9 +65,9 @@ func (c *generalConfig) P2PIncomingMessageBufferSize() int {
 
 func (c *generalConfig) P2POutgoingMessageBufferSize() int {
 	if c.OCROutgoingMessageBufferSize() != 0 {
-		return c.OCRIncomingMessageBufferSize()
+		return c.OCROutgoingMessageBufferSize()
 	}
-	return int(getEnvWithFallback(c, envvar.NewUint16("P2PIncomingMessageBufferSize")))
+	return int(getEnvWithFallback(c, envvar.NewUint16("P2POutgoingMessageBufferSize")))
 }
 
 type P2PDeprecated interface {
@@ -102,5 +102,5 @@ func (c *generalConfig) OCRIncomingMessageBufferSize() int {
 
 // DEPRECATED
 func (c *generalConfig) OCROutgoingMessageBufferSize() int {
-	return c.viper.GetInt("OCRIncomingMessageBufferSize")
+	return c.viper.GetInt("OCROutgoingMessageBufferSize")
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/mock"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
@@ -149,6 +149,7 @@ func TestPool_Dial(t *testing.T) {
 				assert.Contains(t, err.Error(), test.errStr)
 			} else {
 				require.NoError(t, err)
+				p.Close()
 			}
 		})
 	}

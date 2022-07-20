@@ -157,6 +157,7 @@ func TestConfigSchema(t *testing.T) {
 		"ShutdownGracePeriod":                            "SHUTDOWN_GRACE_PERIOD",
 		"SolanaEnabled":                                  "SOLANA_ENABLED",
 		"SolanaNodes":                                    "SOLANA_NODES",
+		"StarkNetEnabled":                                "STARKNET_ENABLED",
 		"TerraNodes":                                     "TERRA_NODES",
 		"TLSCertPath":                                    "TLS_CERT_PATH",
 		"TLSHost":                                        "CHAINLINK_TLS_HOST",

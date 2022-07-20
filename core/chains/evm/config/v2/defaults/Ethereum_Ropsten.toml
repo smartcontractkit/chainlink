@@ -1,0 +1,12 @@
+ChainID = '3'
+LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
+MinimumContractPayment = '0.1 link'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 4
+TransactionPercentile = 50

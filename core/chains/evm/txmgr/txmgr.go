@@ -445,7 +445,6 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 	}
 
 	err = ethClient.SendTransaction(ctx, signedTx)
-	err = errors.WithStack(err)
 
 	a.EthTx = e // for logging
 	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)

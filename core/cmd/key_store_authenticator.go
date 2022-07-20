@@ -40,8 +40,9 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(c *clipkg.Context, keySto
 		return ErrEmptyPasswordInFile
 	}
 	if len(password) != 0 {
-		// Because we fixed password requirements to have 3+ symbols,
-		// to not break backward compatibility we enforce this only for empty key stores.
+		// Because we changed password requirements to increase complexity, to
+		// not break backward compatibility we enforce this only for empty key
+		// stores.
 		if err = auth.validatePasswordStrength(password); err != nil && isEmpty {
 			return err
 		}

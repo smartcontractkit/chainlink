@@ -48,10 +48,11 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 	pipelineSpecID, err := pipelineORM.CreateSpec(pSpec, 0)
 	require.NoError(t, err)
 
-	job := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook", ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
-	require.NoError(t, jobORM.InsertJob(&job))
+	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
+		ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
+	require.NoError(t, jobORM.InsertJob(&createdJob))
 
-	return job, webhookSpec
+	return createdJob, webhookSpec
 }
 
 func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
