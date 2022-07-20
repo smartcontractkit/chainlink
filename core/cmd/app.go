@@ -71,7 +71,7 @@ func NewApp(client *Client) *cli.App {
 				configTOML = string(b)
 			}
 			var err error
-			client.Config, err = chainlink.NewConfig(configTOML, client.Logger)
+			client.Config, err = chainlink.NewGeneralConfig(configTOML, client.Logger)
 			if err != nil {
 				return err
 			}

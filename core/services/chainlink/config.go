@@ -14,9 +14,7 @@ import (
 	evmtyp "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -38,27 +36,6 @@ type Config struct {
 	Solana SolanaConfigs `toml:",omitempty"`
 
 	Terra TerraConfigs `toml:",omitempty"`
-}
-
-func NewConfig(tomlString string, lggr logger.Logger) (coreconfig.GeneralConfig, error) {
-	lggr = lggr.Named("Config")
-	var c Config
-	err := toml.Unmarshal([]byte(tomlString), &c)
-	if err != nil {
-		return nil, err
-	}
-	input, err := c.TOMLString()
-	if err != nil {
-		return nil, err
-	}
-
-	c.SetDefaults()
-
-	effective, err := c.TOMLString()
-	if err != nil {
-		return nil, err
-	}
-	return &legacyGeneralConfig{c: &c, input: input, effective: effective}, nil
 }
 
 // TOMLString returns a pretty-printed TOML encoded string, with extra line breaks removed.

@@ -953,7 +953,7 @@ var (
 	multiChainEffectiveTOML string
 )
 
-func TestNewConfig_Logger(t *testing.T) {
+func TestNewGeneralConfig_Logger(t *testing.T) {
 	const (
 		input     = "Input Configuration:\n"
 		effective = "Effective Configuration, with defaults applied:\n"
@@ -972,7 +972,7 @@ func TestNewConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewConfig(tt.inputConfig, lggr)
+			c, err := NewGeneralConfig(tt.inputConfig, lggr)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
