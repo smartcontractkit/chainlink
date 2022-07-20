@@ -678,7 +678,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 						"Expected counter to have increased from initial value of %s, but got %s",
 						initialCounters[i], currentCounter)
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 
 			// Take down the other half of the Keeper nodes
 			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
