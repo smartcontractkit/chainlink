@@ -20,7 +20,7 @@ func TestTask_HexDecode(t *testing.T) {
 		error  string
 	}{
 
-		// succsess
+		// success
 		{"happy", "0x12345678", []byte{0x12, 0x34, 0x56, 0x78}, ""},
 		{"happy zero", "0x00", []byte{0}, ""},
 
@@ -32,42 +32,41 @@ func TestTask_HexDecode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.HexDecodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Input: test.input}
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
+			t.Run("without vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.HexDecodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Input: test.input}
+				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
 
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
 
-			if test.error == "" {
-				require.NoError(t, result.Error)
-				require.Equal(t, test.result, result.Value)
-			} else {
-				require.ErrorContains(t, result.Error, test.error)
-			}
-		})
-	}
-
-	for _, test := range tests {
-		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": map[string]interface{}{"bar": test.input},
+				if test.error == "" {
+					require.NoError(t, result.Error)
+					require.Equal(t, test.result, result.Value)
+				} else {
+					require.ErrorContains(t, result.Error, test.error)
+				}
 			})
-			task := pipeline.HexDecodeTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Input:    "$(foo.bar)",
-			}
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
+			t.Run("with vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(map[string]interface{}{
+					"foo": map[string]interface{}{"bar": test.input},
+				})
+				task := pipeline.HexDecodeTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    "$(foo.bar)",
+				}
+				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
 
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
 
-			if test.error == "" {
-				require.NoError(t, result.Error)
-				require.Equal(t, test.result, result.Value)
-			} else {
-				require.ErrorContains(t, result.Error, test.error)
-			}
+				if test.error == "" {
+					require.NoError(t, result.Error)
+					require.Equal(t, test.result, result.Value)
+				} else {
+					require.ErrorContains(t, result.Error, test.error)
+				}
+			})
 		})
 	}
 }
