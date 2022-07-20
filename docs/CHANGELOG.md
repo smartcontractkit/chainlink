@@ -30,6 +30,10 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 
 4. global `ETH_GAS_LIMIT_DEFAULT` (`EVM.GasEstimator.LimitDefault`) value is the last resort.
 
+### Fixed
+
+Addressed a very rare bug where using multiple nodes with differently configured RPC tx fee caps could cause missed transaction. Reminder to everyone to ensure that your RPC nodes have no caps (for more information see the [performance and tuning guide](https://docs.chain.link/docs/evm-performance-configuration/)).
+
 ### Changed
 
 - After feedback from users, password complexity requirements have been simplified. These are the new, simplified requirements for any kind of password used with Chainlink:
