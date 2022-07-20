@@ -813,3 +813,47 @@ a [type=uppercase input="$(first)"]
 	require.NoError(t, err)
 	assert.Equal(t, "SOMERANDOMTEST", result.Value.(string))
 }
+
+func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+	input := map[string]interface{}{
+		"first": "0x12345678",
+	}
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=hexdecode input="$(first)"]
+`,
+	}, pipeline.NewVarsFrom(input), lggr)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+
+	result, err := trrs.FinalResult(lggr).SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, []byte{0x12, 0x34, 0x56, 0x78}, result.Value)
+}
+
+func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+	input := map[string]interface{}{
+		"first": "SGVsbG8sIHBsYXlncm91bmQ=",
+	}
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=base64decode input="$(first)"]
+`,
+	}, pipeline.NewVarsFrom(input), lggr)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+
+	result, err := trrs.FinalResult(lggr).SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, []byte("Hello, playground"), result.Value)
+}
