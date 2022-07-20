@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -21,6 +20,7 @@ import (
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 
+	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -46,9 +46,7 @@ type KeeperConsumerContracts int32
 const (
 	BasicCounter KeeperConsumerContracts = iota
 	PerformanceCounter
-)
 
-const (
 	defaultUpkeepGasLimit  = uint32(2500000)
 	defaultLinkFunds       = int64(9e18)
 	defaultUpkeepsToDeploy = 10

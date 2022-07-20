@@ -22,7 +22,7 @@ type onchainContract struct {
 
 var _ dkg.DKG = &onchainContract{}
 
-func newOnchainDKGClient(dkgAddress string, ethClient evmclient.Client) (*onchainContract, error) {
+func NewOnchainDKGClient(dkgAddress string, ethClient evmclient.Client) (dkg.DKG, error) {
 	dkgAddr := common.HexToAddress(dkgAddress)
 	wrapper, err := dkgwrapper.NewDKG(dkgAddr, ethClient)
 	if err != nil {
@@ -51,22 +51,15 @@ func (o *onchainContract) GetKey(
 	}, nil
 }
 
-func (o *onchainContract) AddClient(
-	ctx context.Context,
-	keyID [32]byte,
-	clientAddress common.Address,
-) error {
-	// TODO: implement me
-	panic("implement me")
-}
-
 func (o *onchainContract) Address() common.Address {
 	return o.dkgAddress
 }
 
 func (o *onchainContract) CurrentCommittee(ctx context.Context) (ocr2vrftypes.OCRCommittee, error) {
-	// TODO: implement me
-	panic("implement me")
+	// NOTE: this is only ever used in tests in the ocr2vrf repo.
+	// Since this isn't really used for production DKG running,
+	// there's no point in implementing it.
+	panic("unimplemented")
 }
 
 func (o *onchainContract) InitiateDKG(
@@ -79,6 +72,19 @@ func (o *onchainContract) InitiateDKG(
 	encGroup anon.Suite,
 	translator ocr2vrftypes.PubKeyTranslation,
 ) error {
-	// TODO: implement me
-	panic("implement me")
+	// NOTE: this is only ever used in tests, the idea here is to call setConfig
+	// on the DKG contract to get the OCR process going. Since this isn't really
+	// used for production DKG running, there's no point in implementing it.
+	panic("unimplemented")
+}
+
+func (o *onchainContract) AddClient(
+	ctx context.Context,
+	keyID [32]byte,
+	clientAddress common.Address,
+) error {
+	// NOTE: this is only ever used in tests in the ocr2vrf repo.
+	// Since this isn't really used for production DKG running,
+	// there's no point in implementing it.
+	panic("unimplemented")
 }
