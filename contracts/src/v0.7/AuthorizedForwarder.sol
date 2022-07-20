@@ -4,10 +4,12 @@ pragma solidity ^0.7.0;
 import "./interfaces/OperatorInterface.sol";
 import "./ConfirmedOwnerWithProposal.sol";
 import "./AuthorizedReceiver.sol";
+import "./ErrorParser.sol";
 import "./vendor/Address.sol";
 
 contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
+  using ErrorParser for bytes;
 
   address public immutable getChainlinkToken;
 
@@ -77,25 +79,9 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    */
   function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
-    (bool status, bytes memory result) = to.call(data);
-
-    if (!status) {
-      revert(_getRevertMessage(result));
+    (bool success, bytes memory result) = to.call(data);
+    if(!success){
+      revert(string(abi.encodePacked("AuthorizedForwarder#forward: ", result.getRevertMessage())));
     }
-  }
-
-  /**
-   * @notice extracts revert message from .call() result.
-   * @dev this extracts revert message by discarding the first 4 bytes of the
-   * encoded result, the signature for Error(msg), and decode the rest as string.
-   * @param result encoded bytes returned from .call()
-   * @return string decoded revert message.
-   */
-  function _getRevertMessage(bytes memory result) internal pure returns (string memory) {
-    if (result.length < 68) return "Forwarded call failed silently";
-    assembly {
-      result := add(result, 0x04)
-    }
-    return abi.decode(result, (string));
   }
 }

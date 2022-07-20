@@ -208,7 +208,7 @@ describe('AuthorizedForwarder', () => {
             .deploy()
           brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
             brokenFactory.interface.getFunction('revertWithMessage'),
-            ['failure message'],
+            ['Failure message'],
           )
 
           brokenPayload = brokenFactory.interface.encodeFunctionData(
@@ -223,7 +223,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenMsgPayload),
-              'failure message',
+              'AuthorizedForwarder#forward: Failure message',
             )
           })
         })
@@ -234,7 +234,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenPayload),
-              'Forwarded call failed silently',
+              'AuthorizedForwarder#forward: call failed silently',
             )
           })
         })
