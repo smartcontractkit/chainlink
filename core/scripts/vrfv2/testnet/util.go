@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -107,6 +108,28 @@ func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.V
 	tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
+}
+
+func fundOracle(e helpers.Environment, oracleAddress string, fundingAmount int64) {
+	block, err := e.Ec.BlockNumber(context.Background())
+	helpers.PanicErr(err)
+
+	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
+	helpers.PanicErr(err)
+
+	tx := types.NewTransaction(
+		nonce,
+		common.HexToAddress(oracleAddress),
+		big.NewInt(fundingAmount),
+		uint64(21000),
+		e.Owner.GasPrice,
+		nil,
+	)
+	signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+	helpers.PanicErr(err)
+	err = e.Ec.SendTransaction(context.Background(), signedTx)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx, e.ChainID)
 }
 
 func printCoordinatorConfig(coordinator *vrf_coordinator_v2.VRFCoordinatorV2) {

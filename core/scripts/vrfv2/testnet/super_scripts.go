@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -23,13 +24,14 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
-	subscriptionBalanceString := deployCmd.String("subscription-balance", "10000000000000000000", "amount to fund subscription")
+	subscriptionBalanceString := deployCmd.String("subscription-balance", assets.Ether(10).String(), "amount to fund subscription")
 
 	// optional flags
-	fallbackWeiPerUnitLink := deployCmd.String("fallback-wei-per-unit-link", "60000000000000000", "fallback wei/link ratio")
+	fallbackWeiPerUnitLink := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60000000).String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
-	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle address")
+	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
 	minConfs := deployCmd.Int("min-confs", 3, "min confs")
+	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100000000).Int64(), "amount to fund sending oracle")
 	maxGasLimit := deployCmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
 	stalenessSeconds := deployCmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 	gasAfterPayment := deployCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
@@ -138,6 +140,12 @@ func deployUniverse(e helpers.Environment) {
 	s, err := coordinator.GetSubscription(nil, subID)
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
+
+	if len(*registerKeyOracleAddress) > 0 {
+		fmt.Println("\nFunding oracle...")
+		fundOracle(e, *registerKeyOracleAddress, *oracleFundingAmount)
+	}
+
 	fmt.Println(
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
