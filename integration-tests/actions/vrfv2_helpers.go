@@ -4,12 +4,12 @@ package actions
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )

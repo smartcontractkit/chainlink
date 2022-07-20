@@ -3,6 +3,7 @@ package performance
 //revive:disable:dot-imports
 import (
 	"context"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
@@ -13,11 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
-
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
@@ -30,7 +29,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		err               error
 		testEnvironment   *environment.Environment
-		chainClient       blockchain.EVMClient
+		chainClient       blockchain2.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
 		chainlinkNodes    []client.Chainlink
@@ -58,7 +57,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		By("Connecting to launched resources", func() {
 			// Load Networks
 			var err error
-			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err = blockchain2.NewEthereumMultiNodeClientSetup(blockchain2.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

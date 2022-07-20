@@ -4,14 +4,13 @@ package smoke
 import (
 	"context"
 	"fmt"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ethdeploy "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -30,12 +29,12 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("VRFv2 suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethdeploy.New(nil),
 				chainlink.New(0, nil),
 			),
 			Entry("VRFv2 suite on General EVM @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
 				ethdeploy.New(&ethdeploy.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -46,7 +45,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				}),
 			),
 			Entry("VRFv2 suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				blockchain2.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethdeploy.New(&ethdeploy.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -57,7 +56,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 				}),
 			),
 			Entry("VRFv2 suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
 				ethdeploy.New(&ethdeploy.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -70,7 +69,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		}
 
 		testEnvironment *environment.Environment
-		chainClient     blockchain.EVMClient
+		chainClient     blockchain2.EVMClient
 		chainlinkNodes  []client.Chainlink
 		// used both as a feed and a fallback value
 		linkEthFeedResponse = big.NewInt(1e18)
@@ -84,7 +83,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	})
 
 	DescribeTable("VRFv2 suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		clientFunc func(*environment.Environment) (blockchain2.EVMClient, error),
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {

@@ -3,14 +3,13 @@ package actions
 //revive:disable:dot-imports
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"

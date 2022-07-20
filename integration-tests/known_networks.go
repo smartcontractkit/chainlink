@@ -1,12 +1,12 @@
 package networks
 
 import (
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/logging"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 )
 
 func init() {

@@ -2,14 +2,14 @@ package testsetups
 
 //revive:disable:dot-imports
 import (
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 
 	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"golang.org/x/sync/errgroup"
 )
 

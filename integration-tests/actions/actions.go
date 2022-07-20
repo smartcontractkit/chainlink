@@ -4,6 +4,7 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"os"
 	"strings"
@@ -18,10 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"golang.org/x/sync/errgroup"
 )
 

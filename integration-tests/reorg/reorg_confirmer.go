@@ -2,6 +2,7 @@ package reorg
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"sync"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"go.uber.org/atomic"
 )
 

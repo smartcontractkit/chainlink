@@ -4,6 +4,7 @@ package reorg
 import (
 	"context"
 	"fmt"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"path/filepath"
 	"strings"
@@ -23,13 +24,12 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 var (
-	networkSettings = &blockchain.EVMNetwork{
+	networkSettings = &blockchain2.EVMNetwork{
 		Name:      "geth",
 		Simulated: true,
 		ChainID:   1337,
@@ -46,7 +46,7 @@ var (
 var _ = Describe("Direct request suite @reorg-direct-request", func() {
 	var (
 		err            error
-		c              blockchain.EVMClient
+		c              blockchain2.EVMClient
 		cd             contracts.ContractDeployer
 		chainlinkNodes []client.Chainlink
 		oracle         contracts.Oracle
@@ -100,7 +100,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(networkSettings)(e)
+			c, err = blockchain2.NewEthereumMultiNodeClientSetup(networkSettings)(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

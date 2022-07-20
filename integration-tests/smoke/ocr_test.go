@@ -3,6 +3,7 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
@@ -27,14 +27,14 @@ var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("OCR suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, map[string]interface{}{
 					"replicas": 6,
 				}),
 			),
 			Entry("OCR suite on General EVM @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -46,7 +46,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 				}),
 			),
 			Entry("OCR suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				blockchain2.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -58,7 +58,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 				}),
 			),
 			Entry("OCR suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -73,7 +73,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 		err               error
 		testEnvironment   *environment.Environment
-		chainClient       blockchain.EVMClient
+		chainClient       blockchain2.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
 		chainlinkNodes    []client.Chainlink
@@ -89,7 +89,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 	})
 
 	DescribeTable("OCR suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		clientFunc func(*environment.Environment) (blockchain2.EVMClient, error),
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {

@@ -4,6 +4,7 @@ package smoke
 import (
 	"context"
 	"fmt"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"strings"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
@@ -30,12 +30,12 @@ var _ = Describe("Direct request suite @runlog", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("Runlog suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
 			Entry("Runlog suite on General EVM @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -46,7 +46,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 				}),
 			),
 			Entry("Runlog suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				blockchain2.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -57,7 +57,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 				}),
 			),
 			Entry("Runlog suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -70,7 +70,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		}
 
 		err              error
-		chainClient      blockchain.EVMClient
+		chainClient      blockchain2.EVMClient
 		contractDeployer contracts.ContractDeployer
 		chainlinkNodes   []client.Chainlink
 		oracle           contracts.Oracle
@@ -88,7 +88,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 	})
 
 	DescribeTable("Direct request suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		clientFunc func(*environment.Environment) (blockchain2.EVMClient, error),
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {

@@ -3,6 +3,7 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"strconv"
 
@@ -11,12 +12,11 @@ import (
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	
+
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
@@ -80,7 +80,7 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 var _ = Describe("Keeper Suite @keeper", func() {
 	var (
 		err                  error
-		chainClient          blockchain.EVMClient
+		chainClient          blockchain2.EVMClient
 		contractDeployer     contracts.ContractDeployer
 		registry             contracts.KeeperRegistry
 		registrar            contracts.KeeperRegistrar
@@ -133,7 +133,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
+		chainClient, err = blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

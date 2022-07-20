@@ -3,6 +3,7 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"fmt"
+	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -14,7 +15,6 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,12 +26,12 @@ var _ = Describe("Cronjob suite @cron", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("Cronjob suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
 			Entry("Cronjob suite on General EVM Network read from env vars @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -42,7 +42,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 				}),
 			),
 			Entry("Cronjob suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				blockchain2.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -53,7 +53,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 				}),
 			),
 			Entry("Cronjob suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				blockchain2.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -79,7 +79,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 	})
 
 	DescribeTable("Cronjob suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		clientFunc func(*environment.Environment) (blockchain2.EVMClient, error),
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {
