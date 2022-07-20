@@ -23,5 +23,6 @@ func ValidatePluginConfig(config PluginConfig, dkgSignKs keystore.DKGSign, dkgEn
 	if err != nil {
 		return errors.Wrapf(err, "DKG sign key: %s not found in key store", config.SigningPublicKey)
 	}
+
 	return nil
 }

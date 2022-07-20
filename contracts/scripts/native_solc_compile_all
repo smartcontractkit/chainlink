@@ -67,6 +67,7 @@ $SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
 $SCRIPTPATH/native_solc8_6_compile VRFV2WrapperConsumerBase.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFV2WrapperConsumerExample.sol
 
+
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFSingleConsumerExample.sol

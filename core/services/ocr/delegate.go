@@ -216,10 +216,12 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.New("TransmitterAddress is missing")
 		}
 
-		gasLimit := chain.Config().EvmGasLimitDefault()
+		var jsGasLimit *uint32
 		if jb.GasLimit.Valid {
-			gasLimit = uint64(jb.GasLimit.Uint32)
+			jsGasLimit = &jb.GasLimit.Uint32
 		}
+		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
+
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
