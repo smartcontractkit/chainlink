@@ -25,6 +25,18 @@ func (cc *ConfigController) Show(c *gin.Context) {
 	jsonAPIResponse(c, cw, "config")
 }
 
+type ConfigV2Resource struct {
+	Config string `json:"config"`
+}
+
+func (c ConfigV2Resource) GetID() string {
+	return utils.NewBytes32ID()
+}
+
+func (c *ConfigV2Resource) SetID(string) error {
+	return nil
+}
+
 func (cc *ConfigController) Dump(c *gin.Context) {
 	tomlStr, err := cc.App.ConfigDump(c)
 	if err != nil {
@@ -32,7 +44,7 @@ func (cc *ConfigController) Dump(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, tomlStr, "config")
+	jsonAPIResponse(c, ConfigV2Resource{tomlStr}, "config")
 }
 
 type configPatchRequest struct {
