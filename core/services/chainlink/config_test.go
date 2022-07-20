@@ -972,8 +972,9 @@ func TestNewConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			_, err := NewConfig(tt.inputConfig, lggr)
+			c, err := NewConfig(tt.inputConfig, lggr)
 			require.NoError(t, err)
+			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
 			if assert.Len(t, inputLogs, 1) {
 				got := strings.TrimPrefix(inputLogs[0].Message, input)

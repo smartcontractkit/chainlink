@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -27,9 +27,8 @@ import (
 
 // legacyGeneralConfig is a wrapper to adapt Config to the legacy config.GeneralConfig interface.
 type legacyGeneralConfig struct {
-	//TODO store original input w/o defaults too?
-	c    *Config
-	lggr logger.Logger
+	input, effective string
+	c                *Config
 
 	// state
 	appID     uuid.UUID
@@ -45,6 +44,11 @@ type legacyGeneralConfig struct {
 
 func (l *legacyGeneralConfig) Validate() error {
 	return l.c.Validate()
+}
+
+func (l *legacyGeneralConfig) LogConfiguration(log func(...any)) {
+	log("Input Configuration:\n", l.input)
+	log("Effective Configuration, with defaults applied:\n", l.effective)
 }
 
 func (l *legacyGeneralConfig) Dev() bool {
@@ -664,7 +668,7 @@ func (l *legacyGeneralConfig) P2PV2BootstrappersRaw() (s []string) {
 					t, err := b.MarshalText()
 					if err != nil {
 						// log panic matches old behavior - only called for UI presentation
-						l.lggr.Panicw("Failed to marshal bootstrapper", "err", err)
+						panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
 					}
 					s = append(s, string(t))
 				}

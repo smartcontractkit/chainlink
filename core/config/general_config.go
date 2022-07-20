@@ -32,7 +32,7 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-//nolint
+// nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -62,6 +62,7 @@ type FeatureFlags interface {
 
 type GeneralOnlyConfig interface {
 	Validate() error
+	LogConfiguration(log func(...any))
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 
@@ -310,6 +311,10 @@ func newGeneralConfigWithViper(v *viper.Viper, lggr logger.Logger) (config *gene
 	config.logSQL = viper.GetBool(envvar.Name("LogSQL"))
 
 	return
+}
+
+func (c *generalConfig) LogConfiguration(log func(...any)) {
+	log("Environment variables\n", NewConfigPrinter(c))
 }
 
 // Validate performs basic sanity checks on config and returns error if any
