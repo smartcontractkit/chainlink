@@ -157,7 +157,6 @@ Postgres has connection limits, so you must use cation when increasing this valu
 Mode = 'none' # Default
 Dir = 'test/backup/dir' # Example
 OnVersionUpgrade = true # Default
-URL = 'http://test.back.up/fake' # Example
 Frequency = '1h' # Default
 ```
 As a best practice, take regular database backups in case of accidental data loss. This best practice is especially important when you upgrade your Chainlink node to a new version. Chainlink nodes support automated database backups to make this process easier.
@@ -187,14 +186,6 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 OnVersionUpgrade = true # Default
 ```
 OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
-
-### URL<a id='Database-Backup-URL'></a>
-```toml
-URL = 'http://test.back.up/fake' # Example
-```
-URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
-
-It is recommended to set this value to a _read replica_ if you have one to avoid excessive load on the main database.
 
 ### Frequency<a id='Database-Backup-Frequency'></a>
 ```toml

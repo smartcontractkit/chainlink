@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/spf13/viper"
+	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -15,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	tertyp "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -38,18 +41,22 @@ type Config struct {
 	Terra TerraConfigs `toml:",omitempty"`
 }
 
+func prettifyTOML(tomlString string) string {
+	// remove runs of line breaks
+	s := multiLineBreak.ReplaceAllLiteralString(tomlString, "\n")
+	// restore them preceding keys
+	s = strings.Replace(s, "\n[", "\n\n[", -1)
+	s = strings.TrimPrefix(s, "\n")
+	return s
+}
+
 // TOMLString returns a pretty-printed TOML encoded string, with extra line breaks removed.
 func (c *Config) TOMLString() (string, error) {
 	b, err := toml.Marshal(c)
 	if err != nil {
 		return "", err
 	}
-	// remove runs of line breaks
-	s := multiLineBreak.ReplaceAllLiteralString(string(b), "\n")
-	// restore them preceding keys
-	s = strings.Replace(s, "\n[", "\n\n[", -1)
-	s = strings.TrimPrefix(s, "\n")
-	return s, nil
+	return prettifyTOML(string(b)), nil
 }
 
 func (c *Config) Validate() error {
@@ -65,6 +72,60 @@ func (c *Config) SetDefaults() {
 		input.Chain = ch
 	}
 	//TODO terra and solana defaults https://app.shortcut.com/chainlinklabs/story/37975/chains-nodes-should-be-read-from-the-config-interface
+}
+
+type Secrets struct {
+	config.Secrets
+}
+
+func (s *Secrets) Validate() error {
+	return config.Validate(s)
+}
+
+// Use ENV vars or flags to override secrets
+func (s *Secrets) SetOverrides(context *cli.Context) error {
+	// Override DB and Explorer secrets from ENV vars, if present
+	v := viper.New()
+	v.AutomaticEnv()
+	if dbURL := v.GetString("DATABASE_URL"); dbURL != "" {
+		parsedURL, err := models.ParseURL(dbURL)
+		if err != nil {
+			return err
+		}
+		s.DatabaseURL = parsedURL
+	}
+	if dbBackupUrl := v.GetString("DATABASE_BACKUP_URL"); dbBackupUrl != "" {
+		parsedURL, err := models.ParseURL(dbBackupUrl)
+		if err != nil {
+			return err
+		}
+		s.DatabaseBackupURL = parsedURL
+	}
+	if explorerKey := v.GetString("EXPLORER_ACCESS_KEY"); explorerKey != "" {
+		s.ExplorerAccessKey = &explorerKey
+	}
+	if explorerSecret := v.GetString("EXPLORER_SECRET"); explorerSecret != "" {
+		s.ExplorerSecret = &explorerSecret
+	}
+
+	// Override Keystore and VRF passwords from corresponding files, if present
+	if context != nil && context.IsSet("password") {
+		keystorePasswordFileName := context.String("password")
+		keystorePwd, err := utils.PasswordFromFile(keystorePasswordFileName)
+		if err != nil {
+			return err
+		}
+		s.KeystorePassword = &keystorePwd
+	}
+	if context != nil && context.IsSet("vrfpassword") {
+		vrfPasswordFileName := context.String("vrfpassword")
+		vrfPwd, err := utils.PasswordFromFile(vrfPasswordFileName)
+		if err != nil {
+			return err
+		}
+		s.VRFPassword = &vrfPwd
+	}
+	return nil
 }
 
 type EVMConfigs []*EVMConfig
