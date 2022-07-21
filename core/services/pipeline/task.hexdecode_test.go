@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTask_HexDecode(t *testing.T) {
+func TestHexDecodeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

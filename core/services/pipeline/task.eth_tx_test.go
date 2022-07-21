@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -555,7 +554,7 @@ func TestETHTxTask(t *testing.T) {
 			test.setupClientMocks(cfg, keyStore, txManager)
 			task.HelperSetDependencies(cc, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)
 
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {

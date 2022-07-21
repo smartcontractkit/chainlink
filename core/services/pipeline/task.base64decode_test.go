@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTask_Base64Decode(t *testing.T) {
+func TestBase64DecodeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

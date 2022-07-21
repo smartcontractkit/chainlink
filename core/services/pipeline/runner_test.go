@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
@@ -100,7 +101,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	vars := pipeline.NewVarsFrom(nil)
 
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
@@ -270,7 +271,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), logger.TestLogger(t))
+			_, taskRunResults, err := runner.ExecuteRun(testutils.Context(t), spec, pipeline.NewVarsFrom(test.vars), logger.TestLogger(t))
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -355,7 +356,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		vars := pipeline.NewVarsFrom(global)
 
 		lggr := logger.TestLogger(t)
-		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
@@ -383,7 +384,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		vars := pipeline.NewVarsFrom(global)
 
 		lggr := logger.TestLogger(t)
-		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
@@ -432,7 +433,7 @@ answer1 [type=median                      index=0];
 	r, _ := newRunner(t, db, cfg)
 
 	// If we cancel before an API is finished, we should still get a median.
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(testutils.Context(t), 50*time.Millisecond)
 	defer cancel()
 
 	spec := pipeline.Spec{DotDagSource: s}
@@ -475,7 +476,7 @@ succeed2 -> final;
 `}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, finalResult, err := r.ExecuteAndInsertFinishedRun(context.Background(), spec, vars, lggr, false)
+	_, finalResult, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, lggr, false)
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
 	assert.False(t, finalResult.HasFatalErrors())
@@ -489,7 +490,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{"val": 2}
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
 b1 [type=multiply input="$(a)" times=2]
@@ -516,7 +517,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), cfg)
 	input := map[string]interface{}{"val": 2}
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
 b1 [type=multiply input="$(a)" times=2 index=0]
@@ -609,7 +610,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
 	lggr := logger.TestLogger(t)
-	incomplete, err := r.Run(context.Background(), &run, lggr, false, nil)
+	incomplete, err := r.Run(testutils.Context(t), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -618,7 +619,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -631,7 +632,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -744,7 +745,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, logger.TestLogger(t), false, nil)
+	incomplete, err := r.Run(testutils.Context(t), &run, logger.TestLogger(t), false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -778,7 +779,7 @@ func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
 		"second": "UPPERCASE",
 	}
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=lowercase input="$(first)"]
 `,
@@ -800,7 +801,7 @@ func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
 		"first": "somerAnDomTEST",
 	}
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=uppercase input="$(first)"]
 `,
@@ -822,7 +823,7 @@ func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 		"astring": "0x12345678",
 	}
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=hexdecode input="$(astring)"]
 `,
@@ -844,7 +845,7 @@ func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
 	}
 	lggr := logger.TestLogger(t)
-	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
 		DotDagSource: `
 a [type=base64decode input="$(astring)"]
 `,

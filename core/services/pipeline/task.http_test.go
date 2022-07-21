@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,7 +45,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(config, c, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -174,7 +174,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			err = test.vars.Set("meta", test.meta)
 			require.NoError(t, err)
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
@@ -222,7 +222,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	u := clhttp.NewUnrestrictedHTTPClient()
 	task.HelperSetDependencies(config, r, u)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -230,7 +230,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	task.URL = "$(url)"
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{"url": server.URL})
-	result, runInfo = task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -239,7 +239,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 
 	task.AllowUnrestrictedNetworkAccess = "true"
 
-	result, runInfo = task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -269,7 +269,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetDependencies(config, c, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 
@@ -300,7 +300,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(config, c, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -348,7 +348,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		task.HelperSetDependencies(config, c, c)
 
-		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
 		assert.Nil(t, result.Error)
@@ -364,7 +364,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			Headers:     `["X-Header-1", "foo", "X-Header-2", "bar", "odd one out"]`,
 		}
 
-		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.NotNil(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
@@ -394,7 +394,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		task.HelperSetDependencies(config, c, c)
 
-		result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
 		assert.Nil(t, result.Error)
