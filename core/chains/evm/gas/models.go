@@ -186,11 +186,16 @@ func (b Block) MarshalJSON() ([]byte, error) {
 	})
 }
 
+var ErrMissingBlock = errors.New("missing block")
+
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
-	bi := blockInternal{}
+	var bi *blockInternal
 	if err := json.Unmarshal(data, &bi); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal to blockInternal, got: '%s'", data)
+	}
+	if bi == nil {
+		return errors.WithStack(ErrMissingBlock)
 	}
 	n, err := hexutil.DecodeBig(bi.Number)
 	if err != nil {

@@ -344,7 +344,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 			FromAddresses:       fromAddresses,
 			ChunkSize:           25,
 			BackoffInitialDelay: time.Minute,
-			BackoffMaxDelay:     time.Hour}).
+			BackoffMaxDelay:     time.Hour,
+			MaxGasPriceGWei:     100,
+		}).
 		Toml())
 	require.NoError(t, err)
 
@@ -372,6 +374,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var chunkSize int
 	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 25, chunkSize)
+	var maxGasPriceGWei uint32
+	require.NoError(t, db.Get(&maxGasPriceGWei, `SELECT max_gas_price_gwei FROM vrf_specs LIMIT 1`))
+	require.Equal(t, *jb.VRFSpec.MaxGasPriceGWei, maxGasPriceGWei)
 	var fa pq.ByteaArray
 	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
 	var actual []string

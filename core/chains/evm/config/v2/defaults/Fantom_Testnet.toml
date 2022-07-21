@@ -3,9 +3,14 @@ LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 3
 
+[BalanceMonitor]
+BlockDelay=2
+
 [GasEstimator]
 PriceDefault = '15 gwei'
 PriceMax = '0.2 milli'
+[GasEstimator.BlockHistory]
+BlockDelay = 2
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'

@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -447,7 +446,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		runsIds = append(runsIds, run.ID)
 	}
 
-	err := orm.DeleteRunsOlderThan(context.Background(), 1*time.Second)
+	err := orm.DeleteRunsOlderThan(testutils.Context(t), 1*time.Second)
 	assert.NoError(t, err)
 
 	for _, runId := range runsIds {

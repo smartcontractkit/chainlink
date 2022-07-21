@@ -140,7 +140,7 @@ func Test_EthResender_Start(t *testing.T) {
 			er.Start()
 			defer er.Stop()
 
-			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
+			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
 		}()
 
 		err := db.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)

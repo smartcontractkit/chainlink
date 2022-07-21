@@ -29,15 +29,14 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -65,6 +64,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
@@ -95,8 +95,11 @@ const (
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// APIEmail is the email of the fixture API user
-	APIEmail = "apiuser@chainlink.test"
+	// Collection of test fixture DB user emails per role
+	APIEmailAdmin    = "apiuser@chainlink.test"
+	APIEmailEdit     = "apiuser-edit@chainlink.test"
+	APIEmailRun      = "apiuser-run@chainlink.test"
+	APIEmailViewOnly = "apiuser-view-only@chainlink.test"
 	// Password just a password we use everywhere for testing
 	Password = testutils.Password
 	// SessionSecret is the hardcoded secret solely used for test
@@ -114,15 +117,16 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
-	DefaultCSAKey      = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey      = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key     = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
-	DefaultP2PKey      = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey   = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultTerraKey    = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultStarkNetKey = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultDKGSignKey  = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
@@ -566,9 +570,9 @@ func (ta *TestApplication) Stop() error {
 	return err
 }
 
-func (ta *TestApplication) MustSeedNewSession() (id string) {
+func (ta *TestApplication) MustSeedNewSession(roleFixtureUserAPIEmail string) (id string) {
 	session := NewSession()
-	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, last_used, created_at) VALUES ($1, $2, NOW()) RETURNING id`, session.ID, session.LastUsed)
+	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, roleFixtureUserAPIEmail, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id
 }
@@ -580,10 +584,10 @@ func (ta *TestApplication) Import(content string) {
 	require.NoError(ta.t, err)
 }
 
-func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
+func (ta *TestApplication) NewHTTPClient(roleFixtureUserAPIEmail string) HTTPClientCleaner {
 	ta.t.Helper()
 
-	sessionID := ta.MustSeedNewSession()
+	sessionID := ta.MustSeedNewSession(roleFixtureUserAPIEmail)
 
 	return HTTPClientCleaner{
 		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
@@ -597,7 +601,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
-	sessionID := ta.MustSeedNewSession()
+	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
@@ -768,7 +772,7 @@ func ReadLogs(dir string) (string, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -782,7 +786,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -796,7 +800,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -845,7 +849,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -864,7 +868,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),
