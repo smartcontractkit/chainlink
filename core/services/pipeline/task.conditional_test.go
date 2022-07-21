@@ -1,17 +1,17 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func TestTask_Conditional_Success(t *testing.T) {
+func TestConditionalTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -28,47 +28,44 @@ func TestTask_Conditional_Success(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(nil)
-			task := pipeline.ConditionalTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Data:     test.input.(string)}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
+			t.Run("without vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.ConditionalTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Data:     test.input.(string)}
+				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
 
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			if test.expectErr {
-				require.Error(t, result.Error)
-				require.Equal(t, nil, result.Value)
-			} else {
-				require.NoError(t, result.Error)
-				require.Equal(t, true, result.Value.(bool))
-			}
-		})
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name+" (with pipeline.Vars)", func(t *testing.T) {
-			vars := pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": map[string]interface{}{"bar": test.input},
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
+				if test.expectErr {
+					require.Error(t, result.Error)
+					require.Equal(t, nil, result.Value)
+				} else {
+					require.NoError(t, result.Error)
+					require.Equal(t, true, result.Value.(bool))
+				}
 			})
-			task := pipeline.ConditionalTask{
-				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Data:     "$(foo.bar)",
-			}
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{})
+			t.Run("with vars", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(map[string]interface{}{
+					"foo": map[string]interface{}{"bar": test.input},
+				})
+				task := pipeline.ConditionalTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Data:     "$(foo.bar)",
+				}
+				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
 
-			assert.False(t, runInfo.IsPending)
-			assert.False(t, runInfo.IsRetryable)
-			if test.expectErr {
-				require.Error(t, result.Error)
-				require.Equal(t, nil, result.Value)
-			} else {
-				require.NoError(t, result.Error)
-				require.Equal(t, true, result.Value.(bool))
-			}
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
+				if test.expectErr {
+					require.Error(t, result.Error)
+					require.Equal(t, nil, result.Value)
+				} else {
+					require.NoError(t, result.Error)
+					require.Equal(t, true, result.Value.(bool))
+				}
+			})
 		})
 	}
 }

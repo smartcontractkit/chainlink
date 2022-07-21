@@ -1,16 +1,17 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func TestTask_Lowercase(t *testing.T) {
+func TestLowercaseTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -31,7 +32,7 @@ func TestTask_Lowercase(t *testing.T) {
 			t.Run("without vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.LowercaseTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Input: test.input.(string)}
-				result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
+				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
 
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
@@ -46,7 +47,7 @@ func TestTask_Lowercase(t *testing.T) {
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    "$(foo.bar)",
 				}
-				result, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, []pipeline.Result{})
+				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				require.NoError(t, result.Error)
