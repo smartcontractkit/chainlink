@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -368,7 +368,6 @@ contract KeeperRegistryDev is
    */
   function getUpkeep(uint256 id)
     external
-    view
     override
     returns (
       address target,
@@ -381,17 +380,8 @@ contract KeeperRegistryDev is
       uint96 amountSpent
     )
   {
-    Upkeep memory reg = s_upkeep[id];
-    return (
-      reg.target,
-      reg.executeGas,
-      s_checkData[id],
-      reg.balance,
-      reg.lastKeeper,
-      reg.admin,
-      reg.maxValidBlocknumber,
-      reg.amountSpent
-    );
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -401,17 +391,9 @@ contract KeeperRegistryDev is
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a wholistic picture of the contract state
    */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
-    uint256 maxIdx = s_upkeepIDs.length();
-    if (startIndex >= maxIdx) revert IndexOutOfRange();
-    if (maxCount == 0) {
-      maxCount = maxIdx - startIndex;
-    }
-    uint256[] memory ids = new uint256[](maxCount);
-    for (uint256 idx = 0; idx < maxCount; idx++) {
-      ids[idx] = s_upkeepIDs.at(startIndex + idx);
-    }
-    return ids;
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external override returns (uint256[] memory) {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -419,7 +401,6 @@ contract KeeperRegistryDev is
    */
   function getKeeperInfo(address query)
     external
-    view
     override
     returns (
       address payee,
@@ -427,8 +408,8 @@ contract KeeperRegistryDev is
       uint96 balance
     )
   {
-    KeeperInfo memory keeper = s_keeperInfo[query];
-    return (keeper.payee, keeper.active, keeper.balance);
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -436,7 +417,6 @@ contract KeeperRegistryDev is
    */
   function getState()
     external
-    view
     override
     returns (
       State memory state,
@@ -444,49 +424,34 @@ contract KeeperRegistryDev is
       address[] memory keepers
     )
   {
-    Storage memory store = s_storage;
-    state.nonce = store.nonce;
-    state.ownerLinkBalance = s_ownerLinkBalance;
-    state.expectedLinkBalance = s_expectedLinkBalance;
-    state.numUpkeeps = s_upkeepIDs.length();
-    config.paymentPremiumPPB = store.paymentPremiumPPB;
-    config.flatFeeMicroLink = store.flatFeeMicroLink;
-    config.blockCountPerTurn = store.blockCountPerTurn;
-    config.checkGasLimit = store.checkGasLimit;
-    config.stalenessSeconds = store.stalenessSeconds;
-    config.gasCeilingMultiplier = store.gasCeilingMultiplier;
-    config.minUpkeepSpend = store.minUpkeepSpend;
-    config.maxPerformGas = store.maxPerformGas;
-    config.fallbackGasPrice = s_fallbackGasPrice;
-    config.fallbackLinkPrice = s_fallbackLinkPrice;
-    config.transcoder = s_transcoder;
-    config.registrar = s_registrar;
-    return (state, config, s_keeperList);
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
    * @notice calculates the minimum balance required for an upkeep to remain eligible
    * @param id the upkeep id to calculate minimum balance for
    */
-  function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(s_upkeep[id].executeGas);
+  function getMinBalanceForUpkeep(uint256 id) external returns (uint96 minBalance) {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
-    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+  function getMaxPaymentForGas(uint256 gasLimit) public returns (uint96 maxPayment) {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
    * @notice retrieves the migration permission for a peer registry
    */
-  function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
-    return s_peerRegistryMigrationPermission[peer];
+  function getPeerRegistryMigrationPermission(address peer) external returns (MigrationPermission) {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
