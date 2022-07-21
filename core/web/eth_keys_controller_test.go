@@ -46,7 +46,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -86,7 +86,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -111,7 +111,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
@@ -140,7 +140,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -168,7 +168,7 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 

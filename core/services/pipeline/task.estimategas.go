@@ -29,7 +29,9 @@ type EstimateGasLimitTask struct {
 	Data       string `json:"data"`
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	chainSet evm.ChainSet
+	specGasLimit *uint32
+	chainSet     evm.ChainSet
+	jobType      string
 }
 
 type GasEstimator interface {
@@ -67,7 +69,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	maximumGasLimit := chain.Config().EvmGasLimitDefault()
+	maximumGasLimit := SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
 	gasLimit, err := chain.Client().EstimateGas(context.Background(), ethereum.CallMsg{
 		From: common.Address(fromAddr),
