@@ -2966,6 +2966,11 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 	return r0
 }
 
+// LogConfiguration provides a mock function with given fields: log
+func (_m *ChainScopedConfig) LogConfiguration(log func([]interface{})) {
+	_m.Called(log)
+}
+
 // LogFileDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogFileDir() string {
 	ret := _m.Called()
@@ -3429,7 +3434,6 @@ func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
 
 	return r0, r1
 }
-
 
 // OCRNewStreamTimeout provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRNewStreamTimeout() time.Duration {
