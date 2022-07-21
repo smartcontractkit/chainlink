@@ -15,6 +15,49 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+// KeepersObservationSource is the same for all keeper jobs and it is not perisisted in DB
+const KeepersObservationSource = `
+    encode_check_upkeep_tx   [type=ethabiencode
+                              abi="checkUpkeep(uint256 id, address from)"
+                              data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
+    check_upkeep_tx          [type=ethcall
+                              failEarly=true
+                              extractRevertReason=true
+                              evmChainID="$(jobSpec.evmChainID)"
+                              contract="$(jobSpec.contractAddress)"
+                              gas="$(jobSpec.checkUpkeepGasLimit)"
+                              gasPrice="$(jobSpec.gasPrice)"
+                              gasTipCap="$(jobSpec.gasTipCap)"
+                              gasFeeCap="$(jobSpec.gasFeeCap)"
+                              data="$(encode_check_upkeep_tx)"]
+    decode_check_upkeep_tx   [type=ethabidecode
+                              abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+    encode_perform_upkeep_tx [type=ethabiencode
+                              abi="performUpkeep(uint256 id, bytes calldata performData)"
+                              data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
+    simulate_perform_upkeep_tx  [type=ethcall
+                              extractRevertReason=true
+                              evmChainID="$(jobSpec.evmChainID)"
+                              contract="$(jobSpec.contractAddress)"
+                              from="$(jobSpec.fromAddress)"
+                              gas="$(jobSpec.performUpkeepGasLimit)"
+                              data="$(encode_perform_upkeep_tx)"]
+    decode_check_perform_tx  [type=ethabidecode
+                              abi="bool success"]
+    check_success            [type=conditional
+                              failEarly=true
+                              data="$(decode_check_perform_tx.success)"]
+    perform_upkeep_tx        [type=ethtx
+                              minConfirmations=0
+                              to="$(jobSpec.contractAddress)"
+                              from="[$(jobSpec.fromAddress)]"
+                              evmChainID="$(jobSpec.evmChainID)"
+                              data="$(encode_perform_upkeep_tx)"
+                              gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                              txMeta="{\"jobID\":$(jobSpec.jobID),\"upkeepID\":$(jobSpec.prettyID)}"]
+    encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx
+`
+
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
@@ -446,10 +489,13 @@ func loadAssociations(q pg.Queryer, runs []*Run) error {
 			pipelineSpecIDM[run.PipelineSpecID] = Spec{}
 		}
 	}
-	if err := q.Select(&specs, `SELECT ps.id , ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
+	if err := q.Select(&specs, `SELECT ps.id, ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name", coalesce(jobs.type, '') "job_type" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
 	}
 	for _, spec := range specs {
+		if spec.JobType == "keeper" {
+			spec.DotDagSource = KeepersObservationSource
+		}
 		pipelineSpecIDM[spec.ID] = spec
 	}
 
