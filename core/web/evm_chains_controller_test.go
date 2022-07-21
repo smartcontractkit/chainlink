@@ -397,7 +397,7 @@ func setupEVMChainsControllerTest(t *testing.T) *TestEVMChainsController {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestEVMChainsController{
 		app:    app,
