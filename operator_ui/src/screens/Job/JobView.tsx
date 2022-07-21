@@ -94,6 +94,7 @@ const JOB_PAYLOAD__SPEC = gql`
       requestTimeout
       backoffInitialDelay
       backoffMaxDelay
+      maxGasPriceGWei
     }
     ... on BlockhashStoreSpec {
       coordinatorV1Address
@@ -154,6 +155,7 @@ export const JOB_PAYLOAD_FIELDS = gql`
     schemaVersion
     type
     maxTaskDuration
+    gasLimit
     spec {
       __typename
       ...JobPayload_Spec

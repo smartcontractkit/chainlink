@@ -56,7 +56,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("CreateAndSetAuthToken", session.User).Return(&auth.Token{
 					Secret:    "new-secret",
 					AccessKey: "new-access-key",
@@ -85,7 +85,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = "wrong-password"
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
@@ -114,7 +114,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, gError)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, gError)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
@@ -142,7 +142,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("CreateAndSetAuthToken", session.User).Return(nil, gError)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
@@ -208,7 +208,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				err = session.User.TokenKey.UnmarshalText([]byte("new-access-key"))
 				require.NoError(t, err)
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("DeleteAuthToken", session.User).Return(nil)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
@@ -233,7 +233,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = "wrong-password"
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
@@ -262,7 +262,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, gError)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, gError)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
@@ -290,7 +290,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("DeleteAuthToken", session.User).Return(gError)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},

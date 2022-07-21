@@ -14,6 +14,7 @@ const extractJobFields = (job: JobPayload_Fields, ...otherKeys: string[]) => {
     'schemaVersion',
     'name',
     'externalJobID',
+    'gasLimit',
     ...otherKeys,
   )
 }
@@ -213,6 +214,7 @@ export const generateJobDefinition = (
           'chunkSize',
           'backoffInitialDelay',
           'backoffMaxDelay',
+          'maxGasPriceGWei',
         ),
         ...extractObservationSourceField(job),
       }

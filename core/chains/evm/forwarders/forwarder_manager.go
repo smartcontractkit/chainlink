@@ -23,6 +23,7 @@ import (
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
+var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic()
 
 type FwdMgr struct {
 	utils.StartStopOnce
@@ -179,7 +180,7 @@ func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) {
 
 func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) {
 	f.logpoller.MergeFilter(
-		[]common.Hash{authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic()},
+		[]common.Hash{authChangedTopic},
 		addr)
 }
 
@@ -206,10 +207,7 @@ func (f *FwdMgr) runLoop() {
 			addrs := f.collectAddresses()
 			logs, err := f.logpoller.LatestLogEventSigsAddrs(
 				f.latestBlock,
-				[]common.Hash{
-					authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic(),
-					offchain_aggregator_wrapper.OffchainAggregatorConfigSet{}.Topic(),
-				},
+				[]common.Hash{authChangedTopic},
 				addrs,
 			)
 			if err != nil {
@@ -248,20 +246,12 @@ func (f *FwdMgr) handleAuthChange(log evmlogpoller.Log) error {
 		BlockHash: log.BlockHash,
 	}
 
-	switch {
-	case ethLog.Topics[0] == authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic():
+	if ethLog.Topics[0] == authChangedTopic {
 		event, err := f.authRcvr.ParseAuthorizedSendersChanged(ethLog)
 		if err != nil {
 			return errors.New("Failed to parse senders change log")
 		}
 		f.setCachedSenders(event.Raw.Address, event.Senders)
-	case ethLog.Topics[0] == offchain_aggregator_wrapper.OffchainAggregatorConfigSet{}.Topic():
-		// ConfigSet event
-		event, err := f.offchainAgg.ParseConfigSet(ethLog)
-		if err != nil {
-			return errors.New("Failed to parse config set log")
-		}
-		f.setCachedSenders(event.Raw.Address, event.Transmitters)
 	}
 
 	return nil
