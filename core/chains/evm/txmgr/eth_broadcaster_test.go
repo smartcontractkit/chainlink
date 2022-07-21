@@ -1253,24 +1253,32 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		})).Return(errors.New(TxFeeExceedsCapError)).Once()
+		})).Return(errors.New(TxFeeExceedsCapError)).Twice()
+		// In the first case, the tx was NOT accepted into the mempool. In the case
+		// of multiple RPC nodes, it is possible that it can be accepted by
+		// another node even if the primary one returns "exceeds the configured
+		// cap"
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
 
 		{
 			err, retryable := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
-			assert.NoError(t, err)
-			assert.False(t, retryable)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
+			assert.Contains(t, err.Error(), "error while sending transaction")
+			assert.True(t, retryable)
 		}
 
-		// Check it was saved with no attempt and a fatal error
+		// Check it was saved with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
-		assert.Nil(t, etx.InitialBroadcastAt)
-		require.Nil(t, etx.Nonce)
-		assert.True(t, etx.Error.Valid)
-		assert.Contains(t, etx.Error.String, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
-		assert.Len(t, etx.EthTxAttempts, 0)
+		assert.Nil(t, etx.InitialBroadcastAt) // Note that InitialBroadcastAt really means "InitialDefinitelySuccessfulBroadcastAt"
+		assert.Equal(t, int64(localNextNonce), *etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
 
 		// Check that the key had its nonce reset
 		var state ethkey.State
@@ -1279,6 +1287,27 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// was not accepted by the eth node and never can be
 		require.NotNil(t, state.NextNonce)
 		require.Equal(t, int64(localNextNonce), state.NextNonce)
+
+		// On the second try, the tx has been accepted into the mempool
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce+1, nil).Once()
+
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
+
+		// Check it was saved with its attempt
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt) // Note that InitialBroadcastAt really means "InitialDefinitelySuccessfulBroadcastAt"
+		assert.Equal(t, int64(localNextNonce), *etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt = etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
 
 		ethClient.AssertExpectations(t)
 	})

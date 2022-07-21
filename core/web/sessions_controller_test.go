@@ -33,9 +33,9 @@ func TestSessionsController_Create(t *testing.T) {
 		password    string
 		wantSession bool
 	}{
-		{"incorrect pwd", cltest.APIEmail, "incorrect", false},
+		{"incorrect pwd", cltest.APIEmailAdmin, "incorrect", false},
 		{"incorrect email", "incorrect@test.net", cltest.Password, false},
-		{"correct", cltest.APIEmail, cltest.Password, true},
+		{"correct", cltest.APIEmailAdmin, cltest.Password, true},
 	}
 
 	for _, test := range tests {
@@ -75,7 +75,8 @@ func TestSessionsController_Create(t *testing.T) {
 }
 
 func mustInsertSession(t *testing.T, q pg.Q, session *sessions.Session) {
-	err := q.GetNamed(`INSERT INTO sessions (id, last_used, created_at) VALUES (:id, :last_used, :created_at) RETURNING *`, session, session)
+	sql := "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, $4) RETURNING *"
+	_, err := q.Exec(sql, session.ID, cltest.APIEmailAdmin, session.LastUsed, session.CreatedAt)
 	require.NoError(t, err)
 }
 
@@ -90,7 +91,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 	mustInsertSession(t, q, &staleSession)
 
-	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
+	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmailAdmin, cltest.Password)
 	resp, err := http.Post(app.Server.URL+"/sessions", "application/json", bytes.NewBufferString(body))
 	assert.NoError(t, err)
 	defer resp.Body.Close()

@@ -423,16 +423,6 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	cancel()
 
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
-	if sendError.IsTxFeeExceedsCap() {
-		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
-			"ethTxID", etx.ID,
-			"err", sendError,
-			"id", "RPCTxFeeCapExceeded",
-		)
-		etx.Error = null.StringFrom(sendError.Error())
-		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return eb.saveFatallyErroredTransaction(lgr, &etx), true
-	}
 
 	if sendError.Fatal() {
 		lgr.Criticalw("Fatal error sending transaction",
@@ -548,7 +538,24 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	// it accepted the transaction despite the error and we can move forwards
 	// assuming success in this case.
 
-	eb.logger.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions", "err", sendError, "etx", etx, "attempt", attempt)
+	if sendError.IsTxFeeExceedsCap() {
+		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+			"etx", etx,
+			"attempt", attempt,
+			"err", sendError,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		// Note that we may have broadcast to multiple nodes and had it
+		// accepted by one of them! It is not guaranteed that all nodes share
+		// the same tx fee cap. That is why we must treat this as an unknown
+		// error that may have been confirmed.
+		//
+		// If there is only one RPC node, or all RPC nodes have the same
+		// configured cap, this transaction will get stuck and keep repeating
+		// forever until the issue is resolved.
+	} else {
+		lgr.Criticalw("Unknown error occurred while handling eth_tx queue in ProcessUnstartedEthTxs. This chain/RPC client may not be supported. Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions", "err", sendError, "etx", etx, "attempt", attempt)
+	}
 
 	nextNonce, err := eb.ethClient.PendingNonceAt(ctx, etx.FromAddress)
 	if err != nil {
@@ -573,7 +580,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	//
 	// In all cases, the best thing we can do is go into a retry loop and keep
 	// trying to send the transaction over again.
-	return errors.Wrapf(sendError, "unknown error while sending transaction %s (eth_tx ID %d)", attempt.Hash.Hex(), etx.ID), true
+	return errors.Wrapf(sendError, "retryable error while sending transaction %s (eth_tx ID %d)", attempt.Hash.Hex(), etx.ID), true
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.

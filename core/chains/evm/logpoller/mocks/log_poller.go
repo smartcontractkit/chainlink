@@ -314,7 +314,7 @@ func (_m *LogPoller) LogsDataWordRange(eventSig common.Hash, address common.Addr
 	return r0, r1
 }
 
-// LogsWithTopics provides a mock function with given fields: start, end, eventSigs, address, qopts
+// LogsWithSigs provides a mock function with given fields: start, end, eventSigs, address, qopts
 func (_m *LogPoller) LogsWithSigs(start int64, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
