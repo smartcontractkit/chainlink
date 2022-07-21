@@ -94,10 +94,7 @@ func TestRetryUnmarshal(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			p, err := pipeline.Parse(test.spec)
 			require.NoError(t, err)
 			require.Len(t, p.Tasks, 1)
@@ -112,8 +109,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns error if task is not the right type", func(t *testing.T) {
-		t.Parallel()
-
 		taskMap := interface{}(nil)
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("http"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got <nil> (<nil>) of type <nil>")
@@ -128,8 +123,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	})
 
 	t.Run("unknown task type", func(t *testing.T) {
-		t.Parallel()
-
 		taskMap := map[string]string{}
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("xxx"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, `UnmarshalTaskFromMap: unknown task type: "xxx"`)
@@ -168,10 +161,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(string(test.taskType), func(t *testing.T) {
-			t.Parallel()
-
 			taskMap := map[string]string{}
 			task, err := pipeline.UnmarshalTaskFromMap(test.taskType, taskMap, 0, "foo-dot-id")
 			require.NoError(t, err)
@@ -230,10 +220,7 @@ func TestMarshalJSONSerializable_replaceBytesWithHex(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			bytes, err := test.input.MarshalJSON()
 			assert.Equal(t, test.expected, string(bytes))
 			assert.Equal(t, test.err, errors.Cause(err))
@@ -255,10 +242,7 @@ func TestUnmarshalJSONSerializable(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			var i pipeline.JSONSerializable
 			err := json.Unmarshal([]byte(test.input), &i)
 			require.NoError(t, err)
@@ -299,10 +283,7 @@ func TestCheckInputs(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			outputs, err := pipeline.CheckInputs(test.pr, test.minLen, test.maxLen, test.maxErrors)
 			if test.err == nil {
 				assert.NoError(t, err)
