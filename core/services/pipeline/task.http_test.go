@@ -311,7 +311,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 func TestHTTPTask_Headers(t *testing.T) {
 	allHeaders := func(headers http.Header) (s []string) {
 		var keys []string
-		for k, _ := range headers {
+		for k := range headers {
 			keys = append(keys, k)
 		}
 		// get it in a consistent order

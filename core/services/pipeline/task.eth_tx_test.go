@@ -68,10 +68,10 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				jid := int32(321)
+				jobID := int32(321)
 				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
 				txMeta := &txmgr.EthTxMeta{
-					JobID:         &jid,
+					JobID:         &jobID,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),

@@ -407,11 +407,13 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		res.WriteHeader(http.StatusOK)
-		res.Write([]byte(`{"result":10}`))
+		_, err := res.Write([]byte(`{"result":10}`))
+		assert.NoError(t, err)
 	}))
 	m2 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
-		res.Write([]byte(`{"result":11}`))
+		_, err := res.Write([]byte(`{"result":11}`))
+		assert.NoError(t, err)
 	}))
 	s := fmt.Sprintf(`
 ds1          [type=http url="%s"];
