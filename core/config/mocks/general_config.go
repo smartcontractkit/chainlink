@@ -2285,6 +2285,11 @@ func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
 	return r0
 }
 
+// LogConfiguration provides a mock function with given fields: log
+func (_m *GeneralConfig) LogConfiguration(log func([]interface{})) {
+	_m.Called(log)
+}
+
 // LogFileDir provides a mock function with given fields:
 func (_m *GeneralConfig) LogFileDir() string {
 	ret := _m.Called()

@@ -71,9 +71,10 @@ func ExampleRun() {
 	//
 	// GLOBAL OPTIONS:
 	//    --json, -j                     json output as opposed to table
-	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored (default: "/foo/apicredentials")
+	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to <RootDir>/apicredentials
 	//    --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
 	//    --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
+	//    --config value, -c value       TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set. [$CL_CONFIG]
 	//    --help, -h                     show help
 	//    --version, -v                  print the version
 	// core.test version 0.0.0@exampleSHA
@@ -470,8 +471,6 @@ func ExampleRun_node_start() {
 	//    --debug, -d                      set logger level to debug
 	//    --password value, -p value       text file holding the password for the node's account
 	//    --vrfpassword value, --vp value  text file holding the password for the vrf keys; enables Chainlink VRF oracle
-	//    --config value, -c value         todo [$CL_CONFIG]
-
 }
 
 func ExampleRun_node_db() {
@@ -633,7 +632,7 @@ func ExampleRun_chains_solana() {
 }
 
 func ExampleRun_chains_starknet() {
-	run("chains", "starknet", "--help")
+	runEx("chains", "starknet", "--help")
 	// Output:
 	// NAME:
 	//    core.test chains starknet - Commands for handling StarkNet chains
@@ -707,6 +706,19 @@ func ExampleRun_nodes_evm() {
 	//    --help, -h  show help
 }
 
+// TODO https://app.shortcut.com/chainlinklabs/story/37975/chains-nodes-should-be-read-from-the-config-interface
+//func ExampleRun_nodes_evm_list() {
+//	runExTOML(`[[EVM]]
+//	ChainID = 1
+//	[[EVM.Node]]
+//	Name = 'foo'
+//	WSURL = 'wss://example.com
+//	`, "nodes", "evm", "list")
+//
+//	// Output:
+//	// [{...
+//}
+
 func ExampleRun_nodes_solana() {
 	runEx("nodes", "solana", "--help")
 	// Output:
@@ -726,7 +738,7 @@ func ExampleRun_nodes_solana() {
 }
 
 func ExampleRun_nodes_starknet() {
-	run("nodes", "starknet", "--help")
+	runEx("nodes", "starknet", "--help")
 	// Output:
 	// NAME:
 	//    core.test nodes starknet - Commands for handling StarkNet node configuration
