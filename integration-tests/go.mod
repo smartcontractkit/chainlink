@@ -12,7 +12,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.0
 	github.com/smartcontractkit/chainlink-env v0.2.27
-	github.com/smartcontractkit/chainlink-testing-framework v1.4.9
+	github.com/smartcontractkit/chainlink-testing-framework v1.4.10
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.9.0
@@ -125,8 +125,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.4.10-0.20220721002757-5f1257d18463
 
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
