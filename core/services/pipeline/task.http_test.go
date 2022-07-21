@@ -55,7 +55,8 @@ func TestHTTPTask_Happy(t *testing.T) {
 			Result decimal.Decimal `json:"result"`
 		} `json:"data"`
 	}
-	json.Unmarshal([]byte(result.Value.(string)), &x)
+	err := json.Unmarshal([]byte(result.Value.(string)), &x)
+	require.NoError(t, err)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
@@ -191,7 +192,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 						Result decimal.Decimal `json:"result"`
 					} `json:"data"`
 				}
-				json.Unmarshal([]byte(result.Value.(string)), &x)
+				err := json.Unmarshal([]byte(result.Value.(string)), &x)
+				require.NoError(t, err)
 				require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 			}
 		})

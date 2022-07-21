@@ -496,7 +496,7 @@ func TestETHTxTask(t *testing.T) {
 			nil, nil, "", pipeline.RunInfo{IsPending: true},
 		},
 		{
-			"non-existant chain-id",
+			"non-existent chain-id",
 			`[ $(fromAddr) ]`,
 			"$(toAddr)",
 			"$(data)",
