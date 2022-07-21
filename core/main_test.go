@@ -91,6 +91,8 @@ func ExampleRun_admin() {
 	// COMMANDS:
 	//    chpass  Change your API password remotely
 	//    login   Login to remote client by creating a session cookie
+	//    logout  Delete any local sessions
+	//    users   Create, edit permissions, or delete API users
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -197,16 +199,17 @@ func ExampleRun_keys() {
 	//    core.test keys command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    eth       Remote commands for administering the node's Ethereum keys
-	//    p2p       Remote commands for administering the node's p2p keys
-	//    csa       Remote commands for administering the node's CSA keys
-	//    ocr       Remote commands for administering the node's legacy off chain reporting keys
-	//    ocr2      Remote commands for administering the node's off chain reporting keys
-	//    solana    Remote commands for administering the node's Solana keys
-	//    terra     Remote commands for administering the node's Terra keys
-	//    starknet  Remote commands for administering the node's StarkNet keys
-	//    dkgsign   Remote commands for administering the node's DKGSign keys
-	//    vrf       Remote commands for administering the node's vrf keys
+	//    eth         Remote commands for administering the node's Ethereum keys
+	//    p2p         Remote commands for administering the node's p2p keys
+	//    csa         Remote commands for administering the node's CSA keys
+	//    ocr         Remote commands for administering the node's legacy off chain reporting keys
+	//    ocr2        Remote commands for administering the node's off chain reporting keys
+	//    solana      Remote commands for administering the node's Solana keys
+	//    terra       Remote commands for administering the node's Terra keys
+	//    starknet    Remote commands for administering the node's StarkNet keys
+	//    dkgsign     Remote commands for administering the node's DKGSign keys
+	//    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
+	//    vrf         Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -412,6 +415,26 @@ func ExampleRun_keys_dkgsign() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_keys_dkgencrypt() {
+	run("keys", "dkgencrypt", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys dkgencrypt - Remote commands for administering the node's DKGEncrypt keys
+	//
+	// USAGE:
+	//    core.test keys dkgencrypt command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a DKGEncrypt key
+	//    import  Import DKGEncrypt key from keyfile
+	//    export  Export DKGEncrypt key to keyfile
+	//    delete  Delete DKGEncrypt key if present
+	//    list    List the DKGEncrypt keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_node() {
 	run("node", "--help")
 	// Output:
@@ -560,9 +583,10 @@ func ExampleRun_chains() {
 	//    core.test chains command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm     Commands for handling EVM chains
-	//    solana  Commands for handling Solana chains
-	//    terra   Commands for handling Terra chains
+	//    evm       Commands for handling EVM chains
+	//    solana    Commands for handling Solana chains
+	//    starknet  Commands for handling StarkNet chains
+	//    terra     Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -606,6 +630,25 @@ func ExampleRun_chains_solana() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_chains_starknet() {
+	run("chains", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains starknet - Commands for handling StarkNet chains
+	//
+	// USAGE:
+	//    core.test chains starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create     Create a new StarkNet chain
+	//    delete     Delete an existing StarkNet chain
+	//    list       List all existing StarkNet chains
+	//    configure  Configure an existing StarkNet chain
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_chains_terra() {
 	run("chains", "terra", "--help")
 	// Output:
@@ -635,9 +678,10 @@ func ExampleRun_nodes() {
 	//    core.test nodes command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm     Commands for handling EVM node configuration
-	//    solana  Commands for handling Solana node configuration
-	//    terra   Commands for handling Terra node configuration
+	//    evm       Commands for handling EVM node configuration
+	//    solana    Commands for handling Solana node configuration
+	//    starknet  Commands for handling StarkNet node configuration
+	//    terra     Commands for handling Terra node configuration
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -674,6 +718,24 @@ func ExampleRun_nodes_solana() {
 	//    create  Create a new Solana node
 	//    delete  Delete an existing Solana node
 	//    list    List all existing Solana nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_starknet() {
+	run("nodes", "starknet", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes starknet - Commands for handling StarkNet node configuration
+	//
+	// USAGE:
+	//    core.test nodes starknet command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new StarkNet node
+	//    delete  Delete an existing StarkNet node
+	//    list    List all existing StarkNet nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

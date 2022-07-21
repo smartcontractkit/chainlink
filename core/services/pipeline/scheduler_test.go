@@ -1,14 +1,15 @@
 package pipeline
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type event struct {
@@ -16,7 +17,7 @@ type event struct {
 	result   Result
 }
 
-func Test_Scheduler(t *testing.T) {
+func TestScheduler(t *testing.T) {
 	// NOTE: task type does not matter in the test cases, it's just there so it's parsed successfully
 	tests := []struct {
 		name      string
@@ -142,13 +143,13 @@ func Test_Scheduler(t *testing.T) {
 			select {
 			case taskRun := <-s.taskCh:
 				require.Equal(t, event.expected, taskRun.task.DotID())
-				t := time.Now()
-				s.report(context.Background(), TaskRunResult{
+				now := time.Now()
+				s.report(testutils.Context(t), TaskRunResult{
 					ID:         uuid.NewV4(),
 					Task:       taskRun.task,
 					Result:     event.result,
-					FinishedAt: null.TimeFrom(t),
-					CreatedAt:  t,
+					FinishedAt: null.TimeFrom(now),
+					CreatedAt:  now,
 				})
 			case <-time.After(time.Second):
 				t.Fatal("timed out waiting for task run")

@@ -12,10 +12,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"gopkg.in/guregu/null.v4"
 )
 
 type Spec struct {
@@ -23,6 +22,7 @@ type Spec struct {
 	DotDagSource    string          `json:"dotDagSource"`
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
+	GasLimit        *uint32         `json:"-"`
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
