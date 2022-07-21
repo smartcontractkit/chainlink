@@ -93,20 +93,20 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
-			//Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			//Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
-			//Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
-			//Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Basic smoke test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Basic smoke test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, BasicSmokeTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 BCPT test @simulated", ethereum.RegistryVersion_1_1, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 BCPT test @simulated", ethereum.RegistryVersion_1_2, highBCPTRegistryConfig, BasicCounter, BcptTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Perform simulation test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, PerformSimulationTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Check/Perform Gas limit test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, PerformanceCounter, CheckPerformGasLimitTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Register upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Register upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RegisterUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			Entry("v1.2 Add funds to upkeep test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, AddFundsToUpkeepTest, big.NewInt(1)),
+			Entry("v1.1 Removing one keeper test @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
 			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 		}
@@ -384,12 +384,13 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
 
 			// In most cases count should remain constant, but there might be a straggling perform tx which
-			// gets committed later. Hence, we check that the upkeep count does not increase by more than 1
+			// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
+			// is sufficient to check that the upkeep count does not increase by more than 6.
 			Consistently(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
-					BeNumerically("<=", existingCnt.Int64()+1),
+					BeNumerically("<=", existingCnt.Int64()+6),
 					"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
@@ -699,16 +700,16 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					strconv.Itoa(int(countersAfterNoMoreNodes[i].Int64())) + " times")
 			}
 
-			// Once all the nodes are taken down, there might be some transactions which went through before
-			// all the nodes were taken down. Therefore, we allow a margin of one upkeep at most to have been
-			// executed (caused by the residual transactions).
+			// Once all the nodes are taken down, there might be some straggling transactions which went through before
+			// all the nodes were taken down. Every keeper node can have at most 1 straggling transaction per upkeep,
+			// so a +6 on the upper limit side should be sufficient.
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-					g.Expect(latestCounter.Int64()-countersAfterNoMoreNodes[i].Int64()).Should(BeNumerically("<", 2),
+					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+6),
 						"Expected consumer counter to not have increased more than %d, but got %d",
-						countersAfterNoMoreNodes[i].Int64()+1, latestCounter.Int64())
+						countersAfterNoMoreNodes[i].Int64()+6, latestCounter.Int64())
 				}
 			}, "3m", "1s").Should(Succeed())
 		}
