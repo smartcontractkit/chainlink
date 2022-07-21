@@ -266,7 +266,11 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 	// retain old UUID values
 	for _, taskRun := range run.PipelineTaskRuns {
 		task := pipeline.ByDotID(taskRun.DotID)
-		task.Base().uuid = taskRun.ID
+		if task != nil && task.Base() != nil {
+			task.Base().uuid = taskRun.ID
+		} else {
+			return nil, errors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
+		}
 	}
 
 	return pipeline, nil
