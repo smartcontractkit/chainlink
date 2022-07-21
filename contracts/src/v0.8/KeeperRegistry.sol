@@ -643,11 +643,16 @@ contract KeeperRegistry is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
     uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
+    uint256 l1CostWei = 0;
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
+      l1CostWei = gasLimit * l1CostWei;
     }
-    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, data);
+    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, l1CostWei);
   }
 
   /**
@@ -799,16 +804,10 @@ contract KeeperRegistry is
     uint256 gasLimit,
     uint256 gasWei,
     uint256 linkEth,
-    bytes memory data
+    uint256 l1CostWei
   ) private view returns (uint96 payment) {
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
-    uint256 l1CostWei = 0;
-    if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
-      l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
-    } else if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
-    }
     uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(s_storage.flatFeeMicroLink) * 1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
@@ -863,11 +862,15 @@ contract KeeperRegistry is
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
+    uint256 l1CostWei = 0;
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
     }
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth, data);
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth, l1CostWei);
 
     s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
@@ -894,9 +897,9 @@ contract KeeperRegistry is
   /**
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
-  function _adjustGasPrice(uint256 gasWei, bool isSimulation) private view returns (uint256 adjustedPrice) {
+  function _adjustGasPrice(uint256 gasWei, bool isExecution) private view returns (uint256 adjustedPrice) {
     adjustedPrice = gasWei * s_storage.gasCeilingMultiplier;
-    if (isSimulation && tx.gasprice < adjustedPrice) {
+    if (isExecution && tx.gasprice < adjustedPrice) {
       adjustedPrice = tx.gasprice;
     }
   }
@@ -908,21 +911,30 @@ contract KeeperRegistry is
     address from,
     uint256 id,
     bytes memory performData,
-    bool isSimulation
+    bool isExecution
   ) private view returns (PerformParams memory) {
     uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, isSimulation);
+    uint256 adjustedGasWei = _adjustGasPrice(gasWei, isExecution);
 
+    uint256 l1CostWei = 0;
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      if (isSimulation) {
-        data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
-      } else {
+      if (isExecution) {
         data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+      } else {
+        data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
+      }
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      if (isExecution) {
+        l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
+      } else {
+        (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
+        l1CostWei = gasLimit * l1CostWei;
       }
     }
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, data);
+    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, l1CostWei);
 
     return
       PerformParams({
