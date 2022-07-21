@@ -67,7 +67,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, Session{Authenticated: true}, "session")
 }
 
-// Destroy erases the session ID for the sole API user.
+// Destroy removes the specified session ID from the database.
 func (sc *SessionsController) Destroy(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
 

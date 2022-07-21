@@ -91,6 +91,8 @@ func ExampleRun_admin() {
 	// COMMANDS:
 	//    chpass  Change your API password remotely
 	//    login   Login to remote client by creating a session cookie
+	//    logout  Delete any local sessions
+	//    users   Create, edit permissions, or delete API users
 	//
 	// OPTIONS:
 	//    --help, -h  show help
