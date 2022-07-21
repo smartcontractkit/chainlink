@@ -1,7 +1,7 @@
 # This is a dummy file so when changes occur that do not need smoke tests ran we can still have the check be required
 name: Integration Tests
 on:
-  pull_request:
+  push:
     # keep these paths identical to the integration-tests.yml
     paths-ignore:
       - '**/*.go'
@@ -10,16 +10,41 @@ on:
       - '.github/workflows/integration-tests.yml'
 
 jobs:
+  # We only want to run these dummy jobs if there are changes only in files that would not kick off the non dummy jobs
+  changes:
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      src: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+      - uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721 # 2.10.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - '**/*.go'
+              - '**/*go.sum'
+              - '**/*go.mod'
+              - '.github/workflows/integration-tests.yml'
   # Dummy required checks that will pass
   eth-smoke-tests:
     environment: integration
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.src == 'false' }}
     steps:
       - run: echo "No smoke tests required"
   solana-smoke-tests:
     environment: integration
     name: Solana Smoke Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.src == 'false' }}
     steps:
       - run: echo "No smoke tests required"

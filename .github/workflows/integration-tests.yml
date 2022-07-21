@@ -1,6 +1,6 @@
 name: Integration Tests
 on:
-  pull_request:
+  push:
      # keep these paths identical to the integration-tests-ignored.yml
     paths:
       - '**/*.go'
