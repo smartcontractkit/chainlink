@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -62,8 +63,8 @@ func NewAddressPtr() *common.Address {
 	return &a
 }
 
-// NewRandomInt64 returns a (non-cryptographically secure) random positive int64
-func NewRandomInt64() int64 {
+// NewRandomPositiveInt64 returns a (non-cryptographically secure) random positive int64
+func NewRandomPositiveInt64() int64 {
 	id := mrand.Int63()
 	return id
 }
@@ -372,4 +373,12 @@ func SkipShort(tb testing.TB, why string) {
 // SkipShortDB skips tb during -short runs, and notes the DB dependency.
 func SkipShortDB(tb testing.TB) {
 	SkipShort(tb, "DB dependency")
+}
+
+func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
+	t.Helper()
+	var count int64
+	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+	require.NoError(t, err)
+	require.Equal(t, expected, count)
 }

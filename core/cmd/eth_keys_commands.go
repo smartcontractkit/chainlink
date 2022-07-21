@@ -26,14 +26,14 @@ func (p *EthKeyPresenter) ToRow() []string {
 		p.EVMChainID.String(),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
-		fmt.Sprintf("%v", p.IsFunding),
+		fmt.Sprintf("%v", p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
 		p.MaxGasPriceWei.String(),
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
@@ -279,4 +279,39 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	}
 
 	return nil
+}
+
+// ResetETHKey exports an ETH key,
+// address must be passed
+func (cli *Client) ResetETHKey(c *cli.Context) (err error) {
+	addr := c.String("address")
+	cid := c.String("evmChainID")
+	nonce := c.String("nextNonce")
+
+	resetUrl := url.URL{Path: "/v2/keys/eth/reset"}
+	query := resetUrl.Query()
+	query.Set("address", addr)
+	query.Set("evmChainID", cid)
+	query.Set("nextNonce", nonce)
+
+	resetUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(resetUrl.String(), nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		resp, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return cli.errorOut(errors.Errorf("Error resetting key: %s", err.Error()))
+		}
+		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
+	}
+
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Imported ETH key")
 }

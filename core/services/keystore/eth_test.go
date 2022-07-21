@@ -36,10 +36,10 @@ func Test_EthKeyStore(t *testing.T) {
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM eth_key_states")))
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
 		keyStore.Unlock(cltest.Password)
 	}
-	const statesTableName = "eth_key_states"
+	const statesTableName = "evm_key_states"
 
 	t.Run("Create / GetAll / Get", func(t *testing.T) {
 		defer reset()
@@ -55,9 +55,9 @@ func Test_EthKeyStore(t *testing.T) {
 		// adds ethkey.State
 		cltest.AssertCount(t, db, statesTableName, 1)
 		var state ethkey.State
-		sql := fmt.Sprintf(`SELECT * from %s LIMIT 1`, statesTableName)
+		sql := fmt.Sprintf(`SELECT address, disabled, evm_chain_id, created_at, updated_at from %s LIMIT 1`, statesTableName)
 		require.NoError(t, db.Get(&state, sql))
-		require.Equal(t, state.Address, retrievedKeys[0].Address)
+		require.Equal(t, state.Address.Address(), retrievedKeys[0].Address)
 		// adds key to db
 		keyStore.ResetXXXTestOnly()
 		keyStore.Unlock(cltest.Password)
@@ -102,45 +102,45 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
-	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
+	t.Run("EnsureKeys / EnabledKeysForChain", func(t *testing.T) {
 		defer reset()
 		err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		assert.NoError(t, err)
-		sendingKeys1, err := ethKeyStore.SendingKeys(nil)
+		sendingKeys1, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
 		assert.NoError(t, err)
 
 		require.Equal(t, 1, len(sendingKeys1))
-		cltest.AssertCount(t, db, statesTableName, 2)
+		cltest.AssertCount(t, db, statesTableName, 1)
 
 		err = ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		assert.NoError(t, err)
-		sendingKeys2, err := ethKeyStore.SendingKeys(nil)
+		sendingKeys2, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
 		assert.NoError(t, err)
 
 		require.Equal(t, 1, len(sendingKeys2))
 		require.Equal(t, sendingKeys1, sendingKeys2)
 	})
 
-	t.Run("SendingKeys with specified chain ID", func(t *testing.T) {
+	t.Run("EnabledKeysForChain with specified chain ID", func(t *testing.T) {
 		defer reset()
 		key, err := ethKeyStore.Create(testutils.FixtureChainID)
 		require.NoError(t, err)
 		key2, err := ethKeyStore.Create(big.NewInt(1337))
 		require.NoError(t, err)
 
-		keys, err := ethKeyStore.SendingKeys(testutils.FixtureChainID)
+		keys, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		require.Equal(t, key, keys[0])
 
-		keys, err = ethKeyStore.SendingKeys(big.NewInt(1337))
+		keys, err = ethKeyStore.EnabledKeysForChain(big.NewInt(1337))
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		require.Equal(t, key2, keys[0])
 
-		keys, err = ethKeyStore.SendingKeys(nil)
-		require.NoError(t, err)
-		require.Len(t, keys, 2)
+		_, err = ethKeyStore.EnabledKeysForChain(nil)
+		assert.Error(t, err)
+		assert.EqualError(t, err, "chainID must be non-nil")
 	})
 }
 
@@ -154,100 +154,114 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ethKeyStore := keyStore.Eth()
 
 	t.Run("should error when no addresses", func(t *testing.T) {
-		_, err := ethKeyStore.GetRoundRobinAddress(nil)
+		_, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.Error(t, err)
 	})
 
-	// create 4 keys - 1 funding and 2 sending
-	err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
-	require.NoError(t, err)
-	sendingKeys, err := ethKeyStore.SendingKeys(nil)
-	assert.NoError(t, err)
+	// create keys
+	// - key 1
+	//   enabled - fixture
+	//   enabled - simulated
+	// - key 2
+	//   enabled - fixture
+	//   disabled - simulated
+	// - key 3
+	//   enabled - simulated
+	// - key 4
+	//   enabled - fixture
+	k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	ethKeyStore.Enable(k1.Address, testutils.FixtureChainID)
+	ethKeyStore.Enable(k1.Address, testutils.SimulatedChainID)
 
-	k1 := sendingKeys[0]
+	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	ethKeyStore.Enable(k2.Address, testutils.FixtureChainID)
+	ethKeyStore.Enable(k2.Address, testutils.SimulatedChainID)
+	ethKeyStore.Disable(k2.Address, testutils.SimulatedChainID)
 
-	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
+	k3, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	ethKeyStore.Enable(k3.Address, testutils.SimulatedChainID)
 
-	// create 1 funding and 1 sending key for a different chain
-	err = ethKeyStore.EnsureKeys(testutils.SimulatedChainID)
-	require.NoError(t, err)
+	k4, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	ethKeyStore.Enable(k4.Address, testutils.FixtureChainID)
 
-	sendingKeys, err = ethKeyStore.SendingKeys(nil)
-	assert.NoError(t, err)
-	require.Equal(t, 3, len(sendingKeys))
-
-	fundingKeys, err := ethKeyStore.FundingKeys()
-	assert.NoError(t, err)
-	require.Equal(t, 1, len(fundingKeys))
-
-	t.Run("with no address filter, rotates between all sending addresses", func(t *testing.T) {
-		address1, err := ethKeyStore.GetRoundRobinAddress(nil)
+	t.Run("with no address filter, rotates between all enabled addresses", func(t *testing.T) {
+		address1, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.NoError(t, err)
-		address2, err := ethKeyStore.GetRoundRobinAddress(nil)
+		address2, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.NoError(t, err)
-		address3, err := ethKeyStore.GetRoundRobinAddress(nil)
+		address3, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.NoError(t, err)
-		address4, err := ethKeyStore.GetRoundRobinAddress(nil)
+		address4, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.NoError(t, err)
-		address5, err := ethKeyStore.GetRoundRobinAddress(nil)
+		address5, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.NoError(t, err)
-		address6, err := ethKeyStore.GetRoundRobinAddress(nil)
+		address6, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID)
 		require.NoError(t, err)
 
-		require.NotEqual(t, address1, address2)
-		require.NotEqual(t, address2, address3)
-		require.NotEqual(t, address1, address3)
-		require.Equal(t, address1, address4)
-		require.Equal(t, address2, address5)
-		require.Equal(t, address3, address6)
+		assert.NotEqual(t, address1, address2)
+		assert.NotEqual(t, address2, address3)
+		assert.NotEqual(t, address1, address3)
+		assert.Equal(t, address1, address4)
+		assert.Equal(t, address2, address5)
+		assert.Equal(t, address3, address6)
 	})
 
 	t.Run("with address filter, rotates between given addresses that match sending keys", func(t *testing.T) {
-		// fundingKeys[0] is a funding address so even though it's whitelisted, it will be ignored
-		addresses := []common.Address{fundingKeys[0].Address.Address(), k1.Address.Address(), k2.Address.Address(), testutils.NewAddress()}
+		{
+			// k3 is a disabled address for FixtureChainID so even though it's whitelisted, it will be ignored
+			addresses := []common.Address{k4.Address, k3.Address, k1.Address, k2.Address, testutils.NewAddress()}
 
-		address1, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
-		require.NoError(t, err)
-		address2, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
-		require.NoError(t, err)
-		address3, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
-		require.NoError(t, err)
-		address4, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
-		require.NoError(t, err)
+			address1, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID, addresses...)
+			require.NoError(t, err)
+			address2, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID, addresses...)
+			require.NoError(t, err)
+			address3, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID, addresses...)
+			require.NoError(t, err)
+			address4, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID, addresses...)
+			require.NoError(t, err)
 
-		require.True(t, address1 == k1.Address.Address() || address1 == k2.Address.Address())
-		require.True(t, address2 == k1.Address.Address() || address2 == k2.Address.Address())
-		require.NotEqual(t, address1, address2)
-		require.Equal(t, address1, address3)
-		require.Equal(t, address2, address4)
+			assert.NotEqual(t, k3.Address, address1)
+			assert.NotEqual(t, k3.Address, address2)
+			assert.NotEqual(t, k3.Address, address3)
+			assert.NotEqual(t, address1, address2)
+			assert.NotEqual(t, address1, address3)
+			assert.NotEqual(t, address2, address3)
+			assert.Equal(t, address1, address4)
+		}
+
+		{
+
+			// k2 and k4 are disabled address for SimulatedChainID so even though it's whitelisted, it will be ignored
+			addresses := []common.Address{k4.Address, k3.Address, k1.Address, k2.Address, testutils.NewAddress()}
+
+			address1, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID, addresses...)
+			require.NoError(t, err)
+			address2, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID, addresses...)
+			require.NoError(t, err)
+			address3, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID, addresses...)
+			require.NoError(t, err)
+			address4, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID, addresses...)
+			require.NoError(t, err)
+
+			assert.True(t, address1 == k1.Address || address1 == k3.Address)
+			assert.True(t, address2 == k1.Address || address2 == k3.Address)
+			assert.NotEqual(t, address1, address2)
+			assert.Equal(t, address1, address3)
+			assert.Equal(t, address2, address4)
+		}
 	})
 
 	t.Run("with address filter when no address matches", func(t *testing.T) {
 		addr := testutils.NewAddress()
-		_, err := ethKeyStore.GetRoundRobinAddress(nil, []common.Address{addr}...)
+		_, err := ethKeyStore.GetRoundRobinAddress(testutils.FixtureChainID, []common.Address{addr}...)
 		require.Error(t, err)
-		require.Equal(t, fmt.Sprintf("no sending keys available that match whitelist: [%s]", addr.Hex()), err.Error())
-	})
-
-	t.Run("with non-nil chain ID, filters by chain ID", func(t *testing.T) {
-		sendingKeys, err := ethKeyStore.SendingKeys(testutils.SimulatedChainID)
-		assert.NoError(t, err)
-		require.Len(t, sendingKeys, 1)
-		k := sendingKeys[0]
-		address1, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID)
-		require.NoError(t, err)
-		address2, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID)
-		require.NoError(t, err)
-		address3, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID)
-		require.NoError(t, err)
-
-		require.Equal(t, k.Address.Address(), address1)
-		require.Equal(t, k.Address.Address(), address2)
-		require.Equal(t, k.Address.Address(), address3)
+		require.Equal(t, fmt.Sprintf("no sending keys available for chain %s that match whitelist: [%s]", testutils.FixtureChainID.String(), addr.Hex()), err.Error())
 	})
 }
 
 func Test_EthKeyStore_SignTx(t *testing.T) {
+	t.Parallel()
+
 	db := pgtest.NewSqlxDB(t)
 	config := configtest.NewTestGeneralConfig(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
@@ -262,13 +276,15 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
 	require.EqualError(t, err, fmt.Sprintf("unable to find eth key with id %s", randomAddress.Hex()))
 
-	signed, err := ethKeyStore.SignTx(k.Address.Address(), tx, chainID)
+	signed, err := ethKeyStore.SignTx(k.Address, tx, chainID)
 	require.NoError(t, err)
 
 	require.NotEqual(t, tx, signed)
 }
 
 func Test_EthKeyStore_E2E(t *testing.T) {
+	t.Parallel()
+
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -279,7 +295,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM eth_key_states")))
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
 		keyStore.Unlock(cltest.Password)
 	}
 
@@ -327,10 +343,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		defer reset()
 		newKey, err := ethkey.NewV2()
 		require.NoError(t, err)
-		err = ks.Add(newKey, &cltest.FixtureChainID)
-		require.NoError(t, err)
-		err = ks.Add(newKey, &cltest.FixtureChainID)
-		assert.Error(t, err)
+		ks.XXXTestingOnlyAdd(newKey)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		assert.Equal(t, 1, len(keys))
@@ -372,40 +385,28 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 			require.NoError(t, err)
 			k2, err := ethkey.NewV2()
 			require.NoError(t, err)
-			err = ks.Add(k1, &cltest.FixtureChainID)
-			require.NoError(t, err)
-			err = ks.Add(k2, &cltest.FixtureChainID)
-			require.NoError(t, err)
+			ks.XXXTestingOnlyAdd(k1)
+			ks.XXXTestingOnlyAdd(k2)
+			require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
 
 			states, err := ks.GetStatesForKeys([]ethkey.KeyV2{k1, k2})
 			require.NoError(t, err)
-			chainState, err := ks.GetStatesForChain(&cltest.FixtureChainID)
+			assert.Len(t, states, 1)
+
+			chainStates, err := ks.GetStatesForChain(testutils.FixtureChainID)
 			require.NoError(t, err)
+			assert.Len(t, chainStates, 2) // one created here, one created above
 
-			assert.Len(t, states, 2)
-			assert.Len(t, chainState, 3)
-		})
-
-		t.Run("returns V1 keys as V2", func(t *testing.T) {
-			defer reset()
-			defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM keys")))
-
-			ethAddress := testutils.NewAddress()
-			err = utils.JustError(db.Exec(`INSERT INTO keys (address, json, created_at, updated_at, next_nonce, is_funding, deleted_at) VALUES ($1, '{"address":"6fdac88ddfd811d130095373986889ed90e0d622","crypto":{"cipher":"aes-128-ctr","ciphertext":"557f5324e770c3d203751c1f0f7fb5076386c49f5b05e3f20b3abb59758fd3c3","cipherparams":{"iv":"bd9472543fab7cc63027cbcd039daff0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":2,"p":1,"r":8,"salt":"647b54770a3fda830b4440ae57c44cf7506297295fe4d72b1ff943e3a8ddb94a"},"mac":"0c654ee29ee06b3816fc0040d84ebd648c557144a77ccc55b9568355f53397b3"},"id":"6fdac88d-dfd8-11d1-3009-5373986889ed","version":3}', NOW(), NOW(), 0, false, NULL)`, ethAddress))
+			chainStates, err = ks.GetStatesForChain(testutils.SimulatedChainID)
 			require.NoError(t, err)
-
-			keys, _, err := ks.GetV1KeysAsV2(func() (*big.Int, error) {
-				return &cltest.FixtureChainID, nil
-			})
-			require.NoError(t, err)
-
-			assert.Len(t, keys, 1)
-			assert.Equal(t, fmt.Sprintf("EthKeyV2{PrivateKey: <redacted>, Address: %s}", keys[0].Address), keys[0].GoString())
+			assert.Len(t, chainStates, 0)
 		})
 	})
 }
 
 func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
+	t.Parallel()
+
 	chDone := make(chan struct{})
 	defer func() { close(chDone) }()
 	db := pgtest.NewSqlxDB(t)
@@ -420,7 +421,7 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	assertCount := func(expected int32) {
 		require.Eventually(
 			t,
-			func() bool { return count.Load() == expected },
+			func() bool { return count.Load() >= expected },
 			10*time.Second,
 			100*time.Millisecond,
 			fmt.Sprintf("insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load()),
@@ -444,15 +445,232 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	err := ks.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	assertCount(1)
-	_, err = ks.Create(&cltest.FixtureChainID)
+
+	// Create the key includes a state, triggering notify
+	k1, err := ks.Create(testutils.FixtureChainID)
 	require.NoError(t, err)
 	assertCount(2)
-	newKey, err := ethkey.NewV2()
-	require.NoError(t, err)
-	err = ks.Add(newKey, &cltest.FixtureChainID)
-	require.NoError(t, err)
+
+	// Enabling the key for a new state triggers the notification callback again
+	require.NoError(t, ks.Enable(k1.Address, testutils.SimulatedChainID))
 	assertCount(3)
-	_, err = ks.Delete(newKey.ID())
+}
+
+func Test_EthKeyStore_EnsureKeys(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates one unique key per chain if none exist", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
+		ks := keyStore.Eth()
+
+		testutils.AssertCount(t, db, "evm_key_states", 0)
+		err := ks.EnsureKeys(testutils.FixtureChainID, testutils.SimulatedChainID)
+		require.NoError(t, err)
+		testutils.AssertCount(t, db, "evm_key_states", 2)
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		assert.Len(t, keys, 2)
+	})
+
+	t.Run("does nothing if a key exists for a chain", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
+		ks := keyStore.Eth()
+
+		// Add one enabled key
+		_, err := ks.Create(testutils.FixtureChainID)
+		require.NoError(t, err)
+		testutils.AssertCount(t, db, "evm_key_states", 1)
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		assert.Len(t, keys, 1)
+
+		// this adds one more key for the additional chain
+		err = ks.EnsureKeys(testutils.FixtureChainID, testutils.SimulatedChainID)
+		require.NoError(t, err)
+		testutils.AssertCount(t, db, "evm_key_states", 2)
+		keys, err = ks.GetAll()
+		require.NoError(t, err)
+		assert.Len(t, keys, 2)
+	})
+
+	t.Run("does nothing if a key exists but is disabled for a chain", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
+		ks := keyStore.Eth()
+
+		// Add one enabled key
+		k, err := ks.Create(testutils.FixtureChainID)
+		require.NoError(t, err)
+		testutils.AssertCount(t, db, "evm_key_states", 1)
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		assert.Len(t, keys, 1)
+
+		// disable the key
+		err = ks.Disable(k.Address, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		// this does nothing
+		err = ks.EnsureKeys(testutils.FixtureChainID)
+		require.NoError(t, err)
+		testutils.AssertCount(t, db, "evm_key_states", 1)
+		keys, err = ks.GetAll()
+		require.NoError(t, err)
+		assert.Len(t, keys, 1)
+		state, err := ks.GetState(k.Address.Hex(), testutils.FixtureChainID)
+		require.NoError(t, err)
+		assert.True(t, state.Disabled)
+	})
+}
+
+func Test_EthKeyStore_Reset(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	ks := keyStore.Eth()
+
+	k1, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
+	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
+	cltest.MustInsertRandomKey(t, ks, testutils.SimulatedChainID)
+
+	newNonce := testutils.NewRandomPositiveInt64()
+
+	t.Run("when no state matches address/chain ID", func(t *testing.T) {
+		addr := utils.RandomAddress()
+		cid := testutils.NewRandomEVMChainID()
+		err := ks.Reset(addr, cid, newNonce)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), fmt.Sprintf("key state not found with address %s and chainID %s", addr.Hex(), cid.String()))
+	})
+	t.Run("when no state matches address", func(t *testing.T) {
+		addr := utils.RandomAddress()
+		err := ks.Reset(addr, testutils.FixtureChainID, newNonce)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), fmt.Sprintf("key state not found with address %s and chainID 0", addr.Hex()))
+	})
+	t.Run("when no state matches chain ID", func(t *testing.T) {
+		cid := testutils.NewRandomEVMChainID()
+		err := ks.Reset(addr1, cid, newNonce)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), fmt.Sprintf("key state not found with address %s and chainID %s", addr1.Hex(), cid.String()))
+	})
+	t.Run("resets key with given address and chain ID to the given nonce", func(t *testing.T) {
+		err := ks.Reset(k1.Address, testutils.FixtureChainID, newNonce)
+		assert.NoError(t, err)
+
+		nonce, err := ks.GetNextNonce(k1.Address, testutils.FixtureChainID)
+		require.NoError(t, err)
+
+		assert.Equal(t, nonce, newNonce)
+	})
+}
+
+func Test_EthKeyStore_Delete(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	ks := keyStore.Eth()
+
+	randKeyID := utils.RandomAddress().Hex()
+	_, err := ks.Delete(randKeyID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("unable to find eth key with id %s", randKeyID))
+
+	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
+	_, addr2 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
+	cltest.MustInsertRandomKey(t, ks, testutils.SimulatedChainID)
+	require.NoError(t, ks.Enable(addr1, testutils.SimulatedChainID))
+
+	testutils.AssertCount(t, db, "evm_key_states", 4)
+	keys, err := ks.GetAll()
 	require.NoError(t, err)
-	assertCount(4)
+	assert.Len(t, keys, 3)
+	_, err = ks.GetState(addr1.Hex(), testutils.FixtureChainID)
+	require.NoError(t, err)
+	_, err = ks.GetState(addr1.Hex(), testutils.SimulatedChainID)
+	require.NoError(t, err)
+
+	deletedK, err := ks.Delete(addr1.String())
+	require.NoError(t, err)
+	assert.Equal(t, addr1, deletedK.Address)
+
+	testutils.AssertCount(t, db, "evm_key_states", 2)
+	keys, err = ks.GetAll()
+	require.NoError(t, err)
+	assert.Len(t, keys, 2)
+	_, err = ks.GetState(addr1.Hex(), testutils.FixtureChainID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("state not found for eth key ID %s", addr1.Hex()))
+	_, err = ks.GetState(addr1.Hex(), testutils.SimulatedChainID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("state not found for eth key ID %s", addr1.Hex()))
+	_, err = ks.GetState(addr2.Hex(), testutils.FixtureChainID)
+	require.NoError(t, err)
+}
+
+func Test_EthKeyStore_CheckEnabled(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	ks := keyStore.Eth()
+
+	// create keys
+	// - key 1
+	//   enabled - fixture
+	//   enabled - simulated
+	// - key 2
+	//   enabled - fixture
+	//   disabled - simulated
+	// - key 3
+	//   enabled - simulated
+	// - key 4
+	//   enabled - fixture
+	k1, addr1 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
+	ks.Enable(k1.Address, testutils.SimulatedChainID)
+	ks.Enable(k1.Address, testutils.FixtureChainID)
+
+	k2, addr2 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
+	ks.Enable(k2.Address, testutils.FixtureChainID)
+	ks.Enable(k2.Address, testutils.SimulatedChainID)
+	ks.Disable(k2.Address, testutils.SimulatedChainID)
+
+	k3, addr3 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
+	ks.Enable(k3.Address, testutils.SimulatedChainID)
+
+	t.Run("returns nil when key is enabled for given chain", func(t *testing.T) {
+		err := ks.CheckEnabled(addr1, testutils.FixtureChainID)
+		assert.NoError(t, err)
+		err = ks.CheckEnabled(addr1, testutils.SimulatedChainID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("returns error when key does not exist", func(t *testing.T) {
+		addr := utils.RandomAddress()
+		err := ks.CheckEnabled(addr, testutils.FixtureChainID)
+		assert.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", addr.Hex()))
+	})
+
+	t.Run("returns error when key exists but has never been enabled (no state) for the given chain", func(t *testing.T) {
+		err := ks.CheckEnabled(addr3, testutils.FixtureChainID)
+		assert.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is has not been enabled for chain 0 (enabled only for chain IDs: 1337)", addr3.Hex()))
+	})
+
+	t.Run("returns error when key exists but is disabled for the given chain", func(t *testing.T) {
+		err := ks.CheckEnabled(addr2, testutils.SimulatedChainID)
+		assert.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is disabled for chain 1337 (enabled only for chain IDs: 0)", addr2.Hex()))
+	})
 }

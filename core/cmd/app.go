@@ -458,6 +458,25 @@ func NewApp(client *Client) *cli.App {
 							},
 							Action: client.ExportETHKey,
 						},
+						{
+							Name:   "reset",
+							Usage:  "Manually set the next nonce for a key. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
+							Action: client.ResetETHKey,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "address",
+									Usage: "address of the key for which to set the nonce",
+								},
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "key nonce will be reset for this chain ID only",
+								},
+								cli.Uint64Flag{
+									Name:  "nextNonce",
+									Usage: "the next nonce in the sequence",
+								},
+							},
+						},
 					},
 				},
 
@@ -750,21 +769,6 @@ func NewApp(client *Client) *cli.App {
 			Usage:       "Commands for admin actions that must be run locally",
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
 			Subcommands: []cli.Command{
-				{
-					Name:   "setnextnonce",
-					Usage:  "Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.",
-					Action: client.SetNextNonce,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "address",
-							Usage: "address of the key for which to set the nonce",
-						},
-						cli.Uint64Flag{
-							Name:  "nextNonce",
-							Usage: "the next nonce in the sequence",
-						},
-					},
-				},
 				{
 					Name:    "start",
 					Aliases: []string{"node", "n"},

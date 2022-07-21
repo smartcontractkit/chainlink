@@ -3,6 +3,7 @@ package keystore
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
@@ -12,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 
@@ -31,50 +32,103 @@ type encryptedKeyRing struct {
 	EncryptedKeys []byte
 }
 
-func (ekr encryptedKeyRing) Decrypt(password string) (keyRing, error) {
+func (ekr encryptedKeyRing) Decrypt(password string) (*keyRing, error) {
 	if len(ekr.EncryptedKeys) == 0 {
 		return newKeyRing(), nil
 	}
 	var cryptoJSON gethkeystore.CryptoJSON
 	err := json.Unmarshal(ekr.EncryptedKeys, &cryptoJSON)
 	if err != nil {
-		return keyRing{}, err
+		return nil, err
 	}
 	marshalledRawKeyRingJson, err := gethkeystore.DecryptDataV3(cryptoJSON, adulteratedPassword(password))
 	if err != nil {
-		return keyRing{}, err
+		return nil, err
 	}
 	var rawKeys rawKeyRing
 	err = json.Unmarshal(marshalledRawKeyRingJson, &rawKeys)
 	if err != nil {
-		return keyRing{}, err
+		return nil, err
 	}
 	ring, err := rawKeys.keys()
 	if err != nil {
-		return keyRing{}, err
+		return nil, err
 	}
 	return ring, nil
 }
 
 type keyStates struct {
-	Eth map[string]*ethkey.State
+	// Key ID => chain ID => state
+	KeyIDChainID map[string]map[string]*ethkey.State
+	// Chain ID => Key ID => state
+	ChainIDKeyID map[string]map[string]*ethkey.State
+	All          []*ethkey.State
 }
 
-func newKeyStates() keyStates {
-	return keyStates{
-		Eth: make(map[string]*ethkey.State),
+func newKeyStates() *keyStates {
+	return &keyStates{
+		KeyIDChainID: make(map[string]map[string]*ethkey.State),
+		ChainIDKeyID: make(map[string]map[string]*ethkey.State),
 	}
 }
 
-func (ks keyStates) validate(kr keyRing) (err error) {
-	for id := range kr.Eth {
-		_, exists := ks.Eth[id]
-		if !exists {
-			err = multierr.Combine(err, errors.Errorf("key %s is missing state", id))
+// warning: not thread-safe! caller must sync
+// adds or replaces a state
+func (ks *keyStates) add(state *ethkey.State) {
+	cid := state.EVMChainID.String()
+	kid := state.KeyID()
+
+	keyStates, exists := ks.KeyIDChainID[kid]
+	if !exists {
+		keyStates = make(map[string]*ethkey.State)
+		ks.KeyIDChainID[kid] = keyStates
+	}
+	keyStates[cid] = state
+
+	chainStates, exists := ks.ChainIDKeyID[cid]
+	if !exists {
+		chainStates = make(map[string]*ethkey.State)
+		ks.ChainIDKeyID[cid] = chainStates
+	}
+	chainStates[kid] = state
+
+	ks.All = append(ks.All, state)
+}
+
+// warning: not thread-safe! caller must sync
+func (ks *keyStates) get(addr common.Address, chainID *big.Int) *ethkey.State {
+	chainStates, exists := ks.KeyIDChainID[addr.Hex()]
+	if !exists {
+		return nil
+	}
+	return chainStates[chainID.String()]
+}
+
+// warning: not thread-safe! caller must sync
+func (ks keyStates) enable(addr common.Address, chainID *big.Int) {
+	state := ks.get(addr, chainID)
+	state.Disabled = false
+}
+
+// warning: not thread-safe! caller must sync
+func (ks keyStates) disable(addr common.Address, chainID *big.Int) {
+	state := ks.get(addr, chainID)
+	state.Disabled = true
+}
+
+// warning: not thread-safe! caller must sync
+func (ks keyStates) delete(addr common.Address) {
+	var chainIDs []*big.Int
+	for i := len(ks.All) - 1; i >= 0; i-- {
+		if ks.All[i].Address.Address() == addr {
+			chainIDs = append(chainIDs, ks.All[i].EVMChainID.ToInt())
+			ks.All = append(ks.All[:i], ks.All[i+1:]...)
 		}
 	}
-
-	return err
+	for _, cid := range chainIDs {
+		delete(ks.KeyIDChainID[addr.Hex()], cid.String())
+		delete(ks.ChainIDKeyID[cid.String()], addr.Hex())
+	}
 }
 
 type keyRing struct {
@@ -91,8 +145,8 @@ type keyRing struct {
 	DKGEncrypt map[string]dkgencryptkey.Key
 }
 
-func newKeyRing() keyRing {
-	return keyRing{
+func newKeyRing() *keyRing {
+	return &keyRing{
 		CSA:        make(map[string]csakey.KeyV2),
 		Eth:        make(map[string]ethkey.KeyV2),
 		OCR:        make(map[string]ocrkey.KeyV2),
@@ -265,7 +319,7 @@ type rawKeyRing struct {
 	DKGEncrypt []dkgencryptkey.Raw
 }
 
-func (rawKeys rawKeyRing) keys() (keyRing, error) {
+func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	keyRing := newKeyRing()
 	for _, rawCSAKey := range rawKeys.CSA {
 		csaKey := rawCSAKey.Key()

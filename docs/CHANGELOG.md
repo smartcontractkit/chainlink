@@ -18,10 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
 - Updated `Arbitrum Rinkeby` configuration for Nitro
 - `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
+- It is now possible to use the same key across multiple chains. TODO: details enable/disable etc
+- The `setnextnonce` local client command has been removed, and replaced by a remote client reset command. This can be accessed at `/v2/keys/eth/reset` or `chainlink evm keys reset --address "0xDEAD" --evmChainID 99 --nextNonce 42`
 
 ## 1.7.0 - 2022-08-08
 
 ### Added
+- Added official support for Sepolia chain
+
+## [1.6.0] - 2022-07-20
+
+### Added 
 
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 - Added official support for Sepolia chain

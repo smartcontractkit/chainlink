@@ -19,6 +19,9 @@ import (
 )
 
 type (
+	NonceSyncerKeyStore interface {
+		GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	}
 	// NonceSyncer manages the delicate task of syncing the local nonce with the
 	// chain nonce in case of divergence.
 	//
@@ -56,6 +59,7 @@ type (
 		ethClient evmclient.Client
 		chainID   *big.Int
 		logger    logger.Logger
+		kst       NonceSyncerKeyStore
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
 	NSinserttx struct {
@@ -65,7 +69,7 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient evmclient.Client) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient evmclient.Client, kst NonceSyncerKeyStore) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{
@@ -73,6 +77,7 @@ func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient
 		ethClient,
 		ethClient.ChainID(),
 		lggr,
+		kst,
 	}
 }
 
@@ -110,11 +115,12 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return nil
 	}
 
-	q := s.q.WithOpts(pg.WithParentCtx(ctx))
-	keyNextNonce, err := GetNextNonce(q, address, s.chainID)
+	keyNextNonce, err := s.kst.GetNextNonce(address, s.chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
+
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 
 	localNonce := keyNextNonce
 	hasInProgressTransaction, err := s.hasInProgressTransaction(q, address)
@@ -145,7 +151,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
 	return q.Transaction(func(tx pg.Queryer) error {
-		res, err := tx.Exec(`UPDATE eth_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
+		res, err := tx.Exec(`UPDATE evm_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}

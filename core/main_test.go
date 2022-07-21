@@ -232,6 +232,7 @@ func ExampleRun_keys_eth() {
 	//    delete  Delete the ETH key by address
 	//    import  Import an ETH key from a JSON file
 	//    export  Exports an ETH key to a JSON file
+	//    reset   Manually set the next nonce for a key. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -446,7 +447,6 @@ func ExampleRun_node() {
 	//    core.test node command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    setnextnonce              Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 	//    status                    Displays the health of various services running inside the node.

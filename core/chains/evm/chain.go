@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -177,42 +175,8 @@ func (c *chain) Start(ctx context.Context) error {
 			merr = multierr.Combine(merr, c.balanceMonitor.Start(ctx))
 		}
 
-		if merr != nil {
-			return merr
-		}
-
-		if !c.cfg.Dev() {
-			return nil
-		}
-		return c.checkKeys(ctx)
+		return merr
 	})
-}
-
-func (c *chain) checkKeys(ctx context.Context) error {
-	fundingKeys, err := c.keyStore.FundingKeys()
-	if err != nil {
-		return errors.New("failed to get funding keys")
-	}
-	var wg sync.WaitGroup
-	for _, key := range fundingKeys {
-		wg.Add(1)
-		go func(k ethkey.KeyV2) {
-			defer wg.Done()
-			balance, ethErr := c.client.BalanceAt(ctx, k.Address.Address(), nil)
-			if ethErr != nil {
-				c.logger.Errorw("Chain: failed to fetch balance for funding key", "address", k.Address, "err", ethErr)
-				return
-			}
-			if balance.Cmp(big.NewInt(0)) == 0 {
-				c.logger.Infow("The backup funding address does not have sufficient funds", "address", k.Address.Hex(), "balance", balance)
-			} else {
-				c.logger.Infow("Funding address ready", "address", k.Address.Hex(), "current-balance", balance)
-			}
-		}(key)
-	}
-	wg.Wait()
-
-	return nil
 }
 
 func (c *chain) Close() error {

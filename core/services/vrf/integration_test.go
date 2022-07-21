@@ -90,7 +90,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-				uc, err2 := txmgr.CountUnconfirmedTransactions(q, key1.Address.Address(), cltest.FixtureChainID)
+				uc, err2 := txmgr.CountUnconfirmedTransactions(q, key1.Address, cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -108,11 +108,11 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 
 			// Check that each sending address sent one transaction
-			n1, err := cu.backend.PendingNonceAt(testutils.Context(t), key1.Address.Address())
+			n1, err := cu.backend.PendingNonceAt(testutils.Context(t), key1.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n1)
 
-			n2, err := cu.backend.PendingNonceAt(testutils.Context(t), key2.Address.Address())
+			n2, err := cu.backend.PendingNonceAt(testutils.Context(t), key2.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n2)
 		})
@@ -190,7 +190,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-		uc, err2 := txmgr.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
+		uc, err2 := txmgr.CountUnconfirmedTransactions(q, key.Address, cltest.FixtureChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
