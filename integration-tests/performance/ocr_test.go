@@ -6,19 +6,18 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,7 +31,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
 		chainlinkNodes    []client.Chainlink
-		mockServer        *client.MockserverClient
+		mockServer        *ctfClient.MockserverClient
 		ocrInstances      []contracts.OffchainAggregator
 		profileTest       *testsetups.ChainlinkProfileTest
 	)
@@ -63,7 +62,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			mockServer, err = client.ConnectMockServer(testEnvironment)
+			mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
 			chainClient.ParallelTransactions(true)
