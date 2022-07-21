@@ -44,7 +44,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2c0fe79b664dbcb9c5f3fb092de4cdde1a4eaf71 # v2.0.3
         env:
           CHAINLINK_COMMIT_SHA: ${{ github.sha }}
           CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -58,7 +58,6 @@ jobs:
           cl_image_tag: latest.${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results
-          publish_test_results_commit: ${{ github.sha }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -107,7 +106,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2c0fe79b664dbcb9c5f3fb092de4cdde1a4eaf71 # v2.0.3
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -115,7 +114,6 @@ jobs:
           download_contract_artifacts_path: contracts/target/deploy
           artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/tests/e2e/logs
           publish_check_name: Solana Smoke Test Results
-          publish_test_results_commit: ${{ github.sha }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
