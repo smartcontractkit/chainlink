@@ -75,7 +75,7 @@ func ValidateEmail(email string) error {
 // ValidateAndHashPassword is the single point of logic for user password validations
 func ValidateAndHashPassword(plainPwd string) (string, error) {
 	if err := utils.VerifyPasswordComplexity(plainPwd); err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "password insufficiently complex:\n%s", utils.PasswordComplexityRequirements)
 	}
 	if len(plainPwd) > MaxBcryptPasswordLength {
 		return "", errors.Errorf("must enter a password less than %v characters", MaxBcryptPasswordLength)
