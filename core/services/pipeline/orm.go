@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+
+	"github.com/smartcontractkit/sqlx"
 )
 
 // KeepersObservationSource is the same for all keeper jobs and it is not perisisted in DB

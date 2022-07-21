@@ -182,6 +182,24 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return nil
 }
 
+// Logout removes local and remote session.
+func (cli *Client) Logout(c *clipkg.Context) (err error) {
+	resp, err := cli.HTTP.Delete("/sessions")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	err = cli.CookieAuthenticator.Logout()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
 // ChangePassword prompts the user for the old password and a new one, then
 // posts it to Chainlink to change the password.
 func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
@@ -412,18 +430,37 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 	return err
 }
 
-func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
+func (cli *Client) configDumpStr() (string, error) {
 	resp, err := cli.HTTP.Get("/v2/config/v2")
 	if err != nil {
-		return cli.errorOut(err)
+		return "", cli.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	err = cli.printResponseBody(resp)
-	return err
+
+	respPayload, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", cli.errorOut(err)
+	}
+
+	var configV2Resource web.ConfigV2Resource
+	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
+	if err != nil {
+		return "", cli.errorOut(err)
+	}
+	return configV2Resource.Config, nil
+}
+
+func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
+	configStr, err := cli.configDumpStr()
+	if err != nil {
+		return err
+	}
+	fmt.Print(configStr)
+	return nil
 }
 
 func normalizePassword(password string) string {

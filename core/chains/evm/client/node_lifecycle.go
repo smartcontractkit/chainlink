@@ -144,7 +144,7 @@ func (n *node) aliveLoop() {
 				}
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.State())
 			} else {
-				lggr.Tracew("Version poll successful", "nodeState", n.State(), "clientVersion", version)
+				lggr.Debugw("Version poll successful", "nodeState", n.State(), "clientVersion", version)
 				promEVMPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 				pollFailures = 0
 			}

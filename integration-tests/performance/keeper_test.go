@@ -6,17 +6,12 @@ import (
 	"math/big"
 	"time"
 
-	it "github.com/smartcontractkit/chainlink/integration-tests"
-
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -24,24 +19,28 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 )
 
 var _ = Describe("Keeper suite @keeper", func() {
 	var (
 		err              error
-		c                blockchain.EVMClient
+		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
 		registry         contracts.KeeperRegistry
 		consumer         contracts.KeeperConsumer
 		linkToken        contracts.LinkToken
 		chainlinkNodes   []client.Chainlink
-		env              *environment.Environment
+		testEnvironment  *environment.Environment
 		profileTest      *testsetups.ChainlinkProfileTest
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			env = environment.New(nil).
+			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-keeper"}).
 				AddHelm(mockservercfg.New(nil)).
 				AddHelm(mockserver.New(nil)).
 				AddHelm(eth.New(nil)).
@@ -53,24 +52,24 @@ var _ = Describe("Keeper suite @keeper", func() {
 						"HTTP_SERVER_WRITE_TIMEOUT":  "300s",
 					},
 				}))
-			err = env.Run()
+			err = testEnvironment.Run()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(it.DefaultGethSettings)(env)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-			contractDeployer, err = contracts.NewContractDeployer(c)
+			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-			chainlinkNodes, err = client.ConnectChainlinkNodes(env)
+			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			c.ParallelTransactions(true)
+			chainClient.ParallelTransactions(true)
 		})
 
 		By("Funding Chainlink nodes", func() {
-			txCost, err := c.EstimateCostForChainlinkOperations(10)
+			txCost, err := chainClient.EstimateCostForChainlinkOperations(10)
 			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
-			err = actions.FundChainlinkNodes(chainlinkNodes, c, txCost)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
 			Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 		})
 
@@ -96,7 +95,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				uint32(2500000), //upkeepGasLimit
 				linkToken,
 				contractDeployer,
-				c,
+				chainClient,
 				big.NewInt(9e18),
 			)
 			consumer = consumers[0]
@@ -112,7 +111,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				}
 
 				actions.CreateKeeperJobs(chainlinkNodes, registry)
-				err = c.WaitForEvents()
+				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error creating keeper jobs")
 
 				Eventually(func(g Gomega) {
@@ -128,7 +127,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				ProfileDuration: 10 * time.Second,
 				ChainlinkNodes:  chainlinkNodes,
 			})
-			profileTest.Setup(env)
+			profileTest.Setup(testEnvironment)
 		})
 	})
 
@@ -140,10 +139,10 @@ var _ = Describe("Keeper suite @keeper", func() {
 
 	AfterEach(func() {
 		By("Printing gas stats", func() {
-			c.GasStats().PrintStats()
+			chainClient.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, c)
+			err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, &profileTest.TestReporter, chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})

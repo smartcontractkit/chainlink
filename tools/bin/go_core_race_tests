@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -ex
 
+TIMEOUT="${TIMEOUT:-30s}"
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-GORACE="log_path=$PWD/race" LOG_LEVEL=panic go test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout 30s -count 10 -p 4 ./core/... | tee ./output.txt
+GORACE="log_path=$PWD/race" LOG_LEVEL=panic go test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count 10 -p 4 ./core/... | tee ./output.txt
 EXITCODE=${PIPESTATUS[0]}
 # Fail if any race logs are present.
 if ls race.* &>/dev/null
