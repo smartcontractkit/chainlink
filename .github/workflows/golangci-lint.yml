@@ -30,7 +30,7 @@ jobs:
           go-version-file: 'go.mod'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
-        if: github.event_name == 'push' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/'))
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: v1.46.2
