@@ -650,7 +650,7 @@ contract KeeperRegistry is
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
     } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
       (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
-      l1CostWei = gasLimit * l1CostWei;
+      l1CostWei = gasLimit * l1GasWei;
     }
     return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, l1CostWei);
   }
@@ -931,7 +931,7 @@ contract KeeperRegistry is
         l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
       } else {
         (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
-        l1CostWei = gasLimit * l1CostWei;
+        l1CostWei = gasLimit * l1GasWei;
       }
     }
     uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, l1CostWei);
