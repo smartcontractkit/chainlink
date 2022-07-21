@@ -20,11 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 var (
@@ -51,7 +52,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 		oracle         contracts.Oracle
 		consumer       contracts.APIConsumer
 		jobUUID        uuid.UUID
-		ms             *client.MockserverClient
+		ms             *ctfClient.MockserverClient
 		e              *environment.Environment
 	)
 	reorgBlocks := 50
@@ -105,7 +106,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 			chainlinkNodes, err = client.ConnectChainlinkNodes(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			ms, err = client.ConnectMockServer(e)
+			ms, err = ctfClient.ConnectMockServer(e)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
