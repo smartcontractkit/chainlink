@@ -26,14 +26,14 @@ var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("OCR suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				networks.SimulatedEVM,
 				ethereum.New(nil),
 				chainlink.New(0, map[string]interface{}{
 					"replicas": 6,
 				}),
 			),
 			Entry("OCR suite on General EVM @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				networks.GeneralEVM(),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -45,7 +45,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 				}),
 			),
 			Entry("OCR suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				networks.MetisStardust,
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -57,7 +57,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 				}),
 			),
 			Entry("OCR suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				networks.SepoliaTestnet,
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -88,7 +88,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 	})
 
 	DescribeTable("OCR suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
+		testNetwork *blockchain.EVMNetwork,
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {
@@ -104,7 +104,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = clientFunc(testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(testNetwork, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

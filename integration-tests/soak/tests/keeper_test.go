@@ -48,7 +48,7 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 		})
 
 		By("Setup the Keeper test", func() {
-			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			keeperBlockTimeTest = testsetups.NewKeeperBlockTimeTest(
 				testsetups.KeeperBlockTimeTestInputs{
