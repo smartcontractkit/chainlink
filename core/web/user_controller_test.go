@@ -20,7 +20,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	testCases := []struct {
 		name           string
@@ -51,7 +51,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		},
 		{
 			name:           "New password includes api email",
-			reqBody:        fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, fmt.Sprintf("%slonglonglonglong", cltest.APIEmail), cltest.Password),
+			reqBody:        fmt.Sprintf(`{"newPassword": "%slonglonglonglong", "oldPassword": "%s"}`, cltest.APIEmailAdmin, cltest.Password),
 			wantStatusCode: http.StatusUnprocessableEntity,
 			wantErrCount:   1,
 			wantErrMessage: "password does not meet the requirements: password may not contain: \"apiuser@chainlink.test\"",
@@ -87,7 +87,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -109,7 +109,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
@@ -125,7 +125,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -142,7 +142,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
