@@ -77,13 +77,17 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	logPoller.MergeFilter([]common.Hash{
+	// Call MergeFilter once for each event signature, otherwise the log poller won't
+	// index the logs we want.
+	for _, sig := range []common.Hash{
 		t.randomnessRequestedTopic,
 		t.randomnessFulfillmentRequestedTopic,
 		t.randomWordsFulfilledTopic,
 		t.configSetTopic,
 		t.newTransmissionTopic,
-	}, coordinatorAddress)
+	} {
+		logPoller.MergeFilter([]common.Hash{sig}, coordinatorAddress)
+	}
 
 	// We need ConfigSet events from the DKG contract as well.
 	logPoller.MergeFilter([]common.Hash{
