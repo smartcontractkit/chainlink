@@ -20,6 +20,8 @@ func mustABIType(t *testing.T, ty string) abi.Type {
 }
 
 func Test_convertToETHABIType(t *testing.T) {
+	t.Parallel()
+
 	emptyHash := common.Hash{}
 	emptyAddr := common.Address{}
 	emptyFunc := [24]byte{}
@@ -109,6 +111,8 @@ func Test_convertToETHABIType(t *testing.T) {
 }
 
 func Test_convertToETHABIType_Errors(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range []struct {
 		val    interface{}
 		errStr string
@@ -126,6 +130,8 @@ func Test_convertToETHABIType_Errors(t *testing.T) {
 }
 
 func Test_convertToETHABIBytes_Errors(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range []struct {
 		val    interface{}
 		errStr string

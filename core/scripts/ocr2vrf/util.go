@@ -11,13 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/gethwrappers/testbeaconvrfconsumer"
-	"github.com/smartcontractkit/ocr2vrf/gethwrappers/vrf"
-	"github.com/smartcontractkit/ocr2vrf/gethwrappers/vrfbeaconcoordinator"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"go.dedis.ch/kyber/v3"
@@ -37,13 +36,13 @@ func deployDKG(e helpers.Environment) common.Address {
 
 func deployVRFBeaconCoordinator(e helpers.Environment, linkEthFeedAddress, dkgAddress, keyID string, beaconPeriodBlocks *big.Int) common.Address {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrfbeaconcoordinator.DeployVRFBeaconCoordinator(e.Owner, e.Ec, common.HexToAddress(linkEthFeedAddress), beaconPeriodBlocks, common.HexToAddress(dkgAddress), keyIDBytes)
+	_, tx, _, err := vrf_beacon_coordinator.DeployVRFBeaconCoordinator(e.Owner, e.Ec, common.HexToAddress(linkEthFeedAddress), beaconPeriodBlocks, common.HexToAddress(dkgAddress), keyIDBytes)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func deployVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
-	_, tx, _, err := testbeaconvrfconsumer.DeployBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
+	_, tx, _, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -228,16 +227,6 @@ func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, con
 	return o
 }
 
-func deployVRF(e helpers.Environment, dkgAddress string, keyID string) common.Address {
-	var keyIDBytes [32]byte
-	copy(keyIDBytes[:], keyID)
-	fmt.Printf("Key ID in bytes: 0x%x \n", keyIDBytes)
-
-	_, tx, _, err := vrf.DeployVRF(e.Owner, e.Ec, common.HexToAddress(dkgAddress), keyIDBytes)
-	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-}
-
 func requestRandomness(e helpers.Environment, coordinatorAddress string, numWords uint16, subID uint64, confDelay *big.Int) {
 	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
@@ -285,8 +274,8 @@ func getRandomnessFromConsumer(e helpers.Environment, consumerAddress string, re
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func newVRFBeaconCoordinator(addr common.Address, client *ethclient.Client) *vrfbeaconcoordinator.VRFBeaconCoordinator {
-	coordinator, err := vrfbeaconcoordinator.NewVRFBeaconCoordinator(addr, client)
+func newVRFBeaconCoordinator(addr common.Address, client *ethclient.Client) *vrf_beacon_coordinator.VRFBeaconCoordinator {
+	coordinator, err := vrf_beacon_coordinator.NewVRFBeaconCoordinator(addr, client)
 	helpers.PanicErr(err)
 	return coordinator
 }
@@ -297,8 +286,8 @@ func newDKG(addr common.Address, client *ethclient.Client) *dkgContract.DKG {
 	return dkg
 }
 
-func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *testbeaconvrfconsumer.BeaconVRFConsumer {
-	consumer, err := testbeaconvrfconsumer.NewBeaconVRFConsumer(addr, client)
+func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *vrf_beacon_consumer.BeaconVRFConsumer {
+	consumer, err := vrf_beacon_consumer.NewBeaconVRFConsumer(addr, client)
 	helpers.PanicErr(err)
 	return consumer
 }

@@ -12,12 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/remotetestrunner"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +29,7 @@ var baseEnvironmentConfig = &environment.Config{
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
+	activeEVMNetwork := networks.MetisStardust // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-ocr-%s",
