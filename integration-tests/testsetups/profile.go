@@ -2,12 +2,13 @@ package testsetups
 
 //revive:disable:dot-imports
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-
 	. "github.com/onsi/gomega"
+
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"golang.org/x/sync/errgroup"
@@ -61,7 +62,7 @@ func (c *ChainlinkProfileTest) Run() {
 }
 
 // Networks returns the networks that the test is running on
-func (c *ChainlinkProfileTest) TearDownVals() (*environment.Environment, []client.Chainlink, testreporters.TestReporter, blockchain.EVMClient) {
+func (c *ChainlinkProfileTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return c.env, c.Inputs.ChainlinkNodes, &c.TestReporter, c.c
 }
 

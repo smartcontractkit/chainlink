@@ -4,17 +4,15 @@ package performance
 import (
 	"context"
 	"fmt"
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -30,7 +28,7 @@ import (
 var _ = Describe("VRF suite @vrf", func() {
 	var (
 		err                error
-		chainClient        blockchain2.EVMClient
+		chainClient        blockchain.EVMClient
 		contractDeployer   contracts.ContractDeployer
 		consumer           contracts.VRFConsumer
 		coordinator        contracts.VRFCoordinator
@@ -58,7 +56,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			chainClient, err = blockchain2.NewEthereumMultiNodeClientSetup(blockchain2.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

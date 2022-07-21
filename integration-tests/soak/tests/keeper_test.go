@@ -2,12 +2,13 @@ package soak
 
 //revive:disable:dot-imports
 import (
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,12 +23,12 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 		err                 error
 		testEnvironment     *environment.Environment
 		keeperBlockTimeTest *testsetups.KeeperBlockTimeTest
-		soakNetwork         *blockchain2.EVMNetwork
+		soakNetwork         *blockchain.EVMNetwork
 	)
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
-			soakNetwork = blockchain2.LoadNetworkFromEnvironment()
+			soakNetwork = blockchain.LoadNetworkFromEnvironment()
 			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
 			err = testEnvironment.
 				AddHelm(ethereum.New(&ethereum.Props{
@@ -47,7 +48,7 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 		})
 
 		By("Setup the Keeper test", func() {
-			chainClient, err := blockchain2.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			keeperBlockTimeTest = testsetups.NewKeeperBlockTimeTest(
 				testsetups.KeeperBlockTimeTestInputs{

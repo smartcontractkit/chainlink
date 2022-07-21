@@ -2,7 +2,6 @@ package soak_test
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/remotetestrunner"
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/stretchr/testify/require"

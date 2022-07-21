@@ -3,7 +3,6 @@ package contracts
 import (
 	"errors"
 	"fmt"
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 )
@@ -52,13 +52,13 @@ type ContractDeployer interface {
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
-func NewContractDeployer(bcClient blockchain2.EVMClient) (ContractDeployer, error) {
+func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error) {
 	switch clientImpl := bcClient.Get().(type) {
-	case *blockchain2.EthereumClient:
+	case *blockchain.EthereumClient:
 		return NewEthereumContractDeployer(clientImpl), nil
-	case *blockchain2.KlaytnClient:
+	case *blockchain.KlaytnClient:
 		return &KlaytnContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
-	case *blockchain2.MetisClient:
+	case *blockchain.MetisClient:
 		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer. Register blockchain client in NewContractDeployer")
@@ -66,7 +66,7 @@ func NewContractDeployer(bcClient blockchain2.EVMClient) (ContractDeployer, erro
 
 // EthereumContractDeployer provides the implementations for deploying ETH (EVM) based contracts
 type EthereumContractDeployer struct {
-	client blockchain2.EVMClient
+	client blockchain.EVMClient
 }
 
 // KlaytnContractDeployer wraps ethereum contract deployments for Klaytn
@@ -80,7 +80,7 @@ type MetisContractDeployer struct {
 }
 
 // NewEthereumContractDeployer returns an instantiated instance of the ETH contract deployer
-func NewEthereumContractDeployer(ethClient blockchain2.EVMClient) *EthereumContractDeployer {
+func NewEthereumContractDeployer(ethClient blockchain.EVMClient) *EthereumContractDeployer {
 	return &EthereumContractDeployer{
 		client: ethClient,
 	}

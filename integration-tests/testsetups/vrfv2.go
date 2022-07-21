@@ -3,7 +3,6 @@ package testsetups
 //revive:disable:dot-imports
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
@@ -11,7 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -135,7 +136,7 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 }
 
 // Networks returns the networks that the test is running on
-func (t *VRFV2SoakTest) TearDownVals() (*environment.Environment, []client.Chainlink, testreporters.TestReporter, blockchain.EVMClient) {
+func (t *VRFV2SoakTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return t.testEnvironment, t.ChainlinkNodes, &t.TestReporter, t.chainClient
 }
 

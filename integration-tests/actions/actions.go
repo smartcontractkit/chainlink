@@ -4,26 +4,32 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"math/big"
-	"os"
-	"strings"
-	"time"
-
 	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"golang.org/x/sync/errgroup"
+	"math/big"
+	"os"
+	"strings"
+	"time"
 )
+
+// GinkgoSuite provides the default setup for running a Ginkgo test suite
+func GinkgoSuite() {
+	logging.Init()
+	gomega.RegisterFailHandler(ginkgo.Fail)
+}
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
 // Example: When deploying 1000 contracts, stop every ContractDeploymentInterval have been deployed to wait before continuing
@@ -176,7 +182,7 @@ func TeardownSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	c blockchain.EVMClient,
 ) error {
-	if err := actions.WriteTeardownLogs(env, optionalTestReporter); err != nil {
+	if err := testreporters.WriteTeardownLogs(env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
@@ -222,7 +228,7 @@ func TeardownRemoteSuite(
 	client blockchain.EVMClient,
 ) error {
 	var err error
-	if err = actions.SendReport(env, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(env, "./", optionalTestReporter); err != nil {
 		log.Warn().Err(err).Msg("Error writing test report")
 	}
 	if err = returnFunds(chainlinkNodes, client); err != nil {

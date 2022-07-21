@@ -2,7 +2,6 @@ package soak
 
 //revive:disable:dot-imports
 import (
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
@@ -24,12 +24,12 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 		err             error
 		testEnvironment *environment.Environment
 		ocrSoakTest     *testsetups.OCRSoakTest
-		soakNetwork     *blockchain2.EVMNetwork
+		soakNetwork     *blockchain.EVMNetwork
 	)
 
 	BeforeEach(func() {
 		By("Connecting to the soak environment", func() {
-			soakNetwork = blockchain2.LoadNetworkFromEnvironment()
+			soakNetwork = blockchain.LoadNetworkFromEnvironment()
 			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
 			err = testEnvironment.
 				AddHelm(mockservercfg.New(nil)).
@@ -51,7 +51,7 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 		})
 
 		By("Setting up Soak Test", func() {
-			chainClient, err := blockchain2.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 				BlockchainClient:     chainClient,

@@ -5,7 +5,6 @@ package testsetups
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"sync"
 	"time"
@@ -17,8 +16,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -156,7 +157,7 @@ func (t *OCRSoakTest) Run() {
 }
 
 // Networks returns the networks that the test is running on
-func (t *OCRSoakTest) TearDownVals() (*environment.Environment, []client.Chainlink, testreporters.TestReporter, blockchain.EVMClient) {
+func (t *OCRSoakTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return t.env, t.chainlinkNodes, &t.TestReporter, t.chainClient
 }
 

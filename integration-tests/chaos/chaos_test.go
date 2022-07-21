@@ -3,11 +3,9 @@ package chaos_test
 //revive:disable:dot-imports
 import (
 	"context"
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -15,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -60,7 +58,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("Must survive minority removal for 1m @chaos-ocr-fail-minority",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, defaultOCRSettings),
 				chaos.NewFailPods,
@@ -70,7 +68,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 				},
 			),
 			Entry("Must recover from majority removal @chaos-ocr-fail-majority",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, defaultOCRSettings),
 				chaos.NewFailPods,
@@ -80,7 +78,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 				},
 			),
 			Entry("Must recover from majority DB failure @chaos-ocr-fail-majority-db",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, defaultOCRSettings),
 				chaos.NewFailPods,
@@ -91,7 +89,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 				},
 			),
 			Entry("Must recover from majority network failure @chaos-ocr-fail-majority-network",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, defaultOCRSettings),
 				chaos.NewNetworkPartition,
@@ -102,7 +100,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 				},
 			),
 			Entry("Must recover from blockchain node network failure @chaos-ocr-fail-blockchain-node",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, defaultOCRSettings),
 				chaos.NewNetworkPartition,
@@ -116,7 +114,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 
 		testEnvironment *environment.Environment
 		chainlinkNodes  []client.Chainlink
-		chainClient     blockchain2.EVMClient
+		chainClient     blockchain.EVMClient
 
 		chaosStartRound int64 = 1
 		chaosEndRound   int64 = 4
@@ -129,7 +127,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 	})
 
 	DescribeTable("OCR chaos on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain2.EVMClient, error),
+		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
 		networkChart environment.ConnectedChart,
 		clChart environment.ConnectedChart,
 		chaosFunc chaos.ManifestFunc,

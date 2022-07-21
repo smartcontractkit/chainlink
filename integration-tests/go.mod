@@ -126,7 +126,7 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.4.10-0.20220721002757-5f1257d18463
 
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279

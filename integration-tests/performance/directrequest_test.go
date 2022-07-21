@@ -4,7 +4,6 @@ package performance
 import (
 	"context"
 	"fmt"
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -30,7 +30,7 @@ import (
 var _ = Describe("Directrequest suite @directrequest", func() {
 	var (
 		err              error
-		chainClient      blockchain2.EVMClient
+		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
 		chainlinkNodes   []client.Chainlink
 		oracle           contracts.Oracle
@@ -57,7 +57,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			chainClient, err := blockchain2.NewEthereumMultiNodeClientSetup(blockchain2.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

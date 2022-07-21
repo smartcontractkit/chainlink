@@ -3,14 +3,15 @@ package testsetups
 //revive:disable:dot-imports
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -127,7 +128,7 @@ func (k *KeeperBlockTimeTest) Run() {
 }
 
 // Networks returns the networks that the test is running on
-func (k *KeeperBlockTimeTest) TearDownVals() (*environment.Environment, []client.Chainlink, testreporters.TestReporter, blockchain.EVMClient) {
+func (k *KeeperBlockTimeTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 

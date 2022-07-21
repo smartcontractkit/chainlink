@@ -4,17 +4,17 @@ package smoke
 import (
 	"context"
 	"fmt"
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -33,14 +32,14 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("Flux monitor suite on Simulated Network @simulated",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, map[string]interface{}{
 					"replicas": 3,
 				}),
 			),
 			Entry("Flux monitor suite on General EVM @general",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -52,7 +51,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				}),
 			),
 			Entry("Flux monitor suite on Metis Stardust @metis",
-				blockchain2.NewMetisMultiNodeClientSetup(networks.MetisStardust),
+				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -64,7 +63,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				}),
 			),
 			Entry("Flux monitor suite on Sepolia Testnet @sepolia",
-				blockchain2.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
+				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -78,7 +77,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		}
 
 		err              error
-		chainClient      blockchain2.EVMClient
+		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
 		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
@@ -99,7 +98,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	})
 
 	DescribeTable("Flux suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain2.EVMClient, error),
+		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {

@@ -3,16 +3,16 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
-	blockchain2 "github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"math/big"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -80,7 +79,7 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 var _ = Describe("Keeper Suite @keeper", func() {
 	var (
 		err                  error
-		chainClient          blockchain2.EVMClient
+		chainClient          blockchain.EVMClient
 		contractDeployer     contracts.ContractDeployer
 		registry             contracts.KeeperRegistry
 		registrar            contracts.KeeperRegistrar
@@ -133,7 +132,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = blockchain2.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
+		chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
