@@ -5,7 +5,6 @@ import (
 	"context"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -700,20 +699,18 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					strconv.Itoa(int(countersAfterNoMoreNodes[i].Int64())) + " times")
 			}
 
-			// Because deleting a job is not an on-chain operation, the waiting for events doesn't work.
-			// We need to actually sleep for a minute to accommodate this.
-			time.Sleep(60 * time.Second)
-
-			// Make sure the counters remain constant once all the nodes were taken down
+			// Once all the nodes are taken down, there might be some transactions which went through before
+			// all the nodes were taken down. Therefore, we allow a margin of one upkeep at most to have been
+			// executed (caused by the residual transactions).
 			Consistently(func(g Gomega) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-					g.Expect(latestCounter.Int64()).Should(Equal(countersAfterNoMoreNodes[i].Int64()),
-						"Expected consumer counter to remain constant at %d, but got %d",
-						countersAfterNoMoreNodes[i].Int64(), latestCounter.Int64())
+					g.Expect(latestCounter.Int64()-countersAfterNoMoreNodes[i].Int64()).Should(BeNumerically("<", 2),
+						"Expected consumer counter to not have increased more than %d, but got %d",
+						countersAfterNoMoreNodes[i].Int64()+1, latestCounter.Int64())
 				}
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		By("Printing gas stats")
