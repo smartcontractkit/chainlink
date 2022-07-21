@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
@@ -25,12 +24,10 @@ var _ = Describe("Cronjob suite @cron", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("Cronjob suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
 				ethereum.New(nil),
 				chainlink.New(0, nil),
 			),
 			Entry("Cronjob suite on General EVM Network read from env vars @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.GeneralEVM().Name,
 					Simulated:   networks.GeneralEVM().Simulated,
@@ -41,7 +38,6 @@ var _ = Describe("Cronjob suite @cron", func() {
 				}),
 			),
 			Entry("Cronjob suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.MetisStardust.Name,
 					Simulated:   networks.MetisStardust.Simulated,
@@ -52,7 +48,6 @@ var _ = Describe("Cronjob suite @cron", func() {
 				}),
 			),
 			Entry("Cronjob suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
 				ethereum.New(&ethereum.Props{
 					NetworkName: networks.SepoliaTestnet.Name,
 					Simulated:   networks.SepoliaTestnet.Simulated,
@@ -78,7 +73,6 @@ var _ = Describe("Cronjob suite @cron", func() {
 	})
 
 	DescribeTable("Cronjob suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
 		evmChart environment.ConnectedChart,
 		chainlinkCharts ...environment.ConnectedChart,
 	) {

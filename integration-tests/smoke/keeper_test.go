@@ -132,7 +132,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(networks.SimulatedEVM, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")

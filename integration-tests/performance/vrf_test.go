@@ -56,7 +56,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err = blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
