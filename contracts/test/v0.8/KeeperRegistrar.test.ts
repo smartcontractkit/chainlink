@@ -120,6 +120,7 @@ describe('KeeperRegistrar', () => {
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
+        0,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,

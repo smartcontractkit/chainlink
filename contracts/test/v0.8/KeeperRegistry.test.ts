@@ -58,7 +58,7 @@ before(async () => {
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
-describe('KeeperRegistry', () => {
+describe.only('KeeperRegistry', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -134,7 +134,7 @@ describe('KeeperRegistry', () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
+      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
@@ -150,7 +150,7 @@ describe('KeeperRegistry', () => {
       })
     registry2 = await keeperRegistryFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
+      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,

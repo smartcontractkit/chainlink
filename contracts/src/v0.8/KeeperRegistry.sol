@@ -46,8 +46,8 @@ contract KeeperRegistry is
   uint256 private constant PPB_BASE = 1_000_000_000;
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
-  bytes17 memory public L1_FEE_DATA_PADDING = 0xffffffffffffffffffffffffffffffffff;
-  bytes32 memory public ESTIMATED_MSG_DATA = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes17 public L1_FEE_DATA_PADDING = 0xffffffffffffffffffffffffffffffffff;
+  bytes32 public ESTIMATED_MSG_DATA = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
   address[] private s_keeperList;
   EnumerableSet.UintSet private s_upkeepIDs;
@@ -197,7 +197,7 @@ contract KeeperRegistry is
    * @param config registry config settings
    */
   constructor(
-    uint32 paymentModel,
+    uint8 paymentModel,
     address link,
     address linkEthFeed,
     address fastGasFeed,
@@ -916,8 +916,11 @@ contract KeeperRegistry is
 
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      bytes memory msgData = isSimulation ? ESTIMATED_MSG_DATA : msg.data;
-      data = bytes.concat(msgData, L1_FEE_DATA_PADDING);
+      if (isSimulation) {
+        data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
+      } else {
+        data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+      }
     }
     uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, data);
 
