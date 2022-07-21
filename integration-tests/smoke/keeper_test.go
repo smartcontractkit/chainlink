@@ -645,7 +645,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		}
 
 		if testToRun == HandleKeeperNodesGoingDown {
-			By("taking down Keeper nodes has a visible effect on the upkeep servicing")
+			By("upkeeps are still performed if some keeper nodes go down")
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 
 			// Watch upkeeps being performed and store their counters in order to compare them later in the test
@@ -710,7 +710,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
 					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs),
 						"Expected consumer counter to not have increased more than %d, but got %d",
-						countersAfterNoMoreNodes[i].Int64()+6, latestCounter.Int64())
+						countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs, latestCounter.Int64())
 				}
 			}, "3m", "1s").Should(Succeed())
 		}
