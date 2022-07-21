@@ -47,9 +47,10 @@ const (
 	BasicCounter KeeperConsumerContracts = iota
 	PerformanceCounter
 
-	defaultUpkeepGasLimit  = uint32(2500000)
-	defaultLinkFunds       = int64(9e18)
-	defaultUpkeepsToDeploy = 10
+	defaultUpkeepGasLimit             = uint32(2500000)
+	defaultLinkFunds                  = int64(9e18)
+	defaultUpkeepsToDeploy            = 10
+	numUpkeepsAllowedForStragglingTxs = 6
 )
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -390,7 +391,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
-					BeNumerically("<=", existingCnt.Int64()+6),
+					BeNumerically("<=", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
 					"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
@@ -407,7 +408,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			Eventually(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()+1),
+				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
 					"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
@@ -707,7 +708,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				for i := 0; i < len(upkeepIDs); i++ {
 					latestCounter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
-					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+6),
+					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs),
 						"Expected consumer counter to not have increased more than %d, but got %d",
 						countersAfterNoMoreNodes[i].Int64()+6, latestCounter.Int64())
 				}
