@@ -15,6 +15,8 @@ import "./interfaces/KeeperRegistryInterface.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
+import "./interfaces/OptimismGasInterface.sol";
+import "./interfaces/ArbitrumGasInterface.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -38,12 +40,14 @@ contract KeeperRegistry is
   bytes4 private constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 private constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
   uint256 private constant PERFORM_GAS_MIN = 2_300;
-  uint256 private constant CANCELATION_DELAY = 50;
+  uint256 private constant CANCELLATION_DELAY = 50;
   uint256 private constant PERFORM_GAS_CUSHION = 5_000;
   uint256 private constant REGISTRY_GAS_OVERHEAD = 80_000;
   uint256 private constant PPB_BASE = 1_000_000_000;
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
+  bytes17 memory public L1_FEE_DATA_PADDING = 0xffffffffffffffffffffffffffffffffff;
+  bytes32 memory public ESTIMATED_MSG_DATA = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
   address[] private s_keeperList;
   EnumerableSet.UintSet private s_upkeepIDs;
@@ -63,6 +67,11 @@ contract KeeperRegistry is
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
+  OptimismGasInterface public immutable OPTIMISM_ORACLE =
+    OptimismGasInterface(0x420000000000000000000000000000000000000F);
+  ArbitrumGasInterface public immutable ARBITRUM_ORACLE =
+    ArbitrumGasInterface(0x000000000000000000000000000000000000006C);
+  PaymentModel public immutable PAYMENT_MODEL;
 
   /**
    * @notice versions:
@@ -110,6 +119,12 @@ contract KeeperRegistry is
     OUTGOING,
     INCOMING,
     BIDIRECTIONAL
+  }
+
+  enum PaymentModel {
+    L1,
+    ARBITRUM,
+    OPTIMISM
   }
 
   /**
@@ -175,17 +190,20 @@ contract KeeperRegistry is
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
 
   /**
+   * @param paymentModel the payment model of L1, Arbitrum, or Optimism
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param config registry config settings
    */
   constructor(
+    uint32 paymentModel,
     address link,
     address linkEthFeed,
     address fastGasFeed,
     Config memory config
   ) ConfirmedOwner(msg.sender) {
+    PAYMENT_MODEL = PaymentModel(paymentModel);
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -280,7 +298,7 @@ contract KeeperRegistry is
 
     uint256 height = block.number;
     if (!isOwner) {
-      height = height + CANCELATION_DELAY;
+      height = height + CANCELLATION_DELAY;
     }
     s_upkeep[id].maxValidBlocknumber = uint64(height);
     s_upkeepIDs.remove(id);
@@ -625,7 +643,11 @@ contract KeeperRegistry is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
     uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
-    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    bytes memory data = new bytes(0);
+    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
+    }
+    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, data);
   }
 
   /**
@@ -776,11 +798,18 @@ contract KeeperRegistry is
   function _calculatePaymentAmount(
     uint256 gasLimit,
     uint256 gasWei,
-    uint256 linkEth
+    uint256 linkEth,
+    bytes memory data
   ) private view returns (uint96 payment) {
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
-    uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
+    uint256 l1CostWei = 0;
+    if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
+    } else if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+    }
+    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(s_storage.flatFeeMicroLink) * 1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
@@ -834,7 +863,11 @@ contract KeeperRegistry is
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
+    bytes memory data = new bytes(0);
+    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+    }
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth, data);
 
     s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
@@ -861,9 +894,9 @@ contract KeeperRegistry is
   /**
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
-  function _adjustGasPrice(uint256 gasWei, bool useTxGasPrice) private view returns (uint256 adjustedPrice) {
+  function _adjustGasPrice(uint256 gasWei, bool isSimulation) private view returns (uint256 adjustedPrice) {
     adjustedPrice = gasWei * s_storage.gasCeilingMultiplier;
-    if (useTxGasPrice && tx.gasprice < adjustedPrice) {
+    if (isSimulation && tx.gasprice < adjustedPrice) {
       adjustedPrice = tx.gasprice;
     }
   }
@@ -875,12 +908,18 @@ contract KeeperRegistry is
     address from,
     uint256 id,
     bytes memory performData,
-    bool useTxGasPrice
+    bool isSimulation
   ) private view returns (PerformParams memory) {
     uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, useTxGasPrice);
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    uint256 adjustedGasWei = _adjustGasPrice(gasWei, isSimulation);
+
+    bytes memory data = new bytes(0);
+    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      bytes memory msgData = isSimulation ? ESTIMATED_MSG_DATA : msg.data;
+      data = bytes.concat(msgData, L1_FEE_DATA_PADDING);
+    }
+    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, data);
 
     return
       PerformParams({
