@@ -69,10 +69,13 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Deploying VRF coordinator...")
 	vrfAddress := deployVRFBeaconCoordinator(
-		e, feedAddress.String(), dkgAddress.String(), *keyID, big.NewInt(*beaconPeriodBlocks))
+		e, *linkAddress, dkgAddress.String(), *keyID, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Adding VRF as DKG client...")
 	addClientToDKG(e, dkgAddress.String(), *keyID, vrfAddress.String())
+
+	fmt.Println("Deploying beacon consumer...")
+	deployVRFBeaconCoordinatorConsumer(e, vrfAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
@@ -102,7 +105,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 		// VRF args
 		flagSet.String("vrf-address", vrfAddress.String(), "the contract address of the VRF")
-		flagSet.String("link-eth-feed-address", *linkEthFeed, "link eth feed address")
+		flagSet.String("link-eth-feed-address", feedAddress.Hex(), "link eth feed address")
 		flagSet.Int64("lookback-blocks", *lookbackBlocks, "lookback blocks")
 		flagSet.String("confirmation-delays", *confDelays, "confirmation delays")
 
