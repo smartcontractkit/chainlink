@@ -8,10 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/stretchr/testify/mock"
-
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"

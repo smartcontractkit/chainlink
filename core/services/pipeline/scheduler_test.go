@@ -5,10 +5,11 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type event struct {
