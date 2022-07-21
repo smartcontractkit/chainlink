@@ -92,19 +92,19 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, KeeperBase, ReentrancyGu
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend; // 1 evm word
+    uint96 minUpkeepSpend; // 1 full evm word
     uint32 maxPerformGas;
-    uint32 nonce; // 2 evm words
+    uint32 nonce;
   }
 
   struct Upkeep {
     uint96 balance;
-    address lastKeeper; // 1 storage slot full
+    address lastKeeper; // 1 full evm word
     uint32 executeGas;
     uint64 maxValidBlocknumber;
-    address target; // 2 storage slots full
+    address target; // 2 full evm words
     uint96 amountSpent;
-    address admin; // 3 storage slots full
+    address admin; // 3 full evm words
   }
 
   struct KeeperInfo {
