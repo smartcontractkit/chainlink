@@ -113,6 +113,78 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:   "logout",
+					Usage:  "Delete any local sessions",
+					Action: client.Logout,
+				},
+				{
+					Name:  "users",
+					Usage: "Create, edit permissions, or delete API users",
+					Subcommands: cli.Commands{
+						{
+							Name:   "list",
+							Usage:  "Lists all API users and their roles",
+							Action: client.ListUsers,
+						},
+						{
+							Name:   "create",
+							Usage:  "Create a new API user",
+							Action: client.CreateUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "Email of new user to create",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "role",
+									Usage:    "Permission level of new user. Options: 'admin', 'edit', 'run', 'view'.",
+									Required: true,
+								},
+							},
+						},
+						{
+							Name:   "update",
+							Usage:  "Updates an API user. email, password, and role can be updated",
+							Action: client.EditUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "email of user to be editted",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "newemail",
+									Usage:    "optional new email to set for user",
+									Required: false,
+								},
+								cli.StringFlag{
+									Name:     "newrole",
+									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
+									Required: false,
+								},
+								cli.BoolFlag{
+									Name:     "promptnewpassword",
+									Usage:    "optional flag to prompt and set new password for a user",
+									Required: false,
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete an API user",
+							Action: client.DeleteUser,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "email",
+									Usage:    "Email of API user to delete",
+									Required: true,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 
@@ -595,6 +667,7 @@ func NewApp(client *Client) *cli.App {
 				keysCommand("Terra", NewTerraKeysClient(client)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(client)),
 				keysCommand("DKGSign", NewDKGSignKeysClient(client)),
+				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(client)),
 
 				{
 					Name:  "vrf",
@@ -951,6 +1024,7 @@ func NewApp(client *Client) *cli.App {
 				chainCommand("EVM", EVMChainClient(client), cli.Int64Flag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Solana", SolanaChainClient(client),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
+				chainCommand("StarkNet", StarkNetChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 				chainCommand("Terra", TerraChainClient(client), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
@@ -979,6 +1053,15 @@ func NewApp(client *Client) *cli.App {
 					cli.StringFlag{
 						Name:  "chain-id",
 						Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
+					},
+					cli.StringFlag{
+						Name:  "url",
+						Usage: "URL",
+					}),
+				nodeCommand("StarkNet", NewStarkNetNodeClient(client),
+					cli.StringFlag{
+						Name:  "chain-id",
+						Usage: "chain ID",
 					},
 					cli.StringFlag{
 						Name:  "url",

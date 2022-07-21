@@ -1,73 +1,84 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/AggregatorValidatorInterface.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/AccessControllerInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 import "../SimpleWriteAccessController.sol";
 
-/* ./dev dependencies - to be moved from ./dev after audit */
-import "./interfaces/FlagsInterface.sol";
-import "./interfaces/ForwarderInterface.sol";
-import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
+import "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
+import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
 /**
- * @title OptimismValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)
- * @notice Allows to raise and lower Flags on the Optimism L2 network through L1 bridge
- *  - The internal AccessController controls the access of the validate method
+ * @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
  */
 contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-  /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address public constant FLAG_OPTIMISM_SEQ_OFFLINE =
-    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
-  // Encode underlying Flags call/s
-  bytes private constant CALL_RAISE_FLAG =
-    abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  bytes private constant CALL_LOWER_FLAG =
-    abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  uint32 private constant CALL_GAS_LIMIT = 1_200_000;
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
+  uint32 private s_gasLimit;
 
-  address public immutable CROSS_DOMAIN_MESSENGER;
-  address public immutable L2_CROSS_DOMAIN_FORWARDER;
-  address public immutable L2_FLAGS;
+  address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
+  address public immutable L2_UPTIME_FEED_ADDR;
 
   /**
-   * @param crossDomainMessengerAddr address the xDomain bridge messenger (Optimism bridge L1) contract address
-   * @param l2CrossDomainForwarderAddr the L2 Forwarder contract address
-   * @param l2FlagsAddr the L2 Flags contract address
+   * @notice emitted when gas cost to spend on L2 is updated
+   * @param gasLimit updated gas cost
+   */
+  event GasLimitUpdated(uint32 gasLimit);
+
+  /**
+   * @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
+   * @param l2UptimeFeedAddr the address of the OptimismSequencerUptimeFeed contract address
+   * @param gasLimit the gasLimit to use for sending a message from L1 to L2
    */
   constructor(
-    address crossDomainMessengerAddr,
-    address l2CrossDomainForwarderAddr,
-    address l2FlagsAddr
+    address l1CrossDomainMessengerAddress,
+    address l2UptimeFeedAddr,
+    uint32 gasLimit
   ) {
-    require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
-    require(l2CrossDomainForwarderAddr != address(0), "Invalid L2 xDomain Forwarder address");
-    require(l2FlagsAddr != address(0), "Invalid L2 Flags address");
-    CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
-    L2_CROSS_DOMAIN_FORWARDER = l2CrossDomainForwarderAddr;
-    L2_FLAGS = l2FlagsAddr;
+    require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
+    require(l2UptimeFeedAddr != address(0), "Invalid OptimismSequencerUptimeFeed contract address");
+    L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
+    L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
+    s_gasLimit = gasLimit;
   }
 
   /**
    * @notice versions:
    *
    * - OptimismValidator 0.1.0: initial release
+   * - OptimismValidator 1.0.0: change target of L2 sequencer status update
+   *   - now calls `updateStatus` on an L2 OptimismSequencerUptimeFeed contract instead of
+   *     directly calling the Flags contract
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OptimismValidator 0.1.0";
+    return "OptimismValidator 1.0.0";
   }
 
   /**
-   * @notice validate method sends an xDomain L2 tx to update Flags contract, in case of change from `previousAnswer`.
-   * @dev A message is sent via the Optimism CrossDomainMessenger L1 contract. The "payment" for L2 execution happens on L1,
-   *   using the gas attached to this tx (some extra gas is burned by the Optimism bridge to avoid DoS attacks).
-   *   This method is accessed controlled.
+   * @notice sets the new gas cost to spend when sending cross chain message
+   * @param gasLimit the updated gas cost
+   */
+  function setGasLimit(uint32 gasLimit) external onlyOwner {
+    s_gasLimit = gasLimit;
+    emit GasLimitUpdated(gasLimit);
+  }
+
+  /**
+   * @notice fetches the gas cost of sending a cross chain message
+   */
+  function getGasLimit() external view returns (uint32) {
+    return s_gasLimit;
+  }
+
+  /**
+   * @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
+   * @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
    * @param previousAnswer previous aggregator answer
-   * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
+   * @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
    */
   function validate(
     uint256, /* previousRoundId */
@@ -75,19 +86,18 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256, /* currentRoundId */
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
-    // Avoids resending to L2 the same tx on every call
-    if (previousAnswer == currentAnswer) {
-      return true; // noop
-    }
-
-    // Encode the Forwarder call
-    bytes4 selector = ForwarderInterface.forward.selector;
-    address target = L2_FLAGS;
-    // Choose and encode the underlying Flags call
-    bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE ? CALL_RAISE_FLAG : CALL_LOWER_FLAG;
-    bytes memory message = abi.encodeWithSelector(selector, target, data);
+    // Encode the OptimismSequencerUptimeFeed call
+    bytes4 selector = OptimismSequencerUptimeFeedInterface.updateStatus.selector;
+    bool status = currentAnswer == ANSWER_SEQ_OFFLINE;
+    uint64 timestamp = uint64(block.timestamp);
+    // Encode `status` and `timestamp`
+    bytes memory message = abi.encodeWithSelector(selector, status, timestamp);
     // Make the xDomain call
-    iOVM_CrossDomainMessenger(CROSS_DOMAIN_MESSENGER).sendMessage(L2_CROSS_DOMAIN_FORWARDER, message, CALL_GAS_LIMIT);
+    IL1CrossDomainMessenger(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).sendMessage(
+      L2_UPTIME_FEED_ADDR, // target
+      message,
+      s_gasLimit
+    );
     // return success
     return true;
   }

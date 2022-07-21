@@ -67,6 +67,11 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasPriceDefault                *big.Int
 	GlobalEvmGasTipCapDefault               *big.Int
 	GlobalEvmGasTipCapMinimum               *big.Int
+	GlobalEvmGasLimitOCRJobType             null.Int
+	GlobalEvmGasLimitDRJobType              null.Int
+	GlobalEvmGasLimitVRFJobType             null.Int
+	GlobalEvmGasLimitFMJobType              null.Int
+	GlobalEvmGasLimitKeeperJobType          null.Int
 	GlobalEvmHeadTrackerHistoryDepth        null.Int
 	GlobalEvmHeadTrackerMaxBufferSize       null.Int
 	GlobalEvmHeadTrackerSamplingInterval    *time.Duration
@@ -570,6 +575,41 @@ func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 		return uint64(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitDefault()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitOCRJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitOCRJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitOCRJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitDRJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitDRJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitDRJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitVRFJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitVRFJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitVRFJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitFMJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitFMJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitFMJobType()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
+	if c.Overrides.GlobalEvmGasLimitKeeperJobType.Valid {
+		return uint64(c.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), true
+	}
+	return c.GeneralConfig.GlobalEvmGasLimitKeeperJobType()
 }
 
 func (c *TestGeneralConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {

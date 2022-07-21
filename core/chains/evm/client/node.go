@@ -549,6 +549,7 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 	return err
 }
 
+// PendingNonceAt returns one higher than the highest nonce from both mempool and mined transactions
 func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {

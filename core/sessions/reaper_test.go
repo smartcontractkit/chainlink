@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -31,7 +32,8 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
 	lggr := logger.TestLogger(t)
-	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr, cfg)
 
 	r := sessions.NewSessionReaper(db.DB, config, lggr)
 	defer r.Stop()
@@ -54,7 +56,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 				clearSessions(t, db.DB)
 			})
 
-			_, err := db.Exec("INSERT INTO sessions (last_used, id, created_at) VALUES ($1, $2, now())", test.lastUsed, test.name)
+			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, $3, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)
 			require.NoError(t, err)
 
 			r.WakeUp()
