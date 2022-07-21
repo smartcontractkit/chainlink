@@ -7,8 +7,8 @@ import "../ConfirmedOwner.sol";
 import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperRegistryInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
+import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
