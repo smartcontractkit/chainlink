@@ -29,7 +29,7 @@ var baseEnvironmentConfig = &environment.Config{
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
+	activeEVMNetwork := networks.MetisStardust // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-ocr-%s",
