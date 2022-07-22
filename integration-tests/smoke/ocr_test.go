@@ -25,49 +25,11 @@ import (
 var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("OCR suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				ethereum.New(nil),
-				chainlink.New(0, map[string]interface{}{
-					"replicas": 6,
-				}),
-			),
-			Entry("OCR suite on General EVM @general",
-				networks.GeneralEVM(),
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.GeneralEVM().Name,
-					Simulated:   networks.GeneralEVM().Simulated,
-					WsURLs:      networks.GeneralEVM().URLs,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env":      networks.GeneralEVM().ChainlinkValuesMap(),
-					"replicas": 6,
-				}),
-			),
-			Entry("OCR suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.MetisStardust.Name,
-					Simulated:   networks.MetisStardust.Simulated,
-					WsURLs:      networks.MetisStardust.URLs,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env":      networks.MetisStardust.ChainlinkValuesMap(),
-					"replicas": 6,
-				}),
-			),
-			Entry("OCR suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.SepoliaTestnet.Name,
-					Simulated:   networks.SepoliaTestnet.Simulated,
-					WsURLs:      networks.SepoliaTestnet.URLs,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env":      networks.SepoliaTestnet.ChainlinkValuesMap(),
-					"replicas": 6,
-				}),
-			),
+			Entry("OCR suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(50)),
+			Entry("OCR suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(1)),
+			Entry("OCR suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
+			Entry("OCR suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("OCR suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
 		err               error
@@ -89,17 +51,25 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 	DescribeTable("OCR suite on different EVM networks", func(
 		testNetwork *blockchain.EVMNetwork,
-		evmChart environment.ConnectedChart,
-		chainlinkCharts ...environment.ConnectedChart,
+		funding *big.Float,
 	) {
+		evmChart := ethereum.New(nil)
+		if !testNetwork.Simulated {
+			evmChart = ethereum.New(&ethereum.Props{
+				NetworkName: testNetwork.Name,
+				Simulated:   testNetwork.Simulated,
+				WsURLs:      testNetwork.URLs,
+			})
+		}
 		By("Deploying the environment")
 		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-ocr"}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart)
-		for _, chainlinkChart := range chainlinkCharts {
-			testEnvironment.AddHelm(chainlinkChart)
-		}
+			AddHelm(evmChart).
+			AddHelm(chainlink.New(0, map[string]interface{}{
+				"env":      testNetwork.ChainlinkValuesMap(),
+				"replicas": 6,
+			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
@@ -121,7 +91,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Deploying OCR contracts")
