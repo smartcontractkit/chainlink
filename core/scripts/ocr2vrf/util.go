@@ -34,9 +34,9 @@ func deployDKG(e helpers.Environment) common.Address {
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployVRFBeaconCoordinator(e helpers.Environment, linkEthFeedAddress, dkgAddress, keyID string, beaconPeriodBlocks *big.Int) common.Address {
+func deployVRFBeaconCoordinator(e helpers.Environment, linkAddress, dkgAddress, keyID string, beaconPeriodBlocks *big.Int) common.Address {
 	keyIDBytes := decodeHexTo32ByteArray(keyID)
-	_, tx, _, err := vrf_beacon_coordinator.DeployVRFBeaconCoordinator(e.Owner, e.Ec, common.HexToAddress(linkEthFeedAddress), beaconPeriodBlocks, common.HexToAddress(dkgAddress), keyIDBytes)
+	_, tx, _, err := vrf_beacon_coordinator.DeployVRFBeaconCoordinator(e.Owner, e.Ec, common.HexToAddress(linkAddress), beaconPeriodBlocks, common.HexToAddress(dkgAddress), keyIDBytes)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }

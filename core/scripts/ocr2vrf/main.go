@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -220,6 +224,18 @@ func main() {
 		requestID := cmd.Int64("request-id", 0, "request ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-id")
 		getRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
+
+	case "coordinator-info":
+		cmd := flag.NewFlagSet("coordinator-info", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		coordinator := newVRFBeaconCoordinator(common.HexToAddress(*coordinatorAddress), e.Ec)
+		keyID, err := coordinator.SKeyID(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator key id:", hexutil.Encode(keyID[:]))
+		keyHash, err := coordinator.SProvingKeyHash(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator proving key hash:", hexutil.Encode(keyHash[:]))
 
 	case "consumer-deploy":
 		cmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
