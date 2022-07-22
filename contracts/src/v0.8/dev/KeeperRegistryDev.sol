@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
+import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../KeeperBase.sol";
-import "../ConfirmedOwner.sol";
+import "./KeeperRegistryBase.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
-import "../interfaces/KeeperRegistryInterface.sol";
+import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -21,11 +16,9 @@ import "../interfaces/ERC677ReceiverInterface.sol";
  * contracts. Clients must support the Upkeep interface.
  */
 contract KeeperRegistryDev is
+  KeeperRegistryBase,
+  Proxy,
   TypeAndVersionInterface,
-  ConfirmedOwner,
-  KeeperBase,
-  ReentrancyGuard,
-  Pausable,
   KeeperRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
@@ -33,39 +26,11 @@ contract KeeperRegistryDev is
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  address private constant ZERO_ADDRESS = address(0);
-  address private constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-  bytes4 private constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
-  bytes4 private constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
-  uint256 private constant PERFORM_GAS_MIN = 2_300;
-  uint256 private constant CANCELATION_DELAY = 50;
-  uint256 private constant PERFORM_GAS_CUSHION = 5_000;
-  uint256 private constant REGISTRY_GAS_OVERHEAD = 80_000;
-  uint256 private constant PPB_BASE = 1_000_000_000;
-  uint64 private constant UINT64_MAX = 2**64 - 1;
-  uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
-
-  address[] private s_keeperList;
-  EnumerableSet.UintSet private s_upkeepIDs;
-  mapping(uint256 => Upkeep) private s_upkeep;
-  mapping(address => KeeperInfo) private s_keeperInfo;
-  mapping(address => address) private s_proposedPayee;
-  mapping(uint256 => bytes) private s_checkData;
-  mapping(address => MigrationPermission) private s_peerRegistryMigrationPermission;
-  Storage private s_storage;
-  uint256 private s_fallbackGasPrice; // not in config object for gas savings
-  uint256 private s_fallbackLinkPrice; // not in config object for gas savings
-  uint96 private s_ownerLinkBalance;
-  uint256 private s_expectedLinkBalance;
-  address private s_transcoder;
-  address private s_registrar;
-
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AggregatorV3Interface public immutable FAST_GAS_FEED;
+  address public immutable KEEPER_REGISTRY_LOGIC;
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.0.0: Split contract into Proxy and Logic
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
@@ -74,105 +39,7 @@ contract KeeperRegistryDev is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
-
-  error CannotCancel();
-  error UpkeepNotActive();
-  error MigrationNotPermitted();
-  error UpkeepNotCanceled();
-  error UpkeepNotNeeded();
-  error NotAContract();
-  error PaymentGreaterThanAllLINK();
-  error OnlyActiveKeepers();
-  error InsufficientFunds();
-  error KeepersMustTakeTurns();
-  error ParameterLengthError();
-  error OnlyCallableByOwnerOrAdmin();
-  error OnlyCallableByLINKToken();
-  error InvalidPayee();
-  error DuplicateEntry();
-  error ValueNotChanged();
-  error IndexOutOfRange();
-  error TranscoderNotSet();
-  error ArrayHasNoEntries();
-  error GasLimitOutsideRange();
-  error OnlyCallableByPayee();
-  error OnlyCallableByProposedPayee();
-  error GasLimitCanOnlyIncrease();
-  error OnlyCallableByAdmin();
-  error OnlyCallableByOwnerOrRegistrar();
-  error InvalidRecipient();
-  error InvalidDataLength();
-  error TargetCheckReverted(bytes reason);
-
-  enum MigrationPermission {
-    NONE,
-    OUTGOING,
-    INCOMING,
-    BIDIRECTIONAL
-  }
-
-  /**
-   * @notice storage of the registry, contains a mix of config and state data
-   */
-  struct Storage {
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink;
-    uint24 blockCountPerTurn;
-    uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend; // 1 evm word
-    uint32 maxPerformGas;
-    uint32 nonce; // 2 evm words
-  }
-
-  struct Upkeep {
-    uint96 balance;
-    address lastKeeper; // 1 storage slot full
-    uint32 executeGas;
-    uint64 maxValidBlocknumber;
-    address target; // 2 storage slots full
-    uint96 amountSpent;
-    address admin; // 3 storage slots full
-  }
-
-  struct KeeperInfo {
-    address payee;
-    uint96 balance;
-    bool active;
-  }
-
-  struct PerformParams {
-    address from;
-    uint256 id;
-    bytes performData;
-    uint256 maxLinkPayment;
-    uint256 gasLimit;
-    uint256 adjustedGasWei;
-    uint256 linkEth;
-  }
-
-  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event UpkeepPerformed(
-    uint256 indexed id,
-    bool indexed success,
-    address indexed from,
-    uint96 payment,
-    bytes performData
-  );
-  event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
-  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
-  event OwnerFundsWithdrawn(uint96 amount);
-  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
-  event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event ConfigSet(Config config);
-  event KeepersUpdated(address[] keepers, address[] payees);
-  event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
-  event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
-  event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
-  event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
 
   /**
    * @param link address of the LINK Token
@@ -184,11 +51,10 @@ contract KeeperRegistryDev is
     address link,
     address linkEthFeed,
     address fastGasFeed,
+    address keeperRegistryLogic,
     Config memory config
-  ) ConfirmedOwner(msg.sender) {
-    LINK = LinkTokenInterface(link);
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
+  ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {
+    KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setConfig(config);
   }
 
@@ -235,20 +101,8 @@ contract KeeperRegistryDev is
       uint256 linkEth
     )
   {
-    Upkeep memory upkeep = s_upkeep[id];
-
-    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
-
-    if (!success) revert TargetCheckReverted(result);
-
-    (success, performData) = abi.decode(result, (bool, bytes));
-    if (!success) revert UpkeepNotNeeded();
-
-    PerformParams memory params = _generatePerformParams(from, id, performData, false);
-    _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
-
-    return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -713,6 +567,13 @@ contract KeeperRegistryDev is
   }
 
   /**
+   * @dev This is the address to which proxy functions are delegated to
+   */
+  function _implementation() internal view override returns (address) {
+    return KEEPER_REGISTRY_LOGIC;
+  }
+
+  /**
    * @notice creates a new upkeep with the given fields
    * @param target address to perform upkeep on
    * @param gasLimit amount of gas to provide the target contract when
@@ -742,47 +603,6 @@ contract KeeperRegistryDev is
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);
-  }
-
-  /**
-   * @dev retrieves feed data for fast gas/eth and link/eth prices. if the feed
-   * data is stale it uses the configured fallback price. Once a price is picked
-   * for gas it takes the min of gas price in the transaction or the fast gas
-   * price in order to reduce costs for the upkeep clients.
-   */
-  function _getFeedData() private view returns (uint256 gasWei, uint256 linkEth) {
-    uint32 stalenessSeconds = s_storage.stalenessSeconds;
-    bool staleFallback = stalenessSeconds > 0;
-    uint256 timestamp;
-    int256 feedValue;
-    (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
-    if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      gasWei = s_fallbackGasPrice;
-    } else {
-      gasWei = uint256(feedValue);
-    }
-    (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
-    if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      linkEth = s_fallbackLinkPrice;
-    } else {
-      linkEth = uint256(feedValue);
-    }
-    return (gasWei, linkEth);
-  }
-
-  /**
-   * @dev calculates LINK paid for gas spent plus a configure premium percentage
-   */
-  function _calculatePaymentAmount(
-    uint256 gasLimit,
-    uint256 gasWei,
-    uint256 linkEth
-  ) private view returns (uint96 payment) {
-    uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
-    uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
-    uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
-    if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
   /**
@@ -843,55 +663,6 @@ contract KeeperRegistryDev is
 
     emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
     return success;
-  }
-
-  /**
-   * @dev ensures all required checks are passed before an upkeep is performed
-   */
-  function _prePerformUpkeep(
-    Upkeep memory upkeep,
-    address from,
-    uint256 maxLinkPayment
-  ) private view {
-    if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
-    if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
-    if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();
-  }
-
-  /**
-   * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
-   */
-  function _adjustGasPrice(uint256 gasWei, bool useTxGasPrice) private view returns (uint256 adjustedPrice) {
-    adjustedPrice = gasWei * s_storage.gasCeilingMultiplier;
-    if (useTxGasPrice && tx.gasprice < adjustedPrice) {
-      adjustedPrice = tx.gasprice;
-    }
-  }
-
-  /**
-   * @dev generates a PerformParams struct for use in _performUpkeepWithParams()
-   */
-  function _generatePerformParams(
-    address from,
-    uint256 id,
-    bytes memory performData,
-    bool useTxGasPrice
-  ) private view returns (PerformParams memory) {
-    uint256 gasLimit = s_upkeep[id].executeGas;
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, useTxGasPrice);
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
-
-    return
-      PerformParams({
-        from: from,
-        id: id,
-        performData: performData,
-        maxLinkPayment: maxLinkPayment,
-        gasLimit: gasLimit,
-        adjustedGasWei: adjustedGasWei,
-        linkEth: linkEth
-      });
   }
 
   // MODIFIERS
