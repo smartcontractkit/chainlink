@@ -658,7 +658,7 @@ func TestResolveValue(t *testing.T) {
 	t.Parallel()
 
 	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {
-		param := new(mocks.PipelineParamUnmarshaler)
+		param := mocks.NewPipelineParamUnmarshaler(t)
 		param.On("UnmarshalPipelineParam", mock.Anything).Return(nil)
 
 		called := []int{}
@@ -680,12 +680,10 @@ func TestResolveValue(t *testing.T) {
 		err := pipeline.ResolveParam(param, getters)
 		require.NoError(t, err)
 		require.Equal(t, []int{0, 1}, called)
-
-		param.AssertExpectations(t)
 	})
 
 	t.Run("returns any GetterFunc error that isn't ErrParameterEmpty", func(t *testing.T) {
-		param := new(mocks.PipelineParamUnmarshaler)
+		param := mocks.NewPipelineParamUnmarshaler(t)
 		called := []int{}
 		expectedErr := errors.New("some other issue")
 
@@ -712,7 +710,7 @@ func TestResolveValue(t *testing.T) {
 	t.Run("calls UnmarshalPipelineParam with the value obtained from the GetterFuncs", func(t *testing.T) {
 		expectedValue := 123
 
-		param := new(mocks.PipelineParamUnmarshaler)
+		param := mocks.NewPipelineParamUnmarshaler(t)
 		param.On("UnmarshalPipelineParam", expectedValue).Return(nil)
 
 		getters := []pipeline.GetterFunc{
@@ -723,15 +721,13 @@ func TestResolveValue(t *testing.T) {
 
 		err := pipeline.ResolveParam(param, getters)
 		require.NoError(t, err)
-
-		param.AssertExpectations(t)
 	})
 
 	t.Run("returns any error returned by UnmarshalPipelineParam", func(t *testing.T) {
 		expectedValue := 123
 		expectedErr := errors.New("some issue")
 
-		param := new(mocks.PipelineParamUnmarshaler)
+		param := mocks.NewPipelineParamUnmarshaler(t)
 		param.On("UnmarshalPipelineParam", expectedValue).Return(expectedErr)
 
 		getters := []pipeline.GetterFunc{
@@ -742,7 +738,5 @@ func TestResolveValue(t *testing.T) {
 
 		err := pipeline.ResolveParam(param, getters)
 		require.Equal(t, expectedErr, err)
-
-		param.AssertExpectations(t)
 	})
 }
