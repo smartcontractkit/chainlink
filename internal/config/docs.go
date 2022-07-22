@@ -194,7 +194,6 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 			desc = append(desc, strings.TrimSpace(line[1:]))
 		} else if strings.TrimSpace(line) == "" {
 			// empty
-			currentTable = &globalTable
 			if len(desc) > 0 {
 				items = append(items, desc)
 				desc = nil
