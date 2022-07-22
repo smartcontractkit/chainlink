@@ -97,7 +97,6 @@ func TestResolver_Config(t *testing.T) {
 					P2PListenPort:                        null.IntFrom(1),
 					P2PPeerID:                            "",
 					P2PPeerIDError:                       nil,
-					SecretGenerator:                      nil,
 					TriggerFallbackDBPollInterval:        nil,
 				})
 				cfg.SetRootDir("/tmp/chainlink_test/gql-test")

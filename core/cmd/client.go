@@ -233,6 +233,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Version:                  static.Version,
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
+		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 	})
 }
 
