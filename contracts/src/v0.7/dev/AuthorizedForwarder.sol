@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-import "./interfaces/OperatorInterface.sol";
-import "./ConfirmedOwnerWithProposal.sol";
-import "./AuthorizedReceiver.sol";
-import "./vendor/Address.sol";
+import "../interfaces/OperatorInterface.sol";
+import "../ConfirmedOwnerWithProposal.sol";
+import "../AuthorizedReceiver.sol";
+import "../ErrorParser.sol";
+import "../vendor/Address.sol";
 
 contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
+  using ErrorParser for bytes;
 
   address public immutable getChainlinkToken;
 
@@ -77,7 +79,9 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    */
   function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
-    (bool status, ) = to.call(data);
-    require(status, "Forwarded call failed");
+    (bool success, bytes memory result) = to.call(data);
+    if(!success){
+      revert(string(abi.encodePacked("AuthorizedForwarder#forward: ", result.getRevertMessage())));
+    }
   }
 }
