@@ -238,7 +238,6 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator:     MockSecretGenerator{},
 		Dialect:             dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
 		P2PEnabled:          null.BoolFrom(false),
@@ -415,7 +414,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			lggr.Fatal(err)
 		}
 	}
-
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -428,6 +426,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ExternalInitiatorManager: externalInitiatorManager,
 		RestrictedHTTPClient:     c,
 		UnrestrictedHTTPClient:   c,
+		SecretGenerator:          MockSecretGenerator{},
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
