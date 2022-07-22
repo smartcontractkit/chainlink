@@ -44,14 +44,27 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	nodeCount := fs.Int("node-count", 6, "number of nodes")
 	fundingAmount := fs.Int64("funding-amount", 1e17, "amount to fund nodes") // .1 ETH
 
-	helpers.ParseArgs(fs, os.Args[2:], "link-address")
+	helpers.ParseArgs(fs, os.Args[2:])
 
 	if *nodeCount < 6 {
 		fmt.Println("Node count too low for OCR2VRF job, need at least 6.")
 		os.Exit(1)
 	}
 
+	delays := helpers.ParseIntSlice(*confDelays)
+	if len(delays) != 8 {
+		fmt.Println("confDelays must have a length of 8")
+		os.Exit(1)
+	}
+
 	configureEnvironmentVariables()
+
+	var link common.Address
+	if *linkAddress == "" {
+		link = helpers.DeployLinkToken(e)
+	} else {
+		link = common.HexToAddress(*linkAddress)
+	}
 
 	// Deploy DKG and VRF contracts, and add VRF
 	// as a consumer of DKG events.
@@ -62,14 +75,14 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	var feedAddress common.Address
 	if *linkEthFeed == "" {
 		fmt.Println("Deploying LINK-ETH feed...")
-		feedAddress = deployLinkEthFeed(e, *linkAddress, decimal.RequireFromString(*weiPerUnitLink).BigInt())
+		feedAddress = helpers.DeployLinkEthFeed(e, *linkAddress, decimal.RequireFromString(*weiPerUnitLink).BigInt())
 	} else {
 		feedAddress = common.HexToAddress(*linkEthFeed)
 	}
 
 	fmt.Println("Deploying VRF coordinator...")
 	vrfAddress := deployVRFBeaconCoordinator(
-		e, *linkAddress, dkgAddress.String(), *keyID, big.NewInt(*beaconPeriodBlocks))
+		e, link.String(), dkgAddress.String(), *keyID, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Adding VRF as DKG client...")
 	addClientToDKG(e, dkgAddress.String(), *keyID, vrfAddress.String())

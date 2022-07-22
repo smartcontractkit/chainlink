@@ -1,15 +1,12 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"math/big"
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -92,7 +89,7 @@ func setupDKGNodes(e helpers.Environment) {
 	}
 
 	// Fund transmitters with funding amount.
-	fundNodes(e, transmitters, *fundingAmount)
+	helpers.FundNodes(e, transmitters, big.NewInt(*fundingAmount))
 
 	// Construct and print dkg-set-config command.
 	fmt.Println("Generated setConfig Command:")
@@ -110,33 +107,6 @@ func setupDKGNodes(e helpers.Environment) {
 	)
 
 	fmt.Println(command)
-}
-
-func fundNodes(e helpers.Environment, transmitters []string, fundingAmount int64) {
-	fmt.Println("Funding Nodes:")
-
-	block, err := e.Ec.BlockNumber(context.Background())
-	helpers.PanicErr(err)
-
-	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
-	helpers.PanicErr(err)
-
-	for i := 1; i < len(transmitters); i++ {
-		tx := types.NewTransaction(
-			nonce+uint64(i),
-			common.HexToAddress(transmitters[i]),
-			big.NewInt(fundingAmount),
-			uint64(21000),
-			e.Owner.GasPrice,
-			nil,
-		)
-		signedTx, err := e.Owner.Signer(e.Owner.From, tx)
-		helpers.PanicErr(err)
-		err = e.Ec.SendTransaction(context.Background(), signedTx)
-		helpers.PanicErr(err)
-
-		fmt.Printf("Sending to %s: %s\n", transmitters[i], helpers.ExplorerLink(e.ChainID, signedTx.Hash()))
-	}
 }
 
 func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
