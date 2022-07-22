@@ -1,6 +1,7 @@
 package coordinator
 
 import (
+	"encoding/binary"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -24,7 +25,7 @@ func unmarshalRandomnessRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoor
 	}
 
 	r.ConfDelay = *abi.ConvertType(m["confDelay"], new(*big.Int)).(**big.Int)
-	r.NextBeaconOutputHeight = *abi.ConvertType(m["nextBeaconOutputHeight"], new(uint64)).(*uint64)
+	r.NextBeaconOutputHeight = binary.BigEndian.Uint64(lg.Topics[1])
 	r.Raw = types.Log{
 		Data:        lg.Data,
 		Address:     lg.Address,
@@ -119,11 +120,13 @@ func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordina
 
 func unindexedArgs(tabi abi.ABI, eventName string) (u abi.Arguments) {
 	for _, a := range tabi.Events[eventName].Inputs {
-		u = append(u, abi.Argument{
-			Name:    a.Name,
-			Type:    a.Type,
-			Indexed: false,
-		})
+		if a.Indexed == false {
+			u = append(u, abi.Argument{
+				Name:    a.Name,
+				Type:    a.Type,
+				Indexed: false,
+			})
+		}
 	}
 	return
 }
