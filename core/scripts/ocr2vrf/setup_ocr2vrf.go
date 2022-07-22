@@ -145,7 +145,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		dkgSigners = append(dkgSigners, payload.DkgSign)
 	}
 
-	fundNodes(e, transmitters, *fundingAmount)
+	helpers.FundNodes(e, transmitters, big.NewInt(*fundingAmount))
 
 	fmt.Println("Generated dkg setConfig command:")
 	dkgCommand := fmt.Sprintf(

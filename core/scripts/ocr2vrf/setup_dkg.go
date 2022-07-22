@@ -10,8 +10,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -107,41 +105,4 @@ func setupDKGNodes(e helpers.Environment) {
 	)
 
 	fmt.Println(command)
-}
-
-func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
-	payload, err := client.ConfigureOCR2VRFNode(context)
-	helpers.PanicErr(err)
-
-	return payload
-}
-
-func configureEnvironmentVariables() {
-	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
-	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
-}
-
-func resetDatabase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
-	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
-	helpers.PanicErr(client.ResetDatabase(context))
-}
-
-func newSetupClient() *cmd.Client {
-	lggr, closeLggr := logger.NewLogger()
-	cfg := config.NewGeneralConfig(lggr)
-
-	prompter := cmd.NewTerminalPrompter()
-	return &cmd.Client{
-		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
-		Config:                         cfg,
-		Logger:                         lggr,
-		CloseLogger:                    closeLggr,
-		AppFactory:                     cmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
-		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter, lggr),
-		Runner:                         cmd.ChainlinkRunner{},
-		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
-		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
-		PasswordPrompter:               cmd.NewPasswordPrompter(),
-	}
 }
