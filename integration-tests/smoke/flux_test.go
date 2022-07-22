@@ -35,6 +35,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			Entry("Flux monitor suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
 			Entry("Flux monitor suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
 			Entry("Flux monitor suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("Flux monitor suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("Flux monitor suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
@@ -72,7 +73,9 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-flux"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).
