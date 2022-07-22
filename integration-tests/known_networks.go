@@ -1,10 +1,11 @@
 package networks
 
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink-env/logging"
 )
@@ -46,8 +47,8 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
-	// KlaytnTestnet https://klaytn.foundation/
-	KlaytnTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// KlaytnBaobab https://klaytn.foundation/
+	KlaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
 		ChainID:                   1001,
 		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
