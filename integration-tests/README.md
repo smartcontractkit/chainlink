@@ -86,6 +86,8 @@ Soak tests will pull all their network information from the env vars that you ca
 
 To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), see the [./soak/tests](./soak/tests/) test specifications.
 
+See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
+
 ### Performance
 
 Currently, all performance tests are only run on simulated blockchains.
