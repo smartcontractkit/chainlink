@@ -15,8 +15,14 @@ import (
 )
 
 func unmarshalRandomnessRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested, err error) {
-	args := unindexedArgs(vrfABI, randomnessRequestedEvent)
+	//event RandomnessRequested(
+	//  uint64 indexed nextBeaconOutputHeight,
+	//  ConfirmationDelay confDelay
+	//);
+	args := vrfABI.Events[randomnessRequestedEvent].Inputs
 
+	// unpack the non-indexed args into a map all together,
+	// and unpack the indexed args separately.
 	m := make(map[string]any)
 	err = args.UnpackIntoMap(m, lg.Data)
 	if err != nil {
@@ -24,7 +30,19 @@ func unmarshalRandomnessRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoor
 	}
 
 	r.ConfDelay = *abi.ConvertType(m["confDelay"], new(*big.Int)).(**big.Int)
-	r.NextBeaconOutputHeight = *abi.ConvertType(m["nextBeaconOutputHeight"], new(uint64)).(*uint64)
+	nextBeaconOutputHeightType, err := abi.NewType("uint64", "", nil)
+	if err != nil {
+		return r, errors.Wrap(err, "abi NewType uint64")
+	}
+	indexedArgs := abi.Arguments{abi.Argument{
+		Name: "nextBeaconOutputHeight",
+		Type: nextBeaconOutputHeightType,
+	}}
+	nextBeaconOutputHeightInterface, err := indexedArgs.Unpack(lg.Topics[1])
+	if err != nil {
+		return r, errors.Wrap(err, "unpack nextBeaconOutputHeight")
+	}
+	r.NextBeaconOutputHeight = *abi.ConvertType(nextBeaconOutputHeightInterface[0], new(uint64)).(*uint64)
 	r.Raw = types.Log{
 		Data:        lg.Data,
 		Address:     lg.Address,
@@ -39,7 +57,13 @@ func unmarshalRandomnessRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoor
 }
 
 func unmarshalRandomnessFulfillmentRequested(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, err error) {
-	args := unindexedArgs(vrfABI, randomnessFulfillmentRequestedEvent)
+	//event RandomnessFulfillmentRequested(
+	//  uint64 nextBeaconOutputHeight,
+	//  ConfirmationDelay confDelay,
+	//  uint64 subID,
+	//  Callback callback
+	//);
+	args := vrfABI.Events[randomnessFulfillmentRequestedEvent].Inputs
 
 	m := make(map[string]any)
 	err = args.UnpackIntoMap(m, lg.Data)
@@ -65,7 +89,12 @@ func unmarshalRandomnessFulfillmentRequested(lg logpoller.Log) (r vrf_wrapper.VR
 }
 
 func unmarshalRandomWordsFulfilled(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled, err error) {
-	args := unindexedArgs(vrfABI, randomWordsFulfilledEvent)
+	//event RandomWordsFulfilled(
+	//  RequestID[] requestIDs,
+	//  bytes successfulFulfillment,
+	//  bytes[] truncatedErrorData
+	//);
+	args := vrfABI.Events[randomWordsFulfilledEvent].Inputs
 
 	m := make(map[string]any)
 	err = args.UnpackIntoMap(m, lg.Data)
@@ -90,7 +119,15 @@ func unmarshalRandomWordsFulfilled(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoo
 }
 
 func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorNewTransmission, err error) {
-	args := unindexedArgs(vrfABI, newTransmissionEvent)
+	//event NewTransmission(
+	//  uint32 indexed aggregatorRoundId,
+	//  address transmitter,
+	//  uint192 juelsPerFeeCoin,
+	//  bytes32 configDigest,
+	//  uint40 epochAndRound,
+	//  OutputServed[] outputsServed
+	//);
+	args := vrfABI.Events[newTransmissionEvent].Inputs
 
 	m := make(map[string]any)
 	err = args.UnpackIntoMap(m, lg.Data)
@@ -103,7 +140,23 @@ func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordina
 	r.ConfigDigest = *abi.ConvertType(m["configDigest"], new([32]byte)).(*[32]byte)
 	r.JuelsPerFeeCoin = *abi.ConvertType(m["juelsPerFeeCoin"], new(*big.Int)).(**big.Int)
 	r.Transmitter = *abi.ConvertType(m["transmitter"], new(common.Address)).(*common.Address)
-	r.AggregatorRoundId = *abi.ConvertType(m["aggregatorRoundId"], new(uint32)).(*uint32)
+
+	// aggregatorRoundId is indexed
+	aggregatorRoundIDType, err := abi.NewType("uint32", "", nil)
+	if err != nil {
+		return r, errors.Wrap(err, "abi NewType uint32")
+	}
+	indexedArgs := abi.Arguments{
+		{
+			Name: "aggregatorRoundId",
+			Type: aggregatorRoundIDType,
+		},
+	}
+	aggregatorRoundIDInterface, err := indexedArgs.Unpack(lg.Topics[1])
+	if err != nil {
+		return r, errors.Wrap(err, "unpack aggregatorRoundId")
+	}
+	r.AggregatorRoundId = *abi.ConvertType(aggregatorRoundIDInterface[0], new(uint32)).(*uint32)
 	r.Raw = types.Log{
 		Data:        lg.Data,
 		Address:     lg.Address,
@@ -114,16 +167,5 @@ func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordina
 		Removed:     false,
 	}
 
-	return
-}
-
-func unindexedArgs(tabi abi.ABI, eventName string) (u abi.Arguments) {
-	for _, a := range tabi.Events[eventName].Inputs {
-		u = append(u, abi.Argument{
-			Name:    a.Name,
-			Type:    a.Type,
-			Indexed: false,
-		})
-	}
 	return
 }

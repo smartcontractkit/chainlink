@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
-type SetupDKGNodePayload struct {
+type SetupOCR2VRFNodePayload struct {
 	OnChainPublicKey  string
 	OffChainPublicKey string
 	ConfigPublicKey   string
@@ -40,6 +40,14 @@ type dkgTemplateArgs struct {
 	encryptionPublicKey     string
 	keyID                   string
 	signingPublicKey        string
+}
+
+type ocr2vrfTemplateArgs struct {
+	dkgTemplateArgs
+	vrfContractAddress string
+	linkEthFeedAddress string
+	confirmationDelays string
+	lookbackBlocks     int64
 }
 
 const dkgTemplate = `
@@ -64,6 +72,32 @@ KeyID                = "%s"
 SigningPublicKey     = "%s"
 `
 
+const ocr2vrfTemplate = `
+type                 = "offchainreporting2"
+schemaVersion        = 1
+name                 = "ocr2"
+maxTaskDuration      = "30s"
+contractID           = "%s"
+ocrKeyBundleID       = "%s"
+p2pv2Bootstrappers   = ["%s@127.0.0.1:%s"]
+relay                = "evm"
+pluginType           = "ocr2vrf"
+transmitterID        = "%s"
+
+[relayConfig]
+chainID              = %d
+
+[pluginConfig]
+dkgEncryptionPublicKey = "%s"
+dkgSigningPublicKey    = "%s"
+dkgKeyID               = "%s"
+dkgContractAddress     = "%s"
+
+linkEthFeedAddress     = "%s"
+confirmationDelays     = %s # This is an array
+lookbackBlocks         = %d # This is an integer
+`
+
 const bootstrapTemplate = `
 type                               = "bootstrap"
 schemaVersion                      = 1
@@ -76,13 +110,15 @@ relay                              = "evm"
 chainID                            = %d
 `
 
-func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, error) {
-	lggr := cli.Logger.Named("SetupDKGJob")
+func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePayload, error) {
+	lggr := cli.Logger.Named("ConfigureOCR2VRFNode")
 	err := cli.Config.Validate()
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "config validation failed"))
 	}
-	lggr.Infow(fmt.Sprintf("Configuring Chainlink Node FOR DKG %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
+	lggr.Infow(
+		fmt.Sprintf("Configuring Chainlink Node for job type %s %s at commit %s", c.String("job-type"), static.Version, static.Sha),
+		"Version", static.Version, "SHA", static.Sha)
 
 	ldb := pg.NewLockedDB(cli.Config, lggr)
 	rootCtx, cancel := context.WithCancel(context.Background())
@@ -100,7 +136,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 
 	// Initialize keystore and generate keys.
 	keyStore := app.GetKeyStore()
-	err = setupDKGKeystore(cli, c, app, keyStore)
+	err = setupKeystore(cli, c, app, keyStore)
 	if err != nil {
 		return nil, cli.errorOut(err)
 	}
@@ -136,7 +172,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	if c.Bool("isBootstrapper") {
 		// Set up bootstrapper job if bootstrapper.
 		err = createBootstrapperJob(lggr, c, app)
-	} else {
+	} else if c.String("job-type") == "DKG" {
 		// Set up DKG job.
 		err = createDKGJob(lggr, app, dkgTemplateArgs{
 			contractID:              c.String("contractID"),
@@ -149,12 +185,33 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 			keyID:                   keyID,
 			signingPublicKey:        dkgSignKey,
 		})
+	} else if c.String("job-type") == "OCR2VRF" {
+		// Set up OCR2VRF job.
+		err = createOCR2VRFJob(lggr, app, ocr2vrfTemplateArgs{
+			dkgTemplateArgs: dkgTemplateArgs{
+				contractID:              c.String("dkg-address"),
+				ocrKeyBundleID:          ocr2.ID(),
+				p2pv2BootstrapperPeerID: peerID,
+				p2pv2BootstrapperPort:   c.String("bootstrapPort"),
+				transmitterID:           transmitterID,
+				chainID:                 c.Int64("chainID"),
+				encryptionPublicKey:     dkgEncryptKey,
+				keyID:                   keyID,
+				signingPublicKey:        dkgSignKey,
+			},
+			vrfContractAddress: c.String("vrf-address"),
+			linkEthFeedAddress: c.String("link-eth-feed-address"),
+			lookbackBlocks:     c.Int64("lookback-blocks"),
+			confirmationDelays: c.String("confirmation-delays"),
+		})
+	} else {
+		err = fmt.Errorf("unknown job type: %s", c.String("job-type"))
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return &SetupDKGNodePayload{
+	return &SetupOCR2VRFNodePayload{
 		OnChainPublicKey:  ocr2.OnChainPublicKey(),
 		OffChainPublicKey: hex.EncodeToString(offChainPublicKey[:]),
 		ConfigPublicKey:   hex.EncodeToString(configPublicKey[:]),
@@ -165,7 +222,7 @@ func (cli *Client) ConfigureDKGNode(c *clipkg.Context) (*SetupDKGNodePayload, er
 	}, nil
 }
 
-func setupDKGKeystore(cli *Client, c *clipkg.Context, app chainlink.Application, keyStore keystore.Master) error {
+func setupKeystore(cli *Client, c *clipkg.Context, app chainlink.Application, keyStore keystore.Master) error {
 	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
@@ -267,6 +324,44 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 		return errors.Wrap(err, "failed to add job")
 	}
 	lggr.Info("dkg spec:", sp)
+
+	return nil
+}
+
+func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
+	sp := fmt.Sprintf(ocr2vrfTemplate,
+		args.vrfContractAddress,
+		args.ocrKeyBundleID,
+		args.p2pv2BootstrapperPeerID,
+		args.p2pv2BootstrapperPort,
+		args.transmitterID,
+		args.chainID,
+		args.encryptionPublicKey,
+		args.signingPublicKey,
+		args.keyID,
+		args.contractID,
+		args.linkEthFeedAddress,
+		fmt.Sprintf("[%s]", args.confirmationDelays), // conf delays should be comma separated
+		args.lookbackBlocks,
+	)
+
+	var jb job.Job
+	err := toml.Unmarshal([]byte(sp), &jb)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshal job spec")
+	}
+	var os job.OCR2OracleSpec
+	err = toml.Unmarshal([]byte(sp), &os)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshal job spec")
+	}
+	jb.OCR2OracleSpec = &os
+
+	err = app.AddJobV2(context.Background(), &jb)
+	if err != nil {
+		return errors.Wrap(err, "failed to add job")
+	}
+	lggr.Info("ocr2vrf spec:", sp)
 
 	return nil
 }
