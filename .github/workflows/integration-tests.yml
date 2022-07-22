@@ -21,7 +21,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Build Image
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@7d405e28e1419c0a48198793e6647005c409f4cf # v2.0.3
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
