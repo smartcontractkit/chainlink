@@ -261,6 +261,24 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
 		getRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID))
 
+	case "consumer-request-callback":
+		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		numWords := cmd.Uint("num-words", 1, "number of words to request")
+		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
+		callbackGasLimit := cmd.Uint("cb-gas-limit", 50_000, "callback gas limit")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		requestRandomnessCallback(
+			e,
+			*consumerAddress,
+			uint16(*numWords),
+			*subID,
+			big.NewInt(int64(*confDelay)),
+			uint32(*callbackGasLimit),
+			nil, // test consumer doesn't use any args
+		)
+
 	case "dkg-setup":
 		setupDKGNodes(e)
 	case "ocr2vrf-setup":
