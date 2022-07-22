@@ -1,12 +1,12 @@
 name: Integration Tests
 on:
   pull_request:
-     # keep these paths identical to the integration-tests-ignored.yml
+    # keep these paths identical to the integration-tests-ignored.yml
     paths:
-      - '**/*.go'
-      - '**/*go.sum'
-      - '**/*go.mod'
-      - '.github/workflows/integration-tests.yml'
+      - "**/*.go"
+      - "**/*go.sum"
+      - "**/*go.mod"
+      - ".github/workflows/integration-tests.yml"
 env:
   solana_ref: develop # Note: this may not make sense to be develop and may need to be a more stable branch
 jobs:
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d405e28e1419c0a48198793e6647005c409f4cf # v2.0.4
         env:
           CHAINLINK_COMMIT_SHA: ${{ github.sha }}
           CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -106,7 +106,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d405e28e1419c0a48198793e6647005c409f4cf # v2.0.4
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
