@@ -32,9 +32,6 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-// this permission grants read / write access to file owners only
-const readWritePerms = os.FileMode(0600)
-
 //nolint
 var (
 	ErrUnset   = errors.New("env var unset")
@@ -155,7 +152,6 @@ type GeneralOnlyConfig interface {
 	RootDir() string
 	SecureCookies() bool
 	SessionOptions() sessions.Options
-	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SolanaNodes() string
 	StarkNetNodes() string
@@ -255,7 +251,6 @@ type GeneralConfig interface {
 type generalConfig struct {
 	lggr             logger.Logger
 	viper            *viper.Viper
-	secretGenerator  SecretGenerator
 	randomP2PPort    uint16
 	randomP2PPortMtx sync.RWMutex
 	dialect          dialects.DialectName
@@ -273,7 +268,6 @@ type generalConfig struct {
 func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))
-	c.secretGenerator = FilePersistedSecretGenerator{}
 	c.dialect = dialects.Postgres
 	return c
 }
@@ -1150,12 +1144,6 @@ func (c *generalConfig) CertFile() string {
 		return filepath.Join(c.TLSDir(), "server.crt")
 	}
 	return c.TLSCertPath()
-}
-
-// SessionSecret returns a sequence of bytes to be used as a private key for
-// session signing or encryption.
-func (c *generalConfig) SessionSecret() ([]byte, error) {
-	return c.secretGenerator.Generate(c.RootDir())
 }
 
 // SessionOptions returns the sessions.Options struct used to configure

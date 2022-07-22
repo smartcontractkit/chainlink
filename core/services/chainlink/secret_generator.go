@@ -1,13 +1,17 @@
-package config
+package chainlink
 
 import (
 	"encoding/base64"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/gorilla/securecookie"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+// this permission grants read / write access to file owners only
+const readWritePerms = os.FileMode(0600)
 
 // SecretGenerator is the interface for objects that generate a secret
 // used to sign or encrypt.
