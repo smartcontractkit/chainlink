@@ -37,10 +37,10 @@ import (
 
 func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
-	orm := new(mocks.ORM)
+	orm := mocks.NewORM(t)
 	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
-	orm.On("GetQ").Return(q)
+	orm.On("GetQ").Return(q).Maybe()
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
@@ -401,10 +401,10 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// but a sufficient number of them still complete within the desired time frame
 	// and so we can still obtain a median.
 	db := pgtest.NewSqlxDB(t)
-	orm := new(mocks.ORM)
+	orm := mocks.NewORM(t)
 	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
-	orm.On("GetQ").Return(q)
+	orm.On("GetQ").Return(q).Maybe()
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		res.WriteHeader(http.StatusOK)
@@ -452,9 +452,9 @@ answer1 [type=median                      index=0];
 
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := new(mocks.ORM)
+	orm := mocks.NewORM(t)
 	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
-	orm.On("GetQ").Return(q)
+	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			args.Get(0).(*pipeline.Run).ID = 1
