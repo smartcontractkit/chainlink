@@ -22,7 +22,7 @@ before(async () => {
     roles.defaultAccount,
   )
   brokenFactory = await ethers.getContractFactory(
-    'src/v0.4/tests/Broken.sol:Broken',
+    'src/v0.8/tests/Broken.sol:Broken',
     roles.defaultAccount,
   )
   forwarderFactory = await ethers.getContractFactory(
@@ -201,6 +201,7 @@ describe('AuthorizedForwarder', () => {
         let brokenMock: Contract
         let brokenPayload: string
         let brokenMsgPayload: string
+        let brokenCustomErrPayload: string
 
         beforeEach(async () => {
           brokenMock = await brokenFactory
@@ -208,11 +209,15 @@ describe('AuthorizedForwarder', () => {
             .deploy()
           brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
             brokenFactory.interface.getFunction('revertWithMessage'),
-            ['Failure message'],
+            ['Failure message']
+          )
+
+          brokenCustomErrPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertWithCustomError'),
           )
 
           brokenPayload = brokenFactory.interface.encodeFunctionData(
-            brokenFactory.interface.getFunction('revert'),
+            brokenFactory.interface.getFunction('revertSilently'),
             [],
           )
         })
@@ -223,7 +228,18 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenMsgPayload),
-              'AuthorizedForwarder#forward: Failure message',
+              'reverted with reason string \'Failure message\'',
+            )
+          })
+        })
+
+        describe('when reverts with custom error', () => {
+          it('return revert custom error', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .forward(brokenMock.address, brokenCustomErrPayload),
+              'Unauthorized("param", 121)',
             )
           })
         })
@@ -234,7 +250,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenPayload),
-              'AuthorizedForwarder#forward: call failed silently',
+              'Transaction reverted without a reason string',
             )
           })
         })

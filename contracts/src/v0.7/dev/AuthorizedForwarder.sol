@@ -9,7 +9,6 @@ import "../vendor/Address.sol";
 
 contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
-  using ErrorParser for bytes;
 
   address public immutable getChainlinkToken;
 
@@ -81,7 +80,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     require(to.isContract(), "Must forward to a contract");
     (bool success, bytes memory result) = to.call(data);
     if(!success){
-      revert(string(abi.encodePacked("AuthorizedForwarder#forward: ", result.getRevertMessage())));
-    }
+      ErrorParser.revertWithMessage(result);
+     }
   }
 }

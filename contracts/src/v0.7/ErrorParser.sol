@@ -13,13 +13,11 @@ library ErrorParser {
    * encoded result, the signature for Error(msg), and decode the rest as string.
    *
    * @param result encoded bytes returned from .call()
-   * @return string decoded revert message.
    */
-  function getRevertMessage(bytes memory result) internal pure returns (string memory) {
-    if (result.length < 68) return "call failed silently";
+  function revertWithMessage(bytes memory result) internal pure {
+    if (result.length == 0) revert();
     assembly {
-      result := add(result, 0x04)
+      revert(add(32, result),  mload(result))
     }
-    return abi.decode(result, (string));
   }
 }
