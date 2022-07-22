@@ -540,9 +540,9 @@ func TestETHTxTask(t *testing.T) {
 				TransmitChecker:  test.transmitChecker,
 			}
 
-			keyStore := new(keystoremocks.Eth)
+			keyStore := keystoremocks.NewEth(t)
 			keyStore.Test(t)
-			txManager := new(txmmocks.TxManager)
+			txManager := txmmocks.NewTxManager(t)
 			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
@@ -569,9 +569,6 @@ func TestETHTxTask(t *testing.T) {
 				require.NoError(t, result.Error)
 				require.Equal(t, test.expected, result.Value)
 			}
-
-			keyStore.AssertExpectations(t)
-			txManager.AssertExpectations(t)
 		})
 	}
 }
