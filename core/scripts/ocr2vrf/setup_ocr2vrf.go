@@ -75,7 +75,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	addClientToDKG(e, dkgAddress.String(), *keyID, vrfAddress.String())
 
 	fmt.Println("Deploying beacon consumer...")
-	deployVRFBeaconCoordinatorConsumer(e, vrfAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
+	consumerAddress := deployVRFBeaconCoordinatorConsumer(e, vrfAddress.String(), false, big.NewInt(*beaconPeriodBlocks))
 
 	fmt.Println("Configuring nodes with OCR2VRF jobs...")
 	var (
@@ -163,4 +163,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 		strings.Join(transmitters[1:], ","),
 	)
 	fmt.Println(vrfCommand)
+
+	fmt.Println("Consumer address:", consumerAddress.String())
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
@@ -162,7 +163,7 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Infow("finished LogsWithSigs", "logs", logs)
+	c.lggr.Info(fmt.Sprintf("finished LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
@@ -170,8 +171,8 @@ func (c *coordinator) ReportBlocks(
 		newTransmissionLogs,
 		err := c.unmarshalLogs(logs)
 
-	c.lggr.Infof("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
-		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs)
+	c.lggr.Info(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
+		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
 
 	blocksRequested := make(map[block]struct{})
 	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
@@ -179,14 +180,14 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Infof("filtered eligible randomness requests: %+v", unfulfilled)
+	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
 	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
 
-	c.lggr.Infof("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled)
+	c.lggr.Info(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -195,7 +196,7 @@ func (c *coordinator) ReportBlocks(
 		delete(blocksRequested, f)
 	}
 
-	c.lggr.Infof("got fulfilled blocks: %+v", fulfilledBlocks)
+	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Construct the slice of blocks to return. At this point
 	// we only need to fetch the blockhashes of the blocks that
@@ -205,13 +206,13 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Infow("got blocks: %+v", blocks)
+	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
 
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
 
-	c.lggr.Infow("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs)
+	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
 	return
 }
@@ -428,6 +429,11 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			newTransmissionLogs = append(newTransmissionLogs, unpacked)
+		default:
+			c.lggr.Info(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Info(fmt.Sprintf("expected one of: %s %s %s %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
 		}
 	}
 	return
