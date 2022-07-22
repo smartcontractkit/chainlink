@@ -2,9 +2,33 @@
 
 Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
 
-## How to Configure
+## Setup
 
-See the [example.env](./example.env) file to set some common environment variables to configure how tests are run.
+Prerequisites to run the tests.
+
+### Install Go
+
+[Install](https://go.dev/doc/install)
+
+### Install Ginkgo
+
+[Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
+
+`go install github.com/onsi/ginkgo/v2/ginkgo`
+
+### Install NodeJS
+
+[Install](https://nodejs.org/en/download/)
+
+### Install Helm Charts
+
+[Install Helm](https://helm.sh/docs/intro/install/#through-package-managers) if you don't already have it. Then add necessary charts with the below commands.
+
+```sh
+helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+```
 
 ### Connect to a Kubernetes Cluster
 
@@ -14,23 +38,7 @@ increase minikube's resources significantly, or get a more substantial cluster.
 This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
 as well as some simulated blockchains, all depending on the types of tests and networks being used.
 
-### Install Ginkgo
-
-[Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
-
-`go install github.com/onsi/ginkgo/v2/ginkgo`
-
-### Install Helm Charts
-
-See [Installing Helm](https://helm.sh/docs/intro/install/#through-package-managers) if you don't already have it. Then add necessary charts with the below commands.
-
-```sh
-helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-```
-
-### Configure Environment
+## Configure Environment
 
 See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
 
