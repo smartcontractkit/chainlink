@@ -6,22 +6,21 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -39,6 +38,7 @@ const (
 	RemovingKeeperTest
 	PauseRegistryTest
 	MigrateUpkeepTest
+	HandleKeeperNodesGoingDown
 )
 
 type KeeperConsumerContracts int32
@@ -47,9 +47,10 @@ const (
 	BasicCounter KeeperConsumerContracts = iota
 	PerformanceCounter
 
-	defaultUpkeepGasLimit  = uint32(2500000)
-	defaultLinkFunds       = int64(9e18)
-	defaultUpkeepsToDeploy = 10
+	defaultUpkeepGasLimit             = uint32(2500000)
+	defaultLinkFunds                  = int64(9e18)
+	defaultUpkeepsToDeploy            = 10
+	numUpkeepsAllowedForStragglingTxs = 6
 )
 
 var defaultRegistryConfig = contracts.KeeperRegistrySettings{
@@ -107,6 +108,8 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			Entry("v1.2 Removing one keeper test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, RemovingKeeperTest, big.NewInt(defaultLinkFunds)),
 			Entry("v1.2 Pause registry test @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, PauseRegistryTest, big.NewInt(defaultLinkFunds)),
 			Entry("v1.2 Migrate upkeep from a registry to another @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, MigrateUpkeepTest, big.NewInt(defaultLinkFunds)),
+			Entry("v1.1 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_1, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
+			Entry("v1.2 Handle keeper nodes going down @simulated", ethereum.RegistryVersion_1_2, defaultRegistryConfig, BasicCounter, HandleKeeperNodesGoingDown, big.NewInt(defaultLinkFunds)),
 		}
 	)
 
@@ -134,7 +137,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM)(testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(networks.SimulatedEVM, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
@@ -382,12 +385,13 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when check gas increased")
 
 			// In most cases count should remain constant, but there might be a straggling perform tx which
-			// gets committed later. Hence, we check that the upkeep count does not increase by more than 1
+			// gets committed later. Since every keeper node cannot have more than 1 straggling tx, it
+			// is sufficient to check that the upkeep count does not increase by more than 6.
 			Consistently(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 				g.Expect(cnt.Int64()).Should(
-					BeNumerically("<=", existingCnt.Int64()+1),
+					BeNumerically("<=", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
 					"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
@@ -404,7 +408,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			Eventually(func(g Gomega) {
 				cnt, err := consumerPerformance.GetUpkeepCount(context.Background())
 				g.Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's Counter shouldn't fail")
-				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()+1),
+				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
 					"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
 			}, "1m", "1s").Should(Succeed())
@@ -638,6 +642,77 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				g.Expect(currentCounter.Int64()).Should(BeNumerically(">", counterAfterMigration.Int64()),
 					"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
 			}, "1m", "1s").Should(Succeed())
+		}
+
+		if testToRun == HandleKeeperNodesGoingDown {
+			By("upkeeps are still performed if some keeper nodes go down")
+			var initialCounters = make([]*big.Int, len(upkeepIDs))
+
+			// Watch upkeeps being performed and store their counters in order to compare them later in the test
+			Eventually(func(g Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					initialCounters[i] = counter
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(counter.Int64()).Should(BeNumerically(">", int64(0)),
+						"Expected consumer counter to be greater than 0, but got %d", counter.Int64())
+				}
+			}, "1m", "1s").Should(Succeed())
+
+			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
+			firstHalfToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
+			for _, nodeToTakeDown := range firstHalfToTakeDown {
+				err := nodeToTakeDown.DeleteJob("1")
+				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
+				err = chainClient.WaitForEvents()
+				Expect(err).ShouldNot(HaveOccurred(), "Error deleting the Keeper job from the node")
+			}
+			log.Info().Msg("Successfully managed to take down the first half of the nodes")
+
+			// Assert that upkeeps are still performed and their counters have increased
+			Eventually(func(g Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					currentCounter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter"+
+						" for upkeep at index "+strconv.Itoa(i))
+					g.Expect(currentCounter.Int64()).Should(BeNumerically(">", initialCounters[i].Int64()),
+						"Expected counter to have increased from initial value of %s, but got %s",
+						initialCounters[i], currentCounter)
+				}
+			}, "3m", "1s").Should(Succeed())
+
+			// Take down the other half of the Keeper nodes
+			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
+			for _, nodeToTakeDown := range secondHalfToTakeDown {
+				err := nodeToTakeDown.DeleteJob("1")
+				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
+				err = chainClient.WaitForEvents()
+				Expect(err).ShouldNot(HaveOccurred(), "Error deleting the Keeper job from the node")
+			}
+			log.Info().Msg("Successfully managed to take down the second half of the nodes")
+
+			// See how many times each upkeep was executed
+			var countersAfterNoMoreNodes = make([]*big.Int, len(upkeepIDs))
+			for i := 0; i < len(upkeepIDs); i++ {
+				countersAfterNoMoreNodes[i], err = consumers[i].Counter(context.Background())
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+				log.Info().Msg("Upkeep at index " + strconv.Itoa(i) + " performed " +
+					strconv.Itoa(int(countersAfterNoMoreNodes[i].Int64())) + " times")
+			}
+
+			// Once all the nodes are taken down, there might be some straggling transactions which went through before
+			// all the nodes were taken down. Every keeper node can have at most 1 straggling transaction per upkeep,
+			// so a +6 on the upper limit side should be sufficient.
+			Consistently(func(g Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					latestCounter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index "+strconv.Itoa(i))
+					g.Expect(latestCounter.Int64()).Should(BeNumerically("<=", countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs),
+						"Expected consumer counter to not have increased more than %d, but got %d",
+						countersAfterNoMoreNodes[i].Int64()+numUpkeepsAllowedForStragglingTxs, latestCounter.Int64())
+				}
+			}, "3m", "1s").Should(Succeed())
 		}
 
 		By("Printing gas stats")
