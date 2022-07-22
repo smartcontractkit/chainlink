@@ -220,7 +220,7 @@ func TestETHCallTask(t *testing.T) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
 					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
-					Return([]byte("baz quux"), nil)
+					Return([]byte("baz quux"), nil).Maybe()
 			},
 			nil, nil, "chain not found",
 		},
@@ -238,17 +238,17 @@ func TestETHCallTask(t *testing.T) {
 				Gas:        test.gas,
 			}
 
-			ethClient := new(evmmocks.Client)
-			config := new(pipelinemocks.Config)
+			ethClient := evmmocks.NewClient(t)
+			config := pipelinemocks.NewConfig(t)
 			test.setupClientMocks(ethClient, config)
 
 			cfg := configtest.NewTestGeneralConfig(t)
 			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(int64(gasLimit))
 			cfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(int64(drJobTypeGasLimit))
 
-			keyStore := new(keystoremocks.Eth)
+			keyStore := keystoremocks.NewEth(t)
 			keyStore.Test(t)
-			txManager := new(txmmocks.TxManager)
+			txManager := txmmocks.NewTxManager(t)
 			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 
