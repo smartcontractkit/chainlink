@@ -21,11 +21,11 @@ var (
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 
-	// MetisStardust holds default values for the Metis Stardust testnet https://www.metis.io/
-	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
-		Name:                      "Metis Stardust",
-		ChainID:                   588,
-		URLs:                      []string{"wss://stardust-ws.metis.io/"},
+	// SepoliaTestnet https://sepolia.dev/
+	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Sepolia Testnet",
+		ChainID:                   11155111,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
 		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
@@ -34,10 +34,10 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
-	// SepoliaTestnet holds default values for the Sepolia testnet https://sepolia.dev/
-	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
-		Name:                      "Sepolia Testnet",
-		ChainID:                   11155111,
+	// GoerliTestnet https://goerli.net/
+	GoerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Goerli Testnet",
+		ChainID:                   5,
 		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
 		Simulated:                 false,
 		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
@@ -58,6 +58,19 @@ var (
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+	}
+
+	// MetisStardust https://www.metis.io/
+	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Metis Stardust",
+		ChainID:                   588,
+		URLs:                      []string{"wss://stardust-ws.metis.io/"},
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
 	}
 )
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,6 +31,7 @@ var _ = Describe("VRF suite @vrf", func() {
 			Entry("VRF suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.05)),
 			Entry("VRF suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
 			Entry("VRF suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
+			Entry("VRF suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
 			Entry("VRF suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
 		}
 
@@ -58,7 +60,9 @@ var _ = Describe("VRF suite @vrf", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(evmChart).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"env": testNetwork.ChainlinkValuesMap(),

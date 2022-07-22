@@ -33,6 +33,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			Entry("Runlog suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
 			Entry("Runlog suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
 			Entry("Runlog suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("Runlog suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("Runlog suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
@@ -67,7 +68,9 @@ var _ = Describe("Direct request suite @runlog", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-runlog"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).

@@ -3,6 +3,7 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -28,6 +29,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 			Entry("Cronjob suite on General EVM Network read from env vars @general", networks.GeneralEVM()),
 			Entry("Cronjob suite on Metis Stardust @metis", networks.MetisStardust),
 			Entry("Cronjob suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet),
+			Entry("Cronjob suite on Görli Testnet @goerli", networks.GoerliTestnet),
 			Entry("Cronjob suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab),
 		}
 
@@ -56,7 +58,9 @@ var _ = Describe("Cronjob suite @cron", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-cron"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).

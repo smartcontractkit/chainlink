@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -31,6 +32,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			Entry("VRFv2 suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.05)),
 			Entry("VRFv2 suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
 			Entry("VRFv2 suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
+			Entry("VRFv2 suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
 			Entry("VRFv2 suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
 		}
 
@@ -61,7 +63,9 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrfv2"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(evmChart).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"env": testNetwork.ChainlinkValuesMap(),
