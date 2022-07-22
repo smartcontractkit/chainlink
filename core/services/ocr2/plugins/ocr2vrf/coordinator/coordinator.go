@@ -163,13 +163,17 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
-	c.lggr.Info(fmt.Sprintf("finished LogsWithSigs: %+v", logs))
+	c.lggr.Info(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
 
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
 		newTransmissionLogs,
 		err := c.unmarshalLogs(logs)
+	if err != nil {
+		err = errors.Wrap(err, "unmarshal logs")
+		return
+	}
 
 	c.lggr.Info(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
 		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
@@ -430,8 +434,8 @@ func (c *coordinator) unmarshalLogs(
 			}
 			newTransmissionLogs = append(newTransmissionLogs, unpacked)
 		default:
-			c.lggr.Info(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
-			c.lggr.Info(fmt.Sprintf("expected one of: %s %s %s %s",
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
 				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
 				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
 		}

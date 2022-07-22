@@ -177,5 +177,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	)
 	fmt.Println(vrfCommand)
 
+	fmt.Println()
 	fmt.Println("Consumer address:", consumerAddress.String())
 }
