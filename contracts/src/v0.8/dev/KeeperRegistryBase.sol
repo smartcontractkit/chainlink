@@ -1,5 +1,6 @@
 pragma solidity 0.8.6;
 
+import "@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -8,6 +9,7 @@ import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/OptimismGasInterface.sol";
 import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
 
 /**
@@ -20,12 +22,15 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
-  uint256 internal constant CANCELATION_DELAY = 50;
+  uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint64 internal constant UINT64_MAX = 2**64 - 1;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
+  bytes17 public L1_FEE_DATA_PADDING = 0xffffffffffffffffffffffffffffffffff;
+  bytes4 public PERFORM_DATA_PADDING = 0xffffffff;
+  bytes32 public ESTIMATED_MSG_DATA = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -45,6 +50,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
+  OptimismGasInterface public immutable OPTIMISM_ORACLE =
+    OptimismGasInterface(0x420000000000000000000000000000000000000F);
+  ArbGasInfo public immutable ARBITRUM_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
+  PaymentModel public immutable PAYMENT_MODEL;
 
   error CannotCancel();
   error UpkeepNotActive();
@@ -80,6 +89,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     OUTGOING,
     INCOMING,
     BIDIRECTIONAL
+  }
+
+  enum PaymentModel {
+    DEFAULT,
+    ARBITRUM,
+    OPTIMISM
   }
 
   /**
@@ -145,15 +160,18 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
 
   /**
+   * @param paymentModel the payment model of default, Arbitrum, or Optimism
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
+    uint8 paymentModel,
     address link,
     address linkEthFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
+    PAYMENT_MODEL = PaymentModel(paymentModel);
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -191,11 +209,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   function _calculatePaymentAmount(
     uint256 gasLimit,
     uint256 gasWei,
-    uint256 linkEth
+    uint256 linkEth,
+    uint256 l1CostWei
   ) internal view returns (uint96 payment) {
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
-    uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
+    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(s_storage.flatFeeMicroLink) * 1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
@@ -216,9 +235,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   /**
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
-  function _adjustGasPrice(uint256 gasWei, bool useTxGasPrice) internal view returns (uint256 adjustedPrice) {
+  function _adjustGasPrice(uint256 gasWei, bool isExecution) internal view returns (uint256 adjustedPrice) {
     adjustedPrice = gasWei * s_storage.gasCeilingMultiplier;
-    if (useTxGasPrice && tx.gasprice < adjustedPrice) {
+    if (isExecution && tx.gasprice < adjustedPrice) {
       adjustedPrice = tx.gasprice;
     }
   }
@@ -230,12 +249,30 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 id,
     bytes memory performData,
-    bool useTxGasPrice
+    bool isExecution
   ) internal view returns (PerformParams memory) {
     uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, useTxGasPrice);
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    uint256 adjustedGasWei = _adjustGasPrice(gasWei, isExecution);
+    uint256 l1CostWei = 0;
+    bytes memory data = new bytes(0);
+    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      if (isExecution) {
+        data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+      } else {
+        data = bytes.concat(performData, PERFORM_DATA_PADDING);
+        data = bytes.concat(data, L1_FEE_DATA_PADDING);
+      }
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      if (isExecution) {
+        l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
+      } else {
+        (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
+        l1CostWei = gasLimit * l1GasWei;
+      }
+    }
+    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, l1CostWei);
 
     return
       PerformParams({

@@ -66,7 +66,6 @@ describe('CanaryUpkeep', () => {
     keeperRegistry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
-        0,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,

@@ -134,7 +134,7 @@ describe('KeeperRegistry', () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
@@ -150,7 +150,7 @@ describe('KeeperRegistry', () => {
       })
     registry2 = await keeperRegistryFactory
       .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
