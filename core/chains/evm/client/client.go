@@ -142,6 +142,7 @@ type CallArgs struct {
 	From common.Address `json:"from"`
 	To   common.Address `json:"to"`
 	Data hexutil.Bytes  `json:"data"`
+	Gas  *big.Int       `json:"gas"`
 }
 
 // GetERC20Balance returns the balance of the given address for the token contract address.
@@ -153,6 +154,7 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 	args := CallArgs{
 		To:   contractAddress,
 		Data: data,
+		Gas:  utils.MaxInt256,
 	}
 	err := client.Call(&result, "eth_call", args, "latest")
 	if err != nil {

@@ -182,6 +182,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 				require.True(t, callArgs.IsObject())
 				require.Equal(t, strings.ToLower(contractAddress.Hex()), callArgs.Get("to").String())
 				require.Equal(t, hexutil.Encode(txData), callArgs.Get("data").String())
+				require.Equal(t, utils.MaxInt256.String(), callArgs.Get("gas").String())
 
 				require.Equal(t, "latest", arr[1].String())
 				return `"` + hexutil.EncodeBig(test.balance) + `"`, ""
