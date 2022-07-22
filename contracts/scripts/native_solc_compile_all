@@ -62,10 +62,10 @@ $SCRIPTPATH/native_solc8_6_compile BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile BatchVRFCoordinatorV2.sol
 
 # VRF V2 Wrapper
-$SCRIPTPATH/native_solc8_6_compile VRFV2Wrapper.sol
-$SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
-$SCRIPTPATH/native_solc8_6_compile VRFV2WrapperConsumerBase.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VRFV2WrapperConsumerExample.sol
+$SCRIPTPATH/native_solc8_15_compile VRFV2Wrapper.sol
+$SCRIPTPATH/native_solc8_15_compile interfaces/VRFV2WrapperInterface.sol
+$SCRIPTPATH/native_solc8_15_compile VRFV2WrapperConsumerBase.sol
+$SCRIPTPATH/native_solc8_15_compile tests/VRFV2WrapperConsumerExample.sol
 
 
 # Make sure the example consumers compile
