@@ -11,6 +11,8 @@ import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../t
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
 import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
+import { KeeperRegistryLogic__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic__factory'
+import { KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic'
 
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
@@ -30,13 +32,14 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(170000)
+const CHECK_GAS_OVERHEAD = BigNumber.from(360000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
+let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
@@ -52,6 +55,9 @@ before(async () => {
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
+  keeperRegistryLogicFactory = await ethers.getContractFactory(
+    'KeeperRegistryLogic',
+  )
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
@@ -74,7 +80,7 @@ describe('KeeperRegistryDev', () => {
   const registryGasOverhead = BigNumber.from('80000')
   const stalenessSeconds = BigNumber.from(43820)
   const gasCeilingMultiplier = BigNumber.from(1)
-  const checkGasLimit = BigNumber.from(20000000)
+  const checkGasLimit = BigNumber.from(10000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
   const maxPerformGas = BigNumber.from(5000000)
@@ -94,7 +100,9 @@ describe('KeeperRegistryDev', () => {
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
+  let registryLogic: KeeperRegistryLogic
   let registry2: KeeperRegistry
+  let registryLogic2: KeeperRegistryLogic
   let mock: UpkeepMock
   let transcoder: UpkeepTranscoder
 
@@ -132,38 +140,56 @@ describe('KeeperRegistryDev', () => {
       .connect(owner)
       .deploy(9, linkEth)
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
+    registryLogic = await keeperRegistryLogicFactory
+      .connect(owner)
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address)
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
-        paymentPremiumPPB,
-        flatFeeMicroLink,
-        blockCountPerTurn,
-        checkGasLimit,
-        stalenessSeconds,
-        gasCeilingMultiplier,
-        minUpkeepSpend,
-        maxPerformGas,
-        fallbackGasPrice,
-        fallbackLinkPrice,
-        transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
-      })
+      .deploy(
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        registryLogic.address,
+        {
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        },
+      )
+    registryLogic2 = await keeperRegistryLogicFactory
+      .connect(owner)
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address)
     registry2 = await keeperRegistryFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
-        paymentPremiumPPB,
-        flatFeeMicroLink,
-        blockCountPerTurn,
-        checkGasLimit,
-        stalenessSeconds,
-        gasCeilingMultiplier,
-        minUpkeepSpend,
-        maxPerformGas,
-        fallbackGasPrice,
-        fallbackLinkPrice,
-        transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
-      })
+      .deploy(
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        registryLogic2.address,
+        {
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        },
+      )
     mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
@@ -204,7 +230,7 @@ describe('KeeperRegistryDev', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 1.2.0')
+      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.0')
     })
   })
 
@@ -650,11 +676,7 @@ describe('KeeperRegistryDev', () => {
 
         it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
           await mock.setCheckGasToBurn(checkGasLimit)
-          await mock.setPerformGasToBurn(executeGas)
-          const gas = checkGasLimit
-            .add(executeGas)
-            .add(PERFORM_GAS_OVERHEAD)
-            .add(CHECK_GAS_OVERHEAD)
+          const gas = checkGasLimit.add(CHECK_GAS_OVERHEAD)
           await registry
             .connect(zeroAddress)
             .callStatic.checkUpkeep(id, await keeper1.getAddress(), {
@@ -1025,9 +1047,10 @@ describe('KeeperRegistryDev', () => {
       })
 
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
-        await mock.setPerformGasToBurn(executeGas)
+        await registry.connect(admin).setUpkeepGasLimit(id, maxPerformGas)
+        await mock.setPerformGasToBurn(maxPerformGas)
         await mock.setCanPerform(true)
-        const gas = executeGas.add(PERFORM_GAS_OVERHEAD)
+        const gas = maxPerformGas.add(PERFORM_GAS_OVERHEAD)
         const performData = '0xc0ffeec0ffee'
         const tx = await registry
           .connect(keeper1)
