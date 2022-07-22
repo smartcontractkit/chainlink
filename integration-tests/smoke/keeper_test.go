@@ -394,7 +394,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 					BeNumerically("<=", existingCnt.Int64()+numUpkeepsAllowedForStragglingTxs),
 					"Expected consumer counter to remain constant at %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
-			}, "1m", "1s").Should(Succeed())
+			}, "3m", "1s").Should(Succeed())
 
 			// Now increase checkGasLimit on registry
 			highCheckGasLimit := defaultRegistryConfig
