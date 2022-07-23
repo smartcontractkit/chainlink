@@ -12,11 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tendermint/libs/rand"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -59,6 +62,96 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 		chainBlk, err := ec.BlockByNumber(context.Background(), big.NewInt(int64(i)))
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
+}
+
+func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
+	// The log poller's blocks table should remain synchronized
+	// with the canonical chain of geth's despite arbitrary mixes of mining and reorgs.
+	testParams := gopter.DefaultTestParameters()
+	testParams.MinSuccessfulTests = 100
+	p := gopter.NewProperties(testParams)
+	numChainInserts := 3
+	finalityDepth := 5
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	owner := testutils.MustNewSimTransactor(t)
+	owner.GasPrice = big.NewInt(10e9)
+	p.Property("synchronized with geth", prop.ForAll(func(mineOrReorg []uint64) bool {
+		// After the set of reorgs, we should have the same canonical blocks that geth does.
+		t.Log("Starting test", mineOrReorg)
+		chainID := testutils.NewRandomEVMChainID()
+		// Set up a test chain with a log emitting contract deployed.
+		orm := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+		// Note this property test is run concurrently and the sim is not threadsafe.
+		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+			owner.From: {
+				Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
+			},
+		}, 10e6)
+		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
+		require.NoError(t, err)
+		lp := logpoller.NewLogPoller(orm, cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3)
+		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
+			ec.Commit()
+		}
+		currentBlock := int64(1)
+		currentBlock = lp.PollAndSaveLogs(context.Background(), currentBlock)
+		matchesGeth := func() bool {
+			// Check every block is identical
+			latest, err := ec.BlockByNumber(context.Background(), nil)
+			require.NoError(t, err)
+			for i := 1; i < int(latest.NumberU64()); i++ {
+				ourBlock, err := lp.BlockByNumber(int64(i))
+				require.NoError(t, err)
+				gethBlock, err := ec.BlockByNumber(context.Background(), big.NewInt(int64(i)))
+				require.NoError(t, err)
+				if ourBlock.BlockHash != gethBlock.Hash() {
+					t.Logf("Initial poll our block differs at height %d got %x want %x\n", i, ourBlock.BlockHash, gethBlock.Hash())
+					return false
+				}
+			}
+			return true
+		}
+		if !matchesGeth() {
+			return false
+		}
+		// Randomly pick to mine or reorg
+		for i := 0; i < numChainInserts; i++ {
+			if rand.Bool() {
+				// Mine blocks
+				for j := 0; j < int(mineOrReorg[i]); j++ {
+					ec.Commit()
+					latest, err := ec.BlockByNumber(context.Background(), nil)
+					require.NoError(t, err)
+					t.Log("mined block", latest.Hash())
+				}
+			} else {
+				// Reorg blocks
+				// Get the hash of reorg block
+				latest, err := ec.BlockByNumber(context.Background(), nil)
+				require.NoError(t, err)
+				reorgedBlock := big.NewInt(0).Sub(latest.Number(), big.NewInt(int64(mineOrReorg[i])))
+				reorg, err := ec.BlockByNumber(context.Background(), reorgedBlock)
+				require.NoError(t, err)
+				require.NoError(t, ec.Fork(context.Background(), reorg.Hash()))
+				t.Logf("Reorging from (%v, %x) back to (%v, %x)\n", latest.NumberU64(), latest.Hash(), reorgedBlock.Uint64(), reorg.Hash())
+				// Actually need to change the block here to trigger the reorg.
+				_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
+				require.NoError(t, err)
+				for j := 0; j < int(mineOrReorg[i]+1); j++ { // Need +1 to make it actually longer height so we detect it.
+					ec.Commit()
+				}
+				latest, err = ec.BlockByNumber(context.Background(), nil)
+				require.NoError(t, err)
+				t.Logf("New latest (%v, %x), latest parent %x)\n", latest.NumberU64(), latest.Hash(), latest.ParentHash())
+			}
+			currentBlock = lp.PollAndSaveLogs(context.Background(), currentBlock)
+		}
+		return matchesGeth()
+	}, gen.SliceOfN(numChainInserts, gen.UInt64Range(1, uint64(finalityDepth-1))))) // Max reorg depth is finality depth - 1
+	p.TestingRun(t)
 }
 
 func TestLogPoller_PollAndSaveLogs(t *testing.T) {

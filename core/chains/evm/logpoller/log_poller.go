@@ -387,7 +387,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			lp.lggr.Warnw("Unable query for logs, retrying", "err", err2, "block", currentBlock.Number())
 			return currentBlockNumber
 		}
-		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
 		err2 = lp.orm.q.Transaction(func(q pg.Queryer) error {
 			if err3 := lp.orm.InsertBlock(currentBlock.Hash(), currentBlock.Number().Int64()); err3 != nil {
 				return err3
@@ -480,6 +480,14 @@ func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 		return 0, err
 	}
 	return b.BlockNumber, nil
+}
+
+func (lp *logPoller) BlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, error) {
+	b, err := lp.orm.SelectBlockByNumber(n, qopts...)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // LatestLogByEventSigWithConfs finds the latest log that has confs number of blocks on top of the log.
