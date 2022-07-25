@@ -61,6 +61,11 @@ func TestResolver_Config(t *testing.T) {
 					GlobalEvmGasPriceDefault:             nil,
 					GlobalEvmGasTipCapDefault:            nil,
 					GlobalEvmGasTipCapMinimum:            nil,
+					GlobalEvmGasLimitOCRJobType:          null.IntFrom(10),
+					GlobalEvmGasLimitDRJobType:           null.IntFrom(11),
+					GlobalEvmGasLimitVRFJobType:          null.IntFrom(12),
+					GlobalEvmGasLimitFMJobType:           null.IntFrom(13),
+					GlobalEvmGasLimitKeeperJobType:       null.IntFrom(14),
 					GlobalEvmHeadTrackerHistoryDepth:     null.IntFrom(1),
 					GlobalEvmHeadTrackerMaxBufferSize:    null.IntFrom(1),
 					GlobalEvmHeadTrackerSamplingInterval: nil,
@@ -92,7 +97,6 @@ func TestResolver_Config(t *testing.T) {
 					P2PListenPort:                        null.IntFrom(1),
 					P2PPeerID:                            "",
 					P2PPeerIDError:                       nil,
-					SecretGenerator:                      nil,
 					TriggerFallbackDBPollInterval:        nil,
 				})
 				cfg.SetRootDir("/tmp/chainlink_test/gql-test")

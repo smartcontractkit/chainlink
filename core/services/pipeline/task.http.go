@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"go.uber.org/multierr"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clhttp "github.com/smartcontractkit/chainlink/core/utils/http"
 )

@@ -20,7 +20,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -51,9 +50,7 @@ func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool)
 		t.Fatal("could not load fixtures into an empty DB")
 	}
 
-	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator: cltest.MockSecretGenerator{},
-	}
+	overrides := configtest.GeneralConfigOverrides{}
 	gcfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 	gcfg.Overrides.Dialect = dialects.Postgres
 

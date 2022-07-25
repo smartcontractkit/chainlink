@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"database/sql"
 	"fmt"
 	"math/big"
 
@@ -129,6 +130,42 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 		return nil, err
 	}
 	return logs, nil
+}
+
+// SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
+// emitted from the given address.
+func (o *ORM) SelectLogsWithSigsByBlockRangeFilter(start, end int64, address common.Address, eventSigs [][]byte, qopts ...pg.QOpt) (logs []Log, err error) {
+	q := o.q.WithOpts(qopts...)
+	a := map[string]any{
+		"start":     start,
+		"end":       end,
+		"chainid":   utils.NewBig(o.chainID),
+		"address":   address,
+		"eventSigs": eventSigs,
+	}
+	query, args, err := sqlx.Named(
+		`
+SELECT
+	*
+FROM logs
+WHERE logs.block_number BETWEEN :start AND :end
+	AND logs.evm_chain_id = :chainid
+	AND logs.address = :address
+	AND logs.event_sig IN (:eventSigs)
+ORDER BY (logs.block_number, logs.log_index)`, a)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx Named")
+	}
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "sqlx In")
+	}
+	query = q.Rebind(query)
+	err = q.Select(&logs, query, args...)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return logs, err
 }
 
 // LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events

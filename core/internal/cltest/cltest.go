@@ -95,8 +95,11 @@ const (
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
 	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
-	// APIEmail is the email of the fixture API user
-	APIEmail = "apiuser@chainlink.test"
+	// Collection of test fixture DB user emails per role
+	APIEmailAdmin    = "apiuser@chainlink.test"
+	APIEmailEdit     = "apiuser-edit@chainlink.test"
+	APIEmailRun      = "apiuser-run@chainlink.test"
+	APIEmailViewOnly = "apiuser-view-only@chainlink.test"
 	// Password just a password we use everywhere for testing
 	Password = testutils.Password
 	// SessionSecret is the hardcoded secret solely used for test
@@ -238,7 +241,6 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator:     MockSecretGenerator{},
 		Dialect:             dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
 		P2PEnabled:          null.BoolFrom(false),
@@ -415,7 +417,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			lggr.Fatal(err)
 		}
 	}
-
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -428,6 +429,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ExternalInitiatorManager: externalInitiatorManager,
 		RestrictedHTTPClient:     c,
 		UnrestrictedHTTPClient:   c,
+		SecretGenerator:          MockSecretGenerator{},
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
@@ -567,9 +569,9 @@ func (ta *TestApplication) Stop() error {
 	return err
 }
 
-func (ta *TestApplication) MustSeedNewSession() (id string) {
+func (ta *TestApplication) MustSeedNewSession(roleFixtureUserAPIEmail string) (id string) {
 	session := NewSession()
-	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, last_used, created_at) VALUES ($1, $2, NOW()) RETURNING id`, session.ID, session.LastUsed)
+	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, roleFixtureUserAPIEmail, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id
 }
@@ -581,10 +583,10 @@ func (ta *TestApplication) Import(content string) {
 	require.NoError(ta.t, err)
 }
 
-func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
+func (ta *TestApplication) NewHTTPClient(roleFixtureUserAPIEmail string) HTTPClientCleaner {
 	ta.t.Helper()
 
-	sessionID := ta.MustSeedNewSession()
+	sessionID := ta.MustSeedNewSession(roleFixtureUserAPIEmail)
 
 	return HTTPClientCleaner{
 		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
@@ -598,7 +600,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewClientAndRenderer creates a new cmd.Client for the test application
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
-	sessionID := ta.MustSeedNewSession()
+	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
@@ -769,7 +771,7 @@ func ReadLogs(dir string) (string, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -783,7 +785,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -797,7 +799,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -846,7 +848,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -865,7 +867,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(APIEmailAdmin)
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),
