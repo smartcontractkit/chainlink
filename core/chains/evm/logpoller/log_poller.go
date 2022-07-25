@@ -27,7 +27,7 @@ import (
 type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
-	MergeFilter(topics []common.Hash, address common.Address)
+	MergeFilter(eventSigs []common.Hash, addresses []common.Address)
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 
 	// General queries
@@ -57,7 +57,7 @@ type logPoller struct {
 
 	filterMu  sync.Mutex
 	addresses map[common.Address]struct{}
-	topics    map[int]map[common.Hash]struct{}
+	eventSigs map[common.Hash]struct{}
 
 	replay chan int64
 	ctx    context.Context
@@ -76,65 +76,50 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
 		addresses:         make(map[common.Address]struct{}),
-		topics:            make(map[int]map[common.Hash]struct{}),
+		eventSigs:         make(map[common.Hash]struct{}),
 	}
 }
 
-// MergeFilter will update the filter with the new topics and addresses.
+// MergeFilter will update the filter with the new eventSigs and addresses.
+// We do not support indexed topic filtering.
 // Clients may choose to MergeFilter and then replay in order to ensure desired logs are present.
-func (lp *logPoller) MergeFilter(topics []common.Hash, address common.Address) {
+func (lp *logPoller) MergeFilter(eventSigs []common.Hash, addresses []common.Address) {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
-	lp.addresses[address] = struct{}{}
-	// [[A, B], [C]] + [[D], [], [E]] = [[A, B, D], [C], [E]]
-	for i := 0; i < len(topics); i++ {
-		if lp.topics[i] == nil {
-			lp.topics[i] = make(map[common.Hash]struct{})
-		}
-		lp.topics[i][topics[i]] = struct{}{}
+	for _, address := range addresses {
+		lp.addresses[address] = struct{}{}
+	}
+	for _, eventSig := range eventSigs {
+		lp.eventSigs[eventSig] = struct{}{}
 	}
 }
 
-// Assumes caller holds filterMu lock
-func (lp *logPoller) filterAddresses() []common.Address {
-	var addresses []common.Address
+func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+	var (
+		addresses []common.Address
+		eventSigs []common.Hash
+	)
 	for addr := range lp.addresses {
 		addresses = append(addresses, addr)
 	}
 	sort.Slice(addresses, func(i, j int) bool {
 		return bytes.Compare(addresses[i][:], addresses[j][:]) < 0
 	})
-	return addresses
-}
-
-// Assumes caller holds filterMu lock
-func (lp *logPoller) filterTopics() [][]common.Hash {
-	var topics [][]common.Hash
-	for idx := 0; idx < len(lp.topics); idx++ {
-		var topicPosition []common.Hash
-		for topic := range lp.topics[idx] {
-			topicPosition = append(topicPosition, topic)
-		}
-		sort.Slice(topicPosition, func(i, j int) bool {
-			return bytes.Compare(topicPosition[i][:], topicPosition[j][:]) < 0
-		})
-		topics = append(topics, topicPosition)
+	for eventSig := range lp.eventSigs {
+		eventSigs = append(eventSigs, eventSig)
 	}
-	return topics
-}
-
-func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
-	topics := lp.filterTopics()
-	addresses := lp.filterAddresses()
-	if len(topics) == 0 && len(addresses) == 0 {
+	sort.Slice(eventSigs, func(i, j int) bool {
+		return bytes.Compare(eventSigs[i][:], eventSigs[j][:]) < 0
+	})
+	if len(eventSigs) == 0 && len(addresses) == 0 {
 		// If no filter specified, ignore everything.
 		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
 		// then as jobs are added dynamically start using their filters.
 		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
 	}
-	return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: topics, Addresses: addresses}
+	return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: [][]common.Hash{eventSigs}, Addresses: addresses}
 }
 
 // Replay signals that the poller should resume from a new block.
@@ -329,15 +314,15 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// the canonical set per read. Typically if an application took action on a log
 		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
-		err2 = lp.orm.q.Transaction(func(tx pg.Queryer) error {
+		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
-			err2 = lp.orm.DeleteRangeBlocks(blockAfterLCA.Number().Int64(), currentBlockNumber, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+			err2 = lp.orm.DeleteRangeBlocks(blockAfterLCA.Number().Int64(), currentBlockNumber, pg.WithQueryer(tx))
 			if err2 != nil {
 				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err2)
 				return err2
 			}
-			err2 = lp.orm.DeleteLogs(blockAfterLCA.Number().Int64(), currentBlockNumber, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+			err2 = lp.orm.DeleteLogs(blockAfterLCA.Number().Int64(), currentBlockNumber, pg.WithQueryer(tx))
 			if err2 != nil {
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err2)
 				return err2
@@ -407,14 +392,14 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
-		err2 = lp.orm.q.Transaction(func(tx pg.Queryer) error {
-			if err3 := lp.orm.InsertBlock(currentBlock.Hash(), currentBlock.Number().Int64(), pg.WithQueryer(tx), pg.WithParentCtx(ctx)); err3 != nil {
+		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+			if err3 := lp.orm.InsertBlock(currentBlock.Hash(), currentBlock.Number().Int64(), pg.WithQueryer(tx)); err3 != nil {
 				return err3
 			}
 			if len(logs) == 0 {
 				return nil
 			}
-			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
 		})
 		if err2 != nil {
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err2, "block", currentBlock.Number())

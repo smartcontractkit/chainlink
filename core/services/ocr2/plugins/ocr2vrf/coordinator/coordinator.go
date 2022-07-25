@@ -87,28 +87,18 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "coordinator wrapper creation")
 	}
-
 	t, err := newTopics()
-
+	if err != nil {
+		return nil, err
+	}
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	// Call MergeFilter once for each event signature, otherwise the log poller won't
-	// index the logs we want.
-	for _, sig := range []common.Hash{
+	logPoller.MergeFilter([]common.Hash{
 		t.randomnessRequestedTopic,
 		t.randomnessFulfillmentRequestedTopic,
 		t.randomWordsFulfilledTopic,
 		t.configSetTopic,
-		t.newTransmissionTopic,
-	} {
-		logPoller.MergeFilter([]common.Hash{sig}, coordinatorAddress)
-	}
-
-	// We need ConfigSet events from the DKG contract as well.
-	logPoller.MergeFilter([]common.Hash{
-		t.configSetTopic,
-	}, dkgAddress)
-
+		t.newTransmissionTopic}, []common.Address{coordinatorAddress, dkgAddress})
 	return &coordinator{
 		coordinatorContract:      coordinatorContract,
 		coordinatorAddress:       coordinatorAddress,

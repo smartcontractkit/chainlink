@@ -3,7 +3,7 @@ package logpoller
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum"
 )
 
 func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
@@ -12,12 +12,8 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	return lastProcessed.BlockNumber + 1
 }
 
-func (lp *logPoller) FilterAddresses() []common.Address {
-	return lp.filterAddresses()
-}
-
-func (lp *logPoller) FilterTopics() [][]common.Hash {
-	return lp.filterTopics()
+func (lp *logPoller) Filter() ethereum.FilterQuery {
+	return lp.filter(nil, nil, nil)
 }
 
 func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {

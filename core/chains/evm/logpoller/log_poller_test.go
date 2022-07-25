@@ -178,8 +178,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(orm, cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3)
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, emitterAddress1)
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, emitterAddress2)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1, emitterAddress2})
 
 	b, err := ec.BlockByNumber(context.Background(), nil)
 	require.NoError(t, err)
@@ -426,17 +425,17 @@ func TestLogPoller_MergeFilter(t *testing.T) {
 	lp := logpoller.NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, a1)
-	assert.Equal(t, []common.Address{a1}, lp.FilterAddresses())
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.FilterTopics())
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1})
+	assert.Equal(t, []common.Address{a1}, lp.Filter().Addresses)
+	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter().Topics)
 
-	// Should de-dupe topics in same position
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, a2)
-	assert.Equal(t, []common.Address{a1, a2}, lp.FilterAddresses())
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}, {EmitterABI.Events["Log2"].ID}}, lp.FilterTopics())
+	// Should de-dupe eventSigs
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2})
+	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
+	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
 	// Should de-dupe addresses
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, a2)
-	assert.Equal(t, []common.Address{a1, a2}, lp.FilterAddresses())
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}, {EmitterABI.Events["Log2"].ID}}, lp.FilterTopics())
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2})
+	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
+	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 }
