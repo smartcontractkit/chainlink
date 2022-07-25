@@ -8,6 +8,7 @@ import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
 import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
 
 /**
@@ -45,6 +46,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
+  UpkeepFormat public constant upkeepTranscoderVersionBase = UpkeepFormat.V1;
 
   error CannotCancel();
   error UpkeepNotActive();
@@ -247,5 +249,48 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         adjustedGasWei: adjustedGasWei,
         linkEth: linkEth
       });
+  }
+
+  // MODIFIERS
+
+  /**
+   * @dev ensures a upkeep is valid
+   */
+  modifier validUpkeep(uint256 id) {
+    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
+    _;
+  }
+
+  /**
+   * @dev Reverts if called by anyone other than the admin of upkeep #id
+   */
+  modifier onlyUpkeepAdmin(uint256 id) {
+    if (msg.sender != s_upkeep[id].admin) revert OnlyCallableByAdmin();
+    _;
+  }
+
+  /**
+   * @dev Reverts if called on a cancelled upkeep
+   */
+  modifier onlyActiveUpkeep(uint256 id) {
+    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
+    _;
+  }
+
+  /**
+   * @dev Reverts if called by anyone other than the contract owner or registrar.
+   */
+  modifier onlyOwnerOrRegistrar() {
+    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
+    _;
+  }
+
+  /**
+   * @dev ensures that burns don't accidentally happen by sending to the zero
+   * address
+   */
+  modifier validRecipient(address to) {
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    _;
   }
 }
