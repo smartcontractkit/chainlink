@@ -43,6 +43,9 @@ func NewORM(db *sqlx.DB, chainID utils.Big, lggr logger.Logger) ORM {
 }
 
 func (o *orm) HeadsByNumbers(ctx context.Context, numbers []uint64) (heads []*evmtypes.Head, err error) {
+	if len(numbers) == 0 {
+		return nil, nil
+	}
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 	a := map[string]any{
 		"chainid": o.chainID,

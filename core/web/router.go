@@ -44,7 +44,7 @@ import (
 func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
 	engine := gin.New()
 	config := app.GetConfig()
-	secret, err := config.SessionSecret()
+	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
 		app.GetLogger().Panic(err)
 	}
