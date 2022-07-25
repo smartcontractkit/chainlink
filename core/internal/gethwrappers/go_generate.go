@@ -57,7 +57,7 @@ package gethwrappers
 
 // VRF V2 Wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/VRFV2Wrapper.abi ../../../contracts/solc/v0.8.15/VRFV2Wrapper.bin VRFV2Wrapper vrfv2_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/VRFV2WrapperInterface.abi ../../../contracts/solc/v0.8.15/VRFV2WrapperInterface.bin VRFV2WrapperInterface vrfv2_wrapper_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/IVRFV2Wrapper.abi ../../../contracts/solc/v0.8.15/IVRFV2Wrapper.bin IVRFV2Wrapper vrfv2_wrapper_interface
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.15/VRFV2WrapperConsumerExample.abi ../../../contracts/solc/v0.8.15/VRFV2WrapperConsumerExample.bin VRFV2WrapperConsumerExample vrfv2_wrapper_consumer_example
 
 // Keepers X VRF v2

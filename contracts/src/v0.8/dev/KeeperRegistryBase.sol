@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../ConfirmedOwner.sol";
 import "./ExecutionPrevention.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
-import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
+import "../interfaces/IAggregatorV3.sol";
+import "../interfaces/ILinkToken.sol";
+import "../interfaces/IKeeperCompatible.sol";
+import {Config, State} from "../interfaces/IKeeperRegistry.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -17,8 +17,8 @@ import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
 abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-  bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
-  bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
+  bytes4 internal constant CHECK_SELECTOR = IKeeperCompatible.checkUpkeep.selector;
+  bytes4 internal constant PERFORM_SELECTOR = IKeeperCompatible.performUpkeep.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
@@ -42,9 +42,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   address internal s_transcoder;
   address internal s_registrar;
 
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
-  AggregatorV3Interface public immutable FAST_GAS_FEED;
+  ILinkToken public immutable LINK;
+  IAggregatorV3 public immutable LINK_ETH_FEED;
+  IAggregatorV3 public immutable FAST_GAS_FEED;
 
   error CannotCancel();
   error UpkeepNotActive();
@@ -154,9 +154,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address linkEthFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
-    LINK = LinkTokenInterface(link);
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
+    LINK = ILinkToken(link);
+    LINK_ETH_FEED = IAggregatorV3(linkEthFeed);
+    FAST_GAS_FEED = IAggregatorV3(fastGasFeed);
   }
 
   /**

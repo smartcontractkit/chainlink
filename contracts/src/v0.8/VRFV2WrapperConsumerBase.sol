@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/VRFV2WrapperInterface.sol";
+import "./interfaces/ILinkToken.sol";
+import "./interfaces/IVRFV2Wrapper.sol";
 
 /** *******************************************************************************
  * @notice Interface for contracts using VRF randomness through the VRF V2 wrapper
@@ -28,16 +28,16 @@ import "./interfaces/VRFV2WrapperInterface.sol";
  * @dev fulfillment with the randomness result.
  */
 abstract contract VRFV2WrapperConsumerBase {
-  LinkTokenInterface internal immutable LINK;
-  VRFV2WrapperInterface internal immutable VRF_V2_WRAPPER;
+  ILinkToken internal immutable LINK;
+  IVRFV2Wrapper internal immutable VRF_V2_WRAPPER;
 
   /**
    * @param _link is the address of LinkToken
    * @param _vrfV2Wrapper is the address of the VRFV2Wrapper contract
    */
   constructor(address _link, address _vrfV2Wrapper) {
-    LINK = LinkTokenInterface(_link);
-    VRF_V2_WRAPPER = VRFV2WrapperInterface(_vrfV2Wrapper);
+    LINK = ILinkToken(_link);
+    VRF_V2_WRAPPER = IVRFV2Wrapper(_vrfV2Wrapper);
   }
 
   /**

@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
-import "../interfaces/MigratableKeeperRegistryInterface.sol";
-import "../interfaces/UpkeepTranscoderInterface.sol";
-import "../interfaces/ERC677ReceiverInterface.sol";
+import "../interfaces/ITypeAndVersion.sol";
+import {IKeeperRegistryExecutable} from "../interfaces/IKeeperRegistry.sol";
+import "../interfaces/IMigratableKeeperRegistry.sol";
+import "../interfaces/IUpkeepTranscoder.sol";
+import "../interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -18,10 +18,10 @@ import "../interfaces/ERC677ReceiverInterface.sol";
 contract KeeperRegistryDev is
   KeeperRegistryBase,
   Proxy,
-  TypeAndVersionInterface,
-  KeeperRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface,
-  ERC677ReceiverInterface
+  ITypeAndVersion,
+  IKeeperRegistryExecutable,
+  IMigratableKeeperRegistry,
+  IERC677Receiver
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -497,7 +497,7 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @inheritdoc IMigratableKeeperRegistry
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
     if (
@@ -526,10 +526,10 @@ contract KeeperRegistryDev is
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
-    MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
-      UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
+    IMigratableKeeperRegistry(destination).receiveUpkeeps(
+      IUpkeepTranscoder(s_transcoder).transcodeUpkeeps(
         UpkeepFormat.V1,
-        MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
+        IMigratableKeeperRegistry(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
       )
     );
@@ -537,12 +537,12 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @inheritdoc IMigratableKeeperRegistry
    */
   UpkeepFormat public constant override upkeepTranscoderVersion = UpkeepFormat.V1;
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @inheritdoc IMigratableKeeperRegistry
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     if (

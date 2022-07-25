@@ -27,131 +27,131 @@ var (
 	_ = event.NewSubscription
 )
 
-var VRFV2WrapperInterfaceMetaData = &bind.MetaData{
+var IVRFV2WrapperMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"_callbackGasLimit\",\"type\":\"uint32\"}],\"name\":\"calculateRequestPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"_callbackGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"_requestGasPriceWei\",\"type\":\"uint256\"}],\"name\":\"estimateRequestPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastRequestId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
-var VRFV2WrapperInterfaceABI = VRFV2WrapperInterfaceMetaData.ABI
+var IVRFV2WrapperABI = IVRFV2WrapperMetaData.ABI
 
-type VRFV2WrapperInterface struct {
+type IVRFV2Wrapper struct {
 	address common.Address
 	abi     abi.ABI
-	VRFV2WrapperInterfaceCaller
-	VRFV2WrapperInterfaceTransactor
-	VRFV2WrapperInterfaceFilterer
+	IVRFV2WrapperCaller
+	IVRFV2WrapperTransactor
+	IVRFV2WrapperFilterer
 }
 
-type VRFV2WrapperInterfaceCaller struct {
+type IVRFV2WrapperCaller struct {
 	contract *bind.BoundContract
 }
 
-type VRFV2WrapperInterfaceTransactor struct {
+type IVRFV2WrapperTransactor struct {
 	contract *bind.BoundContract
 }
 
-type VRFV2WrapperInterfaceFilterer struct {
+type IVRFV2WrapperFilterer struct {
 	contract *bind.BoundContract
 }
 
-type VRFV2WrapperInterfaceSession struct {
-	Contract     *VRFV2WrapperInterface
+type IVRFV2WrapperSession struct {
+	Contract     *IVRFV2Wrapper
 	CallOpts     bind.CallOpts
 	TransactOpts bind.TransactOpts
 }
 
-type VRFV2WrapperInterfaceCallerSession struct {
-	Contract *VRFV2WrapperInterfaceCaller
+type IVRFV2WrapperCallerSession struct {
+	Contract *IVRFV2WrapperCaller
 	CallOpts bind.CallOpts
 }
 
-type VRFV2WrapperInterfaceTransactorSession struct {
-	Contract     *VRFV2WrapperInterfaceTransactor
+type IVRFV2WrapperTransactorSession struct {
+	Contract     *IVRFV2WrapperTransactor
 	TransactOpts bind.TransactOpts
 }
 
-type VRFV2WrapperInterfaceRaw struct {
-	Contract *VRFV2WrapperInterface
+type IVRFV2WrapperRaw struct {
+	Contract *IVRFV2Wrapper
 }
 
-type VRFV2WrapperInterfaceCallerRaw struct {
-	Contract *VRFV2WrapperInterfaceCaller
+type IVRFV2WrapperCallerRaw struct {
+	Contract *IVRFV2WrapperCaller
 }
 
-type VRFV2WrapperInterfaceTransactorRaw struct {
-	Contract *VRFV2WrapperInterfaceTransactor
+type IVRFV2WrapperTransactorRaw struct {
+	Contract *IVRFV2WrapperTransactor
 }
 
-func NewVRFV2WrapperInterface(address common.Address, backend bind.ContractBackend) (*VRFV2WrapperInterface, error) {
-	abi, err := abi.JSON(strings.NewReader(VRFV2WrapperInterfaceABI))
+func NewIVRFV2Wrapper(address common.Address, backend bind.ContractBackend) (*IVRFV2Wrapper, error) {
+	abi, err := abi.JSON(strings.NewReader(IVRFV2WrapperABI))
 	if err != nil {
 		return nil, err
 	}
-	contract, err := bindVRFV2WrapperInterface(address, backend, backend, backend)
+	contract, err := bindIVRFV2Wrapper(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFV2WrapperInterface{address: address, abi: abi, VRFV2WrapperInterfaceCaller: VRFV2WrapperInterfaceCaller{contract: contract}, VRFV2WrapperInterfaceTransactor: VRFV2WrapperInterfaceTransactor{contract: contract}, VRFV2WrapperInterfaceFilterer: VRFV2WrapperInterfaceFilterer{contract: contract}}, nil
+	return &IVRFV2Wrapper{address: address, abi: abi, IVRFV2WrapperCaller: IVRFV2WrapperCaller{contract: contract}, IVRFV2WrapperTransactor: IVRFV2WrapperTransactor{contract: contract}, IVRFV2WrapperFilterer: IVRFV2WrapperFilterer{contract: contract}}, nil
 }
 
-func NewVRFV2WrapperInterfaceCaller(address common.Address, caller bind.ContractCaller) (*VRFV2WrapperInterfaceCaller, error) {
-	contract, err := bindVRFV2WrapperInterface(address, caller, nil, nil)
+func NewIVRFV2WrapperCaller(address common.Address, caller bind.ContractCaller) (*IVRFV2WrapperCaller, error) {
+	contract, err := bindIVRFV2Wrapper(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFV2WrapperInterfaceCaller{contract: contract}, nil
+	return &IVRFV2WrapperCaller{contract: contract}, nil
 }
 
-func NewVRFV2WrapperInterfaceTransactor(address common.Address, transactor bind.ContractTransactor) (*VRFV2WrapperInterfaceTransactor, error) {
-	contract, err := bindVRFV2WrapperInterface(address, nil, transactor, nil)
+func NewIVRFV2WrapperTransactor(address common.Address, transactor bind.ContractTransactor) (*IVRFV2WrapperTransactor, error) {
+	contract, err := bindIVRFV2Wrapper(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFV2WrapperInterfaceTransactor{contract: contract}, nil
+	return &IVRFV2WrapperTransactor{contract: contract}, nil
 }
 
-func NewVRFV2WrapperInterfaceFilterer(address common.Address, filterer bind.ContractFilterer) (*VRFV2WrapperInterfaceFilterer, error) {
-	contract, err := bindVRFV2WrapperInterface(address, nil, nil, filterer)
+func NewIVRFV2WrapperFilterer(address common.Address, filterer bind.ContractFilterer) (*IVRFV2WrapperFilterer, error) {
+	contract, err := bindIVRFV2Wrapper(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFV2WrapperInterfaceFilterer{contract: contract}, nil
+	return &IVRFV2WrapperFilterer{contract: contract}, nil
 }
 
-func bindVRFV2WrapperInterface(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFV2WrapperInterfaceABI))
+func bindIVRFV2Wrapper(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(IVRFV2WrapperABI))
 	if err != nil {
 		return nil, err
 	}
 	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _VRFV2WrapperInterface.Contract.VRFV2WrapperInterfaceCaller.contract.Call(opts, result, method, params...)
+func (_IVRFV2Wrapper *IVRFV2WrapperRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IVRFV2Wrapper.Contract.IVRFV2WrapperCaller.contract.Call(opts, result, method, params...)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _VRFV2WrapperInterface.Contract.VRFV2WrapperInterfaceTransactor.contract.Transfer(opts)
+func (_IVRFV2Wrapper *IVRFV2WrapperRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IVRFV2Wrapper.Contract.IVRFV2WrapperTransactor.contract.Transfer(opts)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _VRFV2WrapperInterface.Contract.VRFV2WrapperInterfaceTransactor.contract.Transact(opts, method, params...)
+func (_IVRFV2Wrapper *IVRFV2WrapperRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IVRFV2Wrapper.Contract.IVRFV2WrapperTransactor.contract.Transact(opts, method, params...)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _VRFV2WrapperInterface.Contract.contract.Call(opts, result, method, params...)
+func (_IVRFV2Wrapper *IVRFV2WrapperCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IVRFV2Wrapper.Contract.contract.Call(opts, result, method, params...)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _VRFV2WrapperInterface.Contract.contract.Transfer(opts)
+func (_IVRFV2Wrapper *IVRFV2WrapperTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IVRFV2Wrapper.Contract.contract.Transfer(opts)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _VRFV2WrapperInterface.Contract.contract.Transact(opts, method, params...)
+func (_IVRFV2Wrapper *IVRFV2WrapperTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IVRFV2Wrapper.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCaller) CalculateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32) (*big.Int, error) {
+func (_IVRFV2Wrapper *IVRFV2WrapperCaller) CalculateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32) (*big.Int, error) {
 	var out []interface{}
-	err := _VRFV2WrapperInterface.contract.Call(opts, &out, "calculateRequestPrice", _callbackGasLimit)
+	err := _IVRFV2Wrapper.contract.Call(opts, &out, "calculateRequestPrice", _callbackGasLimit)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -163,17 +163,17 @@ func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCaller) CalculateRequestPrice
 
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceSession) CalculateRequestPrice(_callbackGasLimit uint32) (*big.Int, error) {
-	return _VRFV2WrapperInterface.Contract.CalculateRequestPrice(&_VRFV2WrapperInterface.CallOpts, _callbackGasLimit)
+func (_IVRFV2Wrapper *IVRFV2WrapperSession) CalculateRequestPrice(_callbackGasLimit uint32) (*big.Int, error) {
+	return _IVRFV2Wrapper.Contract.CalculateRequestPrice(&_IVRFV2Wrapper.CallOpts, _callbackGasLimit)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCallerSession) CalculateRequestPrice(_callbackGasLimit uint32) (*big.Int, error) {
-	return _VRFV2WrapperInterface.Contract.CalculateRequestPrice(&_VRFV2WrapperInterface.CallOpts, _callbackGasLimit)
+func (_IVRFV2Wrapper *IVRFV2WrapperCallerSession) CalculateRequestPrice(_callbackGasLimit uint32) (*big.Int, error) {
+	return _IVRFV2Wrapper.Contract.CalculateRequestPrice(&_IVRFV2Wrapper.CallOpts, _callbackGasLimit)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCaller) EstimateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
+func (_IVRFV2Wrapper *IVRFV2WrapperCaller) EstimateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _VRFV2WrapperInterface.contract.Call(opts, &out, "estimateRequestPrice", _callbackGasLimit, _requestGasPriceWei)
+	err := _IVRFV2Wrapper.contract.Call(opts, &out, "estimateRequestPrice", _callbackGasLimit, _requestGasPriceWei)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -185,17 +185,17 @@ func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCaller) EstimateRequestPrice(
 
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceSession) EstimateRequestPrice(_callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
-	return _VRFV2WrapperInterface.Contract.EstimateRequestPrice(&_VRFV2WrapperInterface.CallOpts, _callbackGasLimit, _requestGasPriceWei)
+func (_IVRFV2Wrapper *IVRFV2WrapperSession) EstimateRequestPrice(_callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
+	return _IVRFV2Wrapper.Contract.EstimateRequestPrice(&_IVRFV2Wrapper.CallOpts, _callbackGasLimit, _requestGasPriceWei)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCallerSession) EstimateRequestPrice(_callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
-	return _VRFV2WrapperInterface.Contract.EstimateRequestPrice(&_VRFV2WrapperInterface.CallOpts, _callbackGasLimit, _requestGasPriceWei)
+func (_IVRFV2Wrapper *IVRFV2WrapperCallerSession) EstimateRequestPrice(_callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
+	return _IVRFV2Wrapper.Contract.EstimateRequestPrice(&_IVRFV2Wrapper.CallOpts, _callbackGasLimit, _requestGasPriceWei)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCaller) LastRequestId(opts *bind.CallOpts) (*big.Int, error) {
+func (_IVRFV2Wrapper *IVRFV2WrapperCaller) LastRequestId(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _VRFV2WrapperInterface.contract.Call(opts, &out, "lastRequestId")
+	err := _IVRFV2Wrapper.contract.Call(opts, &out, "lastRequestId")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -207,19 +207,19 @@ func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCaller) LastRequestId(opts *b
 
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceSession) LastRequestId() (*big.Int, error) {
-	return _VRFV2WrapperInterface.Contract.LastRequestId(&_VRFV2WrapperInterface.CallOpts)
+func (_IVRFV2Wrapper *IVRFV2WrapperSession) LastRequestId() (*big.Int, error) {
+	return _IVRFV2Wrapper.Contract.LastRequestId(&_IVRFV2Wrapper.CallOpts)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceCallerSession) LastRequestId() (*big.Int, error) {
-	return _VRFV2WrapperInterface.Contract.LastRequestId(&_VRFV2WrapperInterface.CallOpts)
+func (_IVRFV2Wrapper *IVRFV2WrapperCallerSession) LastRequestId() (*big.Int, error) {
+	return _IVRFV2Wrapper.Contract.LastRequestId(&_IVRFV2Wrapper.CallOpts)
 }
 
-func (_VRFV2WrapperInterface *VRFV2WrapperInterface) Address() common.Address {
-	return _VRFV2WrapperInterface.address
+func (_IVRFV2Wrapper *IVRFV2Wrapper) Address() common.Address {
+	return _IVRFV2Wrapper.address
 }
 
-type VRFV2WrapperInterfaceInterface interface {
+type IVRFV2WrapperInterface interface {
 	CalculateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32) (*big.Int, error)
 
 	EstimateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error)

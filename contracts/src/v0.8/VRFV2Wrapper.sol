@@ -2,24 +2,24 @@
 pragma solidity ^0.8.6;
 
 import "./ConfirmedOwner.sol";
-import "./interfaces/TypeAndVersionInterface.sol";
+import "./interfaces/ITypeAndVersion.sol";
 import "./VRFConsumerBaseV2.sol";
-import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/AggregatorV3Interface.sol";
-import "./interfaces/VRFCoordinatorV2Interface.sol";
-import "./interfaces/VRFV2WrapperInterface.sol";
+import "./interfaces/ILinkToken.sol";
+import "./interfaces/IAggregatorV3.sol";
+import "./interfaces/IVRFCoordinatorV2.sol";
+import "./interfaces/IVRFV2Wrapper.sol";
 import "./VRFV2WrapperConsumerBase.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
-contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2, VRFV2WrapperInterface {
+contract VRFV2Wrapper is ConfirmedOwner, ITypeAndVersion, VRFConsumerBaseV2, IVRFV2Wrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
-  ExtendedVRFCoordinatorV2Interface public immutable COORDINATOR;
+  ILinkToken public immutable LINK;
+  IAggregatorV3 public immutable LINK_ETH_FEED;
+  ExtendedIVRFCoordinatorV2 public immutable COORDINATOR;
   uint64 public immutable SUBSCRIPTION_ID;
 
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
@@ -90,14 +90,14 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     address _linkEthFeed,
     address _coordinator
   ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2(_coordinator) {
-    LINK = LinkTokenInterface(_link);
-    LINK_ETH_FEED = AggregatorV3Interface(_linkEthFeed);
-    COORDINATOR = ExtendedVRFCoordinatorV2Interface(_coordinator);
+    LINK = ILinkToken(_link);
+    LINK_ETH_FEED = IAggregatorV3(_linkEthFeed);
+    COORDINATOR = ExtendedIVRFCoordinatorV2(_coordinator);
 
     // Create this wrapper's subscription and add itself as a consumer.
-    uint64 subId = ExtendedVRFCoordinatorV2Interface(_coordinator).createSubscription();
+    uint64 subId = ExtendedIVRFCoordinatorV2(_coordinator).createSubscription();
     SUBSCRIPTION_ID = subId;
-    ExtendedVRFCoordinatorV2Interface(_coordinator).addConsumer(subId, address(this));
+    ExtendedIVRFCoordinatorV2(_coordinator).addConsumer(subId, address(this));
   }
 
   /**
@@ -392,7 +392,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   }
 }
 
-interface ExtendedVRFCoordinatorV2Interface is VRFCoordinatorV2Interface {
+interface ExtendedIVRFCoordinatorV2 is IVRFCoordinatorV2 {
   function getConfig()
     external
     view
