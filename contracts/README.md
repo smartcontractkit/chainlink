@@ -50,10 +50,9 @@ $ yarn test
 ```
 
 ## Contributing
+Check out our [Github repo](https://github.com/smartcontractkit/chainlink).
 
-Contributions are welcome! Please refer to
-[Chainlink's contributing guidelines](../docs/CONTRIBUTING.md) for detailed
-contribution information.
+Contributions are welcome! Please refer to the `/docs` folder in our [repo](https://github.com/smartcontractkit/chainlink/tree/develop/docs) where you will find `CONTRIBUTING.md` which has detailed information on how you can contribute.
 
 Thank you!
 
