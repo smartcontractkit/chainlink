@@ -7,7 +7,9 @@ import (
 )
 
 func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) int64 {
-	return lp.pollAndSaveLogs(ctx, currentBlockNumber)
+	lp.pollAndSaveLogs(ctx, currentBlockNumber)
+	lastProcessed, _ := lp.orm.SelectLatestBlock()
+	return lastProcessed.BlockNumber + 1
 }
 
 func (lp *logPoller) FilterAddresses() []common.Address {

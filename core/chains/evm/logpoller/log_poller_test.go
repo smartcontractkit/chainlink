@@ -322,19 +322,20 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assertDontHave(t, 2, 2, orm) // 2 gets backfilled
 	assertHaveCanonical(t, 3, 6, ec, orm)
 
-	// Test scenario: node down for exactly finality + 1 block
-	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9)
+	// Test scenario: node down for exactly finality + 2 blocks
+	// Note we only backfill up to finalized - 1 blocks, because we need to save the
+	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10 (L1_10)
 	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2, 3, 4, 5, 6
 	// - We expect block 7 to backfilled (treated as finalized)
-	// - Then block 8-9 to be handled block by block (treated as unfinalized).
-	for i := 7; i < 10; i++ {
+	// - Then block 8-10 to be handled block by block (treated as unfinalized).
+	for i := 7; i < 11; i++ {
 		_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
 		ec.Commit()
 	}
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
-	assert.Equal(t, int64(10), newStart)
+	assert.Equal(t, int64(11), newStart)
 	lgs, err = orm.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
@@ -345,27 +346,27 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
 	assert.Equal(t, int64(9), lgs[2].BlockNumber)
 	assertDontHave(t, 7, 7, orm) // Do not expect to save backfilled blocks.
-	assertHaveCanonical(t, 8, 9, ec, orm)
+	assertHaveCanonical(t, 8, 10, ec, orm)
 
 	// Test scenario large backfill (multiple batches)
-	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..15
+	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
 	//                \ 2'(L1_2) <- 3
-	// DB: 1, 2, 3, 4, 5, 6, (backfilled 7), 8, 9
-	// - 10, 11, 12 backfilled in batch 1
-	// - 13 backfilled in batch 2
-	// - 14, 15 to be treated as unfinalized
-	for i := 10; i < 16; i++ {
+	// DB: 1, 2, 3, 4, 5, 6, (backfilled 7), 8, 9, 10
+	// - 11, 12, 13 backfilled in batch 1
+	// - 14 backfilled in batch 2
+	// - 15, 16, 17 to be treated as unfinalized
+	for i := 11; i < 18; i++ {
 		_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
 		ec.Commit()
 	}
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
-	assert.Equal(t, int64(16), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(10, 15)
+	assert.Equal(t, int64(18), newStart)
+	lgs, err = orm.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)
-	assert.Equal(t, 6, len(lgs))
-	assertHaveCanonical(t, 14, 15, ec, orm)
-	assertDontHave(t, 10, 13, orm) // Do not expect to save backfilled blocks.
+	assert.Equal(t, 7, len(lgs))
+	assertHaveCanonical(t, 15, 16, ec, orm)
+	assertDontHave(t, 11, 14, orm) // Do not expect to save backfilled blocks.
 }
 
 func TestLogPoller_Logs(t *testing.T) {
