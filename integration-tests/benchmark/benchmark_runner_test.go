@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"os"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/remotetestrunner"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
@@ -55,39 +54,55 @@ func benchmarkTestHelper(
 	exeFile, exeFileSize, err := actions.BuildGoTests("./", "./tests", "../")
 	require.NoError(t, err, "Error building go tests")
 	env := environment.New(&environment.Config{
-		TTL:             24 * time.Hour, // 1 day limit
+		TTL:             2 * time.Hour, // 2 hour limit
 		Labels:          []string{fmt.Sprintf("envType=%s", pkg.EnvTypeEVM5RemoteRunner)},
 		NamespacePrefix: namespacePrefix,
 	})
 
 	remoteRunnerValues := map[string]interface{}{
-		"test_name":      testTag,
-		"env_namespace":  env.Cfg.Namespace,
-		"test_file_size": fmt.Sprint(exeFileSize),
-		"log_level":      "debug",
+		"test_name":             testTag,
+		"env_namespace":         env.Cfg.Namespace,
+		"test_file_size":        fmt.Sprint(exeFileSize),
+		"log_level":             "debug",
+		"grafana_dashboard_url": os.Getenv("GRAFANA_DASHBOARD_URL"),
 	}
 	// Set evm network connection for remote runner
 	for key, value := range evmNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
-	remoteRunnerWrapper := map[string]interface{}{"remote_test_runner": remoteRunnerValues}
+	remoteRunnerWrapper := map[string]interface{}{
+		"remote_test_runner": remoteRunnerValues,
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "512Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "512Mi",
+			},
+		}}
 
 	// Set Chainlink vals
 	chainlinkVals := map[string]interface{}{
 		"replicas": chainlinkReplicas,
 		"env": map[string]interface{}{
-			"MIN_INCOMING_CONFIRMATIONS": "1",
-			"KEEPER_TURN_FLAG_ENABLED":   "true",
+			"MIN_INCOMING_CONFIRMATIONS":     "1",
+			"KEEPER_TURN_FLAG_ENABLED":       "true",
+			"CHAINLINK_DEV":                  "false",
+			"HTTP_SERVER_WRITE_TIMEOUT":      "6m",
+			"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "200",
+			"ETH_MAX_QUEUED_TRANSACTIONS":    "500",
 		},
 		"chainlink": map[string]interface{}{
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "1000m",
-					"memory": "4086Mi",
+					"memory": "4Gi",
 				},
 				"limits": map[string]interface{}{
 					"cpu":    "1000m",
-					"memory": "4086Mi",
+					"memory": "4Gi",
 				},
 			},
 		},
@@ -95,35 +110,37 @@ func benchmarkTestHelper(
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
 					"cpu":    "1000m",
-					"memory": "1024Mi",
+					"memory": "1Gi",
 				},
 				"limits": map[string]interface{}{
 					"cpu":    "1000m",
-					"memory": "1024Mi",
+					"memory": "1Gi",
 				},
 			},
+			"stateful": true,
+			"capacity": "5Gi",
 		},
 	}
 
-	err = env.
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: evmNetwork.Name,
-			Simulated:   evmNetwork.Simulated,
-			Values: map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "1500m",
-						"memory": "4086Mi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "1500m",
-						"memory": "4086Mi",
-					},
+	ethereumVals := &ethereum.Props{
+		NetworkName: evmNetwork.Name,
+		Simulated:   evmNetwork.Simulated,
+		Values: map[string]interface{}{
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{
+					"cpu":    "4000m",
+					"memory": "4Gi",
 				},
-			}})).
+				"limits": map[string]interface{}{
+					"cpu":    "4000m",
+					"memory": "4Gi",
+				},
+			},
+		}}
+
+	err = env.
+		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
+		AddHelm(ethereum.New(ethereumVals)).
 		AddHelm(chainlink.New(0, chainlinkVals)).
 		Run()
 	require.NoError(t, err, "Error launching test environment")

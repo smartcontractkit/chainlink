@@ -1,4 +1,4 @@
-package benchmark_test
+package benchmark
 
 //revive:disable:dot-imports
 import (
@@ -7,13 +7,11 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,8 +31,6 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 			benchmarkNetwork = blockchain.LoadNetworkFromEnvironment()
 			testEnvironment = environment.New(&environment.Config{InsideK8s: true})
 			err = testEnvironment.
-				AddHelm(mockservercfg.New(nil)).
-				AddHelm(mockserver.New(nil)).
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: benchmarkNetwork.Name,
 					Simulated:   benchmarkNetwork.Simulated,
@@ -46,16 +42,16 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 		})
 
 		By("Setup the Keeper test", func() {
-			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			keeperBenchmarkTest = testsetups.NewKeeperBenchmarkTest(
 				testsetups.KeeperBenchmarkTestInputs{
 					BlockchainClient:  chainClient,
-					NumberOfContracts: 500, // TODO- Update to 500
+					NumberOfContracts: 500,
 					KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 						PaymentPremiumPPB:    uint32(0),
 						BlockCountPerTurn:    big.NewInt(100),
-						CheckGasLimit:        uint32(2000000),
+						CheckGasLimit:        uint32(10000000),
 						StalenessSeconds:     big.NewInt(90000),
 						GasCeilingMultiplier: uint16(2),
 						MaxPerformGas:        uint32(5000000),
@@ -65,10 +61,11 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					},
 					CheckGasToBurn:       100000,
 					PerformGasToBurn:     150000,
-					BlockRange:           3600, // TODO- Update to 3600
+					BlockRange:           3600,
 					BlockInterval:        20,
-					ChainlinkNodeFunding: big.NewFloat(1000),
-					UpkeepGasLimit:       500000,
+					ChainlinkNodeFunding: big.NewFloat(1000000),
+					UpkeepGasLimit:       5000000,
+					UpkeepSLA:            20,
 				},
 			)
 			keeperBenchmarkTest.Setup(testEnvironment)
@@ -86,6 +83,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 			if err := actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals()); err != nil {
 				log.Error().Err(err).Msg("Error tearing down environment")
 			}
+			log.Info().Msg("Keepers Benchmark Test Concluded")
 		})
 	})
 })

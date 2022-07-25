@@ -42,6 +42,12 @@ type ContractDeployer interface {
 		checkGasToBurn,
 		performGasToBurn *big.Int,
 	) (KeeperConsumerPerformance, error)
+	DeployKeeperConsumerBenchmark(
+		testBlockRange,
+		averageCadence,
+		checkGasToBurn,
+		performGasToBurn *big.Int,
+	) (KeeperConsumerBenchmark, error)
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
@@ -587,6 +593,35 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerPerformance(
 	return &EthereumKeeperConsumerPerformance{
 		client:   e.client,
 		consumer: instance.(*ethereum.KeeperConsumerPerformance),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark(
+	testBlockRange,
+	averageCadence,
+	checkGasToBurn,
+	performGasToBurn *big.Int,
+) (KeeperConsumerBenchmark, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperConsumerBenchmark", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return ethereum.DeployKeeperConsumerBenchmark(
+			auth,
+			backend,
+			testBlockRange,
+			averageCadence,
+			checkGasToBurn,
+			performGasToBurn,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperConsumerBenchmark{
+		client:   e.client,
+		consumer: instance.(*ethereum.KeeperConsumerBenchmark),
 		address:  address,
 	}, err
 }

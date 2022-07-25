@@ -4,11 +4,11 @@ package benchmark_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
 func Test_Suite(t *testing.T) {
 	actions.GinkgoSuite()
-	RunSpecs(t, "Benchmark")
+	ginkgo.RunSpecs(t, "Benchmark")
 }
