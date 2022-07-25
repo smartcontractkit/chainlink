@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/ethereum/go-ethereum v1.10.20
+	github.com/go-resty/resty/v2 v2.7.0
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
@@ -131,6 +132,8 @@ require (
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
 replace github.com/smartcontractkit/chainlink => ../../chainlink
+
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.5.2-0.20220725211142-7e1523bbb711
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 

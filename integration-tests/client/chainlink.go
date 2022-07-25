@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -13,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/go-resty/resty/v2"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -91,24 +93,21 @@ type Chainlink interface {
 	SetPageSize(size int)
 
 	Profile(profileTime time.Duration, profileFunction func(Chainlink)) (*ChainlinkProfileResults, error)
-
-	// SetClient is used for testing
-	SetClient(client *http.Client)
 }
 
 type chainlink struct {
-	*ctfClient.BasicHTTPClient
+	*ctfClient.APIClient
 	Config            *ChainlinkConfig
 	pageSize          int
 	primaryEthAddress string
 }
 
 // NewChainlink creates a new chainlink model using a provided config
-func NewChainlink(c *ChainlinkConfig, httpClient *http.Client) (Chainlink, error) {
+func NewChainlink(c *ChainlinkConfig) (Chainlink, error) {
 	cl := &chainlink{
-		Config:          c,
-		BasicHTTPClient: ctfClient.NewBasicHTTPClient(httpClient, c.URL),
-		pageSize:        25,
+		Config:    c,
+		APIClient: ctfClient.NewAPIClient(c.URL),
+		pageSize:  25,
 	}
 	return cl, cl.SetSessionCookie()
 }
@@ -122,7 +121,7 @@ func (c *chainlink) URL() string {
 func (c *chainlink) CreateJobRaw(spec string) (*Job, error) {
 	job := &Job{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Job Body", spec).Msg("Creating Job")
-	err := c.do(http.MethodPost, "/v2/jobs", &JobForm{
+	_, err := c.do(http.MethodPost, "/v2/jobs", &JobForm{
 		TOML: spec,
 	}, &job, http.StatusOK)
 	return job, err
@@ -136,7 +135,7 @@ func (c *chainlink) CreateJob(spec JobSpec) (*Job, error) {
 		return nil, err
 	}
 	log.Info().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Msg("Creating Job")
-	err = c.do(http.MethodPost, "/v2/jobs", &JobForm{
+	_, err = c.do(http.MethodPost, "/v2/jobs", &JobForm{
 		TOML: specString,
 	}, &job, http.StatusOK)
 	return job, err
@@ -146,20 +145,23 @@ func (c *chainlink) CreateJob(spec JobSpec) (*Job, error) {
 func (c *chainlink) ReadJobs() (*ResponseSlice, error) {
 	specObj := &ResponseSlice{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Getting Jobs")
-	return specObj, c.do(http.MethodGet, "/v2/jobs", nil, specObj, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/jobs", nil, specObj, http.StatusOK)
+	return specObj, err
 }
 
 // ReadJob reads a job with the provided ID from the Chainlink node
 func (c *chainlink) ReadJob(id string) (*Response, error) {
 	specObj := &Response{}
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Reading Job")
-	return specObj, c.do(http.MethodGet, fmt.Sprintf("/v2/jobs/%s", id), nil, specObj, http.StatusOK)
+	_, err := c.do(http.MethodGet, fmt.Sprintf("/v2/jobs/%s", id), nil, specObj, http.StatusOK)
+	return specObj, err
 }
 
 // DeleteJob deletes a job with a provided ID from the Chainlink node
 func (c *chainlink) DeleteJob(id string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting Job")
-	return c.do(http.MethodDelete, fmt.Sprintf("/v2/jobs/%s", id), nil, nil, http.StatusNoContent)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/jobs/%s", id), nil, nil, http.StatusNoContent)
+	return err
 }
 
 // CreateSpec creates a job spec on the Chainlink node
@@ -167,60 +169,68 @@ func (c *chainlink) CreateSpec(spec string) (*Spec, error) {
 	s := &Spec{}
 	r := strings.NewReplacer("\n", "", " ", "", "\\", "") // Makes it more compact and readable for logging
 	log.Info().Str("Node URL", c.Config.URL).Str("Spec", r.Replace(spec)).Msg("Creating Spec")
-	return s, c.doRaw(http.MethodPost, "/v2/specs", []byte(spec), s, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/specs", []byte(spec), s, http.StatusOK)
+	return s, err
 }
 
 // ReadSpec reads a job spec with the provided ID on the Chainlink node
 func (c *chainlink) ReadSpec(id string) (*Response, error) {
 	specObj := &Response{}
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Reading Spec")
-	return specObj, c.do(http.MethodGet, fmt.Sprintf("/v2/specs/%s", id), nil, specObj, http.StatusOK)
+	_, err := c.do(http.MethodGet, fmt.Sprintf("/v2/specs/%s", id), nil, specObj, http.StatusOK)
+	return specObj, err
 }
 
 // ReadRunsByJob reads all runs for a job
 func (c *chainlink) ReadRunsByJob(jobID string) (*JobRunsResponse, error) {
 	runsObj := &JobRunsResponse{}
 	log.Debug().Str("Node URL", c.Config.URL).Str("JobID", jobID).Msg("Reading runs for a job")
-	return runsObj, c.do(http.MethodGet, fmt.Sprintf("/v2/jobs/%s/runs", jobID), nil, runsObj, http.StatusOK)
+	_, err := c.do(http.MethodGet, fmt.Sprintf("/v2/jobs/%s/runs", jobID), nil, runsObj, http.StatusOK)
+	return runsObj, err
 }
 
 // DeleteSpec deletes a job spec with the provided ID from the Chainlink node
 func (c *chainlink) DeleteSpec(id string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting Spec")
-	return c.do(http.MethodDelete, fmt.Sprintf("/v2/specs/%s", id), nil, nil, http.StatusNoContent)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/specs/%s", id), nil, nil, http.StatusNoContent)
+	return err
 }
 
 // CreateBridge creates a bridge on the Chainlink node based on the provided attributes
 func (c *chainlink) CreateBridge(bta *BridgeTypeAttributes) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", bta.Name).Msg("Creating Bridge")
-	return c.do(http.MethodPost, "/v2/bridge_types", bta, nil, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/bridge_types", bta, nil, http.StatusOK)
+	return err
 }
 
 // ReadBridge reads a bridge from the Chainlink node based on the provided name
 func (c *chainlink) ReadBridge(name string) (*BridgeType, error) {
 	bt := BridgeType{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", name).Msg("Reading Bridge")
-	return &bt, c.do(http.MethodGet, fmt.Sprintf("/v2/bridge_types/%s", name), nil, &bt, http.StatusOK)
+	_, err := c.do(http.MethodGet, fmt.Sprintf("/v2/bridge_types/%s", name), nil, &bt, http.StatusOK)
+	return &bt, err
 }
 
 // DeleteBridge deletes a bridge on the Chainlink node based on the provided name
 func (c *chainlink) DeleteBridge(name string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", name).Msg("Deleting Bridge")
-	return c.do(http.MethodDelete, fmt.Sprintf("/v2/bridge_types/%s", name), nil, nil, http.StatusOK)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/bridge_types/%s", name), nil, nil, http.StatusOK)
+	return err
 }
 
 // CreateOCRKey creates an OCRKey on the Chainlink node
 func (c *chainlink) CreateOCRKey() (*OCRKey, error) {
 	ocrKey := &OCRKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating OCR Key")
-	return ocrKey, c.do(http.MethodPost, "/v2/keys/ocr", nil, ocrKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/keys/ocr", nil, ocrKey, http.StatusOK)
+	return ocrKey, err
 }
 
 // ReadOCRKeys reads all OCRKeys from the Chainlink node
 func (c *chainlink) ReadOCRKeys() (*OCRKeys, error) {
 	ocrKeys := &OCRKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading OCR Keys")
-	err := c.do(http.MethodGet, "/v2/keys/ocr", nil, ocrKeys, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/keys/ocr", nil, ocrKeys, http.StatusOK)
 	for index := range ocrKeys.Data {
 		ocrKeys.Data[index].Attributes.ConfigPublicKey = strings.TrimPrefix(
 			ocrKeys.Data[index].Attributes.ConfigPublicKey, "ocrcfg_")
@@ -235,7 +245,7 @@ func (c *chainlink) ReadOCRKeys() (*OCRKeys, error) {
 // DeleteOCRKey deletes an OCRKey based on the provided ID
 func (c *chainlink) DeleteOCRKey(id string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting OCR Key")
-	err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/ocr/%s", id), nil, nil, http.StatusOK)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/ocr/%s", id), nil, nil, http.StatusOK)
 	return err
 }
 
@@ -243,7 +253,7 @@ func (c *chainlink) DeleteOCRKey(id string) error {
 func (c *chainlink) CreateOCR2Key(chain string) (*OCR2Key, error) {
 	ocr2Key := &OCR2Key{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating OCR2 Key")
-	err := c.do(http.MethodPost, fmt.Sprintf("/v2/keys/ocr2/%s", chain), nil, ocr2Key, http.StatusOK)
+	_, err := c.do(http.MethodPost, fmt.Sprintf("/v2/keys/ocr2/%s", chain), nil, ocr2Key, http.StatusOK)
 	return ocr2Key, err
 }
 
@@ -251,14 +261,14 @@ func (c *chainlink) CreateOCR2Key(chain string) (*OCR2Key, error) {
 func (c *chainlink) ReadOCR2Keys() (*OCR2Keys, error) {
 	ocr2Keys := &OCR2Keys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading OCR2 Keys")
-	err := c.do(http.MethodGet, "/v2/keys/ocr2", nil, ocr2Keys, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/keys/ocr2", nil, ocr2Keys, http.StatusOK)
 	return ocr2Keys, err
 }
 
 // DeleteOCR2Key deletes an OCR2Key based on the provided ID
 func (c *chainlink) DeleteOCR2Key(id string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting OCR2 Key")
-	err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/ocr2/%s", id), nil, nil, http.StatusOK)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/ocr2/%s", id), nil, nil, http.StatusOK)
 	return err
 }
 
@@ -266,7 +276,7 @@ func (c *chainlink) DeleteOCR2Key(id string) error {
 func (c *chainlink) CreateP2PKey() (*P2PKey, error) {
 	p2pKey := &P2PKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating P2P Key")
-	err := c.do(http.MethodPost, "/v2/keys/p2p", nil, p2pKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/keys/p2p", nil, p2pKey, http.StatusOK)
 	return p2pKey, err
 }
 
@@ -274,7 +284,7 @@ func (c *chainlink) CreateP2PKey() (*P2PKey, error) {
 func (c *chainlink) ReadP2PKeys() (*P2PKeys, error) {
 	p2pKeys := &P2PKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading P2P Keys")
-	err := c.do(http.MethodGet, "/v2/keys/p2p", nil, p2pKeys, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/keys/p2p", nil, p2pKeys, http.StatusOK)
 	if len(p2pKeys.Data) == 0 {
 		err = fmt.Errorf("Found no P2P Keys on the chainlink node. Node URL: %s", c.Config.URL)
 		log.Err(err).Msg("Error getting P2P keys")
@@ -289,7 +299,7 @@ func (c *chainlink) ReadP2PKeys() (*P2PKeys, error) {
 // DeleteP2PKey deletes a P2PKey on the Chainlink node based on the provided ID
 func (c *chainlink) DeleteP2PKey(id int) error {
 	log.Info().Str("Node URL", c.Config.URL).Int("ID", id).Msg("Deleting P2P Key")
-	err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/p2p/%d", id), nil, nil, http.StatusOK)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/p2p/%d", id), nil, nil, http.StatusOK)
 	return err
 }
 
@@ -297,7 +307,7 @@ func (c *chainlink) DeleteP2PKey(id int) error {
 func (c *chainlink) ReadETHKeys() (*ETHKeys, error) {
 	ethKeys := &ETHKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading ETH Keys")
-	err := c.do(http.MethodGet, "/v2/keys/eth", nil, ethKeys, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/keys/eth", nil, ethKeys, http.StatusOK)
 	if len(ethKeys.Data) == 0 {
 		log.Warn().Str("Node URL", c.Config.URL).Msg("Found no ETH Keys on the node")
 	}
@@ -308,7 +318,7 @@ func (c *chainlink) ReadETHKeys() (*ETHKeys, error) {
 func (c *chainlink) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey, error) {
 	ethKey := &ETHKey{}
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", keyId).Int("maxGasPriceGWei", gWei).Msg("Update maxGasPriceGWei for eth key")
-	err := c.do(http.MethodPut, fmt.Sprintf("/v2/keys/eth/%s?maxGasPriceGWei=%d", keyId, gWei), nil, ethKey, http.StatusOK)
+	_, err := c.do(http.MethodPut, fmt.Sprintf("/v2/keys/eth/%s?maxGasPriceGWei=%d", keyId, gWei), nil, ethKey, http.StatusOK)
 	return ethKey, err
 }
 
@@ -340,7 +350,7 @@ func (c *chainlink) PrimaryEthAddress() (string, error) {
 func (c *chainlink) CreateTxKey(chain string) (*TxKey, error) {
 	txKey := &TxKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Tx Key")
-	err := c.do(http.MethodPost, fmt.Sprintf("/v2/keys/%s", chain), nil, txKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, fmt.Sprintf("/v2/keys/%s", chain), nil, txKey, http.StatusOK)
 	return txKey, err
 }
 
@@ -348,14 +358,14 @@ func (c *chainlink) CreateTxKey(chain string) (*TxKey, error) {
 func (c *chainlink) ReadTxKeys(chain string) (*TxKeys, error) {
 	txKeys := &TxKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Tx Keys")
-	err := c.do(http.MethodGet, fmt.Sprintf("/v2/keys/%s", chain), nil, txKeys, http.StatusOK)
+	_, err := c.do(http.MethodGet, fmt.Sprintf("/v2/keys/%s", chain), nil, txKeys, http.StatusOK)
 	return txKeys, err
 }
 
 // DeleteTxKey deletes an tx key based on the provided ID
 func (c *chainlink) DeleteTxKey(chain string, id string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", id).Msg("Deleting Tx Key")
-	err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/%s/%s", chain, id), nil, nil, http.StatusOK)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/keys/%s/%s", chain, id), nil, nil, http.StatusOK)
 	return err
 }
 
@@ -363,7 +373,7 @@ func (c *chainlink) DeleteTxKey(chain string, id string) error {
 func (c *chainlink) ReadTransactionAttempts() (*TransactionsData, error) {
 	txsData := &TransactionsData{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Transaction Attempts")
-	err := c.do(http.MethodGet, "/v2/tx_attempts", nil, txsData, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/tx_attempts", nil, txsData, http.StatusOK)
 	return txsData, err
 }
 
@@ -371,7 +381,8 @@ func (c *chainlink) ReadTransactionAttempts() (*TransactionsData, error) {
 func (c *chainlink) ReadTransactions() (*TransactionsData, error) {
 	txsData := &TransactionsData{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading Transactions")
-	return txsData, c.do(http.MethodGet, "/v2/transactions", nil, txsData, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/transactions", nil, txsData, http.StatusOK)
+	return txsData, err
 }
 
 // SendNativeToken sends native token (ETH usually) of a specified amount from one of its addresses to the target address
@@ -384,7 +395,7 @@ func (c *chainlink) SendNativeToken(amount *big.Int, fromAddress, toAddress stri
 		AllowHigherAmounts: true,
 	}
 	txData := SingleTransactionDataWrapper{}
-	err := c.do(http.MethodPost, "/v2/transfers", request, txData, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/transfers", request, txData, http.StatusOK)
 	log.Info().
 		Str("Node URL", c.Config.URL).
 		Str("From", fromAddress).
@@ -398,7 +409,7 @@ func (c *chainlink) SendNativeToken(amount *big.Int, fromAddress, toAddress stri
 func (c *chainlink) ReadVRFKeys() (*VRFKeys, error) {
 	vrfKeys := &VRFKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading VRF Keys")
-	err := c.do(http.MethodGet, "/v2/keys/vrf", nil, vrfKeys, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/keys/vrf", nil, vrfKeys, http.StatusOK)
 	if len(vrfKeys.Data) == 0 {
 		log.Warn().Str("Node URL", c.Config.URL).Msg("Found no VRF Keys on the node")
 	}
@@ -409,14 +420,15 @@ func (c *chainlink) ReadVRFKeys() (*VRFKeys, error) {
 func (c *chainlink) CreateVRFKey() (*VRFKey, error) {
 	vrfKey := &VRFKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating VRF Key")
-	return vrfKey, c.do(http.MethodPost, "/v2/keys/vrf", nil, vrfKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/keys/vrf", nil, vrfKey, http.StatusOK)
+	return vrfKey, err
 }
 
 // ExportVRFKey exports a vrf key by key id
 func (c *chainlink) ExportVRFKey(keyId string) (*VRFExportKey, error) {
 	vrfExportKey := &VRFExportKey{}
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", keyId).Msg("Exporting VRF Key")
-	err := c.do(http.MethodPost, fmt.Sprintf("/v2/keys/vrf/export/%s", keyId), nil, vrfExportKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, fmt.Sprintf("/v2/keys/vrf/export/%s", keyId), nil, vrfExportKey, http.StatusOK)
 	return vrfExportKey, err
 }
 
@@ -424,7 +436,7 @@ func (c *chainlink) ExportVRFKey(keyId string) (*VRFExportKey, error) {
 func (c *chainlink) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, error) {
 	vrfKey := &VRFKey{}
 	log.Info().Str("Node URL", c.Config.URL).Str("ID", vrfExportKey.VrfKey.Address).Msg("Importing VRF Key")
-	err := c.do(http.MethodPost, "/v2/keys/vrf/import", vrfExportKey, vrfKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/keys/vrf/import", vrfExportKey, vrfKey, http.StatusOK)
 	return vrfKey, err
 }
 
@@ -432,14 +444,15 @@ func (c *chainlink) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, error) {
 func (c *chainlink) CreateCSAKey() (*CSAKey, error) {
 	csaKey := &CSAKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating CSA Key")
-	return csaKey, c.do(http.MethodPost, "/v2/keys/csa", nil, csaKey, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/keys/csa", nil, csaKey, http.StatusOK)
+	return csaKey, err
 }
 
 // ReadCSAKeys reads CSA keys from the Chainlink node
 func (c *chainlink) ReadCSAKeys() (*CSAKeys, error) {
 	csaKeys := &CSAKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading CSA Keys")
-	err := c.do(http.MethodGet, "/v2/keys/csa", nil, csaKeys, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/keys/csa", nil, csaKeys, http.StatusOK)
 	if len(csaKeys.Data) == 0 {
 		log.Warn().Str("Node URL", c.Config.URL).Msg("Found no CSA Keys on the node")
 	}
@@ -450,48 +463,55 @@ func (c *chainlink) ReadCSAKeys() (*CSAKeys, error) {
 func (c *chainlink) CreateEI(eia *EIAttributes) (*EIKeyCreate, error) {
 	ei := EIKeyCreate{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", eia.Name).Msg("Creating External Initiator")
-	return &ei, c.do(http.MethodPost, "/v2/external_initiators", eia, &ei, http.StatusCreated)
+	_, err := c.do(http.MethodPost, "/v2/external_initiators", eia, &ei, http.StatusCreated)
+	return &ei, err
 }
 
 // ReadEIs reads all of the configured EIs from the chainlink node
 func (c *chainlink) ReadEIs() (*EIKeys, error) {
 	ei := EIKeys{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Reading EI Keys")
-	return &ei, c.do(http.MethodGet, "/v2/external_initiators", nil, &ei, http.StatusOK)
+	_, err := c.do(http.MethodGet, "/v2/external_initiators", nil, &ei, http.StatusOK)
+	return &ei, err
 }
 
 // DeleteEI deletes an external initiator in the Chainlink node based on the provided name
 func (c *chainlink) DeleteEI(name string) error {
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", name).Msg("Deleting EI")
-	return c.do(http.MethodDelete, fmt.Sprintf("/v2/external_initiators/%s", name), nil, nil, http.StatusNoContent)
+	_, err := c.do(http.MethodDelete, fmt.Sprintf("/v2/external_initiators/%s", name), nil, nil, http.StatusNoContent)
+	return err
 }
 
 // CreateTerraChain creates a terra chain
 func (c *chainlink) CreateTerraChain(chain *TerraChainAttributes) (*TerraChainCreate, error) {
 	response := TerraChainCreate{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Terra Chain")
-	return &response, c.do(http.MethodPost, "/v2/chains/terra", chain, &response, http.StatusCreated)
+	_, err := c.do(http.MethodPost, "/v2/chains/terra", chain, &response, http.StatusCreated)
+	return &response, err
 }
 
 // CreateTerraNode creates a terra node
 func (c *chainlink) CreateTerraNode(node *TerraNodeAttributes) (*TerraNodeCreate, error) {
 	response := TerraNodeCreate{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating Terra Node")
-	return &response, c.do(http.MethodPost, "/v2/nodes/terra", node, &response, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/nodes/terra", node, &response, http.StatusOK)
+	return &response, err
 }
 
 // CreateSolana creates a solana chain
 func (c *chainlink) CreateSolanaChain(chain *SolanaChainAttributes) (*SolanaChainCreate, error) {
 	response := SolanaChainCreate{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Solana Chain")
-	return &response, c.do(http.MethodPost, "/v2/chains/solana", chain, &response, http.StatusCreated)
+	_, err := c.do(http.MethodPost, "/v2/chains/solana", chain, &response, http.StatusCreated)
+	return &response, err
 }
 
 // CreateSolanaNode creates a solana node
 func (c *chainlink) CreateSolanaNode(node *SolanaNodeAttributes) (*SolanaNodeCreate, error) {
 	response := SolanaNodeCreate{}
 	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating Solana Node")
-	return &response, c.do(http.MethodPost, "/v2/nodes/solana", node, &response, http.StatusOK)
+	_, err := c.do(http.MethodPost, "/v2/nodes/solana", node, &response, http.StatusOK)
+	return &response, err
 }
 
 // RemoteIP retrieves the inter-cluster IP of the chainlink node, for use with inter-node communications
@@ -534,8 +554,8 @@ func (c *chainlink) SetSessionCookie() error {
 	if len(resp.Cookies()) == 0 {
 		return fmt.Errorf("no cookie was returned after getting a session")
 	}
-	c.BasicHTTPClient.Cookies = resp.Cookies()
-
+	c.APIClient.Cookies = resp.Cookies()
+	c.APIClient.WithCookies()
 	sessionFound := false
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name == "clsession" {
@@ -565,12 +585,12 @@ func (c *chainlink) Profile(profileTime time.Duration, profileFunction func(Chai
 			log.Debug().Str("Type", profileReport.Type).Msg("PROFILING")
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", profileReport.Type, profileSeconds)
 			profileExecutedGroup.Done()
-			rawBytes, err := c.doRawBytes(http.MethodGet, uri, nil, nil, http.StatusOK)
+			resp, err := c.do(http.MethodGet, uri, nil, nil, http.StatusOK)
 			if err != nil {
 				return err
 			}
 			log.Debug().Str("Type", profileReport.Type).Msg("DONE PROFILING")
-			profileReport.Data = rawBytes
+			profileReport.Data = resp.Body()
 			return nil
 		})
 	}
@@ -605,100 +625,11 @@ func (c *chainlink) SetPageSize(size int) {
 	c.pageSize = size
 }
 
-// SetClient overrides the http client, used for mocking out the Chainlink server for unit testing
-func (c *chainlink) SetClient(client *http.Client) {
-	c.HttpClient = client
-}
-
-func (c *chainlink) doRawBytes(
-	method,
-	endpoint string,
-	body []byte, obj interface{},
-	expectedStatusCode int,
-) ([]byte, error) {
-	client := c.HttpClient
-
-	req, err := http.NewRequest(
-		method,
-		fmt.Sprintf("%s%s", c.Config.URL, endpoint),
-		bytes.NewBuffer(body),
-	)
-	if err != nil {
-		return nil, err
-	}
-	for _, cookie := range c.Cookies {
-		req.AddCookie(cookie)
-	}
-
-	q := req.URL.Query()
-	q.Add("size", fmt.Sprint(c.pageSize))
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"error while reading response: %v\nURL: %s\nresponse received: %s",
-			err,
-			c.Config.URL,
-			string(b),
-		)
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return b, ctfClient.ErrNotFound
-	} else if resp.StatusCode == http.StatusUnprocessableEntity {
-		return b, ctfClient.ErrUnprocessableEntity
-	} else if resp.StatusCode != expectedStatusCode {
-		return b, fmt.Errorf(
-			"unexpected response code, got %d, expected %d\nURL: %s\nresponse received: %s",
-			resp.StatusCode,
-			expectedStatusCode,
-			c.Config.URL,
-			string(b),
-		)
-	}
-	return b, err
-}
-
-func (c *chainlink) doRaw(
-	method,
-	endpoint string,
-	body []byte, obj interface{},
-	expectedStatusCode int,
-) error {
-	respBody, err := c.doRawBytes(method, endpoint, body, obj, expectedStatusCode)
-	if obj == nil || err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(respBody, &obj)
-	if err != nil {
-		return fmt.Errorf(
-			"error while unmarshaling response to JSON: %v\nURL: %s\nresponse received: %s",
-			err,
-			c.Config.URL,
-			string(respBody),
-		)
-	}
-	return err
-}
-
-func (c *chainlink) do(
-	method,
-	endpoint string,
-	body interface{},
-	obj interface{},
-	expectedStatusCode int,
-) error {
-	b, err := json.Marshal(body)
-	if body != nil && err != nil {
-		return err
-	}
-	return c.doRaw(method, endpoint, b, obj, expectedStatusCode)
+func (c *chainlink) do(method, endpoint string, body, obj interface{}, expectedStatusCode int) (*resty.Response, error) {
+	q := make(map[string]string)
+	q["size"] = fmt.Sprint(c.pageSize)
+	resp, err := c.APIClient.Request(method, endpoint, body, obj, expectedStatusCode, ctfClient.WithQueryParam(q))
+	return resp, err
 }
 
 // ConnectChainlinkNodes creates new chainlink clients
@@ -713,7 +644,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]Chainlink, error) {
 			Email:    "notreal@fakeemail.ch",
 			Password: "fj293fbBnlQ!f9vNs",
 			RemoteIP: internalHost,
-		}, http.DefaultClient)
+		})
 		clients = append(clients, c)
 		if err != nil {
 			return nil, err
