@@ -369,6 +369,7 @@ contract KeeperRegistryDev is
   function getUpkeep(uint256 id)
     external
     override
+    cannotExecute
     returns (
       address target,
       uint32 executeGas,
@@ -391,7 +392,12 @@ contract KeeperRegistryDev is
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a wholistic picture of the contract state
    */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external override returns (uint256[] memory) {
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount)
+    external
+    override
+    cannotExecute
+    returns (uint256[] memory)
+  {
     // Executed through logic contract
     _fallback();
   }
@@ -402,6 +408,7 @@ contract KeeperRegistryDev is
   function getKeeperInfo(address query)
     external
     override
+    cannotExecute
     returns (
       address payee,
       bool active,
@@ -418,6 +425,7 @@ contract KeeperRegistryDev is
   function getState()
     external
     override
+    cannotExecute
     returns (
       State memory state,
       Config memory config,
@@ -432,7 +440,7 @@ contract KeeperRegistryDev is
    * @notice calculates the minimum balance required for an upkeep to remain eligible
    * @param id the upkeep id to calculate minimum balance for
    */
-  function getMinBalanceForUpkeep(uint256 id) external returns (uint96 minBalance) {
+  function getMinBalanceForUpkeep(uint256 id) external cannotExecute returns (uint96 minBalance) {
     // Executed through logic contract
     _fallback();
   }
@@ -441,7 +449,7 @@ contract KeeperRegistryDev is
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(uint256 gasLimit) public returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(uint256 gasLimit) public cannotExecute returns (uint96 maxPayment) {
     // Executed through logic contract
     _fallback();
   }
@@ -449,7 +457,7 @@ contract KeeperRegistryDev is
   /**
    * @notice retrieves the migration permission for a peer registry
    */
-  function getPeerRegistryMigrationPermission(address peer) external returns (MigrationPermission) {
+  function getPeerRegistryMigrationPermission(address peer) external cannotExecute returns (MigrationPermission) {
     // Executed through logic contract
     _fallback();
   }

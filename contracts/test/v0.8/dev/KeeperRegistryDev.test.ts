@@ -300,7 +300,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
       assert.deepEqual(
         oldKeepers,
-        (await registry.callStatic.getState()).keepers,
+        (await registry.connect(zeroAddress).callStatic.getState()).keepers,
       )
 
       // remove keepers
@@ -312,7 +312,7 @@ describe('KeeperRegistryDev', () => {
       const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
       assert.deepEqual(
         newKeepers,
-        (await registry.callStatic.getState()).keepers,
+        (await registry.connect(zeroAddress).callStatic.getState()).keepers,
       )
 
       await expect(tx)
@@ -328,13 +328,13 @@ describe('KeeperRegistryDev', () => {
           [await keeper1.getAddress(), await keeper3.getAddress()],
           [await payee1.getAddress(), await payee3.getAddress()],
         )
-      const added = await registry.callStatic.getKeeperInfo(
-        await keeper1.getAddress(),
-      )
+      const added = await registry
+        .connect(zeroAddress)
+        .callStatic.getKeeperInfo(await keeper1.getAddress())
       assert.isTrue(added.active)
-      const removed = await registry.callStatic.getKeeperInfo(
-        await keeper2.getAddress(),
-      )
+      const removed = await registry
+        .connect(zeroAddress)
+        .callStatic.getKeeperInfo(await keeper2.getAddress())
       assert.isFalse(removed.active)
     })
 
@@ -347,7 +347,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
       assert.deepEqual(
         oldKeepers,
-        (await registry.callStatic.getState()).keepers,
+        (await registry.connect(zeroAddress).callStatic.getState()).keepers,
       )
 
       const newKeepers = [
@@ -358,12 +358,12 @@ describe('KeeperRegistryDev', () => {
       const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
       assert.deepEqual(
         newKeepers,
-        (await registry.callStatic.getState()).keepers,
+        (await registry.connect(zeroAddress).callStatic.getState()).keepers,
       )
 
-      const ignored = await registry.callStatic.getKeeperInfo(
-        await keeper2.getAddress(),
-      )
+      const ignored = await registry
+        .connect(zeroAddress)
+        .callStatic.getKeeperInfo(await keeper2.getAddress())
       assert.equal(await payee2.getAddress(), ignored.payee)
       assert.equal(true, ignored.active)
 
@@ -476,7 +476,9 @@ describe('KeeperRegistryDev', () => {
       await expect(tx)
         .to.emit(registry, 'UpkeepRegistered')
         .withArgs(id, executeGas, await admin.getAddress())
-      const registration = await registry.callStatic.getUpkeep(id)
+      const registration = await registry
+        .connect(zeroAddress)
+        .callStatic.getUpkeep(id)
       assert.equal(mock.address, registration.target)
       assert.equal(0, registration.balance.toNumber())
       assert.equal(emptyBytes, registration.checkData)
@@ -500,7 +502,9 @@ describe('KeeperRegistryDev', () => {
 
     it('adds to the balance of the registration', async () => {
       await registry.connect(keeper1).addFunds(id, amount)
-      const registration = await registry.callStatic.getUpkeep(id)
+      const registration = await registry
+        .connect(zeroAddress)
+        .callStatic.getUpkeep(id)
       assert.isTrue(amount.eq(registration.balance))
     })
 
@@ -559,12 +563,14 @@ describe('KeeperRegistryDev', () => {
     })
 
     it('updates the gas limit successfully', async () => {
-      const initialGasLimit = (await registry.callStatic.getUpkeep(id))
-        .executeGas
+      const initialGasLimit = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).executeGas
       assert.equal(initialGasLimit, executeGas.toNumber())
       await registry.connect(admin).setUpkeepGasLimit(id, newGasLimit)
-      const updatedGasLimit = (await registry.callStatic.getUpkeep(id))
-        .executeGas
+      const updatedGasLimit = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).executeGas
       assert.equal(updatedGasLimit, newGasLimit.toNumber())
     })
 
@@ -713,11 +719,15 @@ describe('KeeperRegistryDev', () => {
     async function getPerformPaymentAmount() {
       _lastKeeper = _lastKeeper === keeper1 ? keeper2 : keeper1
       const before = (
-        await registry.callStatic.getKeeperInfo(await _lastKeeper.getAddress())
+        await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await _lastKeeper.getAddress())
       ).balance
       await registry.connect(_lastKeeper).performUpkeep(id, '0x')
       const after = (
-        await registry.callStatic.getKeeperInfo(await _lastKeeper.getAddress())
+        await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await _lastKeeper.getAddress())
       ).balance
       const difference = after.sub(before)
       return difference
@@ -808,10 +818,12 @@ describe('KeeperRegistryDev', () => {
       })
 
       it('updates payment balances', async () => {
-        const keeperBefore = await registry.callStatic.getKeeperInfo(
-          await keeper1.getAddress(),
-        )
-        const registrationBefore = await registry.callStatic.getUpkeep(id)
+        const keeperBefore = await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await keeper1.getAddress())
+        const registrationBefore = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         const keeperLinkBefore = await linkToken.balanceOf(
           await keeper1.getAddress(),
         )
@@ -820,10 +832,12 @@ describe('KeeperRegistryDev', () => {
         // Do the thing
         await registry.connect(keeper1).performUpkeep(id, '0x')
 
-        const keeperAfter = await registry.callStatic.getKeeperInfo(
-          await keeper1.getAddress(),
-        )
-        const registrationAfter = await registry.callStatic.getUpkeep(id)
+        const keeperAfter = await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await keeper1.getAddress())
+        const registrationAfter = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         const keeperLinkAfter = await linkToken.balanceOf(
           await keeper1.getAddress(),
         )
@@ -836,14 +850,18 @@ describe('KeeperRegistryDev', () => {
       })
 
       it('updates amount spent correctly', async () => {
-        const registrationBefore = await registry.callStatic.getUpkeep(id)
+        const registrationBefore = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         const balanceBefore = registrationBefore.balance
         const amountSpentBefore = registrationBefore.amountSpent
 
         // Do the thing
         await registry.connect(keeper1).performUpkeep(id, '0x')
 
-        const registrationAfter = await registry.callStatic.getUpkeep(id)
+        const registrationAfter = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         const balanceAfter = registrationAfter.balance
         const amountSpentAfter = registrationAfter.amountSpent
 
@@ -858,12 +876,16 @@ describe('KeeperRegistryDev', () => {
 
       it('only pays for gas used [ @skip-coverage ]', async () => {
         const before = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
         const tx = await registry.connect(keeper1).performUpkeep(id, '0x')
         const receipt = await tx.wait()
         const after = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
 
         const max = linkForGas(executeGas.toNumber())
@@ -894,14 +916,18 @@ describe('KeeperRegistryDev', () => {
         })
 
         const before = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
         const tx = await registry
           .connect(keeper1)
           .performUpkeep(id, '0x', { gasPrice })
         const receipt = await tx.wait()
         const after = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
 
         const max = linkForGas(executeGas).mul(multiplier)
@@ -933,14 +959,18 @@ describe('KeeperRegistryDev', () => {
         })
 
         const before = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
         const tx = await registry
           .connect(keeper1)
           .performUpkeep(id, '0x', { gasPrice })
         const receipt = await tx.wait()
         const after = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
 
         const max = linkForGas(executeGas.toNumber()).mul(effectiveMultiplier)
@@ -965,14 +995,18 @@ describe('KeeperRegistryDev', () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
         await registry.connect(owner).addFunds(id, toWei('100'))
         const keeperBalanceBefore = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
 
         // Do the thing
         await registry.connect(keeper1).performUpkeep(id, '0x')
 
         const keeperBalanceAfter = (
-          await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+          await registry
+            .connect(zeroAddress)
+            .callStatic.getKeeperInfo(await keeper1.getAddress())
         ).balance
         assert.isTrue(keeperBalanceAfter.gt(keeperBalanceBefore))
       })
@@ -1109,9 +1143,9 @@ describe('KeeperRegistryDev', () => {
         await linkToken
           .connect(owner)
           .transfer(autoFunderUpkeep.address, toWei('1000'))
-        let maxPayment = await registry.callStatic.getMaxPaymentForGas(
-          executeGas,
-        )
+        let maxPayment = await registry
+          .connect(zeroAddress)
+          .callStatic.getMaxPaymentForGas(executeGas)
 
         // First set auto funding amount to 0 and verify that balance is deducted upon performUpkeep
         let initialBalance = toWei('100')
@@ -1120,8 +1154,9 @@ describe('KeeperRegistryDev', () => {
         await autoFunderUpkeep.setIsEligible(true)
         await registry.connect(keeper1).performUpkeep(upkeepID, '0x')
 
-        let postUpkeepBalance = (await registry.callStatic.getUpkeep(upkeepID))
-          .balance
+        let postUpkeepBalance = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(upkeepID)
+        ).balance
         assert.isTrue(postUpkeepBalance.lt(initialBalance)) // Balance should be deducted
         assert.isTrue(postUpkeepBalance.gte(initialBalance.sub(maxPayment))) // Balance should not be deducted more than maxPayment
 
@@ -1132,8 +1167,9 @@ describe('KeeperRegistryDev', () => {
         await autoFunderUpkeep.setIsEligible(true)
         await registry.connect(keeper2).performUpkeep(upkeepID, '0x')
 
-        postUpkeepBalance = (await registry.callStatic.getUpkeep(upkeepID))
-          .balance
+        postUpkeepBalance = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(upkeepID)
+        ).balance
         // Balance should increase by autoTopupAmount and decrease by max maxPayment
         assert.isTrue(
           postUpkeepBalance.gte(
@@ -1162,14 +1198,18 @@ describe('KeeperRegistryDev', () => {
         await autoFunderUpkeep.setIsEligible(true)
         await autoFunderUpkeep.setShouldCancel(true)
 
-        let registration = await registry.callStatic.getUpkeep(upkeepID)
+        let registration = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(upkeepID)
         const oldExpiration = registration.maxValidBlocknumber
 
         // Do the thing
         await registry.connect(keeper1).performUpkeep(upkeepID, '0x')
 
         // Verify upkeep gets cancelled
-        registration = await registry.callStatic.getUpkeep(upkeepID)
+        registration = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(upkeepID)
         const newExpiration = registration.maxValidBlocknumber
         assert.isTrue(newExpiration.lt(oldExpiration))
       })
@@ -1217,7 +1257,9 @@ describe('KeeperRegistryDev', () => {
         )
         const registryBefore = await linkToken.balanceOf(registry.address)
 
-        let registration = await registry.callStatic.getUpkeep(id)
+        let registration = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         let previousBalance = registration.balance
 
         await registry
@@ -1230,7 +1272,9 @@ describe('KeeperRegistryDev', () => {
         assert.isTrue(payee1Before.add(previousBalance).eq(payee1After))
         assert.isTrue(registryBefore.sub(previousBalance).eq(registryAfter))
 
-        registration = await registry.callStatic.getUpkeep(id)
+        registration = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         assert.equal(0, registration.balance.toNumber())
       })
 
@@ -1254,9 +1298,12 @@ describe('KeeperRegistryDev', () => {
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
-        let upkeepBefore = (await registry.callStatic.getUpkeep(id)).balance
-        let ownerBefore = (await registry.callStatic.getState()).state
-          .ownerLinkBalance
+        let upkeepBefore = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+        ).balance
+        let ownerBefore = (
+          await registry.connect(zeroAddress).callStatic.getState()
+        ).state.ownerLinkBalance
         assert.equal(0, ownerBefore.toNumber())
 
         let amountSpent = toWei('100').sub(upkeepBefore)
@@ -1267,9 +1314,12 @@ describe('KeeperRegistryDev', () => {
           .withdrawFunds(id, await payee1.getAddress())
 
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
-        let upkeepAfter = (await registry.callStatic.getUpkeep(id)).balance
-        let ownerAfter = (await registry.callStatic.getState()).state
-          .ownerLinkBalance
+        let upkeepAfter = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+        ).balance
+        let ownerAfter = (
+          await registry.connect(zeroAddress).callStatic.getState()
+        ).state.ownerLinkBalance
 
         // Post upkeep balance should be 0
         assert.equal(0, upkeepAfter.toNumber())
@@ -1300,18 +1350,24 @@ describe('KeeperRegistryDev', () => {
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
-        let upkeepBefore = (await registry.callStatic.getUpkeep(id)).balance
-        let ownerBefore = (await registry.callStatic.getState()).state
-          .ownerLinkBalance
+        let upkeepBefore = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+        ).balance
+        let ownerBefore = (
+          await registry.connect(zeroAddress).callStatic.getState()
+        ).state.ownerLinkBalance
         assert.equal(0, ownerBefore.toNumber())
 
         await registry
           .connect(admin)
           .withdrawFunds(id, await payee1.getAddress())
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
-        let ownerAfter = (await registry.callStatic.getState()).state
-          .ownerLinkBalance
-        let upkeepAfter = (await registry.callStatic.getUpkeep(id)).balance
+        let ownerAfter = (
+          await registry.connect(zeroAddress).callStatic.getState()
+        ).state.ownerLinkBalance
+        let upkeepAfter = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+        ).balance
 
         assert.equal(0, upkeepAfter.toNumber())
         // No funds should be transferred, all of upkeepBefore should be given to owner
@@ -1339,18 +1395,24 @@ describe('KeeperRegistryDev', () => {
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
-        let upkeepBefore = (await registry.callStatic.getUpkeep(id)).balance
-        let ownerBefore = (await registry.callStatic.getState()).state
-          .ownerLinkBalance
+        let upkeepBefore = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+        ).balance
+        let ownerBefore = (
+          await registry.connect(zeroAddress).callStatic.getState()
+        ).state.ownerLinkBalance
         assert.equal(0, ownerBefore.toNumber())
 
         await registry
           .connect(admin)
           .withdrawFunds(id, await payee1.getAddress())
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
-        let ownerAfter = (await registry.callStatic.getState()).state
-          .ownerLinkBalance
-        let upkeepAfter = (await registry.callStatic.getUpkeep(id)).balance
+        let ownerAfter = (
+          await registry.connect(zeroAddress).callStatic.getState()
+        ).state.ownerLinkBalance
+        let upkeepAfter = (
+          await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+        ).balance
 
         assert.equal(0, upkeepAfter.toNumber())
         // No cancellation fees for owner
@@ -1388,21 +1450,25 @@ describe('KeeperRegistryDev', () => {
         transcoder: transcoder.address,
         registrar: ethers.constants.AddressZero,
       })
-      let upkeepBalance = (await registry.callStatic.getUpkeep(id)).balance
+      let upkeepBalance = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
 
       await registry.connect(owner).cancelUpkeep(id)
       await registry.connect(admin).withdrawFunds(id, await payee1.getAddress())
       // Transfered to owner balance on registry
-      let ownerRegistryBalance = (await registry.callStatic.getState()).state
-        .ownerLinkBalance
+      let ownerRegistryBalance = (
+        await registry.connect(zeroAddress).callStatic.getState()
+      ).state.ownerLinkBalance
       assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
 
       // Now withdraw
       await registry.connect(owner).withdrawOwnerFunds()
 
-      ownerRegistryBalance = (await registry.callStatic.getState()).state
-        .ownerLinkBalance
+      ownerRegistryBalance = (
+        await registry.connect(zeroAddress).callStatic.getState()
+      ).state.ownerLinkBalance
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
 
       // Owner registry balance should be changed to 0
@@ -1432,7 +1498,9 @@ describe('KeeperRegistryDev', () => {
       it('sets the registration to invalid immediately', async () => {
         const tx = await registry.connect(owner).cancelUpkeep(id)
         const receipt = await tx.wait()
-        const registration = await registry.callStatic.getUpkeep(id)
+        const registration = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         assert.equal(
           registration.maxValidBlocknumber.toNumber(),
           receipt.blockNumber,
@@ -1469,14 +1537,18 @@ describe('KeeperRegistryDev', () => {
 
         beforeEach(async () => {
           await registry.connect(admin).cancelUpkeep(id)
-          const registration = await registry.callStatic.getUpkeep(id)
+          const registration = await registry
+            .connect(zeroAddress)
+            .callStatic.getUpkeep(id)
           oldExpiration = registration.maxValidBlocknumber
         })
 
         it('allows the owner to cancel it more quickly', async () => {
           await registry.connect(owner).cancelUpkeep(id)
 
-          const registration = await registry.callStatic.getUpkeep(id)
+          const registration = await registry
+            .connect(zeroAddress)
+            .callStatic.getUpkeep(id)
           const newExpiration = registration.maxValidBlocknumber
           assert.isTrue(newExpiration.lt(oldExpiration))
         })
@@ -1489,7 +1561,9 @@ describe('KeeperRegistryDev', () => {
       it('sets the registration to invalid in 50 blocks', async () => {
         const tx = await registry.connect(admin).cancelUpkeep(id)
         const receipt = await tx.wait()
-        const registration = await registry.callStatic.getUpkeep(id)
+        const registration = await registry
+          .connect(zeroAddress)
+          .callStatic.getUpkeep(id)
         assert.equal(
           registration.maxValidBlocknumber.toNumber(),
           receipt.blockNumber + 50,
@@ -1594,10 +1668,13 @@ describe('KeeperRegistryDev', () => {
     it('updates the balances', async () => {
       const to = await nonkeeper.getAddress()
       const keeperBefore = (
-        await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+        await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await keeper1.getAddress())
       ).balance
-      const registrationBefore = (await registry.callStatic.getUpkeep(id))
-        .balance
+      const registrationBefore = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).balance
       const toLinkBefore = await linkToken.balanceOf(to)
       const registryLinkBefore = await linkToken.balanceOf(registry.address)
 
@@ -1607,10 +1684,13 @@ describe('KeeperRegistryDev', () => {
         .withdrawPayment(await keeper1.getAddress(), to)
 
       const keeperAfter = (
-        await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+        await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await keeper1.getAddress())
       ).balance
-      const registrationAfter = (await registry.callStatic.getUpkeep(id))
-        .balance
+      const registrationAfter = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).balance
       const toLinkAfter = await linkToken.balanceOf(to)
       const registryLinkAfter = await linkToken.balanceOf(registry.address)
 
@@ -1622,7 +1702,9 @@ describe('KeeperRegistryDev', () => {
 
     it('emits a log announcing the withdrawal', async () => {
       const balance = (
-        await registry.callStatic.getKeeperInfo(await keeper1.getAddress())
+        await registry
+          .connect(zeroAddress)
+          .callStatic.getKeeperInfo(await keeper1.getAddress())
       ).balance
       const tx = await registry
         .connect(payee1)
@@ -1674,9 +1756,9 @@ describe('KeeperRegistryDev', () => {
           await payee2.getAddress(),
         )
 
-      const info = await registry.callStatic.getKeeperInfo(
-        await keeper1.getAddress(),
-      )
+      const info = await registry
+        .connect(zeroAddress)
+        .callStatic.getKeeperInfo(await keeper1.getAddress())
       assert.equal(await payee1.getAddress(), info.payee)
     })
 
@@ -1748,9 +1830,9 @@ describe('KeeperRegistryDev', () => {
     it('does change the payee', async () => {
       await registry.connect(payee2).acceptPayeeship(await keeper1.getAddress())
 
-      const info = await registry.callStatic.getKeeperInfo(
-        await keeper1.getAddress(),
-      )
+      const info = await registry
+        .connect(zeroAddress)
+        .callStatic.getKeeperInfo(await keeper1.getAddress())
       assert.equal(await payee2.getAddress(), info.payee)
     })
   })
@@ -1786,7 +1868,8 @@ describe('KeeperRegistryDev', () => {
     })
 
     it('updates the config', async () => {
-      const old = (await registry.callStatic.getState()).config
+      const old = (await registry.connect(zeroAddress).callStatic.getState())
+        .config
       assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB))
       assert.isTrue(flatFeeMicroLink.eq(old.flatFeeMicroLink))
       assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
@@ -1808,7 +1891,9 @@ describe('KeeperRegistryDev', () => {
         registrar: ethers.constants.AddressZero,
       })
 
-      const updated = (await registry.callStatic.getState()).config
+      const updated = (
+        await registry.connect(zeroAddress).callStatic.getState()
+      ).config
       assert.equal(updated.paymentPremiumPPB, payment.toNumber())
       assert.equal(updated.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updated.blockCountPerTurn, checks.toNumber())
@@ -1895,11 +1980,15 @@ describe('KeeperRegistryDev', () => {
     it('updates the funds of the job id passed', async () => {
       const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
 
-      const before = (await registry.callStatic.getUpkeep(id)).balance
+      const before = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).balance
       await linkToken
         .connect(owner)
         .transferAndCall(registry.address, amount, data)
-      const after = (await registry.callStatic.getUpkeep(id)).balance
+      const after = (
+        await registry.connect(zeroAddress).callStatic.getUpkeep(id)
+      ).balance
 
       assert.isTrue(before.add(amount).eq(after))
     })
@@ -2056,7 +2145,9 @@ describe('KeeperRegistryDev', () => {
               transcoder: transcoder.address,
               registrar: ethers.constants.AddressZero,
             })
-            const price = await registry.callStatic.getMaxPaymentForGas(gas)
+            const price = await registry
+              .connect(zeroAddress)
+              .callStatic.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
           }
         }
@@ -2067,23 +2158,24 @@ describe('KeeperRegistryDev', () => {
   describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
     const peer = randomAddress()
     it('allows the owner to set the peer registries', async () => {
-      let permission =
-        await registry.callStatic.getPeerRegistryMigrationPermission(peer)
+      let permission = await registry
+        .connect(zeroAddress)
+        .callStatic.getPeerRegistryMigrationPermission(peer)
       expect(permission).to.equal(0)
       await registry.setPeerRegistryMigrationPermission(peer, 1)
-      permission = await registry.callStatic.getPeerRegistryMigrationPermission(
-        peer,
-      )
+      permission = await registry
+        .connect(zeroAddress)
+        .callStatic.getPeerRegistryMigrationPermission(peer)
       expect(permission).to.equal(1)
       await registry.setPeerRegistryMigrationPermission(peer, 2)
-      permission = await registry.callStatic.getPeerRegistryMigrationPermission(
-        peer,
-      )
+      permission = await registry
+        .connect(zeroAddress)
+        .callStatic.getPeerRegistryMigrationPermission(peer)
       expect(permission).to.equal(2)
       await registry.setPeerRegistryMigrationPermission(peer, 0)
-      permission = await registry.callStatic.getPeerRegistryMigrationPermission(
-        peer,
-      )
+      permission = await registry
+        .connect(zeroAddress)
+        .callStatic.getPeerRegistryMigrationPermission(peer)
       expect(permission).to.equal(0)
     })
     it('reverts if passed an unsupported permission', async () => {
@@ -2108,46 +2200,61 @@ describe('KeeperRegistryDev', () => {
       })
 
       it('migrates an upkeep', async () => {
-        expect((await registry.callStatic.getUpkeep(id)).balance).to.equal(
-          toWei('100'),
-        )
-        expect((await registry.callStatic.getUpkeep(id)).checkData).to.equal(
-          randomBytes,
-        )
         expect(
-          (await registry.callStatic.getState()).state.numUpkeeps,
+          (await registry.connect(zeroAddress).callStatic.getUpkeep(id))
+            .balance,
+        ).to.equal(toWei('100'))
+        expect(
+          (await registry.connect(zeroAddress).callStatic.getUpkeep(id))
+            .checkData,
+        ).to.equal(randomBytes)
+        expect(
+          (await registry.connect(zeroAddress).callStatic.getState()).state
+            .numUpkeeps,
         ).to.equal(1)
         // migrate
         await registry.connect(admin).migrateUpkeeps([id], registry2.address)
         expect(
-          (await registry.callStatic.getState()).state.numUpkeeps,
+          (await registry.connect(zeroAddress).callStatic.getState()).state
+            .numUpkeeps,
         ).to.equal(0)
         expect(
-          (await registry2.callStatic.getState()).state.numUpkeeps,
+          (await registry2.connect(zeroAddress).callStatic.getState()).state
+            .numUpkeeps,
         ).to.equal(1)
-        expect((await registry.callStatic.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry.callStatic.getUpkeep(id)).checkData).to.equal(
-          '0x',
-        )
-        expect((await registry2.callStatic.getUpkeep(id)).balance).to.equal(
-          toWei('100'),
-        )
         expect(
-          (await registry2.callStatic.getState()).state.expectedLinkBalance,
+          (await registry.connect(zeroAddress).callStatic.getUpkeep(id))
+            .balance,
+        ).to.equal(0)
+        expect(
+          (await registry.connect(zeroAddress).callStatic.getUpkeep(id))
+            .checkData,
+        ).to.equal('0x')
+        expect(
+          (await registry2.connect(zeroAddress).callStatic.getUpkeep(id))
+            .balance,
         ).to.equal(toWei('100'))
-        expect((await registry2.callStatic.getUpkeep(id)).checkData).to.equal(
-          randomBytes,
-        )
+        expect(
+          (await registry2.connect(zeroAddress).callStatic.getState()).state
+            .expectedLinkBalance,
+        ).to.equal(toWei('100'))
+        expect(
+          (await registry2.connect(zeroAddress).callStatic.getUpkeep(id))
+            .checkData,
+        ).to.equal(randomBytes)
       })
       it('emits an event on both contracts', async () => {
-        expect((await registry.callStatic.getUpkeep(id)).balance).to.equal(
-          toWei('100'),
-        )
-        expect((await registry.callStatic.getUpkeep(id)).checkData).to.equal(
-          randomBytes,
-        )
         expect(
-          (await registry.callStatic.getState()).state.numUpkeeps,
+          (await registry.connect(zeroAddress).callStatic.getUpkeep(id))
+            .balance,
+        ).to.equal(toWei('100'))
+        expect(
+          (await registry.connect(zeroAddress).callStatic.getUpkeep(id))
+            .checkData,
+        ).to.equal(randomBytes)
+        expect(
+          (await registry.connect(zeroAddress).callStatic.getState()).state
+            .numUpkeeps,
         ).to.equal(1)
         const tx = registry
           .connect(admin)
@@ -2238,11 +2345,13 @@ describe('KeeperRegistryDev', () => {
       await mock.setCanPerform(true)
       // upkeep 1 is underfunded, 2 is funded
       const minBalance1 = (
-        await registry.callStatic.getMaxPaymentForGas(executeGas)
+        await registry
+          .connect(zeroAddress)
+          .callStatic.getMaxPaymentForGas(executeGas)
       ).sub(1)
-      const minBalance2 = await registry.callStatic.getMaxPaymentForGas(
-        executeGas,
-      )
+      const minBalance2 = await registry
+        .connect(zeroAddress)
+        .callStatic.getMaxPaymentForGas(executeGas)
       await registry.connect(owner).addFunds(upkeepID1, minBalance1)
       await registry.connect(owner).addFunds(upkeepID2, minBalance2)
       // upkeep 1 check should revert, 2 should succeed
@@ -2277,7 +2386,9 @@ describe('KeeperRegistryDev', () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
       await mock.setCanCheck(true)
       await mock.setCanPerform(true)
-      const minBalance = await registry.callStatic.getMinBalanceForUpkeep(id)
+      const minBalance = await registry
+        .connect(zeroAddress)
+        .callStatic.getMinBalanceForUpkeep(id)
       const tooLow = minBalance.sub(oneWei)
       await registry.connect(keeper1).addFunds(id, tooLow)
       await evmRevert(
