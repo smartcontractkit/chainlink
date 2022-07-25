@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
@@ -77,13 +78,17 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	logPoller.MergeFilter([]common.Hash{
+	// Call MergeFilter once for each event signature, otherwise the log poller won't
+	// index the logs we want.
+	for _, sig := range []common.Hash{
 		t.randomnessRequestedTopic,
 		t.randomnessFulfillmentRequestedTopic,
 		t.randomWordsFulfilledTopic,
 		t.configSetTopic,
 		t.newTransmissionTopic,
-	}, coordinatorAddress)
+	} {
+		logPoller.MergeFilter([]common.Hash{sig}, coordinatorAddress)
+	}
 
 	// We need ConfigSet events from the DKG contract as well.
 	logPoller.MergeFilter([]common.Hash{
@@ -140,6 +145,8 @@ func (c *coordinator) ReportBlocks(
 	}
 	currentHeight := currentHead.Number
 
+	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
+
 	logs, err := c.lp.LogsWithSigs(
 		currentHeight-c.lookbackBlocks,
 		currentHeight,
@@ -156,11 +163,20 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	c.lggr.Info(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
 		newTransmissionLogs,
 		err := c.unmarshalLogs(logs)
+	if err != nil {
+		err = errors.Wrap(err, "unmarshal logs")
+		return
+	}
+
+	c.lggr.Info(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
+		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
 
 	blocksRequested := make(map[block]struct{})
 	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
@@ -168,10 +184,14 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
+	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+
 	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
+
+	c.lggr.Info(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -179,6 +199,8 @@ func (c *coordinator) ReportBlocks(
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
 	}
+
+	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Construct the slice of blocks to return. At this point
 	// we only need to fetch the blockhashes of the blocks that
@@ -188,9 +210,13 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
+
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
+
+	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
 	return
 }
@@ -407,6 +433,11 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			newTransmissionLogs = append(newTransmissionLogs, unpacked)
+		default:
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
 		}
 	}
 	return
