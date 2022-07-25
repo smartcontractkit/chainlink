@@ -125,12 +125,12 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay starts.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
-	latestProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
+	latest, err := lp.ec.BlockByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if fromBlock < 1 || fromBlock > latestProcessed.BlockNumber {
-		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latestProcessed)
+	if fromBlock < 1 || fromBlock > latest.Number().Int64() {
+		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
 	}
 	lp.replay <- fromBlock
 	return nil
