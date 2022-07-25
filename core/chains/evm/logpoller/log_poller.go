@@ -125,12 +125,12 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay starts.
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
-	latest, err := lp.ec.BlockByNumber(ctx, nil)
+	latestProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
-	if fromBlock < 1 || uint64(fromBlock) > latest.NumberU64() {
-		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.NumberU64())
+	if fromBlock < 1 || fromBlock > latestProcessed.BlockNumber {
+		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latestProcessed)
 	}
 	lp.replay <- fromBlock
 	return nil
@@ -196,13 +196,11 @@ func (lp *logPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-			// Can only replay at heights we've already processed (no-op for future heights).
-			if replay < start {
+			// Note replay is already validated, can assume its in [1, lastBlockProcessed].
+			if replay > 0 {
 				start = replay
 				replay = 0 // Clear replay
 				lp.lggr.Warnw("Executing replay", "replay", replay)
-			} else {
-				lp.lggr.Warnw("Noop replay, block not processed yet", "start", start, "replay", replay)
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
 		}
