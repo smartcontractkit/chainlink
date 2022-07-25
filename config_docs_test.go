@@ -16,6 +16,5 @@ func TestConfigDocs(t *testing.T) {
 	got, err := config.GenerateDocs()
 	assert.NoError(t, err, "invalid config docs")
 	assert.Equal(t, markdown, got, "docs/CONFIG.md is out of date. Run 'make config-docs' to regenerate.")
-    
 
 }

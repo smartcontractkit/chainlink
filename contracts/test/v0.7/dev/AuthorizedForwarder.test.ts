@@ -209,7 +209,7 @@ describe('AuthorizedForwarder', () => {
             .deploy()
           brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
             brokenFactory.interface.getFunction('revertWithMessage'),
-            ['Failure message']
+            ['Failure message'],
           )
 
           brokenCustomErrPayload = brokenFactory.interface.encodeFunctionData(
@@ -228,7 +228,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenMsgPayload),
-              'reverted with reason string \'Failure message\'',
+              "reverted with reason string 'Failure message'",
             )
           })
         })
