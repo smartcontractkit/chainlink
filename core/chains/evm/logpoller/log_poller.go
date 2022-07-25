@@ -172,17 +172,20 @@ func (lp *logPoller) Close() error {
 func (lp *logPoller) run() {
 	defer close(lp.done)
 	tick := time.After(0)
-	var start int64
+	var replay int64
 	for {
 		select {
 		case <-lp.ctx.Done():
 			return
 		case fromBlock := <-lp.replay:
 			lp.lggr.Warnw("Replay requested", "from", fromBlock)
-			start = fromBlock
+			replay = fromBlock
+			// Immediate replay.
+			tick = time.After(0)
 		case <-tick:
 			tick = time.After(utils.WithJitter(lp.pollPeriod))
 			// Always start from the latest block in the db.
+			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
 			if err != nil {
 				if !errors.Is(err, sql.ErrNoRows) {
@@ -191,7 +194,7 @@ func (lp *logPoller) run() {
 					continue
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
-				// Only safe thing to do is to start at finality depth behind tip.
+				// Only safe thing to do is to start at the first finalized block.
 				latest, err := lp.ec.BlockByNumber(context.Background(), nil)
 				if err != nil {
 					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
@@ -203,9 +206,18 @@ func (lp *logPoller) run() {
 					lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latest.NumberU64(), "finality", lp.finalityDepth)
 					continue
 				}
-				start = int64(latest.NumberU64()) - lp.finalityDepth + 1
+				// Starting at the first finalized block. We do not backfill the first finalized block.
+				start = int64(latest.NumberU64()) - lp.finalityDepth
 			} else {
 				start = lastProcessed.BlockNumber + 1
+			}
+			// Can only replay at heights we've already processed (no-op for future heights).
+			if replay < start {
+				start = replay
+				replay = 0 // Clear replay
+				lp.lggr.Warnw("Executing replay", "replay", replay)
+			} else {
+				lp.lggr.Warnw("Noop replay, block not processed yet", "start", start, "replay", replay)
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
 		}
@@ -364,15 +376,16 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	if err1 != nil {
 		// If there's an error handling the reorg, we can't be sure what state the db was left in.
 		// Resume from the latest block saved.
-		lp.lggr.Errorf("Unable to get current block", "err", err1)
+		lp.lggr.Errorw("Unable to get current block", "err", err1)
 		return
 	}
 	currentBlockNumber = currentBlock.Number().Int64()
-	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs. Log insertion is idempotent this is ok.
+	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
+	// Log insertion is idempotent so this is ok.
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
 	// Although 5 is finalized, we still need to save it to the db for reorg detection if 6 is a reorg.
-	// start = currentBlockNumber = 3, end = latestBlockNumber - finality = 7-2 = 5 (inclusive range).
-	if (latestBlockNumber - currentBlockNumber) >= lp.finalityDepth {
+	// start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
+	if (latestBlockNumber - currentBlockNumber) >= (lp.finalityDepth + 1) {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", latestBlockNumber-lp.finalityDepth-1)
 		currentBlockNumber = lp.backfill(ctx, currentBlockNumber, latestBlockNumber-lp.finalityDepth-1)
 	}
@@ -383,7 +396,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		if err2 != nil {
 			// If there's an error handling the reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
-			lp.lggr.Errorf("Unable to get current block", "err", err1)
+			lp.lggr.Errorw("Unable to get current block", "err", err1)
 			return
 		}
 		currentBlockNumber = currentBlock.Number().Int64()
@@ -422,13 +435,16 @@ func (lp *logPoller) findBlockAfterLCA(current *types.Block) (*types.Block, erro
 	}
 	blockAfterLCA := *current
 	startBlockNumber := parent.Number().Int64()
-	for parent.Number().Int64() >= (startBlockNumber - lp.finalityDepth) {
+	// We expected reorgs up to the block after (current - finalityDepth),
+	// since the block at (current - finalityDepth) is finalized.
+	// We loop via parent instead of current so current always holds the LCA+1.
+	for parent.Number().Int64() > (startBlockNumber - lp.finalityDepth) {
 		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number().Int64())
 		if err != nil {
 			return nil, err
 		}
 		if parent.Hash() == ourParentBlockHash.BlockHash {
-			// If we do have the blockhash, BlockAfterLCA
+			// If we do have the blockhash, return blockAfterLCA
 			return &blockAfterLCA, nil
 		}
 		// Otherwise get a new parent and update blockAfterLCA.
