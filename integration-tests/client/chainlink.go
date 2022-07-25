@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-
-	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -16,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
