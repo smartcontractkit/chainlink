@@ -230,7 +230,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 			"jobID":                 ex.job.ID,
 			"fromAddress":           upkeep.Registry.FromAddress.String(),
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
-			"upkeepID":              upkeep.UpkeepID,
+			"upkeepID":              upkeep.UpkeepID.String(),
 			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
