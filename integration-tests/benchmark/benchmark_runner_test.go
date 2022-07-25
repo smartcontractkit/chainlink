@@ -91,8 +91,6 @@ func benchmarkTestHelper(
 			"KEEPER_TURN_FLAG_ENABLED":       "true",
 			"CHAINLINK_DEV":                  "false",
 			"HTTP_SERVER_WRITE_TIMEOUT":      "6m",
-			"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "200",
-			"ETH_MAX_QUEUED_TRANSACTIONS":    "500",
 		},
 		"chainlink": map[string]interface{}{
 			"resources": map[string]interface{}{
