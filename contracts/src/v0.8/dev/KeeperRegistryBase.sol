@@ -32,6 +32,16 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes4 public PERFORM_DATA_PADDING = 0xffffffff;
   bytes32 public ESTIMATED_MSG_DATA = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
+  uint256 public s_gasLimit;
+  uint256 public s_l1;
+  uint256 public s_l1GasWei;
+  uint256 public s_l1CostWei;
+  uint256 public s_l1CostWei2;
+  uint256 public s_l2;
+  uint256 public s_gasWei;
+  uint256 public s_weiForGas;
+  uint256 public s_linkEth;
+
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
@@ -210,11 +220,34 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 gasLimit,
     uint256 gasWei,
     uint256 linkEth,
-    uint256 l1CostWei
+    bool isExecution,
+    bytes memory data
   ) internal view returns (uint96 payment) {
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
+
+    uint256 l1CostWei = 0;
+    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
+      s_l1GasWei = l1GasWei;
+      l1CostWei = gasLimit * l1GasWei;
+      s_l1CostWei2 = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
+    }
+
     uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(s_storage.flatFeeMicroLink) * 1e12;
+
+    uint256 l1 = (l1CostWei * 1e9 * premium) / linkEth;
+    s_l1 = l1;
+    uint256 l2 = (weiForGas * 1e9 * premium) / linkEth;
+    s_l2 = l2;
+    s_l1CostWei = l1CostWei;
+    s_gasWei = gasWei;
+    s_linkEth = linkEth;
+    s_gasLimit = gasLimit;
+    s_weiForGas = weiForGas;
+
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
@@ -254,7 +287,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
     uint256 adjustedGasWei = _adjustGasPrice(gasWei, isExecution);
-    uint256 l1CostWei = 0;
+    //uint256 l1CostWei = 0;
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       if (isExecution) {
@@ -263,16 +296,16 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         data = bytes.concat(performData, PERFORM_DATA_PADDING);
         data = bytes.concat(data, L1_FEE_DATA_PADDING);
       }
-      l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
+      //l1CostWei = OPTIMISM_ORACLE.getL1Fee(data);
     } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
-      if (isExecution) {
-        l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
-      } else {
-        (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
-        l1CostWei = gasLimit * l1GasWei;
-      }
+      //      if (isExecution) {
+      //        l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
+      //      } else {
+      //        (, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
+      //        l1CostWei = gasLimit * l1GasWei;
+      //      }
     }
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, l1CostWei);
+    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, isExecution, data);
 
     return
       PerformParams({
