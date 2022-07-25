@@ -243,7 +243,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	})
 
 	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
-	ex.job.PipelineSpec.DotDagSource = observationSource
+	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {

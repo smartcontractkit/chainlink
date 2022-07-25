@@ -5,22 +5,19 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	ethdeploy "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,21 +28,12 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRFv2 suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
-				ethdeploy.New(nil),
-				chainlink.New(0, nil),
-			),
-			Entry("VRFv2 suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
-				ethdeploy.New(&ethdeploy.Props{
-					NetworkName: networks.MetisStardust.Name,
-					Simulated:   networks.MetisStardust.Simulated,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env": networks.MetisStardust.ChainlinkValuesMap(),
-				}),
-			),
+			Entry("VRFv2 suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(5)),
+			Entry("VRFv2 suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.05)),
+			Entry("VRFv2 suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
+			Entry("VRFv2 suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
+			Entry("VRFv2 suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
+			Entry("VRFv2 suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
 		}
 
 		testEnvironment *environment.Environment
@@ -63,23 +51,30 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	})
 
 	DescribeTable("VRFv2 suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
-		evmChart environment.ConnectedChart,
-		chainlinkCharts ...environment.ConnectedChart,
+		testNetwork *blockchain.EVMNetwork,
+		funding *big.Float,
 	) {
-		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrfv2"}).
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart)
-		for _, chainlinkChart := range chainlinkCharts {
-			testEnvironment.AddHelm(chainlinkChart)
+		evmChart := ethdeploy.New(nil)
+		if !testNetwork.Simulated {
+			evmChart = ethdeploy.New(&ethdeploy.Props{
+				NetworkName: testNetwork.Name,
+				Simulated:   testNetwork.Simulated,
+				WsURLs:      testNetwork.URLs,
+			})
 		}
+		By("Deploying the environment")
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
+			AddHelm(evmChart).
+			AddHelm(chainlink.New(0, map[string]interface{}{
+				"env": testNetwork.ChainlinkValuesMap(),
+			}))
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = clientFunc(testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(testNetwork, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred())
 		contractDeployer, err := contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -98,7 +93,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		consumer, err := contractDeployer.DeployVRFConsumerV2(linkToken.Address(), coordinator.Address())
 		Expect(err).ShouldNot(HaveOccurred())
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(10))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(1))
 		Expect(err).ShouldNot(HaveOccurred())
 		err = chainClient.WaitForEvents()
 		Expect(err).ShouldNot(HaveOccurred())

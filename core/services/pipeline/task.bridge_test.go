@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -137,7 +137,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -147,7 +147,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 			Result decimal.Decimal `json:"result"`
 		} `json:"data"`
 	}
-	json.Unmarshal([]byte(result.Value.(string)), &x)
+	err = json.Unmarshal([]byte(result.Value.(string)), &x)
+	require.NoError(t, err)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
@@ -191,7 +192,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(cfg, db, id, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 
@@ -365,7 +366,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
@@ -382,7 +383,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 						Result decimal.Decimal `json:"result"`
 					} `json:"data"`
 				}
-				json.Unmarshal([]byte(result.Value.(string)), &x)
+				err = json.Unmarshal([]byte(result.Value.(string)), &x)
+				require.NoError(t, err)
 				require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 			}
 		})
@@ -430,7 +432,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
 	mp := map[string]interface{}{"meta": metaDataForBridge}
-	res, _ := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
+	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
 	assert.Nil(t, res.Error)
 
 	assert.True(t, httpCalled.Load())
@@ -479,7 +481,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
@@ -493,7 +495,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 						Result decimal.Decimal `json:"result"`
 					} `json:"data"`
 				}
-				json.Unmarshal([]byte(result.Value.(string)), &x)
+				err = json.Unmarshal([]byte(result.Value.(string)), &x)
+				require.NoError(t, err)
 				require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 			}
 		})
@@ -529,7 +532,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -564,7 +567,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -585,7 +588,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	task.HelperSetDependencies(cfg, db, uuid.UUID{}, c)
 
-	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.Nil(t, result.Value)

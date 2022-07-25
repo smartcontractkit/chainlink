@@ -22,9 +22,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 		name, email, pwd string
 	}{
 		{"bad email", "notreal", cltest.Password},
-		{"bad pwd", cltest.APIEmail, "mostcommonwrongpwdever"},
+		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever"},
 		{"bad both", "notreal", "mostcommonwrongpwdever"},
-		{"correct", cltest.APIEmail, cltest.Password},
+		{"correct", cltest.APIEmailAdmin, cltest.Password},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -53,9 +53,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 		wantError        bool
 	}{
 		{"bad email", "notreal", cltest.Password, true},
-		{"bad pwd", cltest.APIEmail, "mostcommonwrongpwdever", true},
+		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever", true},
 		{"bad both", "notreal", "mostcommonwrongpwdever", true},
-		{"success", cltest.APIEmail, cltest.Password, false},
+		{"success", cltest.APIEmailAdmin, cltest.Password, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
-	t.Parallel()
+	email := "good@email.com"
 
 	tests := []struct {
 		name           string
@@ -127,22 +127,23 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		isTerminal     bool
 		isError        bool
 	}{
-		{"correct", []string{"good@email.com", testutils.Password}, true, false},
-		{"bad pwd then correct", []string{"good@email.com", "p4SsW0r", "good@email.com", testutils.Password}, true, false},
-		{"bad email then correct", []string{"", testutils.Password, "good@email.com", testutils.Password}, true, false},
+		{"correct", []string{email, cltest.Password}, true, false},
+		{"bad pwd then correct", []string{email, "p4SsW0r", email, cltest.Password}, true, false},
+		{"bad email then correct", []string{"", cltest.Password, email, cltest.Password}, true, false},
 		{"not a terminal", []string{}, false, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
-			tai := cmd.NewPromptingAPIInitializer(mock)
+			tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
 
-			// Remove fixture user
-			err := orm.DeleteUser()
-			require.NoError(t, err)
+			// Clear out fixture users/users created from the other test cases
+			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+			// create/run with a new admin user
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			user, err := tai.Initialize(orm)
 			if test.isError {
@@ -151,7 +152,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, len(test.enteredStrings), mock.Count)
 
-				persistedUser, err := orm.FindUser()
+				persistedUser, err := orm.FindUser(email)
 				assert.NoError(t, err)
 
 				assert.Equal(t, user.Email, persistedUser.Email)
@@ -162,17 +163,23 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	t.Parallel()
-
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
+
+	// Clear out fixture users/users created from the other test cases
+	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+	// create/run with a new admin user
+	_, err := db.Exec("DELETE FROM users;")
+	require.NoError(t, err)
 
 	initialUser := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{T: t}
-	tai := cmd.NewPromptingAPIInitializer(mock)
+	tai := cmd.NewPromptingAPIInitializer(mock, logger.TestLogger(t))
 
+	// If there is an existing user, and we are in the Terminal prompt, no input prompts required
 	user, err := tai.Initialize(orm)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, mock.Count)
@@ -194,9 +201,12 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-			// Clear out fixture user
-			orm.DeleteUser()
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+
+			// Clear out fixture users/users created from the other test cases
+			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+			// create/run with a new admin user
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
 			user, err := tfi.Initialize(orm)
@@ -204,8 +214,8 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, cltest.APIEmail, user.Email)
-				persistedUser, err := orm.FindUser()
+				assert.Equal(t, cltest.APIEmailAdmin, user.Email)
+				persistedUser, err := orm.FindUser(user.Email)
 				assert.NoError(t, err)
 				assert.Equal(t, persistedUser.Email, user.Email)
 			}
@@ -214,17 +224,16 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	t.Parallel()
-
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg)
 
 	tests := []struct {
 		name      string
 		file      string
 		wantError bool
 	}{
-		{"correct", "internal/fixtures/apicredentials", false},
+		{"correct", "../internal/fixtures/apicredentials", false},
 		{"no file", "", true},
 		{"incorrect file", "/tmp/doesnotexist", true},
 	}
@@ -232,8 +241,12 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
 			user, err := tfi.Initialize(orm)
-			assert.NoError(t, err)
-			assert.Equal(t, cltest.APIEmail, user.Email)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, cltest.APIEmailAdmin, user.Email)
+			}
 		})
 	}
 }
@@ -270,7 +283,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 		wantError             bool
 	}{
 		{"empty", "", "", true},
-		{"correct file", "../internal/fixtures/apicredentials", cltest.APIEmail, false},
+		{"correct file", "../internal/fixtures/apicredentials", cltest.APIEmailAdmin, false},
 		{"incorrect file", "/tmp/dontexist", "", true},
 	}
 
