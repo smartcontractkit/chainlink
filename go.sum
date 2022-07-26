@@ -1667,12 +1667,12 @@ github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink-relay v0.1.4 h1:MtLcRe2PuP0dY1LQPaMdYqqQSHh3veBhS6gxxRCvbiI=
 github.com/smartcontractkit/chainlink-relay v0.1.4/go.mod h1:ODzTQ5y/i3/9EQzfv1MxKXG9N+BUGOSw/xTNkdY1kcw=
-github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220719172311-5cf4d3a2e7c6 h1:VC1pwFGnnHGR13550fwcVJZrRduzM3665WG3PJ7pFh4=
-github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220719172311-5cf4d3a2e7c6/go.mod h1:ioSfkYRG1qQ2RfUceCt7Rn3RO7ujdZPzlGBPv/KrOZw=
+github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220726142833-8d47fbc80c06 h1:BCr85F2vQsN2dCDAhJmOgNs/j63GGwrgG+7DMSIb6Gg=
+github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220726142833-8d47fbc80c06/go.mod h1:ioSfkYRG1qQ2RfUceCt7Rn3RO7ujdZPzlGBPv/KrOZw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220729175036-d01d60ffd0b4 h1:N4UxpCGjymk4hpDfOLewjcmqrolOvEbAE+da6ill3QE=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220729175036-d01d60ffd0b4/go.mod h1:KPGa7AfPNBfPqPbl1c/7lNipFaxG/6Lvf3dRcY60+Yo=
-github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220719173444-38c59d9ad3b2 h1:Q9D5mUNgxUH6uRWWDjNLs9nrZOTo9JvWdsXn85fVf8I=
-github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220719173444-38c59d9ad3b2/go.mod h1:yspvVUsG5t4OhELSIj9O5dQsz7UqzO8z9J8Ys7scHeU=
+github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220726142934-12e423cf28ba h1:7jfRNHwLA/kK1jcKSqH+gWc0E3CwGTZ6AvYy+IgybRM=
+github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220726142934-12e423cf28ba/go.mod h1:yspvVUsG5t4OhELSIj9O5dQsz7UqzO8z9J8Ys7scHeU=
 github.com/smartcontractkit/chainlink-testing-framework v1.1.18 h1:5OaKWgyRSkPyueJaYjwwGNgJHrcv8fH2C03GyVXAzY8=
 github.com/smartcontractkit/helmenv v1.0.71 h1:M94EYcDbyu9zBn2iiNJ3rKxpPqJHT4AjY3yQod08QcU=
 github.com/smartcontractkit/libocr v0.0.0-20220726132443-ef1f5a4b63d0 h1:jKnLPHAE7x5SDLG6PnLqwg+IeZ8gFSmg0iKBJsSuflo=

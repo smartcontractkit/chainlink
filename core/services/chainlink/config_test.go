@@ -187,7 +187,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.Feature = &config.Feature{
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
-		UICSA:        ptr(true),
+		UICSAKeys:    ptr(true),
 	}
 	full.Database = &config.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
@@ -530,7 +530,7 @@ ShutdownGracePeriod = '10s'
 [Feature]
 FeedsManager = true
 LogPoller = true
-UICSA = true
+UICSAKeys = true
 `},
 		{"Database", Config{Core: config.Core{Database: full.Database}}, `
 [Database]
@@ -972,7 +972,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewGeneralConfig(tt.inputConfig, lggr)
+			c, err := NewGeneralConfig(tt.inputConfig)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()

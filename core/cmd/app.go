@@ -53,7 +53,7 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringFlag{
 			Name:   "config, c",
-			Usage:  "TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.", //TODO
+			Usage:  "EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.",
 			EnvVar: "CL_CONFIG",
 		},
 	}
@@ -70,11 +70,11 @@ func NewApp(client *Client) *cli.App {
 				configTOML = string(b)
 			}
 			var err error
-			client.Config, err = chainlink.NewGeneralConfig(configTOML, client.Logger)
+			client.Config, err = chainlink.NewGeneralConfig(configTOML)
 			if err != nil {
 				return err
 			}
-			//TODO error if any legacy env vars set
+			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
 		} else {
 			// Legacy ENV
 			client.Config = config.NewGeneralConfig(client.Logger)

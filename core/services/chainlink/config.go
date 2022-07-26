@@ -58,13 +58,13 @@ func (c *Config) Validate() error {
 
 // SetDefaults initializes unset fields with default values.
 func (c *Config) SetDefaults() {
-	//TODO core defaults c.Core.SetDefaults()
+	//TODO core defaults c.Core.SetDefaults() https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
 	for _, input := range c.EVM {
 		ch, _ := evmcfg.Defaults(input.ChainID)
 		ch.SetFrom(&input.Chain)
 		input.Chain = ch
 	}
-	//TODO terra and solana defaults
+	//TODO terra and solana defaults https://app.shortcut.com/chainlinklabs/story/37975/chains-nodes-should-be-read-from-the-config-interface
 }
 
 type EVMConfigs []*EVMConfig

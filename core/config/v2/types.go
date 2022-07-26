@@ -58,7 +58,7 @@ type Secrets struct {
 type Feature struct {
 	FeedsManager *bool
 	LogPoller    *bool
-	UICSA        *bool
+	UICSAKeys    *bool
 }
 
 type Database struct {
@@ -169,7 +169,7 @@ type FluxMonitor struct {
 }
 
 type OCR2 struct {
-	Enabled                            *bool //TODO disabled
+	Enabled                            *bool //TODO disabled https://app.shortcut.com/chainlinklabs/story/33615/
 	ContractConfirmations              *uint32
 	BlockchainTimeout                  *models.Duration
 	ContractPollInterval               *models.Duration
@@ -180,7 +180,7 @@ type OCR2 struct {
 }
 
 type OCR struct {
-	Enabled                      *bool //TODO disabled
+	Enabled                      *bool //TODO disabled https://app.shortcut.com/chainlinklabs/story/33615/
 	ObservationTimeout           *models.Duration
 	BlockchainTimeout            *models.Duration
 	ContractPollInterval         *models.Duration
@@ -253,7 +253,7 @@ type Keeper struct {
 }
 
 type AutoPprof struct {
-	Enabled              *bool //TODO Disabled?
+	Enabled              *bool //TODO Disabled https://app.shortcut.com/chainlinklabs/story/33615/
 	ProfileRoot          *string
 	PollInterval         *models.Duration
 	GatherDuration       *models.Duration

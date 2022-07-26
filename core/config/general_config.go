@@ -60,9 +60,11 @@ type FeatureFlags interface {
 	StarkNetEnabled() bool
 }
 
+type LogFn func(...any)
+
 type GeneralOnlyConfig interface {
 	Validate() error
-	LogConfiguration(log func(...any))
+	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 
@@ -313,7 +315,7 @@ func newGeneralConfigWithViper(v *viper.Viper, lggr logger.Logger) (config *gene
 	return
 }
 
-func (c *generalConfig) LogConfiguration(log func(...any)) {
+func (c *generalConfig) LogConfiguration(log LogFn) {
 	log("Environment variables\n", NewConfigPrinter(c))
 }
 

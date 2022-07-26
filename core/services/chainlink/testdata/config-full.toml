@@ -6,7 +6,7 @@ ShutdownGracePeriod = '10s'
 [Feature]
 FeedsManager = true
 LogPoller = true
-UICSA = true
+UICSAKeys = true
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1m0s'

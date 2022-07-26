@@ -13,8 +13,8 @@ ShutdownGracePeriod = '5s' # Default
 FeedsManager = false # Default
 # LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 LogPoller = false # Default
-# TODO
-UICSA = false # Default
+# UICSAKeys enables CSA Keys in the UI.
+UICSAKeys = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for queries to idle in transaction before timing out.

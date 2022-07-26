@@ -77,7 +77,7 @@ ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exce
 [Feature]
 FeedsManager = false # Default
 LogPoller = false # Default
-UICSA = false # Default
+UICSAKeys = false # Default
 ```
 
 
@@ -93,11 +93,11 @@ LogPoller = false # Default
 ```
 LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 
-### UICSA<a id='Feature-UICSA'></a>
+### UICSAKeys<a id='Feature-UICSAKeys'></a>
 ```toml
-UICSA = false # Default
+UICSAKeys = false # Default
 ```
-TODO
+UICSAKeys enables CSA Keys in the UI.
 
 ## Database<a id='Database'></a>
 ```toml

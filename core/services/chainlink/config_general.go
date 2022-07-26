@@ -19,7 +19,6 @@ import (
 
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -29,9 +28,9 @@ import (
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
-	input     string // user input, normalized via de/re-serialization
-	effective string // with default values included
-	c         *Config
+	inputTOML     string // user input, normalized via de/re-serialization
+	effectiveTOML string // with default values included
+	c             *Config
 
 	// state
 	appID     uuid.UUID
@@ -43,8 +42,8 @@ type generalConfig struct {
 	logMu           sync.RWMutex
 }
 
-func NewGeneralConfig(tomlString string, lggr logger.Logger) (coreconfig.GeneralConfig, error) {
-	lggr = lggr.Named("Config")
+// NewGeneralConfig returns a coreconfig.GeneralConfig derived from the tomlString.
+func NewGeneralConfig(tomlString string) (coreconfig.GeneralConfig, error) {
 	var c Config
 	err := toml.Unmarshal([]byte(tomlString), &c)
 	if err != nil {
@@ -61,16 +60,16 @@ func NewGeneralConfig(tomlString string, lggr logger.Logger) (coreconfig.General
 	if err != nil {
 		return nil, err
 	}
-	return &generalConfig{c: &c, input: input, effective: effective}, nil
+	return &generalConfig{c: &c, inputTOML: input, effectiveTOML: effective}, nil
 }
 
 func (g *generalConfig) Validate() error {
 	return g.c.Validate()
 }
 
-func (g *generalConfig) LogConfiguration(log func(...any)) {
-	log("Input Configuration:\n", g.input)
-	log("Effective Configuration, with defaults applied:\n", g.effective)
+func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
+	log("Input Configuration:\n", g.inputTOML)
+	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
 }
 
 func (g *generalConfig) Dev() bool {
@@ -98,7 +97,7 @@ func (g *generalConfig) FeatureLogPoller() bool {
 }
 
 func (g *generalConfig) FeatureUICSAKeys() bool {
-	return *g.c.Feature.UICSA
+	return *g.c.Feature.UICSAKeys
 }
 
 func (g *generalConfig) AutoPprofEnabled() bool {
@@ -107,7 +106,7 @@ func (g *generalConfig) AutoPprofEnabled() bool {
 
 func (g *generalConfig) EVMEnabled() bool {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e == true {
+		if e := c.Enabled; e != nil && *e {
 			return true
 		}
 	}
@@ -125,7 +124,7 @@ func (g *generalConfig) P2PEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if e := c.Enabled; e != nil && *e == true {
+		if e := c.Enabled; e != nil && *e {
 			return true
 		}
 	}
@@ -134,7 +133,7 @@ func (g *generalConfig) SolanaEnabled() bool {
 
 func (g *generalConfig) TerraEnabled() bool {
 	for _, c := range g.c.Terra {
-		if e := c.Enabled; e != nil && *e == true {
+		if e := c.Enabled; e != nil && *e {
 			return true
 		}
 	}
@@ -142,8 +141,8 @@ func (g *generalConfig) TerraEnabled() bool {
 }
 
 func (g *generalConfig) StarkNetEnabled() bool {
-	//TODO implement me
-	panic("implement me")
+	//TODO https://app.shortcut.com/chainlinklabs/story/43210/include-starknet
+	return false
 }
 
 func (g *generalConfig) AllowOrigins() string {

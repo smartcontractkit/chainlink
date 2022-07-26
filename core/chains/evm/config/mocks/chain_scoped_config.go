@@ -2967,7 +2967,7 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 }
 
 // LogConfiguration provides a mock function with given fields: log
-func (_m *ChainScopedConfig) LogConfiguration(log func([]interface{})) {
+func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogFn) {
 	_m.Called(log)
 }
 
