@@ -18,13 +18,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
 )
@@ -223,19 +221,17 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
-		cORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
-			Return([]*evmtypes.Head{
+		lp.On("GetBlocks", []uint64{195}).
+			Return([]logpoller.LogPollerBlock{
 				{
-					Number: 195,
-					Hash:   common.HexToHash("0x002"),
+					BlockNumber: 195,
+					BlockHash:   common.HexToHash("0x002"),
 				},
 			}, nil)
 
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -290,19 +286,17 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
-		cORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
-			Return([]*evmtypes.Head{
+		lp.On("GetBlocks", []uint64{195}).
+			Return([]logpoller.LogPollerBlock{
 				{
-					Number: 195,
-					Hash:   common.HexToHash("0x002"),
+					BlockNumber: 195,
+					BlockHash:   common.HexToHash("0x002"),
 				},
 			}, nil)
 
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -363,15 +357,13 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
 		var r []uint64
-		cORM.On("HeadsByNumbers", mock.Anything, r).
+		lp.On("GetBlocks", r).
 			Return(nil, nil)
 
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -435,15 +427,13 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
 		var r []uint64
-		cORM.On("HeadsByNumbers", mock.Anything, r).
+		lp.On("GetBlocks", r).
 			Return(nil, nil)
 
 		c := &coordinator{
 			coordinatorAddress: coordinatorAddress,
 			lp:                 lp,
-			orm:                cORM,
 			lookbackBlocks:     lookbackBlocks,
 			lggr:               logger.TestLogger(t),
 			topics:             tp,
@@ -467,27 +457,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	c := &coordinator{}
 	assert.NoError(t, c.ReportWillBeTransmitted(context.TODO(), ocr2vrftypes.AbstractReport{}))
-}
-
-func TestCoordinator_MarshalUnmarshal_2(t *testing.T) {
-	lg := logpoller.Log{
-		Data: hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000003"),
-		Topics: [][]byte{
-			hexutil.MustDecode("0xc334d6f57be304c8192da2e39220c48e35f7e9afa16c541e68a6a859eff4dbc5"),
-			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000a8d8b4"),
-		},
-		EventSig:    hexutil.MustDecode("0xc334d6f57be304c8192da2e39220c48e35f7e9afa16c541e68a6a859eff4dbc5"),
-		Address:     newAddress(t),
-		BlockHash:   common.HexToHash("0x3d78cfc205ce2441ecfef205948c5c62258d9007c085405a790da0158737cbbe"),
-		TxHash:      common.HexToHash("0xcacda312e8c06b9472c162506742124bafe5037c1596514f20c18f20ff8b805b"),
-		BlockNumber: 11065522,
-		LogIndex:    60,
-		EvmChainId:  utils.NewBigI(4),
-	}
-	r, err := unmarshalRandomnessRequested(lg)
-	require.NoError(t, err)
-	assert.Equal(t, uint64(3), r.ConfDelay.Uint64())
-	assert.Equal(t, uint64(11065524), r.NextBeaconOutputHeight)
 }
 
 func TestCoordinator_MarshalUnmarshal(t *testing.T) {
@@ -528,6 +497,64 @@ func TestCoordinator_MarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, int64(4), nt.OutputsServed[1].ConfirmationDelay.Int64())
 }
 
+func TestCoordinator_ReportIsOnchain(t *testing.T) {
+	t.Run("report is on-chain", func(t *testing.T) {
+		tp, err := newTopics()
+		require.NoError(t, err)
+		coordinatorAddress := newAddress(t)
+
+		epoch := uint32(20)
+		round := uint8(3)
+		epochAndRound := toEpochAndRoundUint40(epoch, round)
+		enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+		lp := &lp_mocks.LogPoller{}
+		lp.On("IndexedLogs", tp.newTransmissionTopic, coordinatorAddress, 2, []common.Hash{
+			enrTopic,
+		}, 1).Return([]logpoller.Log{
+			{
+				BlockNumber: 195,
+			},
+		}, nil)
+
+		c := &coordinator{
+			lp:                 lp,
+			lggr:               logger.TestLogger(t),
+			coordinatorAddress: coordinatorAddress,
+			topics:             tp,
+		}
+
+		present, err := c.ReportIsOnchain(context.TODO(), epoch, round)
+		assert.NoError(t, err)
+		assert.True(t, present)
+	})
+
+	t.Run("report is not on-chain", func(t *testing.T) {
+		tp, err := newTopics()
+		require.NoError(t, err)
+		coordinatorAddress := newAddress(t)
+
+		epoch := uint32(20)
+		round := uint8(3)
+		epochAndRound := toEpochAndRoundUint40(epoch, round)
+		enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+		lp := &lp_mocks.LogPoller{}
+		lp.On("IndexedLogs", tp.newTransmissionTopic, coordinatorAddress, 2, []common.Hash{
+			enrTopic,
+		}, 1).Return([]logpoller.Log{}, nil)
+
+		c := &coordinator{
+			lp:                 lp,
+			lggr:               logger.TestLogger(t),
+			coordinatorAddress: coordinatorAddress,
+			topics:             tp,
+		}
+
+		present, err := c.ReportIsOnchain(context.TODO(), epoch, round)
+		assert.NoError(t, err)
+		assert.False(t, present)
+	})
+
+}
 func newRandomnessRequestedLog(
 	t *testing.T,
 	confDelay int64,
@@ -642,10 +669,10 @@ func newNewTransmissionLog(
 ) logpoller.Log {
 	//event NewTransmission(
 	//  uint32 indexed aggregatorRoundId,
+	//  uint40 indexed epochAndRound,
 	//  address transmitter,
 	//  uint192 juelsPerFeeCoin,
 	//  bytes32 configDigest,
-	//  uint40 epochAndRound,
 	//  OutputServed[] outputsServed
 	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorNewTransmission{
@@ -663,8 +690,9 @@ func newNewTransmissionLog(
 		}
 	}
 	nonIndexedData, err := unindexed.Pack(
-		e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest, e.EpochAndRound, e.OutputsServed)
+		e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest, e.OutputsServed)
 	require.NoError(t, err)
+
 	// aggregatorRoundId is indexed
 	aggregatorRoundIDType, err := abi.NewType("uint32", "", nil)
 	require.NoError(t, err)
@@ -674,14 +702,28 @@ func newNewTransmissionLog(
 			Type: aggregatorRoundIDType,
 		},
 	}
-	indexedData, err := indexedArgs.Pack(e.AggregatorRoundId)
+	aggregatorPacked, err := indexedArgs.Pack(e.AggregatorRoundId)
 	require.NoError(t, err)
+
+	// epochAndRound is indexed
+	epochAndRoundType, err := abi.NewType("uint40", "", nil)
+	require.NoError(t, err)
+	indexedArgs = abi.Arguments{
+		{
+			Name: "epochAndRound",
+			Type: epochAndRoundType,
+		},
+	}
+	epochAndRoundPacked, err := indexedArgs.Pack(e.EpochAndRound)
+	require.NoError(t, err)
+
 	topic0 := vrfABI.Events[newTransmissionEvent].ID.Bytes()
 	return logpoller.Log{
 		Data: nonIndexedData,
 		Topics: [][]byte{
 			topic0,
-			indexedData,
+			aggregatorPacked,
+			epochAndRoundPacked,
 		},
 		EventSig: topic0,
 	}

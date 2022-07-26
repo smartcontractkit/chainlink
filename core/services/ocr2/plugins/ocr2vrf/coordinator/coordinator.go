@@ -63,7 +63,6 @@ type coordinator struct {
 	dkgAddress common.Address
 
 	evmClient evmclient.Client
-	orm       ORM
 
 	// set of blocks that have been scheduled for transmission.
 	toBeTransmittedBlocks map[block]struct{}
@@ -81,7 +80,6 @@ func New(
 	client evmclient.Client,
 	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
-	orm ORM,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
 	coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, client)
 	if err != nil {
@@ -89,6 +87,9 @@ func New(
 	}
 
 	t, err := newTopics()
+	if err != nil {
+		return nil, errors.Wrap(err, "new topics")
+	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
@@ -117,12 +118,44 @@ func New(
 		topics:                   t,
 		lookbackBlocks:           lookbackBlocks,
 		evmClient:                client,
-		orm:                      orm,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
 		toBeTransmittedBlocks:    make(map[block]struct{}),
 		toBeTransmittedCallbacks: make(map[uint64]struct{}),
 		transmittedMu:            sync.Mutex{},
 	}, nil
+}
+
+// ReportIsOnchain returns true iff a report for the given OCR epoch/round is
+// present onchain.
+func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round uint8) (presentOnchain bool, err error) {
+	// Check if a NewTransmission event was emitted on-chain with the
+	// provided epoch and round.
+
+	epochAndRound := toEpochAndRoundUint40(epoch, round)
+
+	// this is technically NOT a hash in the regular meaning,
+	// however it has the same size as a common.Hash. We need
+	// to left-pad by bytes because it has to be 256 (or 32 bytes)
+	// long in order to use as a topic filter.
+	enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+
+	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
+	logs, err := c.lp.IndexedLogs(
+		c.topics.newTransmissionTopic,
+		c.coordinatorAddress,
+		2,
+		[]common.Hash{
+			enrTopic,
+		},
+		1,
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		return false, errors.Wrap(err, "log poller IndexedLogs")
+	}
+
+	c.lggr.Info(fmt.Sprintf("NewTransmission logs: %+v", logs))
+
+	return len(logs) >= 1, nil
 }
 
 // ReportBlocks returns the heights and hashes of the blocks which require VRF
@@ -249,7 +282,7 @@ func (c *coordinator) getBlocks(
 	ctx context.Context,
 	blocksRequested map[block]struct{},
 ) (blocks []ocr2vrftypes.Block, err error) {
-	// Get all the block hashes for the blocks that we need to service from the head saver.
+	// Get all the block hashes for the blocks that we need to service from the log poller.
 	// Note that we do this to avoid making an RPC call for each block height separately.
 	// Alternatively, we could do a batch RPC call.
 	var blockHeights []uint64
@@ -257,26 +290,21 @@ func (c *coordinator) getBlocks(
 		blockHeights = append(blockHeights, k.blockNumber)
 	}
 
-	// TODO: is it possible that the head saver doesn't have some of these heights?
-	heads, err := c.orm.HeadsByNumbers(ctx, blockHeights)
-	if err != nil {
-		err = errors.Wrap(err, "heads by numbers")
-		return
-	}
+	heads, err := c.lp.GetBlocks(blockHeights, pg.WithParentCtx(ctx))
 	if len(heads) != len(blockHeights) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockHeights), len(heads))
 		return
 	}
 
-	headSet := make(map[uint64]*evmtypes.Head)
+	headSet := make(map[uint64]logpoller.LogPollerBlock)
 	for _, h := range heads {
-		headSet[uint64(h.Number)] = h
+		headSet[uint64(h.BlockNumber)] = h
 	}
 
 	for k, _ := range blocksRequested {
 		if head, ok := headSet[k.blockNumber]; ok {
 			blocks = append(blocks, ocr2vrftypes.Block{
-				Hash:              head.Hash,
+				Hash:              head.BlockHash,
 				Height:            k.blockNumber,
 				ConfirmationDelay: k.confDelay,
 			})
@@ -578,4 +606,11 @@ func isBlockEligible(nextBeaconOutputHeight uint64, confDelay *big.Int, currentH
 	cond := confDelay.Int64() < currentHeight // Edge case: for simulated chains with low block numbers
 	cond = cond && (nextBeaconOutputHeight+confDelay.Uint64()) < uint64(currentHeight)
 	return cond
+}
+
+// toEpochAndRoundUint40 returns a single unsigned 40 bit big.Int object
+// that has the epoch in the first 32 bytes and the round in the last 8 bytes,
+// in a big-endian fashion.
+func toEpochAndRoundUint40(epoch uint32, round uint8) *big.Int {
+	return big.NewInt((int64(epoch) << 8) + int64(round))
 }

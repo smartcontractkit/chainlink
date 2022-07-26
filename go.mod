@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220725131406-68dfccf83e02
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220721214331-2e782819eb1d
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220726203304-398b239a1177
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a

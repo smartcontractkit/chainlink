@@ -121,10 +121,10 @@ func unmarshalRandomWordsFulfilled(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoo
 func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordinatorNewTransmission, err error) {
 	//event NewTransmission(
 	//  uint32 indexed aggregatorRoundId,
+	//  uint40 indexed epochAndRound,
 	//  address transmitter,
 	//  uint192 juelsPerFeeCoin,
 	//  bytes32 configDigest,
-	//  uint40 epochAndRound,
 	//  OutputServed[] outputsServed
 	//);
 	args := vrfABI.Events[newTransmissionEvent].Inputs
@@ -134,8 +134,7 @@ func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordina
 	if err != nil {
 		return r, errors.Wrapf(err, "unpack %s into map (RandomWordsFulfilled)", hexutil.Encode(lg.Data))
 	}
-
-	r.EpochAndRound = *abi.ConvertType(m["epochAndRound"], new(*big.Int)).(**big.Int)
+	
 	r.OutputsServed = *abi.ConvertType(m["outputsServed"], new([]vrf_wrapper.VRFBeaconReportOutputServed)).(*[]vrf_wrapper.VRFBeaconReportOutputServed)
 	r.ConfigDigest = *abi.ConvertType(m["configDigest"], new([32]byte)).(*[32]byte)
 	r.JuelsPerFeeCoin = *abi.ConvertType(m["juelsPerFeeCoin"], new(*big.Int)).(**big.Int)
@@ -157,6 +156,24 @@ func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordina
 		return r, errors.Wrap(err, "unpack aggregatorRoundId")
 	}
 	r.AggregatorRoundId = *abi.ConvertType(aggregatorRoundIDInterface[0], new(uint32)).(*uint32)
+
+	// epochAndRound is indexed
+	epochAndRoundType, err := abi.NewType("uint40", "", nil)
+	if err != nil {
+		return r, errors.Wrap(err, "abi NewType uint40")
+	}
+	indexedArgs = abi.Arguments{
+		{
+			Name: "epochAndRound",
+			Type: epochAndRoundType,
+		},
+	}
+	epochAndRoundInterface, err := indexedArgs.Unpack(lg.Topics[2])
+	if err != nil {
+		return r, errors.Wrap(err, "unpack epochAndRound")
+	}
+	r.EpochAndRound = *abi.ConvertType(epochAndRoundInterface[0], new(*big.Int)).(**big.Int)
+
 	r.Raw = types.Log{
 		Data:        lg.Data,
 		Address:     lg.Address,
