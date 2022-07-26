@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -1228,8 +1229,25 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					assert.NoError(t, err)
 					assert.False(t, retryable)
 				}
-			})
 
+				// same as the parent test, but callback is set by ctor
+				t.Run("callback set by ctor", func(t *testing.T) {
+					eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
+					err := eventBroadcaster.Start(testutils.Context(t))
+					require.NoError(t, err)
+					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
+					lggr := logger.TestLogger(t)
+					eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
+						[]ethkey.State{keyState}, gas.NewFixedPriceEstimator(evmcfg, lggr), fn, lggr,
+						&testCheckerFactory{})
+
+					{
+						err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+						assert.NoError(t, err)
+						assert.False(t, retryable)
+					}
+				})
+			})
 		})
 
 		ethClient.AssertExpectations(t)
