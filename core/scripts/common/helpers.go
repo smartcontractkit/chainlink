@@ -17,12 +17,29 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/shopspring/decimal"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 )
 
 type Environment struct {
 	Owner   *bind.TransactOpts
 	Ec      *ethclient.Client
 	ChainID int64
+}
+
+func DeployLinkToken(e Environment) common.Address {
+	_, tx, _, err := link_token_interface.DeployLinkToken(e.Owner, e.Ec)
+	PanicErr(err)
+	return ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func DeployLinkEthFeed(e Environment, linkAddress string, weiPerUnitLink *big.Int) common.Address {
+	_, tx, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			e.Owner, e.Ec, 18, weiPerUnitLink)
+	PanicErr(err)
+	return ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 // SetupEnv returns an Environment object populated from environment variables.
@@ -228,4 +245,29 @@ func ParseHashSlice(arg string) (ret []common.Hash) {
 		ret = append(ret, common.HexToHash(part))
 	}
 	return
+}
+
+func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
+	block, err := e.Ec.BlockNumber(context.Background())
+	PanicErr(err)
+
+	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
+	PanicErr(err)
+
+	for i := 0; i < len(transmitters); i++ {
+		tx := types.NewTransaction(
+			nonce+uint64(i),
+			common.HexToAddress(transmitters[i]),
+			fundingAmount,
+			uint64(21000),
+			e.Owner.GasPrice,
+			nil,
+		)
+		signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+		PanicErr(err)
+		err = e.Ec.SendTransaction(context.Background(), signedTx)
+		PanicErr(err)
+
+		fmt.Printf("Sending to %s: %s\n", transmitters[i], ExplorerLink(e.ChainID, signedTx.Hash()))
+	}
 }

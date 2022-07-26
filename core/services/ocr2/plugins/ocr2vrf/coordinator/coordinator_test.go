@@ -7,16 +7,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	vrf_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/vrfbeaconcoordinator"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
@@ -214,18 +217,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 191),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 192),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 193),
-			},
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessRequestedLog(t, 3, 195, 192),
+			newRandomnessRequestedLog(t, 3, 195, 193),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
@@ -290,18 +284,9 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 191, 1),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 192, 2),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 193, 3),
-			},
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
@@ -366,27 +351,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 191),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 192),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 193),
-			},
-			{
-				EventSig: tp.newTransmissionTopic[:],
-				Data: newNewTransmissionData(t, []vrf_wrapper.VRFBeaconReportOutputServed{
-					{
-						Height:            195,
-						ConfirmationDelay: big.NewInt(3),
-					},
-				}),
-			},
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessRequestedLog(t, 3, 195, 192),
+			newRandomnessRequestedLog(t, 3, 195, 193),
+			newNewTransmissionLog(t, []vrf_wrapper.VRFBeaconReportOutputServed{
+				{
+					Height:            195,
+					ConfirmationDelay: big.NewInt(3),
+				},
+			}),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
@@ -447,33 +420,18 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 191, 1),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 192, 2),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 193, 3),
-			},
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
 			// Both RandomWordsFulfilled and NewTransmission events are emitted
 			// when a VRF fulfillment happens on chain.
-			{
-				EventSig: tp.randomWordsFulfilledTopic[:],
-				Data:     newRandomWordsFulfilledData(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}),
-			},
-			{
-				EventSig: tp.newTransmissionTopic[:],
-				Data: newNewTransmissionData(t, []vrf_wrapper.VRFBeaconReportOutputServed{
-					{
-						Height:            195,
-						ConfirmationDelay: big.NewInt(3),
-					},
-				}),
-			},
+			newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}),
+			newNewTransmissionLog(t, []vrf_wrapper.VRFBeaconReportOutputServed{
+				{
+					Height:            195,
+					ConfirmationDelay: big.NewInt(3),
+				},
+			}),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
@@ -511,57 +469,121 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 	assert.NoError(t, c.ReportWillBeTransmitted(context.TODO(), ocr2vrftypes.AbstractReport{}))
 }
 
-func TestCoordinator_MarshalUnmarshal(t *testing.T) {
-	packed := newRandomnessRequestedData(t, 10, 100, 95)
-	t.Log("RandomnessRequested:", hexutil.Encode(packed))
-	unpacked, err := unmarshalRandomnessRequested(logpoller.Log{
-		Data: packed,
-	})
+func TestCoordinator_MarshalUnmarshal_2(t *testing.T) {
+	lg := logpoller.Log{
+		Data: hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000003"),
+		Topics: [][]byte{
+			hexutil.MustDecode("0xc334d6f57be304c8192da2e39220c48e35f7e9afa16c541e68a6a859eff4dbc5"),
+			hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000a8d8b4"),
+		},
+		EventSig:    hexutil.MustDecode("0xc334d6f57be304c8192da2e39220c48e35f7e9afa16c541e68a6a859eff4dbc5"),
+		Address:     newAddress(t),
+		BlockHash:   common.HexToHash("0x3d78cfc205ce2441ecfef205948c5c62258d9007c085405a790da0158737cbbe"),
+		TxHash:      common.HexToHash("0xcacda312e8c06b9472c162506742124bafe5037c1596514f20c18f20ff8b805b"),
+		BlockNumber: 11065522,
+		LogIndex:    60,
+		EvmChainId:  utils.NewBigI(4),
+	}
+	r, err := unmarshalRandomnessRequested(lg)
 	require.NoError(t, err)
-	t.Logf("Unmarshaled: %+v", unpacked)
-
-	packed = newRandomnessFulfillmentRequestedData(t, 10, 100, 95, 1)
-	t.Log("RandomnessFulfillmentRequested:", hexutil.Encode(packed))
-	unpackedF, err := unmarshalRandomnessFulfillmentRequested(logpoller.Log{
-		Data: packed,
-	})
-	require.NoError(t, err)
-	t.Logf("Unmarshaled: %+v", unpackedF)
-
-	packed = newRandomWordsFulfilledData(t, []*big.Int{big.NewInt(1), big.NewInt(2)}, []byte{1, 1})
-	t.Log("RandomWordsFulfilled:", hexutil.Encode(packed))
-	unpackedFF, err := unmarshalRandomWordsFulfilled(logpoller.Log{
-		Data: packed,
-	})
-	require.NoError(t, err)
-	t.Logf("Unmarshaled: %+v", unpackedFF)
+	assert.Equal(t, uint64(3), r.ConfDelay.Uint64())
+	assert.Equal(t, uint64(11065524), r.NextBeaconOutputHeight)
 }
 
-func newRandomnessRequestedData(
+func TestCoordinator_MarshalUnmarshal(t *testing.T) {
+	lg := newRandomnessRequestedLog(t, 3, 1500, 1450)
+	rr, err := unmarshalRandomnessRequested(lg)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1500), rr.NextBeaconOutputHeight)
+	assert.Equal(t, int64(3), rr.ConfDelay.Int64())
+
+	lg = newRandomnessFulfillmentRequestedLog(t, 3, 1500, 1450, 1)
+	rfr, err := unmarshalRandomnessFulfillmentRequested(lg)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1500), rfr.NextBeaconOutputHeight)
+	assert.Equal(t, int64(3), rfr.ConfDelay.Int64())
+	assert.Equal(t, int64(1), rfr.Callback.RequestID.Int64())
+
+	lg = newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1})
+	rwf, err := unmarshalRandomWordsFulfilled(lg)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1, 2, 3}, []int64{rwf.RequestIDs[0].Int64(), rwf.RequestIDs[1].Int64(), rwf.RequestIDs[2].Int64()})
+	assert.Equal(t, []byte{1, 1, 1}, rwf.SuccessfulFulfillment)
+
+	lg = newNewTransmissionLog(t, []vrf_wrapper.VRFBeaconReportOutputServed{
+		{
+			Height:            1500,
+			ConfirmationDelay: big.NewInt(3),
+		},
+		{
+			Height:            1505,
+			ConfirmationDelay: big.NewInt(4),
+		},
+	})
+	nt, err := unmarshalNewTransmission(lg)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1500), nt.OutputsServed[0].Height)
+	assert.Equal(t, uint64(1505), nt.OutputsServed[1].Height)
+	assert.Equal(t, int64(3), nt.OutputsServed[0].ConfirmationDelay.Int64())
+	assert.Equal(t, int64(4), nt.OutputsServed[1].ConfirmationDelay.Int64())
+}
+
+func newRandomnessRequestedLog(
 	t *testing.T,
 	confDelay int64,
 	nextBeaconOutputHeight uint64,
 	requestBlock uint64,
-) []byte {
-	e := vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested{
-		ConfDelay:              big.NewInt(confDelay),
-		NextBeaconOutputHeight: nextBeaconOutputHeight,
-		Raw: types.Log{
-			BlockNumber: requestBlock,
+) logpoller.Log {
+	//event RandomnessRequested(
+	//  uint64 indexed nextBeaconOutputHeight,
+	//  ConfirmationDelay confDelay
+	//);
+	confDelayType, err := abi.NewType("uint24", "", nil)
+	require.NoError(t, err)
+	unindexedArgs := abi.Arguments{
+		{
+			Name: "confDelay",
+			Type: confDelayType,
 		},
 	}
-	packed, err := vrfABI.Events[randomnessRequestedEvent].Inputs.Pack(e.NextBeaconOutputHeight, e.ConfDelay)
+	logData, err := unindexedArgs.Pack(big.NewInt(confDelay))
 	require.NoError(t, err)
-	return packed
+	nextBeaconOutputHeightType, err := abi.NewType("uint64", "", nil)
+	require.NoError(t, err)
+	indexedArgs := abi.Arguments{abi.Argument{
+		Name: "nextBeaconOutputHeight",
+		Type: nextBeaconOutputHeightType,
+	}}
+	topicData, err := indexedArgs.Pack(nextBeaconOutputHeight)
+	require.NoError(t, err)
+	topic0 := vrfABI.Events[randomnessRequestedEvent].ID.Bytes()
+	lg := logpoller.Log{
+		Data: logData,
+		Topics: [][]byte{
+			// first topic is the event signature
+			topic0,
+			// second topic is nextBeaconOutputHeight since it's indexed
+			topicData,
+		},
+		BlockNumber: int64(requestBlock),
+		EventSig:    topic0,
+	}
+	return lg
 }
 
-func newRandomnessFulfillmentRequestedData(
+func newRandomnessFulfillmentRequestedLog(
 	t *testing.T,
 	confDelay int64,
 	nextBeaconOutputHeight uint64,
 	requestBlock uint64,
 	requestID int64,
-) []byte {
+) logpoller.Log {
+	//event RandomnessFulfillmentRequested(
+	//  uint64 nextBeaconOutputHeight,
+	//  ConfirmationDelay confDelay,
+	//  uint64 subID,
+	//  Callback callback
+	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested{
 		ConfDelay:              big.NewInt(confDelay),
 		NextBeaconOutputHeight: nextBeaconOutputHeight,
@@ -578,14 +600,27 @@ func newRandomnessFulfillmentRequestedData(
 	packed, err := vrfABI.Events[randomnessFulfillmentRequestedEvent].Inputs.Pack(
 		e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.Callback)
 	require.NoError(t, err)
-	return packed
+	topic0 := vrfABI.Events[randomnessFulfillmentRequestedEvent].ID.Bytes()
+	return logpoller.Log{
+		Data:     packed,
+		EventSig: topic0,
+		Topics: [][]byte{
+			topic0,
+		},
+		BlockNumber: int64(requestBlock),
+	}
 }
 
-func newRandomWordsFulfilledData(
+func newRandomWordsFulfilledLog(
 	t *testing.T,
 	requestIDs []*big.Int,
 	successfulFulfillment []byte,
-) []byte {
+) logpoller.Log {
+	//event RandomWordsFulfilled(
+	//  RequestID[] requestIDs,
+	//  bytes successfulFulfillment,
+	//  bytes[] truncatedErrorData
+	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled{
 		RequestIDs:            requestIDs,
 		SuccessfulFulfillment: successfulFulfillment,
@@ -593,13 +628,26 @@ func newRandomWordsFulfilledData(
 	packed, err := vrfABI.Events[randomWordsFulfilledEvent].Inputs.Pack(
 		e.RequestIDs, e.SuccessfulFulfillment, e.TruncatedErrorData)
 	require.NoError(t, err)
-	return packed
+	topic0 := vrfABI.Events[randomWordsFulfilledEvent].ID.Bytes()
+	return logpoller.Log{
+		Data:     packed,
+		EventSig: topic0,
+		Topics:   [][]byte{topic0},
+	}
 }
 
-func newNewTransmissionData(
+func newNewTransmissionLog(
 	t *testing.T,
 	outputsServed []vrf_wrapper.VRFBeaconReportOutputServed,
-) []byte {
+) logpoller.Log {
+	//event NewTransmission(
+	//  uint32 indexed aggregatorRoundId,
+	//  address transmitter,
+	//  uint192 juelsPerFeeCoin,
+	//  bytes32 configDigest,
+	//  uint40 epochAndRound,
+	//  OutputServed[] outputsServed
+	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorNewTransmission{
 		AggregatorRoundId: 1,
 		OutputsServed:     outputsServed,
@@ -608,10 +656,35 @@ func newNewTransmissionData(
 		ConfigDigest:      crypto.Keccak256Hash([]byte("hello world")),
 		Transmitter:       newAddress(t),
 	}
-	packed, err := vrfABI.Events[newTransmissionEvent].Inputs.Pack(
-		e.AggregatorRoundId, e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest, e.EpochAndRound, e.OutputsServed)
+	var unindexed abi.Arguments
+	for _, a := range vrfABI.Events[newTransmissionEvent].Inputs {
+		if !a.Indexed {
+			unindexed = append(unindexed, a)
+		}
+	}
+	nonIndexedData, err := unindexed.Pack(
+		e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest, e.EpochAndRound, e.OutputsServed)
 	require.NoError(t, err)
-	return packed
+	// aggregatorRoundId is indexed
+	aggregatorRoundIDType, err := abi.NewType("uint32", "", nil)
+	require.NoError(t, err)
+	indexedArgs := abi.Arguments{
+		{
+			Name: "aggregatorRoundId",
+			Type: aggregatorRoundIDType,
+		},
+	}
+	indexedData, err := indexedArgs.Pack(e.AggregatorRoundId)
+	require.NoError(t, err)
+	topic0 := vrfABI.Events[newTransmissionEvent].ID.Bytes()
+	return logpoller.Log{
+		Data: nonIndexedData,
+		Topics: [][]byte{
+			topic0,
+			indexedData,
+		},
+		EventSig: topic0,
+	}
 }
 
 func newAddress(t *testing.T) common.Address {

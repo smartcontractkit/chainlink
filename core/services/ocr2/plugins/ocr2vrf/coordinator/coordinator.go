@@ -5,14 +5,18 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	dkg_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/dkg"
-	vrf_wrapper "github.com/smartcontractkit/ocr2vrf/gethwrappers/vrfbeaconcoordinator"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+
+	dkg_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/dkg"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
@@ -39,6 +43,12 @@ const (
 	configSetEvent = "ConfigSet"
 )
 
+// block is used to key into a set that tracks beacon blocks.
+type block struct {
+	blockNumber uint64
+	confDelay   uint32
+}
+
 type coordinator struct {
 	lggr logger.Logger
 
@@ -54,6 +64,13 @@ type coordinator struct {
 
 	evmClient evmclient.Client
 	orm       ORM
+
+	// set of blocks that have been scheduled for transmission.
+	toBeTransmittedBlocks map[block]struct{}
+	// set of request id's that have been scheduled for transmission.
+	toBeTransmittedCallbacks map[uint64]struct{}
+	// transmittedMu protects the toBeTransmittedBlocks and toBeTransmittedCallbacks
+	transmittedMu sync.Mutex
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -75,13 +92,17 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	logPoller.MergeFilter([]common.Hash{
+	// Call MergeFilter once for each event signature, otherwise the log poller won't
+	// index the logs we want.
+	for _, sig := range []common.Hash{
 		t.randomnessRequestedTopic,
 		t.randomnessFulfillmentRequestedTopic,
 		t.randomWordsFulfilledTopic,
 		t.configSetTopic,
 		t.newTransmissionTopic,
-	}, coordinatorAddress)
+	} {
+		logPoller.MergeFilter([]common.Hash{sig}, coordinatorAddress)
+	}
 
 	// We need ConfigSet events from the DKG contract as well.
 	logPoller.MergeFilter([]common.Hash{
@@ -89,22 +110,19 @@ func New(
 	}, dkgAddress)
 
 	return &coordinator{
-		coordinatorContract: coordinatorContract,
-		coordinatorAddress:  coordinatorAddress,
-		dkgAddress:          dkgAddress,
-		lp:                  logPoller,
-		topics:              t,
-		lookbackBlocks:      lookbackBlocks,
-		evmClient:           client,
-		orm:                 orm,
-		lggr:                lggr.Named("OCR2VRFCoordinator"),
+		coordinatorContract:      coordinatorContract,
+		coordinatorAddress:       coordinatorAddress,
+		dkgAddress:               dkgAddress,
+		lp:                       logPoller,
+		topics:                   t,
+		lookbackBlocks:           lookbackBlocks,
+		evmClient:                client,
+		orm:                      orm,
+		lggr:                     lggr.Named("OCR2VRFCoordinator"),
+		toBeTransmittedBlocks:    make(map[block]struct{}),
+		toBeTransmittedCallbacks: make(map[uint64]struct{}),
+		transmittedMu:            sync.Mutex{},
 	}, nil
-}
-
-// block is used to key into a set that tracks unfulfilled beacon blocks.
-type block struct {
-	blockNumber uint64
-	confDelay   uint32
 }
 
 // ReportBlocks returns the heights and hashes of the blocks which require VRF
@@ -138,6 +156,8 @@ func (c *coordinator) ReportBlocks(
 	}
 	currentHeight := currentHead.Number
 
+	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
+
 	logs, err := c.lp.LogsWithSigs(
 		currentHeight-c.lookbackBlocks,
 		currentHeight,
@@ -154,11 +174,20 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	c.lggr.Info(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
 		newTransmissionLogs,
 		err := c.unmarshalLogs(logs)
+	if err != nil {
+		err = errors.Wrap(err, "unmarshal logs")
+		return
+	}
+
+	c.lggr.Info(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
+		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
 
 	blocksRequested := make(map[block]struct{})
 	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
@@ -166,10 +195,14 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
+	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+
 	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
+
+	c.lggr.Info(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -177,6 +210,8 @@ func (c *coordinator) ReportBlocks(
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
 	}
+
+	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Construct the slice of blocks to return. At this point
 	// we only need to fetch the blockhashes of the blocks that
@@ -186,9 +221,13 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
+
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
+
+	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
 
 	return
 }
@@ -281,6 +320,8 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 				continue
 			}
 
+			// NOTE: we already check if the callback has been fulfilled in filterEligibleCallbacks,
+			// so we don't need to do that again here.
 			if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 				callbacks = append(callbacks, ocr2vrftypes.AbstractCostedCallbackRequest{
 					BeaconHeight:      r.NextBeaconOutputHeight,
@@ -309,6 +350,9 @@ func (c *coordinator) filterEligibleCallbacks(
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 ) (callbacks []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
+	c.transmittedMu.Lock()
+	defer c.transmittedMu.Unlock()
+
 	for _, r := range randomnessFulfillmentRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -320,7 +364,10 @@ func (c *coordinator) filterEligibleCallbacks(
 			continue
 		}
 
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+		// check that the callback hasn't been scheduled for transmission
+		// so we don't fulfill the callback twice.
+		_, transmitted := c.toBeTransmittedCallbacks[r.Callback.RequestID.Uint64()]
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) && !transmitted {
 			callbacks = append(callbacks, r)
 
 			// We could have a callback request that was made in a different block than what we
@@ -341,6 +388,9 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 ) (unfulfilled []block) {
+	c.transmittedMu.Lock()
+	defer c.transmittedMu.Unlock()
+
 	for _, r := range randomnessRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -352,7 +402,13 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			continue
 		}
 
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+		// check if the block has been scheduled for transmission so that we don't
+		// retransmit for the same block.
+		_, blockTransmitted := c.toBeTransmittedBlocks[block{
+			blockNumber: r.NextBeaconOutputHeight,
+			confDelay:   uint32(r.ConfDelay.Uint64()),
+		}]
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) && !blockTransmitted {
 			unfulfilled = append(unfulfilled, block{
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
@@ -405,6 +461,11 @@ func (c *coordinator) unmarshalLogs(
 				return
 			}
 			newTransmissionLogs = append(newTransmissionLogs, unpacked)
+		default:
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
 		}
 	}
 	return
@@ -414,8 +475,17 @@ func (c *coordinator) unmarshalLogs(
 // local node has accepted the AbstractReport for transmission, so that its
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
-	// TODO: implement me
-	// Improve upon the implementation in the future in a more optimized version.
+	c.transmittedMu.Lock()
+	defer c.transmittedMu.Unlock()
+	for _, output := range report.Outputs {
+		c.toBeTransmittedBlocks[block{
+			blockNumber: output.BlockHeight,
+			confDelay:   output.ConfirmationDelay,
+		}] = struct{}{}
+		for _, cb := range output.Callbacks {
+			c.toBeTransmittedCallbacks[cb.RequestID] = struct{}{}
+		}
+	}
 	return nil
 }
 

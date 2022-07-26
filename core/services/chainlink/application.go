@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	starknetrelay "github.com/smartcontractkit/chainlink-starknet/pkg/chainlink"
+	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
@@ -103,6 +103,8 @@ type Application interface {
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
+
+	SecretGenerator() SecretGenerator
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -132,6 +134,7 @@ type ChainlinkApplication struct {
 	logger                   logger.Logger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
+	secretGenerator          SecretGenerator
 
 	started     bool
 	startStopMu sync.Mutex
@@ -149,6 +152,7 @@ type ApplicationOpts struct {
 	Version                  string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
+	SecretGenerator          SecretGenerator
 }
 
 // Chains holds a ChainSet for each type of chain.
@@ -255,7 +259,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
@@ -444,6 +448,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Nurse:                    nurse,
 		logger:                   globalLogger,
 		closeLogger:              opts.CloseLogger,
+		secretGenerator:          opts.SecretGenerator,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -610,6 +615,10 @@ func (app *ChainlinkApplication) TxmORM() txmgr.ORM {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
+	return app.secretGenerator
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.

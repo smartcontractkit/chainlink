@@ -322,9 +322,33 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
+// MustRandomUser inserts a new admin user with a random email into the test DB
 func MustRandomUser(t testing.TB) sessions.User {
 	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
-	r, err := sessions.NewUser(email, Password)
+	r, err := sessions.NewUser(email, Password, sessions.UserRoleAdmin)
+	if err != nil {
+		logger.TestLogger(t).Panic(err)
+	}
+	return r
+}
+
+// CreateUserWithRole inserts a new user with specified role and associated test DB email into the test DB
+func CreateUserWithRole(t testing.TB, role sessions.UserRole) sessions.User {
+	email := ""
+	switch role {
+	case sessions.UserRoleAdmin:
+		email = APIEmailAdmin
+	case sessions.UserRoleEdit:
+		email = APIEmailEdit
+	case sessions.UserRoleRun:
+		email = APIEmailRun
+	case sessions.UserRoleView:
+		email = APIEmailViewOnly
+	default:
+		t.Fatal("Unexpected role for CreateUserWithRole")
+	}
+
+	r, err := sessions.NewUser(email, Password, role)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)
 	}
@@ -332,7 +356,7 @@ func MustRandomUser(t testing.TB) sessions.User {
 }
 
 func MustNewUser(t *testing.T, email, password string) sessions.User {
-	r, err := sessions.NewUser(email, password)
+	r, err := sessions.NewUser(email, password, sessions.UserRoleAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +373,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 }
 
 func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
+	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}
 	m.Count++
@@ -389,7 +413,7 @@ func (m *MockSessionRequestBuilder) Build(string) (sessions.SessionRequest, erro
 	if m.Error != nil {
 		return sessions.SessionRequest{}, m.Error
 	}
-	return sessions.SessionRequest{Email: APIEmail, Password: Password}, nil
+	return sessions.SessionRequest{Email: APIEmailAdmin, Password: Password}, nil
 }
 
 type MockSecretGenerator struct{}

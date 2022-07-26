@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -221,6 +225,18 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-id")
 		getRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
 
+	case "coordinator-info":
+		cmd := flag.NewFlagSet("coordinator-info", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		coordinator := newVRFBeaconCoordinator(common.HexToAddress(*coordinatorAddress), e.Ec)
+		keyID, err := coordinator.SKeyID(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator key id:", hexutil.Encode(keyID[:]))
+		keyHash, err := coordinator.SProvingKeyHash(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator proving key hash:", hexutil.Encode(keyHash[:]))
+
 	case "consumer-deploy":
 		cmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator address")
@@ -245,8 +261,28 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
 		getRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID))
 
+	case "consumer-request-callback":
+		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		numWords := cmd.Uint("num-words", 1, "number of words to request")
+		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
+		callbackGasLimit := cmd.Uint("cb-gas-limit", 50_000, "callback gas limit")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		requestRandomnessCallback(
+			e,
+			*consumerAddress,
+			uint16(*numWords),
+			*subID,
+			big.NewInt(int64(*confDelay)),
+			uint32(*callbackGasLimit),
+			nil, // test consumer doesn't use any args
+		)
+
 	case "dkg-setup":
 		setupDKGNodes(e)
+	case "ocr2vrf-setup":
+		setupOCR2VRFNodes(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

@@ -55,12 +55,12 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-relay v0.1.2-0.20220621201358-49e57dd1264e
+	github.com/smartcontractkit/chainlink-relay v0.1.2
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
-	github.com/smartcontractkit/chainlink-starknet v0.0.0-20220704110337-2b93a45d825d
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220725131406-68dfccf83e02
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220719185549-39fd9ae1aa98
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220721214331-2e782819eb1d
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -136,7 +136,7 @@ require (
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/dontpanicdao/caigo v0.2.1-0.20220517132056-e34006317632 // indirect
+	github.com/dontpanicdao/caigo v0.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20200901110807-248326c1351b // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect

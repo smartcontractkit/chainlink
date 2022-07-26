@@ -5,19 +5,18 @@ import (
 	"math/big"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 var _ = Describe("OCR Soak Test @soak-ocr", func() {
@@ -52,13 +51,13 @@ var _ = Describe("OCR Soak Test @soak-ocr", func() {
 		})
 
 		By("Setting up Soak Test", func() {
-			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(soakNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			ocrSoakTest = testsetups.NewOCRSoakTest(&testsetups.OCRSoakTestInputs{
 				BlockchainClient:     chainClient,
 				TestDuration:         time.Minute * 15,
 				NumberOfContracts:    2,
-				ChainlinkNodeFunding: big.NewFloat(1),
+				ChainlinkNodeFunding: big.NewFloat(.1),
 				ExpectedRoundTime:    time.Minute * 2,
 				RoundTimeout:         time.Minute * 15,
 				TimeBetweenRounds:    time.Minute * 1,

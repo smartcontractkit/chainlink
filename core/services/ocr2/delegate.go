@@ -183,7 +183,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "get chainset")
 		}
-		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, d.chainSet, lggr.Named("OCR2VRFRelayer"))
+		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
 		dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
@@ -231,7 +231,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "validate ocr2vrf plugin config")
 		}
 
-		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, d.chainSet, lggr.Named("OCR2VRFRelayer"))
+		ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"))
 
 		vrfProvider, err2 := ocr2vrfRelayer.NewOCR2VRFProvider(
 			types.RelayArgs{
@@ -300,19 +300,33 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
 		}
 
+		l := d.lggr.Named("OCR2VRF").With(
+			"jobName", jobSpec.Name.ValueOrZero(),
+			"jobID", jobSpec.ID,
+		)
+		vrfLogger := logger.NewOCRWrapper(l.With(
+			"vrfContractID", spec.ContractID), true, func(msg string) {
+			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+		})
+		dkgLogger := logger.NewOCRWrapper(l.With(
+			"dkgContractID", cfg.DKGContractAddress), true, func(msg string) {
+			d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+		})
 		oracles, err2 := ocr2vrf.NewOCR2VRF(ocr2vrf.DKGVRFArgs{
-			Logger:                       ocrLogger,
+			VRFLogger:                    vrfLogger,
+			DKGLogger:                    dkgLogger,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
-			OffchainConfigDigester:       vrfProvider.OffchainConfigDigester(),
+			VRFOffchainConfigDigester:    vrfProvider.OffchainConfigDigester(),
 			VRFContractConfigTracker:     vrfProvider.ContractConfigTracker(),
 			VRFContractTransmitter:       vrfProvider.ContractTransmitter(),
 			VRFDatabase:                  ocrDB,
 			VRFLocalConfig:               lc,
 			VRFMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
 			DKGContractConfigTracker:     dkgProvider.ContractConfigTracker(),
+			DKGOffchainConfigDigester:    dkgProvider.OffchainConfigDigester(),
 			DKGContract:                  dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
 			DKGContractTransmitter:       dkgProvider.ContractTransmitter(),
 			DKGDatabase:                  ocrDB,

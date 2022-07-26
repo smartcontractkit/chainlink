@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -69,10 +68,10 @@ func TestETHTxTask(t *testing.T) {
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
 				gasLimit := uint64(12345)
-				jid := int32(321)
+				jobID := int32(321)
 				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
 				txMeta := &txmgr.EthTxMeta{
-					JobID:         &jid,
+					JobID:         &jobID,
 					RequestID:     &reqID,
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
@@ -497,7 +496,7 @@ func TestETHTxTask(t *testing.T) {
 			nil, nil, "", pipeline.RunInfo{IsPending: true},
 		},
 		{
-			"non-existant chain-id",
+			"non-existent chain-id",
 			`[ $(fromAddr) ]`,
 			"$(toAddr)",
 			"$(data)",
@@ -541,9 +540,9 @@ func TestETHTxTask(t *testing.T) {
 				TransmitChecker:  test.transmitChecker,
 			}
 
-			keyStore := new(keystoremocks.Eth)
+			keyStore := keystoremocks.NewEth(t)
 			keyStore.Test(t)
-			txManager := new(txmmocks.TxManager)
+			txManager := txmmocks.NewTxManager(t)
 			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
@@ -555,7 +554,7 @@ func TestETHTxTask(t *testing.T) {
 			test.setupClientMocks(cfg, keyStore, txManager)
 			task.HelperSetDependencies(cc, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)
 
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
@@ -570,9 +569,6 @@ func TestETHTxTask(t *testing.T) {
 				require.NoError(t, result.Error)
 				require.Equal(t, test.expected, result.Value)
 			}
-
-			keyStore.AssertExpectations(t)
-			txManager.AssertExpectations(t)
 		})
 	}
 }
