@@ -8,20 +8,22 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
+	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 )
 
 type ChainSetOpts struct {
-	Config coreconfig.GeneralConfig
-	Logger logger.Logger
-	DB     *sqlx.DB
-	ORM    types.ORM
+	Config   coreconfig.GeneralConfig
+	Logger   logger.Logger
+	DB       *sqlx.DB
+	KeyStore keystore.StarkNet
+	ORM      types.ORM
 }
 
 func (o *ChainSetOpts) Validate() (err error) {
@@ -37,6 +39,9 @@ func (o *ChainSetOpts) Validate() (err error) {
 	if o.DB == nil {
 		err = multierr.Append(err, required("DB"))
 	}
+	if o.KeyStore == nil {
+		err = multierr.Append(err, required("KeyStore"))
+	}
 	if o.ORM == nil {
 		err = multierr.Append(err, required("ORM"))
 	}
@@ -47,15 +52,15 @@ func (o *ChainSetOpts) ORMAndLogger() (chains.ORM[string, *db.ChainCfg, db.Node]
 	return o.ORM, o.Logger
 }
 
-func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starknet.Chain, error) {
+func (o *ChainSetOpts) NewChain(dbchain types.DBChain) (starkchain.Chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
-	return NewChain(o.DB, dbchain, o.ORM, o.Logger)
+	return NewChain(o.DB, o.KeyStore, dbchain, o.ORM, o.Logger)
 }
 
 type ChainSet interface {
-	starknet.ChainSet
+	starkchain.ChainSet
 
 	Add(context.Context, string, *db.ChainCfg) (types.DBChain, error)
 	Remove(string) error
@@ -70,5 +75,5 @@ type ChainSet interface {
 
 // NewChainSet returns a new chain set for opts.
 func NewChainSet(opts ChainSetOpts) (ChainSet, error) {
-	return chains.NewChainSet[string, *db.ChainCfg, db.Node, starknet.Chain](&opts, func(s string) string { return s })
+	return chains.NewChainSet[string, *db.ChainCfg, db.Node, starkchain.Chain](&opts, func(s string) string { return s })
 }

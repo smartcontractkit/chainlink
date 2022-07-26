@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -412,6 +413,20 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			KeyStore:         keyStore.Solana(),
 			EventBroadcaster: eventBroadcaster,
 			ORM:              solana.NewORM(db, solLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
+	}
+	if cfg.StarkNetEnabled() {
+		starkLggr := lggr.Named("StarkNet")
+		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+			Config:   cfg,
+			Logger:   starkLggr,
+			DB:       db,
+			KeyStore: keyStore.StarkNet(),
+			// EventBroadcaster: eventBroadcaster,
+			ORM: starknet.NewORM(db, starkLggr, cfg),
 		})
 		if err != nil {
 			lggr.Fatal(err)
