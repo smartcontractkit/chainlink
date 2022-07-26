@@ -252,13 +252,23 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 		}
 
 		if run.State == RunStatusSuspended {
-			start = true
-			run.State = RunStatusRunning
+			if result.ErrorDB().Valid {
+				run.State = RunStatusErrored
+				run.AllErrors = append(run.AllErrors, result.ErrorDB())
+				run.FatalErrors = append(run.FatalErrors, result.ErrorDB())
 
-			// We're going to restart the run, so set it back to "in progress"
-			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
-			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
-				return errors.Wrap(err, "UpdateTaskRunResult")
+				sql = `UPDATE pipeline_runs SET state = $2, finished_at = $3, fatal_errors = $4, all_errors = $5, outputs = $6 WHERE id = $1`
+				if _, err = tx.Exec(sql, run.ID, run.State, time.Now(), run.FatalErrors, run.AllErrors, result.OutputDB()); err != nil {
+					return errors.Wrap(err, "UpdateTaskRunResult")
+				}
+			} else {
+				start = true
+				run.State = RunStatusRunning
+
+				sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
+				if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
+					return errors.Wrap(err, "UpdateTaskRunResult")
+				}
 			}
 		}
 
