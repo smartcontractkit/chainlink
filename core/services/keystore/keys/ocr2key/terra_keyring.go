@@ -81,11 +81,11 @@ func (tk *terraKeyring) MaxSignatureLength() int {
 	return ed25519.PublicKeySize + ed25519.SignatureSize // 32 + 64
 }
 
-func (tk *terraKeyring) marshal() ([]byte, error) {
+func (tk *terraKeyring) Marshal() ([]byte, error) {
 	return tk.privKey.Seed(), nil
 }
 
-func (tk *terraKeyring) unmarshal(in []byte) error {
+func (tk *terraKeyring) Unmarshal(in []byte) error {
 	if len(in) != ed25519.SeedSize {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
 	}

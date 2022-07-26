@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/Depado/ginprom v1.7.4
 	github.com/Masterminds/semver/v3 v3.1.1
-	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/cosmos/cosmos-sdk v0.44.5
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
@@ -57,7 +56,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-relay v0.1.2
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220620180429-9839e934712f
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220725204209-2b66998cb474
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220726165235-7dcb2cb863e1
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36
 	github.com/smartcontractkit/libocr v0.0.0-20220726132443-ef1f5a4b63d0
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20220727192512-dbf98b080ec4
@@ -90,7 +89,10 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
+require (
+	github.com/NethermindEth/juno v0.0.0-20220630151419-cbd368b222ac // indirect
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
+)
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect

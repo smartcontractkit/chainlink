@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
+	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -44,7 +45,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 			case chaintype.Terra:
 				kb = newKeyBundle(new(terraKeyring))
 			case chaintype.StarkNet:
-				kb = newKeyBundle(new(starknetKeyring))
+				kb = newKeyBundle(new(starknet.OCR2Keyring))
 			default:
 				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 			}

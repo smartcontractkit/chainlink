@@ -3,7 +3,9 @@ package starkkey
 import (
 	"testing"
 
+	stark "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestStarkNetKeys_ExportImport(t *testing.T) {
@@ -11,9 +13,20 @@ func TestStarkNetKeys_ExportImport(t *testing.T) {
 }
 
 func createKey() (keys.KeyType, error) {
-	return New()
+	key, err := stark.New()
+	return TestWrapped{key}, err
 }
 
 func decryptKey(keyJSON []byte, password string) (keys.KeyType, error) {
-	return FromEncryptedJSON(keyJSON, password)
+	key, err := FromEncryptedJSON(keyJSON, password)
+	return TestWrapped{key}, err
+}
+
+// wrap key to conform to desired test interface
+type TestWrapped struct {
+	stark.StarkKey
+}
+
+func (w TestWrapped) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) ([]byte, error) {
+	return ToEncryptedJSON(w.StarkKey, password, scryptParams)
 }
