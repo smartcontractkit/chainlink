@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -53,5 +53,5 @@ func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 }
 
 func NewStarkNetKeysClient(c *Client) KeysClient {
-	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
+	return newKeysClient[starkkey.StarkKey, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
 }

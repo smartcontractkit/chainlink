@@ -9,11 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -84,7 +84,7 @@ type keyRing struct {
 	P2P        map[string]p2pkey.KeyV2
 	Solana     map[string]solkey.Key
 	Terra      map[string]terrakey.Key
-	StarkNet   map[string]starkkey.Key
+	StarkNet   map[string]starkkey.StarkKey
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
 	DKGEncrypt map[string]dkgencryptkey.Key
@@ -99,7 +99,7 @@ func newKeyRing() keyRing {
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Solana:     make(map[string]solkey.Key),
 		Terra:      make(map[string]terrakey.Key),
-		StarkNet:   make(map[string]starkkey.Key),
+		StarkNet:   make(map[string]starkkey.StarkKey),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
 		DKGEncrypt: make(map[string]dkgencryptkey.Key),
@@ -258,7 +258,7 @@ type rawKeyRing struct {
 	P2P        []p2pkey.Raw
 	Solana     []solkey.Raw
 	Terra      []terrakey.Raw
-	StarkNet   []starkkey.Raw
+	StarkNet   []starkkey.StarkRaw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw

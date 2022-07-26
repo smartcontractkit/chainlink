@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -149,7 +149,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 	})
 }
 
-func requireStarkNetKeyCount(t *testing.T, app chainlink.Application, length int) []starkkey.Key {
+func requireStarkNetKeyCount(t *testing.T, app chainlink.Application, length int) []starkkey.StarkKey {
 	t.Helper()
 	keys, err := app.GetKeyStore().StarkNet().GetAll()
 	require.NoError(t, err)

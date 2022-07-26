@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 )
 
 // StarkNetKeyResource represents a Solana key JSONAPI resource.
@@ -15,7 +15,7 @@ func (StarkNetKeyResource) GetName() string {
 	return "encryptedStarkNetKeys"
 }
 
-func NewStarkNetKeyResource(key starkkey.Key) *StarkNetKeyResource {
+func NewStarkNetKeyResource(key starkkey.StarkKey) *StarkNetKeyResource {
 	r := &StarkNetKeyResource{
 		JAID:   JAID{ID: key.ID()},
 		PubKey: key.PublicKeyStr(),
@@ -24,7 +24,7 @@ func NewStarkNetKeyResource(key starkkey.Key) *StarkNetKeyResource {
 	return r
 }
 
-func NewStarkNetKeyResources(keys []starkkey.Key) []StarkNetKeyResource {
+func NewStarkNetKeyResources(keys []starkkey.StarkKey) []StarkNetKeyResource {
 	rs := []StarkNetKeyResource{}
 	for _, key := range keys {
 		rs = append(rs, *NewStarkNetKeyResource(key))
