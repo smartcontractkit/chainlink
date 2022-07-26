@@ -11,9 +11,11 @@
 	);
 
 -- +goose Down
+-- we cannot make a precise rollback, due to a wrong column name (errors => fatal_errors)
+-- therefore the rollback flow will fix it for pre-0132 state as well...
 	ALTER TABLE pipeline_runs DROP CONSTRAINT pipeline_runs_check;
 	ALTER TABLE pipeline_runs ADD CONSTRAINT pipeline_runs_check CHECK (
-		((state IN ('completed', 'errored')) AND (finished_at IS NOT NULL) AND (num_nulls(outputs, errors) = 0))
+		((state IN ('completed', 'errored')) AND (finished_at IS NOT NULL) AND (num_nulls(outputs, fatal_errors) = 0))
 			OR 
-		((state IN ('running', 'suspended')) AND num_nulls(finished_at, outputs, errors) = 3)
+		((state IN ('running', 'suspended')) AND num_nulls(finished_at, outputs, fatal_errors) = 3)
 	);
