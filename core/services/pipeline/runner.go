@@ -564,7 +564,6 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 }
 
 func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
-	// err is always considered a fatal error, e.g. not enough gas or tx is reverted
 	run, start, err := r.orm.UpdateTaskRunResult(taskID, Result{
 		Value: value,
 		Error: err,
