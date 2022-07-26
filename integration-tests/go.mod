@@ -133,8 +133,6 @@ replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
 replace github.com/smartcontractkit/chainlink => ../../chainlink
 
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.5.2-0.20220725211142-7e1523bbb711
-
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 // To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020

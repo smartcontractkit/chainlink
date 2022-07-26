@@ -2,10 +2,7 @@
 package client
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"regexp"
@@ -17,7 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -95,7 +91,7 @@ type Chainlink interface {
 }
 
 type chainlink struct {
-	*ctfClient.APIClient
+	*APIClient
 	Config            *ChainlinkConfig
 	pageSize          int
 	primaryEthAddress string
@@ -105,9 +101,10 @@ type chainlink struct {
 func NewChainlink(c *ChainlinkConfig) (Chainlink, error) {
 	cl := &chainlink{
 		Config:    c,
-		APIClient: ctfClient.NewAPIClient(c.URL),
+		APIClient: NewAPIClient(c.URL),
 		pageSize:  25,
 	}
+
 	return cl, cl.SetSessionCookie()
 }
 
@@ -521,40 +518,14 @@ func (c *chainlink) RemoteIP() string {
 // SetSessionCookie authenticates against the Chainlink node and stores the cookie in client state
 func (c *chainlink) SetSessionCookie() error {
 	session := &Session{Email: c.Config.Email, Password: c.Config.Password}
-	b, err := json.Marshal(session)
+	resp, err := c.APIClient.Request(http.MethodPost, "/sessions", session, nil, http.StatusOK)
 	if err != nil {
 		return err
-	}
-	resp, err := http.Post(
-		fmt.Sprintf("%s/sessions", c.Config.URL),
-		"application/json",
-		bytes.NewReader(b),
-	)
-	if err != nil {
-		return err
-	}
-	b, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf(
-			"error while reading response: %v\nURL: %s\nresponse received: %s",
-			err,
-			c.Config.URL,
-			string(b),
-		)
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf(
-			"status code of %d was returned when trying to get a session\nURL: %s\nresponse received: %s",
-			resp.StatusCode,
-			c.Config.URL,
-			b,
-		)
 	}
 	if len(resp.Cookies()) == 0 {
 		return fmt.Errorf("no cookie was returned after getting a session")
 	}
-	c.APIClient.Cookies = resp.Cookies()
-	c.APIClient.WithCookies()
+	c.APIClient.RC.SetCookies(resp.Cookies())
 	sessionFound := false
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name == "clsession" {
@@ -627,7 +598,7 @@ func (c *chainlink) SetPageSize(size int) {
 func (c *chainlink) do(method, endpoint string, body, obj interface{}, expectedStatusCode int) (*resty.Response, error) {
 	q := make(map[string]string)
 	q["size"] = fmt.Sprint(c.pageSize)
-	resp, err := c.APIClient.Request(method, endpoint, body, obj, expectedStatusCode, ctfClient.WithQueryParam(q))
+	resp, err := c.APIClient.Request(method, endpoint, body, obj, expectedStatusCode, WithQueryParam(q))
 	return resp, err
 }
 
