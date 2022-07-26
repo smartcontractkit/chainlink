@@ -5,6 +5,10 @@ CREATE TYPE user_roles AS ENUM ('admin', 'edit', 'run', 'view');
 
 -- Add new role column to users table, type enum
 ALTER TABLE users ADD role user_roles NOT NULL DEFAULT 'view';
+
+-- We are migrating up from a single user full access user - this should be reflected as the admin 
+UPDATE users SET role = 'admin';
+
 CREATE UNIQUE INDEX unique_users_lowercase_email ON users (lower(email));
 
 -- Update sessions table include email column to key on user tied to session
