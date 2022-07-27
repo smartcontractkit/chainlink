@@ -116,6 +116,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 			keystore: keystore,
 		},
 		estimator:        estimator,
+		resumeCallback:   resumeCallback,
 		eventBroadcaster: eventBroadcaster,
 		keyStates:        keyStates,
 		checkerFactory:   checkerFactory,
@@ -425,8 +426,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
 
 	if sendError.Fatal() {
-		lgr.Criticalw("Fatal error sending transaction",
-			"err", sendError)
+		lgr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", etx)
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
