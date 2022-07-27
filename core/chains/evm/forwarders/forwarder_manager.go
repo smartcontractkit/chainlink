@@ -181,7 +181,7 @@ func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) {
 func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) {
 	f.logpoller.MergeFilter(
 		[]common.Hash{authChangedTopic},
-		addr)
+		[]common.Address{addr})
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {

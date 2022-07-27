@@ -210,7 +210,7 @@ require (
 	github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect
-	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a // indirect
+	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/libp2p/go-addr-util v0.0.2 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect
