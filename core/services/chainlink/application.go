@@ -731,6 +731,11 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
+	if app.Config.FeatureLogPoller() {
+		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
