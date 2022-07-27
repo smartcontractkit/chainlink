@@ -754,7 +754,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				}
 
 				ll.Warnw("Pipeline error", "err", p.err)
-				
+
 				continue
 			}
 
