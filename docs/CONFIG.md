@@ -2842,16 +2842,16 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
-PriceMax = '1 micro'
-PriceMin = '1 micro'
-LimitDefault = 7000000
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 0
+BumpThreshold = 3
 BumpTxDepth = 10
 EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
@@ -2860,7 +2860,7 @@ TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
-BlockHistorySize = 0
+BlockHistorySize = 8
 TransactionPercentile = 60
 
 

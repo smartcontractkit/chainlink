@@ -215,12 +215,6 @@ func (c *chainScopedConfig) validate() (err error) {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
 	} else {
 		switch chainType {
-		case config.ChainArbitrum:
-			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
-				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q", gasEst, config.ChainArbitrum, "FixedPrice"))
-			}
-
 		case config.ChainOptimism, config.ChainMetis:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
@@ -232,7 +226,7 @@ func (c *chainScopedConfig) validate() (err error) {
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
 					"must be %q (or the equivalent, deprecated %q)", gasEst, chainType, "L2Suggested", "Optimism2"))
 			}
-		case config.ChainXDai:
+		case config.ChainArbitrum, config.ChainXDai:
 
 		}
 	}

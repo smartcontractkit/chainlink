@@ -273,8 +273,13 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
-	arbitrumGoerli := arbitrumMainnet
+
+	arbitrumGoerli := fallbackDefaultSet
 	arbitrumGoerli.linkContractAddress = "" //TODO
+	arbitrumGoerli.blockEmissionIdleWarningThreshold = 0
+	arbitrumGoerli.nodeDeadAfterNoNewHeadersThreshold = 0 // Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
+	arbitrumGoerli.chainType = config.ChainArbitrum
+	arbitrumGoerli.ocrContractConfirmations = 1
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
