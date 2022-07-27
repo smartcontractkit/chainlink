@@ -123,7 +123,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
 		cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, emitterAddress1)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1})
 	require.NoError(t, lp.Start(context.Background()))
 
 	// Emit some logs in blocks 3->7.
@@ -144,7 +144,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		return len(logs) == 5
 	})
 	// Now let's update the filter and replay to get Log2 logs.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, emitterAddress1)
+	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1})
 	// Replay an invalid block should error
 	assert.Error(t, lp.Replay(context.Background(), 0))
 	assert.Error(t, lp.Replay(context.Background(), 20))
