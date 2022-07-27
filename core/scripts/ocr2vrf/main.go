@@ -255,11 +255,12 @@ func main() {
 		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
 
 	case "consumer-redeem-randomness":
-		cmd := flag.NewFlagSet("coordinator-redeem-randomness", flag.ExitOnError)
+		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
 		requestID := cmd.Int64("request-id", 0, "request ID")
+		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		redeemRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID))
+		redeemRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID), *numWords)
 
 	case "consumer-request-callback":
 		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
