@@ -23,17 +23,19 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
-		id     = "1"
-		pubKey = "somepubkey"
-		buffer = bytes.NewBufferString("")
-		r      = cmd.RendererTable{Writer: buffer}
+		id       = "1"
+		pubKey   = "somepubkey"
+		starkKey = "somestarkkey"
+		buffer   = bytes.NewBufferString("")
+		r        = cmd.RendererTable{Writer: buffer}
 	)
 
 	p := cmd.StarkNetKeyPresenter{
 		JAID: cmd.JAID{ID: id},
 		StarkNetKeyResource: presenters.StarkNetKeyResource{
-			JAID:   presenters.NewJAID(id),
-			PubKey: pubKey,
+			JAID:     presenters.NewJAID(id),
+			PubKey:   pubKey,
+			StarkKey: starkKey,
 		},
 	}
 
@@ -52,6 +54,7 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	output = buffer.String()
 	assert.Contains(t, output, id)
 	assert.Contains(t, output, pubKey)
+	assert.Contains(t, output, starkKey)
 }
 
 func TestClient_StarkNetKeys(t *testing.T) {
@@ -76,6 +79,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
 		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
+		assert.True(t, key.StarkKeyStr() == keys[0].StarkKey)
 
 	})
 

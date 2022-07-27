@@ -4,10 +4,11 @@ import (
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 )
 
-// StarkNetKeyResource represents a Solana key JSONAPI resource.
+// StarkNetKeyResource represents a StarkNet key JSONAPI resource.
 type StarkNetKeyResource struct {
 	JAID
-	PubKey string `json:"publicKey"`
+	PubKey   string `json:"publicKey"`
+	StarkKey string `json:"starkKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -17,8 +18,9 @@ func (StarkNetKeyResource) GetName() string {
 
 func NewStarkNetKeyResource(key starkkey.StarkKey) *StarkNetKeyResource {
 	r := &StarkNetKeyResource{
-		JAID:   JAID{ID: key.ID()},
-		PubKey: key.PublicKeyStr(),
+		JAID:     JAID{ID: key.ID()},
+		PubKey:   key.PublicKeyStr(),
+		StarkKey: key.StarkKeyStr(),
 	}
 
 	return r
