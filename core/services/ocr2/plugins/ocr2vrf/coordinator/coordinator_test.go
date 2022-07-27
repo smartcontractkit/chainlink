@@ -221,7 +221,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		lp.On("GetBlocks", []uint64{195}).
+		lp.On("GetBlocks", []uint64{195}, mock.Anything).
 			Return([]logpoller.LogPollerBlock{
 				{
 					BlockNumber: 195,
@@ -286,7 +286,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		lp.On("GetBlocks", []uint64{195}).
+		lp.On("GetBlocks", []uint64{195}, mock.Anything).
 			Return([]logpoller.LogPollerBlock{
 				{
 					BlockNumber: 195,
@@ -358,7 +358,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		defer lp.AssertExpectations(t)
 
 		var r []uint64
-		lp.On("GetBlocks", r).
+		lp.On("GetBlocks", r, mock.Anything).
 			Return(nil, nil)
 
 		c := &coordinator{
@@ -428,7 +428,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		defer lp.AssertExpectations(t)
 
 		var r []uint64
-		lp.On("GetBlocks", r).
+		lp.On("GetBlocks", r, mock.Anything).
 			Return(nil, nil)
 
 		c := &coordinator{
@@ -510,7 +510,7 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 		lp := &lp_mocks.LogPoller{}
 		lp.On("IndexedLogs", tp.newTransmissionTopic, coordinatorAddress, 2, []common.Hash{
 			enrTopic,
-		}, 1).Return([]logpoller.Log{
+		}, 1, mock.Anything).Return([]logpoller.Log{
 			{
 				BlockNumber: 195,
 			},
@@ -540,7 +540,7 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 		lp := &lp_mocks.LogPoller{}
 		lp.On("IndexedLogs", tp.newTransmissionTopic, coordinatorAddress, 2, []common.Hash{
 			enrTopic,
-		}, 1).Return([]logpoller.Log{}, nil)
+		}, 1, mock.Anything).Return([]logpoller.Log{}, nil)
 
 		c := &coordinator{
 			lp:                 lp,
