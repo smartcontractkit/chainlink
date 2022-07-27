@@ -891,6 +891,8 @@ github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e/go.mod h1:G1C
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jhump/protoreflect v1.8.2/go.mod h1:7GcYQDdMU/O/BBrl/cX6PNHpXh6cenjd8pneu5yW7Tg=
 github.com/jhump/protoreflect v1.9.0/go.mod h1:7GcYQDdMU/O/BBrl/cX6PNHpXh6cenjd8pneu5yW7Tg=
+github.com/jmank88/libocr v0.0.0-20220727210803-2d3649ef2507 h1:F57+RK96zOwfRvAmx8knAXkjRrtH9EZugiuXGRsDPbY=
+github.com/jmank88/libocr v0.0.0-20220727210803-2d3649ef2507/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfCI6z80xFu9LTZmf1ZRjMHUOPmWr69U=
@@ -1614,8 +1616,6 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220725131406-68d
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220725131406-68dfccf83e02/go.mod h1:IVduoSXT5Gqc5AX1IytLNjBswr6dR9+m6vZZkDDsRCU=
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36 h1:6EPAlhBCu3+k7wdIqmhdEn7ul2IzoqYGhE/cmctd8JQ=
 github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220620174806-cd472d246b36/go.mod h1:qquS7H2ETYDSzmZmsNcYeQr4kOMmfDxCthBIFE2Xa88=
-github.com/smartcontractkit/libocr v0.0.0-20220726132443-ef1f5a4b63d0 h1:jKnLPHAE7x5SDLG6PnLqwg+IeZ8gFSmg0iKBJsSuflo=
-github.com/smartcontractkit/libocr v0.0.0-20220726132443-ef1f5a4b63d0/go.mod h1:5JnCHuYgmIP9ZyXzgAfI5Iwu0WxBtBKp+ApeT5o1Cjw=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20220727192512-dbf98b080ec4 h1:BAOP409v0dlBmFzVT2sFBWJHOr9ifwd11INEUuUUtks=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20220727192512-dbf98b080ec4/go.mod h1:T6pCnxj+Qafb9lOT4dxS0RqsZcKNlENRS+4Mv0S6/s4=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
