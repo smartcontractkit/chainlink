@@ -30,7 +30,7 @@ type LogPoller interface {
 	MergeFilter(eventSigs []common.Hash, addresses []common.Address)
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 
-	// General queries
+	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
@@ -40,8 +40,8 @@ type LogPoller interface {
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
-	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
 
 var _ LogPoller = &logPoller{}
@@ -80,8 +80,9 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 	}
 }
 
-// MergeFilter will update the filter with the new eventSigs and addresses.
-// We do not support indexed topic filtering.
+// MergeFilter adds the provided event signatures and addresses to the log poller's log filter query.
+// If an event matching any of the given event signatures is emitted from any of the provided addresses,
+// the log poller will pick those up and save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then replay in order to ensure desired logs are present.
 func (lp *logPoller) MergeFilter(eventSigs []common.Hash, addresses []common.Address) {
 	lp.filterMu.Lock()
@@ -259,6 +260,9 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 		// Retry forever to save logs,
 		// unblocked by resolving db connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
+			// Note the insert param limit is 65535 and we have 10 columns per log.
+			// Thus the maximum number of logs we can insert in a given block is 6500.
+			// TODO (https://app.shortcut.com/chainlinklabs/story/48377/support-arbitrary-number-of-logs-per-block)
 			if err := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithParentCtx(ctx)); err != nil {
 				lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", from, "to", to)
 				return true
@@ -290,7 +294,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
 	if !havePreviousBlock {
-		lp.lggr.Warnw("Do not have previous block, first poll ever on new chain")
+		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill")
 		return currentBlock, nil
 	}
 	// Check for reorg.
@@ -461,17 +465,17 @@ func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, t
 	return lp.orm.SelectIndexedLogs(address, eventSig[:], topicIndex, topicValues, confs, qopts...)
 }
 
-// Index is 0 based.
+// LogsDataWordGreaterThan note index is 0 based.
 func (lp *logPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectDataWordGreaterThan(address, eventSig[:], wordIndex, wordValueMin, confs, qopts...)
 }
 
-// Index is 0 based.
+// LogsDataWordRange note index is 0 based.
 func (lp *logPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectDataWordRange(address, eventSig[:], wordIndex, wordValueMin, wordValueMax, confs, qopts...)
 }
 
-// IndexedLogs finds all the logs that have a topic value greater than topicValueMin at index topicIndex.
+// IndexedLogsTopicGreaterThan finds all the logs that have a topic value greater than topicValueMin at index topicIndex.
 // Only works for integer topics.
 func (lp *logPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexLogsTopicGreaterThan(address, eventSig[:], topicIndex, topicValueMin, confs, qopts...)
@@ -481,6 +485,8 @@ func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.
 	return lp.orm.SelectIndexLogsTopicRange(address, eventSig[:], topicIndex, topicValueMin, topicValueMax, confs, qopts...)
 }
 
+// LatestBlock returns the latest block the log poller is on. It tracks blocks to be able
+// to detect reorgs.
 func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	b, err := lp.orm.SelectLatestBlock(qopts...)
 	if err != nil {
@@ -490,20 +496,12 @@ func (lp *logPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 }
 
 func (lp *logPoller) BlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, error) {
-	b, err := lp.orm.SelectBlockByNumber(n, qopts...)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return lp.orm.SelectBlockByNumber(n, qopts...)
 }
 
 // LatestLogByEventSigWithConfs finds the latest log that has confs number of blocks on top of the log.
 func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
-	log, err := lp.orm.SelectLatestLogEventSigWithConfs(eventSig, address, confs, qopts...)
-	if err != nil {
-		return nil, err
-	}
-	return log, nil
+	return lp.orm.SelectLatestLogEventSigWithConfs(eventSig, address, confs, qopts...)
 }
 
 func (lp *logPoller) LatestLogEventSigsAddrs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, qopts ...pg.QOpt) ([]Log, error) {

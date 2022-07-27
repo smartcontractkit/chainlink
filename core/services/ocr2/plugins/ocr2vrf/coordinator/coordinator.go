@@ -89,7 +89,7 @@ func New(
 	}
 	t, err := newTopics()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "new topics")
 	}
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
