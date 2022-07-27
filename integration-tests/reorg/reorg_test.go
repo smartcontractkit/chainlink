@@ -48,7 +48,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 		err            error
 		c              blockchain.EVMClient
 		cd             contracts.ContractDeployer
-		chainlinkNodes []client.Chainlink
+		chainlinkNodes []*client.Chainlink
 		oracle         contracts.Oracle
 		consumer       contracts.APIConsumer
 		jobUUID        uuid.UUID
@@ -138,7 +138,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 				Name: fmt.Sprintf("five-%s", jobUUID.String()),
 				URL:  fmt.Sprintf("%s/variable", ms.Config.ClusterURL),
 			}
-			err = chainlinkNodes[0].CreateBridge(&bta)
+			err = chainlinkNodes[0].MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
 
 			os := &client.DirectRequestTxPipelineSpec{
@@ -148,7 +148,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-			_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+			_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
 				Name:                     "direct_request",
 				MinIncomingConfirmations: minIncomingConfirmations,
 				ContractAddress:          oracle.Address(),

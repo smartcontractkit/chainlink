@@ -30,7 +30,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		chainClient       blockchain.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
-		chainlinkNodes    []client.Chainlink
+		chainlinkNodes    []*client.Chainlink
 		mockServer        *ctfClient.MockserverClient
 		ocrInstances      []contracts.OffchainAggregator
 		profileTest       *testsetups.ChainlinkProfileTest
@@ -84,7 +84,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.

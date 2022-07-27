@@ -40,7 +40,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		chainClient       blockchain.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
-		chainlinkNodes    []client.Chainlink
+		chainlinkNodes    []*client.Chainlink
 		mockServer        *ctfClient.MockserverClient
 		ocrInstances      []contracts.OffchainAggregator
 	)
