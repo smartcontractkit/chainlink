@@ -15,6 +15,12 @@ type Delegate struct {
 
 var _ job.Delegate = (*Delegate)(nil)
 
+func NewDelegateV2() func(*job.DelegateConstConfig) job.Delegate {
+	return func(conf *job.DelegateConstConfig) job.Delegate {
+		return NewDelegate(conf.Runner, conf.Logger)
+	}
+}
+
 func NewDelegate(pipelineRunner pipeline.Runner, lggr logger.Logger) *Delegate {
 	return &Delegate{
 		pipelineRunner: pipelineRunner,

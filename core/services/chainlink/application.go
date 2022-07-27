@@ -32,13 +32,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2"
@@ -52,7 +48,6 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -184,7 +179,7 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
-func NewApplication(opts ApplicationOpts) (Application, error) {
+func NewApplication(opts ApplicationOpts, delConstructors ...job.DelegateConstructor) (Application, error) {
 	var subservices []services.ServiceCtx
 	db := opts.SqlxDB
 	cfg := opts.Config
@@ -270,39 +265,25 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
+	delegateConfig := job.DelegateConstConfig{
+		Logger:      globalLogger,
+		Runner:      pipelineRunner,
+		PipelineORM: pipelineORM,
+		ChainSet:    chains.EVM,
+		DB:          db,
+		JobORM:      jobORM,
+		KeyStore:    keyStore,
+		GenConfig:   cfg,
+	}
+
+	delegates := make(map[job.Type]job.Delegate)
+	for _, constructor := range delConstructors {
+		jd := constructor(&delegateConfig)
+		delegates[jd.JobType()] = jd
+	}
+
 	var (
-		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: directrequest.NewDelegate(
-				globalLogger,
-				pipelineRunner,
-				pipelineORM,
-				chains.EVM),
-			job.Keeper: keeper.NewDelegate(
-				db,
-				jobORM,
-				pipelineRunner,
-				globalLogger,
-				chains.EVM),
-			job.VRF: vrf.NewDelegate(
-				db,
-				keyStore,
-				pipelineRunner,
-				pipelineORM,
-				chains.EVM,
-				globalLogger,
-				cfg),
-			job.Webhook: webhook.NewDelegate(
-				pipelineRunner,
-				externalInitiatorManager,
-				globalLogger),
-			job.Cron: cron.NewDelegate(
-				pipelineRunner,
-				globalLogger),
-			job.BlockhashStore: blockhashstore.NewDelegate(
-				globalLogger,
-				chains.EVM,
-				keyStore.Eth()),
-		}
+		// TODO: webhook delegate is expected to exist; webhook package is still a dependency
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
 

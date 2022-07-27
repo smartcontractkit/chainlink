@@ -26,6 +26,12 @@ type Delegate struct {
 	ks     keystore.Eth
 }
 
+func NewDelegateV2() func(*job.DelegateConstConfig) job.Delegate {
+	return func(conf *job.DelegateConstConfig) job.Delegate {
+		return NewDelegate(conf.Logger, conf.ChainSet, conf.KeyStore.Eth())
+	}
+}
+
 // NewDelegate creates a new Delegate.
 func NewDelegate(
 	logger logger.Logger,

@@ -39,6 +39,14 @@ type (
 
 var _ job.Delegate = (*Delegate)(nil)
 
+func NewDelegateV2() func(conf *job.DelegateConstConfig) job.Delegate {
+	return func(conf *job.DelegateConstConfig) job.Delegate {
+		var del job.Delegate
+		del = NewDelegate(conf.Logger, conf.Runner, conf.PipelineORM, conf.ChainSet)
+		return del
+	}
+}
+
 func NewDelegate(
 	logger logger.Logger,
 	pipelineRunner pipeline.Runner,

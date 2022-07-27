@@ -50,6 +50,12 @@ type Config interface {
 	MinIncomingConfirmations() uint32
 }
 
+func NewDelegateV2() func(*job.DelegateConstConfig) job.Delegate {
+	return func(conf *job.DelegateConstConfig) job.Delegate {
+		return NewDelegate(conf.DB, conf.KeyStore, conf.Runner, conf.PipelineORM, conf.ChainSet, conf.Logger, conf.GenConfig)
+	}
+}
+
 func NewDelegate(
 	db *sqlx.DB,
 	ks keystore.Master,

@@ -340,6 +340,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	var ethClient evmclient.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
+	var delegates []job.DelegateConstructor
 	var useRealExternalInitiatorManager bool
 	var chainORM evmtypes.ORM
 	for _, flag := range flagsAndDeps {
@@ -355,6 +356,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			chainORM = evmtest.NewMockORM([]evmtypes.DBChain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
+		case job.DelegateConstructor:
+			delegates = append(delegates, dep)
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -418,6 +421,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+
+	// TODO: webhook is still a dependency of cltest due to the initiator parameter
+	delegates = append(delegates, webhook.NewDelegateV2(externalInitiatorManager))
+
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
@@ -430,7 +437,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		RestrictedHTTPClient:     c,
 		UnrestrictedHTTPClient:   c,
 		SecretGenerator:          MockSecretGenerator{},
-	})
+	}, delegates...)
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta := &TestApplication{

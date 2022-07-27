@@ -22,6 +22,12 @@ type Delegate struct {
 	chainSet evm.ChainSet
 }
 
+func NewDelegateV2() func(*job.DelegateConstConfig) job.Delegate {
+	return func(conf *job.DelegateConstConfig) job.Delegate {
+		return NewDelegate(conf.DB, conf.JobORM, conf.Runner, conf.Logger, conf.ChainSet)
+	}
+}
+
 // NewDelegate is the constructor of Delegate
 func NewDelegate(
 	db *sqlx.DB,

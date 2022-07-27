@@ -10,9 +10,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -59,6 +63,18 @@ type (
 		AfterJobCreated(spec Job)
 		BeforeJobDeleted(spec Job)
 	}
+
+	DelegateConstConfig struct {
+		Logger      logger.Logger
+		Runner      pipeline.Runner
+		PipelineORM pipeline.ORM
+		JobORM      ORM
+		ChainSet    evm.ChainSet
+		DB          *sqlx.DB
+		KeyStore    keystore.Master
+		GenConfig   config.GeneralConfig
+	}
+	DelegateConstructor func(*DelegateConstConfig) Delegate
 
 	activeJob struct {
 		delegate Delegate

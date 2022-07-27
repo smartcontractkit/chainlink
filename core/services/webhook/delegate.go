@@ -28,6 +28,12 @@ type (
 
 var _ job.Delegate = (*Delegate)(nil)
 
+func NewDelegateV2(initiator ExternalInitiatorManager) func(*job.DelegateConstConfig) job.Delegate {
+	return func(conf *job.DelegateConstConfig) job.Delegate {
+		return NewDelegate(conf.Runner, initiator, conf.Logger)
+	}
+}
+
 func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitiatorManager, lggr logger.Logger) *Delegate {
 	lggr = lggr.Named("Webhook")
 	return &Delegate{
