@@ -324,7 +324,8 @@ contract KeeperRegistryDev is
       gasCeilingMultiplier: config.gasCeilingMultiplier,
       minUpkeepSpend: config.minUpkeepSpend,
       maxPerformGas: config.maxPerformGas,
-      nonce: s_storage.nonce
+      nonce: s_storage.nonce,
+      registryGasOverhead: s_storage.registryGasOverhead
     });
     s_fallbackGasPrice = config.fallbackGasPrice;
     s_fallbackLinkPrice = config.fallbackLinkPrice;
@@ -459,6 +460,7 @@ contract KeeperRegistryDev is
     config.gasCeilingMultiplier = store.gasCeilingMultiplier;
     config.minUpkeepSpend = store.minUpkeepSpend;
     config.maxPerformGas = store.maxPerformGas;
+    config.registryGasOverhead = store.registryGasOverhead;
     config.fallbackGasPrice = s_fallbackGasPrice;
     config.fallbackLinkPrice = s_fallbackLinkPrice;
     config.transcoder = s_transcoder;
@@ -481,15 +483,10 @@ contract KeeperRegistryDev is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
     uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
-    //uint256 l1CostWei = 0;
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
-      //l1CostWei = OPTIMISM_ORACLE.getL1Fee(bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING));
-    } // else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
-    //(, , , , , uint256 l1GasWei) = ARBITRUM_ORACLE.getPricesInWei();
-    //l1CostWei = gasLimit * l1GasWei;
-    //}
+    }
     return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, false, data);
   }
 
@@ -665,13 +662,9 @@ contract KeeperRegistryDev is
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
-    //uint256 l1CostWei = 0;
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      //l1CostWei = OPTIMISM_ORACLE.getL1Fee(bytes.concat(msg.data, L1_FEE_DATA_PADDING));
       data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
-    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
-      //l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
     }
     uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth, true, data);
 

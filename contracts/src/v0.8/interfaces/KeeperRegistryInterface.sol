@@ -20,6 +20,7 @@ pragma solidity ^0.8.0;
  * @member maxPerformGas max executeGas allowed for an upkeep on this registry
  * @member fallbackGasPrice gas price used if the gas price feed is stale
  * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
+ * @member registryGasOverhead gas overhead of the registry
  * @member transcoder address of the transcoder contract
  * @member registrar address of the registrar contract
  */
@@ -34,16 +35,18 @@ struct Config {
   uint32 maxPerformGas;
   uint256 fallbackGasPrice;
   uint256 fallbackLinkPrice;
+  uint256 registryGasOverhead;
   address transcoder;
   address registrar;
 }
 
 /**
- * @notice config of the registry
+ * @notice state of the registry
  * @dev only used in params and return values
  * @member nonce used for ID generation
- * @ownerLinkBalance withdrawable balance of LINK by contract owner
- * @numUpkeeps total number of upkeeps on the registry
+ * @member ownerLinkBalance withdrawable balance of LINK by contract owner
+ * @member expectedLinkBalance the expected balance of LINK of the registry
+ * @member numUpkeeps total number of upkeeps on the registry
  */
 struct State {
   uint32 nonce;

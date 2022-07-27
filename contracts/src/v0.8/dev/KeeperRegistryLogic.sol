@@ -42,7 +42,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     if (!success) revert UpkeepNotNeeded();
 
     PerformParams memory params = _generatePerformParams(from, id, performData, false);
-    _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
+    //_prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
     return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
   }

@@ -24,6 +24,7 @@ const blockCountPerTurn = BigNumber.from(3)
 const stalenessSeconds = BigNumber.from(43820)
 const gasCeilingMultiplier = BigNumber.from(1)
 const checkGasLimit = BigNumber.from(20000000)
+const registryGasOverhead = BigNumber.from(80000)
 const fallbackGasPrice = BigNumber.from(200)
 const fallbackLinkPrice = BigNumber.from(200000000)
 const maxPerformGas = BigNumber.from(5000000)
@@ -39,6 +40,7 @@ const config = {
   gasCeilingMultiplier,
   minUpkeepSpend,
   maxPerformGas,
+  registryGasOverhead,
   fallbackGasPrice,
   fallbackLinkPrice,
   transcoder,
