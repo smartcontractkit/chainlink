@@ -52,7 +52,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr)
+	pCfg := cltest.NewTestGeneralConfig(t)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -207,8 +208,6 @@ CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -224,10 +223,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-			// Clear out fixture
-			err := sessionORM.DeleteUser()
-			require.NoError(t, err)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+
+			// Purge the fixture users to test assumption of single admin
+			// initialUser user created above
+			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
@@ -242,7 +242,6 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
-
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			lggr := logger.TestLogger(t)
 
@@ -276,7 +275,8 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr)
+	pCfg := cltest.NewTestGeneralConfig(t)
+	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -322,7 +322,6 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 }
 
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name       string
 		apiFile    string
@@ -338,12 +337,15 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-			// Clear out fixture
-			err := sessionORM.DeleteUser()
-			require.NoError(t, err)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+
+			// Clear out fixture users/users created from the other test cases
+			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
+			// create/run with a new admin user
+			pgtest.MustExec(t, db, "DELETE FROM users;")
+
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
+			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := cltest.NewEthClientMock(t)
@@ -389,6 +391,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
+
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
 
 			app.AssertExpectations(t)

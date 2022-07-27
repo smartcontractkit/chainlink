@@ -2,9 +2,33 @@
 
 Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
 
-## How to Configure
+## Setup
 
-See the [example.env](./example.env) file to set some common environment variables to configure how tests are run.
+Prerequisites to run the tests.
+
+### Install Go
+
+[Install](https://go.dev/doc/install)
+
+### Install Ginkgo
+
+[Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
+
+`go install github.com/onsi/ginkgo/v2/ginkgo`
+
+### Install NodeJS
+
+[Install](https://nodejs.org/en/download/)
+
+### Install Helm Charts
+
+[Install Helm](https://helm.sh/docs/intro/install/#through-package-managers) if you don't already have it. Then add necessary charts with the below commands.
+
+```sh
+helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+```
 
 ### Connect to a Kubernetes Cluster
 
@@ -14,11 +38,15 @@ increase minikube's resources significantly, or get a more substantial cluster.
 This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
 as well as some simulated blockchains, all depending on the types of tests and networks being used.
 
-### Install Ginkgo
+## Configure Environment
 
-[Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
+See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
 
-`go install github.com/onsi/ginkgo/v2/ginkgo`
+You can also specify `EVM_PRIVATE_KEYS` and `EVM_URLS` for running on live chains.
+
+Other `EVM_*` variables are retrieved when running with the `@general` tag, and is helpful for doing quick sanity checks on new chains or when tweaking variables.
+
+**The tests will not automatically load your .env file. Remember to run `source .env` for changes to take effect.**
 
 ## How to Run
 
@@ -32,7 +60,7 @@ Run all smoke tests, only using simulated blockchains.
 make test_smoke_simulated
 ```
 
-Run all smoke tests in parallel, only using simulated blockchains.
+Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones.*
 
 ```sh
 make test_smoke_simulated args="-nodes=<number-of-parallel-tests>"
@@ -42,12 +70,23 @@ You can also run specific tests or specific networks using a `focus` tag.
 
 ```sh
 make test_smoke args="-focus=@metis" # Runs all the smoke tests on the Metis Stardust network
-make test_smoke args="-focus=@ocr" # Runs all OCR tests
+make test_smoke args="-focus=@general" # Runs all smoke tests for a network that you define in environment vars
 ```
 
 ### Soak
 
-See the [soak_runner_test.go](./soak/soak_runner_test.go) file to trigger soak tests.
+Currently we have 2 soak tests, both can be triggered using make commands.
+
+```sh
+make test_soak_ocr
+make test_soak_keeper
+```
+
+Soak tests will pull all their network information from the env vars that you can set in the `.env` file. *Reminder to run `source .env` for changes to take effect.*
+
+To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), see the [./soak/tests](./soak/tests/) test specifications.
+
+See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
 
 ### Performance
 
@@ -59,17 +98,4 @@ make test_perf
 
 ## Common Issues
 
-After running `go mod tidy` or similar commands, many seem to hit this error:
-
-```plain
-github.com/smartcontractkit/chainlink/integration-tests imports
-	github.com/smartcontractkit/chainlink-testing-framework/blockchain imports
-	github.com/ethereum/go-ethereum/crypto imports
-	github.com/btcsuite/btcd/btcec/v2/ecdsa tested by
-	github.com/btcsuite/btcd/btcec/v2/ecdsa.test imports
-	github.com/btcsuite/btcd/chaincfg/chainhash: ambiguous import: found package github.com/btcsuite/btcd/chaincfg/chainhash in multiple modules:
-	github.com/btcsuite/btcd v0.22.0-beta (/Users/adamhamrick/go/pkg/mod/github.com/btcsuite/btcd@v0.22.0-beta/chaincfg/chainhash)
-	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 (/Users/adamhamrick/go/pkg/mod/github.com/btcsuite/btcd/chaincfg/chainhash@v1.0.1)
-```
-
-A quick workaround is to run `go get -u github.com/btcsuite/btcd/chaincfg/chainhash@v1.0.1` then `go mod tidy` to resolve it.
+When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.

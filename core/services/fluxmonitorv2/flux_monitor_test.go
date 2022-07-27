@@ -103,55 +103,24 @@ type testMocks struct {
 	flags             *fmmocks.Flags
 }
 
-func newTestMocks(t *testing.T) *testMocks {
+func setupMocks(t *testing.T) *testMocks {
+	t.Helper()
+
 	tm := &testMocks{
-		fluxAggregator:    new(mocks.FluxAggregator),
-		logBroadcast:      new(logmocks.Broadcast),
-		logBroadcaster:    new(logmocks.Broadcaster),
-		orm:               new(fmmocks.ORM),
-		jobORM:            new(jobmocks.ORM),
-		pipelineORM:       new(pipelinemocks.ORM),
-		pipelineRunner:    new(pipelinemocks.Runner),
-		keyStore:          new(fmmocks.KeyStoreInterface),
-		contractSubmitter: new(fmmocks.ContractSubmitter),
-		flags:             new(fmmocks.Flags),
+		fluxAggregator:    mocks.NewFluxAggregator(t),
+		logBroadcast:      logmocks.NewBroadcast(t),
+		logBroadcaster:    logmocks.NewBroadcaster(t),
+		orm:               fmmocks.NewORM(t),
+		jobORM:            jobmocks.NewORM(t),
+		pipelineORM:       pipelinemocks.NewORM(t),
+		pipelineRunner:    pipelinemocks.NewRunner(t),
+		keyStore:          fmmocks.NewKeyStoreInterface(t),
+		contractSubmitter: fmmocks.NewContractSubmitter(t),
+		flags:             fmmocks.NewFlags(t),
 	}
 
 	tm.flags.On("ContractExists").Maybe().Return(false)
 	tm.logBroadcast.On("String").Maybe().Return("")
-
-	tm.fluxAggregator.Test(t)
-	tm.logBroadcast.Test(t)
-	tm.logBroadcaster.Test(t)
-	tm.orm.Test(t)
-	tm.jobORM.Test(t)
-	tm.pipelineORM.Test(t)
-	tm.pipelineRunner.Test(t)
-	tm.keyStore.Test(t)
-	tm.contractSubmitter.Test(t)
-	tm.flags.Test(t)
-
-	return tm
-}
-
-// AssertExpectations asserts expectations of all the mocks
-func (tm *testMocks) AssertExpectations(t *testing.T) {
-	tm.fluxAggregator.AssertExpectations(t)
-	tm.logBroadcast.AssertExpectations(t)
-	tm.logBroadcaster.AssertExpectations(t)
-	tm.orm.AssertExpectations(t)
-	tm.jobORM.AssertExpectations(t)
-	tm.pipelineORM.AssertExpectations(t)
-	tm.pipelineRunner.AssertExpectations(t)
-	tm.keyStore.AssertExpectations(t)
-	tm.contractSubmitter.AssertExpectations(t)
-	tm.flags.AssertExpectations(t)
-}
-
-func setupMocks(t *testing.T) *testMocks {
-	t.Helper()
-
-	tm := newTestMocks(t)
 
 	return tm
 }
@@ -270,9 +239,9 @@ func setHibernationTickerPeriod(period time.Duration) func(*setupOptions) {
 }
 
 // setHibernationTickerPeriod is an option to set the hibernation ticker period during setup
-func setHibernationState(hibernating bool) func(*setupOptions) {
+func setHibernationState(t *testing.T, hibernating bool) func(*setupOptions) {
 	return func(opts *setupOptions) {
-		opts.flags = new(fmmocks.Flags)
+		opts.flags = fmmocks.NewFlags(t)
 		opts.flags.On("ContractExists").Return(true)
 		opts.flags.On("Address").Return(common.Address{})
 		opts.flags.On("IsLowered", mock.Anything).Return(!hibernating, nil)
@@ -512,7 +481,6 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			fm.SetOracleAddress()
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
-			tm.AssertExpectations(t)
 		})
 	}
 }
@@ -547,7 +515,6 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 	require.NoError(t, fm.SetOracleAddress())
 
 	fm.ExportedPollIfEligible(1, 1)
-	tm.AssertExpectations(t)
 }
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
@@ -726,7 +693,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	var logBroadcasts []*logmocks.Broadcast
 
 	for i := 1; i <= 4; i++ {
-		logBroadcast := new(logmocks.Broadcast)
+		logBroadcast := logmocks.NewBroadcast(t)
 		logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
 		logBroadcast.On("String").Maybe().Return("")
 		tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
@@ -746,7 +713,6 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	readyToAssert.AwaitOrFail(t)
 
 	fm.Close()
-	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
@@ -837,7 +803,6 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			if !tc.expectedToSubmit {
 				require.Len(t, idleDurationOccured, 0)
 			}
-			tm.AssertExpectations(t)
 		})
 	}
 }
@@ -854,7 +819,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		disablePollTicker(true),
 		disableIdleTimer(true),
 		setHibernationTickerPeriod(time.Second),
-		setHibernationState(true),
+		setHibernationState(t, true),
 	)
 
 	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
@@ -925,7 +890,6 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		}, nil).Once()
 
 	g.Eventually(func() int { return len(pollOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(3))
-	tm.AssertExpectations(t)
 }
 
 // chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
@@ -947,7 +911,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 		roundTwo  = uint32(2)
 	)
 
-	flags := new(fmmocks.Flags)
+	flags := fmmocks.NewFlags(t)
 	flags.On("ContractExists").Return(true)
 	flags.On("Address").Return(common.Address{})
 	flags.On("IsLowered", mock.Anything).Return(true, nil).Once()
@@ -1053,9 +1017,6 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur, though it should have via hibernation ticker")
 	}
-
-	tm.AssertExpectations(t)
-
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
@@ -1161,7 +1122,6 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	fm.ExportedProcessLogs()
 
 	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(4))
-	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
@@ -1212,7 +1172,6 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	g.Eventually(ch).Should(gomega.BeClosed())
 
 	fm.Close()
-	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
@@ -1277,7 +1236,6 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			}
 
 			fm.Close()
-			tm.AssertExpectations(t)
 		})
 	}
 }
@@ -1360,7 +1318,6 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			} else {
 				g.Consistently(chRoundState).ShouldNot(gomega.BeClosed())
 			}
-			tm.AssertExpectations(t)
 		})
 	}
 }
@@ -1443,7 +1400,6 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
 	fm.Close()
-	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
@@ -1463,7 +1419,6 @@ func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 	fm.ExportedProcessLogs()
-	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
@@ -1490,7 +1445,6 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 
 			fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 			fm.ExportedProcessLogs()
-			tm.AssertExpectations(t)
 		})
 	}
 }
@@ -1610,7 +1564,6 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		}, nil)
 
 		fm.ExportedPollIfEligible(0, 0)
-		tm.AssertExpectations(t)
 	})
 
 	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
@@ -1705,7 +1658,6 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
 		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
-		tm.AssertExpectations(t)
 	})
 
 	t.Run("when poll ticker fires, then an older NewRound log arrives, but does submit on a log arrival after a reorg", func(t *testing.T) {
@@ -1859,8 +1811,6 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			RoundId:   big.NewInt(olderRoundID),
 			StartedAt: big.NewInt(0),
 		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
-
-		tm.AssertExpectations(t)
 	})
 }
 
@@ -1980,5 +1930,4 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	cltest.EventuallyExpectationsMet(t, tm.orm, waitTime, interval)
 	cltest.EventuallyExpectationsMet(t, tm.pipelineORM, waitTime, interval)
 	cltest.EventuallyExpectationsMet(t, tm.contractSubmitter, waitTime, interval)
-	tm.AssertExpectations(t)
 }

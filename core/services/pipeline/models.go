@@ -12,10 +12,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"gopkg.in/guregu/null.v4"
 )
 
 type Spec struct {
@@ -27,6 +26,7 @@ type Spec struct {
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
+	JobType string `json:"-"`
 }
 
 func (s Spec) Pipeline() (*Pipeline, error) {

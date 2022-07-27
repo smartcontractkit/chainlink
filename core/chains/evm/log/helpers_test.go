@@ -122,12 +122,7 @@ func (helper *broadcasterHelper) start() {
 	require.NoError(helper.t, err)
 }
 
-type abigenContract interface {
-	Address() common.Address
-	ParseLog(log types.Log) (generated.AbigenLog, error)
-}
-
-func (helper *broadcasterHelper) register(listener log.Listener, contract abigenContract, numConfirmations uint32) {
+func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint32) {
 	logs := []generated.AbigenLog{
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
@@ -135,7 +130,7 @@ func (helper *broadcasterHelper) register(listener log.Listener, contract abigen
 	helper.registerWithTopics(listener, contract, logs, numConfirmations)
 }
 
-func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract abigenContract, logs []generated.AbigenLog, numConfirmations uint32) {
+func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract log.AbigenContract, logs []generated.AbigenLog, numConfirmations uint32) {
 	logsWithTopics := make(map[common.Hash][][]log.Topic)
 	for _, log := range logs {
 		logsWithTopics[log.Topic()] = nil
@@ -143,7 +138,7 @@ func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contr
 	helper.registerWithTopicValues(listener, contract, numConfirmations, logsWithTopics)
 }
 
-func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract abigenContract, numConfirmations uint32,
+func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract log.AbigenContract, numConfirmations uint32,
 	topics map[common.Hash][][]log.Topic) {
 
 	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
@@ -345,11 +340,11 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lggr logger.
 }
 
 func (listener *simpleLogListener) WasAlreadyConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().TxIndex, broadcast.RawLog().Index, listener.jobID)
 }
 
 func (listener *simpleLogListener) MarkConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().TxIndex, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

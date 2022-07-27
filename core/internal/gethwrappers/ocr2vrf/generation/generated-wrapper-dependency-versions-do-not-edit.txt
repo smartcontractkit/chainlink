@@ -1,3 +1,4 @@
-GETH_VERSION: 1.10.18
-dkg: ../../../../contracts/solc/v0.8.15/DKG.abi ../../../../contracts/solc/v0.8.15/DKG.bin 5cb68130d77b31a4711c9a8905ed1ccfb293d50eea1af4c656aeff2b66b543cd
-vrf_beacon_coordinator: ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 434246ebae0e27a8059fc2bbd21252bd478629b7c74e1b49320caa5f1039b9a6
+GETH_VERSION: 1.10.20
+dkg: ../../../../contracts/solc/v0.8.15/DKG.abi ../../../../contracts/solc/v0.8.15/DKG.bin 9fdb189455faab6c4a467eae66bf0d7cdab7fe512d0d6def5b67cdc4c7d413cb
+vrf_beacon_consumer: ../../../../contracts/solc/v0.8.15/BeaconVRFConsumer.abi ../../../../contracts/solc/v0.8.15/BeaconVRFConsumer.bin c40c930982c6c0cfc98990a0ff59750325fa6191dfa68a5347cb66d62ca081d6
+vrf_beacon_coordinator: ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.abi ../../../../contracts/solc/v0.8.15/VRFBeaconCoordinator.bin 6d84c7c89fd6a72176a9fd934d412cacfa1a32a19cdbc8e3f1a935442a6d2ba7
