@@ -240,7 +240,7 @@ func requestRandomness(e helpers.Environment, coordinatorAddress string, numWord
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func getRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
+func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
 	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
 	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
@@ -302,7 +302,7 @@ func requestRandomnessCallback(
 	return requestID
 }
 
-func getRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int) {
+func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int) {
 	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
 
 	tx, err := consumer.TestRedeemRandomness(e.Owner, requestID)
