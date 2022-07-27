@@ -107,7 +107,7 @@ var _ = Describe("OCR chaos test @chaos-ocr", func() {
 		}
 
 		testEnvironment *environment.Environment
-		chainlinkNodes  []client.Chainlink
+		chainlinkNodes  []*client.Chainlink
 		chainClient     blockchain.EVMClient
 
 		chaosStartRound int64 = 1
