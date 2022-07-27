@@ -134,7 +134,7 @@ func unmarshalNewTransmission(lg logpoller.Log) (r vrf_wrapper.VRFBeaconCoordina
 	if err != nil {
 		return r, errors.Wrapf(err, "unpack %s into map (RandomWordsFulfilled)", hexutil.Encode(lg.Data))
 	}
-	
+
 	r.OutputsServed = *abi.ConvertType(m["outputsServed"], new([]vrf_wrapper.VRFBeaconReportOutputServed)).(*[]vrf_wrapper.VRFBeaconReportOutputServed)
 	r.ConfigDigest = *abi.ConvertType(m["configDigest"], new([32]byte)).(*[32]byte)
 	r.JuelsPerFeeCoin = *abi.ConvertType(m["juelsPerFeeCoin"], new(*big.Int)).(**big.Int)
