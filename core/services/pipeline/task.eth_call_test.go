@@ -229,6 +229,7 @@ func TestETHCallTask(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
+			db := pgtest.NewSqlxDB(t)
 			task := pipeline.ETHCallTask{
 				BaseTask:   pipeline.NewBaseTask(0, "ethcall", nil, nil, 0),
 				Contract:   test.contract,
@@ -250,7 +251,6 @@ func TestETHCallTask(t *testing.T) {
 			keyStore.Test(t)
 			txManager := txmmocks.NewTxManager(t)
 			txManager.Test(t)
-			db := pgtest.NewSqlxDB(t)
 
 			var cc evm.ChainSet
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
