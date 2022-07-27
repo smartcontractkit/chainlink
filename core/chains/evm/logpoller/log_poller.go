@@ -29,6 +29,7 @@ type LogPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 	MergeFilter(eventSigs []common.Hash, addresses []common.Address)
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
+	GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -507,6 +508,10 @@ func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address 
 
 func (lp *logPoller) LatestLogEventSigsAddrs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.LatestLogEventSigsAddrs(fromBlock, addresses, eventSigs, qopts...)
+}
+
+func (lp *logPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
+	return lp.orm.GetBlocks(numbers, qopts...)
 }
 
 func EvmWord(i uint64) common.Hash {
