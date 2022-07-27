@@ -188,12 +188,13 @@ func (lp *logPoller) run() {
 				}
 				// Do not support polling chains with don't even have finality depth worth of blocks.
 				// Could conceivably support this but not worth the effort.
-				if int64(latest.NumberU64()) < lp.finalityDepth {
+				// Need finality depth + 1, no block 0.
+				if latest.Number().Int64() <= lp.finalityDepth {
 					lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latest.NumberU64(), "finality", lp.finalityDepth)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
-				start = int64(latest.NumberU64()) - lp.finalityDepth
+				start = latest.Number().Int64() - lp.finalityDepth
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
