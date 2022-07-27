@@ -5,13 +5,14 @@ go 1.18
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/ethereum/go-ethereum v1.10.20
+	github.com/go-resty/resty/v2 v2.7.0
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.27.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.0
-	github.com/smartcontractkit/chainlink-env v0.2.27
+	github.com/smartcontractkit/chainlink-env v0.2.31
 	github.com/smartcontractkit/chainlink-testing-framework v1.5.1
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
 	github.com/stretchr/testify v1.8.0
