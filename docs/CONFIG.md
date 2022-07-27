@@ -2818,6 +2818,72 @@ ObservationGracePeriod = '1s'
 
 </p></details>
 
+<details><summary>Arbitrum Goerli (421613)<a id='EVM-421613'></a></summary><p>
+
+```toml
+ChainType = 'arbitrum'
+FinalityDepth = 50
+LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '1 micro'
+PriceMax = '1 micro'
+PriceMin = '1 micro'
+LimitDefault = 7000000
+LimitMultiplier = '1'
+LimitTransfer = 800000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 0
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
 <details><summary>Ethereum Sepolia (11155111)<a id='EVM-11155111'></a></summary><p>
 
 ```toml

@@ -273,6 +273,8 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+	arbitrumGoerli := arbitrumMainnet
+	arbitrumGoerli.linkContractAddress = "" //TODO
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -384,6 +386,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[69] = optimismKovan
 	chainSpecificConfigDefaultSets[42161] = arbitrumMainnet
 	chainSpecificConfigDefaultSets[421611] = arbitrumRinkeby
+	chainSpecificConfigDefaultSets[421613] = arbitrumGoerli
 	chainSpecificConfigDefaultSets[56] = bscMainnet
 	chainSpecificConfigDefaultSets[128] = hecoMainnet
 	chainSpecificConfigDefaultSets[250] = fantomMainnet
