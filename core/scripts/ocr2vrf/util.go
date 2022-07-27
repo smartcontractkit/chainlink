@@ -149,10 +149,6 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 		strings.Split(c.peerIDs, ","),
 		strings.Split(c.transmitters, ","))
 
-	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
-
-	offchainConfig := ocr2vrf.OffchainConfig(keyIDBytes)
-
 	confDelays := make(map[uint32]struct{})
 	for _, c := range strings.Split(c.confDelays, ",") {
 		confDelay, err := strconv.ParseUint(c, 0, 32)
@@ -171,7 +167,7 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 		c.maxRounds,
 		helpers.ParseIntSlice(c.schedule),
 		oracleIdentities,
-		offchainConfig,
+		nil, // off-chain config
 		c.maxDurationQuery,
 		c.maxDurationObservation,
 		c.maxDurationReport,
