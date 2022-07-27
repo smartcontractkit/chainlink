@@ -35,7 +35,7 @@ type OCRSoakTest struct {
 	roundResponseData map[string]map[int64]int64
 	mockServer        *ctfClient.MockserverClient
 	env               *environment.Environment
-	chainlinkNodes    []client.Chainlink
+	chainlinkNodes    []*client.Chainlink
 	chainClient       blockchain.EVMClient
 }
 
@@ -157,7 +157,7 @@ func (t *OCRSoakTest) Run() {
 }
 
 // Networks returns the networks that the test is running on
-func (t *OCRSoakTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
+func (t *OCRSoakTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return t.env, t.chainlinkNodes, &t.TestReporter, t.chainClient
 }
 
