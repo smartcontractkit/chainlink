@@ -30,12 +30,19 @@ type Chainlink struct {
 }
 
 // NewChainlink creates a new Chainlink model using a provided config
-func NewChainlink(c *ChainlinkConfig) *Chainlink {
+func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
+	rc := resty.New().SetBaseURL(c.URL)
+	session := &Session{Email: c.Email, Password: c.Password}
+	resp, err := rc.R().SetBody(session).Post("/sessions")
+	if err != nil {
+		return nil, err
+	}
+	rc.SetCookies(resp.Cookies())
 	return &Chainlink{
 		Config:    c,
-		APIClient: resty.New().SetBaseURL(c.URL),
+		APIClient: rc,
 		pageSize:  25,
-	}
+	}, nil
 }
 
 // URL Chainlink instance http url
@@ -834,12 +841,15 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	internalURLs := e.URLs[chainlinkChart.NodesInternalURLsKey]
 	for i, localURL := range localURLs {
 		internalHost := parseHostname(internalURLs[i])
-		c := NewChainlink(&ChainlinkConfig{
+		c, err := NewChainlink(&ChainlinkConfig{
 			URL:      localURL,
 			Email:    "notreal@fakeemail.ch",
 			Password: "fj293fbBnlQ!f9vNs",
 			RemoteIP: internalHost,
 		})
+		if err != nil {
+			return nil, err
+		}
 		clients = append(clients, c)
 	}
 	return clients, nil
