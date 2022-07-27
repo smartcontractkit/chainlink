@@ -195,7 +195,7 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println("Consumer redeem randomness command:")
 	redeemCommand := fmt.Sprintf(
-		"go run . consumer-get-randomness -consumer-address %s -request-id <req-id>",
+		"go run . consumer-redeem-randomness -consumer-address %s -request-id <req-id>",
 		consumerAddress.Hex())
 	fmt.Println(redeemCommand)
 	fmt.Println()
