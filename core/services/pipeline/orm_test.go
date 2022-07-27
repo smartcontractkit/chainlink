@@ -158,7 +158,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 			Val:   "stuff",
 			Valid: true,
 		}
-		r.FatalErrors = append(r.AllErrors, null.NewString("", false))
+		r.AllErrors = append(r.AllErrors, null.NewString("", false))
 		r.State = pipeline.RunStatusCompleted
 		runs = append(runs, &r)
 	}
@@ -436,7 +436,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		run.State = pipeline.RunStatusCompleted
 		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
 		run.Outputs = pipeline.JSONSerializable{Val: 1, Valid: true}
-		run.FatalErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
+		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
 		restart, err := orm.StoreRun(run)
 		assert.NoError(t, err)
