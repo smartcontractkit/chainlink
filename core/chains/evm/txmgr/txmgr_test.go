@@ -401,6 +401,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 
 		// Create mock forwarder, mock authorizedsenders call.
@@ -424,7 +425,6 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
-			Meta:           &txmgr.EthTxMeta{},
 			Strategy:       txmgr.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
@@ -435,7 +435,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
 		require.NotNil(t, m.FwdrDestAddress)
-		require.NotEqual(t, etx.ToAddress, toAddress)
+		require.Equal(t, etx.ToAddress, fwdrAddr)
 	})
 
 	t.Run("skips forwarding tx when forwarder doesn't authorize sender", func(t *testing.T) {
