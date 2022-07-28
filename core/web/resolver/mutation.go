@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -171,6 +172,13 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
+	if args.Input.AdminAddr != "" {
+		_, err := common.NewMixedcaseAddressFromString(args.Input.AdminAddr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid admin address: %v", args.Input.AdminAddr)
+		}
+	}
+
 	params := feeds.ChainConfig{
 		FeedsManagerID: fmID,
 		ChainID:        args.Input.ChainID,
@@ -286,6 +294,13 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	id, err := stringutils.ToInt64(args.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	if args.Input.AdminAddr != "" {
+		_, err := common.NewMixedcaseAddressFromString(args.Input.AdminAddr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid admin address: %v", args.Input.AdminAddr)
+		}
 	}
 
 	params := feeds.ChainConfig{
