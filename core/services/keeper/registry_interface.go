@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -213,11 +214,11 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		config, err := rw.contract1_1.GetConfig(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get contract config")
+			return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, err, rw.Version)
 		}
 		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get keeper list")
+			return nil, fmt.Errorf("%w [%s]: getKeeperList v1.%d", ErrContractCallFailure, err, rw.Version)
 		}
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(config.BlockCountPerTurn.Int64()),
@@ -227,7 +228,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 	case RegistryVersion_1_2:
 		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get contract state")
+			return nil, fmt.Errorf("%w [%s]: getState v1.%d", ErrContractCallFailure, err, rw.Version)
 		}
 
 		return &RegistryConfig{

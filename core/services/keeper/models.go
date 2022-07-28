@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -56,9 +57,38 @@ func (k *KeeperIndexMap) Value() (driver.Value, error) {
 }
 
 func (upkeep UpkeepRegistration) PrettyID() string {
-	result, err := utils.Uint256ToBytes(upkeep.UpkeepID.ToInt())
+	return NewUpkeepIdentifier(upkeep.UpkeepID).String()
+}
+
+func NewUpkeepIdentifier(i *utils.Big) *UpkeepIdentifier {
+	val := UpkeepIdentifier(*i)
+	return &val
+}
+
+type UpkeepIdentifier utils.Big
+
+// String produces a hex encoded value, zero padded, prefixed with UpkeepPrefix
+func (ui UpkeepIdentifier) String() string {
+	val := utils.Big(ui)
+	result, err := utils.Uint256ToBytes(val.ToInt())
 	if err != nil {
 		panic(errors.Wrap(err, "invariant, invalid upkeepID"))
 	}
-	return "UPx" + hex.EncodeToString(result)
+	return fmt.Sprintf("%s%s", UpkeepPrefix, hex.EncodeToString(result))
+}
+
+// Value returns this instance serialized for database storage.
+func (ui UpkeepIdentifier) Value() (driver.Value, error) {
+	return ui.String(), nil
+}
+
+// Scan reads the database value and returns an instance.
+func (ui *UpkeepIdentifier) Scan(val interface{}) error {
+	var err error
+	bg := utils.NewBig(big.NewInt(0))
+	err = bg.Scan(val)
+	if err == nil {
+		*ui = UpkeepIdentifier(*bg)
+	}
+	return err
 }
