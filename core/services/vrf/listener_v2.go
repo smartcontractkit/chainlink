@@ -595,7 +595,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		// 2. Simulated before: in this case, lastTry will be set to a non-zero time value,
 		// in which case we'd want to use that as a relative point from when we last tried
 		// the request.
-		observeTimeBetweenSims(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
@@ -747,13 +747,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
-		// Cases:
-		// 1. Never simulated: in this case, we want to observe the time until simulated
-		// on the utcTimestamp field of the pending request.
-		// 2. Simulated before: in this case, lastTry will be set to a non-zero time value,
-		// in which case we'd want to use that as a relative point from when we last tried
-		// the request.
-		observeTimeBetweenSims(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
