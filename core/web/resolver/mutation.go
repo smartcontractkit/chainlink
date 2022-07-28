@@ -173,7 +173,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.AdminAddr != "" {
-		_, err := common.NewMixedcaseAddressFromString(args.Input.AdminAddr)
+		_, err = common.NewMixedcaseAddressFromString(args.Input.AdminAddr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid admin address: %v", args.Input.AdminAddr)
 		}
@@ -297,7 +297,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	if args.Input.AdminAddr != "" {
-		_, err := common.NewMixedcaseAddressFromString(args.Input.AdminAddr)
+		_, err = common.NewMixedcaseAddressFromString(args.Input.AdminAddr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid admin address: %v", args.Input.AdminAddr)
 		}
