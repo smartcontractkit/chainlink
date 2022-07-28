@@ -10,6 +10,7 @@ import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInt
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
+import "./interfaces/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -21,7 +22,8 @@ contract KeeperRegistryDev is
   TypeAndVersionInterface,
   KeeperRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
-  ERC677ReceiverInterface
+  ERC677ReceiverInterface,
+  OCR2Abstract
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
