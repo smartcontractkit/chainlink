@@ -1,28 +1,29 @@
 package keeper
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 // GetUpkeepFailure implements the UpkeepGetter interface with an induced error and nil
 // config response.
 type GetUpkeepFailure struct{}
 
-var GetUpkeepError = errors.New("chain connection error example")
+var ErrGetUpkeep = errors.New("chain connection error example")
 
 func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepConfig, error) {
-	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, GetUpkeepError, RegistryVersion_1_2)
+	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, ErrGetUpkeep, RegistryVersion_1_2)
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
