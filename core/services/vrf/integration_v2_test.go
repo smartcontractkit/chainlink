@@ -110,7 +110,7 @@ var (
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
 	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
-	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
+	oracleTransactor, _ := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
 	var (
 		sergey       = newIdentity(t)
 		neil         = newIdentity(t)
