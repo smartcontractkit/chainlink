@@ -2,7 +2,6 @@ package headtracker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -65,7 +64,7 @@ func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, 
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			hl.logger.Errorw("Error in new head subscription, unsubscribed", "err", err)
 			continue
 		} else {
 			break
@@ -131,7 +130,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 
 		case <-noHeadsAlarmC:
 			// We haven't received a head on the channel for a long time, log a warning
-			hl.logger.Warn(fmt.Sprintf("have not received a head for %v", noHeadsAlarmDuration))
+			hl.logger.Warnf("have not received a head for %v", noHeadsAlarmDuration)
 			hl.receivingHeads.Store(false)
 		}
 	}
@@ -155,7 +154,7 @@ func (hl *headListener) subscribe(ctx context.Context) bool {
 			err := hl.subscribeToHead(ctx)
 			if err != nil {
 				promEthConnectionErrors.WithLabelValues(hl.ethClient.ChainID().String()).Inc()
-				hl.logger.Warnw(fmt.Sprintf("Failed to subscribe to heads on chain %s", chainID), "err", err)
+				hl.logger.Warnw("Failed to subscribe to heads on chain", "chainID", chainID, "err", err)
 			} else {
 				hl.logger.Debugf("Subscribed to heads on chain %s", chainID)
 				return true

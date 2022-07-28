@@ -8,24 +8,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 var _ = Describe("Flux monitor suite @flux", func() {
@@ -35,8 +34,8 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		contractDeployer contracts.ContractDeployer
 		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
-		chainlinkNodes   []client.Chainlink
-		mockServer       *client.MockserverClient
+		chainlinkNodes   []*client.Chainlink
+		mockServer       *ctfClient.MockserverClient
 		nodeAddresses    []common.Address
 		adapterPath      string
 		adapterUUID      string
@@ -61,7 +60,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err = blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
@@ -70,7 +69,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
 			nodeAddresses, err = actions.ChainlinkNodeAddresses(chainlinkNodes)
 			Expect(err).ShouldNot(HaveOccurred(), "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-			mockServer, err = client.ConnectMockServer(testEnvironment)
+			mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating mock server client shouldn't fail")
 
 			chainClient.ParallelTransactions(true)
@@ -130,7 +129,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				URL:  adapterFullURL,
 			}
 			for i, n := range chainlinkNodes {
-				err = n.CreateBridge(&bta)
+				err = n.MustCreateBridge(&bta)
 				Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
 				fluxSpec := &client.FluxMonitorJobSpec{
@@ -142,13 +141,13 @@ var _ = Describe("Flux monitor suite @flux", func() {
 					IdleTimerDisabled: true,
 					ObservationSource: client.ObservationSourceSpecBridge(bta),
 				}
-				_, err = n.CreateJob(fluxSpec)
+				_, err = n.MustCreateJob(fluxSpec)
 				Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
 			}
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.

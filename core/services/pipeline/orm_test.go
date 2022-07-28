@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -12,10 +11,14 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
@@ -155,7 +158,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 			Val:   "stuff",
 			Valid: true,
 		}
-		r.FatalErrors = append(r.AllErrors, null.NewString("", false))
+		r.AllErrors = append(r.AllErrors, null.NewString("", false))
 		r.State = pipeline.RunStatusCompleted
 		runs = append(runs, &r)
 	}
@@ -433,7 +436,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		run.State = pipeline.RunStatusCompleted
 		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
 		run.Outputs = pipeline.JSONSerializable{Val: 1, Valid: true}
-		run.FatalErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
+		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
 		restart, err := orm.StoreRun(run)
 		assert.NoError(t, err)
@@ -443,11 +446,203 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		runsIds = append(runsIds, run.ID)
 	}
 
-	err := orm.DeleteRunsOlderThan(context.Background(), 1*time.Second)
+	err := orm.DeleteRunsOlderThan(testutils.Context(t), 1*time.Second)
 	assert.NoError(t, err)
 
 	for _, runId := range runsIds {
 		_, err := orm.FindRun(runId)
 		require.Error(t, err, "not found")
 	}
+}
+
+func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
+	t.Parallel()
+
+	// The test configures single Keeper job with two running tasks.
+	// GetUnfinishedRuns() expects to catch both running tasks.
+
+	config := cltest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	porm := pipeline.NewORM(db, lggr, config)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jorm := job.NewORM(db, cc, porm, keyStore, lggr, config)
+	defer jorm.Close()
+
+	timestamp := time.Now()
+	var keeperJob = job.Job{
+		ID: 1,
+		KeeperSpec: &job.KeeperSpec{
+			ContractAddress: cltest.NewEIP55Address(),
+			FromAddress:     cltest.NewEIP55Address(),
+			CreatedAt:       timestamp,
+			UpdatedAt:       timestamp,
+			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+		},
+		ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+		PipelineSpec: &pipeline.Spec{
+			ID:           1,
+			DotDagSource: "",
+		},
+		Type:            job.Keeper,
+		SchemaVersion:   1,
+		Name:            null.StringFrom("test"),
+		MaxTaskDuration: models.Interval(1 * time.Minute),
+	}
+
+	err := jorm.CreateJob(&keeperJob)
+	require.NoError(t, err)
+	require.Equal(t, job.Keeper, keeperJob.Type)
+
+	runID1 := uuid.NewV4()
+	runID2 := uuid.NewV4()
+
+	err = porm.CreateRun(&pipeline.Run{
+		PipelineSpecID: keeperJob.PipelineSpecID,
+		State:          pipeline.RunStatusRunning,
+		Outputs:        pipeline.JSONSerializable{},
+		CreatedAt:      time.Now(),
+		PipelineTaskRuns: []pipeline.TaskRun{{
+			ID:        runID1,
+			Type:      pipeline.TaskTypeETHTx,
+			Index:     0,
+			Output:    pipeline.JSONSerializable{},
+			CreatedAt: time.Now(),
+			DotID:     "perform_upkeep_tx",
+		}},
+	})
+	require.NoError(t, err)
+
+	err = porm.CreateRun(&pipeline.Run{
+		PipelineSpecID: keeperJob.PipelineSpecID,
+		State:          pipeline.RunStatusRunning,
+		Outputs:        pipeline.JSONSerializable{},
+		CreatedAt:      time.Now(),
+		PipelineTaskRuns: []pipeline.TaskRun{{
+			ID:        runID2,
+			Type:      pipeline.TaskTypeETHCall,
+			Index:     1,
+			Output:    pipeline.JSONSerializable{},
+			CreatedAt: time.Now(),
+			DotID:     "check_upkeep_tx",
+		}},
+	})
+	require.NoError(t, err)
+
+	var counter int
+
+	err = porm.GetUnfinishedRuns(testutils.Context(t), time.Now(), func(run pipeline.Run) error {
+		counter++
+
+		require.Equal(t, job.Keeper.String(), run.PipelineSpec.JobType)
+		require.Equal(t, pipeline.KeepersObservationSource, run.PipelineSpec.DotDagSource)
+		require.NotEmpty(t, run.PipelineTaskRuns)
+
+		switch run.PipelineTaskRuns[0].ID {
+		case runID1:
+			trun := run.ByDotID("perform_upkeep_tx")
+			require.NotNil(t, trun)
+		case runID2:
+			trun := run.ByDotID("check_upkeep_tx")
+			require.NotNil(t, trun)
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, 2, counter)
+}
+
+func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
+	t.Parallel()
+
+	// The test configures single DR job with two task runs: one is running and one is suspended.
+	// GetUnfinishedRuns() expects to catch the one that is running.
+
+	config := cltest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	porm := pipeline.NewORM(db, lggr, config)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jorm := job.NewORM(db, cc, porm, keyStore, lggr, config)
+	defer jorm.Close()
+
+	timestamp := time.Now()
+	var drJob = job.Job{
+		ID: 1,
+		DirectRequestSpec: &job.DirectRequestSpec{
+			ContractAddress: cltest.NewEIP55Address(),
+			CreatedAt:       timestamp,
+			UpdatedAt:       timestamp,
+			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+		},
+		ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
+		PipelineSpec: &pipeline.Spec{
+			ID:           1,
+			DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
+		},
+		Type:            job.DirectRequest,
+		SchemaVersion:   1,
+		Name:            null.StringFrom("test"),
+		MaxTaskDuration: models.Interval(1 * time.Minute),
+	}
+
+	err := jorm.CreateJob(&drJob)
+	require.NoError(t, err)
+	require.Equal(t, job.DirectRequest, drJob.Type)
+
+	runningID := uuid.NewV4()
+
+	err = porm.CreateRun(&pipeline.Run{
+		PipelineSpecID: drJob.PipelineSpecID,
+		State:          pipeline.RunStatusRunning,
+		Outputs:        pipeline.JSONSerializable{},
+		CreatedAt:      time.Now(),
+		PipelineTaskRuns: []pipeline.TaskRun{{
+			ID:        runningID,
+			Type:      pipeline.TaskTypeHTTP,
+			Index:     0,
+			Output:    pipeline.JSONSerializable{},
+			CreatedAt: time.Now(),
+			DotID:     "ds1",
+		}},
+	})
+	require.NoError(t, err)
+
+	err = porm.CreateRun(&pipeline.Run{
+		PipelineSpecID: drJob.PipelineSpecID,
+		State:          pipeline.RunStatusSuspended,
+		Outputs:        pipeline.JSONSerializable{},
+		CreatedAt:      time.Now(),
+		PipelineTaskRuns: []pipeline.TaskRun{{
+			ID:        uuid.NewV4(),
+			Type:      pipeline.TaskTypeHTTP,
+			Index:     1,
+			Output:    pipeline.JSONSerializable{},
+			CreatedAt: time.Now(),
+			DotID:     "ds1",
+		}},
+	})
+	require.NoError(t, err)
+
+	var counter int
+
+	err = porm.GetUnfinishedRuns(testutils.Context(t), time.Now(), func(run pipeline.Run) error {
+		counter++
+
+		require.Equal(t, job.DirectRequest.String(), run.PipelineSpec.JobType)
+		require.NotEmpty(t, run.PipelineTaskRuns)
+		require.Equal(t, runningID, run.PipelineTaskRuns[0].ID)
+
+		trun := run.ByDotID("ds1")
+		require.NotNil(t, trun)
+
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, counter)
 }

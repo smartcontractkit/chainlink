@@ -8,18 +8,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,11 +32,11 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		err              error
 		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		oracle           contracts.Oracle
 		consumer         contracts.APIConsumer
 		jobUUID          uuid.UUID
-		mockServerClient *client.MockserverClient
+		mockServerClient *ctfClient.MockserverClient
 		testEnvironment  *environment.Environment
 		profileTest      *testsetups.ChainlinkProfileTest
 	)
@@ -57,13 +57,13 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 			chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			mockServerClient, err = client.ConnectMockServer(testEnvironment)
+			mockServerClient, err = ctfClient.ConnectMockServer(testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
@@ -97,7 +97,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 				Name: fmt.Sprintf("five-%s", jobUUID.String()),
 				URL:  fmt.Sprintf("%s/variable", mockServerClient.Config.ClusterURL),
 			}
-			err = chainlinkNodes[0].CreateBridge(&bta)
+			err = chainlinkNodes[0].MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
 
 			os := &client.DirectRequestTxPipelineSpec{
@@ -107,7 +107,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-			_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+			_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
 				Name:                     "direct_request",
 				MinIncomingConfirmations: "1",
 				ContractAddress:          oracle.Address(),
@@ -118,7 +118,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.

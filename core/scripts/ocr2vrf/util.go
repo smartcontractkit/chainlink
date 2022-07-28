@@ -5,6 +5,9 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,10 +16,17 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/gethwrappers/vrf"
+	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+	"github.com/urfave/cli"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	dkgContract "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/dkg"
 
@@ -25,6 +35,19 @@ import (
 
 func deployDKG(e helpers.Environment) common.Address {
 	_, tx, _, err := dkgContract.DeployDKG(e.Owner, e.Ec)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFBeaconCoordinator(e helpers.Environment, linkAddress, dkgAddress, keyID string, beaconPeriodBlocks *big.Int) common.Address {
+	keyIDBytes := decodeHexTo32ByteArray(keyID)
+	_, tx, _, err := vrf_beacon_coordinator.DeployVRFBeaconCoordinator(e.Owner, e.Ec, common.HexToAddress(linkAddress), beaconPeriodBlocks, common.HexToAddress(dkgAddress), keyIDBytes)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func deployVRFBeaconCoordinatorConsumer(e helpers.Environment, coordinatorAddress string, shouldFail bool, beaconPeriodBlocks *big.Int) common.Address {
+	_, tx, _, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(e.Owner, e.Ec, common.HexToAddress(coordinatorAddress), shouldFail, beaconPeriodBlocks)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -118,6 +141,54 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
+func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAddr string, c vrfBeaconCoordinatorSetConfigArgs) {
+	oracleIdentities := toOraclesIdentityList(
+		helpers.ParseAddressSlice(c.onchainPubKeys),
+		strings.Split(c.offchainPubKeys, ","),
+		strings.Split(c.configPubKeys, ","),
+		strings.Split(c.peerIDs, ","),
+		strings.Split(c.transmitters, ","))
+
+	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
+
+	offchainConfig := ocr2vrf.OffchainConfig(keyIDBytes)
+
+	confDelays := make(map[uint32]struct{})
+	for _, c := range strings.Split(c.confDelays, ",") {
+		confDelay, err := strconv.ParseUint(c, 0, 32)
+		helpers.PanicErr(err)
+		confDelays[uint32(confDelay)] = struct{}{}
+	}
+
+	onchainConfig := ocr2vrf.OnchainConfig(confDelays)
+
+	_, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		c.deltaProgress,
+		c.deltaResend,
+		c.deltaRound,
+		c.deltaGrace,
+		c.deltaStage,
+		c.maxRounds,
+		helpers.ParseIntSlice(c.schedule),
+		oracleIdentities,
+		offchainConfig,
+		c.maxDurationQuery,
+		c.maxDurationObservation,
+		c.maxDurationReport,
+		c.maxDurationAccept,
+		c.maxDurationTransmit,
+		int(c.f),
+		onchainConfig)
+
+	helpers.PanicErr(err)
+
+	coordinator := newVRFBeaconCoordinator(common.HexToAddress(vrfBeaconCoordinatorAddr), e.Ec)
+
+	tx, err := coordinator.SetConfig(e.Owner, helpers.ParseAddressSlice(c.onchainPubKeys), helpers.ParseAddressSlice(c.transmitters), f, onchainConfig, offchainConfigVersion, offchainConfig)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
 func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, configPubKeys, peerIDs, transmitters []string) []confighelper.OracleIdentityExtra {
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, pkHex := range offchainPubKeys {
@@ -161,26 +232,110 @@ func toOraclesIdentityList(onchainPubKeys []common.Address, offchainPubKeys, con
 	return o
 }
 
-func deployVRF(e helpers.Environment, dkgAddress string, keyID string) common.Address {
-	var keyIDBytes [32]byte
-	copy(keyIDBytes[:], keyID)
-	fmt.Printf("Key ID in bytes: 0x%x \n", keyIDBytes)
+func requestRandomness(e helpers.Environment, coordinatorAddress string, numWords uint16, subID uint64, confDelay *big.Int) {
+	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
-	_, tx, _, err := vrf.DeployVRF(e.Owner, e.Ec, common.HexToAddress(dkgAddress), keyIDBytes)
+	tx, err := coordinator.RequestRandomness(e.Owner, numWords, subID, confDelay)
 	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func newVRF(addr common.Address, client *ethclient.Client) *vrf.VRF {
-	vrf, err := vrf.NewVRF(addr, client)
+func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
+	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
+
+	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
-	return vrf
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string, numWords uint16, subID uint64, confDelay *big.Int) *big.Int {
+	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+
+	tx, err := consumer.TestRequestRandomness(e.Owner, numWords, subID, confDelay)
+	helpers.PanicErr(err)
+	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+
+	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
+	helpers.PanicErr(err)
+
+	blockNumber := receipt.BlockNumber
+	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
+	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
+
+	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
+
+	requestID, err := consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
+
+	fmt.Println("requestID: ", requestID)
+
+	return requestID
+}
+
+func requestRandomnessCallback(
+	e helpers.Environment,
+	consumerAddress string,
+	numWords uint16,
+	subID uint64,
+	confDelay *big.Int,
+	callbackGasLimit uint32,
+	args []byte,
+) (requestID *big.Int) {
+	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+
+	tx, err := consumer.TestRequestRandomnessFulfillment(e.Owner, subID, numWords, confDelay, callbackGasLimit, args)
+	helpers.PanicErr(err)
+	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "TestRequestRandomnessFulfillment")
+
+	periodBlocks, err := consumer.IBeaconPeriodBlocks(nil)
+	helpers.PanicErr(err)
+
+	blockNumber := receipt.BlockNumber
+	periodOffset := new(big.Int).Mod(blockNumber, periodBlocks)
+	nextBeaconOutputHeight := new(big.Int).Sub(new(big.Int).Add(blockNumber, periodBlocks), periodOffset)
+
+	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
+
+	requestID, err = consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
+
+	fmt.Println("requestID: ", requestID)
+
+	return requestID
+}
+
+func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int, numWords int64) {
+	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
+
+	tx, err := consumer.TestRedeemRandomness(e.Owner, requestID)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+
+	printRandomnessFromConsumer(consumer, requestID, numWords)
+}
+
+func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer, requestID *big.Int, numWords int64) {
+	for i := int64(0); i < numWords; i++ {
+		randomness, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(0))
+		helpers.PanicErr(err)
+		fmt.Println("random words index", i, ":", randomness.String())
+	}
+}
+
+func newVRFBeaconCoordinator(addr common.Address, client *ethclient.Client) *vrf_beacon_coordinator.VRFBeaconCoordinator {
+	coordinator, err := vrf_beacon_coordinator.NewVRFBeaconCoordinator(addr, client)
+	helpers.PanicErr(err)
+	return coordinator
 }
 
 func newDKG(addr common.Address, client *ethclient.Client) *dkgContract.DKG {
 	dkg, err := dkgContract.NewDKG(addr, client)
 	helpers.PanicErr(err)
 	return dkg
+}
+
+func newVRFBeaconCoordinatorConsumer(addr common.Address, client *ethclient.Client) *vrf_beacon_consumer.BeaconVRFConsumer {
+	consumer, err := vrf_beacon_consumer.NewBeaconVRFConsumer(addr, client)
+	helpers.PanicErr(err)
+	return consumer
 }
 
 func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
@@ -191,4 +346,41 @@ func decodeHexTo32ByteArray(val string) (byteArray [32]byte) {
 	}
 	copy(byteArray[:], decoded)
 	return
+}
+
+func setupOCR2VRFNodeFromClient(client *cmd.Client, context *cli.Context) *cmd.SetupOCR2VRFNodePayload {
+	payload, err := client.ConfigureOCR2VRFNode(context)
+	helpers.PanicErr(err)
+
+	return payload
+}
+
+func configureEnvironmentVariables() {
+	helpers.PanicErr(os.Setenv("FEATURE_OFFCHAIN_REPORTING2", "true"))
+	helpers.PanicErr(os.Setenv("SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK", "true"))
+}
+
+func resetDatabase(client *cmd.Client, context *cli.Context, index int, databasePrefix string, databaseSuffixes string) {
+	helpers.PanicErr(os.Setenv("DATABASE_URL", fmt.Sprintf("%s-%d?%s", databasePrefix, index, databaseSuffixes)))
+	helpers.PanicErr(client.ResetDatabase(context))
+}
+
+func newSetupClient() *cmd.Client {
+	lggr, closeLggr := logger.NewLogger()
+	cfg := config.NewGeneralConfig(lggr)
+
+	prompter := cmd.NewTerminalPrompter()
+	return &cmd.Client{
+		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
+		Config:                         cfg,
+		Logger:                         lggr,
+		CloseLogger:                    closeLggr,
+		AppFactory:                     cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
+		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter, lggr),
+		Runner:                         cmd.ChainlinkRunner{},
+		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
+		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
+		PasswordPrompter:               cmd.NewPasswordPrompter(),
+	}
 }

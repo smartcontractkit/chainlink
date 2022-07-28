@@ -2,6 +2,7 @@ package soak_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,12 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/remotetestrunner"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,10 +27,14 @@ var baseEnvironmentConfig = &environment.Config{
 	TTL: time.Hour * 720, // 30 days,
 }
 
+// Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to soak test on
+	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
 
-	baseEnvironmentConfig.NamespacePrefix = "soak-ocr"
+	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
+		"soak-ocr-%s",
+		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+	)
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil))
@@ -64,10 +67,14 @@ func TestOCRSoak(t *testing.T) {
 	soakTestHelper(t, "@soak-ocr", testEnvironment, activeEVMNetwork)
 }
 
+// Run the keeper soak test defined in ./tests/keeper_test.go
 func TestKeeperSoak(t *testing.T) {
-	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to soak test on
+	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
 
-	baseEnvironmentConfig.NamespacePrefix = "soak-keeper"
+	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
+		"soak-keeper-%s",
+		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+	)
 	testEnvironment := environment.New(baseEnvironmentConfig)
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
@@ -131,7 +138,7 @@ func soakTestHelper(
 		"test_name":      testTag,
 		"env_namespace":  testEnvironment.Cfg.Namespace,
 		"test_file_size": fmt.Sprint(exeFileSize),
-		"log_level":      "debug",
+		"test_log_level": "debug",
 	}
 	// Set evm network connection for remote runner
 	for key, value := range activeEVMNetwork.ToMap() {
@@ -144,6 +151,7 @@ func soakTestHelper(
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: activeEVMNetwork.Name,
 			Simulated:   activeEVMNetwork.Simulated,
+			WsURLs:      activeEVMNetwork.URLs,
 		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")

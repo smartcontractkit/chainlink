@@ -3,21 +3,22 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,24 +27,12 @@ import (
 var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("OCR suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
-				ethereum.New(nil),
-				chainlink.New(0, map[string]interface{}{
-					"replicas": 6,
-				}),
-			),
-			Entry("OCR suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.MetisStardust.Name,
-					Simulated:   networks.MetisStardust.Simulated,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env":      networks.MetisStardust.ChainlinkValuesMap(),
-					"replicas": 6,
-				}),
-			),
+			Entry("OCR suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(50)),
+			Entry("OCR suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(1)),
+			Entry("OCR suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
+			Entry("OCR suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("OCR suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
+			Entry("OCR suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
 		err               error
@@ -51,8 +40,8 @@ var _ = Describe("OCR Feed @ocr", func() {
 		chainClient       blockchain.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
-		chainlinkNodes    []client.Chainlink
-		mockServer        *client.MockserverClient
+		chainlinkNodes    []*client.Chainlink
+		mockServer        *ctfClient.MockserverClient
 		ocrInstances      []contracts.OffchainAggregator
 	)
 
@@ -64,30 +53,40 @@ var _ = Describe("OCR Feed @ocr", func() {
 	})
 
 	DescribeTable("OCR suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
-		evmChart environment.ConnectedChart,
-		chainlinkCharts ...environment.ConnectedChart,
+		testNetwork *blockchain.EVMNetwork,
+		funding *big.Float,
 	) {
+		evmChart := ethereum.New(nil)
+		if !testNetwork.Simulated {
+			evmChart = ethereum.New(&ethereum.Props{
+				NetworkName: testNetwork.Name,
+				Simulated:   testNetwork.Simulated,
+				WsURLs:      testNetwork.URLs,
+			})
+		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-ocr"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart)
-		for _, chainlinkChart := range chainlinkCharts {
-			testEnvironment.AddHelm(chainlinkChart)
-		}
+			AddHelm(evmChart).
+			AddHelm(chainlink.New(0, map[string]interface{}{
+				"env":      testNetwork.ChainlinkValuesMap(),
+				"replicas": 6,
+			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = clientFunc(testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(testNetwork, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 
 		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-		mockServer, err = client.ConnectMockServer(testEnvironment)
+		mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver clients shouldn't fail")
 
 		chainClient.ParallelTransactions(true)
@@ -97,7 +96,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Deploying OCR contracts")

@@ -7,18 +7,17 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +34,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		coordinator        contracts.VRFCoordinator
 		encodedProvingKeys = make([][2]*big.Int, 0)
 		linkToken          contracts.LinkToken
-		chainlinkNodes     []client.Chainlink
+		chainlinkNodes     []*client.Chainlink
 		testEnvironment    *environment.Environment
 		job                *client.Job
 		profileTest        *testsetups.ChainlinkProfileTest
@@ -57,7 +56,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			chainClient, err = blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err = blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			contractDeployer, err = contracts.NewContractDeployer(chainClient)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
@@ -94,10 +93,10 @@ var _ = Describe("VRF suite @vrf", func() {
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 
-				nodeKey, err := chainlinkNode.CreateVRFKey()
+				nodeKey, err := chainlinkNode.MustCreateVRFKey()
 				Expect(err).ShouldNot(HaveOccurred(), "Creating VRF key shouldn't fail")
 				log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 				pubKeyCompressed := nodeKey.Data.ID
@@ -107,7 +106,7 @@ var _ = Describe("VRF suite @vrf", func() {
 				}
 				ost, err := os.String()
 				Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-				job, err = chainlinkNode.CreateJob(&client.VRFJobSpec{
+				job, err = chainlinkNode.MustCreateJob(&client.VRFJobSpec{
 					Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 					CoordinatorAddress:       coordinator.Address(),
 					MinIncomingConfirmations: 1,
@@ -143,7 +142,7 @@ var _ = Describe("VRF suite @vrf", func() {
 				timeout := time.Minute * 2
 
 				Eventually(func(g Gomega) {
-					jobRuns, err := chainlinkNodes[0].ReadRunsByJob(job.Data.ID)
+					jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
 					g.Expect(err).ShouldNot(HaveOccurred(), "Job execution shouldn't fail")
 
 					out, err := consumer.RandomnessOutput(context.Background())

@@ -8,14 +8,14 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
-	"github.com/smartcontractkit/chainlink-testing-framework/testsetups"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
@@ -34,6 +34,7 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: soakNetwork.Name,
 					Simulated:   soakNetwork.Simulated,
+					WsURLs:      soakNetwork.URLs,
 				})).
 				AddHelm(chainlink.New(0, nil)).
 				AddHelm(chainlink.New(1, nil)).
@@ -47,12 +48,12 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 		})
 
 		By("Setup the Keeper test", func() {
-			chainClient, err := blockchain.NewEthereumMultiNodeClientSetup(blockchain.SimulatedEVMNetwork)(testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(soakNetwork, testEnvironment)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			keeperBlockTimeTest = testsetups.NewKeeperBlockTimeTest(
 				testsetups.KeeperBlockTimeTestInputs{
 					BlockchainClient:  chainClient,
-					NumberOfContracts: 50,
+					NumberOfContracts: 5,
 					KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 						PaymentPremiumPPB:    uint32(200000000),
 						FlatFeeMicroLINK:     uint32(0),
@@ -65,11 +66,11 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 						FallbackGasPrice:     big.NewInt(2e11),
 						FallbackLinkPrice:    big.NewInt(2e18),
 					},
-					CheckGasToBurn:       2400000,
-					PerformGasToBurn:     2400000,
-					BlockRange:           300,
+					CheckGasToBurn:       1,
+					PerformGasToBurn:     1,
+					BlockRange:           1000,
 					BlockInterval:        50,
-					ChainlinkNodeFunding: big.NewFloat(10),
+					ChainlinkNodeFunding: big.NewFloat(1),
 				},
 			)
 			keeperBlockTimeTest.Setup(testEnvironment)

@@ -10,6 +10,8 @@ import (
 )
 
 func TestGraph_Decode(t *testing.T) {
+	t.Parallel()
+
 	expected := map[string]map[string]bool{
 		"ds1": {
 			"ds1":          false,
@@ -115,6 +117,8 @@ func TestGraph_Decode(t *testing.T) {
 }
 
 func TestGraph_TasksInDependencyOrder(t *testing.T) {
+	t.Parallel()
+
 	p, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
 
@@ -205,6 +209,8 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 }
 
 func TestGraph_HasCycles(t *testing.T) {
+	t.Parallel()
+
 	_, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
 
@@ -218,6 +224,8 @@ func TestGraph_HasCycles(t *testing.T) {
 }
 
 func TestGraph_ImplicitDependencies(t *testing.T) {
+	t.Parallel()
+
 	g := pipeline.NewGraph()
 	err := g.UnmarshalText([]byte(`
 		a [type=bridge];

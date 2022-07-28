@@ -31,8 +31,6 @@ func TestVars_Get(t *testing.T) {
 	t.Parallel()
 
 	t.Run("gets the values at keypaths that exist", func(t *testing.T) {
-		t.Parallel()
-
 		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": []interface{}{1, "bar", false},
 			"bar": 321,
@@ -48,8 +46,6 @@ func TestVars_Get(t *testing.T) {
 	})
 
 	t.Run("errors when getting the values at keypaths that don't exist", func(t *testing.T) {
-		t.Parallel()
-
 		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": []interface{}{1, "bar", false},
 			"bar": 321,
@@ -60,8 +56,6 @@ func TestVars_Get(t *testing.T) {
 	})
 
 	t.Run("errors when asked for a keypath with more than 2 parts", func(t *testing.T) {
-		t.Parallel()
-
 		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": map[string]interface{}{
 				"bar": map[string]interface{}{
@@ -74,8 +68,6 @@ func TestVars_Get(t *testing.T) {
 	})
 
 	t.Run("errors when getting a value at a keypath where the first part is not a map/slice", func(t *testing.T) {
-		t.Parallel()
-
 		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": 123,
 		})
@@ -84,8 +76,6 @@ func TestVars_Get(t *testing.T) {
 	})
 
 	t.Run("errors when getting a value at a keypath with more than 2 components", func(t *testing.T) {
-		t.Parallel()
-
 		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": 123,
 		})
@@ -94,8 +84,6 @@ func TestVars_Get(t *testing.T) {
 	})
 
 	t.Run("index out of range", func(t *testing.T) {
-		t.Parallel()
-
 		vars := pipeline.NewVarsFrom(map[string]interface{}{
 			"foo": []interface{}{1, "bar", false},
 		})

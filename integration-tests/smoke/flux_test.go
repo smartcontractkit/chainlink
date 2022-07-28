@@ -8,21 +8,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -32,24 +31,12 @@ import (
 var _ = Describe("Flux monitor suite @flux", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Flux monitor suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
-				ethereum.New(nil),
-				chainlink.New(0, map[string]interface{}{
-					"replicas": 3,
-				}),
-			),
-			Entry("Flux monitor suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.MetisStardust.Name,
-					Simulated:   networks.MetisStardust.Simulated,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env":      networks.MetisStardust.ChainlinkValuesMap(),
-					"replicas": 3,
-				}),
-			),
+			Entry("Flux monitor suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(10)),
+			Entry("Flux monitor suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
+			Entry("Flux monitor suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
+			Entry("Flux monitor suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("Flux monitor suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
+			Entry("Flux monitor suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
 		err              error
@@ -57,8 +44,8 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		contractDeployer contracts.ContractDeployer
 		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
-		chainlinkNodes   []client.Chainlink
-		mockServer       *client.MockserverClient
+		chainlinkNodes   []*client.Chainlink
+		mockServer       *ctfClient.MockserverClient
 		nodeAddresses    []common.Address
 		adapterPath      string
 		adapterUUID      string
@@ -74,24 +61,33 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	})
 
 	DescribeTable("Flux suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
-		evmChart environment.ConnectedChart,
-		chainlinkCharts ...environment.ConnectedChart,
+		testNetwork *blockchain.EVMNetwork,
+		funding *big.Float,
 	) {
-
+		evmChart := ethereum.New(nil)
+		if !testNetwork.Simulated {
+			evmChart = ethereum.New(&ethereum.Props{
+				NetworkName: testNetwork.Name,
+				Simulated:   testNetwork.Simulated,
+				WsURLs:      testNetwork.URLs,
+			})
+		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-flux"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart)
-		for _, chainlinkChart := range chainlinkCharts {
-			testEnvironment.AddHelm(chainlinkChart)
-		}
+			AddHelm(evmChart).
+			AddHelm(chainlink.New(0, map[string]interface{}{
+				"env":      testNetwork.ChainlinkValuesMap(),
+				"replicas": 3,
+			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Connecting to launched resources")
-		chainClient, err = clientFunc(testEnvironment)
+		chainClient, err = blockchain.NewEVMClient(testNetwork, testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 
 		contractDeployer, err = contracts.NewContractDeployer(chainClient)
@@ -100,7 +96,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
 		nodeAddresses, err = actions.ChainlinkNodeAddresses(chainlinkNodes)
 		Expect(err).ShouldNot(HaveOccurred(), "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-		mockServer, err = client.ConnectMockServer(testEnvironment)
+		mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating mock server client shouldn't fail")
 
 		chainClient.ParallelTransactions(true)
@@ -128,7 +124,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
 		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(1))
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
 		Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 
 		By("Setting oracle options")
@@ -155,7 +151,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			URL:  adapterFullURL,
 		}
 		for i, n := range chainlinkNodes {
-			err = n.CreateBridge(&bta)
+			err = n.MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
 			fluxSpec := &client.FluxMonitorJobSpec{
@@ -167,7 +163,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				IdleTimerDisabled: true,
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
 			}
-			_, err = n.CreateJob(fluxSpec)
+			_, err = n.MustCreateJob(fluxSpec)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
 		}
 

@@ -216,7 +216,7 @@ describe('JobProposalScreen', () => {
       {
         request: {
           query: APPROVE_JOB_PROPOSAL_SPEC_MUTATION,
-          variables: { id: proposal.specs[0].id },
+          variables: { id: proposal.specs[0].id, force: true },
         },
         result: {
           data: {
@@ -402,7 +402,7 @@ describe('JobProposalScreen', () => {
       {
         request: {
           query: APPROVE_JOB_PROPOSAL_SPEC_MUTATION,
-          variables: { id: proposal.specs[0].id },
+          variables: { id: proposal.specs[0].id, force: true },
         },
         result: {
           data: {

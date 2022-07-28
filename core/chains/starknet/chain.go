@@ -3,8 +3,8 @@ package starknet
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet"
-	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
 
 	"github.com/smartcontractkit/sqlx"
 

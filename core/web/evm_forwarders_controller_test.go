@@ -29,7 +29,7 @@ func setupEVMForwardersControllerTest(t *testing.T) *TestEVMForwardersController
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestEVMForwardersController{
 		app:    app,
