@@ -35,14 +35,14 @@ var _ = Describe("Cronjob suite @cron", func() {
 
 		err             error
 		job             *client.Job
-		chainlinkNode   client.Chainlink
+		chainlinkNode   *client.Chainlink
 		mockServer      *ctfClient.MockserverClient
 		testEnvironment *environment.Environment
 	)
 
 	AfterEach(func() {
 		By("Tearing down the environment")
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil, nil)
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []*client.Chainlink{chainlinkNode}, nil, nil)
 		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
@@ -86,17 +86,17 @@ var _ = Describe("Cronjob suite @cron", func() {
 			URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 			RequestData: "{}",
 		}
-		err = chainlinkNode.CreateBridge(&bta)
+		err = chainlinkNode.MustCreateBridge(&bta)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating bridge in chainlink node shouldn't fail")
 
-		job, err = chainlinkNode.CreateJob(&client.CronJobSpec{
+		job, err = chainlinkNode.MustCreateJob(&client.CronJobSpec{
 			Schedule:          "CRON_TZ=UTC * * * * * *",
 			ObservationSource: client.ObservationSourceSpecBridge(bta),
 		})
 		Expect(err).ShouldNot(HaveOccurred(), "Creating Cron Job in chainlink node shouldn't fail")
 
 		Eventually(func(g Gomega) {
-			jobRuns, err := chainlinkNode.ReadRunsByJob(job.Data.ID)
+			jobRuns, err := chainlinkNode.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(HaveOccurred(), "Reading Job run data shouldn't fail")
 
 			g.Expect(len(jobRuns.Data)).Should(BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
