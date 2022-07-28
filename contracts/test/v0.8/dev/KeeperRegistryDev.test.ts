@@ -369,6 +369,123 @@ describe('KeeperRegistryDev', () => {
     })
   })
 
+  describe('#pauseUpkeep', () => {
+    context('and the registry has an upkeep', () => {
+      beforeEach(async () => {
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+        id = await getUpkeepID(tx)
+      })
+    })
+
+    it('reverts if the upkeep is not active', async () => {
+      await registry.connect(owner).cancelUpkeep(id)
+
+      await evmRevert(
+        registry.connect(owner).pauseUpkeep(id),
+        'UpkeepNotActive()',
+      )
+    })
+
+    it('reverts if the upkeep is already paused', async () => {
+      await registry.connect(owner).pauseUpkeep(id)
+
+      await evmRevert(
+        registry.connect(owner).pauseUpkeep(id),
+        'OnlyNonPausedUpkeep()',
+      )
+    })
+
+    it('reverts if the caller is not the owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).pauseUpkeep(id),
+        'OnlyCallableByOwnerOrRegistrar()',
+      )
+    })
+
+    it('pauses the upkeep and emits an event', async () => {
+      const tx = await registry.connect(owner).pauseUpkeep(id)
+      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id, true)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(registration.paused, true)
+    })
+  })
+
+  describe('#unpauseUpkeep', () => {
+    context('and the registry has a paused upkeep', () => {
+      beforeEach(async () => {
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+        id = await getUpkeepID(tx)
+
+        await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+      })
+    })
+
+    it('reverts if the upkeep is not active', async () => {
+      await registry.connect(owner).cancelUpkeep(id)
+
+      await evmRevert(
+        registry.connect(owner).unpauseUpkeep(id),
+        'UpkeepNotActive()',
+      )
+    })
+
+    it('reverts if the upkeep is not paused', async () => {
+      await evmRevert(
+        registry.connect(owner).unpauseUpkeep(id),
+        'OnlyPausedUpkeep()',
+      )
+    })
+
+    it('reverts if the caller is not the owner', async () => {
+      await registry.connect(owner).pauseUpkeep(id)
+
+      const registration = await registry.getUpkeep(id)
+
+      assert.equal(registration.paused, true)
+
+      await evmRevert(
+        registry.connect(keeper1).unpauseUpkeep(id),
+        'OnlyCallableByOwnerOrRegistrar()',
+      )
+    })
+
+    it('unpauses the upkeep and emits an event', async () => {
+      await registry.connect(owner).pauseUpkeep(id)
+
+      const tx = await registry.connect(owner).unpauseUpkeep(id)
+
+      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id, false)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(registration.paused, false)
+
+      const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
+      assert.equal(upkeepIds.length, 1)
+    })
+  })
+
   describe('#registerUpkeep', () => {
     context('and the registry is paused', () => {
       beforeEach(async () => {

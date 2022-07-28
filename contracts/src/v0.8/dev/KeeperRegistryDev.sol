@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -115,6 +115,7 @@ contract KeeperRegistryDev is
     external
     override
     whenNotPaused
+    onlyNonPausedUpkeep(id)
     returns (bool success)
   {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
@@ -140,6 +141,28 @@ contract KeeperRegistryDev is
     s_upkeepIDs.remove(id);
 
     emit UpkeepCanceled(id, uint64(height));
+  }
+
+  /**
+   * @notice pause an upkeep
+   * @param id upkeep to be paused
+   */
+  function pauseUpkeep(uint256 id) external override onlyActiveUpkeep(id) onlyNonPausedUpkeep(id) onlyOwnerOrRegistrar {
+    s_upkeep[id].paused = true;
+    s_upkeepIDs.remove(id);
+    s_pausedUpkeepIDs.add(id);
+    emit UpkeepPaused(id, true);
+  }
+
+  /**
+   * @notice unpause an upkeep
+   * @param id upkeep to be resumed
+   */
+  function unpauseUpkeep(uint256 id) external override onlyActiveUpkeep(id) onlyPausedUpkeep(id) onlyOwnerOrRegistrar {
+    s_upkeep[id].paused = false;
+    s_upkeepIDs.add(id);
+    s_pausedUpkeepIDs.remove(id);
+    emit UpkeepPaused(id, false);
   }
 
   /**
@@ -356,7 +379,8 @@ contract KeeperRegistryDev is
       address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
-      uint96 amountSpent
+      uint96 amountSpent,
+      bool paused
     )
   {
     Upkeep memory reg = s_upkeep[id];
@@ -368,7 +392,8 @@ contract KeeperRegistryDev is
       reg.lastKeeper,
       reg.admin,
       reg.maxValidBlocknumber,
-      reg.amountSpent
+      reg.amountSpent,
+      reg.paused
     );
   }
 
@@ -577,7 +602,8 @@ contract KeeperRegistryDev is
       admin: admin,
       maxValidBlocknumber: UINT64_MAX,
       lastKeeper: ZERO_ADDRESS,
-      amountSpent: 0
+      amountSpent: 0,
+      paused: false
     });
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
@@ -623,6 +649,7 @@ contract KeeperRegistryDev is
     private
     nonReentrant
     validUpkeep(params.id)
+    onlyNonPausedUpkeep(params.id)
     returns (bool success)
   {
     Upkeep memory upkeep = s_upkeep[params.id];
@@ -684,6 +711,22 @@ contract KeeperRegistryDev is
    */
   modifier onlyOwnerOrRegistrar() {
     if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
+    _;
+  }
+
+  /**
+   * @dev Reverts if called on a paused upkeep.
+   */
+  modifier onlyNonPausedUpkeep(uint256 id) {
+    if (s_upkeep[id].paused) revert OnlyNonPausedUpkeep();
+    _;
+  }
+
+  /**
+   * @dev Reverts if called on a non paused upkeep.
+   */
+  modifier onlyPausedUpkeep(uint256 id) {
+    if (!s_upkeep[id].paused) revert OnlyPausedUpkeep();
     _;
   }
 }

@@ -30,6 +30,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     )
   {
     Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.paused) revert OnlyNonPausedUpkeep();
 
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);

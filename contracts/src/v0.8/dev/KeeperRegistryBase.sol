@@ -8,7 +8,7 @@ import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
+import {Config, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -29,6 +29,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
+  EnumerableSet.UintSet internal s_pausedUpkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
   mapping(address => KeeperInfo) internal s_keeperInfo;
   mapping(address => address) internal s_proposedPayee;
@@ -74,6 +75,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error InvalidRecipient();
   error InvalidDataLength();
   error TargetCheckReverted(bytes reason);
+  error OnlyNonPausedUpkeep();
+  error OnlyPausedUpkeep();
 
   enum MigrationPermission {
     NONE,
@@ -105,6 +108,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address target; // 2 full evm words
     uint96 amountSpent;
     address admin; // 3 full evm words
+    bool paused;
   }
 
   struct KeeperInfo {
@@ -132,6 +136,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     bytes performData
   );
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
+  event UpkeepPaused(uint256 indexed id, bool paused);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
