@@ -112,18 +112,18 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	oracleTransactor, _ := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
 	var (
-		sergey       = newIdentity(t)
-		neil         = newIdentity(t)
-		ned          = newIdentity(t)
-		evil         = newIdentity(t)
-		reverter     = newIdentity(t)
+		sergey       = testutils.MustNewSimTransactor(t)
+		neil         = testutils.MustNewSimTransactor(t)
+		ned          = testutils.MustNewSimTransactor(t)
+		evil         = testutils.MustNewSimTransactor(t)
+		reverter     = testutils.MustNewSimTransactor(t)
 		nallory      = oracleTransactor
 		vrfConsumers = []*bind.TransactOpts{}
 	)
 
 	// Create consumer contract deployer identities
 	for i := 0; i < numConsumers; i++ {
-		vrfConsumers = append(vrfConsumers, newIdentity(t))
+		vrfConsumers = append(vrfConsumers, testutils.MustNewSimTransactor(t))
 	}
 
 	genesisData := core.GenesisAlloc{
@@ -1188,8 +1188,8 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2Universe, vrfkey vr
 }
 
 func TestExternalOwnerConsumerExample(t *testing.T) {
-	owner := newIdentity(t)
-	random := newIdentity(t)
+	owner := testutils.MustNewSimTransactor(t)
+	random := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
 		owner.From:  {Balance: assets.Ether(10)},
 		random.From: {Balance: assets.Ether(10)},
@@ -1249,8 +1249,8 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestSimpleConsumerExample(t *testing.T) {
-	owner := newIdentity(t)
-	random := newIdentity(t)
+	owner := testutils.MustNewSimTransactor(t)
+	random := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: assets.Ether(10)},
 	}
