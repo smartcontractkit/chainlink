@@ -32,7 +32,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(360000)
+const CHECK_GAS_OVERHEAD = BigNumber.from(3625000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -675,7 +675,7 @@ describe('KeeperRegistryDev', () => {
     })
   })
 
-  describe('#checkUpkeep', () => {
+  describe.only('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
       await mock.setCanPerform(true)
       await mock.setCanCheck(true)
