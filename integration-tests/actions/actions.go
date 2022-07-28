@@ -4,6 +4,11 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/ginkgo/v2"
@@ -11,6 +16,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -18,11 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"golang.org/x/sync/errgroup"
-	"math/big"
-	"os"
-	"strings"
-	"time"
 )
 
 // GinkgoSuite provides the default setup for running a Ginkgo test suite
