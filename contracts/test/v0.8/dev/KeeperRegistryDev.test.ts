@@ -675,7 +675,7 @@ describe('KeeperRegistryDev', () => {
     })
   })
 
-  describe.only('#checkUpkeep', () => {
+  describe('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
       await mock.setCanPerform(true)
       await mock.setCanCheck(true)
