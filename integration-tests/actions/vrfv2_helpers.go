@@ -4,13 +4,15 @@ package actions
 import (
 	"context"
 	"fmt"
+	"math/big"
+
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"math/big"
 )
 
 type VRFV2EncodedProvingKey [2]*big.Int
