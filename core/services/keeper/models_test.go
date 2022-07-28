@@ -5,8 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestUpkeepIdentifer_String(t *testing.T) {
@@ -43,16 +44,13 @@ func TestUpkeepIdentifer_Scan(t *testing.T) {
 		{"big", "5032485723458348569331745", "429ab990419450db80821"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var iden UpkeepIdentifier
-			id := &iden
+			id := NewUpkeepIdentifier(utils.NewBigI(0))
 
 			err := id.Scan(test.id)
 			require.NoError(t, err)
 
-			if id != nil {
-				result := iden.String()
-				require.Equal(t, fmt.Sprintf("UPx%064s", test.hex), result)
-			}
+			result := id.String()
+			require.Equal(t, fmt.Sprintf("UPx%064s", test.hex), result)
 		})
 	}
 }
