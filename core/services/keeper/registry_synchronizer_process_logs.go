@@ -125,7 +125,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 		return
 	}
 
-	err = rs.syncUpkeep(registry, utils.NewBig(upkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(upkeepID))
 	if err != nil {
 		rs.logger.Error(errors.Wrapf(err, "failed to sync upkeep, log: %v", broadcast.String()))
 		return
@@ -215,7 +215,7 @@ func (rs *RegistrySynchronizer) handleUpkeepGasLimitSet(broadcast log.Broadcast,
 		return
 	}
 
-	err = rs.syncUpkeep(registry, utils.NewBig(upkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(upkeepID))
 	if err != nil {
 		rs.logger.Error(errors.Wrapf(err, "failed to sync upkeep, log: %v", broadcast.String()))
 		return
@@ -259,7 +259,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepReceived(broadcast log.Broadcast, re
 		return
 	}
 
-	err = rs.syncUpkeep(registry, utils.NewBig(upkeepID))
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(upkeepID))
 	if err != nil {
 		rs.logger.Error(errors.Wrapf(err, "failed to sync upkeep, log: %v", broadcast.String()))
 		return
