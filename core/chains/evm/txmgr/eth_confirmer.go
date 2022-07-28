@@ -74,6 +74,10 @@ var (
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
 	}, []string{"evmChainID"})
+	promFwdTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_fwd_tx_count",
+		Help: "The number of forwarded transaction attempts labeled by status",
+	}, []string{"evmChainID", "successful"})
 	promTxAttemptCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "tx_manager_tx_attempt_count",
 		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
@@ -459,6 +463,15 @@ func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethC
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) (receipts []evmtypes.Receipt, err error) {
 	var reqs []rpc.BatchElem
+
+	// Metadata is required to determine whether a tx is forwarded or not.
+	if ec.config.EvmUseForwarders() {
+		err = loadEthTxes(ec.q, attempts)
+		if err != nil {
+			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")
+		}
+	}
+
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
@@ -531,6 +544,19 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
 		} else {
 			promNumSuccessfulTxs.WithLabelValues(ec.chainID.String()).Add(1)
+		}
+
+		// This is only recording forwarded tx that were mined and have a status.
+		// Counters are prune to being in-accurate due to re-orgs.
+		if ec.config.EvmUseForwarders() {
+			meta, err := attempt.EthTx.GetMeta()
+			if err != nil {
+				continue
+			}
+			if meta.FwdrDestAddress != nil {
+				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
+				promFwdTxCount.WithLabelValues(ec.chainID.String(), fmt.Sprintf("%t", receipt.Status != 0)).Add(1)
+			}
 		}
 
 		receipts = append(receipts, *receipt)

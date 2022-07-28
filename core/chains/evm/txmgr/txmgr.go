@@ -323,6 +323,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 	if b.config.EvmUseForwarders() {
 		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
+			newTx.Meta.FwdrDestAddress = &newTx.ToAddress
 			newTx.ToAddress = fwdAddr
 			newTx.EncodedPayload = fwdPayload
 		} else {
