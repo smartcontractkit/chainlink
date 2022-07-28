@@ -64,7 +64,7 @@ before(async () => {
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
-describe('KeeperRegistryDev', () => {
+describe.only('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -692,7 +692,7 @@ describe('KeeperRegistryDev', () => {
     })
   })
 
-  describe('#performUpkeep', () => {
+  describe.only('#performUpkeep', () => {
     let _lastKeeper = keeper1
 
     async function getPerformPaymentAmount() {
@@ -855,6 +855,7 @@ describe('KeeperRegistryDev', () => {
         const difference = after.sub(before)
         assert.isTrue(max.gt(totalTx))
         assert.isTrue(totalTx.gt(difference))
+        assert.equal(difference.toNumber(), 6000)
         assert.isTrue(linkForGas(5700).lt(difference)) // exact number is flaky
         assert.isTrue(linkForGas(6000).gt(difference)) // instead test a range
       })
