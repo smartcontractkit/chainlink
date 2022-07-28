@@ -28,7 +28,7 @@ type KeeperBlockTimeTest struct {
 	keeperConsumerContracts []contracts.KeeperConsumerPerformance
 
 	env            *environment.Environment
-	chainlinkNodes []client.Chainlink
+	chainlinkNodes []*client.Chainlink
 	chainClient    blockchain.EVMClient
 }
 
@@ -119,7 +119,7 @@ func (k *KeeperBlockTimeTest) Run() {
 	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for keeper subscriptions")
 
 	for _, chainlinkNode := range k.chainlinkNodes {
-		txData, err := chainlinkNode.ReadTransactionAttempts()
+		txData, err := chainlinkNode.MustReadTransactionAttempts()
 		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving transaction data from chainlink node")
 		k.TestReporter.AttemptedChainlinkTransactions = append(k.TestReporter.AttemptedChainlinkTransactions, txData)
 	}
@@ -128,7 +128,7 @@ func (k *KeeperBlockTimeTest) Run() {
 }
 
 // Networks returns the networks that the test is running on
-func (k *KeeperBlockTimeTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
+func (k *KeeperBlockTimeTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	starknetrelay "github.com/smartcontractkit/chainlink-starknet/pkg/chainlink"
+	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
@@ -731,6 +731,11 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
+	if app.Config.FeatureLogPoller() {
+		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

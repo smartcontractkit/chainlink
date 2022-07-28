@@ -179,4 +179,24 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println()
 	fmt.Println("Consumer address:", consumerAddress.String())
+	fmt.Println("Consumer request command:")
+	requestCommand := fmt.Sprintf(
+		"go run . consumer-request-randomness -consumer-address %s -sub-id <sub-id>",
+		consumerAddress.Hex())
+	fmt.Println(requestCommand)
+	fmt.Println()
+
+	fmt.Println("Consumer callback request command:")
+	callbackCommand := fmt.Sprintf(
+		"go run . consumer-request-callback -consumer-address %s -sub-id <sub-id>",
+		consumerAddress.Hex())
+	fmt.Println(callbackCommand)
+	fmt.Println()
+
+	fmt.Println("Consumer redeem randomness command:")
+	redeemCommand := fmt.Sprintf(
+		"go run . consumer-redeem-randomness -consumer-address %s -request-id <req-id>",
+		consumerAddress.Hex())
+	fmt.Println(redeemCommand)
+	fmt.Println()
 }

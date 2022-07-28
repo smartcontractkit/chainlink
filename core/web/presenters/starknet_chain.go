@@ -3,7 +3,7 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
 
 	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 )

@@ -3,9 +3,6 @@ package actions
 //revive:disable:dot-imports
 import (
 	"fmt"
-	"math"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -13,11 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"math"
+	"math/big"
 )
 
 var ZeroAddress = common.Address{}
 
-func CreateKeeperJobs(chainlinkNodes []client.Chainlink, keeperRegistry contracts.KeeperRegistry) {
+func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contracts.KeeperRegistry) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
 	primaryNodeAddress, err := primaryNode.PrimaryEthAddress()
@@ -35,7 +34,7 @@ func CreateKeeperJobs(chainlinkNodes []client.Chainlink, keeperRegistry contract
 	for _, chainlinkNode := range chainlinkNodes {
 		chainlinkNodeAddress, err := chainlinkNode.PrimaryEthAddress()
 		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving chainlink node address")
-		_, err = chainlinkNode.CreateJob(&client.KeeperJobSpec{
+		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,

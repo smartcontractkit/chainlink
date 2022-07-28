@@ -37,7 +37,7 @@ var ContractDeploymentInterval = 200
 
 // FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
 func FundChainlinkNodes(
-	nodes []client.Chainlink,
+	nodes []*client.Chainlink,
 	client blockchain.EVMClient,
 	amount *big.Float,
 ) error {
@@ -56,7 +56,7 @@ func FundChainlinkNodes(
 
 // FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
 func FundChainlinkNodesLink(
-	nodes []client.Chainlink,
+	nodes []*client.Chainlink,
 	blockchain blockchain.EVMClient,
 	linkToken contracts.LinkToken,
 	linkAmount *big.Int,
@@ -75,7 +75,7 @@ func FundChainlinkNodesLink(
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddresses(nodes []client.Chainlink) ([]common.Address, error) {
+func ChainlinkNodeAddresses(nodes []*client.Chainlink) ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, node := range nodes {
 		primaryAddress, err := node.PrimaryEthAddress()
@@ -88,7 +88,7 @@ func ChainlinkNodeAddresses(nodes []client.Chainlink) ([]common.Address, error) 
 }
 
 // SetChainlinkAPIPageSize specifies the page size from the Chainlink API, useful for high volume testing
-func SetChainlinkAPIPageSize(nodes []client.Chainlink, pageSize int) {
+func SetChainlinkAPIPageSize(nodes []*client.Chainlink, pageSize int) {
 	for _, n := range nodes {
 		n.SetPageSize(pageSize)
 	}
@@ -131,7 +131,7 @@ func EncodeOnChainVRFProvingKey(vrfKey client.VRFKey) ([2]*big.Int, error) {
 // GetMockserverInitializerDataForOTPE creates mocked weiwatchers data needed for otpe
 func GetMockserverInitializerDataForOTPE(
 	OCRInstances []contracts.OffchainAggregator,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 ) (interface{}, error) {
 	var contractsInfo []ctfClient.ContractInfoJSON
 
@@ -154,7 +154,7 @@ func GetMockserverInitializerDataForOTPE(
 	var nodesInfo []ctfClient.NodeInfoJSON
 
 	for _, chainlink := range chainlinkNodes {
-		ocrKeys, err := chainlink.ReadOCRKeys()
+		ocrKeys, err := chainlink.MustReadOCRKeys()
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +178,7 @@ func GetMockserverInitializerDataForOTPE(
 func TeardownSuite(
 	env *environment.Environment,
 	logsFolderPath string,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	c blockchain.EVMClient,
 ) error {
@@ -223,7 +223,7 @@ func TeardownSuite(
 // soak tests
 func TeardownRemoteSuite(
 	env *environment.Environment,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
@@ -240,14 +240,9 @@ func TeardownRemoteSuite(
 }
 
 // Returns all the funds from the chainlink nodes to the networks default address
-func returnFunds(chainlinkNodes []client.Chainlink, client blockchain.EVMClient) error {
+func returnFunds(chainlinkNodes []*client.Chainlink, client blockchain.EVMClient) error {
 	if client == nil {
 		log.Warn().Msg("No blockchain client found, unable to return funds from chainlink nodes.")
-	}
-	for _, node := range chainlinkNodes {
-		if err := node.SetSessionCookie(); err != nil {
-			return err
-		}
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if client.NetworkSimulated() {
@@ -274,7 +269,7 @@ func returnFunds(chainlinkNodes []client.Chainlink, client blockchain.EVMClient)
 
 // Requests that all the chainlink nodes send their funds back to the network's default wallet
 // This is surprisingly tricky, and fairly annoying due to Go's lack of syntactic sugar and how chainlink nodes handle txs
-func sendFunds(chainlinkNodes []client.Chainlink, network blockchain.EVMClient) (map[int]string, error) {
+func sendFunds(chainlinkNodes []*client.Chainlink, network blockchain.EVMClient) (map[int]string, error) {
 	chainlinkTransactionAddresses := make(map[int]string)
 	sendFundsErrGroup := new(errgroup.Group)
 	for ni, n := range chainlinkNodes {
@@ -305,7 +300,7 @@ func sendFunds(chainlinkNodes []client.Chainlink, network blockchain.EVMClient) 
 					gasCost = gasCost.Add(gasCost, big.NewInt(50000000000))
 					nodeBalance, _ := big.NewInt(0).SetString(nodeBalanceString, 10)
 					transferAmount := nodeBalance.Sub(nodeBalance, gasCost)
-					_, err = node.SendNativeToken(transferAmount, primaryEthKeyData.Attributes.Address, network.GetDefaultWallet().Address())
+					_, err = node.MustSendNativeToken(transferAmount, primaryEthKeyData.Attributes.Address, network.GetDefaultWallet().Address())
 					if err != nil {
 						return err
 					}
@@ -322,7 +317,7 @@ func sendFunds(chainlinkNodes []client.Chainlink, network blockchain.EVMClient) 
 
 // checks that the funds made it from the chainlink node to the network address
 // this turns out to be tricky to do, given how chainlink handles pending transactions, thus the complexity
-func checkFunds(chainlinkNodes []client.Chainlink, sentFromAddressesMap map[int]string, toAddress string) error {
+func checkFunds(chainlinkNodes []*client.Chainlink, sentFromAddressesMap map[int]string, toAddress string) error {
 	successfulConfirmations := make(map[int]bool)
 	err := retry.Do( // Might take some time for txs to confirm, check up on the nodes a few times
 		func() error {
@@ -360,11 +355,11 @@ func checkFunds(chainlinkNodes []client.Chainlink, sentFromAddressesMap map[int]
 // helper to confirm that the latest attempted transaction on the chainlink node with the expected from and to addresses
 // has been confirmed
 func confirmTransaction(
-	chainlinkNode client.Chainlink,
+	chainlinkNode *client.Chainlink,
 	fromAddress string,
 	toAddress string,
 ) error {
-	transactionAttempts, err := chainlinkNode.ReadTransactionAttempts()
+	transactionAttempts, err := chainlinkNode.MustReadTransactionAttempts()
 	if err != nil {
 		return err
 	}

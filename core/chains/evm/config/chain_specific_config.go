@@ -182,6 +182,10 @@ func setChainSpecificConfigDefaultSets() {
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
 	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	rinkeby.operatorFactoryAddress = ""
+	sepolia := mainnet
+	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
+	sepolia.operatorFactoryAddress = "" // doesn't exist yet
+	sepolia.eip1559DynamicFees = true
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -374,6 +378,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[3] = ropsten
 	chainSpecificConfigDefaultSets[4] = rinkeby
 	chainSpecificConfigDefaultSets[5] = goerli
+	chainSpecificConfigDefaultSets[11155111] = sepolia
 	chainSpecificConfigDefaultSets[42] = kovan
 	chainSpecificConfigDefaultSets[10] = optimismMainnet
 	chainSpecificConfigDefaultSets[69] = optimismKovan

@@ -27,6 +27,48 @@ func setup(t *testing.T) (*ORM, *ORM) {
 	return o1, o2
 }
 
+func TestORM_GetBlocks(t *testing.T) {
+	o1, _ := setup(t)
+	// Insert many blocks and read them back together
+	blocks := []struct {
+		number int64
+		hash   common.Hash
+	}{
+		{
+			number: 10,
+			hash:   common.HexToHash("0x111"),
+		},
+		{
+			number: 11,
+			hash:   common.HexToHash("0x112"),
+		},
+		{
+			number: 12,
+			hash:   common.HexToHash("0x113"),
+		},
+		{
+			number: 13,
+			hash:   common.HexToHash("0x114"),
+		},
+		{
+			number: 14,
+			hash:   common.HexToHash("0x115"),
+		},
+	}
+	for _, b := range blocks {
+		require.NoError(t, o1.InsertBlock(b.hash, b.number))
+	}
+
+	var blockNumbers []uint64
+	for _, b := range blocks {
+		blockNumbers = append(blockNumbers, uint64(b.number))
+	}
+
+	lpBlocks, err := o1.GetBlocks(blockNumbers)
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks, len(blocks))
+}
+
 func TestORM(t *testing.T) {
 	o1, o2 := setup(t)
 	// Insert and read back a block.
