@@ -84,6 +84,18 @@ var (
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
+
+	ArbitrumRinkeby *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Arbitrum Rinkeby",
+		ChainID:                   421611,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
+	}
 )
 
 // GeneralEVM loads general EVM settings from env vars
