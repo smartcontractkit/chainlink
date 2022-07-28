@@ -374,9 +374,32 @@ func (_m *LogPoller) LogsWithSigs(start int64, end int64, eventSigs []common.Has
 	return r0, r1
 }
 
-// MergeFilter provides a mock function with given fields: eventSigs, addresses
-func (_m *LogPoller) MergeFilter(eventSigs []common.Hash, addresses []common.Address) {
-	_m.Called(eventSigs, addresses)
+// MergeFilter provides a mock function with given fields: eventIDs
+func (_m *LogPoller) MergeFilter(eventIDs []logpoller.EventID) error {
+	ret := _m.Called(eventIDs)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]logpoller.EventID) error); ok {
+		r0 = rf(eventIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MergeFilterWithCallbacks provides a mock function with given fields: callbacks
+func (_m *LogPoller) MergeFilterWithCallbacks(callbacks map[logpoller.EventID]logpoller.Callback) error {
+	ret := _m.Called(callbacks)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(map[logpoller.EventID]logpoller.Callback) error); ok {
+		r0 = rf(callbacks)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Ready provides a mock function with given fields:
