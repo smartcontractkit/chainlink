@@ -27,6 +27,10 @@ const (
 
 const ActiveUpkeepIDBatchSize int64 = 10000
 
+type UpkeepGetter interface {
+	GetUpkeep(*bind.CallOpts, *big.Int) (*UpkeepConfig, error)
+}
+
 // RegistryWrapper implements a layer on top of different versions of registry wrappers
 // to provide a unified layer to rest of the codebase
 type RegistryWrapper struct {
