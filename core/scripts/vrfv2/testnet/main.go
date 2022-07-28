@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -51,6 +52,47 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "filter-logs":
+		cmd := flag.NewFlagSet("filter-logs", flag.ExitOnError)
+		addresses := cmd.String("addresses", "", "comma separated address list")
+		topic0 := cmd.String("topic0", "", "first topic hash, this is the event signature")
+		topic1s := cmd.String("topic1s", "", "second topic hashes")
+		topic2s := cmd.String("topic2s", "", "third topic hashes")
+		topic3s := cmd.String("topic3s", "", "fourth topic hashes")
+		fromBlock := cmd.Int64("from-block", -1, "block to start filtering from")
+		toBlock := cmd.Int64("to-block", -1, "block to end filtering at")
+		helpers.ParseArgs(cmd, os.Args[2:], "addresses", "topic0", "from-block")
+		var topics [][]common.Hash
+		topics = append(topics, helpers.ParseHashSlice(*topic0))
+		if *topic1s != "" {
+			topics = append(topics, helpers.ParseHashSlice(*topic1s))
+		}
+		if *topic2s != "" {
+			topics = append(topics, helpers.ParseHashSlice(*topic2s))
+		}
+		if *topic3s != "" {
+			topics = append(topics, helpers.ParseHashSlice(*topic3s))
+		}
+		var toBlockBig *big.Int
+		if *toBlock != -1 {
+			toBlockBig = big.NewInt(*toBlock)
+		}
+		filterQuery := ethereum.FilterQuery{
+			Addresses: helpers.ParseAddressSlice(*addresses),
+			Topics:    topics,
+			FromBlock: big.NewInt(*fromBlock),
+			ToBlock:   toBlockBig,
+		}
+		fmt.Printf("filter query: %+v\n", filterQuery)
+		logs, err := e.Ec.FilterLogs(context.Background(), filterQuery)
+		helpers.PanicErr(err)
+		for _, l := range logs {
+			fmt.Println("log data:", hexutil.Encode(l.Data))
+			fmt.Println("log topics:", l.Topics)
+			fmt.Println("log block number and hash:", l.BlockNumber, l.BlockHash.String())
+			fmt.Println("log tx hash:", l.TxHash)
+			fmt.Println()
+		}
 	case "topics":
 		randomWordsRequested := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()
 		randomWordsFulfilled := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic()

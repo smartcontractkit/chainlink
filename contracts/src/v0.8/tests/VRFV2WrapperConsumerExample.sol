@@ -6,6 +6,7 @@ import "../ConfirmedOwner.sol";
 
 contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
+  event WrappedRequestMade(uint256 indexed requestId, uint256 paid);
 
   struct RequestStatus {
     uint256 paid;
