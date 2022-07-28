@@ -325,7 +325,7 @@ contract KeeperRegistryDev is
       minUpkeepSpend: config.minUpkeepSpend,
       maxPerformGas: config.maxPerformGas,
       nonce: s_storage.nonce,
-      registryGasOverhead: s_storage.registryGasOverhead
+      registryGasOverhead: config.registryGasOverhead
     });
     s_fallbackGasPrice = config.fallbackGasPrice;
     s_fallbackLinkPrice = config.fallbackLinkPrice;

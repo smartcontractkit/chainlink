@@ -64,7 +64,7 @@ before(async () => {
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
-describe.only('KeeperRegistryDev', () => {
+describe('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -692,7 +692,7 @@ describe.only('KeeperRegistryDev', () => {
     })
   })
 
-  describe.only('#performUpkeep', () => {
+  describe('#performUpkeep', () => {
     let _lastKeeper = keeper1
 
     async function getPerformPaymentAmount() {
@@ -1226,9 +1226,9 @@ describe.only('KeeperRegistryDev', () => {
           gasCeilingMultiplier,
           minUpkeepSpend,
           maxPerformGas,
+          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
-          registryGasOverhead,
           transcoder: transcoder.address,
           registrar: ethers.constants.AddressZero,
         })
@@ -1310,9 +1310,9 @@ describe.only('KeeperRegistryDev', () => {
           gasCeilingMultiplier,
           minUpkeepSpend,
           maxPerformGas,
+          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
-          registryGasOverhead,
           transcoder: transcoder.address,
           registrar: ethers.constants.AddressZero,
         })
@@ -1819,6 +1819,7 @@ describe.only('KeeperRegistryDev', () => {
           ceiling,
           minUpkeepSpend,
           maxPerformGas,
+          registryGasOverhead,
           fbGasEth,
           fbLinkEth,
         ])
