@@ -30,3 +30,8 @@ type Config interface {
 	KeeperTurnFlagEnabled() bool
 	LogSQL() bool
 }
+
+type RegistryGasChecker interface {
+	KeeperRegistryCheckGasOverhead() uint64
+	KeeperRegistryPerformGasOverhead() uint64
+}
