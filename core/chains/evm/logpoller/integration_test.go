@@ -123,7 +123,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
 		cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1})
+	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log1"].ID, emitterAddress1}})
 	require.NoError(t, lp.Start(context.Background()))
 
 	// Emit some logs in blocks 3->7.

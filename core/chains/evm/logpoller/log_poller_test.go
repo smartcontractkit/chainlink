@@ -401,7 +401,7 @@ func TestLogPoller_Logs(t *testing.T) {
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[4].BlockHash.String())
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[5].BlockHash.String())
 
-	// Filter by address and topic
+	// Filter by Address and topic
 	lgs, err = o.SelectLogsByBlockRangeFilter(1, 3, address1, event1[:])
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))

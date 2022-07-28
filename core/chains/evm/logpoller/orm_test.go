@@ -224,7 +224,7 @@ func TestORM(t *testing.T) {
 	require.Equal(t, 1, len(lgs))
 	require.Equal(t, int64(11), lgs[0].BlockNumber)
 
-	// should return two entries one for each address with the latest update
+	// should return two entries one for each Address with the latest update
 	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
@@ -234,7 +234,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 
-	// should return 4 entries one for each (address,topic) combination
+	// should return 4 entries one for each (Address,topic) combination
 	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2})
 	require.NoError(t, err)
 	require.Equal(t, 4, len(lgs))
@@ -450,7 +450,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, logs, 4)
 	for _, l := range logs {
-		assert.Equal(t, sourceAddr, l.Address, "wrong log address")
+		assert.Equal(t, sourceAddr, l.Address, "wrong log Address")
 		assert.True(t, bytes.Equal(topic.Bytes(), l.EventSig) || bytes.Equal(topic2.Bytes(), l.EventSig), "wrong log topic")
 		assert.True(t, l.BlockNumber >= startBlock && l.BlockNumber <= endBlock)
 	}

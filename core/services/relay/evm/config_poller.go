@@ -139,7 +139,7 @@ type ConfigPoller struct {
 }
 
 func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) *ConfigPoller {
-	destChainPoller.MergeFilter([]common.Hash{ConfigSet}, []common.Address{addr})
+	destChainPoller.MergeFilter([]logpoller.EventID{{ConfigSet, addr}})
 	return &ConfigPoller{
 		lggr:               lggr,
 		destChainLogPoller: destChainPoller,
