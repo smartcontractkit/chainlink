@@ -60,6 +60,67 @@ contract KeeperRegistryDev is
     setConfig(config);
   }
 
+  /**
+   * @inheritdoc OCR2Abstract
+   */
+  function setConfig(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) external override onlyOwner {
+    // TODO
+  }
+
+  /**
+   * @inheritdoc OCR2Abstract
+   */
+  function latestConfigDetails()
+    external
+    view
+    override
+    returns (
+      uint32 configCount,
+      uint32 blockNumber,
+      bytes32 configDigest
+    )
+  {
+    // TODO
+  }
+
+  /**
+   * @inheritdoc OCR2Abstract
+   */
+  function latestConfigDigestAndEpoch()
+    external
+    view
+    override
+    returns (
+      bool scanLogs,
+      bytes32 configDigest,
+      uint32 epoch
+    )
+  {
+    // TODO
+  }
+
+  /**
+   * @inheritdoc OCR2Abstract
+   */
+  function transmit(
+    // NOTE: If these parameters are changed, expectedMsgDataLength and/or
+    // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs // signatures
+  ) external override {
+    // TODO
+  }
+
   // ACTIONS
 
   /**
