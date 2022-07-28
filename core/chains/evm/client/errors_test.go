@@ -181,7 +181,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 FTM) exceeds the configured cap (1.00 FTM)", true, "geth"},
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
 			{"Transaction fee cap exceeded", true, "Besu"},
-			{"fee cap higher than 2^256-1", true, "Erigon"},
+			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Erigon"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

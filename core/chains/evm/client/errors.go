@@ -112,7 +112,7 @@ var erigon = ClientErrors{
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(block already known|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
-	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)fee cap higher than`),
+	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	Fatal:                             erigonFatal,
 }
 
