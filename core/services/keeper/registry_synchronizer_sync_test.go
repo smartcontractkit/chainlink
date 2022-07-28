@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -18,10 +19,10 @@ import (
 // config response.
 type GetUpkeepFailure struct{}
 
-var GetUpkeepError = errors.New("upkeep config not found")
+var GetUpkeepError = errors.New("chain connection error example")
 
 func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepConfig, error) {
-	return nil, GetUpkeepError
+	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, GetUpkeepError, RegistryVersion_1_2)
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
@@ -35,7 +36,12 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 		ContractAddress: addr,
 	}
 
-	id := utils.NewBigI(3)
+	o, ok := new(big.Int).SetString("5032485723458348569331745", 10)
+	if !ok {
+		t.FailNow()
+	}
+
+	id := utils.NewBig(o)
 	count := 0
 	doneFunc := func() {
 		count++
@@ -54,9 +60,9 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 
 			switch field.Key {
 			case "error":
-				require.Equal(t, GetUpkeepError.Error(), field.String)
+				require.Equal(t, "failed to get upkeep config: failure in calling contract [chain connection error example]: getConfig v1.2", field.String)
 			case "upkeepID":
-				require.Equal(t, "3", field.String)
+				require.Equal(t, fmt.Sprintf("UPx%064s", "429ab990419450db80821"), field.String)
 			case "registryContract":
 				require.Equal(t, addr.Hex(), field.String)
 			}
@@ -64,4 +70,5 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	}
 
 	require.Equal(t, map[string]bool{"upkeepID": true, "error": true, "registryContract": true}, keys)
+	require.Equal(t, 1, count, "callback function should run")
 }
