@@ -194,6 +194,8 @@ func TestIntegration_OCR2(t *testing.T) {
 		transmitters,
 	)
 	require.NoError(t, err)
+	blockBeforeConfig, err := b.BlockByNumber(context.Background(), nil)
+	require.NoError(t, err)
 	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
@@ -334,6 +336,12 @@ juelsPerFeeCoinSource = """
 		require.NoError(t, err)
 		jids = append(jids, ocrJob.ID)
 	}
+
+	// Once all the jobs are added, replay to ensure we have the configSet logs.
+	for _, app := range apps {
+		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
+	}
+	require.NoError(t, appBootstrap.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
 	var wg sync.WaitGroup
