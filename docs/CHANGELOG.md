@@ -5,10 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.0] - 2022-07-20
+## Unreleased
 
 ### Added 
 
+- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
+- Added official support for Sepolia chain
 - Added `hexdecode` and `base64decode` tasks (pipeline).
 - Added official support for Besu execution client.
 - Added the functionality to allow the root admin CLI user (and any additional admin users created) to create and assign tiers of role based access to new users. These new API users will be able to log in to the Operator UI independently, and can each have specific roles tied to their account. There are four roles: `admin`, `edit`, `run`, and `view`.
@@ -32,7 +34,10 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 
 ### Fixed
 
-Addressed a very rare bug where using multiple nodes with differently configured RPC tx fee caps could cause missed transaction. Reminder to everyone to ensure that your RPC nodes have no caps (for more information see the [performance and tuning guide](https://docs.chain.link/docs/evm-performance-configuration/)).
+- Addressed a very rare bug where using multiple nodes with differently configured RPC tx fee caps could cause missed transaction. Reminder to everyone to ensure that your RPC nodes have no caps (for more information see the [performance and tuning guide](https://docs.chain.link/docs/evm-performance-configuration/)).
+- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
+
+## [1.6.0] - 2022-07-20
 
 ### Changed
 
@@ -42,13 +47,6 @@ Addressed a very rare bug where using multiple nodes with differently configured
 3. User passwords must not contain the user's API email
 
 - Simplified the Keepers job spec by removing the observation source from the required parameters.
-
-### Fixed
-- Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
-
-## Added
-
-- `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 
 ## [1.5.1] - 2022-06-27
 

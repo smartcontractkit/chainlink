@@ -16,7 +16,6 @@ const PasswordComplexityRequirements = `
 Must have a length of 16-50 characters
 Must not comprise:
 	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-	A user's API email
 `
 
 const MinRequiredLen = 16
