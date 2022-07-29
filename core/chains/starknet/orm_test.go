@@ -36,10 +36,10 @@ func Test_ORM(t *testing.T) {
 	require.Empty(t, dbcs)
 
 	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err = orm.CreateChain(chainIDA, nil)
+	_, err = orm.CreateChain(chainIDA, &db.ChainCfg{})
 	require.NoError(t, err)
 	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	_, err = orm.CreateChain(chainIDB, nil)
+	_, err = orm.CreateChain(chainIDB, &db.ChainCfg{})
 	require.NoError(t, err)
 
 	dbcs, err = orm.EnabledChains()
