@@ -64,7 +64,7 @@ before(async () => {
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
-describe.only('KeeperRegistryDev', () => {
+describe('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
