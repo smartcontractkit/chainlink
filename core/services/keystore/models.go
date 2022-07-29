@@ -85,7 +85,7 @@ type keyRing struct {
 	P2P        map[string]p2pkey.KeyV2
 	Solana     map[string]solkey.Key
 	Terra      map[string]terrakey.Key
-	StarkNet   map[string]starkkey.StarkKey
+	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	DKGSign    map[string]dkgsignkey.Key
 	DKGEncrypt map[string]dkgencryptkey.Key
@@ -100,7 +100,7 @@ func newKeyRing() keyRing {
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Solana:     make(map[string]solkey.Key),
 		Terra:      make(map[string]terrakey.Key),
-		StarkNet:   make(map[string]starkkey.StarkKey),
+		StarkNet:   make(map[string]starkkey.Key),
 		VRF:        make(map[string]vrfkey.KeyV2),
 		DKGSign:    make(map[string]dkgsignkey.Key),
 		DKGEncrypt: make(map[string]dkgencryptkey.Key),
@@ -259,7 +259,7 @@ type rawKeyRing struct {
 	P2P        []p2pkey.Raw
 	Solana     []solkey.Raw
 	Terra      []terrakey.Raw
-	StarkNet   []starkkey.StarkRaw
+	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
 	DKGSign    []dkgsignkey.Raw
 	DKGEncrypt []dkgencryptkey.Raw

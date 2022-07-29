@@ -13,7 +13,7 @@ type StarkNetKeyPresenter struct {
 
 // RenderTable implements TableRenderer
 func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Public key", "Stark key"}
+	headers := []string{"ID", "Contract Address", "Stark Key"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 StarkNet Keys\n")); err != nil {
@@ -27,7 +27,7 @@ func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
 func (p *StarkNetKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
-		p.PubKey,
+		p.ContractAddr,
 		p.StarkKey,
 	}
 
@@ -38,7 +38,7 @@ type StarkNetKeyPresenters []StarkNetKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Public key", "Stark key"}
+	headers := []string{"ID", "Contract Address", "Stark Key"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -54,5 +54,5 @@ func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 }
 
 func NewStarkNetKeysClient(c *Client) KeysClient {
-	return newKeysClient[starkkey.StarkKey, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
+	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
 }

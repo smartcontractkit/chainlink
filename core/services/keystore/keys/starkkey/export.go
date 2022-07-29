@@ -11,20 +11,20 @@ import (
 const keyTypeIdentifier = "StarkNet"
 
 // FromEncryptedJSON gets key from json and password
-func FromEncryptedJSON(keyJSON []byte, password string) (stark.StarkKey, error) {
+func FromEncryptedJSON(keyJSON []byte, password string) (stark.Key, error) {
 	return keys.FromEncryptedJSON(
 		keyTypeIdentifier,
 		keyJSON,
 		password,
 		adulteratedPassword,
-		func(_ keys.EncryptedKeyExport, rawPrivKey []byte) (stark.StarkKey, error) {
-			return stark.StarkRaw(rawPrivKey).Key(), nil
+		func(_ keys.EncryptedKeyExport, rawPrivKey []byte) (stark.Key, error) {
+			return stark.Raw(rawPrivKey).Key(), nil
 		},
 	)
 }
 
 // ToEncryptedJSON returns encrypted JSON representing key
-func ToEncryptedJSON(key stark.StarkKey, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func ToEncryptedJSON(key stark.Key, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
 	return keys.ToEncryptedJSON(
 		keyTypeIdentifier,
 		key.Raw(),
@@ -32,10 +32,10 @@ func ToEncryptedJSON(key stark.StarkKey, password string, scryptParams utils.Scr
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key stark.StarkKey, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
+		func(id string, key stark.Key, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
-				PublicKey: key.PublicKeyStr(),
+				PublicKey: key.ContractAddressStr(),
 				Crypto:    cryptoJSON,
 			}, nil
 		},

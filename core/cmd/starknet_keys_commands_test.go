@@ -33,9 +33,9 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	p := cmd.StarkNetKeyPresenter{
 		JAID: cmd.JAID{ID: id},
 		StarkNetKeyResource: presenters.StarkNetKeyResource{
-			JAID:     presenters.NewJAID(id),
-			PubKey:   pubKey,
-			StarkKey: starkKey,
+			JAID:         presenters.NewJAID(id),
+			ContractAddr: pubKey,
+			StarkKey:     starkKey,
 		},
 	}
 
@@ -78,7 +78,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 		assert.Nil(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
-		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
+		assert.True(t, key.ContractAddressStr() == keys[0].ContractAddr)
 		assert.True(t, key.StarkKeyStr() == keys[0].StarkKey)
 
 	})

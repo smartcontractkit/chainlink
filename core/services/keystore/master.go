@@ -338,7 +338,7 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "Solana", nil
 	case terrakey.Key:
 		return "Terra", nil
-	case starkkey.StarkKey:
+	case starkkey.Key:
 		return "StarkNet", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil

@@ -33,7 +33,7 @@ type KeyBundle interface {
 var _ KeyBundle = &keyBundle[*evmKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*terraKeyring]{}
-var _ KeyBundle = &keyBundle[*starknet.OCR2Keyring]{}
+var _ KeyBundle = &keyBundle[*starknet.OCR2Key]{}
 
 var curve = secp256k1.S256()
 
@@ -47,7 +47,7 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	case chaintype.Terra:
 		return newKeyBundleRand(chaintype.Terra, newTerraKeyring)
 	case chaintype.StarkNet:
-		return newKeyBundleRand(chaintype.StarkNet, starknet.NewStarkNetKeyring)
+		return newKeyBundleRand(chaintype.StarkNet, starknet.NewOCR2Key)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -62,7 +62,7 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	case chaintype.Terra:
 		return mustNewKeyBundleInsecure(chaintype.Terra, newTerraKeyring, reader)
 	case chaintype.StarkNet:
-		return mustNewKeyBundleInsecure(chaintype.StarkNet, starknet.NewStarkNetKeyring, reader)
+		return mustNewKeyBundleInsecure(chaintype.StarkNet, starknet.NewOCR2Key, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -111,7 +111,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 	case chaintype.Terra:
 		kb = newKeyBundle(new(terraKeyring))
 	case chaintype.StarkNet:
-		kb = newKeyBundle(new(starknet.OCR2Keyring))
+		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:
 		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
 	}
