@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,12 +31,13 @@ var _ = Describe("VRF suite @vrf", func() {
 			Entry("VRF suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.05)),
 			Entry("VRF suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
 			Entry("VRF suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
+			Entry("VRF suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
 			Entry("VRF suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
 		}
 
 		testEnvironment *environment.Environment
 		chainClient     blockchain.EVMClient
-		chainlinkNodes  []client.Chainlink
+		chainlinkNodes  []*client.Chainlink
 	)
 
 	AfterEach(func() {
@@ -58,7 +60,9 @@ var _ = Describe("VRF suite @vrf", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-vrf"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(evmChart).
 			AddHelm(chainlink.New(0, map[string]interface{}{
 				"env": testNetwork.ChainlinkValuesMap(),
@@ -99,7 +103,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		Expect(err).ShouldNot(HaveOccurred(), "Waiting for event subscriptions in nodes shouldn't fail")
 
 		for _, n := range chainlinkNodes {
-			nodeKey, err := n.CreateVRFKey()
+			nodeKey, err := n.MustCreateVRFKey()
 			Expect(err).ShouldNot(HaveOccurred(), "Creating VRF key shouldn't fail")
 			log.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
 			pubKeyCompressed := nodeKey.Data.ID
@@ -109,7 +113,7 @@ var _ = Describe("VRF suite @vrf", func() {
 			}
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-			job, err := n.CreateJob(&client.VRFJobSpec{
+			job, err := n.MustCreateJob(&client.VRFJobSpec{
 				Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 				CoordinatorAddress:       coordinator.Address(),
 				MinIncomingConfirmations: 1,
@@ -141,7 +145,7 @@ var _ = Describe("VRF suite @vrf", func() {
 			By("Checking that randomness fulfilled")
 			timeout := time.Minute * 2
 			Eventually(func(g Gomega) {
-				jobRuns, err := chainlinkNodes[0].ReadRunsByJob(job.Data.ID)
+				jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
 				g.Expect(err).ShouldNot(HaveOccurred(), "Job execution shouldn't fail")
 
 				out, err := consumer.RandomnessOutput(context.Background())

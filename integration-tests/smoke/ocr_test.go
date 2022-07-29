@@ -3,7 +3,9 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -29,6 +31,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 			Entry("OCR suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(1)),
 			Entry("OCR suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
 			Entry("OCR suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("OCR suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("OCR suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
@@ -37,7 +40,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 		chainClient       blockchain.EVMClient
 		contractDeployer  contracts.ContractDeployer
 		linkTokenContract contracts.LinkToken
-		chainlinkNodes    []client.Chainlink
+		chainlinkNodes    []*client.Chainlink
 		mockServer        *ctfClient.MockserverClient
 		ocrInstances      []contracts.OffchainAggregator
 	)
@@ -62,7 +65,9 @@ var _ = Describe("OCR Feed @ocr", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-ocr"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).

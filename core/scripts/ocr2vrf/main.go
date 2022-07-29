@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -93,7 +97,7 @@ func main() {
 		deltaResend := cmd.Duration("delta-resend", 10*time.Second, "duration of delta resend")
 		deltaRound := cmd.Duration("delta-round", 10*time.Second, "duration of delta round")
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "duration of delta grace")
-		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta grace")
+		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta stage")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
@@ -159,7 +163,7 @@ func main() {
 		deltaResend := cmd.Duration("delta-resend", 10*time.Second, "duration of delta resend")
 		deltaRound := cmd.Duration("delta-round", 10*time.Second, "duration of delta round")
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "duration of delta grace")
-		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta grace")
+		deltaStage := cmd.Duration("delta-stage", 20*time.Second, "duration of delta stage")
 		maxRounds := cmd.Uint("max-rounds", 3, "maximum number of rounds")
 		maxDurationQuery := cmd.Duration("max-duration-query", 10*time.Millisecond, "maximum duration of query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 10*time.Second, "maximum duration of observation method")
@@ -214,12 +218,24 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id")
 		requestRandomness(e, *coordinatorAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
 
-	case "coordinator-get-randomness":
-		cmd := flag.NewFlagSet("coordinator-get-randomness", flag.ExitOnError)
+	case "coordinator-redeem-randomness":
+		cmd := flag.NewFlagSet("coordinator-redeem-randomness", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
 		requestID := cmd.Int64("request-id", 0, "request ID")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "request-id")
-		getRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
+		redeemRandomness(e, *coordinatorAddress, big.NewInt(*requestID))
+
+	case "coordinator-info":
+		cmd := flag.NewFlagSet("coordinator-info", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
+		coordinator := newVRFBeaconCoordinator(common.HexToAddress(*coordinatorAddress), e.Ec)
+		keyID, err := coordinator.SKeyID(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator key id:", hexutil.Encode(keyID[:]))
+		keyHash, err := coordinator.SProvingKeyHash(nil)
+		helpers.PanicErr(err)
+		fmt.Println("coordinator proving key hash:", hexutil.Encode(keyHash[:]))
 
 	case "consumer-deploy":
 		cmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
@@ -238,15 +254,36 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "sub-id")
 		requestRandomnessFromConsumer(e, *consumerAddress, uint16(*numWords), *subID, big.NewInt(*confDelay))
 
-	case "consumer-get-randomness":
-		cmd := flag.NewFlagSet("coordinator-get-randomness", flag.ExitOnError)
+	case "consumer-redeem-randomness":
+		cmd := flag.NewFlagSet("consumer-redeem-randomness", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
 		requestID := cmd.Int64("request-id", 0, "request ID")
+		numWords := cmd.Int64("num-words", 1, "number of words to print after redeeming")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
-		getRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID))
+		redeemRandomnessFromConsumer(e, *consumerAddress, big.NewInt(*requestID), *numWords)
+
+	case "consumer-request-callback":
+		cmd := flag.NewFlagSet("consumer-request-callback", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "VRF beacon consumer address")
+		numWords := cmd.Uint("num-words", 1, "number of words to request")
+		subID := cmd.Uint64("sub-id", 0, "subscription ID")
+		confDelay := cmd.Int64("conf-delay", 1, "confirmation delay")
+		callbackGasLimit := cmd.Uint("cb-gas-limit", 50_000, "callback gas limit")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		requestRandomnessCallback(
+			e,
+			*consumerAddress,
+			uint16(*numWords),
+			*subID,
+			big.NewInt(int64(*confDelay)),
+			uint32(*callbackGasLimit),
+			nil, // test consumer doesn't use any args
+		)
 
 	case "dkg-setup":
 		setupDKGNodes(e)
+	case "ocr2vrf-setup":
+		setupOCR2VRFNodes(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

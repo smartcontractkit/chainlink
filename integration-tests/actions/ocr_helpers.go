@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -23,7 +24,7 @@ func DeployOCRContracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	client blockchain.EVMClient,
 ) []contracts.OffchainAggregator {
 	// Deploy contracts
@@ -86,13 +87,13 @@ func DeployOCRContracts(
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRJobs(
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) func() {
 	return func() {
 		for _, ocrInstance := range ocrInstances {
 			bootstrapNode := chainlinkNodes[0]
-			bootstrapP2PIds, err := bootstrapNode.ReadP2PKeys()
+			bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from bootstrap node")
 			bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 			bootstrapSpec := &client.OCRBootstrapJobSpec{
@@ -101,16 +102,16 @@ func CreateOCRJobs(
 				P2PPeerID:       bootstrapP2PId,
 				IsBootstrapPeer: true,
 			}
-			_, err = bootstrapNode.CreateJob(bootstrapSpec)
+			_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 			Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bootstrap job on bootstrap node")
 
 			for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-				nodeP2PIds, err := chainlinkNodes[nodeIndex].ReadP2PKeys()
+				nodeP2PIds, err := chainlinkNodes[nodeIndex].MustReadP2PKeys()
 				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail reading P2P keys from OCR node %d", nodeIndex+1)
 				nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
 				nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].PrimaryEthAddress()
 				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
-				nodeOCRKeys, err := chainlinkNodes[nodeIndex].ReadOCRKeys()
+				nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCRKeys()
 				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 				nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
@@ -124,18 +125,18 @@ func CreateOCRJobs(
 				// This sets a default value for all node and ocr instances in order to avoid 404 issues
 				SetAllAdapterResponsesToTheSameValue(0, ocrInstances, chainlinkNodes, mockserver)
 
-				err = chainlinkNodes[nodeIndex].CreateBridge(&bta)
+				err = chainlinkNodes[nodeIndex].MustCreateBridge(&bta)
 				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating bridge in OCR node %d", nodeIndex+1)
 
 				ocrSpec := &client.OCRTaskJobSpec{
 					ContractAddress:    ocrInstance.Address(),
 					P2PPeerID:          nodeP2PId,
-					P2PBootstrapPeers:  []client.Chainlink{bootstrapNode},
+					P2PBootstrapPeers:  []*client.Chainlink{bootstrapNode},
 					KeyBundleID:        nodeOCRKeyId,
 					TransmitterAddress: nodeTransmitterAddress,
 					ObservationSource:  client.ObservationSourceSpecBridge(bta),
 				}
-				_, err = chainlinkNodes[nodeIndex].CreateJob(ocrSpec)
+				_, err = chainlinkNodes[nodeIndex].MustCreateJob(ocrSpec)
 				Expect(err).ShouldNot(HaveOccurred(), "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 			}
 		}
@@ -146,7 +147,7 @@ func CreateOCRJobs(
 func SetAdapterResponse(
 	response int,
 	ocrInstance contracts.OffchainAggregator,
-	chainlinkNode client.Chainlink,
+	chainlinkNode *client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) func() {
 	return func() {
@@ -162,7 +163,7 @@ func SetAdapterResponse(
 func SetAllAdapterResponsesToTheSameValue(
 	response int,
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) func() {
 	return func() {
@@ -179,7 +180,7 @@ func SetAllAdapterResponsesToTheSameValue(
 func SetAllAdapterResponsesToDifferentValues(
 	responses []int,
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) func() {
 	return func() {
@@ -212,7 +213,7 @@ func StartNewRound(
 }
 
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
-func BuildNodeContractPairID(node client.Chainlink, ocrInstance contracts.OffchainAggregator) string {
+func BuildNodeContractPairID(node *client.Chainlink, ocrInstance contracts.OffchainAggregator) string {
 	Expect(node).ShouldNot(BeNil())
 	Expect(ocrInstance).ShouldNot(BeNil())
 	nodeAddress, err := node.PrimaryEthAddress()

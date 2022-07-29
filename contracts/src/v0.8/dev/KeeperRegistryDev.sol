@@ -213,14 +213,9 @@ contract KeeperRegistryDev is
   /**
    * @notice withdraws LINK funds collected through cancellation fees
    */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_ownerLinkBalance;
-
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_ownerLinkBalance = 0;
-
-    emit OwnerFundsWithdrawn(amount);
-    LINK.transfer(msg.sender, amount);
+  function withdrawOwnerFunds() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -242,9 +237,9 @@ contract KeeperRegistryDev is
    * gas limit. However, in our anticipated deployment, the number of upkeeps and
    * keepers will be low enough to avoid this problem.
    */
-  function recoverFunds() external onlyOwner {
-    uint256 total = LINK.balanceOf(address(this));
-    LINK.transfer(msg.sender, total - s_expectedLinkBalance);
+  function recoverFunds() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -295,16 +290,18 @@ contract KeeperRegistryDev is
    * @notice signals to keepers that they should not perform upkeeps until the
    * contract has been unpaused
    */
-  function pause() external onlyOwner {
-    _pause();
+  function pause() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
    * @notice signals to keepers that they can perform upkeeps once again after
    * having been paused
    */
-  function unpause() external onlyOwner {
-    _unpause();
+  function unpause() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   // SETTERS
@@ -340,28 +337,9 @@ contract KeeperRegistryDev is
    * @param payees addresses corresponding to keepers who are allowed to
    * move payments which have been accrued
    */
-  function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
-    if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
-    for (uint256 i = 0; i < s_keeperList.length; i++) {
-      address keeper = s_keeperList[i];
-      s_keeperInfo[keeper].active = false;
-    }
-    for (uint256 i = 0; i < keepers.length; i++) {
-      address keeper = keepers[i];
-      KeeperInfo storage s_keeper = s_keeperInfo[keeper];
-      address oldPayee = s_keeper.payee;
-      address newPayee = payees[i];
-      if (
-        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
-      ) revert InvalidPayee();
-      if (s_keeper.active) revert DuplicateEntry();
-      s_keeper.active = true;
-      if (newPayee != IGNORE_ADDRESS) {
-        s_keeper.payee = newPayee;
-      }
-    }
-    s_keeperList = keepers;
-    emit KeepersUpdated(keepers, payees);
+  function setKeepers(address[] calldata keepers, address[] calldata payees) external {
+    // Executed through logic contract
+    _fallback();
   }
 
   // GETTERS
@@ -500,8 +478,9 @@ contract KeeperRegistryDev is
   /**
    * @notice sets the peer registry migration permission
    */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
-    s_peerRegistryMigrationPermission[peer] = permission;
+  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**

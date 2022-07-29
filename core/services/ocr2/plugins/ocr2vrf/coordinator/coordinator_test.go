@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,12 +18,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	dkg_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/dkg"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
 )
@@ -62,8 +63,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 		// transmitters. This may (?) be different in practice.
 
 		lp := &lp_mocks.LogPoller{}
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 
 		coordinatorAddress := newAddress(t)
 		dkgAddress := newAddress(t)
@@ -110,8 +110,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 
 	t.Run("vrf log poll fails", func(t *testing.T) {
 		lp := &lp_mocks.LogPoller{}
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 
 		coordinatorAddress := newAddress(t)
 		lp.On("LatestLogByEventSigWithConfs", tp.configSetTopic, coordinatorAddress, 1).
@@ -124,14 +123,13 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 			coordinatorAddress: coordinatorAddress,
 		}
 
-		_, _, err = c.DKGVRFCommittees(context.TODO())
+		_, _, err := c.DKGVRFCommittees(context.TODO())
 		assert.Error(t, err)
 	})
 
 	t.Run("dkg log poll fails", func(t *testing.T) {
 		lp := &lp_mocks.LogPoller{}
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 		coordinatorAddress := newAddress(t)
 		dkgAddress := newAddress(t)
 		lp.On("LatestLogByEventSigWithConfs", tp.configSetTopic, coordinatorAddress, 1).
@@ -148,7 +146,7 @@ func TestCoordinator_DKGVRFCommittees(t *testing.T) {
 			coordinatorAddress: coordinatorAddress,
 			dkgAddress:         dkgAddress,
 		}
-		_, _, err = c.DKGVRFCommittees(context.TODO())
+		_, _, err := c.DKGVRFCommittees(context.TODO())
 		assert.Error(t, err)
 	})
 }
@@ -189,6 +187,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, beacon requests", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
 		latestHeadNumber := int64(200)
 		evmClient := &evm_mocks.Client{}
 		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
@@ -197,8 +201,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}, nil)
 		defer evmClient.AssertExpectations(t)
 
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 
 		lookbackBlocks := int64(50)
 		lp := &lp_mocks.LogPoller{}
@@ -215,38 +218,28 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 191),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 192),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 193),
-			},
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessRequestedLog(t, 3, 195, 192),
+			newRandomnessRequestedLog(t, 3, 195, 193),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
-		cORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
-			Return([]*evmtypes.Head{
+		lp.On("GetBlocks", []uint64{195}, mock.Anything).
+			Return([]logpoller.LogPollerBlock{
 				{
-					Number: 195,
-					Hash:   common.HexToHash("0x002"),
+					BlockNumber: 195,
+					BlockHash:   common.HexToHash("0x002"),
 				},
 			}, nil)
 
 		c := &coordinator{
-			coordinatorAddress: coordinatorAddress,
-			lp:                 lp,
-			orm:                cORM,
-			lookbackBlocks:     lookbackBlocks,
-			lggr:               logger.TestLogger(t),
-			topics:             tp,
-			evmClient:          evmClient,
+			coordinatorContract: coordinatorContract,
+			coordinatorAddress:  coordinatorAddress,
+			lp:                  lp,
+			lookbackBlocks:      lookbackBlocks,
+			lggr:                logger.TestLogger(t),
+			topics:              tp,
+			evmClient:           evmClient,
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -265,6 +258,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, callback requests", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
 		latestHeadNumber := int64(200)
 		evmClient := &evm_mocks.Client{}
 		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
@@ -273,8 +272,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}, nil)
 		defer evmClient.AssertExpectations(t)
 
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 
 		lookbackBlocks := int64(50)
 		lp := &lp_mocks.LogPoller{}
@@ -291,38 +289,28 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 191, 1),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 192, 2),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 193, 3),
-			},
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
-		cORM.On("HeadsByNumbers", mock.Anything, []uint64{195}).
-			Return([]*evmtypes.Head{
+		lp.On("GetBlocks", []uint64{195}, mock.Anything).
+			Return([]logpoller.LogPollerBlock{
 				{
-					Number: 195,
-					Hash:   common.HexToHash("0x002"),
+					BlockNumber: 195,
+					BlockHash:   common.HexToHash("0x002"),
 				},
 			}, nil)
 
 		c := &coordinator{
-			coordinatorAddress: coordinatorAddress,
-			lp:                 lp,
-			orm:                cORM,
-			lookbackBlocks:     lookbackBlocks,
-			lggr:               logger.TestLogger(t),
-			topics:             tp,
-			evmClient:          evmClient,
+			coordinatorContract: coordinatorContract,
+			coordinatorAddress:  coordinatorAddress,
+			lp:                  lp,
+			lookbackBlocks:      lookbackBlocks,
+			lggr:                logger.TestLogger(t),
+			topics:              tp,
+			evmClient:           evmClient,
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -341,6 +329,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, beacon requests, beacon fulfillments", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
 		latestHeadNumber := int64(200)
 		evmClient := &evm_mocks.Client{}
 		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
@@ -349,8 +343,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}, nil)
 		defer evmClient.AssertExpectations(t)
 
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 
 		lookbackBlocks := int64(50)
 		lp := &lp_mocks.LogPoller{}
@@ -367,43 +360,30 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 191),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 192),
-			},
-			{
-				EventSig: tp.randomnessRequestedTopic[:],
-				Data:     newRandomnessRequestedData(t, 3, 195, 193),
-			},
-			{
-				EventSig: tp.newTransmissionTopic[:],
-				Data: newNewTransmissionData(t, []vrf_wrapper.VRFBeaconReportOutputServed{
-					{
-						Height:            195,
-						ConfirmationDelay: big.NewInt(3),
-					},
-				}),
-			},
+			newRandomnessRequestedLog(t, 3, 195, 191),
+			newRandomnessRequestedLog(t, 3, 195, 192),
+			newRandomnessRequestedLog(t, 3, 195, 193),
+			newNewTransmissionLog(t, []vrf_wrapper.VRFBeaconReportOutputServed{
+				{
+					Height:            195,
+					ConfirmationDelay: big.NewInt(3),
+				},
+			}),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
 		var r []uint64
-		cORM.On("HeadsByNumbers", mock.Anything, r).
+		lp.On("GetBlocks", r, mock.Anything).
 			Return(nil, nil)
 
 		c := &coordinator{
-			coordinatorAddress: coordinatorAddress,
-			lp:                 lp,
-			orm:                cORM,
-			lookbackBlocks:     lookbackBlocks,
-			lggr:               logger.TestLogger(t),
-			topics:             tp,
-			evmClient:          evmClient,
+			coordinatorContract: coordinatorContract,
+			coordinatorAddress:  coordinatorAddress,
+			lp:                  lp,
+			lookbackBlocks:      lookbackBlocks,
+			lggr:                logger.TestLogger(t),
+			topics:              tp,
+			evmClient:           evmClient,
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -422,6 +402,12 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 	t.Run("happy path, callback requests, callback fulfillments", func(t *testing.T) {
 		coordinatorAddress := newAddress(t)
 
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
 		latestHeadNumber := int64(200)
 		evmClient := &evm_mocks.Client{}
 		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
@@ -430,8 +416,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}, nil)
 		defer evmClient.AssertExpectations(t)
 
-		tp, err := newTopics()
-		require.NoError(t, err)
+		tp := newTopics()
 
 		lookbackBlocks := int64(50)
 		lp := &lp_mocks.LogPoller{}
@@ -448,49 +433,33 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			coordinatorAddress,
 			mock.Anything,
 		).Return([]logpoller.Log{
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 191, 1),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 192, 2),
-			},
-			{
-				EventSig: tp.randomnessFulfillmentRequestedTopic[:],
-				Data:     newRandomnessFulfillmentRequestedData(t, 3, 195, 193, 3),
-			},
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
 			// Both RandomWordsFulfilled and NewTransmission events are emitted
 			// when a VRF fulfillment happens on chain.
-			{
-				EventSig: tp.randomWordsFulfilledTopic[:],
-				Data:     newRandomWordsFulfilledData(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}),
-			},
-			{
-				EventSig: tp.newTransmissionTopic[:],
-				Data: newNewTransmissionData(t, []vrf_wrapper.VRFBeaconReportOutputServed{
-					{
-						Height:            195,
-						ConfirmationDelay: big.NewInt(3),
-					},
-				}),
-			},
+			newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1}),
+			newNewTransmissionLog(t, []vrf_wrapper.VRFBeaconReportOutputServed{
+				{
+					Height:            195,
+					ConfirmationDelay: big.NewInt(3),
+				},
+			}),
 		}, nil)
 		defer lp.AssertExpectations(t)
 
-		cORM := &mocks.ORM{}
 		var r []uint64
-		cORM.On("HeadsByNumbers", mock.Anything, r).
+		lp.On("GetBlocks", r, mock.Anything).
 			Return(nil, nil)
 
 		c := &coordinator{
-			coordinatorAddress: coordinatorAddress,
-			lp:                 lp,
-			orm:                cORM,
-			lookbackBlocks:     lookbackBlocks,
-			lggr:               logger.TestLogger(t),
-			topics:             tp,
-			evmClient:          evmClient,
+			coordinatorContract: coordinatorContract,
+			coordinatorAddress:  coordinatorAddress,
+			lp:                  lp,
+			lookbackBlocks:      lookbackBlocks,
+			lggr:                logger.TestLogger(t),
+			topics:              tp,
+			evmClient:           evmClient,
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -513,56 +482,173 @@ func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 }
 
 func TestCoordinator_MarshalUnmarshal(t *testing.T) {
-	packed := newRandomnessRequestedData(t, 10, 100, 95)
-	t.Log("RandomnessRequested:", hexutil.Encode(packed))
-	unpacked, err := unmarshalRandomnessRequested(logpoller.Log{
-		Data: packed,
-	})
+	coordinatorAddress := newAddress(t)
+	vrfBeaconCoordinator, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
 	require.NoError(t, err)
-	t.Logf("Unmarshaled: %+v", unpacked)
 
-	packed = newRandomnessFulfillmentRequestedData(t, 10, 100, 95, 1)
-	t.Log("RandomnessFulfillmentRequested:", hexutil.Encode(packed))
-	unpackedF, err := unmarshalRandomnessFulfillmentRequested(logpoller.Log{
-		Data: packed,
-	})
+	lg := newRandomnessRequestedLog(t, 3, 1500, 1450)
+	rrIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
 	require.NoError(t, err)
-	t.Logf("Unmarshaled: %+v", unpackedF)
+	rr, ok := rrIface.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested)
+	require.True(t, ok)
+	assert.Equal(t, uint64(1500), rr.NextBeaconOutputHeight)
+	assert.Equal(t, int64(3), rr.ConfDelay.Int64())
 
-	packed = newRandomWordsFulfilledData(t, []*big.Int{big.NewInt(1), big.NewInt(2)}, []byte{1, 1})
-	t.Log("RandomWordsFulfilled:", hexutil.Encode(packed))
-	unpackedFF, err := unmarshalRandomWordsFulfilled(logpoller.Log{
-		Data: packed,
-	})
+	lg = newRandomnessFulfillmentRequestedLog(t, 3, 1500, 1450, 1)
+	rfrIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
 	require.NoError(t, err)
-	t.Logf("Unmarshaled: %+v", unpackedFF)
+	rfr, ok := rfrIface.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested)
+	require.True(t, ok)
+	assert.Equal(t, uint64(1500), rfr.NextBeaconOutputHeight)
+	assert.Equal(t, int64(3), rfr.ConfDelay.Int64())
+	assert.Equal(t, int64(1), rfr.Callback.RequestID.Int64())
+
+	lg = newRandomWordsFulfilledLog(t, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, []byte{1, 1, 1})
+	rwfIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
+	require.NoError(t, err)
+	rwf, ok := rwfIface.(*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled)
+	require.True(t, ok)
+	assert.Equal(t, []int64{1, 2, 3}, []int64{rwf.RequestIDs[0].Int64(), rwf.RequestIDs[1].Int64(), rwf.RequestIDs[2].Int64()})
+	assert.Equal(t, []byte{1, 1, 1}, rwf.SuccessfulFulfillment)
+
+	lg = newNewTransmissionLog(t, []vrf_wrapper.VRFBeaconReportOutputServed{
+		{
+			Height:            1500,
+			ConfirmationDelay: big.NewInt(3),
+		},
+		{
+			Height:            1505,
+			ConfirmationDelay: big.NewInt(4),
+		},
+	})
+	ntIface, err := vrfBeaconCoordinator.ParseLog(toGethLog(lg))
+	require.NoError(t, err)
+	nt, ok := ntIface.(*vrf_wrapper.VRFBeaconCoordinatorNewTransmission)
+	require.True(t, ok)
+	assert.Equal(t, uint64(1500), nt.OutputsServed[0].Height)
+	assert.Equal(t, uint64(1505), nt.OutputsServed[1].Height)
+	assert.Equal(t, int64(3), nt.OutputsServed[0].ConfirmationDelay.Int64())
+	assert.Equal(t, int64(4), nt.OutputsServed[1].ConfirmationDelay.Int64())
 }
 
-func newRandomnessRequestedData(
+func TestCoordinator_ReportIsOnchain(t *testing.T) {
+	t.Run("report is on-chain", func(t *testing.T) {
+		tp := newTopics()
+		coordinatorAddress := newAddress(t)
+
+		epoch := uint32(20)
+		round := uint8(3)
+		epochAndRound := toEpochAndRoundUint40(epoch, round)
+		enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+		lp := &lp_mocks.LogPoller{}
+		lp.On("IndexedLogs", tp.newTransmissionTopic, coordinatorAddress, 2, []common.Hash{
+			enrTopic,
+		}, 1, mock.Anything).Return([]logpoller.Log{
+			{
+				BlockNumber: 195,
+			},
+		}, nil)
+
+		c := &coordinator{
+			lp:                 lp,
+			lggr:               logger.TestLogger(t),
+			coordinatorAddress: coordinatorAddress,
+			topics:             tp,
+		}
+
+		present, err := c.ReportIsOnchain(context.TODO(), epoch, round)
+		assert.NoError(t, err)
+		assert.True(t, present)
+	})
+
+	t.Run("report is not on-chain", func(t *testing.T) {
+		tp := newTopics()
+		coordinatorAddress := newAddress(t)
+
+		epoch := uint32(20)
+		round := uint8(3)
+		epochAndRound := toEpochAndRoundUint40(epoch, round)
+		enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+		lp := &lp_mocks.LogPoller{}
+		lp.On("IndexedLogs", tp.newTransmissionTopic, coordinatorAddress, 2, []common.Hash{
+			enrTopic,
+		}, 1, mock.Anything).Return([]logpoller.Log{}, nil)
+
+		c := &coordinator{
+			lp:                 lp,
+			lggr:               logger.TestLogger(t),
+			coordinatorAddress: coordinatorAddress,
+			topics:             tp,
+		}
+
+		present, err := c.ReportIsOnchain(context.TODO(), epoch, round)
+		assert.NoError(t, err)
+		assert.False(t, present)
+	})
+
+}
+
+func TestTopics_DKGConfigSet_VRFConfigSet(t *testing.T) {
+	dkgConfigSetTopic := dkg_wrapper.DKGConfigSet{}.Topic()
+	vrfConfigSetTopic := vrf_wrapper.VRFBeaconCoordinatorConfigSet{}.Topic()
+	assert.Equal(t, dkgConfigSetTopic, vrfConfigSetTopic, "config set topics of vrf and dkg must be equal")
+}
+func newRandomnessRequestedLog(
 	t *testing.T,
 	confDelay int64,
 	nextBeaconOutputHeight uint64,
 	requestBlock uint64,
-) []byte {
-	e := vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested{
-		ConfDelay:              big.NewInt(confDelay),
-		NextBeaconOutputHeight: nextBeaconOutputHeight,
-		Raw: types.Log{
-			BlockNumber: requestBlock,
+) logpoller.Log {
+	//event RandomnessRequested(
+	//  uint64 indexed nextBeaconOutputHeight,
+	//  ConfirmationDelay confDelay
+	//);
+	confDelayType, err := abi.NewType("uint24", "", nil)
+	require.NoError(t, err)
+	unindexedArgs := abi.Arguments{
+		{
+			Name: "confDelay",
+			Type: confDelayType,
 		},
 	}
-	packed, err := vrfABI.Events[randomnessRequestedEvent].Inputs.Pack(e.NextBeaconOutputHeight, e.ConfDelay)
+	logData, err := unindexedArgs.Pack(big.NewInt(confDelay))
 	require.NoError(t, err)
-	return packed
+	nextBeaconOutputHeightType, err := abi.NewType("uint64", "", nil)
+	require.NoError(t, err)
+	indexedArgs := abi.Arguments{abi.Argument{
+		Name: "nextBeaconOutputHeight",
+		Type: nextBeaconOutputHeightType,
+	}}
+	topicData, err := indexedArgs.Pack(nextBeaconOutputHeight)
+	require.NoError(t, err)
+	topic0 := vrfABI.Events[randomnessRequestedEvent].ID.Bytes()
+	lg := logpoller.Log{
+		Data: logData,
+		Topics: [][]byte{
+			// first topic is the event signature
+			topic0,
+			// second topic is nextBeaconOutputHeight since it's indexed
+			topicData,
+		},
+		BlockNumber: int64(requestBlock),
+		EventSig:    topic0,
+	}
+	return lg
 }
 
-func newRandomnessFulfillmentRequestedData(
+func newRandomnessFulfillmentRequestedLog(
 	t *testing.T,
 	confDelay int64,
 	nextBeaconOutputHeight uint64,
 	requestBlock uint64,
 	requestID int64,
-) []byte {
+) logpoller.Log {
+	//event RandomnessFulfillmentRequested(
+	//  uint64 nextBeaconOutputHeight,
+	//  ConfirmationDelay confDelay,
+	//  uint64 subID,
+	//  Callback callback
+	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested{
 		ConfDelay:              big.NewInt(confDelay),
 		NextBeaconOutputHeight: nextBeaconOutputHeight,
@@ -579,14 +665,27 @@ func newRandomnessFulfillmentRequestedData(
 	packed, err := vrfABI.Events[randomnessFulfillmentRequestedEvent].Inputs.Pack(
 		e.NextBeaconOutputHeight, e.ConfDelay, e.SubID, e.Callback)
 	require.NoError(t, err)
-	return packed
+	topic0 := vrfABI.Events[randomnessFulfillmentRequestedEvent].ID.Bytes()
+	return logpoller.Log{
+		Data:     packed,
+		EventSig: topic0,
+		Topics: [][]byte{
+			topic0,
+		},
+		BlockNumber: int64(requestBlock),
+	}
 }
 
-func newRandomWordsFulfilledData(
+func newRandomWordsFulfilledLog(
 	t *testing.T,
 	requestIDs []*big.Int,
 	successfulFulfillment []byte,
-) []byte {
+) logpoller.Log {
+	//event RandomWordsFulfilled(
+	//  RequestID[] requestIDs,
+	//  bytes successfulFulfillment,
+	//  bytes[] truncatedErrorData
+	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled{
 		RequestIDs:            requestIDs,
 		SuccessfulFulfillment: successfulFulfillment,
@@ -594,13 +693,26 @@ func newRandomWordsFulfilledData(
 	packed, err := vrfABI.Events[randomWordsFulfilledEvent].Inputs.Pack(
 		e.RequestIDs, e.SuccessfulFulfillment, e.TruncatedErrorData)
 	require.NoError(t, err)
-	return packed
+	topic0 := vrfABI.Events[randomWordsFulfilledEvent].ID.Bytes()
+	return logpoller.Log{
+		Data:     packed,
+		EventSig: topic0,
+		Topics:   [][]byte{topic0},
+	}
 }
 
-func newNewTransmissionData(
+func newNewTransmissionLog(
 	t *testing.T,
 	outputsServed []vrf_wrapper.VRFBeaconReportOutputServed,
-) []byte {
+) logpoller.Log {
+	//event NewTransmission(
+	//  uint32 indexed aggregatorRoundId,
+	//  uint40 indexed epochAndRound,
+	//  address transmitter,
+	//  uint192 juelsPerFeeCoin,
+	//  bytes32 configDigest,
+	//  OutputServed[] outputsServed
+	//);
 	e := vrf_wrapper.VRFBeaconCoordinatorNewTransmission{
 		AggregatorRoundId: 1,
 		OutputsServed:     outputsServed,
@@ -609,10 +721,50 @@ func newNewTransmissionData(
 		ConfigDigest:      crypto.Keccak256Hash([]byte("hello world")),
 		Transmitter:       newAddress(t),
 	}
-	packed, err := vrfABI.Events[newTransmissionEvent].Inputs.Pack(
-		e.AggregatorRoundId, e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest, e.EpochAndRound, e.OutputsServed)
+	var unindexed abi.Arguments
+	for _, a := range vrfABI.Events[newTransmissionEvent].Inputs {
+		if !a.Indexed {
+			unindexed = append(unindexed, a)
+		}
+	}
+	nonIndexedData, err := unindexed.Pack(
+		e.Transmitter, e.JuelsPerFeeCoin, e.ConfigDigest, e.OutputsServed)
 	require.NoError(t, err)
-	return packed
+
+	// aggregatorRoundId is indexed
+	aggregatorRoundIDType, err := abi.NewType("uint32", "", nil)
+	require.NoError(t, err)
+	indexedArgs := abi.Arguments{
+		{
+			Name: "aggregatorRoundId",
+			Type: aggregatorRoundIDType,
+		},
+	}
+	aggregatorPacked, err := indexedArgs.Pack(e.AggregatorRoundId)
+	require.NoError(t, err)
+
+	// epochAndRound is indexed
+	epochAndRoundType, err := abi.NewType("uint40", "", nil)
+	require.NoError(t, err)
+	indexedArgs = abi.Arguments{
+		{
+			Name: "epochAndRound",
+			Type: epochAndRoundType,
+		},
+	}
+	epochAndRoundPacked, err := indexedArgs.Pack(e.EpochAndRound)
+	require.NoError(t, err)
+
+	topic0 := vrfABI.Events[newTransmissionEvent].ID.Bytes()
+	return logpoller.Log{
+		Data: nonIndexedData,
+		Topics: [][]byte{
+			topic0,
+			aggregatorPacked,
+			epochAndRoundPacked,
+		},
+		EventSig: topic0,
+	}
 }
 
 func newAddress(t *testing.T) common.Address {

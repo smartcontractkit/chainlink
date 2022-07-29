@@ -33,13 +33,14 @@ var _ = Describe("Direct request suite @runlog", func() {
 			Entry("Runlog suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
 			Entry("Runlog suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
 			Entry("Runlog suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("Runlog suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("Runlog suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
 		err              error
 		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		oracle           contracts.Oracle
 		consumer         contracts.APIConsumer
 		jobUUID          uuid.UUID
@@ -67,7 +68,9 @@ var _ = Describe("Direct request suite @runlog", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-runlog"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).
@@ -113,7 +116,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			Name: fmt.Sprintf("five-%s", jobUUID.String()),
 			URL:  fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 		}
-		err = chainlinkNodes[0].CreateBridge(&bta)
+		err = chainlinkNodes[0].MustCreateBridge(&bta)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
 
 		os := &client.DirectRequestTxPipelineSpec{
@@ -123,7 +126,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 		ost, err := os.String()
 		Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-		_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+		_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
 			Name:                     "direct_request",
 			MinIncomingConfirmations: "1",
 			ContractAddress:          oracle.Address(),

@@ -3,6 +3,7 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -28,19 +29,20 @@ var _ = Describe("Cronjob suite @cron", func() {
 			Entry("Cronjob suite on General EVM Network read from env vars @general", networks.GeneralEVM()),
 			Entry("Cronjob suite on Metis Stardust @metis", networks.MetisStardust),
 			Entry("Cronjob suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet),
+			Entry("Cronjob suite on Görli Testnet @goerli", networks.GoerliTestnet),
 			Entry("Cronjob suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab),
 		}
 
 		err             error
 		job             *client.Job
-		chainlinkNode   client.Chainlink
+		chainlinkNode   *client.Chainlink
 		mockServer      *ctfClient.MockserverClient
 		testEnvironment *environment.Environment
 	)
 
 	AfterEach(func() {
 		By("Tearing down the environment")
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil, nil)
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []*client.Chainlink{chainlinkNode}, nil, nil)
 		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
@@ -56,7 +58,9 @@ var _ = Describe("Cronjob suite @cron", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-cron"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).
@@ -82,17 +86,17 @@ var _ = Describe("Cronjob suite @cron", func() {
 			URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 			RequestData: "{}",
 		}
-		err = chainlinkNode.CreateBridge(&bta)
+		err = chainlinkNode.MustCreateBridge(&bta)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating bridge in chainlink node shouldn't fail")
 
-		job, err = chainlinkNode.CreateJob(&client.CronJobSpec{
+		job, err = chainlinkNode.MustCreateJob(&client.CronJobSpec{
 			Schedule:          "CRON_TZ=UTC * * * * * *",
 			ObservationSource: client.ObservationSourceSpecBridge(bta),
 		})
 		Expect(err).ShouldNot(HaveOccurred(), "Creating Cron Job in chainlink node shouldn't fail")
 
 		Eventually(func(g Gomega) {
-			jobRuns, err := chainlinkNode.ReadRunsByJob(job.Data.ID)
+			jobRuns, err := chainlinkNode.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(HaveOccurred(), "Reading Job run data shouldn't fail")
 
 			g.Expect(len(jobRuns.Data)).Should(BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))

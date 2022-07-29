@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -35,6 +36,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			Entry("Flux monitor suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.1)),
 			Entry("Flux monitor suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.01)),
 			Entry("Flux monitor suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
+			Entry("Flux monitor suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("Flux monitor suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
 		}
 
@@ -43,7 +45,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		contractDeployer contracts.ContractDeployer
 		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		mockServer       *ctfClient.MockserverClient
 		nodeAddresses    []common.Address
 		adapterPath      string
@@ -72,7 +74,9 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			})
 		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-flux"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
 			AddHelm(evmChart).
@@ -148,7 +152,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			URL:  adapterFullURL,
 		}
 		for i, n := range chainlinkNodes {
-			err = n.CreateBridge(&bta)
+			err = n.MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
 			fluxSpec := &client.FluxMonitorJobSpec{
@@ -160,7 +164,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				IdleTimerDisabled: true,
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
 			}
-			_, err = n.CreateJob(fluxSpec)
+			_, err = n.MustCreateJob(fluxSpec)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
 		}
 
