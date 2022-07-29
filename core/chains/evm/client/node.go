@@ -715,7 +715,7 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("msg", msg, "blockNumber", blockNumber)
+	lggr := n.newRqLggr(switching(n)).With("callMsg", msg, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#CallContract")
 	start := time.Now()
