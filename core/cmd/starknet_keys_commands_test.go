@@ -153,7 +153,7 @@ func TestClient_StarkNetKeys(t *testing.T) {
 	})
 }
 
-func requireStarkNetKeyCount(t *testing.T, app chainlink.Application, length int) []starkkey.StarkKey {
+func requireStarkNetKeyCount(t *testing.T, app chainlink.Application, length int) []starkkey.Key {
 	t.Helper()
 	keys, err := app.GetKeyStore().StarkNet().GetAll()
 	require.NoError(t, err)
