@@ -35,7 +35,7 @@ func ToEncryptedJSON(key stark.Key, password string, scryptParams utils.ScryptPa
 		func(id string, key stark.Key, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
-				PublicKey: key.ContractAddressStr(),
+				PublicKey: key.AccountAddressStr(),
 				Crypto:    cryptoJSON,
 			}, nil
 		},

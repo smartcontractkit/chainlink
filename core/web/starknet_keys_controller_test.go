@@ -33,7 +33,7 @@ func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
 	require.Len(t, resources, len(keys))
 
 	assert.Equal(t, keys[0].ID(), resources[0].ID)
-	assert.Equal(t, keys[0].ContractAddressStr(), resources[0].ContractAddr)
+	assert.Equal(t, keys[0].AccountAddressStr(), resources[0].AccountAddr)
 	assert.Equal(t, keys[0].StarkKeyStr(), resources[0].StarkKey)
 }
 
@@ -57,7 +57,7 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, keys[0].ID(), resource.ID)
-	assert.Equal(t, keys[0].ContractAddressStr(), resource.ContractAddr)
+	assert.Equal(t, keys[0].AccountAddressStr(), resource.AccountAddr)
 	assert.Equal(t, keys[0].StarkKeyStr(), resource.StarkKey)
 
 	_, err = keyStore.StarkNet().Get(resource.ID)
