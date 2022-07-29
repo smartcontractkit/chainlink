@@ -31,6 +31,7 @@ type LogPoller interface {
 	MergeFilterWithCallbacks(callbacks map[EventID]Callback) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
+	ChainID() *big.Int
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
@@ -67,6 +68,14 @@ type logPoller struct {
 	done   chan struct{}
 }
 
+// NewLogPoller creates a log poller. Note there is an assumption
+// that blocks can be processed faster than they are produced for the given chain, or the poller will fall behind.
+// Block processing involves in the steady state (non-reorg case):
+// - eth_getBlockByNumber,
+// - 1 db read latest block
+// - 1 db tx including block write and logs write to logs and custom log writes if any.
+// How fast that can be done depends largely on network speed and DB, but even for the fastest
+// support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize int64) *logPoller {
 	return &logPoller{
 		ec:                ec,
@@ -78,13 +87,23 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
 		events:            make(map[EventID]struct{}),
+		callbacks:         make(map[EventID]Callback),
 	}
+}
+
+func (lp *logPoller) ChainID() *big.Int {
+	return lp.orm.chainID
 }
 
 // MergeFilter adds the provided eventID to the log poller's log filter query.
 // If an event matching any of the given event signatures is emitted from any of the provided addresses,
-// the log poller will pick those up and save them. For topic specific queries see content based querying.
+// the log poller will pick those up and Save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then replay in order to ensure desired logs are present.
+// NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
+// MergeFilter([]EventID{{event1, addr1}}
+// MergeFilter([]EventID{{event2, addr2}}
+// will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
+// Generally speaking this should be rare and is harmless.
 func (lp *logPoller) MergeFilter(eventIDs []EventID) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
@@ -108,19 +127,19 @@ type EventID struct {
 }
 
 type Callback struct {
-	save  func(tx pg.Queryer, logs []types.Log) error
-	reorg func(tx pg.Queryer, start, end int64) error
+	Save  func(tx pg.Queryer, logs []types.Log) error
+	Reorg func(tx pg.Queryer, start, end int64) error
 }
 
 // MergeFilterWithCallbacks is the same as merge filter, except additionally
-// you specify a callback which is called upon log save and log reorg.
-// It is possible that save or reorg may be called more than once with the same arguments,
-// for example on DB commit errors, so its expected that save/reorg are idempotent operations.
+// you specify a callback which is called upon log Save and log Reorg.
+// It is possible that Save or Reorg may be called more than once with the same arguments,
+// for example on DB commit errors, so its expected that Save/Reorg are idempotent operations.
 // The callbacks are called as part of a db tx processing a new block, so you should only return
 // an error from the callback if a db operation fails OR if there is some unrecoverable programmer error meaning
 // the node is completely broken.
-// The common expected use case is simply to parse and save the logs in a structured format
-// in save(..), and delete or mark as reorged all logs implicated in reorg(...). This ensures
+// The common expected use case is simply to parse and Save the logs in a structured format
+// in Save(..), and delete or mark as reorged all logs implicated in Reorg(...). This ensures
 // you always have persistent, structured log data which is eventually consistent with the canonical chain.
 // If you intend to do something more sophisticated than that in the callback, be certain you know what
 // you are doing.
@@ -136,11 +155,11 @@ func (lp *logPoller) MergeFilterWithCallbacks(
 			// Error prone to allow overwriting the callback, so we disallow that.
 			return errors.Errorf("callback already registered for event %x address %x", eventID.EventSig[:], eventID.Address[:])
 		}
-		if callback.save == nil {
-			return errors.Errorf("save callback is nil")
+		if callback.Save == nil {
+			return errors.Errorf("Save callback is nil")
 		}
-		if callback.reorg == nil {
-			return errors.Errorf("reorg callback is nil")
+		if callback.Reorg == nil {
+			return errors.Errorf("Reorg callback is nil")
 		}
 		if eventID.EventSig == [common.HashLength]byte{} {
 			return errors.Errorf("empty event sig")
@@ -149,6 +168,7 @@ func (lp *logPoller) MergeFilterWithCallbacks(
 			return errors.Errorf("empty address")
 		}
 		lp.events[eventID] = struct{}{}
+		lp.callbacks[eventID] = callback
 	}
 	return nil
 }
@@ -160,9 +180,17 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 		addresses []common.Address
 		eventSigs []common.Hash
 	)
+	addressMp := make(map[common.Address]struct{})
+	eventSigMp := make(map[common.Hash]struct{})
 	for eventID := range lp.events {
-		addresses = append(addresses, eventID.Address)
-		eventSigs = append(eventSigs, eventID.EventSig)
+		if _, ok := addressMp[eventID.Address]; !ok {
+			addressMp[eventID.Address] = struct{}{}
+			addresses = append(addresses, eventID.Address)
+		}
+		if _, ok := eventSigMp[eventID.EventSig]; !ok {
+			eventSigMp[eventID.EventSig] = struct{}{}
+			eventSigs = append(eventSigs, eventID.EventSig)
+		}
 	}
 	sort.Slice(addresses, func(i, j int) bool {
 		return bytes.Compare(addresses[i][:], addresses[j][:]) < 0
@@ -314,7 +342,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 			continue
 		}
 		lp.lggr.Infow("Backfill found logs", "from", from, "to", to, "logs", len(logs))
-		// Retry forever to save logs,
+		// Retry forever to Save logs,
 		// unblocked by resolving db connectivity issues.
 		logsByEventID := lp.groupByEventID(logs)
 		utils.RetryWithBackoff(ctx, func() bool {
@@ -326,7 +354,10 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 					return err2
 				}
 				for eventID, logsForEventID := range logsByEventID {
-					if err2 := lp.callbacks[eventID].save(tx, logsForEventID); err2 != nil {
+					if _, ok := lp.callbacks[eventID]; !ok {
+						continue
+					}
+					if err2 := lp.callbacks[eventID].Save(tx, logsForEventID); err2 != nil {
 						return err2
 					}
 				}
@@ -344,7 +375,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 
 // getCurrentBlockMaybeHandleReorg accepts a block number
 // and will return that block if its parent points to our last saved block.
-// If its parent does not point to our last saved block we know a reorg has occurred.
+// If its parent does not point to our last saved block we know a Reorg has occurred.
 // In that case return the LCA+1, i.e. our new current (unprocessed) block.
 func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64) (*types.Block, error) {
 	currentBlock, err1 := lp.ec.BlockByNumber(ctx, big.NewInt(currentBlockNumber))
@@ -353,7 +384,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		return nil, err1
 	}
 	// Does this currentBlock point to the same parent that we have saved?
-	// If not, there was a reorg, so we need to rewind.
+	// If not, there was a Reorg, so we need to rewind.
 	expectedParent, err1 := lp.orm.SelectBlockByNumber(currentBlockNumber-1, pg.WithParentCtx(ctx))
 	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
 		// If err is not a no rows error, assume transient db issue and retry
@@ -366,15 +397,15 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill")
 		return currentBlock, nil
 	}
-	// Check for reorg.
+	// Check for Reorg.
 	if currentBlock.ParentHash() != expectedParent.BlockHash {
-		// There can be another reorg while we're finding the LCA.
+		// There can be another Reorg while we're finding the LCA.
 		// That is ok, since we'll detect it on the next iteration.
 		// Since we go currentBlock by currentBlock for unfinalized logs, the mismatch starts at currentBlockNumber currentBlock - 1.
 		blockAfterLCA, err2 := lp.findBlockAfterLCA(ctx, currentBlock)
 		if err2 != nil {
-			lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err2)
-			return nil, errors.New("Unable to find LCA after reorg, retrying")
+			lp.lggr.Warnw("Unable to find LCA after Reorg, retrying", "err", err2)
+			return nil, errors.New("Unable to find LCA after Reorg, retrying")
 		}
 
 		lp.lggr.Infow("Re-org detected", "lca", blockAfterLCA, "currentBlockNumber", currentBlockNumber)
@@ -386,7 +417,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			// These deletes are bounded by reorg depth, so they are
+			// These deletes are bounded by Reorg depth, so they are
 			// fast and should not slow down the log readers.
 			err2 = lp.orm.DeleteRangeBlocks(blockAfterLCA.Number().Int64(), currentBlockNumber, pg.WithQueryer(tx))
 			if err2 != nil {
@@ -398,9 +429,9 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err2)
 				return err2
 			}
-			// Tell all callbacks about the reorg.
+			// Tell all callbacks about the Reorg.
 			for _, callback := range lp.callbacks {
-				if err2 := callback.reorg(tx, blockAfterLCA.Number().Int64(), currentBlockNumber); err2 != nil {
+				if err2 := callback.Reorg(tx, blockAfterLCA.Number().Int64(), currentBlockNumber); err2 != nil {
 					return err2
 				}
 			}
@@ -413,7 +444,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		}
 		return blockAfterLCA, nil
 	}
-	// No reorg, return current block.
+	// No Reorg, return current block.
 	return currentBlock, nil
 }
 
@@ -427,16 +458,16 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 	latestBlockNumber := latestBlock.Number().Int64()
 	if currentBlockNumber > latestBlockNumber {
-		// Note there can also be a reorg "shortening" i.e. chain height decreases but TDD increases. In that case
-		// we also just wait until the new tip is longer and then detect the reorg.
+		// Note there can also be a Reorg "shortening" i.e. chain height decreases but TDD increases. In that case
+		// we also just wait until the new tip is longer and then detect the Reorg.
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
-	// Possibly handle a reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
-	// Returns (currentBlock || LCA+1 if reorg detected, error)
+	// Possibly handle a Reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
+	// Returns (currentBlock || LCA+1 if Reorg detected, error)
 	currentBlock, err1 := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
 	if err1 != nil {
-		// If there's an error handling the reorg, we can't be sure what state the db was left in.
+		// If there's an error handling the Reorg, we can't be sure what state the db was left in.
 		// Resume from the latest block saved.
 		lp.lggr.Errorw("Unable to get current block", "err", err1)
 		return
@@ -445,7 +476,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
 	// Log insertion is idempotent so this is ok.
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
-	// Although 5 is finalized, we still need to save it to the db for reorg detection if 6 is a reorg.
+	// Although 5 is finalized, we still need to Save it to the db for Reorg detection if 6 is a Reorg.
 	// start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
 	if (latestBlockNumber - currentBlockNumber) >= (lp.finalityDepth + 1) {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", latestBlockNumber-lp.finalityDepth-1)
@@ -453,10 +484,10 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 
 	for currentBlockNumber <= latestBlockNumber {
-		// Same reorg detection on unfinalized blocks.
+		// Same Reorg detection on unfinalized blocks.
 		currentBlock, err2 := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
 		if err2 != nil {
-			// If there's an error handling the reorg, we can't be sure what state the db was left in.
+			// If there's an error handling the Reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
 			lp.lggr.Errorw("Unable to get current block", "err", err1)
 			return
@@ -481,14 +512,17 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 				return err3
 			}
 			for eventID, logsForEventID := range logsByEventID {
-				if err3 := lp.callbacks[eventID].save(tx, logsForEventID); err3 != nil {
+				if _, ok := lp.callbacks[eventID]; !ok {
+					continue
+				}
+				if err3 := lp.callbacks[eventID].Save(tx, logsForEventID); err3 != nil {
 					return err3
 				}
 			}
 			return nil
 		})
 		if err2 != nil {
-			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err2, "block", currentBlock.Number())
+			lp.lggr.Warnw("Unable to Save logs resuming from last saved block + 1", "err", err2, "block", currentBlock.Number())
 			return
 		}
 		currentBlockNumber++
@@ -518,7 +552,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Block
 	// We expected reorgs up to the block after (current - finalityDepth),
 	// since the block at (current - finalityDepth) is finalized.
 	// We loop via parent instead of current so current always holds the LCA+1.
-	// If the parent block number becomes < the first finalized block our reorg is too deep.
+	// If the parent block number becomes < the first finalized block our Reorg is too deep.
 	for parent.Number().Int64() >= (reorgStart - lp.finalityDepth) {
 		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number().Int64(), pg.WithParentCtx(ctx))
 		if err != nil {
@@ -535,8 +569,8 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Block
 			return nil, err
 		}
 	}
-	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
-	return nil, errors.New("reorg greater than finality depth")
+	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max Reorg depth", lp.finalityDepth-1)
+	return nil, errors.New("Reorg greater than finality depth")
 }
 
 // Logs returns logs matching topics and Address (exactly) in the given block range,

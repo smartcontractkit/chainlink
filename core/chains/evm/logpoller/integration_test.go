@@ -144,7 +144,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		return len(logs) == 5
 	})
 	// Now let's update the filter and replay to get Log2 logs.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1})
+	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log2"].ID, emitterAddress1}})
 	// Replay an invalid block should error
 	assert.Error(t, lp.Replay(context.Background(), 0))
 	assert.Error(t, lp.Replay(context.Background(), 20))
@@ -160,4 +160,47 @@ func TestLogPoller_Integration(t *testing.T) {
 	})
 
 	require.NoError(t, lp.Close())
+}
+
+func TestLogWritesScale(t *testing.T) {
+	// Lets ensure that the lp can keep with a fast chain.
+	t.Skip()
+	lggr := logger.TestLogger(t)
+	_, db := heavyweight.FullTestDB(t, "load_logs")
+	chainID := testutils.NewRandomEVMChainID()
+	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
+	require.NoError(t, err)
+
+	// Set up a test chain with a log emitting contract deployed.
+	owner := testutils.MustNewSimTransactor(t)
+	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+		owner.From: {
+			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
+		},
+	}, 100e6)
+	t.Cleanup(func() { ec.Close() })
+	emitterAddress1, _, emmiter1, err := log_emitter.DeployLogEmitter(owner, ec)
+	require.NoError(t, err)
+	ec.Commit()
+	ec.Commit() // Block 2. Ensure we have finality number of blocks
+
+	// Set up a log poller listening for log emitter logs.
+	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
+		cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
+	// Only filter for log1 events.
+	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log1"].ID, emitterAddress1}})
+	// We need to benchmark how long it takes to process a block and how that scales with the number of logs.
+	// If block processing is slower than block production rate of the chain, we can fall behind unless we
+	// add some sort of block sampling. Note below is only measuring db writes, not network calls.
+	s := time.Now()
+	lp.PollAndSaveLogs(context.Background(), 2)
+	t.Log(time.Since(s))
+	// Try 1k logs in a single block.
+	for i := 0; i < 1000; i++ {
+		emmiter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
+	}
+	ec.Commit()
+	s = time.Now()
+	lp.PollAndSaveLogs(context.Background(), 3)
+	t.Log(time.Since(s)) // ~100ms on local db.
 }

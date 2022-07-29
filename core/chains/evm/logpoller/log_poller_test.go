@@ -9,14 +9,17 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/rand"
@@ -27,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -93,7 +97,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
 		lp := logpoller.NewLogPoller(orm, cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3)
-		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
+		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could Reorg the full finalityDepth-1.
 			ec.Commit()
 		}
 		currentBlock := int64(1)
@@ -117,7 +121,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		if !matchesGeth() {
 			return false
 		}
-		// Randomly pick to mine or reorg
+		// Randomly pick to mine or Reorg
 		for i := 0; i < numChainInserts; i++ {
 			if rand.Bool() {
 				// Mine blocks
@@ -129,7 +133,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				}
 			} else {
 				// Reorg blocks
-				// Get the hash of reorg block
+				// Get the hash of Reorg block
 				latest, err := ec.BlockByNumber(context.Background(), nil)
 				require.NoError(t, err)
 				reorgedBlock := big.NewInt(0).Sub(latest.Number(), big.NewInt(int64(mineOrReorg[i])))
@@ -137,7 +141,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, ec.Fork(context.Background(), reorg.Hash()))
 				t.Logf("Reorging from (%v, %x) back to (%v, %x)\n", latest.NumberU64(), latest.Hash(), reorgedBlock.Uint64(), reorg.Hash())
-				// Actually need to change the block here to trigger the reorg.
+				// Actually need to change the block here to trigger the Reorg.
 				_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
 				require.NoError(t, err)
 				for j := 0; j < int(mineOrReorg[i]+1); j++ { // Need +1 to make it actually longer height so we detect it.
@@ -150,37 +154,21 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			currentBlock = lp.PollAndSaveLogs(context.Background(), currentBlock)
 		}
 		return matchesGeth()
-	}, gen.SliceOfN(numChainInserts, gen.UInt64Range(1, uint64(finalityDepth-1))))) // Max reorg depth is finality depth - 1
+	}, gen.SliceOfN(numChainInserts, gen.UInt64Range(1, uint64(finalityDepth-1))))) // Max Reorg depth is finality depth - 1
 	p.TestingRun(t)
 }
 
 func TestLogPoller_PollAndSaveLogs(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	chainID := testutils.NewRandomEVMChainID()
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
-
-	// Set up a test chain with a log emitting contract deployed.
-	orm := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
-	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
-		owner.From: {
-			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
-		},
-	}, 10e6)
-	t.Cleanup(func() { ec.Close() })
-	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
-	require.NoError(t, err)
-	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
-	require.NoError(t, err)
-	ec.Commit()
+	th := setup(t)
 
 	// Set up a log poller listening for log emitter logs.
-	lp := logpoller.NewLogPoller(orm, cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3)
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1, emitterAddress2})
+	lp := logpoller.NewLogPoller(th.orm, cltest.NewSimulatedBackendClient(t, th.ec, th.chainID), th.lggr, 15*time.Second, 2, 3)
+	lp.MergeFilter([]logpoller.EventID{
+		{EmitterABI.Events["Log1"].ID, th.emitterAddress1},
+		{EmitterABI.Events["Log2"].ID, th.emitterAddress2},
+	})
 
-	b, err := ec.BlockByNumber(context.Background(), nil)
+	b, err := th.ec.BlockByNumber(context.Background(), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), b.NumberU64())
 
@@ -191,151 +179,151 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
-	lpb, err := orm.SelectBlockByNumber(1)
+	lpb, err := th.orm.SelectBlockByNumber(1)
 	require.NoError(t, err)
 	assert.Equal(t, lpb.BlockHash, b.Hash())
 	assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 	assert.Equal(t, int64(1), int64(b.NumberU64()))
 	// No logs.
-	lgs, err := orm.SelectLogsByBlockRange(1, 1)
+	lgs, err := th.orm.SelectLogsByBlockRange(1, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
-	assertHaveCanonical(t, 1, 1, ec, orm)
+	assertHaveCanonical(t, 1, 1, th.ec, th.orm)
 
 	// Polling again should be a noop, since we are at the latest.
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(2), newStart)
-	latest, err := orm.SelectLatestBlock()
+	latest, err := th.orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), latest.BlockNumber)
-	assertHaveCanonical(t, 1, 1, ec, orm)
+	assertHaveCanonical(t, 1, 1, th.ec, th.orm)
 
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
 	// DB: 1
-	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
+	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(1)})
 	require.NoError(t, err)
-	ec.Commit()
+	th.ec.Commit()
 
 	// Polling should get us the L1 log.
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(3), newStart)
-	latest, err = orm.SelectLatestBlock()
+	latest, err = th.orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), latest.BlockNumber)
-	lgs, err = orm.SelectLogsByBlockRange(1, 3)
+	lgs, err = th.orm.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
-	assert.Equal(t, emitterAddress1, lgs[0].Address)
+	assert.Equal(t, th.emitterAddress1, lgs[0].Address)
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), EmitterABI.Events["Log1"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
 		lgs[0].Data)
 
-	// Test scenario: single block reorg with log.
+	// Test scenario: single block Reorg with log.
 	// Chain gen <- 1 <- 2 (L1_1)
 	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2
-	// - Detect a reorg,
+	// - Detect a Reorg,
 	// - Update the block 2's hash
 	// - Save L1'
 	// - L1_1 deleted
-	reorgedOutBlock, err := ec.BlockByNumber(context.Background(), big.NewInt(2))
+	reorgedOutBlock, err := th.ec.BlockByNumber(context.Background(), big.NewInt(2))
 	require.NoError(t, err)
-	lca, err := ec.BlockByNumber(context.Background(), big.NewInt(1))
+	lca, err := th.ec.BlockByNumber(context.Background(), big.NewInt(1))
 	require.NoError(t, err)
-	require.NoError(t, ec.Fork(context.Background(), lca.Hash()))
-	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(2)})
+	require.NoError(t, th.ec.Fork(context.Background(), lca.Hash()))
+	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
 	// Create 2'
-	ec.Commit()
-	// Create 3 (we need a new block for us to do any polling and detect the reorg).
-	ec.Commit()
+	th.ec.Commit()
+	// Create 3 (we need a new block for us to do any polling and detect the Reorg).
+	th.ec.Commit()
 
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(4), newStart)
-	latest, err = orm.SelectLatestBlock()
+	latest, err = th.orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), latest.BlockNumber)
-	lgs, err = orm.SelectLogsByBlockRange(1, 3)
+	lgs, err = th.orm.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
-	assertHaveCanonical(t, 1, 3, ec, orm)
+	assertHaveCanonical(t, 1, 3, th.ec, th.orm)
 
-	// Test scenario: reorg back to previous tip.
+	// Test scenario: Reorg back to previous tip.
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
 	//                \ 2'(L1_2) <- 3
-	require.NoError(t, ec.Fork(context.Background(), reorgedOutBlock.Hash()))
-	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(3)})
+	require.NoError(t, th.ec.Fork(context.Background(), reorgedOutBlock.Hash()))
+	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(3)})
 	require.NoError(t, err)
 	// Create 3'
-	ec.Commit()
+	th.ec.Commit()
 	// Create 4
-	ec.Commit()
+	th.ec.Commit()
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(5), newStart)
-	latest, err = orm.SelectLatestBlock()
+	latest, err = th.orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(4), latest.BlockNumber)
-	lgs, err = orm.SelectLogsByBlockRange(1, 3)
-	// We expect ONLY L1_1 and L1_3 since L1_2 is reorg'd out.
+	lgs, err = th.orm.SelectLogsByBlockRange(1, 3)
+	// We expect ONLY L1_1 and L1_3 since L1_2 is Reorg'd out.
 	assert.Equal(t, 2, len(lgs))
 	assert.Equal(t, int64(2), lgs[0].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 	assert.Equal(t, int64(3), lgs[1].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000003`), lgs[1].Data)
-	assertHaveCanonical(t, 1, 1, ec, orm)
-	assertHaveCanonical(t, 3, 4, ec, orm)
-	assertDontHave(t, 2, 2, orm) // 2 gets backfilled
+	assertHaveCanonical(t, 1, 1, th.ec, th.orm)
+	assertHaveCanonical(t, 3, 4, th.ec, th.orm)
+	assertDontHave(t, 2, 2, th.orm) // 2 gets backfilled
 
-	// Test scenario: multiple logs per block for many blocks (also after reorg).
+	// Test scenario: multiple logs per block for many blocks (also after Reorg).
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6)
 	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2', 3'
-	// - Should save 4, 5, 6 blocks
+	// - Should Save 4, 5, 6 blocks
 	// - Should obtain logs L1_3, L2_5, L1_6
-	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(4)})
+	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(4)})
 	require.NoError(t, err)
-	_, err = emitter2.EmitLog1(owner, []*big.Int{big.NewInt(5)})
+	_, err = th.emitter2.EmitLog1(th.owner, []*big.Int{big.NewInt(5)})
 	require.NoError(t, err)
 	// Create 4
-	ec.Commit()
-	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(6)})
+	th.ec.Commit()
+	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(6)})
 	require.NoError(t, err)
 	// Create 5
-	ec.Commit()
+	th.ec.Commit()
 
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(7), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(4, 6)
+	lgs, err = th.orm.SelectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000004`), lgs[0].Data)
-	assert.Equal(t, emitterAddress1, lgs[0].Address)
+	assert.Equal(t, th.emitterAddress1, lgs[0].Address)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000005`), lgs[1].Data)
-	assert.Equal(t, emitterAddress2, lgs[1].Address)
+	assert.Equal(t, th.emitterAddress2, lgs[1].Address)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000006`), lgs[2].Data)
-	assert.Equal(t, emitterAddress1, lgs[2].Address)
-	assertHaveCanonical(t, 1, 1, ec, orm)
-	assertDontHave(t, 2, 2, orm) // 2 gets backfilled
-	assertHaveCanonical(t, 3, 6, ec, orm)
+	assert.Equal(t, th.emitterAddress1, lgs[2].Address)
+	assertHaveCanonical(t, 1, 1, th.ec, th.orm)
+	assertDontHave(t, 2, 2, th.orm) // 2 gets backfilled
+	assertHaveCanonical(t, 3, 6, th.ec, th.orm)
 
 	// Test scenario: node down for exactly finality + 2 blocks
-	// Note we only backfill up to finalized - 1 blocks, because we need to save the
+	// Note we only backfill up to finalized - 1 blocks, because we need to Save the
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10 (L1_10)
 	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2, 3, 4, 5, 6
 	// - We expect block 7 to backfilled (treated as finalized)
 	// - Then block 8-10 to be handled block by block (treated as unfinalized).
 	for i := 7; i < 11; i++ {
-		_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(int64(i))})
+		_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
-		ec.Commit()
+		th.ec.Commit()
 	}
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(11), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(7, 9)
+	lgs, err = th.orm.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000007`), lgs[0].Data)
@@ -344,8 +332,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, int64(8), lgs[1].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
 	assert.Equal(t, int64(9), lgs[2].BlockNumber)
-	assertDontHave(t, 7, 7, orm) // Do not expect to save backfilled blocks.
-	assertHaveCanonical(t, 8, 10, ec, orm)
+	assertDontHave(t, 7, 7, th.orm) // Do not expect to Save backfilled blocks.
+	assertHaveCanonical(t, 8, 10, th.ec, th.orm)
 
 	// Test scenario large backfill (multiple batches)
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
@@ -355,17 +343,110 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// - 14 backfilled in batch 2
 	// - 15, 16, 17 to be treated as unfinalized
 	for i := 11; i < 18; i++ {
-		_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(int64(i))})
+		_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
-		ec.Commit()
+		th.ec.Commit()
 	}
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(18), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(11, 17)
+	lgs, err = th.orm.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)
 	assert.Equal(t, 7, len(lgs))
-	assertHaveCanonical(t, 15, 16, ec, orm)
-	assertDontHave(t, 11, 14, orm) // Do not expect to save backfilled blocks.
+	assertHaveCanonical(t, 15, 16, th.ec, th.orm)
+	assertDontHave(t, 11, 14, th.orm) // Do not expect to Save backfilled blocks.
+
+}
+
+type LogID struct {
+	ChainID     uint64
+	BlockNumber int64
+	LogIndex    uint
+}
+
+func TestLogPoller_Callbacks(t *testing.T) {
+	th := setup(t)
+	// Test hooks.
+	parsedLogs := make(map[LogID]*big.Int) // Simulate a custom table.
+	th.lp.MergeFilterWithCallbacks(map[logpoller.EventID]logpoller.Callback{
+		logpoller.EventID{EmitterABI.Events["Log1"].ID, th.emitterAddress1}: {
+			Save: func(tx pg.Queryer, logs []types.Log) error {
+				t.Log("Save")
+				for _, log := range logs {
+					parsedLog, err := th.emitter1.ParseLog1(log)
+					require.NoError(t, err)
+					parsedLogs[LogID{ChainID: th.lp.ChainID().Uint64(), BlockNumber: int64(log.BlockNumber), LogIndex: log.Index}] = parsedLog.Arg0
+				}
+				return nil
+			},
+			Reorg: func(tx pg.Queryer, start, end int64) error {
+				t.Log("Reorge")
+				for logID := range parsedLogs {
+					if start <= logID.BlockNumber && logID.BlockNumber <= end {
+						delete(parsedLogs, logID)
+					}
+				}
+				return nil
+			},
+		},
+	})
+	// Add two logs
+	for i := 18; i < 19; i++ {
+		_, err := th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err)
+		th.ec.Commit()
+	}
+	th.lp.PollAndSaveLogs(context.Background(), 18)
+	t.Log(parsedLogs)
+	reorgedOutBlock, err := ec.BlockByNumber(context.Background(), big.NewInt(2))
+	require.NoError(t, err)
+	ec.Fork(context.Background())
+
+}
+
+type TestHarness struct {
+	lggr                             logger.Logger
+	chainID                          *big.Int
+	db                               *sqlx.DB
+	orm                              *logpoller.ORM
+	lp                               logpoller.LogPoller
+	ec                               *backends.SimulatedBackend
+	owner                            *bind.TransactOpts
+	emitter1, emitter2               *log_emitter.LogEmitter
+	emitterAddress1, emitterAddress2 common.Address
+}
+
+func setup(t *testing.T) TestHarness {
+	lggr := logger.TestLogger(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+	owner := testutils.MustNewSimTransactor(t)
+	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+		owner.From: {
+			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
+		},
+	}, 10e6)
+	lp := logpoller.NewLogPoller(o, cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3)
+	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
+	require.NoError(t, err)
+	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
+	require.NoError(t, err)
+	ec.Commit()
+	return TestHarness{
+		lggr:            lggr,
+		chainID:         chainID,
+		db:              db,
+		orm:             o,
+		lp:              lp,
+		ec:              ec,
+		owner:           owner,
+		emitter1:        emitter1,
+		emitter2:        emitter2,
+		emitterAddress1: emitterAddress1,
+		emitterAddress2: emitterAddress2,
+	}
 }
 
 func TestLogPoller_Logs(t *testing.T) {
@@ -425,17 +506,17 @@ func TestLogPoller_MergeFilter(t *testing.T) {
 	lp := logpoller.NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1})
+	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log1"].ID, a1}})
 	assert.Equal(t, []common.Address{a1}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter().Topics)
 
 	// Should de-dupe eventSigs
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2})
+	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log1"].ID, a2}, {EmitterABI.Events["Log2"].ID, a2}})
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 
 	// Should de-dupe addresses
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{a2})
+	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log1"].ID, a2}, {EmitterABI.Events["Log2"].ID, a2}})
 	assert.Equal(t, []common.Address{a1, a2}, lp.Filter().Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter().Topics)
 }
