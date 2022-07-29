@@ -320,9 +320,18 @@ type NewTx struct {
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
+
 	if b.config.EvmUseForwarders() {
 		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
+			// Handling meta not set at caller.
+			if newTx.Meta != nil {
+				newTx.Meta.FwdrDestAddress = &newTx.ToAddress
+			} else {
+				newTx.Meta = &EthTxMeta{
+					FwdrDestAddress: &newTx.ToAddress,
+				}
+			}
 			newTx.ToAddress = fwdAddr
 			newTx.EncodedPayload = fwdPayload
 		} else {

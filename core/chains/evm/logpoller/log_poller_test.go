@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/rand"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/log_emitter"
@@ -96,8 +97,8 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := logpoller.NewLogPoller(orm, cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3)
-		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could Reorg the full finalityDepth-1.
+		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3)
+		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
 		currentBlock := int64(1)
@@ -162,7 +163,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	th := setup(t)
 
 	// Set up a log poller listening for log emitter logs.
-	lp := logpoller.NewLogPoller(th.orm, cltest.NewSimulatedBackendClient(t, th.ec, th.chainID), th.lggr, 15*time.Second, 2, 3)
+	lp := logpoller.NewLogPoller(th.orm, client.NewSimulatedBackendClient(t, th.ec, th.chainID), th.lggr, 15*time.Second, 2, 3)
 	lp.MergeFilter([]logpoller.EventID{
 		{EmitterABI.Events["Log1"].ID, th.emitterAddress1},
 		{EmitterABI.Events["Log2"].ID, th.emitterAddress2},
