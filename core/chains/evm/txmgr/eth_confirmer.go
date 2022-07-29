@@ -83,6 +83,33 @@ var (
 		Name: "tx_manager_tx_attempt_count",
 		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
 	}, []string{"evmChainID"})
+	promTimeUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_time_until_tx_confirmed",
+		Help: "The amount of time elapsed from a transaction being broadcast to being included in a block.",
+		Buckets: []float64{
+			float64(500 * time.Millisecond),
+			float64(time.Second),
+			float64(5 * time.Second),
+			float64(15 * time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+			float64(5 * time.Minute),
+			float64(10 * time.Minute),
+		},
+	}, []string{"evmChainID"})
+	promBlocksUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_blocks_until_tx_confirmed",
+		Help: "The amount of blocks that have been mined from a transaction being broadcast to being included in a block.",
+		Buckets: []float64{
+			float64(1),
+			float64(5),
+			float64(10),
+			float64(20),
+			float64(50),
+			float64(100),
+		},
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -115,7 +142,7 @@ type EthConfirmer struct {
 func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
-	context, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 	q := pg.NewQ(db, lggr, config)
 
@@ -134,7 +161,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 		resumeCallback,
 		keyStates,
 		utils.NewMailbox[*evmtypes.Head](1),
-		context,
+		ctx,
 		cancel,
 		sync.WaitGroup{},
 		0,
@@ -417,6 +444,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
+	var allReceipts []evmtypes.Receipt
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
@@ -435,7 +463,12 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
+
+		allReceipts = append(allReceipts, receipts...)
 	}
+
+	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
+
 	return nil
 }
 
@@ -1596,4 +1629,40 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	}
 
 	return nil
+}
+
+// observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
+// transaction.
+func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts []evmtypes.Receipt) {
+	for _, attempt := range attempts {
+		for _, r := range receipts {
+			if attempt.Hash != r.TxHash {
+				continue
+			}
+
+			// We estimate the time until confirmation by subtracting from the time the eth tx (not the attempt)
+			// was created. We want to measure the amount of time taken from when a transaction is created
+			// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
+			// were needed to achieve this.
+			duration := time.Since(attempt.EthTx.CreatedAt)
+			promTimeUntilTxConfirmed.
+				WithLabelValues(chainID.String()).
+				Observe(float64(duration))
+
+			// Since a eth tx can have many attempts, we take the number of blocks to confirm as the block number
+			// of the receipt minus the block number of the first ever broadcast for this transaction.
+			broadcastBefore := utils.MinKey(attempt.EthTx.EthTxAttempts, func(attempt EthTxAttempt) int64 {
+				if attempt.BroadcastBeforeBlockNum != nil {
+					return *attempt.BroadcastBeforeBlockNum
+				}
+				return 0
+			})
+			if broadcastBefore > 0 {
+				blocksElapsed := r.BlockNumber.Int64() - broadcastBefore
+				promBlocksUntilTxConfirmed.
+					WithLabelValues(chainID.String()).
+					Observe(float64(blocksElapsed))
+			}
+		}
+	}
 }
