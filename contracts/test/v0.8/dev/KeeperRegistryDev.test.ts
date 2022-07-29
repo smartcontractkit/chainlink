@@ -32,7 +32,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(360000)
+const CHECK_GAS_OVERHEAD = BigNumber.from(360034)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -64,7 +64,7 @@ before(async () => {
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
-describe('KeeperRegistryDev', () => {
+describe.only('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -143,6 +143,22 @@ describe('KeeperRegistryDev', () => {
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      blockCountPerTurn,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxPerformGas,
+      registryGasOverhead,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder: transcoder.address,
+      registrar: ethers.constants.AddressZero,
+    }
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
@@ -151,21 +167,7 @@ describe('KeeperRegistryDev', () => {
         linkEthFeed.address,
         gasPriceFeed.address,
         registryLogic.address,
-        {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          blockCountPerTurn,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxPerformGas,
-          registryGasOverhead,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        },
+        config,
       )
     registryLogic2 = await keeperRegistryLogicFactory
       .connect(owner)
@@ -178,21 +180,7 @@ describe('KeeperRegistryDev', () => {
         linkEthFeed.address,
         gasPriceFeed.address,
         registryLogic2.address,
-        {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          blockCountPerTurn,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxPerformGas,
-          registryGasOverhead,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        },
+        config,
       )
     mock = await upkeepMockFactory.deploy()
     await linkToken
@@ -855,7 +843,6 @@ describe('KeeperRegistryDev', () => {
         const difference = after.sub(before)
         assert.isTrue(max.gt(totalTx))
         assert.isTrue(totalTx.gt(difference))
-        assert.equal(difference.toNumber(), 6000)
         assert.isTrue(linkForGas(5700).lt(difference)) // exact number is flaky
         assert.isTrue(linkForGas(6000).gt(difference)) // instead test a range
       })
@@ -1482,16 +1469,6 @@ describe('KeeperRegistryDev', () => {
           .withArgs(id, BigNumber.from(receipt.blockNumber + delay))
       })
 
-      // it('updates the canceled registrations list', async () => {
-      //   let canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([], canceled)
-
-      //   await registry.connect(admin).cancelUpkeep(id)
-
-      //   canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([id], canceled)
-      // })
-
       it('immediately prevents upkeep', async () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
         await registry.connect(owner).addFunds(id, toWei('100'))
@@ -1516,15 +1493,6 @@ describe('KeeperRegistryDev', () => {
           'CannotCancel()',
         )
       })
-
-      // it('does not revert or double add the cancellation record if called by the owner immediately after', async () => {
-      //   await registry.connect(admin).cancelUpkeep(id)
-
-      //   await registry.connect(owner).cancelUpkeep(id)
-
-      //   const canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([id], canceled)
-      // })
 
       it('reverts if called by the owner after the timeout', async () => {
         await registry.connect(admin).cancelUpkeep(id)
