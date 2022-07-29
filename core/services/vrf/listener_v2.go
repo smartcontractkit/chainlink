@@ -621,13 +621,8 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 					break
 				}
 
-				if errors.Is(p.err, errBlockhashNotInStore{}) {
-					// Running the blockhash store feeder in backwards mode will be required to
-					// resolve this.
-					ll.Criticalw("Pipeline error", "err", p.err)
-				} else {
-					ll.Errorw("Pipeline error", "err", p.err)
-				}
+				ll.Warnw("Pipeline error", "err", p.err)
+
 				continue
 			}
 
@@ -768,13 +763,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 					return processed
 				}
 
-				if errors.Is(p.err, errBlockhashNotInStore{}) {
-					// Running the blockhash store feeder in backwards mode will be required to
-					// resolve this.
-					ll.Criticalw("Pipeline error", "err", p.err)
-				} else {
-					ll.Errorw("Pipeline error", "err", p.err)
-				}
+				ll.Warnw("Pipeline error", "err", p.err)
+
 				continue
 			}
 

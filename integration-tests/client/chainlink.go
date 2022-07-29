@@ -14,9 +14,10 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"golang.org/x/sync/errgroup"
 )
 
 // OneLINK representation of a single LINK token
