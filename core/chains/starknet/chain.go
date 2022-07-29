@@ -9,10 +9,11 @@ import (
 	caigotypes "github.com/dontpanicdao/caigo/types"
 	"github.com/pkg/errors"
 
+	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
-	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/chain"
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -27,14 +28,14 @@ var _ starkChain.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id   string
-	cfg  starknet.Config
+	cfg  config.Config
 	orm  types.ORM
 	lggr logger.Logger
 	txm  txm.StarkTXM
 }
 
 func NewChain(db *sqlx.DB, ks keystore.StarkNet, dbchain types.DBChain, orm types.ORM, lggr logger.Logger) (ch *chain, err error) {
-	cfg := starknet.NewConfig(*dbchain.Cfg, lggr)
+	cfg := config.NewConfig(*dbchain.Cfg, lggr)
 	lggr = lggr.With("starknetChainID", dbchain.ID)
 
 	ch = &chain{
@@ -56,7 +57,7 @@ func NewChain(db *sqlx.DB, ks keystore.StarkNet, dbchain types.DBChain, orm type
 	return ch, nil
 }
 
-func (c *chain) Config() starknet.Config {
+func (c *chain) Config() config.Config {
 	return c.cfg
 }
 
