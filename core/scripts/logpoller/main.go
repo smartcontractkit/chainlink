@@ -19,7 +19,6 @@ func panicErr(err error) {
 	if err != nil {
 		panic(err)
 	}
-	return
 }
 
 type nodeConfig struct {
@@ -45,15 +44,15 @@ func (c cfg) LogSQL() bool {
 }
 
 func main() {
-	lggr, close := logger.NewLogger()
-	defer close()
+	lggr, done := logger.NewLogger()
+	defer done()
 	err := os.Setenv("DATABASE_URL", "TODO")
 	panicErr(err)
 	db, err := pg.OpenUnlockedDB(config.NewGeneralConfig(lggr), lggr)
 	panicErr(err)
 	defer db.Close()
 	chainID := big.NewInt(137) // E.g. polygon mainnet.
-	_, err = db.Exec(fmt.Sprintf("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (%d, NOW(), NOW()) ON CONFLICT DO NOTHING"), chainID.Int64())
+	_, err = db.Exec(fmt.Sprintf("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (%d, NOW(), NOW()) ON CONFLICT DO NOTHING", chainID.Int64()))
 	panicErr(err)
 	// Can try different RPCs.
 	ws, _ := url.Parse("TODO")
@@ -71,10 +70,6 @@ func main() {
 	defer cancel()
 	// TODO: can add filters to test log inserts.
 	err = lp.Start(ctx)
-	panicErr(err)
-	select {
-	case <-ctx.Done():
-		return
-	}
+	<-ctx.Done()
 	// Inspect DB to check the log poller can keep up with the chain, has the logs expected etc.
 }

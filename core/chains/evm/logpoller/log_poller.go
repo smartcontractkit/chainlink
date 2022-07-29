@@ -375,7 +375,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 
 // getCurrentBlockMaybeHandleReorg accepts a block number
 // and will return that block if its parent points to our last saved block.
-// If its parent does not point to our last saved block we know a Reorg has occurred.
+// If its parent does not point to our last saved block we know a reorg has occurred.
 // In that case return the LCA+1, i.e. our new current (unprocessed) block.
 func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64) (*types.Block, error) {
 	currentBlock, err1 := lp.ec.BlockByNumber(ctx, big.NewInt(currentBlockNumber))
@@ -384,7 +384,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		return nil, err1
 	}
 	// Does this currentBlock point to the same parent that we have saved?
-	// If not, there was a Reorg, so we need to rewind.
+	// If not, there was a reorg, so we need to rewind.
 	expectedParent, err1 := lp.orm.SelectBlockByNumber(currentBlockNumber-1, pg.WithParentCtx(ctx))
 	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
 		// If err is not a no rows error, assume transient db issue and retry
@@ -397,18 +397,18 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill")
 		return currentBlock, nil
 	}
-	// Check for Reorg.
+	// Check for reorg.
 	if currentBlock.ParentHash() != expectedParent.BlockHash {
-		// There can be another Reorg while we're finding the LCA.
+		// There can be another reorg while we're finding the LCA.
 		// That is ok, since we'll detect it on the next iteration.
 		// Since we go currentBlock by currentBlock for unfinalized logs, the mismatch starts at currentBlockNumber currentBlock - 1.
 		blockAfterLCA, err2 := lp.findBlockAfterLCA(ctx, currentBlock)
 		if err2 != nil {
-			lp.lggr.Warnw("Unable to find LCA after Reorg, retrying", "err", err2)
-			return nil, errors.New("Unable to find LCA after Reorg, retrying")
+			lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err2)
+			return nil, errors.New("Unable to find LCA after reorg, retrying")
 		}
 
-		lp.lggr.Infow("Re-org detected", "lca", blockAfterLCA, "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number(), "currentBlockNumber", currentBlockNumber)
 		// We truncate all the blocks and logs after the LCA.
 		// We could preserve the logs for forensics, since its possible
 		// that applications see them and take action upon it, however that
@@ -417,7 +417,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			// These deletes are bounded by Reorg depth, so they are
+			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
 			err2 = lp.orm.DeleteRangeBlocks(blockAfterLCA.Number().Int64(), currentBlockNumber, pg.WithQueryer(tx))
 			if err2 != nil {
@@ -429,7 +429,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err2)
 				return err2
 			}
-			// Tell all callbacks about the Reorg.
+			// Tell all callbacks about the reorg.
 			for _, callback := range lp.callbacks {
 				if err2 := callback.Reorg(tx, blockAfterLCA.Number().Int64(), currentBlockNumber); err2 != nil {
 					return err2
@@ -444,7 +444,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		}
 		return blockAfterLCA, nil
 	}
-	// No Reorg, return current block.
+	// No reorg, return current block.
 	return currentBlock, nil
 }
 
@@ -458,16 +458,16 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 	latestBlockNumber := latestBlock.Number().Int64()
 	if currentBlockNumber > latestBlockNumber {
-		// Note there can also be a Reorg "shortening" i.e. chain height decreases but TDD increases. In that case
-		// we also just wait until the new tip is longer and then detect the Reorg.
+		// Note there can also be a reorg "shortening" i.e. chain height decreases but TDD increases. In that case
+		// we also just wait until the new tip is longer and then detect the reorg.
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
 		return
 	}
-	// Possibly handle a Reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
-	// Returns (currentBlock || LCA+1 if Reorg detected, error)
+	// Possibly handle a reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
+	// Returns (currentBlock || LCA+1 if reorg detected, error)
 	currentBlock, err1 := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
 	if err1 != nil {
-		// If there's an error handling the Reorg, we can't be sure what state the db was left in.
+		// If there's an error handling the reorg, we can't be sure what state the db was left in.
 		// Resume from the latest block saved.
 		lp.lggr.Errorw("Unable to get current block", "err", err1)
 		return
@@ -476,7 +476,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
 	// Log insertion is idempotent so this is ok.
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
-	// Although 5 is finalized, we still need to Save it to the db for Reorg detection if 6 is a Reorg.
+	// Although 5 is finalized, we still need to Save it to the db for reorg detection if 6 is a reorg.
 	// start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
 	if (latestBlockNumber - currentBlockNumber) >= (lp.finalityDepth + 1) {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", latestBlockNumber-lp.finalityDepth-1)
@@ -484,10 +484,10 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 
 	for currentBlockNumber <= latestBlockNumber {
-		// Same Reorg detection on unfinalized blocks.
+		// Same reorg detection on unfinalized blocks.
 		currentBlock, err2 := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
 		if err2 != nil {
-			// If there's an error handling the Reorg, we can't be sure what state the db was left in.
+			// If there's an error handling the reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
 			lp.lggr.Errorw("Unable to get current block", "err", err1)
 			return
@@ -552,7 +552,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Block
 	// We expected reorgs up to the block after (current - finalityDepth),
 	// since the block at (current - finalityDepth) is finalized.
 	// We loop via parent instead of current so current always holds the LCA+1.
-	// If the parent block number becomes < the first finalized block our Reorg is too deep.
+	// If the parent block number becomes < the first finalized block our reorg is too deep.
 	for parent.Number().Int64() >= (reorgStart - lp.finalityDepth) {
 		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number().Int64(), pg.WithParentCtx(ctx))
 		if err != nil {
@@ -569,7 +569,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Block
 			return nil, err
 		}
 	}
-	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max Reorg depth", lp.finalityDepth-1)
+	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
 	return nil, errors.New("Reorg greater than finality depth")
 }
 

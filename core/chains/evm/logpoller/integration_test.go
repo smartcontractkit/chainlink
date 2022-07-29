@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -21,6 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	EmitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
 )
 
 func logRuntime(t *testing.T) func() {
@@ -163,7 +169,7 @@ func TestLogPoller_Integration(t *testing.T) {
 }
 
 func TestLogWritesScale(t *testing.T) {
-	// Lets ensure that the lp can keep with a fast chain.
+	// Measure log write time.
 	t.Skip()
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDB(t, "load_logs")
@@ -186,7 +192,7 @@ func TestLogWritesScale(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
-		cltest.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
+		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
 	lp.MergeFilter([]logpoller.EventID{{EmitterABI.Events["Log1"].ID, emitterAddress1}})
 	// We need to benchmark how long it takes to process a block and how that scales with the number of logs.
