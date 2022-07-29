@@ -305,6 +305,7 @@ type NewTx struct {
 	EncodedPayload []byte
 	GasLimit       uint64
 	Meta           *EthTxMeta
+	Forwardable    bool
 
 	// Pipeline variables - if you aren't calling this from ethtx task within
 	// the pipeline, you don't need these variables
@@ -321,7 +322,7 @@ type NewTx struct {
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
 
-	if b.config.EvmUseForwarders() {
+	if b.config.EvmUseForwarders() && newTx.Forwardable {
 		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.

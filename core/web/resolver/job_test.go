@@ -36,6 +36,7 @@ func TestResolver_Jobs(t *testing.T) {
 						createdAt
 						externalJobID
 						gasLimit
+						allowForwarding
 						maxTaskDuration
 						name
 						schemaVersion

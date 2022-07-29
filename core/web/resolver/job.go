@@ -86,6 +86,14 @@ func (r *JobResolver) GasLimit() *int32 {
 	return &v
 }
 
+// GasLimit resolves the job's gas limit.
+func (r *JobResolver) AllowForwarding() bool {
+	if !r.j.AllowForwarding.Valid {
+		return false
+	}
+	return r.j.AllowForwarding.Bool
+}
+
 // Type resolves the job's type.
 func (r *JobResolver) Type() string {
 	return string(r.j.Type)
