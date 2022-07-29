@@ -20,7 +20,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
-  uint256 internal constant CANCELATION_DELAY = 50;
+  uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
@@ -75,8 +75,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error InvalidRecipient();
   error InvalidDataLength();
   error TargetCheckReverted(bytes reason);
-  error OnlyNonPausedUpkeep();
-  error OnlyPausedUpkeep();
+  error OnlyActiveUpkeep();
+  error UpkeepNotPaused();
 
   enum MigrationPermission {
     NONE,
@@ -136,7 +136,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     bytes performData
   );
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event UpkeepPaused(uint256 indexed id, bool paused);
+  event UpkeepPaused(uint256 indexed id);
+  event UpkeepUnpaused(uint256 indexed id);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
@@ -213,6 +214,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 maxLinkPayment
   ) internal view {
+    if (upkeep.paused) revert OnlyActiveUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
     if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();

@@ -115,7 +115,6 @@ contract KeeperRegistryDev is
     external
     override
     whenNotPaused
-    onlyNonPausedUpkeep(id)
     returns (bool success)
   {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
@@ -135,7 +134,7 @@ contract KeeperRegistryDev is
 
     uint256 height = block.number;
     if (!isOwner) {
-      height = height + CANCELATION_DELAY;
+      height = height + CANCELLATION_DELAY;
     }
     s_upkeep[id].maxValidBlocknumber = uint64(height);
     s_upkeepIDs.remove(id);
@@ -147,22 +146,28 @@ contract KeeperRegistryDev is
    * @notice pause an upkeep
    * @param id upkeep to be paused
    */
-  function pauseUpkeep(uint256 id) external override onlyActiveUpkeep(id) onlyNonPausedUpkeep(id) onlyOwnerOrRegistrar {
+  function pauseUpkeep(uint256 id) external override onlyActiveUpkeep(id) onlyOwnerOrRegistrar {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.paused) revert OnlyActiveUpkeep();
+
     s_upkeep[id].paused = true;
     s_upkeepIDs.remove(id);
     s_pausedUpkeepIDs.add(id);
-    emit UpkeepPaused(id, true);
+    emit UpkeepPaused(id);
   }
 
   /**
    * @notice unpause an upkeep
    * @param id upkeep to be resumed
    */
-  function unpauseUpkeep(uint256 id) external override onlyActiveUpkeep(id) onlyPausedUpkeep(id) onlyOwnerOrRegistrar {
+  function unpauseUpkeep(uint256 id) external override onlyActiveUpkeep(id) onlyOwnerOrRegistrar {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (!upkeep.paused) revert UpkeepNotPaused();
+
     s_upkeep[id].paused = false;
     s_upkeepIDs.add(id);
     s_pausedUpkeepIDs.remove(id);
-    emit UpkeepPaused(id, false);
+    emit UpkeepUnpaused(id);
   }
 
   /**
@@ -649,7 +654,6 @@ contract KeeperRegistryDev is
     private
     nonReentrant
     validUpkeep(params.id)
-    onlyNonPausedUpkeep(params.id)
     returns (bool success)
   {
     Upkeep memory upkeep = s_upkeep[params.id];
@@ -711,22 +715,6 @@ contract KeeperRegistryDev is
    */
   modifier onlyOwnerOrRegistrar() {
     if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
-    _;
-  }
-
-  /**
-   * @dev Reverts if called on a paused upkeep.
-   */
-  modifier onlyNonPausedUpkeep(uint256 id) {
-    if (s_upkeep[id].paused) revert OnlyNonPausedUpkeep();
-    _;
-  }
-
-  /**
-   * @dev Reverts if called on a non paused upkeep.
-   */
-  modifier onlyPausedUpkeep(uint256 id) {
-    if (!s_upkeep[id].paused) revert OnlyPausedUpkeep();
     _;
   }
 }

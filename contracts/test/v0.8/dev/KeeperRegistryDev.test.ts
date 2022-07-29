@@ -398,7 +398,7 @@ describe('KeeperRegistryDev', () => {
 
       await evmRevert(
         registry.connect(owner).pauseUpkeep(id),
-        'OnlyNonPausedUpkeep()',
+        'OnlyActiveUpkeep()',
       )
     })
 
@@ -411,7 +411,7 @@ describe('KeeperRegistryDev', () => {
 
     it('pauses the upkeep and emits an event', async () => {
       const tx = await registry.connect(owner).pauseUpkeep(id)
-      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id, true)
+      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id)
 
       const registration = await registry.getUpkeep(id)
       assert.equal(registration.paused, true)
@@ -454,7 +454,7 @@ describe('KeeperRegistryDev', () => {
     it('reverts if the upkeep is not paused', async () => {
       await evmRevert(
         registry.connect(owner).unpauseUpkeep(id),
-        'OnlyPausedUpkeep()',
+        'UpkeepNotPaused()',
       )
     })
 
@@ -476,7 +476,7 @@ describe('KeeperRegistryDev', () => {
 
       const tx = await registry.connect(owner).unpauseUpkeep(id)
 
-      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id, false)
+      await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(id)
 
       const registration = await registry.getUpkeep(id)
       assert.equal(registration.paused, false)
@@ -758,6 +758,17 @@ describe('KeeperRegistryDev', () => {
         beforeEach(async () => {
           await mock.setCanCheck(true)
           await mock.setCanPerform(true)
+        })
+
+        it('reverts if the upkeep is paused', async () => {
+          await registry.connect(owner).pauseUpkeep(id)
+
+          await evmRevert(
+            registry
+              .connect(zeroAddress)
+              .callStatic.checkUpkeep(id, await keeper1.getAddress()),
+            'OnlyActiveUpkeep()',
+          )
         })
 
         it('returns true with pricing info if the target can execute', async () => {
@@ -1086,6 +1097,15 @@ describe('KeeperRegistryDev', () => {
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
           'UpkeepNotActive()',
+        )
+      })
+
+      it('reverts if the upkeep is paused', async () => {
+        await registry.connect(owner).pauseUpkeep(id)
+
+        await evmRevert(
+          registry.connect(keeper1).performUpkeep(id, '0x'),
+          'OnlyActiveUpkeep()',
         )
       })
 
