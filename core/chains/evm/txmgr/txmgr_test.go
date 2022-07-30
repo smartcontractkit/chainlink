@@ -425,6 +425,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
+			Forwardable:    true,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
@@ -464,6 +465,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
+			Forwardable:    true,
 			Meta:           &txmgr.EthTxMeta{},
 			Strategy:       txmgr.NewSendEveryStrategy(),
 		})
