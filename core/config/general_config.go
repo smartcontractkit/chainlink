@@ -320,7 +320,7 @@ func (c *generalConfig) Validate() error {
 	}
 
 	if _, exists := os.LookupEnv("MINIMUM_CONTRACT_PAYMENT"); exists {
-		return errors.Errorf("MINIMUM_CONTRACT_PAYMENT is deprecated, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
+		return errors.Errorf("MINIMUM_CONTRACT_PAYMENT is deprecated, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead")
 	}
 
 	if _, exists := os.LookupEnv("ETH_DISABLED"); exists {
@@ -371,7 +371,7 @@ EVM_ENABLED=false
 			c.lggr.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when ETH_URL is not set")
 		}
 	} else if c.EthereumNodes() != "" {
-		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other.", c.EthereumURL(), c.EthereumNodes())
+		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other", c.EthereumURL(), c.EthereumNodes())
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
