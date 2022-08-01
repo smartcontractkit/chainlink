@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -47,17 +47,17 @@ contract KeeperRegistryDev is
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
-   * @param config registry config settings
+   * @param params registry parameters settings
    */
   constructor(
     address link,
     address linkEthFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
-    Config memory config
+    RegistryParams memory params
   ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
-    setConfigOld(config);
+    setRegistryParams(params);
   }
 
   /**
@@ -369,26 +369,26 @@ contract KeeperRegistryDev is
 
   /**
    * @notice updates the configuration of the registry
-   * @param config registry config fields
+   * @param params registry parameter fields
    */
-  function setConfigOld(Config memory config) public onlyOwner {
-    if (config.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
+  function setRegistryParams(RegistryParams memory params) public onlyOwner {
+    if (params.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
     s_storage = Storage({
-      paymentPremiumPPB: config.paymentPremiumPPB,
-      flatFeeMicroLink: config.flatFeeMicroLink,
-      blockCountPerTurn: config.blockCountPerTurn,
-      checkGasLimit: config.checkGasLimit,
-      stalenessSeconds: config.stalenessSeconds,
-      gasCeilingMultiplier: config.gasCeilingMultiplier,
-      minUpkeepSpend: config.minUpkeepSpend,
-      maxPerformGas: config.maxPerformGas,
+      paymentPremiumPPB: params.paymentPremiumPPB,
+      flatFeeMicroLink: params.flatFeeMicroLink,
+      blockCountPerTurn: params.blockCountPerTurn,
+      checkGasLimit: params.checkGasLimit,
+      stalenessSeconds: params.stalenessSeconds,
+      gasCeilingMultiplier: params.gasCeilingMultiplier,
+      minUpkeepSpend: params.minUpkeepSpend,
+      maxPerformGas: params.maxPerformGas,
       nonce: s_storage.nonce
     });
-    s_fallbackGasPrice = config.fallbackGasPrice;
-    s_fallbackLinkPrice = config.fallbackLinkPrice;
-    s_transcoder = config.transcoder;
-    s_registrar = config.registrar;
-    emit ConfigSetOld(config);
+    s_fallbackGasPrice = params.fallbackGasPrice;
+    s_fallbackLinkPrice = params.fallbackLinkPrice;
+    s_transcoder = params.transcoder;
+    s_registrar = params.registrar;
+    emit RegistryParamsSet(params);
   }
 
   /**
@@ -481,7 +481,7 @@ contract KeeperRegistryDev is
     override
     returns (
       State memory state,
-      Config memory config,
+      RegistryParams memory params,
       address[] memory keepers
     )
   {
@@ -490,19 +490,19 @@ contract KeeperRegistryDev is
     state.ownerLinkBalance = s_ownerLinkBalance;
     state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
-    config.paymentPremiumPPB = store.paymentPremiumPPB;
-    config.flatFeeMicroLink = store.flatFeeMicroLink;
-    config.blockCountPerTurn = store.blockCountPerTurn;
-    config.checkGasLimit = store.checkGasLimit;
-    config.stalenessSeconds = store.stalenessSeconds;
-    config.gasCeilingMultiplier = store.gasCeilingMultiplier;
-    config.minUpkeepSpend = store.minUpkeepSpend;
-    config.maxPerformGas = store.maxPerformGas;
-    config.fallbackGasPrice = s_fallbackGasPrice;
-    config.fallbackLinkPrice = s_fallbackLinkPrice;
-    config.transcoder = s_transcoder;
-    config.registrar = s_registrar;
-    return (state, config, s_keeperList);
+    params.paymentPremiumPPB = store.paymentPremiumPPB;
+    params.flatFeeMicroLink = store.flatFeeMicroLink;
+    params.blockCountPerTurn = store.blockCountPerTurn;
+    params.checkGasLimit = store.checkGasLimit;
+    params.stalenessSeconds = store.stalenessSeconds;
+    params.gasCeilingMultiplier = store.gasCeilingMultiplier;
+    params.minUpkeepSpend = store.minUpkeepSpend;
+    params.maxPerformGas = store.maxPerformGas;
+    params.fallbackGasPrice = s_fallbackGasPrice;
+    params.fallbackLinkPrice = s_fallbackLinkPrice;
+    params.transcoder = s_transcoder;
+    params.registrar = s_registrar;
+    return (state, params, s_keeperList);
   }
 
   /**

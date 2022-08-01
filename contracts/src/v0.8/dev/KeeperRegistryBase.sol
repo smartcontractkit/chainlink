@@ -8,7 +8,7 @@ import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import {Config, State} from "../interfaces/KeeperRegistryInterface.sol";
+import {RegistryParams, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -83,7 +83,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   /**
-   * @notice storage of the registry, contains a mix of config and state data
+   * @notice storage of the registry, contains a mix of params and state data
    */
   struct Storage {
     uint32 paymentPremiumPPB;
@@ -137,7 +137,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event OwnerFundsWithdrawn(uint96 amount);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event ConfigSetOld(Config config);
+  event RegistryParamsSet(RegistryParams params);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
