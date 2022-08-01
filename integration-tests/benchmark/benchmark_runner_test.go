@@ -2,72 +2,142 @@ package benchmark_test
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
-	"os"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/imdario/mergo"
 	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/remotetestrunner"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
-	"github.com/stretchr/testify/require"
-)
-
-var (
-	// Keepers Benchmark EVM ensures that the test will use a custom simulated geth instance
-	KeepersBenchmarkEVM *blockchain.EVMNetwork = &blockchain.EVMNetwork{
-		Name:      "Simulated Geth",
-		Simulated: true,
-		ChainID:   1337,
-		PrivateKeys: []string{
-			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-			"59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-			"5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
-		},
-		ChainlinkTransactionLimit: 500000,
-		Timeout:                   2 * time.Minute,
-		MinimumConfirmations:      1,
-		GasEstimationBuffer:       10000,
-	}
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
 )
 
 func init() {
 	logging.Init()
 }
 
-func TestKeeperBenchmark(t *testing.T) {
-	benchmarkTestHelper(t, "@benchmark-keeper", "benchmark-keeper", 6, KeepersBenchmarkEVM)
+var baseEnvironmentConfig = &environment.Config{
+	TTL: time.Hour * 720, // 30 days,
 }
 
+// Run the Keepers Benchmark test defined in ./tests/keeper_test.go
+func TestKeeperBenchmark(t *testing.T) {
+	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to soak test on
+
+	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
+		"benchmark-keeper-%s",
+		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
+	)
+	testEnvironment := environment.New(baseEnvironmentConfig)
+
+	// Values you want each node to have the exact same of (e.g. eth_chain_id)
+	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	keeperBenchmarkValues := map[string]interface{}{
+		"MIN_INCOMING_CONFIRMATIONS": "1",
+		"KEEPER_TURN_FLAG_ENABLED":   "true",
+		"CHAINLINK_DEV":              "false",
+	}
+	mergo.Merge(&staticValues, &keeperBenchmarkValues)
+	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
+	dynamicValues := []map[string]interface{}{
+		{
+			"dynamic_value": "0",
+		},
+		{
+			"dynamic_value": "1",
+		},
+		{
+			"dynamic_value": "2",
+		},
+		{
+			"dynamic_value": "3",
+		},
+		{
+			"dynamic_value": "4",
+		},
+		{
+			"dynamic_value": "5",
+		},
+	}
+	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
+
+	benchmarkTestHelper(t, "@benchmark-keeper", testEnvironment, activeEVMNetwork)
+}
+
+// adds distinct Chainlink deployments to the test environment, using staticVals on all of them, while distributing
+// a single dynamicVal to each Chainlink deployment
+func addSeparateChainlinkDeployments(
+	testEnvironment *environment.Environment,
+	staticValues map[string]interface{},
+	dynamicValueList []map[string]interface{},
+) {
+	for index, dynamicValues := range dynamicValueList {
+		envVals := map[string]interface{}{}
+		for key, value := range staticValues {
+			envVals[key] = value
+		}
+		for key, value := range dynamicValues {
+			envVals[key] = value
+		}
+		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{
+			"env": envVals,
+			"chainlink": map[string]interface{}{
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "1000m",
+						"memory": "4Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "1000m",
+						"memory": "4Gi",
+					},
+				},
+			},
+			"db": map[string]interface{}{
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "1000m",
+						"memory": "1Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "1000m",
+						"memory": "1Gi",
+					},
+				},
+				"stateful": true,
+				"capacity": "5Gi",
+			},
+		}))
+	}
+}
+
+// builds tests, launches environment, and triggers the soak test to run
 func benchmarkTestHelper(
 	t *testing.T,
-	testTag, namespacePrefix string,
-	chainlinkReplicas int,
-	evmNetwork *blockchain.EVMNetwork,
+	testTag string,
+	testEnvironment *environment.Environment,
+	activeEVMNetwork *blockchain.EVMNetwork,
 ) {
 	exeFile, exeFileSize, err := actions.BuildGoTests("./", "./tests", "../")
 	require.NoError(t, err, "Error building go tests")
-	env := environment.New(&environment.Config{
-		TTL:             2 * time.Hour, // 2 hour limit
-		Labels:          []string{fmt.Sprintf("envType=%s", pkg.EnvTypeEVM5RemoteRunner)},
-		NamespacePrefix: namespacePrefix,
-	})
 
 	remoteRunnerValues := map[string]interface{}{
 		"test_name":             testTag,
-		"env_namespace":         env.Cfg.Namespace,
+		"env_namespace":         testEnvironment.Cfg.Namespace,
 		"test_file_size":        fmt.Sprint(exeFileSize),
-		"log_level":             "debug",
+		"test_log_level":        "debug",
 		"grafana_dashboard_url": os.Getenv("GRAFANA_DASHBOARD_URL"),
 	}
 	// Set evm network connection for remote runner
-	for key, value := range evmNetwork.ToMap() {
+	for key, value := range activeEVMNetwork.ToMap() {
 		remoteRunnerValues[key] = value
 	}
 	remoteRunnerWrapper := map[string]interface{}{
@@ -81,67 +151,30 @@ func benchmarkTestHelper(
 				"cpu":    "1000m",
 				"memory": "512Mi",
 			},
-		}}
-
-	// Set Chainlink vals
-	chainlinkVals := map[string]interface{}{
-		"replicas": chainlinkReplicas,
-		"env": map[string]interface{}{
-			"MIN_INCOMING_CONFIRMATIONS":     "1",
-			"KEEPER_TURN_FLAG_ENABLED":       "true",
-			"CHAINLINK_DEV":                  "false",
-			"HTTP_SERVER_WRITE_TIMEOUT":      "6m",
-		},
-		"chainlink": map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "1000m",
-					"memory": "4Gi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "1000m",
-					"memory": "4Gi",
-				},
-			},
-		},
-		"db": map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "1000m",
-					"memory": "1Gi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "1000m",
-					"memory": "1Gi",
-				},
-			},
-			"stateful": true,
-			"capacity": "5Gi",
 		},
 	}
 
-	ethereumVals := &ethereum.Props{
-		NetworkName: evmNetwork.Name,
-		Simulated:   evmNetwork.Simulated,
-		Values: map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
-					"cpu":    "4000m",
-					"memory": "4Gi",
-				},
-				"limits": map[string]interface{}{
-					"cpu":    "4000m",
-					"memory": "4Gi",
+	err = testEnvironment.
+		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
+		AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: activeEVMNetwork.Name,
+			Simulated:   activeEVMNetwork.Simulated,
+			WsURLs:      activeEVMNetwork.URLs,
+			Values: map[string]interface{}{
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "4000m",
+						"memory": "4Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "4000m",
+						"memory": "4Gi",
+					},
 				},
 			},
-		}}
-
-	err = env.
-		AddHelm(remotetestrunner.New(remoteRunnerWrapper)).
-		AddHelm(ethereum.New(ethereumVals)).
-		AddHelm(chainlink.New(0, chainlinkVals)).
+		})).
 		Run()
 	require.NoError(t, err, "Error launching test environment")
-	err = actions.TriggerRemoteTest(exeFile, env)
+	err = actions.TriggerRemoteTest(exeFile, testEnvironment)
 	require.NoError(t, err, "Error activating remote test")
 }

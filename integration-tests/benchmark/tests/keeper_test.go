@@ -34,8 +34,14 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: benchmarkNetwork.Name,
 					Simulated:   benchmarkNetwork.Simulated,
+					WsURLs:      benchmarkNetwork.URLs,
 				})).
 				AddHelm(chainlink.New(0, nil)).
+				AddHelm(chainlink.New(1, nil)).
+				AddHelm(chainlink.New(2, nil)).
+				AddHelm(chainlink.New(3, nil)).
+				AddHelm(chainlink.New(4, nil)).
+				AddHelm(chainlink.New(5, nil)).
 				Run()
 			Expect(err).ShouldNot(HaveOccurred())
 			log.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")

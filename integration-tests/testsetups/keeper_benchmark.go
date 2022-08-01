@@ -34,7 +34,7 @@ type KeeperBenchmarkTest struct {
 	upkeepIDs               []*big.Int
 
 	env            *environment.Environment
-	chainlinkNodes []client.Chainlink
+	chainlinkNodes []*client.Chainlink
 	chainClient    blockchain.EVMClient
 }
 
@@ -130,7 +130,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	close(logSubscriptionStop)
 
 	for _, chainlinkNode := range k.chainlinkNodes {
-		txData, err := chainlinkNode.ReadTransactionAttempts()
+		txData, err := chainlinkNode.MustReadTransactionAttempts()
 		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving transaction data from chainlink node")
 		k.TestReporter.AttemptedChainlinkTransactions = append(k.TestReporter.AttemptedChainlinkTransactions, txData)
 	}
@@ -218,7 +218,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 }
 
 // Networks returns the networks that the test is running on
-func (k *KeeperBenchmarkTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
+func (k *KeeperBenchmarkTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 
