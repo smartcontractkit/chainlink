@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/pyroscope-io/client/pyroscope"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -135,6 +136,7 @@ type ChainlinkApplication struct {
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
+	prflr                    *pyroscope.Profiler
 
 	started     bool
 	startStopMu sync.Mutex
@@ -197,10 +199,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
 	var nurse *services.Nurse
+	var prflr *pyroscope.Profiler
 	if cfg.AutoPprofEnabled() {
+		var err error
+		prflr, err = logger.StartPyroscope(cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
+		}
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
 		nurse = services.NewNurse(cfg, globalLogger)
-		err := nurse.Start()
+		err = nurse.Start()
 		if err != nil {
 			return nil, err
 		}
@@ -449,6 +457,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		logger:                   globalLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
+		prflr:                    prflr,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -560,6 +569,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 
 		if app.Nurse != nil {
 			err = multierr.Append(err, app.Nurse.Close())
+			// when Nurse gets enabled, pyroscope is enabled
+			err = multierr.Append(err, app.prflr.Stop())
 		}
 
 		app.logger.Info("Exited all services")

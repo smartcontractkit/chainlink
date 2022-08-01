@@ -65,14 +65,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) runNode(c *clipkg.Context) error {
-	prflr, err := logger.StartPyroscope(cli.Config)
-	if err != nil {
-		return errors.Wrap(err, "starting pyroscope failed")
-	}
-
 	lggr := cli.Logger.Named("RunNode")
 
-	err = cli.Config.Validate()
+	err := cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
 	}
@@ -118,9 +113,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 		if err = cli.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
-		}
-		if err = prflr.Stop(); err != nil {
-			log.Printf("Failed to stop Pyroscope profiling: %v", err)
 		}
 
 		os.Exit(-1)
