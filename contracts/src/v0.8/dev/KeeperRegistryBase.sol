@@ -137,7 +137,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event OwnerFundsWithdrawn(uint96 amount);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event ConfigSet(Config config);
+  event ConfigSetOld(Config config);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);

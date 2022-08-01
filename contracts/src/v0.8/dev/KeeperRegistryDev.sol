@@ -57,7 +57,7 @@ contract KeeperRegistryDev is
     Config memory config
   ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
-    setConfig(config);
+    setConfigOld(config);
   }
 
   /**
@@ -371,7 +371,7 @@ contract KeeperRegistryDev is
    * @notice updates the configuration of the registry
    * @param config registry config fields
    */
-  function setConfig(Config memory config) public onlyOwner {
+  function setConfigOld(Config memory config) public onlyOwner {
     if (config.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
     s_storage = Storage({
       paymentPremiumPPB: config.paymentPremiumPPB,
@@ -388,7 +388,7 @@ contract KeeperRegistryDev is
     s_fallbackLinkPrice = config.fallbackLinkPrice;
     s_transcoder = config.transcoder;
     s_registrar = config.registrar;
-    emit ConfigSet(config);
+    emit ConfigSetOld(config);
   }
 
   /**
