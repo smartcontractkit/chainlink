@@ -388,9 +388,6 @@ func requestRandomnessForWrapper(
 	wrapperOverhead uint32,
 ) (*big.Int, uint64) {
 	minRequestConfirmations := uint16(3)
-	fmt.Println(consumerOwner)
-	fmt.Println(cbGasLimit)
-	fmt.Println(numWords)
 	_, err := vrfWrapperConsumer.MakeRequest(
 		consumerOwner,
 		cbGasLimit,
@@ -976,10 +973,6 @@ func deployWrapper(t *testing.T, uni coordinatorV2Universe, wrapperOverhead uint
 	_, err = wrapper.SetConfig(uni.neil, wrapperOverhead, coordinatorOverhead, 0, keyHash, 10)
 	require.NoError(t, err)
 	uni.backend.Commit()
-
-	conf, err := wrapper.GetConfig(nil)
-	require.NoError(t, err)
-	fmt.Println(conf)
 
 	wrapperConsumerAddress, _, wrapperConsumer, err = vrfv2_wrapper_consumer_example.DeployVRFV2WrapperConsumerExample(uni.neil, uni.backend, uni.linkContractAddress, wrapperAddress)
 	require.NoError(t, err)
