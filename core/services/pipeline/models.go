@@ -23,6 +23,7 @@ type Spec struct {
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
 	GasLimit        *uint32         `json:"-"`
+	AllowForwarding bool            `json:"-"`
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`

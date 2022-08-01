@@ -75,7 +75,6 @@ func (c *pendingTxContext) Remove(sig solana.Signature) {
 	c.cancelBy[sig]() // cancel context
 	delete(c.cancelBy, sig)
 	delete(c.timestamp, sig)
-	return
 }
 
 func (c *pendingTxContext) ListAll() []solana.Signature {
@@ -99,12 +98,10 @@ func (c *pendingTxContext) Expired(sig solana.Signature, lifespan time.Duration)
 
 func (c *pendingTxContext) OnSuccess(sig solana.Signature) {
 	c.Remove(sig)
-	return
 }
 
 func (c *pendingTxContext) OnError(sig solana.Signature, _ int) {
 	c.Remove(sig)
-	return
 }
 
 var _ PendingTxContext = &pendingTxContextWithProm{}
@@ -135,7 +132,6 @@ func (c *pendingTxContextWithProm) Add(sig solana.Signature, cancel context.Canc
 
 func (c *pendingTxContextWithProm) Remove(sig solana.Signature) {
 	c.pendingTx.Remove(sig)
-	return
 }
 
 func (c *pendingTxContextWithProm) ListAll() []solana.Signature {
@@ -152,7 +148,6 @@ func (c *pendingTxContextWithProm) Expired(sig solana.Signature, lifespan time.D
 func (c *pendingTxContextWithProm) OnSuccess(sig solana.Signature) {
 	promSolTxmSuccessTxs.WithLabelValues(c.chainID).Add(1)
 	c.pendingTx.OnSuccess(sig)
-	return
 }
 
 func (c *pendingTxContextWithProm) OnError(sig solana.Signature, errType int) {
