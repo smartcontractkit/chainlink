@@ -23,11 +23,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -64,9 +65,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) runNode(c *clipkg.Context) error {
+	prflr, err := logger.StartPyroscope(cli.Config)
+	if err != nil {
+		return errors.Wrap(err, "starting pyroscope failed")
+	}
+
 	lggr := cli.Logger.Named("RunNode")
 
-	err := cli.Config.Validate()
+	err = cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
 	}
@@ -112,6 +118,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 		if err = cli.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
+		}
+		if err = prflr.Stop(); err != nil {
+			log.Printf("Failed to stop Pyroscope profiling: %v", err)
 		}
 
 		os.Exit(-1)

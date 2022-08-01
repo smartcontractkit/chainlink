@@ -191,11 +191,6 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 		return
 	}
 
-	runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
-	defer runtime.SetBlockProfileRate(0)
-	runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
-	defer runtime.SetMutexProfileFraction(0)
-
 	now := time.Now()
 
 	var wg sync.WaitGroup
