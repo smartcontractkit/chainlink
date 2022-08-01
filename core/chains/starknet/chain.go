@@ -66,11 +66,11 @@ func (c *chain) UpdateConfig(cfg *db.ChainCfg) {
 }
 
 func (c *chain) TxManager() txm.TxManager {
-	return nil
+	return c.txm
 }
 
 func (c *chain) Reader() (starknet.Reader, error) {
-	return nil, nil
+	return c.getClient()
 }
 
 // getClient returns a client, randomly selecting one from available and valid nodes

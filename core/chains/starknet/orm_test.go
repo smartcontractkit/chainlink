@@ -49,7 +49,7 @@ func Test_ORM(t *testing.T) {
 	newNode := db.Node{
 		Name:    "first",
 		ChainID: chainIDA,
-		URL:     "http://tender.mint.test/columbus-5",
+		URL:     "http://starknet.devnet.test/first",
 	}
 	gotNode, err := orm.CreateNode(newNode)
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func Test_ORM(t *testing.T) {
 	newNode2 := db.Node{
 		Name:    "second",
 		ChainID: chainIDB,
-		URL:     "http://tender.mint.test/bombay-12",
+		URL:     "http://starknet.devnet.test/second",
 	}
 	gotNode2, err := orm.CreateNode(newNode2)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func Test_ORM(t *testing.T) {
 	newNode3 := db.Node{
 		Name:    "third",
 		ChainID: chainIDB,
-		URL:     "http://tender.mint.test/bombay-12",
+		URL:     "http://starknet.devnet.test/third",
 	}
 	gotNode3, err := orm.CreateNode(newNode3)
 	require.NoError(t, err)
