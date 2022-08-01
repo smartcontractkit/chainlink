@@ -265,7 +265,7 @@ func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err := consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
@@ -296,7 +296,7 @@ func requestRandomnessCallback(
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err = consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
