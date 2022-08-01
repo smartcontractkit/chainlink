@@ -11,12 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -643,13 +644,13 @@ func (o *EthereumOffchainAggregator) SetPayees(
 
 // SetConfig sets the payees and the offchain reporting protocol configuration
 func (o *EthereumOffchainAggregator) SetConfig(
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	ocrConfig OffChainAggregatorConfig,
 ) error {
 	// Gather necessary addresses and keys from our chainlink nodes to properly configure the OCR contract
 	log.Info().Str("Contract Address", o.address.Hex()).Msg("Configuring OCR Contract")
 	for _, node := range chainlinkNodes {
-		ocrKeys, err := node.ReadOCRKeys()
+		ocrKeys, err := node.MustReadOCRKeys()
 		if err != nil {
 			return err
 		}
@@ -658,7 +659,7 @@ func (o *EthereumOffchainAggregator) SetConfig(
 		if err != nil {
 			return err
 		}
-		p2pKeys, err := node.ReadP2PKeys()
+		p2pKeys, err := node.MustReadP2PKeys()
 		if err != nil {
 			return err
 		}

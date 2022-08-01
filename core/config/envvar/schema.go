@@ -127,6 +127,7 @@ type ConfigSchema struct {
 	TerraEnabled    bool   `env:"TERRA_ENABLED" default:"false"`
 	TerraNodes      string `env:"TERRA_NODES"`
 	StarknetEnabled bool   `env:"STARKNET_ENABLED" default:"false"`
+	StarknetNodes   string `env:"STARKNET_NODES"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars

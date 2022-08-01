@@ -3,9 +3,10 @@ package client
 import (
 	"bytes"
 	"fmt"
-	"gopkg.in/guregu/null.v4"
 	"text/template"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -450,7 +451,7 @@ type JobData struct {
 	ID string `json:"id"`
 }
 
-// JobSpec represents the different possible job types that chainlink nodes can handle
+// JobSpec represents the different possible job types that Chainlink nodes can handle
 type JobSpec interface {
 	Type() string
 	// String Returns TOML representation of the job
@@ -460,7 +461,7 @@ type JobSpec interface {
 // CronJobSpec represents a cron job spec
 type CronJobSpec struct {
 	Schedule          string `toml:"schedule"`          // CRON job style schedule string
-	ObservationSource string `toml:"observationSource"` // List of commands for the chainlink node
+	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
 // Type is cron
@@ -604,7 +605,7 @@ type DirectRequestJobSpec struct {
 	ContractAddress          string `toml:"contractAddress"`
 	ExternalJobID            string `toml:"externalJobID"`
 	MinIncomingConfirmations string `toml:"minIncomingConfirmations"`
-	ObservationSource        string `toml:"observationSource"` // List of commands for the chainlink node
+	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
 // Type returns the type of the pipeline
@@ -637,7 +638,7 @@ type FluxMonitorJobSpec struct {
 	PollTimerPeriod   time.Duration `toml:"pollTimerPeriod"`   // Optional
 	PollTimerDisabled bool          `toml:"pollTimerDisabled"` // Optional
 	MaxTaskDuration   time.Duration `toml:"maxTaskDuration"`   // Optional
-	ObservationSource string        `toml:"observationSource"` // List of commands for the chainlink node
+	ObservationSource string        `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
 // Type returns the type of the job
@@ -731,13 +732,13 @@ type OCRTaskJobSpec struct {
 	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
 	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
 	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	P2PBootstrapPeers        []Chainlink   `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
+	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
 	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
 	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
 	KeyBundleID              string        `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
 	MonitoringEndpoint       string        `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
 	TransmitterAddress       string        `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
-	ObservationSource        string        `toml:"observationSource"`                      // List of commands for the chainlink node
+	ObservationSource        string        `toml:"observationSource"`                      // List of commands for the Chainlink node
 }
 
 // P2PData holds the remote ip and the peer id and port
@@ -755,7 +756,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 	// Pre-process P2P data for easier templating
 	peers := []P2PData{}
 	for _, peer := range o.P2PBootstrapPeers {
-		p2pKeys, err := peer.ReadP2PKeys()
+		p2pKeys, err := peer.MustReadP2PKeys()
 		if err != nil {
 			return "", err
 		}
@@ -839,7 +840,7 @@ type OCR2TaskJobSpec struct {
 	TrackerSubscribeInterval time.Duration     `toml:"contractConfigTrackerSubscribeInterval"` // Optional
 	TrackerPollInterval      time.Duration     `toml:"contractConfigTrackerPollInterval"`      // Optional
 	ContractConfirmations    int               `toml:"contractConfigConfirmations"`            // Optional
-	ObservationSource        string            `toml:"observationSource"`                      // List of commands for the chainlink node
+	ObservationSource        string            `toml:"observationSource"`                      // List of commands for the Chainlink node
 	JuelsPerFeeCoinSource    string            `toml:"juelsPerFeeCoinSource"`                  // List of commands to fetch JuelsPerFeeCoin value (used to calculate ocr payments)
 }
 
@@ -894,7 +895,7 @@ type VRFV2JobSpec struct {
 	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
 	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string        `toml:"externalJobID"`
-	ObservationSource        string        `toml:"observationSource"` // List of commands for the chainlink node
+	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
 	FromAddress              string        `toml:"fromAddress"`
 	EVMChainID               string        `toml:"evmChainID"`
@@ -934,7 +935,7 @@ type VRFJobSpec struct {
 	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string `toml:"externalJobID"`
-	ObservationSource        string `toml:"observationSource"` // List of commands for the chainlink node
+	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
 }
 
@@ -995,7 +996,7 @@ type WebhookJobSpec struct {
 	Name              string `toml:"name"`
 	Initiator         string `toml:"initiator"`         // External initiator name
 	InitiatorSpec     string `toml:"initiatorSpec"`     // External initiator spec object in stringified form
-	ObservationSource string `toml:"observationSource"` // List of commands for the chainlink node
+	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
 // Type returns the type of the job

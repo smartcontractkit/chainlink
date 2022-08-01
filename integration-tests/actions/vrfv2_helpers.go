@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -43,14 +44,14 @@ func DeployVRFV2Contracts(
 }
 
 func CreateVRFV2Jobs(
-	chainlinkNodes []client.Chainlink,
+	chainlinkNodes []*client.Chainlink,
 	coordinator contracts.VRFCoordinatorV2,
 	c blockchain.EVMClient,
 	minIncomingConfirmations int,
 ) []VRFV2JobInfo {
 	jobInfo := make([]VRFV2JobInfo, 0)
 	for _, n := range chainlinkNodes {
-		vrfKey, err := n.CreateVRFKey()
+		vrfKey, err := n.MustCreateVRFKey()
 		Expect(err).ShouldNot(HaveOccurred())
 		log.Debug().Interface("Key JSON", vrfKey).Msg("Created proving key")
 		pubKeyCompressed := vrfKey.Data.ID
@@ -62,7 +63,7 @@ func CreateVRFV2Jobs(
 		Expect(err).ShouldNot(HaveOccurred())
 		oracleAddr, err := n.PrimaryEthAddress()
 		Expect(err).ShouldNot(HaveOccurred())
-		job, err := n.CreateJob(&client.VRFV2JobSpec{
+		job, err := n.MustCreateJob(&client.VRFV2JobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       coordinator.Address(),
 			FromAddress:              oracleAddr,

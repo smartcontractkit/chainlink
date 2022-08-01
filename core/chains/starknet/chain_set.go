@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet"
-	"github.com/smartcontractkit/chainlink-starknet/pkg/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/starknet/types"

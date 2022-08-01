@@ -240,10 +240,10 @@ func requestRandomness(e helpers.Environment, coordinatorAddress string, numWord
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func getRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
+func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
 	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
-	tx, err := coordinator.GetRandomness(e.Owner, requestID)
+	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -302,12 +302,22 @@ func requestRandomnessCallback(
 	return requestID
 }
 
-func getRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int) {
+func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int, numWords int64) {
 	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
 
-	tx, err := consumer.TestGetRandomness(e.Owner, requestID)
+	tx, err := consumer.TestRedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+
+	printRandomnessFromConsumer(consumer, requestID, numWords)
+}
+
+func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer, requestID *big.Int, numWords int64) {
+	for i := int64(0); i < numWords; i++ {
+		randomness, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(0))
+		helpers.PanicErr(err)
+		fmt.Println("random words index", i, ":", randomness.String())
+	}
 }
 
 func newVRFBeaconCoordinator(addr common.Address, client *ethclient.Client) *vrf_beacon_coordinator.VRFBeaconCoordinator {
