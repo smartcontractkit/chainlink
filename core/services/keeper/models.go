@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -75,20 +74,4 @@ func (ui UpkeepIdentifier) String() string {
 		panic(errors.Wrap(err, "invariant, invalid upkeepID"))
 	}
 	return fmt.Sprintf("%s%s", UpkeepPrefix, hex.EncodeToString(result))
-}
-
-// Value returns this instance serialized for database storage.
-func (ui UpkeepIdentifier) Value() (driver.Value, error) {
-	return ui.String(), nil
-}
-
-// Scan reads the database value and returns an instance.
-func (ui *UpkeepIdentifier) Scan(val interface{}) error {
-	var err error
-	bg := utils.NewBig(big.NewInt(0))
-	err = bg.Scan(val)
-	if err == nil {
-		*ui = UpkeepIdentifier(*bg)
-	}
-	return err
 }

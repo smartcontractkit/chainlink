@@ -26,9 +26,20 @@ const (
 	RegistryVersion_1_2
 )
 
+func (rv RegistryVersion) String() string {
+	switch rv {
+	case RegistryVersion_1_0, RegistryVersion_1_1, RegistryVersion_1_2:
+		return fmt.Sprintf("v1.%d", rv)
+	default:
+		return "unknown registry version"
+	}
+}
+
 const ActiveUpkeepIDBatchSize int64 = 10000
 
-type UpkeepGetter interface {
+// upkeepGetter is declared as a private interface as it is only needed
+// internally to the keeper package for now
+type upkeepGetter interface {
 	GetUpkeep(*bind.CallOpts, *big.Int) (*UpkeepConfig, error)
 }
 
@@ -214,11 +225,14 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		config, err := rw.contract1_1.GetConfig(opts)
 		if err != nil {
-			return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, err, rw.Version)
+			// TODO: error wrapping with %w should be done here to preserve the error type as it bubbles up
+			// pkg/errors doesn't support the native errors.Is/As capabilities
+			// using pkg/errors produces a stack trace in the logs and this behavior is too valuable to let go
+			return nil, errors.Errorf("%s [%s]: getConfig %s", ErrContractCallFailure, err, rw.Version)
 		}
 		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
-			return nil, fmt.Errorf("%w [%s]: getKeeperList v1.%d", ErrContractCallFailure, err, rw.Version)
+			return nil, errors.Errorf("%s [%s]: getKeeperList %s", ErrContractCallFailure, err, rw.Version)
 		}
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(config.BlockCountPerTurn.Int64()),
@@ -228,7 +242,7 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 	case RegistryVersion_1_2:
 		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
-			return nil, fmt.Errorf("%w [%s]: getState v1.%d", ErrContractCallFailure, err, rw.Version)
+			return nil, errors.Errorf("%s [%s]: getState %s", ErrContractCallFailure, err, rw.Version)
 		}
 
 		return &RegistryConfig{
