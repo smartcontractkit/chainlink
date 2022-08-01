@@ -1,6 +1,7 @@
 pragma solidity 0.8.6;
 
 import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -9,7 +10,6 @@ import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import "./interfaces/OVM_GasPriceOracle.sol";
 import {Config, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
@@ -29,14 +29,11 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  // PERFORM_DATA_PADDING includes 4 bytes for function selector, 32 bytes for upkeep id, and 35 bytes for L1 data
-  // padding for Optimism
-  bytes public PERFORM_DATA_PADDING =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  // MAX_MSG_DATA represents the estimated max size of msg.data in performUpkeep function, which includes 4 bytes for
-  // function selector, 32 bytes for upkeep id, and 64 bytes for estimated perform data
-  bytes public MAX_MSG_DATA =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
+  // function, which includes 4 bytes for function selector, 32 bytes for upkeep id, 35 bytes for data padding, and
+  // 32 bytes for estimated perform data
+  bytes public MAX_INPUT_DATA =
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -167,19 +164,19 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   /**
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
-   * @param registryGasOverhead the registry gas overhead
+   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
-    uint8 paymentModel,
+    PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
-    PAYMENT_MODEL = PaymentModel(paymentModel);
+    PAYMENT_MODEL = paymentModel;
     REGISTRY_GAS_OVERHEAD = registryGasOverhead;
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
@@ -280,7 +277,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
       if (isExecution) {
         data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        data = bytes.concat(performData, PERFORM_DATA_PADDING);
+        data = MAX_INPUT_DATA;
       }
     }
     uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, isExecution, data);

@@ -43,14 +43,14 @@ contract KeeperRegistryDev is
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism
-   * @param registryGasOverhead the registry gas overhead
+   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param config registry config settings
    */
   constructor(
-    uint8 paymentModel,
+    PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
@@ -463,7 +463,7 @@ contract KeeperRegistryDev is
     uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      data = bytes.concat(MAX_MSG_DATA, L1_FEE_DATA_PADDING);
+      data = MAX_INPUT_DATA;
     }
     return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, false, data);
   }
