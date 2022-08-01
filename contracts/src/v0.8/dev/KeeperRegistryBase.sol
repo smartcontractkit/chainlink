@@ -42,6 +42,19 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   address internal s_transcoder;
   address internal s_registrar;
 
+  // OCR storage variables
+  mapping(address => Transmitter) internal s_transmitters;
+  mapping(address => Signer) internal s_signers;
+  address[] internal s_signersList; // s_signersList contains the signing address of each oracle
+  address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
+  bytes32 internal s_latestConfigDigest;
+  HotVars internal s_hotVars;
+  // incremented each time a new config is posted. This count is incorporated
+  // into the config digest to prevent replay attacks.
+  uint32 internal s_configCount;
+  // makes it easier for offchain systems to extract config from logs
+  uint32 internal s_latestConfigBlockNumber;
+
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
@@ -121,6 +134,49 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 gasLimit;
     uint256 adjustedGasWei;
     uint256 linkEth;
+  }
+
+  // TODO: evaluate if we should store payment here
+  struct Transmitter {
+    bool active;
+    // Index of oracle in s_signersList/s_transmittersList
+    uint8 index;
+    // juels-denominated payment for transmitters, covering gas costs incurred
+    // by the transmitter plus additional rewards. The entire LINK supply (1e9
+    // LINK = 1e27 Juels) will always fit into a uint96.
+    uint96 paymentJuels;
+  }
+
+  struct Signer {
+    bool active;
+    // Index of oracle in s_signersList/s_transmittersList
+    uint8 index;
+  }
+
+  // TODO: evaluate if we need this
+  // Storing these fields used on the hot path in a HotVars variable reduces the
+  // retrieval of all of them to a single SLOAD.
+  struct HotVars {
+    // maximum number of faulty oracles
+    uint8 f;
+    // epoch and round from OCR protocol.
+    // 32 most sig bits for epoch, 8 least sig bits for round
+    uint40 latestEpochAndRound;
+    // Chainlink Aggregators expose a roundId to consumers. The offchain reporting
+    // protocol does not use this id anywhere. We increment it whenever a new
+    // transmission is made to provide callers with contiguous ids for successive
+    // reports.
+    uint32 latestAggregatorRoundId;
+    // Highest compensated gas price, in gwei uints
+    uint32 maximumGasPriceGwei;
+    // If gas price is less (in gwei units), transmitter gets half the savings
+    uint32 reasonableGasPriceGwei;
+    // Fixed LINK reward for each observer
+    uint32 observationPaymentGjuels;
+    // Fixed reward for transmitter
+    uint32 transmissionPaymentGjuels;
+    // Overhead incurred by accounting logic
+    uint24 accountingGas;
   }
 
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
