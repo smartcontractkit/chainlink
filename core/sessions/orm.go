@@ -283,7 +283,7 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 
 		// Patch validated password is newPassword is specified
 		if newPassword != "" {
-			pwd, err := ValidateAndHashPassword(newPassword)
+			pwd, err := ValidateAndHashPassword(newPassword, userToEdit.Email)
 			if err != nil {
 				return err
 			}

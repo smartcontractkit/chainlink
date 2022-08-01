@@ -49,7 +49,7 @@ func NewUser(email string, plainPwd string, role UserRole) (User, error) {
 		return User{}, err
 	}
 
-	pwd, err := ValidateAndHashPassword(plainPwd)
+	pwd, err := ValidateAndHashPassword(plainPwd, email)
 	if err != nil {
 		return User{}, err
 	}
@@ -73,8 +73,8 @@ func ValidateEmail(email string) error {
 }
 
 // ValidateAndHashPassword is the single point of logic for user password validations
-func ValidateAndHashPassword(plainPwd string) (string, error) {
-	if err := utils.VerifyPasswordComplexity(plainPwd); err != nil {
+func ValidateAndHashPassword(plainPwd string, email string) (string, error) {
+	if err := utils.VerifyPasswordComplexity(plainPwd, email); err != nil {
 		return "", errors.Wrapf(err, "password insufficiently complex:\n%s", utils.PasswordComplexityRequirements)
 	}
 	if len(plainPwd) > MaxBcryptPasswordLength {
