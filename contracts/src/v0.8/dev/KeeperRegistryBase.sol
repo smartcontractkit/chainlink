@@ -29,7 +29,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
-  EnumerableSet.UintSet internal s_pausedUpkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
   mapping(address => KeeperInfo) internal s_keeperInfo;
   mapping(address => address) internal s_proposedPayee;
@@ -75,8 +74,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error InvalidRecipient();
   error InvalidDataLength();
   error TargetCheckReverted(bytes reason);
-  error OnlyActiveUpkeep();
-  error UpkeepNotPaused();
+  error OnlyNonPausedUpkeep();
+  error OnlyPausedUpkeep();
 
   enum MigrationPermission {
     NONE,
@@ -214,7 +213,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 maxLinkPayment
   ) internal view {
-    if (upkeep.paused) revert OnlyActiveUpkeep();
+    if (upkeep.paused) revert OnlyNonPausedUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
     if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();

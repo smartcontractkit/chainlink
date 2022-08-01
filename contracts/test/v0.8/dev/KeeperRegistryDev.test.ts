@@ -398,14 +398,14 @@ describe('KeeperRegistryDev', () => {
 
       await evmRevert(
         registry.connect(owner).pauseUpkeep(id),
-        'OnlyActiveUpkeep()',
+        'OnlyNonPausedUpkeep()',
       )
     })
 
-    it('reverts if the caller is not the owner', async () => {
+    it('reverts if the caller is not the upkeep admin', async () => {
       await evmRevert(
         registry.connect(keeper1).pauseUpkeep(id),
-        'OnlyCallableByOwnerOrRegistrar()',
+        'OnlyCallableByAdmin()',
       )
     })
 
@@ -454,11 +454,11 @@ describe('KeeperRegistryDev', () => {
     it('reverts if the upkeep is not paused', async () => {
       await evmRevert(
         registry.connect(owner).unpauseUpkeep(id),
-        'UpkeepNotPaused()',
+        'OnlyPausedUpkeep()',
       )
     })
 
-    it('reverts if the caller is not the owner', async () => {
+    it('reverts if the caller is not the upkeep admin', async () => {
       await registry.connect(owner).pauseUpkeep(id)
 
       const registration = await registry.getUpkeep(id)
@@ -467,7 +467,7 @@ describe('KeeperRegistryDev', () => {
 
       await evmRevert(
         registry.connect(keeper1).unpauseUpkeep(id),
-        'OnlyCallableByOwnerOrRegistrar()',
+        'OnlyCallableByAdmin()',
       )
     })
 
