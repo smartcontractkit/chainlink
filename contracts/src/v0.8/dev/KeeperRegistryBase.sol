@@ -27,12 +27,14 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint64 internal constant UINT64_MAX = 2**64 - 1;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
-  // L1_FEE_DATA_PADDING includes 17 bytes for L1 data padding for Optimism
-  bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffff";
-  // PERFORM_DATA_PADDING includes 4 bytes for function selector, 32 bytes for upkeep id, and 17 bytes for L1 data padding for Optimism
+  // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
+  bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // PERFORM_DATA_PADDING includes 4 bytes for function selector, 32 bytes for upkeep id, and 35 bytes for L1 data
+  // padding for Optimism
   bytes public PERFORM_DATA_PADDING =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  // MAX_MSG_DATA represents the estimated 100 bytes max size of msg.data in performUpkeep function
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // MAX_MSG_DATA represents the estimated max size of msg.data in performUpkeep function, which includes 4 bytes for
+  // function selector, 32 bytes for upkeep id, and 64 bytes for estimated perform data
   bytes public MAX_MSG_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
