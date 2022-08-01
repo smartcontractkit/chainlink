@@ -3,9 +3,10 @@ package client
 import (
 	"bytes"
 	"fmt"
-	"gopkg.in/guregu/null.v4"
 	"text/template"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 )
 
 // EIServiceConfig represents External Initiator service config

@@ -1,4 +1,4 @@
-package evm_test
+package evm
 
 import (
 	"context"
@@ -20,13 +20,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -57,14 +56,14 @@ func TestConfigPoller(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewPGCfg(false)
-	ethClient := cltest.NewSimulatedBackendClient(t, b, big.NewInt(1337))
+	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller := evm.NewConfigPoller(lggr, lp, ocrAddress)
+	logPoller := NewConfigPoller(lggr, lp, ocrAddress)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(context.Background())
 	require.NoError(t, err)
@@ -138,9 +137,9 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		1, // faults
 		nil,
 	)
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	transmitterAddresses, err := evm.AccountToAddress(transmitters)
+	transmitterAddresses, err := AccountToAddress(transmitters)
 	require.NoError(t, err)
 	_, err = ocrContract.SetConfig(user, signerAddresses, transmitterAddresses, threshold, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err)
