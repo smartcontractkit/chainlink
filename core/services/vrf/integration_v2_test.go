@@ -854,7 +854,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	t.Log("Done!")
 }
@@ -905,7 +905,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_SmallCallback(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	t.Log("Done!")
 }
@@ -1039,7 +1039,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID, wrapperSubID, uni, db)
@@ -1108,7 +1108,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper_Big_Callback_Revert(t *testing.
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID, wrapperSubID, uni, db)
