@@ -293,8 +293,8 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
 			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0000",
-			AdminAddress:   "0x0001",
+			AccountAddress: "0x0000000000000000000000000000000000000000",
+			AdminAddress:   "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -333,6 +333,27 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 	actual, err := svc.CreateChainConfig(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+}
+
+func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.CreateChainConfig(cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
 func Test_Service_DeleteChainConfig(t *testing.T) {
@@ -395,8 +416,8 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			FeedsManagerID:    mgr.ID,
 			ChainID:           "42",
 			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0000",
-			AdminAddress:      "0x0001",
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
 			OCR2Config:        feeds.OCR2Config{Enabled: false},
@@ -429,6 +450,27 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 	actual, err := svc.UpdateChainConfig(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+}
+
+func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.UpdateChainConfig(cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
 func Test_Service_ProposeJob(t *testing.T) {
