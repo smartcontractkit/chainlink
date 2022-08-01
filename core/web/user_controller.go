@@ -96,6 +96,12 @@ func (c *UserController) Update(ctx *gin.Context) {
 		return
 	}
 
+	// Validate email
+	if err := clsession.ValidateEmail(request.NewEmail); err != nil {
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
 	// Don't allow current admin user to edit self
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {

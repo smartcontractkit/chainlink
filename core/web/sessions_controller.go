@@ -37,6 +37,12 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		return
 	}
 
+	// Validate email
+	if err := clsessions.ValidateEmail(sr.Email); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
 	// Does this user have 2FA enabled?
 	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
 	if err != nil {
