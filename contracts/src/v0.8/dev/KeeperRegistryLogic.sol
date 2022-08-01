@@ -9,16 +9,18 @@ import "./KeeperRegistryBase.sol";
 contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @param paymentModel one of Default, Arbitrum, Optimism
+   * @param registryGasOverhead the registry gas overhead
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
     uint8 paymentModel,
+    uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed
-  ) KeeperRegistryBase(paymentModel, link, linkEthFeed, fastGasFeed) {}
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id, address from)
     external

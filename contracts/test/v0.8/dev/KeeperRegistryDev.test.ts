@@ -32,7 +32,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(360034)
+const CHECK_GAS_OVERHEAD = BigNumber.from(360057)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -142,7 +142,13 @@ describe('KeeperRegistryDev', () => {
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+      .deploy(
+        0,
+        registryGasOverhead,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
 
     const config = {
       paymentPremiumPPB,
@@ -153,7 +159,6 @@ describe('KeeperRegistryDev', () => {
       gasCeilingMultiplier,
       minUpkeepSpend,
       maxPerformGas,
-      registryGasOverhead,
       fallbackGasPrice,
       fallbackLinkPrice,
       transcoder: transcoder.address,
@@ -163,6 +168,7 @@ describe('KeeperRegistryDev', () => {
       .connect(owner)
       .deploy(
         0,
+        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -171,11 +177,18 @@ describe('KeeperRegistryDev', () => {
       )
     registryLogic2 = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+      .deploy(
+        0,
+        registryGasOverhead,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
     registry2 = await keeperRegistryFactory
       .connect(owner)
       .deploy(
         0,
+        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -646,7 +659,6 @@ describe('KeeperRegistryDev', () => {
             gasCeilingMultiplier: newGasMultiplier,
             minUpkeepSpend,
             maxPerformGas,
-            registryGasOverhead,
             fallbackGasPrice,
             fallbackLinkPrice,
             transcoder: transcoder.address,
@@ -859,7 +871,6 @@ describe('KeeperRegistryDev', () => {
           gasCeilingMultiplier: multiplier,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
@@ -898,7 +909,6 @@ describe('KeeperRegistryDev', () => {
           gasCeilingMultiplier: multiplier,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
@@ -1213,7 +1223,6 @@ describe('KeeperRegistryDev', () => {
           gasCeilingMultiplier,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
@@ -1259,7 +1268,6 @@ describe('KeeperRegistryDev', () => {
           gasCeilingMultiplier,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
@@ -1297,7 +1305,6 @@ describe('KeeperRegistryDev', () => {
           gasCeilingMultiplier,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
@@ -1348,7 +1355,6 @@ describe('KeeperRegistryDev', () => {
         gasCeilingMultiplier,
         minUpkeepSpend,
         maxPerformGas,
-        registryGasOverhead,
         fallbackGasPrice,
         fallbackLinkPrice,
         transcoder: transcoder.address,
@@ -1715,7 +1721,6 @@ describe('KeeperRegistryDev', () => {
           gasCeilingMultiplier,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fallbackGasPrice: fbGasEth,
           fallbackLinkPrice: fbLinkEth,
           transcoder: transcoder.address,
@@ -1742,7 +1747,6 @@ describe('KeeperRegistryDev', () => {
         gasCeilingMultiplier: ceiling,
         minUpkeepSpend,
         maxPerformGas,
-        registryGasOverhead,
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
         transcoder: transcoder.address,
@@ -1770,7 +1774,6 @@ describe('KeeperRegistryDev', () => {
         gasCeilingMultiplier: ceiling,
         minUpkeepSpend,
         maxPerformGas,
-        registryGasOverhead,
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
         transcoder: transcoder.address,
@@ -1787,7 +1790,6 @@ describe('KeeperRegistryDev', () => {
           ceiling,
           minUpkeepSpend,
           maxPerformGas,
-          registryGasOverhead,
           fbGasEth,
           fbLinkEth,
         ])
@@ -1994,7 +1996,6 @@ describe('KeeperRegistryDev', () => {
               gasCeilingMultiplier,
               minUpkeepSpend,
               maxPerformGas,
-              registryGasOverhead,
               fallbackGasPrice,
               fallbackLinkPrice,
               transcoder: transcoder.address,
@@ -2124,7 +2125,6 @@ describe('KeeperRegistryDev', () => {
         gasCeilingMultiplier: multiplier,
         minUpkeepSpend,
         maxPerformGas,
-        registryGasOverhead,
         fallbackGasPrice,
         fallbackLinkPrice,
         transcoder: transcoder.address,

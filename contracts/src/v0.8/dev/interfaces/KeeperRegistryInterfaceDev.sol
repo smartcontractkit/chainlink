@@ -18,7 +18,6 @@ pragma solidity ^0.8.0;
  * when calculating the payment ceiling for keepers
  * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
  * @member maxPerformGas max executeGas allowed for an upkeep on this registry
- * @member registryGasOverhead gas overhead of the registry
  * @member fallbackGasPrice gas price used if the gas price feed is stale
  * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
  * @member transcoder address of the transcoder contract
@@ -33,7 +32,6 @@ struct Config {
   uint16 gasCeilingMultiplier;
   uint96 minUpkeepSpend;
   uint32 maxPerformGas;
-  uint32 registryGasOverhead;
   uint256 fallbackGasPrice;
   uint256 fallbackLinkPrice;
   address transcoder;

@@ -43,6 +43,7 @@ contract KeeperRegistryDev is
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism
+   * @param registryGasOverhead the registry gas overhead
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
@@ -50,12 +51,13 @@ contract KeeperRegistryDev is
    */
   constructor(
     uint8 paymentModel,
+    uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
     Config memory config
-  ) KeeperRegistryBase(paymentModel, link, linkEthFeed, fastGasFeed) {
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setConfig(config);
   }
@@ -321,8 +323,7 @@ contract KeeperRegistryDev is
       gasCeilingMultiplier: config.gasCeilingMultiplier,
       minUpkeepSpend: config.minUpkeepSpend,
       maxPerformGas: config.maxPerformGas,
-      nonce: s_storage.nonce,
-      registryGasOverhead: config.registryGasOverhead
+      nonce: s_storage.nonce
     });
     s_fallbackGasPrice = config.fallbackGasPrice;
     s_fallbackLinkPrice = config.fallbackLinkPrice;
@@ -438,7 +439,6 @@ contract KeeperRegistryDev is
     config.gasCeilingMultiplier = store.gasCeilingMultiplier;
     config.minUpkeepSpend = store.minUpkeepSpend;
     config.maxPerformGas = store.maxPerformGas;
-    config.registryGasOverhead = store.registryGasOverhead;
     config.fallbackGasPrice = s_fallbackGasPrice;
     config.fallbackLinkPrice = s_fallbackLinkPrice;
     config.transcoder = s_transcoder;
@@ -463,7 +463,7 @@ contract KeeperRegistryDev is
     uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
     bytes memory data = new bytes(0);
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      data = bytes.concat(ESTIMATED_MSG_DATA, L1_FEE_DATA_PADDING);
+      data = bytes.concat(MAX_MSG_DATA, L1_FEE_DATA_PADDING);
     }
     return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, false, data);
   }
