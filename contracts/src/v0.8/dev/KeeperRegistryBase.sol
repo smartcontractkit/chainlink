@@ -220,6 +220,14 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   /**
+   * @dev ensures all required checks are passed before pausing/unpausing an upkeep
+   */
+  function _prePauseUnpauseUpkeep(Upkeep memory upkeep) internal view {
+    if (msg.sender != upkeep.admin) revert OnlyCallableByAdmin();
+    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+  }
+
+  /**
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
   function _adjustGasPrice(uint256 gasWei, bool useTxGasPrice) internal view returns (uint256 adjustedPrice) {

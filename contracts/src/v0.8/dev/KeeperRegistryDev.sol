@@ -146,8 +146,9 @@ contract KeeperRegistryDev is
    * @notice pause an upkeep
    * @param id upkeep to be paused
    */
-  function pauseUpkeep(uint256 id) external override onlyNonCanceledUpkeep(id) onlyUpkeepAdmin(id) {
+  function pauseUpkeep(uint256 id) external override {
     Upkeep memory upkeep = s_upkeep[id];
+    _prePauseUnpauseUpkeep(upkeep);
     if (upkeep.paused) revert OnlyNonPausedUpkeep();
 
     s_upkeep[id].paused = true;
@@ -159,8 +160,9 @@ contract KeeperRegistryDev is
    * @notice unpause an upkeep
    * @param id upkeep to be resumed
    */
-  function unpauseUpkeep(uint256 id) external override onlyNonCanceledUpkeep(id) onlyUpkeepAdmin(id) {
+  function unpauseUpkeep(uint256 id) external override {
     Upkeep memory upkeep = s_upkeep[id];
+    _prePauseUnpauseUpkeep(upkeep);
     if (!upkeep.paused) revert OnlyPausedUpkeep();
 
     s_upkeep[id].paused = false;
