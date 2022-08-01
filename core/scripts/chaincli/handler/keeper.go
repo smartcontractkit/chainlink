@@ -347,8 +347,8 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 
 // createKeeperJobOnExistingNode connect to existing node to create keeper job
 func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registryAddr, nodeAddr string) error {
-	lggr, close := logger.NewLogger()
-	defer close()
+	lggr, closeLogger := logger.NewLogger()
+	defer closeLogger()
 
 	cl, err := k.authenticate(urlStr, email, password, lggr)
 	if err != nil {
