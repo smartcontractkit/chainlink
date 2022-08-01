@@ -250,7 +250,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenPayload),
-              'Transaction reverted without a reason string',
+              'Forwarded call reverted without reason',
             )
           })
         })

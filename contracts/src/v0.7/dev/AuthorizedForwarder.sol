@@ -79,7 +79,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     require(to.isContract(), "Must forward to a contract");
     (bool success, bytes memory result) = to.call(data);
     if (!success) {
-      if (result.length == 0) revert();
+      if (result.length == 0) revert("Forwarded call reverted without reason");
       assembly {
         revert(add(32, result), mload(result))
       }
