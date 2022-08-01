@@ -47,7 +47,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   AggregatorV3Interface public immutable FAST_GAS_FEED;
 
   error CannotCancel();
-  error UpkeepNotActive();
+  error UpkeepCancelled();
   error MigrationNotPermitted();
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();

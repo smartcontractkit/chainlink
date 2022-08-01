@@ -384,20 +384,20 @@ describe('KeeperRegistryDev', () => {
       })
     })
 
-    it('reverts if the upkeep is not active', async () => {
-      await registry.connect(owner).cancelUpkeep(id)
+    it('reverts if the upkeep is already canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
 
       await evmRevert(
-        registry.connect(owner).pauseUpkeep(id),
-        'UpkeepNotActive()',
+        registry.connect(admin).pauseUpkeep(id),
+        'UpkeepCancelled()',
       )
     })
 
     it('reverts if the upkeep is already paused', async () => {
-      await registry.connect(owner).pauseUpkeep(id)
+      await registry.connect(admin).pauseUpkeep(id)
 
       await evmRevert(
-        registry.connect(owner).pauseUpkeep(id),
+        registry.connect(admin).pauseUpkeep(id),
         'OnlyNonPausedUpkeep()',
       )
     })
@@ -410,7 +410,7 @@ describe('KeeperRegistryDev', () => {
     })
 
     it('pauses the upkeep and emits an event', async () => {
-      const tx = await registry.connect(owner).pauseUpkeep(id)
+      const tx = await registry.connect(admin).pauseUpkeep(id)
       await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id)
 
       const registration = await registry.getUpkeep(id)
@@ -442,24 +442,24 @@ describe('KeeperRegistryDev', () => {
       })
     })
 
-    it('reverts if the upkeep is not active', async () => {
+    it('reverts if the upkeep is already canceled', async () => {
       await registry.connect(owner).cancelUpkeep(id)
 
       await evmRevert(
-        registry.connect(owner).unpauseUpkeep(id),
-        'UpkeepNotActive()',
+        registry.connect(admin).unpauseUpkeep(id),
+        'UpkeepCancelled()',
       )
     })
 
     it('reverts if the upkeep is not paused', async () => {
       await evmRevert(
-        registry.connect(owner).unpauseUpkeep(id),
+        registry.connect(admin).unpauseUpkeep(id),
         'OnlyPausedUpkeep()',
       )
     })
 
     it('reverts if the caller is not the upkeep admin', async () => {
-      await registry.connect(owner).pauseUpkeep(id)
+      await registry.connect(admin).pauseUpkeep(id)
 
       const registration = await registry.getUpkeep(id)
 
@@ -472,9 +472,9 @@ describe('KeeperRegistryDev', () => {
     })
 
     it('unpauses the upkeep and emits an event', async () => {
-      await registry.connect(owner).pauseUpkeep(id)
+      await registry.connect(admin).pauseUpkeep(id)
 
-      const tx = await registry.connect(owner).unpauseUpkeep(id)
+      const tx = await registry.connect(admin).unpauseUpkeep(id)
 
       await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(id)
 
@@ -593,7 +593,7 @@ describe('KeeperRegistryDev', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).addFunds(id.add(1), amount),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
@@ -614,7 +614,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
   })
@@ -625,7 +625,7 @@ describe('KeeperRegistryDev', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
@@ -633,7 +633,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
@@ -761,7 +761,7 @@ describe('KeeperRegistryDev', () => {
         })
 
         it('reverts if the upkeep is paused', async () => {
-          await registry.connect(owner).pauseUpkeep(id)
+          await registry.connect(admin).pauseUpkeep(id)
 
           await evmRevert(
             registry
@@ -1096,12 +1096,12 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'UpkeepNotActive()',
+          'UpkeepCancelled()',
         )
       })
 
       it('reverts if the upkeep is paused', async () => {
-        await registry.connect(owner).pauseUpkeep(id)
+        await registry.connect(admin).pauseUpkeep(id)
 
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
@@ -1555,7 +1555,7 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'UpkeepNotActive()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -1629,7 +1629,7 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'UpkeepNotActive()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -1984,7 +1984,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
