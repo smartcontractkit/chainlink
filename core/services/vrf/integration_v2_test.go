@@ -815,7 +815,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
 	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
 
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_big_gas_happypath")
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_eip150_happypath")
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(gasLimit, true)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -866,7 +866,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_SmallCallback(t *testing.T) {
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
 	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
 
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_big_gas_happypath")
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_eip150_smallcallback")
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(gasLimit, true)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -916,7 +916,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
 	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
 
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_big_gas_revert")
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_eip150_revert")
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(gasLimit, true)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -988,7 +988,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	maxNumWords := uint32(10)
 
 	callBackGasLimit := int64(100_000) // base callback gas.
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_big_gas_happypath")
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_wrapper")
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(3_500_000, true)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1057,7 +1057,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper_Big_Callback_Revert(t *testing.
 	maxNumWords := uint32(10)
 
 	callBackGasLimit := int64(2_000_000) // base callback gas.
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_big_gas_happypath")
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_wrapper_big_callback_revert")
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(3_500_000, true)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	ownerKey := cltest.MustGenerateRandomKey(t)
