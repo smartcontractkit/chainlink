@@ -145,7 +145,6 @@ func (c *chainScopedConfig) Configure(config evmtypes.ChainCfg) {
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
 	c.persistedCfg = config
-	return
 }
 
 func (c *chainScopedConfig) PersistedConfig() evmtypes.ChainCfg {
