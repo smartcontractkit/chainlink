@@ -100,7 +100,7 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpke
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter UpkeepGetter, registry Registry, upkeepID *utils.Big, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, registry Registry, upkeepID *utils.Big, doneCallback func()) {
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(getter, registry, upkeepID); err != nil {
@@ -111,7 +111,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter UpkeepGetter, regi
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(getter UpkeepGetter, registry Registry, upkeepID *utils.Big) error {
+func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registry, upkeepID *utils.Big) error {
 	upkeep, err := getter.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")

@@ -16,14 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// GetUpkeepFailure implements the UpkeepGetter interface with an induced error and nil
+// GetUpkeepFailure implements the upkeepGetter interface with an induced error and nil
 // config response.
 type GetUpkeepFailure struct{}
 
-var ErrGetUpkeep = errors.New("chain connection error example")
+var errGetUpkeep = errors.New("chain connection error example")
 
 func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepConfig, error) {
-	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, ErrGetUpkeep, RegistryVersion_1_2)
+	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, errGetUpkeep, RegistryVersion_1_2)
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
