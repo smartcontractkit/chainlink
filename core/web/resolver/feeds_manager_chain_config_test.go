@@ -2,10 +2,8 @@ package resolver
 
 import (
 	"database/sql"
-	"errors"
 	"testing"
 
-	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -15,14 +13,13 @@ import (
 
 func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 	var (
-		mgrID        = int64(100)
-		cfgID        = int64(1)
-		chainID      = "42"
-		accountAddr  = "0x0000000000000000000000000000000000000001"
-		adminAddr    = "0x0000000000000000000000000000000000000001"
-		peerID       = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
-		keyBundleID  = null.StringFrom("6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562")
-		adminAddrErr = errors.New("invalid admin address: abc")
+		mgrID       = int64(100)
+		cfgID       = int64(1)
+		chainID     = "42"
+		accountAddr = "0x0000001"
+		adminAddr   = "0x0000002"
+		peerID      = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
+		keyBundleID = null.StringFrom("6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562")
 
 		mutation = `
 			mutation CreateFeedsManagerChainConfig($input: CreateFeedsManagerChainConfigInput!) {
@@ -52,21 +49,6 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 				"chainType":          "EVM",
 				"accountAddr":        accountAddr,
 				"adminAddr":          adminAddr,
-				"fluxMonitorEnabled": false,
-				"ocr1Enabled":        true,
-				"ocr1IsBootstrap":    false,
-				"ocr1P2PPeerID":      peerID.String,
-				"ocr1KeyBundleID":    keyBundleID.String,
-				"ocr2Enabled":        false,
-			},
-		}
-		variablesWithInvalidAdminAddress = map[string]interface{}{
-			"input": map[string]interface{}{
-				"feedsManagerID":     stringutils.FromInt64(mgrID),
-				"chainID":            chainID,
-				"chainType":          "EVM",
-				"accountAddr":        accountAddr,
-				"adminAddr":          "abc",
 				"fluxMonitorEnabled": false,
 				"ocr1Enabled":        true,
 				"ocr1IsBootstrap":    false,
@@ -160,24 +142,6 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 					"code": "NOT_FOUND"
 				}
 			}`,
-		},
-		{
-			name:          "invalid admin address",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-			},
-			query:     mutation,
-			variables: variablesWithInvalidAdminAddress,
-			result:    "null",
-			errors: []*gqlerrors.QueryError{
-				{
-					Path:          []interface{}{"createFeedsManagerChainConfig"},
-					ResolverError: adminAddrErr,
-					Message:       adminAddrErr.Error(),
-					Extensions:    nil,
-				},
-			},
 		},
 	}
 
@@ -300,21 +264,8 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 		variables = map[string]interface{}{
 			"id": "1",
 			"input": map[string]interface{}{
-				"accountAddr":        "0x0000000000000000000000000000000000000001",
-				"adminAddr":          "0x0000000000000000000000000000000000000001",
-				"fluxMonitorEnabled": false,
-				"ocr1Enabled":        true,
-				"ocr1IsBootstrap":    false,
-				"ocr1P2PPeerID":      "p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw",
-				"ocr1KeyBundleID":    "6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562",
-				"ocr2Enabled":        false,
-			},
-		}
-		variablesWithInvalidAdminAddress = map[string]interface{}{
-			"id": "1",
-			"input": map[string]interface{}{
-				"accountAddr":        "0x0000000000000000000000000000000000000001",
-				"adminAddr":          "abc",
+				"accountAddr":        "0x0000001",
+				"adminAddr":          "0x0000001",
 				"fluxMonitorEnabled": false,
 				"ocr1Enabled":        true,
 				"ocr1IsBootstrap":    false,
@@ -324,7 +275,6 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 			},
 		}
 	)
-	adminAddrErr := errors.New("invalid admin address: abc")
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "updateFeedsManagerChainConfig"),
@@ -335,8 +285,8 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateChainConfig", feeds.ChainConfig{
 					ID:             cfgID,
-					AccountAddress: "0x0000000000000000000000000000000000000001",
-					AdminAddress:   "0x0000000000000000000000000000000000000001",
+					AccountAddress: "0x0000001",
+					AdminAddress:   "0x0000001",
 					FluxMonitorConfig: feeds.FluxMonitorConfig{
 						Enabled: false,
 					},
@@ -348,8 +298,8 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				}).Return(cfgID, nil)
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
 					ID:             cfgID,
-					AccountAddress: "0x0000000000000000000000000000000000000001",
-					AdminAddress:   "0x0000000000000000000000000000000000000001",
+					AccountAddress: "0x0000001",
+					AdminAddress:   "0x0000001",
 					FluxMonitorConfig: feeds.FluxMonitorConfig{
 						Enabled: false,
 					},
@@ -405,24 +355,6 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 					"code": "NOT_FOUND"
 				}
 			}`,
-		},
-		{
-			name:          "invalid admin address",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-			},
-			query:     mutation,
-			variables: variablesWithInvalidAdminAddress,
-			result:    "null",
-			errors: []*gqlerrors.QueryError{
-				{
-					Path:          []interface{}{"updateFeedsManagerChainConfig"},
-					ResolverError: adminAddrErr,
-					Message:       adminAddrErr.Error(),
-					Extensions:    nil,
-				},
-			},
 		},
 	}
 
