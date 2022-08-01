@@ -10,7 +10,6 @@ import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInte
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
-import "./interfaces/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -19,11 +18,9 @@ import "./interfaces/OCR2Abstract.sol";
 contract KeeperRegistryDev is
   KeeperRegistryBase,
   Proxy,
-  TypeAndVersionInterface,
   KeeperRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
-  ERC677ReceiverInterface,
-  OCR2Abstract
+  ERC677ReceiverInterface
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -70,68 +67,9 @@ contract KeeperRegistryDev is
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) external override onlyOwner {
-    require(signers.length <= maxNumOracles, "too many oracles");
-    require(signers.length == transmitters.length, "oracle length mismatch");
-    require(3 * f < signers.length, "faulty-oracle f too high");
-    require(0 < f, "f must be positive");
-    require(onchainConfig.length == 0, "onchainConfig must be empty");
-
-    // remove any old signer/transmitter addresses
-    uint256 oldLength = s_signersList.length;
-    for (uint256 i = 0; i < oldLength; i++) {
-      address signer = s_signersList[i];
-      address transmitter = s_transmittersList[i];
-      delete s_signers[signer];
-      delete s_transmitters[transmitter];
-    }
-    delete s_signersList;
-    delete s_transmittersList;
-
-    // add new signer/transmitter addresses
-    for (uint256 i = 0; i < signers.length; i++) {
-      require(!s_signers[signers[i]].active, "repeated signer address");
-      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
-      require(!s_transmitters[transmitters[i]].active, "repeated transmitter address");
-      s_transmitters[transmitters[i]] = Transmitter({active: true, index: uint8(i), paymentJuels: 0});
-    }
-    s_signersList = signers;
-    s_transmittersList = transmitters;
-
-    s_hotVars.latestEpochAndRound = 0;
-    s_hotVars.f = f;
-    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
-    s_latestConfigBlockNumber = uint32(block.number);
-    s_configCount += 1;
-    s_latestConfigDigest = _configDigestFromConfigData(
-      block.chainid,
-      address(this),
-      s_configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    emit ConfigSet(
-      previousConfigBlockNumber,
-      s_latestConfigDigest,
-      s_configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    // TODO: understand if this is needed
-    /*uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
-    for (uint256 i = 0; i < signers.length; i++) {
-      s_rewardFromAggregatorRoundId[i] = latestAggregatorRoundId;
-    }*/
+  ) external override {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
