@@ -41,6 +41,7 @@ func TestETHTxTask(t *testing.T) {
 		evmChainID            string
 		transmitChecker       string
 		specGasLimit          *uint32
+		allowForwarding       bool
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager)
@@ -60,6 +61,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			`{"CheckerType": "vrf_v2", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -103,6 +105,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -148,6 +151,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -195,6 +199,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -242,6 +247,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -274,6 +280,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil, // spec does not override gas limit
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -310,6 +317,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			&specGasLimit,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -346,6 +354,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
@@ -375,6 +384,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -412,6 +422,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -430,6 +441,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -448,6 +460,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -466,6 +479,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -483,6 +497,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager) {
@@ -506,6 +521,7 @@ func TestETHTxTask(t *testing.T) {
 			"$(evmChainID)",
 			"",
 			nil,
+			false,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
