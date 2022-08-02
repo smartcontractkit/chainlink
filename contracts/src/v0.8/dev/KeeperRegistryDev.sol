@@ -147,38 +147,12 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @notice pause an upkeep
-   * @param id upkeep to be paused
-   */
-  function pauseUpkeep(uint256 id) external override {
-    Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    s_upkeep[id].paused = true;
-    s_upkeepIDs.remove(id);
-    emit UpkeepPaused(id);
-  }
-
-  /**
-   * @notice unpause an upkeep
-   * @param id upkeep to be resumed
-   */
-  function unpauseUpkeep(uint256 id) external override {
-    Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
-    if (!upkeep.paused) revert OnlyPausedUpkeep();
-    s_upkeep[id].paused = false;
-    s_upkeepIDs.add(id);
-    emit UpkeepUnpaused(id);
-  }
-
-  /**
    * @notice adds LINK funding for an upkeep by transferring from the sender's
    * LINK balance
    * @param id upkeep to fund
    * @param amount number of LINK to transfer
    */
-  function addFunds(uint256 id, uint96 amount) external override onlyNonCanceledUpkeep(id) {
+  function addFunds(uint256 id, uint96 amount) external override onlyActiveUpkeep(id) {
     s_upkeep[id].balance = s_upkeep[id].balance + amount;
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
     LINK.transferFrom(msg.sender, address(this), amount);
@@ -199,7 +173,7 @@ contract KeeperRegistryDev is
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
@@ -251,12 +225,7 @@ contract KeeperRegistryDev is
    * @param id upkeep to be change the gas limit for
    * @param gasLimit new gas limit for the upkeep
    */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit)
-    external
-    override
-    onlyNonCanceledUpkeep(id)
-    onlyUpkeepAdmin(id)
-  {
+  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override onlyActiveUpkeep(id) onlyUpkeepAdmin(id) {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
 
     s_upkeep[id].executeGas = gasLimit;
@@ -391,8 +360,7 @@ contract KeeperRegistryDev is
       address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
-      uint96 amountSpent,
-      bool paused
+      uint96 amountSpent
     )
   {
     Upkeep memory reg = s_upkeep[id];
@@ -404,17 +372,16 @@ contract KeeperRegistryDev is
       reg.lastKeeper,
       reg.admin,
       reg.maxValidBlocknumber,
-      reg.amountSpent,
-      reg.paused
+      reg.amountSpent
     );
   }
 
   /**
-   * @notice retrieve active upkeep IDs. Active upkeep is defined as an upkeep which is not paused and not canceled.
+   * @notice retrieve active upkeep IDs
    * @param startIndex starting index in list
    * @param maxCount max count to retrieve (0 = unlimited)
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
-   * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
+   * should consider keeping the blockheight constant to ensure a wholistic picture of the contract state
    */
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
@@ -535,7 +502,7 @@ contract KeeperRegistryDev is
       id = ids[idx];
       upkeep = s_upkeep[id];
       if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
-      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
@@ -618,8 +585,7 @@ contract KeeperRegistryDev is
       admin: admin,
       maxValidBlocknumber: UINT64_MAX,
       lastKeeper: ZERO_ADDRESS,
-      amountSpent: 0,
-      paused: false
+      amountSpent: 0
     });
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
@@ -696,7 +662,7 @@ contract KeeperRegistryDev is
    * @dev ensures a upkeep is valid
    */
   modifier validUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepCancelled();
+    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
     _;
   }
 
@@ -711,8 +677,8 @@ contract KeeperRegistryDev is
   /**
    * @dev Reverts if called on a cancelled upkeep
    */
-  modifier onlyNonCanceledUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+  modifier onlyActiveUpkeep(uint256 id) {
+    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
     _;
   }
 

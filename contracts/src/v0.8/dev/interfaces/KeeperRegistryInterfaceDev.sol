@@ -65,10 +65,6 @@ interface KeeperRegistryBaseInterface {
 
   function cancelUpkeep(uint256 id) external;
 
-  function pauseUpkeep(uint256 id) external;
-
-  function unpauseUpkeep(uint256 id) external;
-
   function addFunds(uint256 id, uint96 amount) external;
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
@@ -84,8 +80,7 @@ interface KeeperRegistryBaseInterface {
       address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
-      uint96 amountSpent,
-      bool paused
+      uint96 amountSpent
     );
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
