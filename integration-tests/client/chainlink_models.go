@@ -421,6 +421,49 @@ type SolanaNodeCreate struct {
 	Data SolanaNode `json:"data"`
 }
 
+type StarknetChainConfig struct {
+	OCR2CachePollPeriod null.String
+	OCR2CacheTTL        null.String
+	RequestTimeout      null.String
+	TxTimeout           null.Bool
+	TxSendFrequency     null.String
+	TxMaxBatchSize      null.String
+}
+
+// StarknetChainAttributes is the model that represents the starknet chain
+type StarknetChainAttributes struct {
+	Type    string              `json:"type"`
+	ChainID string              `json:"chainID"`
+	Config  StarknetChainConfig `json:"config"`
+}
+
+// StarknetChain is the model that represents the starknet chain when read
+type StarknetChain struct {
+	Attributes StarknetChainAttributes `json:"attributes"`
+}
+
+// StarknetChainCreate is the model that represents the starknet chain when created
+type StarknetChainCreate struct {
+	Data StarknetChain `json:"data"`
+}
+
+// StarknetNodeAttributes is the model that represents the starknet node
+type StarknetNodeAttributes struct {
+	Name    string `json:"name"`
+	ChainID string `json:"chainId"`
+	Url     string `json:"url"`
+}
+
+// StarknetNode is the model that represents the starknet node when read
+type StarknetNode struct {
+	Attributes StarknetNodeAttributes `json:"attributes"`
+}
+
+// SolanaNodeCreate is the model that represents the solana node when created
+type StarknetNodeCreate struct {
+	Data StarknetNode `json:"data"`
+}
+
 // SpecForm is the form used when creating a v2 job spec, containing the TOML of the v2 job
 type SpecForm struct {
 	TOML string `json:"toml"`
