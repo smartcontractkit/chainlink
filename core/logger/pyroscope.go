@@ -3,9 +3,14 @@ package logger
 import (
 	"runtime"
 
+	"github.com/pkg/errors"
 	"github.com/pyroscope-io/client/pyroscope"
 )
 
+// PyroscopeServerAddrMissingErr error to be triggered if the server address is missing
+var PyroscopeServerAddrMissingErr = errors.New("pyroscope server address is missing")
+
+// PyroscopeConfig represents the expected configuration for Pyroscope to properly work
 type PyroscopeConfig interface {
 	PyroscopeServerAddress() string
 	PyroscopeAuthToken() string
@@ -16,6 +21,10 @@ type PyroscopeConfig interface {
 
 // StartPyroscope starts continuous profiling of the Chainlink Node
 func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
+	if cfg.PyroscopeServerAddress() == "" {
+		return nil, PyroscopeServerAddrMissingErr
+	}
+
 	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
 	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
 
