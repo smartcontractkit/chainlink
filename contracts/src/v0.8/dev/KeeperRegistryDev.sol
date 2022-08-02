@@ -369,6 +369,7 @@ contract KeeperRegistryDev is
    * @notice updates the configuration of the registry
    * @param params registry parameter fields
    */
+  // TODO: Try to combine with onChain config
   function setRegistryParams(RegistryParams memory params) public onlyOwner {
     if (params.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
     s_storage = Storage({
