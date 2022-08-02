@@ -43,7 +43,6 @@ type dkgSetConfigArgs struct {
 
 type vrfBeaconCoordinatorSetConfigArgs struct {
 	commonSetConfigArgs
-	keyID      string
 	confDelays string
 }
 
@@ -149,7 +148,6 @@ func main() {
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "VRF beacon coordinator contract address")
-		keyID := cmd.String("key-id", "", "key ID")
 		confDelays := cmd.String("conf-delays", "1,2,3,4,5,6,7,8", "comma-separted list of 8 confirmation delays")
 		onchainPubKeys := cmd.String("onchain-pub-keys", "", "comma-separated list of OCR on-chain pubkeys")
 		offchainPubKeys := cmd.String("offchain-pub-keys", "", "comma-separated list of OCR off-chain pubkeys")
@@ -174,7 +172,6 @@ func main() {
 		helpers.ParseArgs(cmd,
 			os.Args[2:],
 			"coordinator-address",
-			"key-id",
 			"onchain-pub-keys",
 			"offchain-pub-keys",
 			"config-pub-keys",
@@ -203,7 +200,6 @@ func main() {
 				maxDurationAccept:      *maxDurationAccept,
 				maxDurationTransmit:    *maxDurationTransmit,
 			},
-			keyID:      *keyID,
 			confDelays: *confDelays,
 		}
 

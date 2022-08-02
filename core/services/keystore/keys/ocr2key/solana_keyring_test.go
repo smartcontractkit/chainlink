@@ -45,10 +45,10 @@ func TestSolanaKeyring_Sign_Verify(t *testing.T) {
 func TestSolanaKeyring_Marshalling(t *testing.T) {
 	kr1, err := newSolanaKeyring(cryptorand.Reader)
 	require.NoError(t, err)
-	m, err := kr1.marshal()
+	m, err := kr1.Marshal()
 	require.NoError(t, err)
 	kr2 := solanaKeyring{}
-	err = kr2.unmarshal(m)
+	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(kr1.PublicKey(), kr2.PublicKey()))
 	assert.True(t, bytes.Equal(kr1.privateKey.D.Bytes(), kr2.privateKey.D.Bytes()))
