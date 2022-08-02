@@ -459,7 +459,7 @@ type StarknetNode struct {
 	Attributes StarknetNodeAttributes `json:"attributes"`
 }
 
-// StarknetNodeCreate is the model that represents the solana node when created
+// StarknetNodeCreate is the model that represents the starknet node when created
 type StarknetNodeCreate struct {
 	Data StarknetNode `json:"data"`
 }
