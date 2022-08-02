@@ -59,7 +59,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 public immutable REGISTRY_GAS_OVERHEAD;
 
   error CannotCancel();
-  error UpkeepNotActive();
+  error UpkeepCancelled();
   error MigrationNotPermitted();
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
@@ -86,6 +86,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error InvalidRecipient();
   error InvalidDataLength();
   error TargetCheckReverted(bytes reason);
+  error OnlyUnpausedUpkeep();
+  error OnlyPausedUpkeep();
 
   enum MigrationPermission {
     NONE,
@@ -123,6 +125,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address target; // 2 full evm words
     uint96 amountSpent;
     address admin; // 3 full evm words
+    bool paused;
   }
 
   struct KeeperInfo {
@@ -150,6 +153,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     bytes performData
   );
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
+  event UpkeepPaused(uint256 indexed id);
+  event UpkeepUnpaused(uint256 indexed id);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
@@ -211,6 +216,11 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
+   * @param gasLimit the amount of gas used
+   * @param gasWei the gas price
+   * @param linkEth the exchange ratio between LINK and ETH
+   * @param isExecution if this is triggered by a perform upkeep function
+   * @param txCallData the transaction call data
    */
   function _calculatePaymentAmount(
     uint256 gasLimit,
@@ -245,9 +255,18 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 maxLinkPayment
   ) internal view {
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
     if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();
+  }
+
+  /**
+   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
+   */
+  function requireAdminAndNotCancelled(Upkeep memory upkeep) internal view {
+    if (msg.sender != upkeep.admin) revert OnlyCallableByAdmin();
+    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
   }
 
   /**
