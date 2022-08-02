@@ -261,6 +261,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
+  // TODO: Remove checks here about 'from'. Refactor this into transmit
   /**
    * @dev ensures all required checks are passed before an upkeep is performed
    */
@@ -299,6 +300,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
 
     return
+      // TODO: Add the whole s_upkeep object here
       PerformParams({
         from: from,
         id: id,
@@ -306,6 +308,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         maxLinkPayment: maxLinkPayment,
         gasLimit: gasLimit,
         adjustedGasWei: adjustedGasWei,
+        // TODO: Rename this to linkPrice
         linkEth: linkEth
       });
   }

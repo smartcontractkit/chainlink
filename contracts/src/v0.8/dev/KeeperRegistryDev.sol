@@ -779,6 +779,8 @@ contract KeeperRegistryDev is
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
+    
+    // TODO: Maybe refactor this out of calculate payment
 
     uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
 
