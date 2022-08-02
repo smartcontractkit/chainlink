@@ -456,7 +456,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		// mock getAuthorizedSenders to return [fromAddress]
 		ethClient.On("CallContract", mock.Anything,
 			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
-			mock.Anything).Return(senders, nil).Once()
+			mock.Anything).Return(senders, nil).Maybe()
 
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
