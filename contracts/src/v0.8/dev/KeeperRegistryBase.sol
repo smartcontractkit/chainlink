@@ -32,7 +32,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
-  // TODO: refactor this with ocr config
+  // TODO: refactor this with ocr transmitter info config
   mapping(address => KeeperInfo) internal s_keeperInfo;
   mapping(address => address) internal s_proposedPayee;
   mapping(uint256 => bytes) internal s_checkData;
@@ -131,6 +131,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   struct PerformParams {
+    // TODO: Remove from
     address from;
     uint256 id;
     bytes performData;

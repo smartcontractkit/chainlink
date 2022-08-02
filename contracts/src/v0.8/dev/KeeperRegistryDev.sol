@@ -108,15 +108,99 @@ contract KeeperRegistryDev is
    * @inheritdoc OCR2Abstract
    */
   function transmit(
-    // NOTE: If these parameters are changed, expectedMsgDataLength and/or
-    // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override {
-    // TODO
+    uint256 initialGas = gasleft(); // This line must come first
+
+    HotVars memory hotVars = s_hotVars;
+
+    uint40 epochAndRound = uint40(uint256(reportContext[1]));
+    // TODO: Convert revret strings to errros
+
+    // TODO: Do we need this since we'll check last block of perform
+    require(hotVars.latestEpochAndRound < epochAndRound, "stale report");
+
+    require(s_transmitters[msg.sender].active, "unauthorized transmitter");
+
+    require(s_latestConfigDigest == reportContext[0], "configDigest mismatch");
+
+    // TODO: Maybe don't need this as payment calculation is separate in keepers
+    _requireExpectedMsgDataLength(report, rs, ss);
+
+    require(rs.length == hotVars.f + 1, "wrong number of signatures");
+    require(rs.length == ss.length, "signatures out of registration");
+
+    // Verify signatures attached to report
+    {
+      bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
+
+      // i-th byte counts number of sigs made by i-th signer
+      uint256 signedCount = 0;
+
+      Signer memory signer;
+      for (uint256 i = 0; i < rs.length; i++) {
+        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+        signer = s_signers[signerAddress];
+        require(signer.active, "signature error");
+        unchecked {
+          signedCount += 1 << (8 * signer.index);
+        }
+      }
+
+      // The first byte of the mask can be 0, because we only ever have 31 oracles
+      require(
+        signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 == signedCount,
+        "duplicate signer"
+      );
+    }
+
+    int192 juelsPerFeeCoin = _report(hotVars, reportContext[0], epochAndRound, report);
+  }
+
+  function _report(
+    HotVars memory hotVars,
+    bytes32 configDigest,
+    uint40 epochAndRound,
+    bytes memory rawReport
+  ) internal returns (int192 juelsPerFeeCoin) {
+    Report memory report = _decodeReport(rawReport);
+
+    hotVars.latestEpochAndRound = epochAndRound;
+
+    hotVars.latestAggregatorRoundId++;
+   
+    // performUpkeep here
+
+    // persist updates to hotVars
+    s_hotVars = hotVars;
+  }
+
+  struct Report {
+    uint256 upkeepId; // Id of upkeep
+    uint32 checkBlockNum; // Block number at which checkUpkeep was true
+    bytes performData; // Perform Data for the upkeep
+    uint256 linkNativePrice; // Price of link to native token (18 decimals)
+  }
+
+  // _decodeReport decodes a serialized report into a Report struct
+  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
+    uint256 upkeepId;
+    uint32 checkBlockNum;
+    bytes performData;
+    uint256 linkNativePrice;
+    (upkeepId, checkBlockNum, performData, linkNativePrice) = abi.decode(rawReport, (uint256, uint32, bytes, uint256));
+
+    return
+      Report({
+        upkeepId: upkeepId,
+        checkBlockNum: checkBlockNum,
+        performData: performData,
+        linkNativePrice: linkNativePrice
+      });
   }
 
   // ACTIONS
@@ -166,6 +250,7 @@ contract KeeperRegistryDev is
     _fallback();
   }
 
+  // TODO: Make this non executable but simulatable
   /**
    * @notice executes the upkeep with the perform data returned from
    * checkUpkeep, validates the keeper's permissions, and pays the keeper.
