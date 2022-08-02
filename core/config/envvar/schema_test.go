@@ -235,6 +235,9 @@ func TestConfigSchema(t *testing.T) {
 		"P2PV2DeltaReconcile":    "P2PV2_DELTA_RECONCILE",
 		"P2PV2ListenAddresses":   "P2PV2_LISTEN_ADDRESSES",
 
+		"PyroscopeAuthToken":     "PYROSCOPE_AUTH_TOKEN",
+		"PyroscopeServerAddress": "PYROSCOPE_SERVER_ADDRESS",
+
 		// P2P deprecated
 		"OCRNewStreamTimeout":          "OCR_NEW_STREAM_TIMEOUT",
 		"OCRBootstrapCheckInterval":    "OCR_BOOTSTRAP_CHECK_INTERVAL",

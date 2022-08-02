@@ -8,8 +8,8 @@ import (
 )
 
 type PyroscopeConfig interface {
-	//PyroscopeServerAddress() string
-	//PyroscopeAuthToken() string
+	PyroscopeServerAddress() string
+	PyroscopeAuthToken() string
 
 	AutoPprofBlockProfileRate() int
 	AutoPprofMutexProfileFraction() int
@@ -22,11 +22,11 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 
 	return pyroscope.Start(pyroscope.Config{
 		// Maybe configurable to identify the specific NOP
-		ApplicationName: fmt.Sprintf("chainlink-node: %s", verShaNameStatic()),
+		ApplicationName: fmt.Sprintf("chainlink-node"),
 
 		// TBD
-		//ServerAddress: cfg.PyroscopeServerAddress(),
-		//AuthToken:     cfg.PyroscopeAuthToken(),
+		ServerAddress: cfg.PyroscopeServerAddress(),
+		AuthToken:     cfg.PyroscopeAuthToken(),
 
 		// may end up disabling logging
 		Logger: pyroscope.StandardLogger,
