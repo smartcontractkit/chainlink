@@ -54,7 +54,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
   OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
-  ArbGasInfo public immutable ARBITRUM_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
+  ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
   PaymentModel public immutable PAYMENT_MODEL;
   uint256 public immutable REGISTRY_GAS_OVERHEAD;
 
@@ -225,7 +225,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
-      l1CostWei = ARBITRUM_ORACLE.getCurrentTxL1GasFees();
+      l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
