@@ -398,7 +398,7 @@ describe('KeeperRegistryDev', () => {
 
       await evmRevert(
         registry.connect(admin).pauseUpkeep(id),
-        'OnlyNonPausedUpkeep()',
+        'OnlyUnpausedUpkeep()',
       )
     })
 
@@ -767,7 +767,7 @@ describe('KeeperRegistryDev', () => {
             registry
               .connect(zeroAddress)
               .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'OnlyNonPausedUpkeep()',
+            'OnlyUnpausedUpkeep()',
           )
         })
 
@@ -1105,7 +1105,7 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'OnlyNonPausedUpkeep()',
+          'OnlyUnpausedUpkeep()',
         )
       })
 

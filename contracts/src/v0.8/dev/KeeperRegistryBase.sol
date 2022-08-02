@@ -74,7 +74,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error InvalidRecipient();
   error InvalidDataLength();
   error TargetCheckReverted(bytes reason);
-  error OnlyNonPausedUpkeep();
+  error OnlyUnpausedUpkeep();
   error OnlyPausedUpkeep();
 
   enum MigrationPermission {
@@ -213,16 +213,16 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 maxLinkPayment
   ) internal view {
-    if (upkeep.paused) revert OnlyNonPausedUpkeep();
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
     if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();
   }
 
   /**
-   * @dev ensures all required checks are passed before pausing/unpausing an upkeep
+   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
    */
-  function _prePauseUnpauseUpkeep(Upkeep memory upkeep) internal view {
+  function requireAdminAndNotCancelled(Upkeep memory upkeep) internal view {
     if (msg.sender != upkeep.admin) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
   }
