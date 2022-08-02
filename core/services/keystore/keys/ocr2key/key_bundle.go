@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -31,7 +33,7 @@ type KeyBundle interface {
 var _ KeyBundle = &keyBundle[*evmKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*terraKeyring]{}
-var _ KeyBundle = &keyBundle[*starknetKeyring]{}
+var _ KeyBundle = &keyBundle[*starknet.OCR2Key]{}
 
 var curve = secp256k1.S256()
 
@@ -45,7 +47,7 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	case chaintype.Terra:
 		return newKeyBundleRand(chaintype.Terra, newTerraKeyring)
 	case chaintype.StarkNet:
-		return newKeyBundleRand(chaintype.StarkNet, newStarkNetKeyring)
+		return newKeyBundleRand(chaintype.StarkNet, starknet.NewOCR2Key)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -60,7 +62,7 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	case chaintype.Terra:
 		return mustNewKeyBundleInsecure(chaintype.Terra, newTerraKeyring, reader)
 	case chaintype.StarkNet:
-		return mustNewKeyBundleInsecure(chaintype.StarkNet, newStarkNetKeyring, reader)
+		return mustNewKeyBundleInsecure(chaintype.StarkNet, starknet.NewOCR2Key, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -109,7 +111,7 @@ func (raw Raw) Key() (kb KeyBundle) {
 	case chaintype.Terra:
 		kb = newKeyBundle(new(terraKeyring))
 	case chaintype.StarkNet:
-		kb = newKeyBundle(new(starknetKeyring))
+		kb = newKeyBundle(new(starknet.OCR2Key))
 	default:
 		panic(chaintype.NewErrInvalidChainType(temp.ChainType))
 	}

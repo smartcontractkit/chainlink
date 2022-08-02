@@ -206,10 +206,10 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
 		}
 		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
-			Config: cfg,
-			Logger: starkLggr,
-			DB:     db,
-			//TODO KeyStore:         keyStore.StarkNet(),
+			Config:   cfg,
+			Logger:   starkLggr,
+			DB:       db,
+			KeyStore: keyStore.StarkNet(),
 			//TODO EventBroadcaster: eventBroadcaster,
 			ORM: starknet.NewORM(db, starkLggr, cfg),
 		})

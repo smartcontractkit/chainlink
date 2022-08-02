@@ -425,6 +425,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
+			Forwardable:    true,
 			Strategy:       txmgr.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
@@ -436,6 +437,47 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress, fwdrAddr)
+	})
+
+	t.Run("skips forwarding when forwardable=false even with suitable forwarder setup.", func(t *testing.T) {
+		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+
+		// Create mock forwarder, mock authorizedsenders call.
+		form := forwarders.NewORM(db, logger.TestLogger(t), cfg)
+		fwdrAddr := testutils.NewAddress()
+		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
+		require.NoError(t, err)
+		require.Equal(t, fwdr.Address, fwdrAddr)
+
+		senders, err := evmtypes.MustGetABI(
+			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
+			[]common.Address{fromAddress})
+		require.NoError(t, err)
+		// mock getAuthorizedSenders to return [fromAddress]
+		ethClient.On("CallContract", mock.Anything,
+			ethereum.CallMsg{From: common.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
+			mock.Anything).Return(senders, nil).Once()
+
+		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           &txmgr.EthTxMeta{},
+			Forwardable:    false,
+			Strategy:       txmgr.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+		cltest.AssertCount(t, db, "eth_txes", 1)
+
+		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+
+		m, err := etx.GetMeta()
+		require.NoError(t, err)
+		require.Nil(t, m.FwdrDestAddress)
+		require.Equal(t, etx.ToAddress, toAddress)
 	})
 
 	t.Run("skips forwarding tx when forwarder doesn't authorize sender", func(t *testing.T) {
@@ -464,6 +506,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
+			Forwardable:    true,
 			Meta:           &txmgr.EthTxMeta{},
 			Strategy:       txmgr.NewSendEveryStrategy(),
 		})
