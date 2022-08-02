@@ -23,12 +23,13 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	gasLimit := uint64(1000)
+	allowForwarding := false
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := new(txmmocks.TxManager)
 	strategy := new(txmmocks.TxStrategy)
 
-	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, strategy, txmgr.TransmitCheckerSpec{})
+	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, allowForwarding, strategy, txmgr.TransmitCheckerSpec{})
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
