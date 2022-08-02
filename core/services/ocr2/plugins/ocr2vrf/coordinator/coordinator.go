@@ -274,7 +274,7 @@ func (c *coordinator) getBlocks(
 	// Note that we do this to avoid making an RPC call for each block height separately.
 	// Alternatively, we could do a batch RPC call.
 	var blockHeights []uint64
-	for k, _ := range blocksRequested {
+	for k := range blocksRequested {
 		blockHeights = append(blockHeights, k.blockNumber)
 	}
 
@@ -289,7 +289,7 @@ func (c *coordinator) getBlocks(
 		headSet[uint64(h.BlockNumber)] = h
 	}
 
-	for k, _ := range blocksRequested {
+	for k := range blocksRequested {
 		if head, ok := headSet[k.blockNumber]; ok {
 			blocks = append(blocks, ocr2vrftypes.Block{
 				Hash:              head.BlockHash,

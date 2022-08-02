@@ -42,7 +42,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 		PublicKey: ecdsa.PublicKey{Curve: crypto.S256(), X: x, Y: y},
 		D:         big.NewInt(1),
 	}
-	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, &key)
+	auth, _ := bind.NewKeyedTransactorWithChainID(&key, testutils.SimulatedChainID)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)

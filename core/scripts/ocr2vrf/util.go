@@ -104,8 +104,8 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 
 	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
 
-	offchainConfig, err := dkg.OffchainConfig(dkg.EncryptionPublicKeys(encryptionKeys), dkg.SigningPublicKeys(signingKeys), &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
-		&altbn_128.PairingSuite{},
+	offchainConfig, err := dkg.OffchainConfig(encryptionKeys, signingKeys, &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
+		Suite: &altbn_128.PairingSuite{},
 	})
 	helpers.PanicErr(err)
 	onchainConfig, err := dkg.OnchainConfig(dkg.KeyID(keyIDBytes))
@@ -261,7 +261,7 @@ func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err := consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
@@ -292,7 +292,7 @@ func requestRandomnessCallback(
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err = consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
