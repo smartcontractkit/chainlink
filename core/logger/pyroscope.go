@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/pyroscope-io/client/pyroscope"
@@ -22,7 +21,7 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 
 	return pyroscope.Start(pyroscope.Config{
 		// Maybe configurable to identify the specific NOP
-		ApplicationName: fmt.Sprintf("chainlink-node"),
+		ApplicationName: "chainlink-node",
 
 		// TBD
 		ServerAddress: cfg.PyroscopeServerAddress(),
