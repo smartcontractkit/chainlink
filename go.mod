@@ -90,6 +90,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+require github.com/pyroscope-io/client v0.3.0
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
