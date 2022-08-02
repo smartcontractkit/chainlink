@@ -60,11 +60,11 @@ func (ok *solanaKeyring) MaxSignatureLength() int {
 	return 65
 }
 
-func (ok *solanaKeyring) marshal() ([]byte, error) {
+func (ok *solanaKeyring) Marshal() ([]byte, error) {
 	return crypto.FromECDSA(&ok.privateKey), nil
 }
 
-func (ok *solanaKeyring) unmarshal(in []byte) error {
+func (ok *solanaKeyring) Unmarshal(in []byte) error {
 	privateKey, err := crypto.ToECDSA(in)
 	ok.privateKey = *privateKey
 	return err
