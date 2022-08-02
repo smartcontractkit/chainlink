@@ -101,7 +101,7 @@ contract KeeperRegistryDev is
       uint32 epoch
     )
   {
-    // TODO
+    return (false, s_latestConfigDigest, uint32(s_hotVars.latestEpochAndRound >> 8));
   }
 
   /**
