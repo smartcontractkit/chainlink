@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	ocr2keeperconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
@@ -100,6 +101,8 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return validateDKGSpec(spec.OCR2OracleSpec.PluginConfig)
 	case job.OCR2VRF:
 		return validateOCR2VRFSpec(spec.OCR2OracleSpec.PluginConfig)
+	case job.OCR2Keeper:
+		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -174,5 +177,31 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 	if cfg.LookbackBlocks <= 0 {
 		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
 	}
+	return nil
+}
+
+func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+
+	var cfg ocr2keeperconfig.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return errors.Wrap(err, "json unmarshal plugin config")
+	}
+
+	/*if cfg.LinkEthFeedAddress == "" {
+		return errors.New("linkEthFeedAddress must be provided")
+	}
+
+	if len(cfg.ConfirmationDelays) != 8 {
+		return fmt.Errorf("confirmationDelays must have length 8, given: %+v", cfg.ConfirmationDelays)
+	}
+
+	if cfg.LookbackBlocks <= 0 {
+		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
+	}*/
+
 	return nil
 }
