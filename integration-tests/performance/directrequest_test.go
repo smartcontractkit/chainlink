@@ -32,7 +32,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		err              error
 		chainClient      blockchain.EVMClient
 		contractDeployer contracts.ContractDeployer
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		oracle           contracts.Oracle
 		consumer         contracts.APIConsumer
 		jobUUID          uuid.UUID
@@ -97,7 +97,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 				Name: fmt.Sprintf("five-%s", jobUUID.String()),
 				URL:  fmt.Sprintf("%s/variable", mockServerClient.Config.ClusterURL),
 			}
-			err = chainlinkNodes[0].CreateBridge(&bta)
+			err = chainlinkNodes[0].MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
 
 			os := &client.DirectRequestTxPipelineSpec{
@@ -107,7 +107,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-			_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+			_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
 				Name:                     "direct_request",
 				MinIncomingConfirmations: "1",
 				ContractAddress:          oracle.Address(),
@@ -118,7 +118,7 @@ var _ = Describe("Directrequest suite @directrequest", func() {
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.

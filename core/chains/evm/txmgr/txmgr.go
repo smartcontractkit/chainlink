@@ -172,14 +172,14 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err := eb.Start(ctx); err != nil {
+		if err = eb.Start(ctx); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err := ec.Start(); err != nil {
+		if err = ec.Start(); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err := b.gasEstimator.Start(ctx); err != nil {
+		if err = b.gasEstimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
@@ -320,9 +320,18 @@ type NewTx struct {
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
+
 	if b.config.EvmUseForwarders() {
 		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
+			// Handling meta not set at caller.
+			if newTx.Meta != nil {
+				newTx.Meta.FwdrDestAddress = &newTx.ToAddress
+			} else {
+				newTx.Meta = &EthTxMeta{
+					FwdrDestAddress: &newTx.ToAddress,
+				}
+			}
 			newTx.ToAddress = fwdAddr
 			newTx.EncodedPayload = fwdPayload
 		} else {

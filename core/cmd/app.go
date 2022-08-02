@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -70,19 +69,17 @@ func NewApp(client *Client) *cli.App {
 		}
 		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
 		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: client.Config}, client.Logger)
-		sr := sessions.SessionRequest{}
 		sessionRequestBuilder := NewFileSessionRequestBuilder(client.Logger)
-		{
-			credentialsFile := c.String("admin-credentials-file")
-			if envCredentialsFile := os.Getenv("ADMIN_CREDENTIALS_FILE"); envCredentialsFile != "" {
-				credentialsFile = envCredentialsFile
-			}
-			var err error
-			sr, err = sessionRequestBuilder.Build(credentialsFile)
-			if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
-				return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
-			}
+
+		credentialsFile := c.String("admin-credentials-file")
+		if envCredentialsFile := os.Getenv("ADMIN_CREDENTIALS_FILE"); envCredentialsFile != "" {
+			credentialsFile = envCredentialsFile
 		}
+		sr, err := sessionRequestBuilder.Build(credentialsFile)
+		if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
+			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
+		}
+
 		client.HTTP = NewAuthenticatedHTTPClient(client.Logger, clientOpts, cookieAuth, sr)
 		client.CookieAuthenticator = cookieAuth
 		client.FileSessionRequestBuilder = sessionRequestBuilder

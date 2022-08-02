@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -34,7 +35,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		contractDeployer contracts.ContractDeployer
 		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		mockServer       *ctfClient.MockserverClient
 		nodeAddresses    []common.Address
 		adapterPath      string
@@ -129,7 +130,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				URL:  adapterFullURL,
 			}
 			for i, n := range chainlinkNodes {
-				err = n.CreateBridge(&bta)
+				err = n.MustCreateBridge(&bta)
 				Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
 				fluxSpec := &client.FluxMonitorJobSpec{
@@ -141,13 +142,13 @@ var _ = Describe("Flux monitor suite @flux", func() {
 					IdleTimerDisabled: true,
 					ObservationSource: client.ObservationSourceSpecBridge(bta),
 				}
-				_, err = n.CreateJob(fluxSpec)
+				_, err = n.MustCreateJob(fluxSpec)
 				Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
 			}
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.
