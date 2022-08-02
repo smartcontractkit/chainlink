@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -280,13 +282,21 @@ func (s *service) ListManagersByIDs(ids []int64) ([]FeedsManager, error) {
 	return managers, nil
 }
 
-// CountManagerServices gets the total number of manager services
+// CountManagers gets the total number of manager services
 func (s *service) CountManagers() (int64, error) {
 	return s.orm.CountManagers()
 }
 
 // CreateChainConfig creates a chain config.
 func (s *service) CreateChainConfig(cfg ChainConfig) (int64, error) {
+	var err error
+	if cfg.AdminAddress != "" {
+		_, err = common.NewMixedcaseAddressFromString(cfg.AdminAddress)
+		if err != nil {
+			return 0, fmt.Errorf("invalid admin address: %v", cfg.AdminAddress)
+		}
+	}
+
 	id, err := s.orm.CreateChainConfig(cfg)
 	if err != nil {
 		return 0, errors.Wrap(err, "CreateChainConfig failed")
@@ -344,6 +354,14 @@ func (s *service) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, e
 }
 
 func (s *service) UpdateChainConfig(cfg ChainConfig) (int64, error) {
+	var err error
+	if cfg.AdminAddress != "" {
+		_, err = common.NewMixedcaseAddressFromString(cfg.AdminAddress)
+		if err != nil {
+			return 0, fmt.Errorf("invalid admin address: %v", cfg.AdminAddress)
+		}
+	}
+
 	id, err := s.orm.UpdateChainConfig(cfg)
 	if err != nil {
 		return 0, errors.Wrap(err, "UpdateChainConfig failed")

@@ -5,13 +5,13 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/pkg/errors"
-
 	"github.com/hdevalence/ed25519consensus"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/crypto/blake2s"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ ocrtypes.OnchainKeyring = &terraKeyring{}

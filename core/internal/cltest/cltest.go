@@ -1219,7 +1219,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	select {
 	case <-done:
 	case <-time.After(duration):
-		t.Fatal(fmt.Sprintf("CallbackOrTimeout: %s timed out", msg))
+		t.Fatalf("CallbackOrTimeout: %s timed out", msg)
 	}
 }
 
