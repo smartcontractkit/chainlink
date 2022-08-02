@@ -594,7 +594,6 @@ func TestCoordinator_ConfirmationDelays(t *testing.T) {
 		expected := [8]uint32{1, 2, 3, 4, 5, 6, 7, 8}
 		ret := [8]*big.Int{}
 		for i, delay := range expected {
-			// assuming little endian
 			ret[i] = big.NewInt(int64(delay))
 		}
 		coordinatorContract := &mocks.VRFBeaconCoordinator{}
@@ -607,7 +606,7 @@ func TestCoordinator_ConfirmationDelays(t *testing.T) {
 		}
 		confDelays, err := c.ConfirmationDelays(context.TODO())
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, expected[:], confDelays[:])
+		assert.Equal(t, expected[:], confDelays[:])
 	})
 
 	t.Run("invalid output", func(t *testing.T) {
@@ -639,7 +638,7 @@ func TestCoordinator_KeyID(t *testing.T) {
 		}
 		keyID, err := c.KeyID(context.TODO())
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, expected[:], keyID[:])
+		assert.Equal(t, expected[:], keyID[:])
 	})
 
 	t.Run("invalid output", func(t *testing.T) {
