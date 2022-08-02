@@ -8,7 +8,7 @@ import (
 type StarkNetKeyResource struct {
 	JAID
 	AccountAddr string `json:"accountAddr"`
-	StarkKey    string `json:"starkKey"`
+	StarkKey    string `json:"starkPubKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
