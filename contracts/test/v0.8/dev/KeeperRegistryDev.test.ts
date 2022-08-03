@@ -74,7 +74,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistryDev', () => {
+describe.only('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -538,15 +538,6 @@ describe('KeeperRegistryDev', () => {
             emptyBytes,
           )
         id = await getUpkeepID(tx)
-
-        await registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            executeGas,
-            await admin.getAddress(),
-            emptyBytes,
-          )
       })
     })
 
@@ -591,6 +582,54 @@ describe('KeeperRegistryDev', () => {
 
       const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
       assert.equal(upkeepIds.length, 1)
+    })
+  })
+
+  describe('#updateCheckData', () => {
+    context('and the registry has an upkeep', () => {
+      beforeEach(async () => {
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+        id = await getUpkeepID(tx)
+      })
+    })
+
+    it('reverts if the caller is not upkeep admin', async () => {
+      await evmRevert(
+        registry.connect(keeper1).updateCheckData(id, randomBytes),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is cancelled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
+
+      await evmRevert(
+        registry.connect(admin).updateCheckData(id, randomBytes),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('updates the paused upkeep check data', async () => {
+      await registry.connect(admin).pauseUpkeep(id)
+      await registry.connect(admin).updateCheckData(id, randomBytes)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(randomBytes, registration.checkData)
+    })
+
+    it('updates the upkeep check data and emits an event', async () => {
+      const tx = await registry.connect(admin).updateCheckData(id, randomBytes)
+      await expect(tx).to.emit(registry, 'UpkeepUpdated').withArgs(id)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(randomBytes, registration.checkData)
     })
   })
 
