@@ -38,6 +38,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			Entry("Flux monitor suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
 			Entry("Flux monitor suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("Flux monitor suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
+			Entry("Flux monitor suite on on Arbitrum Goerli @arbitrum", networks.ArbitrumGoerli, big.NewFloat(.1)),
 		}
 
 		err              error

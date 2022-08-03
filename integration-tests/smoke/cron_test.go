@@ -31,6 +31,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 			Entry("Cronjob suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet),
 			Entry("Cronjob suite on Görli Testnet @goerli", networks.GoerliTestnet),
 			Entry("Cronjob suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab),
+			Entry("Cronjob suite on on Arbitrum Goerli @arbitrum", networks.ArbitrumGoerli),
 		}
 
 		err             error

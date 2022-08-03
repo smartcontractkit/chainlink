@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OCR Feed @ocr", func() {
+var _ = FDescribe("OCR Feed @ocr", func() {
 	var (
 		testScenarios = []TableEntry{
 			Entry("OCR suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(50)),
@@ -33,6 +33,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 			Entry("OCR suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
 			Entry("OCR suite on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("OCR suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
+			FEntry("OCR suite on Arbitrum Goerli @arbitrum", networks.ArbitrumGoerli, big.NewFloat(.1)),
 		}
 
 		err               error

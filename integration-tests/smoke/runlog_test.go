@@ -35,6 +35,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			Entry("Runlog suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.1)),
 			Entry("Runlog suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.1)),
 			Entry("Runlog suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(1)),
+			Entry("Runlog suite on on Arbitrum Goerli @arbitrum", networks.ArbitrumGoerli, big.NewFloat(.1)),
 		}
 
 		err              error

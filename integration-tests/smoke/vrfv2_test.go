@@ -33,7 +33,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			Entry("VRFv2 suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
 			Entry("VRFv2 suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
 			Entry("VRFv2 suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
-			Entry("VRFv2 suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
+			Entry("VRFv2 suite on on Arbitrum Goerli @arbitrum", networks.ArbitrumGoerli, big.NewFloat(.5)),
 		}
 
 		testEnvironment *environment.Environment
