@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/avast/retry-go"
@@ -273,6 +274,7 @@ func returnFunds(chainlinkNodes []*client.Chainlink, client blockchain.EVMClient
 // This is surprisingly tricky, and fairly annoying due to Go's lack of syntactic sugar and how chainlink nodes handle txs
 func sendFunds(chainlinkNodes []*client.Chainlink, network blockchain.EVMClient) (map[int]string, error) {
 	chainlinkTransactionAddresses := make(map[int]string)
+	var addressesMutex sync.Mutex
 	sendFundsErrGroup := new(errgroup.Group)
 	for ni, n := range chainlinkNodes {
 		nodeIndex := ni // https://golang.org/doc/faq#closures_and_goroutines
@@ -307,7 +309,9 @@ func sendFunds(chainlinkNodes []*client.Chainlink, network blockchain.EVMClient)
 						return err
 					}
 					// Add the address to our map to check for later (hashes aren't returned, sadly)
+					addressesMutex.Lock()
 					chainlinkTransactionAddresses[nodeIndex] = strings.ToLower(primaryEthKeyData.Attributes.Address)
+					addressesMutex.Unlock()
 				}
 				return nil
 			},

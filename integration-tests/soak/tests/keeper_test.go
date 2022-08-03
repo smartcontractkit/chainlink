@@ -35,7 +35,7 @@ var _ = Describe("Keeper block time soak test @soak-keeper-block-time", func() {
 				AddHelm(ethereum.New(&ethereum.Props{
 					NetworkName: soakNetwork.Name,
 					Simulated:   soakNetwork.Simulated,
-					WsURLs:      soakNetwork.URLs,
+					// WsURLs:      soakNetwork.URLs,
 				})).
 				AddHelm(chainlink.New(0, nil)).
 				AddHelm(chainlink.New(1, nil)).

@@ -30,18 +30,30 @@ var baseEnvironmentConfig = &environment.Config{
 
 // Run the OCR soak test defined in ./tests/ocr_test.go
 func TestOCRSoak(t *testing.T) {
-	activeEVMNetwork := networks.GeneralEVM() // Environment currently being used to soak test on
+	activeEVMNetwork := networks.GoerliTestnet // Environment currently being used to soak test on
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"soak-ocr-%s",
 		strings.ReplaceAll(strings.ToLower(activeEVMNetwork.Name), " ", "-"),
-	)
+	) + "-erigon"
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil))
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	// Geth + Prysm
+	// staticValues["ETH_URL"] = "ws://34.229.200.122/ws"
+	// staticValues["HTTP_ETH_URL"] = "http://34.229.200.122/rpc"
+	// Besu + Teku
+	// staticValues["ETH_URL"] = "ws://3.85.208.9/ws"
+	// staticValues["HTTP_ETH_URL"] = "http://3.85.208.9/rpc"
+	// // Nethermind + Teku
+	// staticValues["ETH_URL"] = "ws://18.215.162.179/ws"
+	// staticValues["HTTP_ETH_URL"] = "http://18.215.162.179/rpc"
+	// // Erigon
+	// staticValues["ETH_URL"] = "wss://link-eth.getblock.io/erigon/goerli/archive/axej8woh-seej-6ash-4Yu7-eyib1495dhno/"
+	// staticValues["HTTP_ETH_URL"] = "https://link-eth.getblock.io/erigon/goerli/archive/axej8woh-seej-6ash-4Yu7-eyib1495dhno/"
 	// List of distinct Chainlink nodes to launch, and their distinct values (blank interface for none)
 	dynamicValues := []map[string]interface{}{
 		{
