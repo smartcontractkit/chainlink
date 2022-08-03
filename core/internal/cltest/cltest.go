@@ -470,25 +470,7 @@ func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
 }
 
 func NewEthMocks(t testing.TB) *evmMocks.Client {
-	c := new(evmMocks.Client)
-	c.Test(t)
-	switch tt := t.(type) {
-	case *testing.T:
-		t.Cleanup(func() {
-			c.AssertExpectations(tt)
-		})
-	}
-	return c
-}
-
-// Deprecated: use evmtest.NewEthClientMock
-func NewEthClientMock(t *testing.T) *evmMocks.Client {
-	return evmtest.NewEthClientMock(t)
-}
-
-// Deprecated: use evmtest.NewEthClientMockWithDefaultChain
-func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
-	return evmtest.NewEthClientMockWithDefaultChain(t)
+	return evmMocks.NewClient(t)
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {

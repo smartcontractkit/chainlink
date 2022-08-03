@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -129,7 +130,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
 	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
@@ -157,7 +158,7 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
 	verify := cltest.MockApplicationEthCalls(t, app, ethClient)

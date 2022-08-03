@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_FixedBlockhashProvider(t *testing.T) {
-	client := cltest.NewEthClientMockWithDefaultChain(t)
+	client := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	p := blockhashes.NewFixedBlockhashProvider(client, 0, 0)
 	ctx := context.Background()
@@ -47,7 +47,7 @@ func Test_FixedBlockhashProvider(t *testing.T) {
 }
 
 func Test_OnchainVerifiableBlocks(t *testing.T) {
-	client := cltest.NewEthClientMockWithDefaultChain(t)
+	client := evmtest.NewEthClientMockWithDefaultChain(t)
 	ctx := context.Background()
 	h := &evmtypes.Head{Number: 100}
 
@@ -76,7 +76,7 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 	})
 
 	t.Run("returns error when underlying batch call returns error", func(t *testing.T) {
-		client = cltest.NewEthClientMockWithDefaultChain(t)
+		client = evmtest.NewEthClientMockWithDefaultChain(t)
 		client.On("HeadByNumber", ctx, mock.MatchedBy(func(val *big.Int) bool {
 			return val == nil
 		})).Return(h, nil).Once()

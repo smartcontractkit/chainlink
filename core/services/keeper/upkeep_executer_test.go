@@ -74,7 +74,7 @@ func setup(t *testing.T, estimator *gasmocks.Estimator) (
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	block := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(1),
 	})
