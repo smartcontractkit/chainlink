@@ -361,7 +361,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.Equal(t, int64(log2.BlockNumber), *blockNum)
 	require.NotEmpty(t, listener.getUniqueLogs())
 	require.Empty(t, listener2.getUniqueLogs())
-	c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.TxIndex, log1.Index, listener.JobID())
+	c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
 	require.NoError(t, err)
 	require.False(t, c)
 
@@ -399,10 +399,10 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.Nil(t, blockNum)
 	require.NotEmpty(t, listener.getUniqueLogs())
 	require.NotEmpty(t, listener2.getUniqueLogs())
-	c, err = orm.WasBroadcastConsumed(log1.BlockHash, log1.TxIndex, log1.Index, listener.JobID())
+	c, err = orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
 	require.NoError(t, err)
 	require.True(t, c)
-	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.TxIndex, log2.Index, listener2.JobID())
+	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
 	require.NoError(t, err)
 	require.False(t, c)
 
@@ -438,7 +438,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.Nil(t, blockNum)
 	require.Empty(t, listener.getUniqueLogs())
 	require.NotEmpty(t, listener2.getUniqueLogs())
-	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.TxIndex, log2.Index, listener2.JobID())
+	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
 	require.NoError(t, err)
 	require.True(t, c)
 }

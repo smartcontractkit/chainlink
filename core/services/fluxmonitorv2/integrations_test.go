@@ -417,7 +417,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, p
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
 		orm := log.NewORM(db, lggr, cfg, fa.evmChainID)
-		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, 0, pipelineSpecID)
+		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
