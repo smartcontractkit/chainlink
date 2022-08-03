@@ -701,7 +701,7 @@ describe('KeeperRegistryDev', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).addFunds(id.add(1), amount),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
@@ -722,7 +722,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
   })
@@ -733,7 +733,7 @@ describe('KeeperRegistryDev', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
@@ -741,7 +741,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
@@ -1193,7 +1193,7 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'UpkeepNotActive()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -1643,7 +1643,7 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'UpkeepNotActive()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -1707,7 +1707,7 @@ describe('KeeperRegistryDev', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'UpkeepNotActive()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -2053,7 +2053,7 @@ describe('KeeperRegistryDev', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'UpkeepNotActive()',
+        'UpkeepCancelled()',
       )
     })
 
