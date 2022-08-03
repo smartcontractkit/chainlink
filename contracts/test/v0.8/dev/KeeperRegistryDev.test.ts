@@ -868,6 +868,17 @@ describe('KeeperRegistryDev', () => {
           await mock.setCanPerform(true)
         })
 
+        it('reverts if the upkeep is paused', async () => {
+          await registry.connect(admin).pauseUpkeep(id)
+
+          await evmRevert(
+            registry
+              .connect(zeroAddress)
+              .callStatic.checkUpkeep(id, await keeper1.getAddress()),
+            'OnlyUnpausedUpkeep()',
+          )
+        })
+
         it('returns true with pricing info if the target can execute', async () => {
           const newGasMultiplier = BigNumber.from(10)
           await registry.connect(owner).setConfig({
@@ -1194,6 +1205,15 @@ describe('KeeperRegistryDev', () => {
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
           'UpkeepCancelled()',
+        )
+      })
+
+      it('reverts if the upkeep is paused', async () => {
+        await registry.connect(admin).pauseUpkeep(id)
+
+        await evmRevert(
+          registry.connect(keeper1).performUpkeep(id, '0x'),
+          'OnlyUnpausedUpkeep()',
         )
       })
 

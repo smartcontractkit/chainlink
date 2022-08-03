@@ -216,10 +216,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
-   * @param gasLimit the gas limit of this payment calculation
+   * @param gasLimit the amount of gas used
    * @param gasWei the gas price
-   * @param linkEth the gas limit of this payment calculation
-   * @param isExecution if this is called by perform upkeep function
+   * @param linkEth the exchange ratio between LINK and ETH
+   * @param isExecution if this is triggered by a perform upkeep function
    * @param txCallData the transaction call data
    */
   function _calculatePaymentAmount(
