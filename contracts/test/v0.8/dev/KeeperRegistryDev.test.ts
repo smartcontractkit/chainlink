@@ -74,7 +74,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistryDev', () => {
+describe.only('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -900,9 +900,7 @@ describe('KeeperRegistryDev', () => {
             .callStatic.checkUpkeep(id, await keeper1.getAddress())
           assert.isTrue(response.gasLimit.eq(executeGas))
           assert.isTrue(response.linkEth.eq(linkEth))
-          assert.isTrue(
-            response.adjustedGasWei.eq(gasWei.mul(newGasMultiplier)),
-          )
+          assert.isTrue(response.fastGasWei.eq(gasWei))
           assert.isTrue(
             response.maxLinkPayment.eq(
               linkForGas(executeGas.toNumber()).mul(newGasMultiplier),

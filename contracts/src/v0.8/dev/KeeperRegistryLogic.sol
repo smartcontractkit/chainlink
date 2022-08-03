@@ -29,7 +29,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       bytes memory performData,
       uint256 maxLinkPayment,
       uint256 gasLimit,
-      uint256 adjustedGasWei,
+      uint256 fastGasWei,
       uint256 linkEth
     )
   {
@@ -46,7 +46,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     PerformParams memory params = _generatePerformParams(from, id, performData, false);
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
-    return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
+    return (performData, params.maxLinkPayment, params.gasLimit, params.fastGasWei, params.linkEth);
   }
 
   /**

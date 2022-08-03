@@ -101,7 +101,7 @@ contract KeeperRegistryDev is
       bytes memory performData,
       uint256 maxLinkPayment,
       uint256 gasLimit,
-      uint256 adjustedGasWei,
+      uint256 fastGasWei,
       uint256 linkEth
     )
   {
@@ -492,13 +492,8 @@ contract KeeperRegistryDev is
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
-    bytes memory data = new bytes(0);
-    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      data = MAX_INPUT_DATA;
-    }
-    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, false, data);
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
+    return _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, false);
   }
 
   /**
@@ -674,12 +669,7 @@ contract KeeperRegistryDev is
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
-
-    bytes memory data = new bytes(0);
-    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
-    }
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth, true, data);
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkEth, true);
 
     s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;

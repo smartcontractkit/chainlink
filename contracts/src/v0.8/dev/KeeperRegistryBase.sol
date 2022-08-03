@@ -140,7 +140,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     bytes performData;
     uint256 maxLinkPayment;
     uint256 gasLimit;
-    uint256 adjustedGasWei;
+    uint256 fastGasWei;
     uint256 linkEth;
   }
 
@@ -217,22 +217,31 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
-   * @param gasWei the gas price
+   * @param fastGasWei the fast gas price
    * @param linkEth the exchange ratio between LINK and ETH
    * @param isExecution if this is triggered by a perform upkeep function
-   * @param txCallData the transaction call data
    */
   function _calculatePaymentAmount(
     uint256 gasLimit,
-    uint256 gasWei,
+    uint256 fastGasWei,
     uint256 linkEth,
-    bool isExecution,
-    bytes memory txCallData
+    bool isExecution
   ) internal view returns (uint96 payment) {
+    uint256 gasWei = fastGasWei * s_storage.gasCeilingMultiplier;
+    if (isExecution && tx.gasprice < gasWei) {
+      gasWei = tx.gasprice;
+    }
+
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      bytes memory txCallData = new bytes(0);
+      if (isExecution) {
+        txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+      } else {
+        txCallData = MAX_INPUT_DATA;
+      }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
       l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
@@ -270,16 +279,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   /**
-   * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
-   */
-  function _adjustGasPrice(uint256 gasWei, bool isExecution) internal view returns (uint256 adjustedPrice) {
-    adjustedPrice = gasWei * s_storage.gasCeilingMultiplier;
-    if (isExecution && tx.gasprice < adjustedPrice) {
-      adjustedPrice = tx.gasprice;
-    }
-  }
-
-  /**
    * @dev generates a PerformParams struct for use in _performUpkeepWithParams()
    */
   function _generatePerformParams(
@@ -289,17 +288,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     bool isExecution
   ) internal view returns (PerformParams memory) {
     uint256 gasLimit = s_upkeep[id].executeGas;
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, isExecution);
-    bytes memory data = new bytes(0);
-    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
-      if (isExecution) {
-        data = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
-      } else {
-        data = MAX_INPUT_DATA;
-      }
-    }
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth, isExecution, data);
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
+    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, isExecution);
 
     return
       PerformParams({
@@ -308,7 +298,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         performData: performData,
         maxLinkPayment: maxLinkPayment,
         gasLimit: gasLimit,
-        adjustedGasWei: adjustedGasWei,
+        fastGasWei: fastGasWei,
         linkEth: linkEth
       });
   }
