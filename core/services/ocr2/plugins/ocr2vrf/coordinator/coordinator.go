@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
@@ -604,6 +605,30 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 	}
 
 	return uint16(beaconPeriodBlocks.Int64()), nil
+}
+
+// ConfirmationDelays returns the list of confirmation delays defined in the coordinator's contract
+func (c *coordinator) ConfirmationDelays(ctx context.Context) ([]uint32, error) {
+	confDelays, err := c.coordinatorContract.GetConfirmationDelays(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get confirmation delays")
+	}
+	var result []uint32
+	for _, c := range confDelays {
+		result = append(result, uint32(c.Uint64()))
+	}
+	return result, nil
+}
+
+// KeyID returns the key ID from coordinator's contract
+func (c *coordinator) KeyID(ctx context.Context) (dkg.KeyID, error) {
+	keyID, err := c.coordinatorContract.SKeyID(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return dkg.KeyID{}, errors.Wrap(err, "could not get key ID")
+	}
+	return keyID, nil
 }
 
 // isBlockEligible returns true if and only if the nextBeaconOutputHeight plus
