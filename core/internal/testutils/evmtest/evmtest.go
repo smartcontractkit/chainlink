@@ -278,13 +278,11 @@ func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
 		logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 }
 
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth
+func NewEthClientMock(t *testing.T) *evmMocks.Client {
+	return evmMocks.NewClient(t)
 }
 
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(testutils.FixtureChainID).Maybe()
 	return c

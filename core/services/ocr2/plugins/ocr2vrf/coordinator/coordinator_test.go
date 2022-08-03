@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -586,6 +587,73 @@ func TestCoordinator_ReportIsOnchain(t *testing.T) {
 		assert.False(t, present)
 	})
 
+}
+
+func TestCoordinator_ConfirmationDelays(t *testing.T) {
+	t.Run("valid output", func(t *testing.T) {
+		expected := [8]uint32{1, 2, 3, 4, 5, 6, 7, 8}
+		ret := [8]*big.Int{}
+		for i, delay := range expected {
+			ret[i] = big.NewInt(int64(delay))
+		}
+		coordinatorContract := &mocks.VRFBeaconCoordinator{}
+		coordinatorContract.
+			On("GetConfirmationDelays", mock.Anything).
+			Return(ret, nil)
+		defer coordinatorContract.AssertExpectations(t)
+		c := &coordinator{
+			coordinatorContract: coordinatorContract,
+		}
+		confDelays, err := c.ConfirmationDelays(context.TODO())
+		assert.NoError(t, err)
+		assert.Equal(t, expected[:], confDelays[:])
+	})
+
+	t.Run("invalid output", func(t *testing.T) {
+		coordinatorContract := &mocks.VRFBeaconCoordinator{}
+		coordinatorContract.
+			On("GetConfirmationDelays", mock.Anything).
+			Return([8]*big.Int{}, errors.New("rpc error"))
+		defer coordinatorContract.AssertExpectations(t)
+		c := &coordinator{
+			coordinatorContract: coordinatorContract,
+		}
+		_, err := c.ConfirmationDelays(context.TODO())
+		assert.Error(t, err)
+	})
+}
+
+func TestCoordinator_KeyID(t *testing.T) {
+	t.Run("valid output", func(t *testing.T) {
+		var keyIDBytes [32]byte
+		keyIDBytes[0] = 1
+		expected := dkg.KeyID(keyIDBytes)
+		coordinatorContract := &mocks.VRFBeaconCoordinator{}
+		coordinatorContract.
+			On("SKeyID", mock.Anything).
+			Return(keyIDBytes, nil)
+		defer coordinatorContract.AssertExpectations(t)
+		c := &coordinator{
+			coordinatorContract: coordinatorContract,
+		}
+		keyID, err := c.KeyID(context.TODO())
+		assert.NoError(t, err)
+		assert.Equal(t, expected[:], keyID[:])
+	})
+
+	t.Run("invalid output", func(t *testing.T) {
+		var emptyBytes [32]byte
+		coordinatorContract := &mocks.VRFBeaconCoordinator{}
+		coordinatorContract.
+			On("SKeyID", mock.Anything).
+			Return(emptyBytes, errors.New("rpc error"))
+		defer coordinatorContract.AssertExpectations(t)
+		c := &coordinator{
+			coordinatorContract: coordinatorContract,
+		}
+		_, err := c.KeyID(context.TODO())
+		assert.Error(t, err)
+	})
 }
 
 func TestTopics_DKGConfigSet_VRFConfigSet(t *testing.T) {

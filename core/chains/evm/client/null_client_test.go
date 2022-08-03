@@ -20,8 +20,6 @@ func TestNullClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("chain id", func(t *testing.T) {
-		t.Parallel()
-
 		lggr := logger.TestLogger(t)
 		cid := big.NewInt(123)
 		nc := client.NewNullClient(cid, lggr)
@@ -32,8 +30,6 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("CL client methods", func(t *testing.T) {
-		t.Parallel()
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.TestCtx(t)
@@ -84,8 +80,6 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("Geth client methods", func(t *testing.T) {
-		t.Parallel()
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.TestCtx(t)

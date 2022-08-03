@@ -25,21 +25,20 @@ import (
 	cfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
-	config := new(gumocks.Config)
-	config.Test(t)
+	config := gumocks.NewConfig(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
 	config.On("ChainType").Maybe().Return(cfg.ChainType(""))
 	return config
 }
 
 func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
-	config := new(gumocks.Config)
-	config.Test(t)
+	config := gumocks.NewConfig(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(false)
 	config.On("ChainType").Maybe().Return(cfg.ChainType(""))
 	return config
@@ -75,7 +74,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
 
 	t.Run("loads initial state", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -105,9 +104,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		assert.Equal(t, int(bhe.RollingBlockHistory()[1].Number), 42)
 
 		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("starts and loads partial history if fetch context times out", func(t *testing.T) {
@@ -120,7 +116,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		cfg.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
 		cfg.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
 		cfg.On("EvmEIP1559DynamicFees").Maybe().Return(true)
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg)
 
@@ -150,13 +146,10 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		assert.Equal(t, int(bhe.RollingBlockHistory()[0].Number), 42)
 
 		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("boots even if initial batch call returns nothing", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -171,13 +164,10 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		// non-eip1559 block
 		assert.Nil(t, gas.GetLatestBaseFee(bhe))
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("starts anyway if fetching latest head fails", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -195,13 +185,10 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		_, _, err = bhe.GetDynamicFee(100, maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -221,13 +208,10 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		_, _, err = bhe.GetDynamicFee(100, maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("returns error if main context is cancelled", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -240,13 +224,10 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		err := bhe.Start(ctx)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "context canceled")
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("starts anyway even if the fetch context is cancelled due to taking longer than the MaxStartTime", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -268,9 +249,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		_, _, err = bhe.GetDynamicFee(100, maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 }
 
@@ -296,7 +274,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with history size of 0, errors", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -312,7 +290,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("with current block height less than block delay does nothing", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -327,13 +305,10 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			require.Error(t, err)
 			require.EqualError(t, err, fmt.Sprintf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY=3", i))
 		}
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("with error retrieving blocks returns error", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -349,13 +324,10 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		err := bhe.FetchBlocks(context.Background(), cltest.Head(42))
 		require.Error(t, err)
 		assert.EqualError(t, err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext: something exploded")
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("batch fetches heads and transactions and sets them on the block history estimator instance", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -411,8 +383,6 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Len(t, bhe.RollingBlockHistory()[0].Transactions, 2)
 		assert.Len(t, bhe.RollingBlockHistory()[1].Transactions, 0)
 
-		ethClient.AssertExpectations(t)
-
 		// On new fetch, rolls over the history and drops the old heads
 
 		b44 := gas.Block{
@@ -437,8 +407,6 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		err = bhe.FetchBlocks(context.Background(), &head)
 		require.NoError(t, err)
 
-		ethClient.AssertExpectations(t)
-
 		require.Len(t, bhe.RollingBlockHistory(), 3)
 		assert.Equal(t, 42, int(bhe.RollingBlockHistory()[0].Number))
 		assert.Equal(t, 43, int(bhe.RollingBlockHistory()[1].Number))
@@ -446,12 +414,10 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Len(t, bhe.RollingBlockHistory()[0].Transactions, 1)
 		assert.Len(t, bhe.RollingBlockHistory()[1].Transactions, 0)
 		assert.Len(t, bhe.RollingBlockHistory()[2].Transactions, 1)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("does not refetch blocks below ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -507,13 +473,10 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Equal(t, 1, int(bhe.RollingBlockHistory()[0].Number))
 		assert.Equal(t, 2, int(bhe.RollingBlockHistory()[1].Number))
 		assert.Equal(t, 3, int(bhe.RollingBlockHistory()[2].Number))
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("replaces blocks on re-org within ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -570,8 +533,6 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		err := bhe.FetchBlocks(context.Background(), &head3)
 		require.NoError(t, err)
 
-		ethClient.AssertExpectations(t)
-
 		require.Len(t, bhe.RollingBlockHistory(), 3)
 		assert.Equal(t, 1, int(bhe.RollingBlockHistory()[0].Number))
 		assert.Equal(t, 2, int(bhe.RollingBlockHistory()[1].Number))
@@ -579,12 +540,10 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Equal(t, b1.Hash.Hex(), bhe.RollingBlockHistory()[0].Hash.Hex())
 		assert.Equal(t, head2.Hash.Hex(), bhe.RollingBlockHistory()[1].Hash.Hex())
 		assert.Equal(t, head3.Hash.Hex(), bhe.RollingBlockHistory()[2].Hash.Hex())
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("uses locally cached blocks if they are in the chain", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
@@ -627,8 +586,6 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		err := bhe.FetchBlocks(context.Background(), &head3)
 		require.NoError(t, err)
 
-		ethClient.AssertExpectations(t)
-
 		require.Len(t, bhe.RollingBlockHistory(), 3)
 		assert.Equal(t, 1, int(bhe.RollingBlockHistory()[0].Number))
 		assert.Equal(t, 2, int(bhe.RollingBlockHistory()[1].Number))
@@ -636,15 +593,13 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Equal(t, b1.Hash.Hex(), bhe.RollingBlockHistory()[0].Hash.Hex())
 		assert.Equal(t, head2.Hash.Hex(), bhe.RollingBlockHistory()[1].Hash.Hex())
 		assert.Equal(t, head3.Hash.Hex(), bhe.RollingBlockHistory()[2].Hash.Hex())
-
-		config.AssertExpectations(t)
 	})
 }
 
 func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T) {
 	t.Parallel()
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 	config.On("BlockHistoryEstimatorBlockDelay").Return(uint16(0))
@@ -690,9 +645,6 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 	require.Equal(t, big.NewInt(100), price)
 
 	assert.Len(t, bhe.RollingBlockHistory(), 3)
-
-	config.AssertExpectations(t)
-	ethClient.AssertExpectations(t)
 }
 
 func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
@@ -702,7 +654,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	minGasPrice := big.NewInt(10)
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
@@ -721,13 +673,10 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		blocks = []gas.Block{gas.Block{Transactions: []gas.Transaction{}}}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("sets gas price to ETH_MAX_GAS_PRICE_WEI if the calculation would otherwise exceed it", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -755,13 +704,10 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, maxGasPrice, price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("sets gas price to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -789,13 +735,10 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, minGasPrice, price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -834,14 +777,11 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(70), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("takes into account zero priced transctions if chain is not xDai", func(t *testing.T) {
 		// Because everyone loves free gas!
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -867,9 +807,6 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(0), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("ignores zero priced transactions on xDai", func(t *testing.T) {
@@ -902,15 +839,12 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(100), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("handles unreasonably large gas prices (larger than a 64 bit int can hold)", func(t *testing.T) {
 		// Seems unlikely we will ever experience gas prices > 9 Petawei on mainnet (praying to the eth Gods 🙏)
 		// But other chains could easily use a different base of account
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		reasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000))
@@ -950,13 +884,10 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, reasonablyHugeGasPrice, price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -985,9 +916,6 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(100), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 }
 
@@ -1001,7 +929,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	maxGasPrice := big.NewInt(100)
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
@@ -1032,13 +960,10 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		blocks = []gas.Block{withOnlyLegacyTransactions}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("can set tip higher than ETH_MAX_GAS_PRICE_WEI (we rely on fee cap to limit it)", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -1069,13 +994,10 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		tipCap := gas.GetTipCap(bhe)
 		require.Greater(t, tipCap.Int64(), maxGasPrice.Int64())
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("sets tip cap to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -1106,13 +1028,10 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(10), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -1153,13 +1072,10 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(60), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("respects minimum gas tip cap", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -1187,14 +1103,11 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		price := gas.GetTipCap(bhe)
 		assert.Equal(t, big.NewInt(1), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 
 	t.Run("allows to set zero tip cap if minimum allows it", func(t *testing.T) {
 		// Because everyone loves *cheap* gas!
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
@@ -1222,14 +1135,11 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(0), price)
-
-		ethClient.AssertExpectations(t)
-		config.AssertExpectations(t)
 	})
 }
 
 func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 	bhe := newBlockHistoryEstimator(t, ethClient, config)
@@ -1273,13 +1183,10 @@ func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
 		res := bhe.EffectiveTipCap(eipblock, tx)
 		assert.Nil(t, res)
 	})
-
-	ethClient.AssertExpectations(t)
-	config.AssertExpectations(t)
 }
 
 func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 	bhe := newBlockHistoryEstimator(t, ethClient, config)
@@ -1333,9 +1240,6 @@ func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 		res := bhe.EffectiveGasPrice(block, tx)
 		assert.Nil(t, res)
 	})
-
-	ethClient.AssertExpectations(t)
-	config.AssertExpectations(t)
 }
 
 func TestBlockHistoryEstimator_Block_Unmarshal(t *testing.T) {
@@ -1636,8 +1540,6 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 		assert.Equal(t, big.NewInt(700), fee)
 		assert.Equal(t, 10000, int(limit))
 	})
-
-	cfg.AssertExpectations(t)
 }
 
 func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
@@ -1748,8 +1650,6 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 		assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(6000)}, fee)
 		assert.Equal(t, 100000, int(limit))
 	})
-
-	cfg.AssertExpectations(t)
 }
 
 func TestBlockHistoryEstimator_Bumps(t *testing.T) {
@@ -1830,8 +1730,6 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			assert.Equal(t, 0, int(gasLimit))
 			assert.Contains(t, err.Error(), "bumped gas price of 192 would exceed configured max gas price of 100 (original price was 42).")
 		})
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("BumpDynamicFee bumps the fee", func(t *testing.T) {
@@ -1906,7 +1804,5 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			assert.Equal(t, gas.DynamicFee{}, fee)
 			assert.Contains(t, err.Error(), "bumped fee cap of 1089000 would exceed configured max gas price of 1000000 (original fee: tip cap 25, fee cap 990000)")
 		})
-
-		config.AssertExpectations(t)
 	})
 }
