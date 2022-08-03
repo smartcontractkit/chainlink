@@ -30,7 +30,8 @@ var baseEnvironmentConfig = &environment.Config{
 
 // Run the Keepers Benchmark test defined in ./tests/keeper_test.go
 func TestKeeperBenchmark(t *testing.T) {
-	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to soak test on
+	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to run benchmark test on
+	// activeEVMNetwork := networks.GeneralEVM() // To run benchmark test on any mainet/testnet
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"benchmark-keeper-%s",

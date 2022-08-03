@@ -171,7 +171,8 @@ func DeployBenchmarkKeeperContracts(
 	blockRange, // How many blocks to run the test for
 	blockInterval, // Interval of blocks that upkeeps are expected to be performed
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
-	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
+	performGasToBurn, // How much gas should be burned on performUpkeep() calls
+	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 ) (contracts.KeeperRegistry, []contracts.KeeperConsumerBenchmark, []*big.Int) {
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
 	Expect(err).ShouldNot(HaveOccurred(), "Deploying mock ETH-Link feed shouldn't fail")
@@ -204,7 +205,7 @@ func DeployBenchmarkKeeperContracts(
 	}
 	registrar := DeployKeeperRegistrar(linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn)
+	upkeeps := DeployKeeperConsumersBenchmark(contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn, firstEligibleBuffer)
 
 	upkeepsAddresses := []string{}
 	for _, upkeep := range upkeeps {
@@ -400,7 +401,8 @@ func DeployKeeperConsumersBenchmark(
 	blockRange, // How many blocks to run the test for
 	blockInterval, // Interval of blocks that upkeeps are expected to be performed
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
-	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
+	performGasToBurn, // How much gas should be burned on performUpkeep() calls
+	firstEligibleBuffer int64, // How many blocks to add to randomised first eligible block
 ) []contracts.KeeperConsumerBenchmark {
 	upkeeps := make([]contracts.KeeperConsumerBenchmark, 0)
 
@@ -411,6 +413,7 @@ func DeployKeeperConsumersBenchmark(
 			big.NewInt(blockInterval),
 			big.NewInt(checkGasToBurn),
 			big.NewInt(performGasToBurn),
+			big.NewInt(firstEligibleBuffer),
 		)
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying KeeperConsumerBenchmark instance %d shouldn't fail", contractCount+1)
 		upkeeps = append(upkeeps, keeperConsumerInstance)

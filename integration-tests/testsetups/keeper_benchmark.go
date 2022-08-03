@@ -51,6 +51,8 @@ type KeeperBenchmarkTestInputs struct {
 	ChainlinkNodeFunding   *big.Float                        // Amount of ETH to fund each chainlink node with
 	UpkeepGasLimit         int64                             // Maximum gas that can be consumed by the upkeeps
 	UpkeepSLA              int64                             // SLA in number of blocks for an upkeep to be performed once it becomes eligible
+	FirstEligibleBuffer    int64                             // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
+	RegistryVersion        ethereum.KeeperRegistryVersion    // Registry version to use
 }
 
 // NewKeeperBenchmarkTest prepares a new keeper benchmark test to be run
@@ -84,7 +86,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
 
 	k.keeperRegistry, k.keeperConsumerContracts, k.upkeepIDs = actions.DeployBenchmarkKeeperContracts(
-		ethereum.RegistryVersion_1_2,
+		inputs.RegistryVersion,
 		inputs.NumberOfContracts,
 		uint32(inputs.UpkeepGasLimit), //upkeepGasLimit
 		linkToken,
@@ -95,6 +97,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 		inputs.BlockInterval,
 		inputs.CheckGasToBurn,
 		inputs.PerformGasToBurn,
+		inputs.FirstEligibleBuffer,
 	)
 
 	// Send keeper jobs to registry and chainlink nodes
@@ -112,7 +115,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
 				keeperConsumer,
 				k.upkeepIDs[index],
-				k.Inputs.BlockRange,
+				k.Inputs.BlockRange+k.Inputs.FirstEligibleBuffer+k.Inputs.BlockInterval,
 				k.Inputs.UpkeepSLA,
 				&k.TestReporter,
 			),
@@ -139,15 +142,16 @@ func (k *KeeperBenchmarkTest) Run() {
 	k.TestReporter.Summary.Load.TotalPerformGasPerBlock = int64((float64(k.Inputs.NumberOfContracts) / float64(k.Inputs.BlockInterval)) * float64(k.Inputs.PerformGasToBurn))
 	k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock = float64(k.Inputs.NumberOfContracts) / float64(k.Inputs.BlockInterval)
 	k.TestReporter.Summary.TestInputs = map[string]interface{}{
-		"NumberOfContracts": k.Inputs.NumberOfContracts,
-		"BlockCountPerTurn": k.Inputs.KeeperRegistrySettings.BlockCountPerTurn,
-		"CheckGasLimit":     k.Inputs.KeeperRegistrySettings.CheckGasLimit,
-		"MaxPerformGas":     k.Inputs.KeeperRegistrySettings.MaxPerformGas,
-		"CheckGasToBurn":    k.Inputs.CheckGasToBurn,
-		"PerformGasToBurn":  k.Inputs.PerformGasToBurn,
-		"BlockRange":        k.Inputs.BlockRange,
-		"BlockInterval":     k.Inputs.BlockInterval,
-		"UpkeepSLA":         k.Inputs.UpkeepSLA,
+		"NumberOfContracts":   k.Inputs.NumberOfContracts,
+		"BlockCountPerTurn":   k.Inputs.KeeperRegistrySettings.BlockCountPerTurn,
+		"CheckGasLimit":       k.Inputs.KeeperRegistrySettings.CheckGasLimit,
+		"MaxPerformGas":       k.Inputs.KeeperRegistrySettings.MaxPerformGas,
+		"CheckGasToBurn":      k.Inputs.CheckGasToBurn,
+		"PerformGasToBurn":    k.Inputs.PerformGasToBurn,
+		"BlockRange":          k.Inputs.BlockRange,
+		"BlockInterval":       k.Inputs.BlockInterval,
+		"UpkeepSLA":           k.Inputs.UpkeepSLA,
+		"FirstEligibleBuffer": k.Inputs.FirstEligibleBuffer,
 	}
 
 	k.TestReporter.Summary.Config.Chainlink, err = k.env.ResourcesSummary("app=chainlink-0")
@@ -241,4 +245,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	Expect(inputs.KeeperRegistrySettings.CheckGasLimit).Should(BeNumerically(">=", inputs.CheckGasToBurn),
 		"CheckGasLimit should be >= CheckGasToBurn")
 	Expect(inputs.PerformGasToBurn).Should(BeNumerically(">", 0), "You need to set an expected amount of gas to burn on performUpkeep()")
+	Expect(inputs.UpkeepSLA).ShouldNot(BeNil(), "You need to set UpkeepSLA")
+	Expect(inputs.FirstEligibleBuffer).ShouldNot(BeNil(), "You need to set FirstEligibleBuffer")
+	Expect(inputs.RegistryVersion).ShouldNot(BeNil(), "You need to set RegistryVersion")
 }

@@ -47,7 +47,8 @@ type ContractDeployer interface {
 		testBlockRange,
 		averageCadence,
 		checkGasToBurn,
-		performGasToBurn *big.Int,
+		performGasToBurn,
+		firstEligibleBuffer *big.Int,
 	) (KeeperConsumerBenchmark, error)
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
@@ -609,7 +610,8 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark(
 	testBlockRange,
 	averageCadence,
 	checkGasToBurn,
-	performGasToBurn *big.Int,
+	performGasToBurn,
+	firstEligibleBuffer *big.Int,
 ) (KeeperConsumerBenchmark, error) {
 	address, _, instance, err := e.client.DeployContract("KeeperConsumerBenchmark", func(
 		auth *bind.TransactOpts,
@@ -622,6 +624,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark(
 			averageCadence,
 			checkGasToBurn,
 			performGasToBurn,
+			firstEligibleBuffer,
 		)
 	})
 	if err != nil {

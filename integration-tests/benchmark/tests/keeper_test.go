@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	eth_contracts "github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
@@ -54,6 +55,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 				testsetups.KeeperBenchmarkTestInputs{
 					BlockchainClient:  chainClient,
 					NumberOfContracts: 500,
+					RegistryVersion:   eth_contracts.RegistryVersion_1_2,
 					KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 						PaymentPremiumPPB:    uint32(0),
 						BlockCountPerTurn:    big.NewInt(100),
@@ -72,6 +74,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 					ChainlinkNodeFunding: big.NewFloat(1000000),
 					UpkeepGasLimit:       5000000,
 					UpkeepSLA:            20,
+					FirstEligibleBuffer:  0,
 				},
 			)
 			keeperBenchmarkTest.Setup(testEnvironment)
