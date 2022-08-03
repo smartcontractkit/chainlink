@@ -8,15 +8,19 @@ import "./KeeperRegistryBase.sol";
  */
 contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
+   * @param paymentModel one of Default, Arbitrum, Optimism
+   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
+    PaymentModel paymentModel,
+    uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed
-  ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {}
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id, address from)
     external
@@ -42,7 +46,13 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     PerformParams memory params = _generatePerformParams(from, id, performData, false);
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
-    return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
+    return (
+      performData,
+      params.maxLinkPayment,
+      params.gasLimit,
+      params.fastGasWei * s_storage.gasCeilingMultiplier,
+      params.linkEth
+    );
   }
 
   /**

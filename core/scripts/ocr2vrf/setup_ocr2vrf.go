@@ -165,10 +165,9 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	fmt.Println()
 	fmt.Println("Generated vrf setConfig command:")
 	vrfCommand := fmt.Sprintf(
-		"go run . coordinator-set-config -coordinator-address %s -conf-delays %s -key-id %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -schedule 1,1,1,1,1",
+		"go run . coordinator-set-config -coordinator-address %s -conf-delays %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -schedule 1,1,1,1,1",
 		vrfAddress.String(),
 		*confDelays,
-		*keyID,
 		strings.Join(onChainPublicKeys[1:], ","),
 		strings.Join(offChainPublicKeys[1:], ","),
 		strings.Join(configPublicKeys[1:], ","),

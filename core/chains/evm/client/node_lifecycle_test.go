@@ -59,6 +59,8 @@ func makeNewHeadWSMessage(n int) string {
 }
 
 func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("with no poll and sync timeouts, exits on close", func(t *testing.T) {
 		pollAndSyncTimeoutsDisabledCfg := TestNodeConfig{}
 		n := newTestNode(t, pollAndSyncTimeoutsDisabledCfg)
@@ -290,6 +292,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 }
 
 func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("exits on close", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
@@ -453,6 +457,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 }
 func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("exits on close", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)
@@ -522,6 +528,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 }
 func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
+	t.Parallel()
+
 	t.Run("exits on close", func(t *testing.T) {
 		cfg := TestNodeConfig{}
 		n := newTestNode(t, cfg)

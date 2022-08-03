@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -90,7 +91,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 		consumersPerformance []contracts.KeeperConsumerPerformance
 		upkeepIDs            []*big.Int
 		linkToken            contracts.LinkToken
-		chainlinkNodes       []client.Chainlink
+		chainlinkNodes       []*client.Chainlink
 		testEnvironment      *environment.Environment
 
 		testScenarios = []TableEntry{
@@ -663,7 +664,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			// Take down half of the Keeper nodes by deleting the Keeper job registered above (after registry deployment)
 			firstHalfToTakeDown := chainlinkNodes[:len(chainlinkNodes)/2+1]
 			for _, nodeToTakeDown := range firstHalfToTakeDown {
-				err := nodeToTakeDown.DeleteJob("1")
+				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error deleting the Keeper job from the node")
@@ -685,7 +686,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			// Take down the other half of the Keeper nodes
 			secondHalfToTakeDown := chainlinkNodes[len(chainlinkNodes)/2+1:]
 			for _, nodeToTakeDown := range secondHalfToTakeDown {
-				err := nodeToTakeDown.DeleteJob("1")
+				err = nodeToTakeDown.MustDeleteJob("1")
 				Expect(err).ShouldNot(HaveOccurred(), "Could not delete the job from one of the nodes")
 				err = chainClient.WaitForEvents()
 				Expect(err).ShouldNot(HaveOccurred(), "Error deleting the Keeper job from the node")

@@ -39,11 +39,12 @@ struct Config {
 }
 
 /**
- * @notice config of the registry
+ * @notice state of the registry
  * @dev only used in params and return values
  * @member nonce used for ID generation
- * @ownerLinkBalance withdrawable balance of LINK by contract owner
- * @numUpkeeps total number of upkeeps on the registry
+ * @member ownerLinkBalance withdrawable balance of LINK by contract owner
+ * @member expectedLinkBalance the expected balance of LINK of the registry
+ * @member numUpkeeps total number of upkeeps on the registry
  */
 struct State {
   uint32 nonce;

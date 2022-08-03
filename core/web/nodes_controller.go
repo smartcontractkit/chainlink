@@ -61,8 +61,8 @@ func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int)
 
 	} else {
 		// fetch nodes for chain ID
-		chainID, err := n.parseChainID(id)
-		if err != nil {
+		chainID, err2 := n.parseChainID(id)
+		if err2 != nil {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}

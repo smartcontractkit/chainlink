@@ -136,11 +136,11 @@ func TestKeeperEthIntegration(t *testing.T) {
 			nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
 
 			// setup blockchain
-			sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
-			steve := cltest.NewSimulatedBackendIdentity(t)  // registry owner
-			carrol := cltest.NewSimulatedBackendIdentity(t) // client
-			nelly := cltest.NewSimulatedBackendIdentity(t)  // other keeper operator 1
-			nick := cltest.NewSimulatedBackendIdentity(t)   // other keeper operator 2
+			sergey := testutils.MustNewSimTransactor(t) // owns all the link
+			steve := testutils.MustNewSimTransactor(t)  // registry owner
+			carrol := testutils.MustNewSimTransactor(t) // client
+			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
+			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 			genesisData := core.GenesisAlloc{
 				sergey.From: {Balance: assets.Ether(1000)},
 				steve.From:  {Balance: assets.Ether(1000)},

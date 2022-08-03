@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -25,7 +26,7 @@ type VRFV2SoakTest struct {
 	mockServer   *ctfClient.MockserverClient
 
 	testEnvironment *environment.Environment
-	ChainlinkNodes  []client.Chainlink
+	ChainlinkNodes  []*client.Chainlink
 	chainClient     blockchain.EVMClient
 	DefaultNetwork  blockchain.EVMClient
 
@@ -136,7 +137,7 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 }
 
 // Networks returns the networks that the test is running on
-func (t *VRFV2SoakTest) TearDownVals() (*environment.Environment, []client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
+func (t *VRFV2SoakTest) TearDownVals() (*environment.Environment, []*client.Chainlink, reportModel.TestReporter, blockchain.EVMClient) {
 	return t.testEnvironment, t.ChainlinkNodes, &t.TestReporter, t.chainClient
 }
 
