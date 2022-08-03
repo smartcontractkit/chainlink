@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	ocr2keeperconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
+	keeperreportingplugin "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/reportingplugin"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -310,27 +312,29 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			V2Bootstrappers:              bootstrapPeers,
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
-			VRFOffchainConfigDigester:    vrfProvider.OffchainConfigDigester(),
-			VRFContractConfigTracker:     vrfProvider.ContractConfigTracker(),
-			VRFContractTransmitter:       vrfProvider.ContractTransmitter(),
-			VRFDatabase:                  ocrDB,
-			VRFLocalConfig:               lc,
-			VRFMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			DKGContractConfigTracker:     dkgProvider.ContractConfigTracker(),
-			DKGOffchainConfigDigester:    dkgProvider.OffchainConfigDigester(),
-			DKGContract:                  dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
-			DKGContractTransmitter:       dkgProvider.ContractTransmitter(),
-			DKGDatabase:                  ocrDB,
-			DKGLocalConfig:               lc,
-			DKGMonitoringEndpoint:        d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
-			Blockhashes:                  blockhashes.NewFixedBlockhashProvider(chain.Client(), 256, 256),
-			Serializer:                   reportserializer.NewReportSerializer(&altbn_128.G1{}),
-			JulesPerFeeCoin:              juelsPerFeeCoin,
-			Coordinator:                  coordinator,
-			ConfirmationDelays:           cfg.ConfirmationDelays,
-			Esk:                          encryptionSecretKey.KyberScalar(),
-			Ssk:                          signingSecretKey.KyberScalar(),
-			KeyID:                        keyID,
+			// VRF-specific configs
+			VRFOffchainConfigDigester: vrfProvider.OffchainConfigDigester(),
+			VRFContractConfigTracker:  vrfProvider.ContractConfigTracker(),
+			VRFContractTransmitter:    vrfProvider.ContractTransmitter(),
+			VRFDatabase:               ocrDB,
+			VRFLocalConfig:            lc,
+			VRFMonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			// DKG-specific configs
+			DKGContractConfigTracker:  dkgProvider.ContractConfigTracker(),
+			DKGOffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
+			DKGContract:               dkgpkg.NewOnchainContract(dkgContract, &altbn_128.G2{}),
+			DKGContractTransmitter:    dkgProvider.ContractTransmitter(),
+			DKGDatabase:               ocrDB,
+			DKGLocalConfig:            lc,
+			DKGMonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(cfg.DKGContractAddress),
+			Blockhashes:               blockhashes.NewFixedBlockhashProvider(chain.Client(), 256, 256),
+			Serializer:                reportserializer.NewReportSerializer(&altbn_128.G1{}),
+			JulesPerFeeCoin:           juelsPerFeeCoin,
+			Coordinator:               coordinator,
+			ConfirmationDelays:        cfg.ConfirmationDelays,
+			Esk:                       encryptionSecretKey.KyberScalar(),
+			Ssk:                       signingSecretKey.KyberScalar(),
+			KeyID:                     keyID,
 		})
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -343,23 +347,95 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			lggr)
+			lggr,
+		)
 
 		// NOTE: we return from here with the services because the OCR2VRF oracles are defined
 		// and exported from the ocr2vrf library. It takes care of running the DKG and OCR2VRF
 		// oracles under the hood together.
 		oracleCtx := job.NewServiceAdapter(oracles)
 		return []job.ServiceCtx{runResultSaver, vrfProvider, oracleCtx}, nil
+	case job.OCR2Keeper:
+		chainIDInterface, ok := jobSpec.OCR2OracleSpec.RelayConfig["chainID"]
+		if !ok {
+			return nil, errors.New("chainID must be provided in relay config")
+		}
+		chainID := int64(chainIDInterface.(float64))
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to get chainset")
+		}
+
+		var cfg ocr2keeperconfig.PluginConfig
+		if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
+			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
+		}
+
+		if err = ocr2keeperconfig.ValidatePluginConfig(cfg); err != nil {
+			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
+		}
+
+		ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(d.db, chain, lggr.Named("OCR2KeeperRelayer"))
+
+		keeperProvider, err2 := ocr2keeperRelayer.NewOCR2KeeperProvider(
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+			}, types.PluginArgs{
+				TransmitterID: spec.TransmitterID.String,
+				PluginConfig:  spec.PluginConfig.Bytes(),
+			})
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to create new ocr2keeper provider")
+		}
+
+		oracle, err2 := libocr2.NewOracle(libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          keeperProvider.ContractTransmitter(),
+			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory: keeperreportingplugin.NewFactory(
+				lggr.Named("Keeper"),
+			),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewOracle")
+		}
+
+		// RunResultSaver needs to be started first, so it's available
+		// to read odb writes. It is stopped last after the OraclePlugin is shut down
+		// so no further runs are enqueued, and we can drain the queue.
+		runResultSaver := ocrcommon.NewResultRunSaver(
+			runResults,
+			d.pipelineRunner,
+			make(chan struct{}),
+			lggr,
+		)
+
+		oracleCtx := job.NewServiceAdapter(oracle)
+
+		return []job.ServiceCtx{runResultSaver, keeperProvider, oracleCtx}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialise plugin")
 	}
+
 	pluginFactory, err := pluginOracle.GetPluginFactory()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get plugin factory")
 	}
+
 	pluginServices, err := pluginOracle.GetServices()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get plugin services")
