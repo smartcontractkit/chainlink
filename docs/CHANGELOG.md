@@ -39,6 +39,10 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 - Addressed a very rare bug where using multiple nodes with differently configured RPC tx fee caps could cause missed transaction. Reminder to everyone to ensure that your RPC nodes have no caps (for more information see the [performance and tuning guide](https://docs.chain.link/docs/evm-performance-configuration/)).
 - Improved handling of unknown transaction error types, making Chainlink more robust in certain cases on unsupported chains/RPC clients
 
+### Changed
+
+- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+
 ## [1.6.0] - 2022-07-20
 
 ### Changed
