@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	avaxclient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -23,8 +24,14 @@ import (
 )
 
 type Environment struct {
-	Owner   *bind.TransactOpts
-	Ec      *ethclient.Client
+	Owner *bind.TransactOpts
+	Ec    *ethclient.Client
+
+	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
+	// chain. It should be used instead of the regular Ec field because avalanche calculates
+	// blockhashes differently and the regular Ec will give consistently incorrect results on basic
+	// queries (like e.g eth_blockByNumber).
+	AvaxEc  avaxclient.Client
 	ChainID int64
 }
 
@@ -66,6 +73,12 @@ func SetupEnv(overrideNonce bool) Environment {
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
 	PanicErr(err)
+
+	var avaxClient avaxclient.Client
+	if IsAvaxNetwork(chainID) {
+		avaxClient, err = avaxclient.Dial(ethURL)
+		PanicErr(err)
+	}
 
 	// Owner key. Make sure it has eth
 	b, err := hex.DecodeString(accountKey)
@@ -111,6 +124,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	return Environment{
 		Owner:   owner,
 		Ec:      ec,
+		AvaxEc:  avaxClient,
 		ChainID: chainID,
 	}
 }
@@ -270,4 +284,10 @@ func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
 
 		fmt.Printf("Sending to %s: %s\n", transmitters[i], ExplorerLink(e.ChainID, signedTx.Hash()))
 	}
+}
+
+// IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network or subnet.
+func IsAvaxNetwork(chainID int64) bool {
+	return chainID == 43114 || // C-chain mainnet
+		chainID == 43113 // Fuji testnet
 }

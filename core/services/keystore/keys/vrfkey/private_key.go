@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"go.dedis.ch/kyber/v3"
+
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
 // PrivateKey represents the secret used to construct a VRF proof.

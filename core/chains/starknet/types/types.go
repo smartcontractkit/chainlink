@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/pg"

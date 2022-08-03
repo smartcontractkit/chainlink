@@ -46,7 +46,7 @@ var (
 )
 
 const (
-	// Gas used after computing the payment
+	// GasAfterPaymentCalculation is the gas used after computing the payment
 	GasAfterPaymentCalculation = 21000 + // base cost of the transaction
 		100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
 		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
@@ -589,6 +589,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
+		// Cases:
+		// 1. Never simulated: in this case, we want to observe the time until simulated
+		// on the utcTimestamp field of the pending request.
+		// 2. Simulated before: in this case, lastTry will be set to a non-zero time value,
+		// in which case we'd want to use that as a relative point from when we last tried
+		// the request.
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
+
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
 		outOfBalance := false
@@ -613,8 +621,13 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 					break
 				}
 
-				ll.Warnw("Pipeline error", "err", p.err)
-
+				if errors.Is(p.err, errBlockhashNotInStore{}) {
+					// Running the blockhash store feeder in backwards mode will be required to
+					// resolve this.
+					ll.Criticalw("Pipeline error", "err", p.err)
+				} else {
+					ll.Errorw("Pipeline error", "err", p.err)
+				}
 				continue
 			}
 
@@ -734,6 +747,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
+
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
@@ -753,8 +768,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 					return processed
 				}
 
-				ll.Warnw("Pipeline error", "err", p.err)
-
+				if errors.Is(p.err, errBlockhashNotInStore{}) {
+					// Running the blockhash store feeder in backwards mode will be required to
+					// resolve this.
+					ll.Criticalw("Pipeline error", "err", p.err)
+				} else {
+					ll.Errorw("Pipeline error", "err", p.err)
+				}
 				continue
 			}
 
