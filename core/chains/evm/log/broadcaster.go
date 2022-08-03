@@ -668,12 +668,12 @@ func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
 func (b *broadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error) {
-	return b.orm.WasBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().TxIndex, lb.RawLog().Index, lb.JobID(), qopts...)
+	return b.orm.WasBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().Index, lb.JobID(), qopts...)
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
 func (b *broadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
-	return b.orm.MarkBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().TxIndex, lb.RawLog().Index, lb.JobID(), qopts...)
+	return b.orm.MarkBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID(), qopts...)
 }
 
 // MarkManyConsumed marks the logs as having been successfully consumed by the subscriber
@@ -681,18 +681,16 @@ func (b *broadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) (err e
 	var (
 		blockHashes  = make([]common.Hash, len(lbs))
 		blockNumbers = make([]uint64, len(lbs))
-		txIndexes    = make([]uint, len(lbs))
 		logIndexes   = make([]uint, len(lbs))
 		jobIDs       = make([]int32, len(lbs))
 	)
 	for i := range lbs {
 		blockHashes[i] = lbs[i].RawLog().BlockHash
 		blockNumbers[i] = lbs[i].RawLog().BlockNumber
-		txIndexes[i] = lbs[i].RawLog().TxIndex
 		logIndexes[i] = lbs[i].RawLog().Index
 		jobIDs[i] = lbs[i].JobID()
 	}
-	return b.orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, txIndexes, logIndexes, jobIDs, qopts...)
+	return b.orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs, qopts...)
 }
 
 // test only
