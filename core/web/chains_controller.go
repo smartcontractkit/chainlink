@@ -140,7 +140,7 @@ func (cc *chainsController[I, C, R]) Update(c *gin.Context) {
 		return
 	}
 	var request UpdateChainRequest[C]
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if err = c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}

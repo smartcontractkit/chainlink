@@ -38,10 +38,11 @@ type ETHTxTask struct {
 	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
 	TransmitChecker string `json:"transmitChecker"`
 
-	specGasLimit *uint32
-	keyStore     ETHKeyStore
-	chainSet     evm.ChainSet
-	jobType      string
+	allowForwarding bool
+	specGasLimit    *uint32
+	keyStore        ETHKeyStore
+	chainSet        evm.ChainSet
+	jobType         string
 }
 
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
@@ -134,6 +135,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		EncodedPayload: []byte(data),
 		GasLimit:       uint64(gasLimit),
 		Meta:           txMeta,
+		Forwardable:    t.allowForwarding,
 		Strategy:       strategy,
 		Checker:        transmitChecker,
 	}
