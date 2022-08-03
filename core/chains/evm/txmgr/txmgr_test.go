@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
@@ -23,10 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -48,9 +47,8 @@ func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
@@ -215,7 +213,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	lggr := logger.TestLogger(t)
 	checkerFactory := &testCheckerFactory{}
@@ -413,11 +411,11 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 		senders, err := evmtypes.MustGetABI(
 			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
-			[]common.Address{fromAddress})
+			[]gethcommon.Address{fromAddress})
 		require.NoError(t, err)
 		// mock getAuthorizedSenders to return [fromAddress]
 		ethClient.On("CallContract", mock.Anything,
-			ethereum.CallMsg{From: common.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
+			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
 			mock.Anything).Return(senders, nil).Once()
 
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
@@ -453,12 +451,12 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 		senders, err := evmtypes.MustGetABI(
 			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
-			[]common.Address{fromAddress})
+			[]gethcommon.Address{fromAddress})
 		require.NoError(t, err)
 		// mock getAuthorizedSenders to return [fromAddress]
 		ethClient.On("CallContract", mock.Anything,
-			ethereum.CallMsg{From: common.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
-			mock.Anything).Return(senders, nil).Once()
+			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
+			mock.Anything).Return(senders, nil).Maybe()
 
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    fromAddress,
@@ -494,11 +492,11 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 		senders, err := evmtypes.MustGetABI(
 			authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"].Outputs.Pack(
-			[]common.Address{})
+			[]gethcommon.Address{})
 		require.NoError(t, err)
 		// mock getAuthorizedSenders to return empty array, indicating sender is not authorized to use forwarder.
 		ethClient.On("CallContract", mock.Anything,
-			ethereum.CallMsg{From: common.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
+			ethereum.CallMsg{From: gethcommon.HexToAddress("0x0"), To: &fwdrAddr, Data: []uint8{0x24, 0x8, 0xaf, 0xaa}},
 			mock.Anything).Return(senders, nil).Once()
 
 		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
@@ -523,16 +521,13 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 }
 
 func newMockTxStrategy(t *testing.T) *txmmocks.TxStrategy {
-	strategy := new(txmmocks.TxStrategy)
-	strategy.Test(t)
-	return strategy
+	return txmmocks.NewTxStrategy(t)
 }
 
 func newMockConfig(t *testing.T) *txmmocks.Config {
 	// These are only used for logging, the exact value doesn't matter
 	// It can be overridden in the test that uses it
-	cfg := new(txmmocks.Config)
-	cfg.Test(t)
+	cfg := txmmocks.NewConfig(t)
 	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe().Once()
 	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
@@ -579,7 +574,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
 		ethClient, lggr, 100*time.Millisecond, 2, 3)
@@ -604,7 +599,6 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
-		strategy.AssertExpectations(t)
 	})
 
 	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address.Address())))
@@ -628,7 +622,6 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
-		strategy.AssertExpectations(t)
 	})
 
 	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address.Address())))
@@ -652,19 +645,16 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
-		strategy.AssertExpectations(t)
 	})
 }
 
 func TestTxm_Lifecycle(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	config := newMockConfig(t)
-	kst := new(ksmocks.Eth)
-	kst.Test(t)
-	eventBroadcaster := new(pgmocks.EventBroadcaster)
-	eventBroadcaster.Test(t)
+	kst := ksmocks.NewEth(t)
+	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 
 	config.On("EthTxResendAfterThreshold").Return(1 * time.Hour)
 	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
@@ -690,7 +680,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	// It should not hang or panic
 	txm.OnNewLongestChain(context.Background(), head)
 
-	sub := new(pgmocks.Subscription)
+	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 	config.On("EvmGasBumpThreshold").Return(uint64(1))
@@ -711,11 +701,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())
-
-	ethClient.AssertExpectations(t)
-	config.AssertExpectations(t)
-	kst.AssertExpectations(t)
-	eventBroadcaster.AssertExpectations(t)
 	unsub.AwaitOrFail(t, 1*time.Second)
 }
 
@@ -735,11 +720,8 @@ func TestTxm_SignTx(t *testing.T) {
 
 	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
 		chainID := big.NewInt(1)
-		cfg := new(txmmocks.Config)
-		cfg.Test(t)
-		cfg.On("ChainType").Return(config.ChainType(""))
-		kst := new(ksmocks.Eth)
-		kst.Test(t)
+		cfg := txmmocks.NewConfig(t)
+		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
 		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
 		hash, rawBytes, err := cks.SignTx(addr, tx)
@@ -750,10 +732,8 @@ func TestTxm_SignTx(t *testing.T) {
 	// okex used to have a custom hash but now this just verifies that is it the same
 	t.Run("returns correct hash for okex chains", func(t *testing.T) {
 		chainID := big.NewInt(1)
-		cfg := new(txmmocks.Config)
-		cfg.Test(t)
-		kst := new(ksmocks.Eth)
-		kst.Test(t)
+		cfg := txmmocks.NewConfig(t)
+		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
 		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
 		hash, rawBytes, err := cks.SignTx(addr, tx)

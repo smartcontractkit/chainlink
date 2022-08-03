@@ -25,6 +25,7 @@ type errorCase struct {
 
 func Test_Eth_Errors(t *testing.T) {
 	t.Parallel()
+
 	var err *evmclient.SendError
 	randomError := evmclient.NewSendErrorS("some old bollocks")
 
@@ -309,6 +310,8 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 }
 
 func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
+	t.Parallel()
+
 	message := "important revert reason"
 	messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
 	sigHash := "12345678"
