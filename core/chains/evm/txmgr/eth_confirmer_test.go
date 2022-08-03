@@ -57,6 +57,21 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
+func mustTxBeInState(t *testing.T, borm txmgr.ORM, tx txmgr.EthTx, expectedState txmgr.EthTxState) {
+	etx, err := borm.FindEthTxWithAttempts(tx.ID)
+	require.NoError(t, err)
+	require.Equal(t, expectedState, etx.State)
+}
+
+func newTxReceipt(hash gethCommon.Hash, blockNumber int, txIndex uint) evmtypes.Receipt {
+	return evmtypes.Receipt{
+		TxHash:           hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(int64(blockNumber)),
+		TransactionIndex: txIndex,
+	}
+}
+
 func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EthTxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgr.EthTxAttemptInProgress
@@ -661,6 +676,73 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+}
+
+func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	borm := cltest.NewTxmORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	chainId1, chainId2 := 1, 2
+
+	state1_1, fromAddress1_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
+	state1_2, fromAddress1_2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
+	state2_1, fromAddress2_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId2)
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(20), nil)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state1_1, state1_2, state2_1}, nil)
+	ctx := testutils.Context(t)
+
+	// STATE
+	// key 1, tx with nonce 0 is unconfirmed
+	// key 1, tx with nonce 1 is unconfirmed
+	// key 2, tx with nonce 9 is unconfirmed and gets a receipt in block 10
+	etx1_0 := cltest.MustInsertUnconfirmedEthTx(t, borm, 0, fromAddress1_1)
+	etx1_1 := cltest.MustInsertUnconfirmedEthTx(t, borm, 1, fromAddress1_1)
+	etx2_9 := cltest.MustInsertUnconfirmedEthTx(t, borm, 3, fromAddress1_2)
+	// there also happens to be a confirmed tx with a higher nonce from a different chain in the DB
+	etx_other_chain := cltest.MustInsertUnconfirmedEthTx(t, borm, 8, fromAddress2_1)
+	pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx_other_chain.ID)
+
+	attempt2_9 := newBroadcastLegacyEthTxAttempt(t, etx2_9.ID, int64(1))
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt2_9))
+	txmReceipt2_9 := newTxReceipt(attempt2_9.Hash, 10, 1)
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt2_9.Hash, "eth_getTransactionReceipt")
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &txmReceipt2_9
+	}).Once()
+
+	require.NoError(t, ec.CheckForReceipts(ctx, 10))
+
+	mustTxBeInState(t, borm, etx1_0, txmgr.EthTxUnconfirmed)
+	mustTxBeInState(t, borm, etx1_1, txmgr.EthTxUnconfirmed)
+	mustTxBeInState(t, borm, etx2_9, txmgr.EthTxConfirmed)
+
+	// Now etx1_1 gets a receipt in block 11, which should mark etx1_0 as confirmed_missing_receipt
+	attempt1_1 := newBroadcastLegacyEthTxAttempt(t, etx1_1.ID, int64(2))
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt1_1))
+	txmReceipt1_1 := newTxReceipt(attempt1_1.Hash, 11, 1)
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash, "eth_getTransactionReceipt")
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &txmReceipt1_1
+	}).Once()
+
+	require.NoError(t, ec.CheckForReceipts(ctx, 11))
+
+	mustTxBeInState(t, borm, etx1_0, txmgr.EthTxConfirmedMissingReceipt)
+	mustTxBeInState(t, borm, etx1_1, txmgr.EthTxConfirmed)
+	mustTxBeInState(t, borm, etx2_9, txmgr.EthTxConfirmed)
 }
 
 func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
