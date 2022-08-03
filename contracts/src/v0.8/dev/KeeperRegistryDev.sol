@@ -113,7 +113,7 @@ contract KeeperRegistryDev is
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
-  ) external override {
+  ) external override whenNotPaused {
     uint256 initialGas = gasleft(); // This line must come first
 
     HotVars memory hotVars = s_hotVars;
@@ -172,7 +172,7 @@ contract KeeperRegistryDev is
     hotVars.latestEpochAndRound = epochAndRound;
 
     hotVars.latestAggregatorRoundId++;
-   
+
     // performUpkeep here
 
     // persist updates to hotVars
@@ -251,16 +251,19 @@ contract KeeperRegistryDev is
   }
 
   // TODO: Make this non executable but simulatable
+  // This is used to simulate performUpkeep, but is not actually executed in a tx
+  // Actual perform happens in transmit function based on the OCR report
   /**
    * @notice executes the upkeep with the perform data returned from
    * checkUpkeep, validates the keeper's permissions, and pays the keeper.
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData)
+  function performUpkeepSimulate(uint256 id, bytes calldata performData)
     external
     override
     whenNotPaused
+    cannotExecute
     returns (bool success)
   {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
@@ -770,7 +773,7 @@ contract KeeperRegistryDev is
     private
     nonReentrant
     validUpkeep(params.id)
-    returns (bool success)
+    returns (bool success, uint256 gasUsed)
   {
     Upkeep memory upkeep = s_upkeep[params.id];
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
@@ -779,18 +782,20 @@ contract KeeperRegistryDev is
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
-    
-    // TODO: Maybe refactor this out of calculate payment
 
+    return (success, gasUsed);
+
+    // TODO: Move this to transmit
+    //emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
+  }
+
+  // TODO: Call this in transmit
+  function _processUpkeepPayment(PerformParams memory params, uint256 gasUsed) private {
     uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
-
     s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
     s_upkeep[params.id].lastKeeper = params.from;
     s_keeperInfo[params.from].balance = s_keeperInfo[params.from].balance + payment;
-
-    emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
-    return success;
   }
 
   // MODIFIERS

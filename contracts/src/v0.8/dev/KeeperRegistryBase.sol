@@ -116,12 +116,14 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   struct Upkeep {
     uint96 balance;
+    // TODO: remove lastKeeper
     address lastKeeper; // 1 full evm word
     uint32 executeGas;
     uint64 maxValidBlocknumber;
     address target; // 2 full evm words
     uint96 amountSpent;
     address admin; // 3 full evm words
+    // TODO: Add last performBlock number here
   }
 
   struct KeeperInfo {
@@ -131,12 +133,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   struct PerformParams {
-    // TODO: Remove from
-    address from;
     uint256 id;
+    Upkeep upkeep_info;
     bytes performData;
     uint256 maxLinkPayment;
-    uint256 gasLimit;
     uint256 adjustedGasWei;
     uint256 linkEth;
   }
@@ -289,24 +289,24 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @dev generates a PerformParams struct for use in _performUpkeepWithParams()
    */
   function _generatePerformParams(
-    address from,
     uint256 id,
     bytes memory performData,
-    bool useTxGasPrice
+    bool isSimulation
   ) internal view returns (PerformParams memory) {
+    Upkeep memory upkeep = s_upkeep[params.id];
     uint256 gasLimit = s_upkeep[id].executeGas;
+    // TODO: Refactor this to allow injection of linkEth
     (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, useTxGasPrice);
+    uint256 adjustedGasWei = _adjustGasPrice(gasWei, isSimulation);
     uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
 
     return
       // TODO: Add the whole s_upkeep object here
       PerformParams({
-        from: from,
         id: id,
+        upkeep_info: upkeep,
         performData: performData,
         maxLinkPayment: maxLinkPayment,
-        gasLimit: gasLimit,
         adjustedGasWei: adjustedGasWei,
         // TODO: Rename this to linkPrice
         linkEth: linkEth
