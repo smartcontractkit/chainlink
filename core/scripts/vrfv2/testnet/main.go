@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"flag"
@@ -347,7 +348,7 @@ func main() {
 		helpers.PanicErr(err)
 		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
-		rlpHeaders, err := getRlpHeaders(e.Ec, blockRange)
+		rlpHeaders, err := getRlpHeaders(e, blockRange)
 		helpers.PanicErr(err)
 		tx, err := batchBHS.StoreVerifyHeader(e.Owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
@@ -364,6 +365,23 @@ func main() {
 
 		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), e.Ec)
 		helpers.PanicErr(err)
+
+		// Check if the provided start block is in the BHS. If it's not, print out an appropriate
+		// helpful error message. Otherwise users would get the cryptic "header has unknown blockhash"
+		// error which is a bit more difficult to diagnose.
+		// The Batch BHS returns a zero'd [32]byte array in the event the provided block number doesn't
+		// have it's blockhash in the BHS.
+		var notFound [32]byte
+		hsh, err := batchBHS.GetBlockhashes(nil, []*big.Int{big.NewInt(*startBlock)})
+		helpers.PanicErr(err)
+
+		if len(hsh) != 1 {
+			helpers.PanicErr(fmt.Errorf("expected 1 item in returned array from BHS store, got: %d", len(hsh)))
+		}
+
+		if bytes.Equal(hsh[0][:], notFound[:]) {
+			helpers.PanicErr(fmt.Errorf("expected block number %d (start-block argument) to be in the BHS already, did not find it there", *startBlock))
+		}
 
 		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*endBlock))
 		helpers.PanicErr(err)
@@ -384,7 +402,7 @@ func main() {
 			fmt.Println("using gas price", e.Owner.GasPrice, "wei")
 
 			blockNumbers := blockRange[i:j]
-			blockHeaders, err := getRlpHeaders(e.Ec, blockNumbers)
+			blockHeaders, err := getRlpHeaders(e, blockNumbers)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			helpers.PanicErr(err)
 

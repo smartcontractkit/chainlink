@@ -156,6 +156,7 @@ export const JOB_PAYLOAD_FIELDS = gql`
     type
     maxTaskDuration
     gasLimit
+    allowForwarding
     spec {
       __typename
       ...JobPayload_Spec

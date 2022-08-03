@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 

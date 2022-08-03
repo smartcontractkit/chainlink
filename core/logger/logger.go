@@ -208,14 +208,14 @@ func NewLogger() (Logger, func() error) {
 		parseErrs = append(parseErrs, invalid)
 	}
 
-	l, close := c.New()
+	l, closeLogger := c.New()
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
 	for _, msg := range warnings {
 		l.Warn(msg)
 	}
-	return l.Named(verShaNameStatic()), close
+	return l.Named(verShaNameStatic()), closeLogger
 }
 
 type Config struct {
@@ -233,7 +233,7 @@ type Config struct {
 func (c *Config) New() (Logger, func() error) {
 	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, close, err := zapDiskLoggerConfig{
+	l, closeLogger, err := zapDiskLoggerConfig{
 		local:          *c,
 		diskStats:      utils.NewDiskStatsProvider(),
 		diskPollConfig: newDiskPollConfig(diskPollInterval),
@@ -242,7 +242,7 @@ func (c *Config) New() (Logger, func() error) {
 		log.Fatal(err)
 	}
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), close
+	return newPrometheusLogger(l), closeLogger
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk

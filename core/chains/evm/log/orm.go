@@ -64,7 +64,7 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, txIndex uint, logIndex
 	query := `
 		SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1
-		AND (tx_index is NULL OR tx_index = $2) -- NULL-check only for safe upgrade from 1.6.0
+		AND (tx_index = -1 OR tx_index = $2)
 		AND log_index = $3
 		AND job_id = $4
 		AND evm_chain_id = $5
