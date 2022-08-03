@@ -199,6 +199,7 @@ func (t *OCRSoakTest) processNewEvent(
 	err := t.chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
 	if err != nil {
 		log.Error().Err(err).Str("Hash", event.TxHash.Hex()).Str("Event", eventDetails.Name).Msg("Error trying to process event")
+		return
 	}
 	log.Debug().
 		Str("Event", eventDetails.Name).
