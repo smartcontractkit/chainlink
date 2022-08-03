@@ -748,11 +748,18 @@ func main() {
 			common.HexToAddress(*consumerAddress),
 			e.Ec)
 		helpers.PanicErr(err)
+		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
 			tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint16(*requestConfirmations),
 				keyHashBytes, uint16(*requests))
 			helpers.PanicErr(err)
 			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
+			txes = append(txes, tx)
+		}
+		fmt.Println("Total number of requests sent:", (*requests)*(*runs))
+		fmt.Println("fetching receipts for all transactions")
+		for i, tx := range txes {
+			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
 		}
 	case "eoa-transfer-sub":
 		trans := flag.NewFlagSet("eoa-transfer-sub", flag.ExitOnError)
