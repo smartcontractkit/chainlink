@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/atomic"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/atomic"
 )
 
 //go:generate mockery --name ReaperConfig --output ./mocks/ --case=underscore

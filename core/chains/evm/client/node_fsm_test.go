@@ -41,6 +41,8 @@ func (s *subMock) Unsubscribe() {
 func (s *subMock) Err() <-chan error { return nil }
 
 func TestUnit_Node_StateTransitions(t *testing.T) {
+	t.Parallel()
+
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (string, string) {
 		return "", ""
 	})
