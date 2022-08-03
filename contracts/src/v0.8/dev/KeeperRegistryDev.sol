@@ -42,18 +42,22 @@ contract KeeperRegistryDev is
   string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
 
   /**
+   * @param paymentModel one of Default, Arbitrum, and Optimism
+   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param config registry config settings
    */
   constructor(
+    PaymentModel paymentModel,
+    uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
     Config memory config
-  ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setConfig(config);
   }
@@ -488,9 +492,8 @@ contract KeeperRegistryDev is
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
-    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
+    return _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, false);
   }
 
   /**
@@ -666,8 +669,7 @@ contract KeeperRegistryDev is
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
-
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkEth, true);
 
     s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
