@@ -416,6 +416,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				g.Expect(cnt.Int64()).Should(BeNumerically(">", existingCnt.Int64()),
 					"Expected consumer counter to be greater than %d, but got %d", existingCnt.Int64(), cnt.Int64(),
 				)
+				// is this flaky or not?
 			}, "1m", "1s").Should(Succeed())
 		}
 
