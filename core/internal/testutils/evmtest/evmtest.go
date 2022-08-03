@@ -299,17 +299,6 @@ type MockEth struct {
 	unsubscribeCalls atomic.Int32
 }
 
-/*
-func (m *MockEth) AssertExpectations(t *testing.T) {
-	m.EthClient.AssertExpectations(t)
-	m.subsMu.RLock()
-	defer m.subsMu.RUnlock()
-	for _, sub := range m.subs {
-		sub.AssertExpectations(t)
-	}
-}
-*/
-
 func (m *MockEth) SubscribeCallCount() int32 {
 	return m.subscribeCalls.Load()
 }
