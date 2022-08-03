@@ -59,8 +59,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, err)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+	ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
@@ -238,8 +238,8 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
 			ethClient := evmtest.NewEthClientMock(t)
-			ethClient.On("Dial", mock.Anything).Return(nil)
-			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
 			apiPrompt := cltest.NewMockAPIInitializer(t)
@@ -290,7 +290,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app.On("ID").Maybe().Return(uuid.NewV4())
 
 	ethClient := evmtest.NewEthClientMock(t)
-	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 
 	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -348,9 +348,9 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
-			ethClient := cltest.NewEthClientMock(t)
-			ethClient.On("Dial", mock.Anything).Return(nil)
-			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			ethClient := evmtest.NewEthClientMock(t)
+			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
@@ -543,7 +543,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
-			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 

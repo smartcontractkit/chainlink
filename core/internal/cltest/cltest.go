@@ -482,12 +482,12 @@ func NewEthMocks(t testing.TB) *evmMocks.Client {
 }
 
 // Deprecated: use evmtest.NewEthClientMock
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
+func NewEthClientMock(t *testing.T) *evmMocks.Client {
 	return evmtest.NewEthClientMock(t)
 }
 
 // Deprecated: use evmtest.NewEthClientMockWithDefaultChain
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
 	return evmtest.NewEthClientMockWithDefaultChain(t)
 }
 
