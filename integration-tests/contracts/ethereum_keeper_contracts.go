@@ -630,6 +630,7 @@ type KeeperConsumerPerformanceRoundConfirmer struct {
 	context  context.Context
 	cancel   context.CancelFunc
 
+	lastBlockNum                uint64  // Records the number of the last block that came in
 	blockCadence                int64   // How many blocks before an upkeep should happen
 	blockRange                  int64   // How many blocks to watch upkeeps for
 	blocksSinceSubscription     int64   // How many blocks have passed since subscribing
@@ -665,11 +666,16 @@ func NewKeeperConsumerPerformanceRoundConfirmer(
 		totalSuccessfulUpkeeps:      0,
 		metricsReporter:             metricsReporter,
 		complete:                    false,
+		lastBlockNum:                0,
 	}
 }
 
 // ReceiveBlock will query the latest Keeper round and check to see whether the round has confirmed
 func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveBlock(receivedBlock blockchain.NodeBlock) error {
+	if receivedBlock.NumberU64() <= o.lastBlockNum { // Uncle / reorg we won't count
+		return nil
+	}
+	o.lastBlockNum = receivedBlock.NumberU64()
 	// Increment block counters
 	o.blocksSinceSubscription++
 	o.blocksSinceSuccessfulUpkeep++
