@@ -234,8 +234,9 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
   ) internal view returns (uint256) {
-    uint256 baseFee = (1e18 * _requestGasPrice * (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead)) /
-      uint256(_weiPerUnitLink);
+    uint256 baseFee = (1e18 *
+      _requestGasPrice *
+      (_gas + getEip150Fee(_gas) + s_wrapperGasOverhead + s_coordinatorGasOverhead)) / uint256(_weiPerUnitLink);
 
     uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
 
@@ -268,6 +269,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       _data,
       (uint32, uint16, uint32)
     );
+    uint256 eip150Fee = getEip150Fee(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     require(_amount >= price, "fee too low");
@@ -277,7 +279,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       s_keyHash,
       SUBSCRIPTION_ID,
       requestConfirmations,
-      callbackGasLimit + s_wrapperGasOverhead,
+      callbackGasLimit + uint32(eip150Fee) + s_wrapperGasOverhead,
       numWords
     );
     s_callbacks[requestId] = Callback({
@@ -341,6 +343,13 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     }
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
     return weiPerUnitLink;
+  }
+
+  /**
+   * @dev Calculates premium needed for running an assembly call() post-EIP150.
+   */
+  function getEip150Fee(uint256 gas) private pure returns (uint256) {
+    return gas / 64;
   }
 
   /**
