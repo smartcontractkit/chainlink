@@ -900,7 +900,9 @@ describe.only('KeeperRegistryDev', () => {
             .callStatic.checkUpkeep(id, await keeper1.getAddress())
           assert.isTrue(response.gasLimit.eq(executeGas))
           assert.isTrue(response.linkEth.eq(linkEth))
-          assert.isTrue(response.fastGasWei.eq(gasWei))
+          assert.isTrue(
+            response.adjustedGasPrice.eq(gasWei.mul(newGasMultiplier)),
+          )
           assert.isTrue(
             response.maxLinkPayment.eq(
               linkForGas(executeGas.toNumber()).mul(newGasMultiplier),
