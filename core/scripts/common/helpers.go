@@ -161,6 +161,8 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 		fmtURL = "https://etherscan.io/tx/%s"
 	case 4: // Rinkeby
 		fmtURL = "https://rinkeby.etherscan.io/tx/%s"
+	case 5: // Goerli
+		fmtURL = "https://goerli.etherscan.io/tx/%s"
 	case 42: // Kovan
 		fmtURL = "https://kovan.etherscan.io/tx/%s"
 	case 11155111: // Sepolia
@@ -203,7 +205,9 @@ func ConfirmTXMined(context context.Context, client *ethclient.Client, transacti
 	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
 	receipt, err := bind.WaitMined(context, client, transaction)
 	PanicErr(err)
-	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber, "\nGas Used: ", receipt.GasUsed)
+	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber,
+		"\nGas Used: ", receipt.GasUsed,
+		"\nBlock hash: ", receipt.BlockHash.String())
 	return
 }
 
