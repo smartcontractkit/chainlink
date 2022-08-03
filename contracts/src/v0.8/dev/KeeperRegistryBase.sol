@@ -1,5 +1,7 @@
 pragma solidity 0.8.6;
 
+import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -22,10 +24,16 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint64 internal constant UINT64_MAX = 2**64 - 1;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
+  // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
+  bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
+  // function, which includes 4 bytes for function selector, 32 bytes for upkeep id, 35 bytes for data padding, and
+  // 32 bytes for estimated perform data
+  bytes public MAX_INPUT_DATA =
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -45,6 +53,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
+  OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
+  ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
+  PaymentModel public immutable PAYMENT_MODEL;
+  uint256 public immutable REGISTRY_GAS_OVERHEAD;
 
   error CannotCancel();
   error UpkeepCancelled();
@@ -82,6 +94,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     OUTGOING,
     INCOMING,
     BIDIRECTIONAL
+  }
+
+  enum PaymentModel {
+    DEFAULT,
+    ARBITRUM,
+    OPTIMISM
   }
 
   /**
@@ -122,7 +140,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     bytes performData;
     uint256 maxLinkPayment;
     uint256 gasLimit;
-    uint256 adjustedGasWei;
+    uint256 fastGasWei;
     uint256 linkEth;
   }
 
@@ -150,15 +168,21 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
 
   /**
+   * @param paymentModel the payment model of default, Arbitrum, or Optimism
+   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
+    PaymentModel paymentModel,
+    uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
+    PAYMENT_MODEL = paymentModel;
+    REGISTRY_GAS_OVERHEAD = registryGasOverhead;
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -192,15 +216,42 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
+   * @param gasLimit the amount of gas used
+   * @param fastGasWei the fast gas price
+   * @param linkEth the exchange ratio between LINK and ETH
+   * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
     uint256 gasLimit,
-    uint256 gasWei,
-    uint256 linkEth
+    uint256 fastGasWei,
+    uint256 linkEth,
+    bool isExecution
   ) internal view returns (uint96 payment) {
+    uint256 gasWei = fastGasWei * s_storage.gasCeilingMultiplier;
+    if (isExecution && tx.gasprice < gasWei) {
+      gasWei = tx.gasprice;
+    }
+
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
-    uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
+    uint256 l1CostWei = 0;
+    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+      bytes memory txCallData = new bytes(0);
+      if (isExecution) {
+        txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+      } else {
+        txCallData = MAX_INPUT_DATA;
+      }
+      l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
+    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+      l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+    }
+    // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
+    if (!isExecution) {
+      l1CostWei = s_storage.gasCeilingMultiplier * l1CostWei;
+    }
+
+    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(s_storage.flatFeeMicroLink) * 1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
@@ -228,28 +279,17 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   /**
-   * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
-   */
-  function _adjustGasPrice(uint256 gasWei, bool useTxGasPrice) internal view returns (uint256 adjustedPrice) {
-    adjustedPrice = gasWei * s_storage.gasCeilingMultiplier;
-    if (useTxGasPrice && tx.gasprice < adjustedPrice) {
-      adjustedPrice = tx.gasprice;
-    }
-  }
-
-  /**
    * @dev generates a PerformParams struct for use in _performUpkeepWithParams()
    */
   function _generatePerformParams(
     address from,
     uint256 id,
     bytes memory performData,
-    bool useTxGasPrice
+    bool isExecution
   ) internal view returns (PerformParams memory) {
     uint256 gasLimit = s_upkeep[id].executeGas;
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, useTxGasPrice);
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
+    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, isExecution);
 
     return
       PerformParams({
@@ -258,7 +298,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         performData: performData,
         maxLinkPayment: maxLinkPayment,
         gasLimit: gasLimit,
-        adjustedGasWei: adjustedGasWei,
+        fastGasWei: fastGasWei,
         linkEth: linkEth
       });
   }
