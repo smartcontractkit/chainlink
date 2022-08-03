@@ -29,7 +29,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       bytes memory performData,
       uint256 maxLinkPayment,
       uint256 gasLimit,
-      uint256 adjustedGasPrice,
+      uint256 adjustedGasWei,
       uint256 linkEth
     )
   {

@@ -74,7 +74,7 @@ before(async () => {
   )
 })
 
-describe.only('KeeperRegistryDev', () => {
+describe('KeeperRegistryDev', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -901,7 +901,7 @@ describe.only('KeeperRegistryDev', () => {
           assert.isTrue(response.gasLimit.eq(executeGas))
           assert.isTrue(response.linkEth.eq(linkEth))
           assert.isTrue(
-            response.adjustedGasPrice.eq(gasWei.mul(newGasMultiplier)),
+            response.adjustedGasWei.eq(gasWei.mul(newGasMultiplier)),
           )
           assert.isTrue(
             response.maxLinkPayment.eq(
