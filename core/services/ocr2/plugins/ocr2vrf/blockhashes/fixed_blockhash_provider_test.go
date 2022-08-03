@@ -18,6 +18,8 @@ import (
 )
 
 func Test_FixedBlockhashProvider(t *testing.T) {
+	t.Parallel()
+
 	client := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	p := blockhashes.NewFixedBlockhashProvider(client, 0, 0)
@@ -31,7 +33,6 @@ func Test_FixedBlockhashProvider(t *testing.T) {
 		height, err := p.CurrentHeight(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(100), height)
-		client.AssertExpectations(t)
 	})
 
 	t.Run("returns error when negative block number", func(t *testing.T) {
@@ -42,11 +43,12 @@ func Test_FixedBlockhashProvider(t *testing.T) {
 		height, err := p.CurrentHeight(ctx)
 		require.Error(t, err)
 		assert.Equal(t, uint64(0), height)
-		client.AssertExpectations(t)
 	})
 }
 
 func Test_OnchainVerifiableBlocks(t *testing.T) {
+	t.Parallel()
+
 	client := evmtest.NewEthClientMockWithDefaultChain(t)
 	ctx := context.Background()
 	h := &evmtypes.Head{Number: 100}
@@ -72,7 +74,6 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		for _, hash := range hashes {
 			assert.NotEmpty(t, hash)
 		}
-		client.AssertExpectations(t)
 	})
 
 	t.Run("returns error when underlying batch call returns error", func(t *testing.T) {
@@ -91,7 +92,6 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		assert.Equal(t, "batch call context eth_getBlockByNumber: network error", err.Error())
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
-		client.AssertExpectations(t)
 	})
 
 	t.Run("returns error when nil block received", func(t *testing.T) {
@@ -112,7 +112,6 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
-		client.AssertExpectations(t)
 	})
 
 	t.Run("returns error when empty blockhash received", func(t *testing.T) {
@@ -134,6 +133,5 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 		assert.Equal(t, "missing block hash", err.Error())
 		assert.Equal(t, uint64(0), startHeight)
 		assert.Nil(t, hashes)
-		client.AssertExpectations(t)
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -133,8 +134,8 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
-	defer verify()
+	sub := evmMocks.NewSubscription(t)
+	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
@@ -149,8 +150,6 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
-
-	ethClient.AssertExpectations(t)
 }
 
 func TestETHKeysController_UpdateSuccess(t *testing.T) {
@@ -161,8 +160,8 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
-	defer verify()
+	sub := evmMocks.NewSubscription(t)
+	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
@@ -177,7 +176,6 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
-	ethClient.AssertExpectations(t)
 
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)

@@ -69,8 +69,7 @@ type DirectRequestUniverse struct {
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGeneralConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	broadcaster := new(log_mocks.Broadcaster)
-	broadcaster.Test(t)
+	broadcaster := log_mocks.NewBroadcaster(t)
 	runner := new(pipeline_mocks.Runner)
 	broadcaster.On("AddDependents", 1)
 

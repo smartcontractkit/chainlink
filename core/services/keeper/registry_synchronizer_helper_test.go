@@ -34,8 +34,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	db := pgtest.NewSqlxDB(t)
 	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	lbMock := new(logmocks.Broadcaster)
-	lbMock.Test(t)
+	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg := cltest.NewTestGeneralConfig(t)
@@ -58,7 +57,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 
 	lbMock.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
 		return opts.Contract == contractAddress
-	})).Return(func() {})
+	})).Maybe().Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
