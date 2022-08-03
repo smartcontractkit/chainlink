@@ -13,7 +13,7 @@ require (
 	github.com/rs/zerolog v1.27.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.0
-	github.com/smartcontractkit/chainlink-env v0.2.27
+	github.com/smartcontractkit/chainlink-env v0.2.34
 	github.com/smartcontractkit/chainlink-testing-framework v1.5.5
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
 	github.com/stretchr/testify v1.8.0
