@@ -36,7 +36,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(360057)
+const CHECK_GAS_OVERHEAD = BigNumber.from(362227)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -474,6 +474,123 @@ describe('KeeperRegistryDev', () => {
           ]),
         'InvalidPayee()',
       )
+    })
+  })
+
+  describe('#pauseUpkeep', () => {
+    context('and the registry has an upkeep', () => {
+      beforeEach(async () => {
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+        id = await getUpkeepID(tx)
+      })
+    })
+
+    it('reverts if the upkeep is already canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
+
+      await evmRevert(
+        registry.connect(admin).pauseUpkeep(id),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if the upkeep is already paused', async () => {
+      await registry.connect(admin).pauseUpkeep(id)
+
+      await evmRevert(
+        registry.connect(admin).pauseUpkeep(id),
+        'OnlyUnpausedUpkeep()',
+      )
+    })
+
+    it('reverts if the caller is not the upkeep admin', async () => {
+      await evmRevert(
+        registry.connect(keeper1).pauseUpkeep(id),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('pauses the upkeep and emits an event', async () => {
+      const tx = await registry.connect(admin).pauseUpkeep(id)
+      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(registration.paused, true)
+    })
+  })
+
+  describe('#unpauseUpkeep', () => {
+    context('and the registry has a paused upkeep', () => {
+      beforeEach(async () => {
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+        id = await getUpkeepID(tx)
+
+        await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+          )
+      })
+    })
+
+    it('reverts if the upkeep is already canceled', async () => {
+      await registry.connect(owner).cancelUpkeep(id)
+
+      await evmRevert(
+        registry.connect(admin).unpauseUpkeep(id),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if the upkeep is not paused', async () => {
+      await evmRevert(
+        registry.connect(admin).unpauseUpkeep(id),
+        'OnlyPausedUpkeep()',
+      )
+    })
+
+    it('reverts if the caller is not the upkeep admin', async () => {
+      await registry.connect(admin).pauseUpkeep(id)
+
+      const registration = await registry.getUpkeep(id)
+
+      assert.equal(registration.paused, true)
+
+      await evmRevert(
+        registry.connect(keeper1).unpauseUpkeep(id),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('unpauses the upkeep and emits an event', async () => {
+      await registry.connect(admin).pauseUpkeep(id)
+
+      const tx = await registry.connect(admin).unpauseUpkeep(id)
+
+      await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(id)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(registration.paused, false)
+
+      const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
+      assert.equal(upkeepIds.length, 1)
     })
   })
 
