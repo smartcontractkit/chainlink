@@ -50,6 +50,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       performData,
       params.maxLinkPayment,
       params.gasLimit,
+      // adjustedGasWei equals fastGasWei multiplies gasCeilingMultiplier in non-execution cases
       params.fastGasWei * s_storage.gasCeilingMultiplier,
       params.linkEth
     );
