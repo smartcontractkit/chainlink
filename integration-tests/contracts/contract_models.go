@@ -8,10 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 type FluxAggregatorOptions struct {
@@ -131,12 +132,13 @@ type OffchainAggregatorData struct {
 type OffchainAggregator interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
-	GetContractData(ctxt context.Context) (*OffchainAggregatorData, error)
-	SetConfig(chainlinkNodes []client.Chainlink, ocrConfig OffChainAggregatorConfig) error
+	GetContractData(ctx context.Context) (*OffchainAggregatorData, error)
+	SetConfig(chainlinkNodes []*client.Chainlink, ocrConfig OffChainAggregatorConfig) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
-	GetLatestAnswer(ctxt context.Context) (*big.Int, error)
-	GetLatestRound(ctxt context.Context) (*RoundData, error)
+	GetLatestAnswer(ctx context.Context) (*big.Int, error)
+	GetLatestRound(ctx context.Context) (*RoundData, error)
+	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ethereum.OffchainAggregatorAnswerUpdated, error)
 }
 

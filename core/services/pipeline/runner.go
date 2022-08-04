@@ -259,6 +259,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHTxTask).chainSet = r.chainSet
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
+			task.(*ETHTxTask).allowForwarding = run.PipelineSpec.AllowForwarding
 		default:
 		}
 	}
@@ -564,11 +565,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 }
 
 func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
-	result := Result{
+	run, start, err := r.orm.UpdateTaskRunResult(taskID, Result{
 		Value: value,
 		Error: err,
-	}
-	run, start, err := r.orm.UpdateTaskRunResult(taskID, result)
+	})
 	if err != nil {
 		return err
 	}

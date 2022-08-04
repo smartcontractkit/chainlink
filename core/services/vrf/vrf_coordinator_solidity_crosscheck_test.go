@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
@@ -19,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -67,14 +67,6 @@ type coordinatorUniverse struct {
 
 var oneEth = big.NewInt(1000000000000000000) // 1e18 wei
 
-// newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with golang contract wrappers
-func newIdentity(t *testing.T) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-}
-
 func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) coordinatorUniverse {
 	cu := newVRFCoordinatorUniverse(t, key)
 	consumerContractAddress, _, consumerContract, err :=
@@ -98,14 +90,15 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) co
 func newVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) coordinatorUniverse {
 	var oracleTransactors []*bind.TransactOpts
 	for _, key := range keys {
-		oracleTransactors = append(oracleTransactors, cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey()))
+		oracleTransactor, _ := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+		oracleTransactors = append(oracleTransactors, oracleTransactor)
 	}
 
 	var (
-		sergey = newIdentity(t)
-		neil   = newIdentity(t)
-		ned    = newIdentity(t)
-		carol  = newIdentity(t)
+		sergey = testutils.MustNewSimTransactor(t)
+		neil   = testutils.MustNewSimTransactor(t)
+		ned    = testutils.MustNewSimTransactor(t)
+		carol  = testutils.MustNewSimTransactor(t)
 	)
 	genesisData := core.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000)},

@@ -23,9 +23,8 @@ type PluginConfig struct {
 	DKGContractAddress     string `json:"dkgContractAddress"`
 
 	// VRF configuration fields
-	LinkEthFeedAddress string   `json:"linkEthFeedAddress"`
-	ConfirmationDelays []uint32 `json:"confirmationDelays"`
-	LookbackBlocks     int64    `json:"lookbackBlocks"`
+	LinkEthFeedAddress string `json:"linkEthFeedAddress"`
+	LookbackBlocks     int64  `json:"lookbackBlocks"`
 }
 
 // ValidatePluginConfig validates that the given OCR2VRF plugin configuration is correct.
@@ -48,12 +47,6 @@ func ValidatePluginConfig(config PluginConfig, dkgSignKs keystore.DKGSign, dkgEn
 	// NOTE: similar to the above.
 	if config.LinkEthFeedAddress == "" {
 		return errors.New("linkEthFieldAddress field must be provided")
-	}
-
-	if len(config.ConfirmationDelays) != 8 {
-		// TODO: this should not be here, should read it from the chain
-		// However that's not possible at the moment, since that field is private.
-		return errors.New("confirmationDelays field must be an array of 8 elements")
 	}
 
 	if config.LookbackBlocks <= 0 {

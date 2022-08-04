@@ -97,6 +97,10 @@ func (e *erroringNode) HeaderByNumber(_ context.Context, _ *big.Int) (*types.Hea
 	return nil, errors.New(e.errMsg)
 }
 
+func (e *erroringNode) HeaderByHash(_ context.Context, _ common.Hash) (*types.Header, error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }

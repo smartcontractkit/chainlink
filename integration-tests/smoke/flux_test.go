@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -44,7 +45,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		contractDeployer contracts.ContractDeployer
 		linkToken        contracts.LinkToken
 		fluxInstance     contracts.FluxAggregator
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		mockServer       *ctfClient.MockserverClient
 		nodeAddresses    []common.Address
 		adapterPath      string
@@ -151,7 +152,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			URL:  adapterFullURL,
 		}
 		for i, n := range chainlinkNodes {
-			err = n.CreateBridge(&bta)
+			err = n.MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail for node %d", i+1)
 
 			fluxSpec := &client.FluxMonitorJobSpec{
@@ -163,7 +164,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 				IdleTimerDisabled: true,
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
 			}
-			_, err = n.CreateJob(fluxSpec)
+			_, err = n.MustCreateJob(fluxSpec)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating flux job shouldn't fail for node %d", i+1)
 		}
 

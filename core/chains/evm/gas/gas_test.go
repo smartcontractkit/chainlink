@@ -91,8 +91,7 @@ func Test_BumpLegacyGasPriceOnly(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := new(gasmocks.Config)
-			cfg.Test(t)
+			cfg := gasmocks.NewConfig(t)
 			cfg.On("EvmGasBumpPercent").Return(test.bumpPercent)
 			cfg.On("EvmGasBumpWei").Return(test.bumpWei)
 			cfg.On("EvmMaxGasPriceWei").Return(test.maxGasPriceWei)
@@ -103,17 +102,16 @@ func Test_BumpLegacyGasPriceOnly(t *testing.T) {
 				t.Fatalf("Expected %s but got %s", test.expectedGasPrice.String(), actual.String())
 			}
 			assert.Equal(t, int(test.expectedLimit), int(limit))
-			cfg.AssertExpectations(t)
 		})
 	}
 }
 
 func Test_BumpLegacyGasPriceOnly_HitsMaxError(t *testing.T) {
 	t.Parallel()
-	cfg := new(gasmocks.Config)
+
+	cfg := gasmocks.NewConfig(t)
 	maxGasPriceWei := assets.GWei(40)
 	cfg.On("EvmGasBumpPercent").Return(uint16(50))
-	cfg.On("EvmGasPriceDefault").Return(assets.GWei(20))
 	cfg.On("EvmGasBumpWei").Return(assets.Wei(5000000000))
 	cfg.On("EvmMaxGasPriceWei").Return(maxGasPriceWei)
 
@@ -125,13 +123,13 @@ func Test_BumpLegacyGasPriceOnly_HitsMaxError(t *testing.T) {
 
 func Test_BumpLegacyGasPriceOnly_NoBumpError(t *testing.T) {
 	t.Parallel()
+
 	maxGasPriceWei := assets.GWei(40)
 	lggr := logger.TestLogger(t)
-	cfg := new(gasmocks.Config)
+	cfg := gasmocks.NewConfig(t)
 	cfg.On("EvmGasBumpPercent").Return(uint16(0))
 	cfg.On("EvmGasBumpWei").Return(big.NewInt(0))
 	cfg.On("EvmMaxGasPriceWei").Return(maxGasPriceWei)
-	cfg.On("EvmGasPriceDefault").Return(assets.GWei(20))
 
 	originalGasPrice := toBigInt("3e10") // 30 GWei
 	_, _, err := gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, 42, maxGasPriceWei)
@@ -292,8 +290,7 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := new(gasmocks.Config)
-			cfg.Test(t)
+			cfg := gasmocks.NewConfig(t)
 			cfg.On("EvmGasBumpPercent").Return(test.bumpPercent)
 			cfg.On("EvmGasTipCapDefault").Return(test.tipCapDefault)
 			cfg.On("EvmGasBumpWei").Return(test.bumpWei)
@@ -311,16 +308,15 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 				t.Fatalf("FeeCap not equal, expected %s but got %s", test.expectedFee.FeeCap.String(), actual.FeeCap.String())
 			}
 			assert.Equal(t, int(test.expectedLimit), int(limit))
-			cfg.AssertExpectations(t)
 		})
 	}
 }
 
 func Test_BumpDynamicFeeOnly_HitsMaxError(t *testing.T) {
 	t.Parallel()
+
 	maxGasPriceWei := assets.GWei(40)
-	cfg := new(gasmocks.Config)
-	cfg.Test(t)
+	cfg := gasmocks.NewConfig(t)
 	cfg.On("EvmGasBumpPercent").Return(uint16(50))
 	cfg.On("EvmGasTipCapDefault").Return(assets.GWei(0))
 	cfg.On("EvmGasBumpWei").Return(assets.Wei(5000000000))

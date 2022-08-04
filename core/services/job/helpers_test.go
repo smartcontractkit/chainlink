@@ -184,7 +184,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg config.GeneralConf
 		ExternalJobID: uuid.NewV4(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: cltest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
 	_, err := ocr.ValidatedOracleSpecToml(cc, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)

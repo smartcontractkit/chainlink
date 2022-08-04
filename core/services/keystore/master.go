@@ -6,11 +6,11 @@ import (
 	"reflect"
 	"sync"
 
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	"github.com/pkg/errors"

@@ -104,8 +104,8 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 
 	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
 
-	offchainConfig, err := dkg.OffchainConfig(dkg.EncryptionPublicKeys(encryptionKeys), dkg.SigningPublicKeys(signingKeys), &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
-		&altbn_128.PairingSuite{},
+	offchainConfig, err := dkg.OffchainConfig(encryptionKeys, signingKeys, &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
+		Suite: &altbn_128.PairingSuite{},
 	})
 	helpers.PanicErr(err)
 	onchainConfig, err := dkg.OnchainConfig(dkg.KeyID(keyIDBytes))
@@ -149,10 +149,6 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 		strings.Split(c.peerIDs, ","),
 		strings.Split(c.transmitters, ","))
 
-	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
-
-	offchainConfig := ocr2vrf.OffchainConfig(keyIDBytes)
-
 	confDelays := make(map[uint32]struct{})
 	for _, c := range strings.Split(c.confDelays, ",") {
 		confDelay, err := strconv.ParseUint(c, 0, 32)
@@ -171,7 +167,7 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 		c.maxRounds,
 		helpers.ParseIntSlice(c.schedule),
 		oracleIdentities,
-		offchainConfig,
+		nil, // off-chain config
 		c.maxDurationQuery,
 		c.maxDurationObservation,
 		c.maxDurationReport,
@@ -240,10 +236,10 @@ func requestRandomness(e helpers.Environment, coordinatorAddress string, numWord
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func getRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
+func redeemRandomness(e helpers.Environment, coordinatorAddress string, requestID *big.Int) {
 	coordinator := newVRFBeaconCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
 
-	tx, err := coordinator.GetRandomness(e.Owner, requestID)
+	tx, err := coordinator.RedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -265,7 +261,7 @@ func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err := consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
@@ -296,18 +292,28 @@ func requestRandomnessCallback(
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err = consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
 }
 
-func getRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int) {
+func redeemRandomnessFromConsumer(e helpers.Environment, consumerAddress string, requestID *big.Int, numWords int64) {
 	consumer := newVRFBeaconCoordinatorConsumer(common.HexToAddress(consumerAddress), e.Ec)
 
-	tx, err := consumer.TestGetRandomness(e.Owner, requestID)
+	tx, err := consumer.TestRedeemRandomness(e.Owner, requestID)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+
+	printRandomnessFromConsumer(consumer, requestID, numWords)
+}
+
+func printRandomnessFromConsumer(consumer *vrf_beacon_consumer.BeaconVRFConsumer, requestID *big.Int, numWords int64) {
+	for i := int64(0); i < numWords; i++ {
+		randomness, err := consumer.SReceivedRandomnessByRequestID(nil, requestID, big.NewInt(0))
+		helpers.PanicErr(err)
+		fmt.Println("random words index", i, ":", randomness.String())
+	}
 }
 
 func newVRFBeaconCoordinator(addr common.Address, client *ethclient.Client) *vrf_beacon_coordinator.VRFBeaconCoordinator {

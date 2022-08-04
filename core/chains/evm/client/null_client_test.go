@@ -8,20 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestNullClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("chain id", func(t *testing.T) {
-		t.Parallel()
-
 		lggr := logger.TestLogger(t)
 		cid := big.NewInt(123)
 		nc := client.NewNullClient(cid, lggr)
@@ -32,8 +31,6 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("CL client methods", func(t *testing.T) {
-		t.Parallel()
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.TestCtx(t)
@@ -84,8 +81,6 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("Geth client methods", func(t *testing.T) {
-		t.Parallel()
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.TestCtx(t)
