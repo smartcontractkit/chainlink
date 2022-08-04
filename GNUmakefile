@@ -40,7 +40,7 @@ chainlink: operator-ui ## Build the chainlink binary.
 
 .PHONY: chainlink-build
 chainlink-build: ## Build & install the chainlink binary.
-	go build $(GOFLAGS) -o chainlink ./core/
+	go build -tags trace $(GOFLAGS) -o chainlink ./core/
 	cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui
