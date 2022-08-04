@@ -290,7 +290,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "create ocr2vrf coordinator")
 		}
-
 		l := d.lggr.Named("OCR2VRF").With(
 			"jobName", jobSpec.Name.ValueOrZero(),
 			"jobID", jobSpec.ID,
@@ -327,7 +326,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			Serializer:                   reportserializer.NewReportSerializer(&altbn_128.G1{}),
 			JulesPerFeeCoin:              juelsPerFeeCoin,
 			Coordinator:                  coordinator,
-			ConfirmationDelays:           cfg.ConfirmationDelays,
 			Esk:                          encryptionSecretKey.KyberScalar(),
 			Ssk:                          signingSecretKey.KyberScalar(),
 			KeyID:                        keyID,

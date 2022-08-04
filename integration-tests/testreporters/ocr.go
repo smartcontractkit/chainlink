@@ -3,8 +3,11 @@ package testreporters
 import (
 	"encoding/csv"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -14,37 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 )
 
+// OCRSoakTestReporter collates all OCRAnswerUpdated events into a single report
 type OCRSoakTestReporter struct {
-	Reports            map[string]*OCRSoakTestReport // contractAddress: Report
-	ExpectedRoundTime  time.Duration
-	UnexpectedShutdown bool
+	ContractReports       map[string]*OCRSoakTestReport // contractAddress: Answers
+	ExpectedRoundDuration time.Duration
+	UnexpectedShutdown    bool
+	AnomaliesDetected     bool
 
 	namespace   string
 	csvLocation string
-}
-
-type OCRSoakTestReport struct {
-	ContractAddress          string
-	TotalRounds              uint
-	ExpectedRoundtime        time.Duration
-	LongerThanExpectedRounds []*LongerThanExpectedRound
-
-	averageRoundTime  time.Duration
-	LongestRoundTime  time.Duration
-	ShortestRoundTime time.Duration
-	totalRoundTimes   time.Duration
-
-	averageRoundBlocks  uint
-	LongestRoundBlocks  uint
-	ShortestRoundBlocks uint
-	totalBlockLength    uint
-}
-
-type LongerThanExpectedRound struct {
-	RoundID     uint
-	RoundTime   time.Duration
-	BlockLength uint
-	Timestamp   time.Time
 }
 
 // SetNamespace sets the namespace of the report for clean reports
@@ -54,36 +35,20 @@ func (o *OCRSoakTestReporter) SetNamespace(namespace string) {
 
 // WriteReport writes OCR Soak test report to logs
 func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
-	for _, report := range o.Reports {
-		report.averageRoundBlocks = report.totalBlockLength / report.TotalRounds
-		report.averageRoundTime = time.Duration(report.totalRoundTimes.Nanoseconds() / int64(report.TotalRounds)).Round(time.Second)
-
-		report.averageRoundTime = report.averageRoundTime.Round(time.Second)
-		report.LongestRoundTime = report.LongestRoundTime.Round(time.Second)
-		report.ShortestRoundTime = report.ShortestRoundTime.Round(time.Second)
-		report.totalRoundTimes = report.totalRoundTimes.Round(time.Second)
+	log.Debug().Msg("Writing OCR Soak Test Report")
+	var reportGroup sync.WaitGroup
+	for _, report := range o.ContractReports {
+		reportGroup.Add(1)
+		go func(report *OCRSoakTestReport) {
+			defer reportGroup.Done()
+			if report.ProcessOCRReport() {
+				o.AnomaliesDetected = true
+			}
+		}(report)
 	}
-	if err := o.writeCSV(folderLocation); err != nil {
-		return err
-	}
-
-	log.Info().Msg("OCR Soak Test Report")
-	log.Info().Msg("--------------------")
-	for contractAddress, report := range o.Reports {
-		log.Info().
-			Str("Contract Address", report.ContractAddress).
-			Uint("Total Rounds Processed", report.TotalRounds).
-			Str("Average Round Time", fmt.Sprint(report.averageRoundTime)).
-			Str("Longest Round Time", fmt.Sprint(report.LongestRoundTime)).
-			Str("Shortest Round Time", fmt.Sprint(report.ShortestRoundTime)).
-			Str("Total Rounds Outside of Expected Time", fmt.Sprint(report.ExpectedRoundtime)).
-			Uint("Average Round Blocks", report.averageRoundBlocks).
-			Uint("Longest Round Blocks", report.LongestRoundBlocks).
-			Uint("Shortest Round Blocks", report.ShortestRoundBlocks).
-			Msg(contractAddress)
-	}
-	log.Info().Msg("--------------------")
-	return nil
+	reportGroup.Wait()
+	log.Debug().Int("Count", len(o.ContractReports)).Msg("Processed OCR Soak Test Reports")
+	return o.writeCSV(folderLocation)
 }
 
 // SendNotification sends a slack message to a slack webhook and uploads test artifacts
@@ -98,6 +63,8 @@ func (o *OCRSoakTestReporter) SendSlackNotification(slackClient *slack.Client) e
 		headerText = ":x: OCR Soak Test FAILED :x:"
 	} else if o.UnexpectedShutdown {
 		headerText = ":warning: OCR Soak Test was Unexpectedly Shut Down :warning:"
+	} else if o.AnomaliesDetected {
+		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(slackClient, headerText, o.namespace, o.csvLocation, testreporters.SlackUserID, testFailed)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
@@ -114,41 +81,6 @@ func (o *OCRSoakTestReporter) SendSlackNotification(slackClient *slack.Client) e
 		Channels:        []string{testreporters.SlackChannel},
 		ThreadTimestamp: ts,
 	})
-}
-
-// UpdateReport updates the report based on the latest info
-func (o *OCRSoakTestReport) UpdateReport(roundTime time.Duration, blockLength uint) {
-	// Updates min values from default 0
-	if o.ShortestRoundBlocks == 0 {
-		o.ShortestRoundBlocks = blockLength
-	}
-	if o.ShortestRoundTime == 0 {
-		o.ShortestRoundTime = roundTime
-	}
-	o.TotalRounds++
-	o.totalRoundTimes += roundTime
-	o.totalBlockLength += blockLength
-
-	if roundTime > o.ExpectedRoundtime {
-		o.LongerThanExpectedRounds = append(o.LongerThanExpectedRounds, &LongerThanExpectedRound{
-			RoundID:     o.TotalRounds,
-			RoundTime:   roundTime,
-			BlockLength: blockLength,
-			Timestamp:   time.Now(),
-		})
-	}
-	if roundTime >= o.LongestRoundTime {
-		o.LongestRoundTime = roundTime
-	}
-	if roundTime <= o.ShortestRoundTime {
-		o.ShortestRoundTime = roundTime
-	}
-	if blockLength >= o.LongestRoundBlocks {
-		o.LongestRoundBlocks = blockLength
-	}
-	if blockLength <= o.ShortestRoundBlocks {
-		o.ShortestRoundBlocks = blockLength
-	}
 }
 
 // writes a CSV report on the test runner
@@ -177,16 +109,16 @@ func (o *OCRSoakTestReporter) writeCSV(folderLocation string) error {
 	if err != nil {
 		return err
 	}
-	for _, report := range o.Reports {
+	for contractAddress, report := range o.ContractReports {
 		err = ocrReportWriter.Write([]string{
-			report.ContractAddress,
-			fmt.Sprint(report.TotalRounds),
-			fmt.Sprint(report.averageRoundTime),
-			fmt.Sprint(report.LongestRoundTime),
-			fmt.Sprint(report.ShortestRoundTime),
+			contractAddress,
+			fmt.Sprint(report.totalRounds),
+			report.averageRoundTime.Truncate(time.Second).String(),
+			report.longestRoundTime.Truncate(time.Second).String(),
+			report.shortestRoundTime.Truncate(time.Second).String(),
 			fmt.Sprint(report.averageRoundBlocks),
-			fmt.Sprint(report.LongestRoundBlocks),
-			fmt.Sprint(report.ShortestRoundBlocks),
+			fmt.Sprint(report.longestRoundBlocks),
+			fmt.Sprint(report.shortestRoundBlocks),
 		})
 		if err != nil {
 			return err
@@ -198,31 +130,47 @@ func (o *OCRSoakTestReporter) writeCSV(folderLocation string) error {
 		return err
 	}
 
-	err = ocrReportWriter.Write([]string{fmt.Sprintf("Rounds That Took Longer Than %s", o.ExpectedRoundTime)})
+	// Anomalous reports
+	err = ocrReportWriter.Write([]string{"Updates With Anomalies"})
 	if err != nil {
 		return err
 	}
 
-	err = ocrReportWriter.Write([]string{
-		"Contract Address",
-		"Timestamp",
-		"Round ID",
-		"Round Time",
-		"Block Length",
-	})
+	for _, report := range o.ContractReports {
+		if len(report.AnomalousAnswerIndexes) > 0 {
+			err = ocrReportWriter.Write(report.csvHeaders())
+			if err != nil {
+				return err
+			}
+		}
+		for _, values := range report.anomalousCSVValues() {
+			err = ocrReportWriter.Write(values)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = ocrReportWriter.Write([]string{})
 	if err != nil {
 		return err
 	}
 
-	for _, report := range o.Reports {
-		for _, longerThanExpected := range report.LongerThanExpectedRounds {
-			err = ocrReportWriter.Write([]string{
-				report.ContractAddress,
-				fmt.Sprint(longerThanExpected.Timestamp),
-				fmt.Sprint(longerThanExpected.RoundID),
-				longerThanExpected.RoundTime.String(),
-				fmt.Sprint(longerThanExpected.BlockLength),
-			})
+	// All reports
+	err = ocrReportWriter.Write([]string{"All Updated Answers"})
+	if err != nil {
+		return err
+	}
+
+	for _, report := range o.ContractReports {
+		if len(report.UpdatedAnswers) > 0 {
+			err = ocrReportWriter.Write(report.csvHeaders())
+			if err != nil {
+				return err
+			}
+		}
+		for _, values := range report.allCSVValues() {
+			err = ocrReportWriter.Write(values)
 			if err != nil {
 				return err
 			}
@@ -233,4 +181,278 @@ func (o *OCRSoakTestReporter) writeCSV(folderLocation string) error {
 
 	log.Info().Str("Location", reportLocation).Msg("Wrote CSV file")
 	return nil
+}
+
+// OCRSoakTestReport holds all answered rounds and summary data for an OCR contract
+type OCRSoakTestReport struct {
+	ContractAddress        string
+	UpdatedAnswers         []*OCRAnswerUpdated
+	AnomalousAnswerIndexes []int
+	ExpectedRoundDuration  time.Duration
+
+	newRoundExpected       bool
+	newRoundExpectedId     uint64
+	newRoundExpectedAnswer int
+	newRoundStartTime      time.Time
+	newRoundStartBlock     uint64
+
+	totalRounds         uint64
+	longestRoundTime    time.Duration
+	shortestRoundTime   time.Duration
+	averageRoundTime    time.Duration
+	longestRoundBlocks  uint64
+	shortestRoundBlocks uint64
+	averageRoundBlocks  uint64
+}
+
+// NewOCRSoakTestReport initializes a new soak test report for a new tests
+func NewOCRSoakTestReport(contractAddress string, startingAnswer int, expectedRoundDuration time.Duration) *OCRSoakTestReport {
+	return &OCRSoakTestReport{
+		ContractAddress:        contractAddress,
+		UpdatedAnswers:         make([]*OCRAnswerUpdated, 0),
+		AnomalousAnswerIndexes: make([]int, 0),
+		ExpectedRoundDuration:  expectedRoundDuration,
+		newRoundExpected:       true,
+		newRoundExpectedId:     1,
+		newRoundExpectedAnswer: startingAnswer,
+	}
+}
+
+// ProcessOCRReport summarizes all data collected from OCR rounds, and returns if there are any anomalies detected
+func (o *OCRSoakTestReport) ProcessOCRReport() bool {
+	log.Debug().Str("OCR Address", o.ContractAddress).Msg("Processing OCR Soak Report")
+	o.AnomalousAnswerIndexes = make([]int, 0)
+
+	var (
+		totalRoundBlocks uint64
+		totalRoundTime   time.Duration
+	)
+
+	o.longestRoundTime = 0
+	o.shortestRoundTime = math.MaxInt64
+	o.longestRoundBlocks = 0
+	o.shortestRoundBlocks = math.MaxUint64
+	for index, updatedAnswer := range o.UpdatedAnswers {
+		if updatedAnswer.ProcessAnomalies(o.ExpectedRoundDuration) {
+			o.AnomalousAnswerIndexes = append(o.AnomalousAnswerIndexes, index)
+		}
+		if !updatedAnswer.Anomalous { // Anomalous answers can have outlier values that throw averages off
+			o.totalRounds++
+			updatedAnswer.RoundDuration = updatedAnswer.UpdatedTime.Sub(updatedAnswer.StartingTime)
+			updatedAnswer.BlockDuration = updatedAnswer.UpdatedBlockNum - updatedAnswer.StartingBlockNum
+			totalRoundTime += updatedAnswer.RoundDuration
+			totalRoundBlocks += updatedAnswer.BlockDuration
+			if o.longestRoundTime < updatedAnswer.RoundDuration {
+				o.longestRoundTime = updatedAnswer.RoundDuration
+			}
+			if o.shortestRoundTime > updatedAnswer.RoundDuration {
+				o.shortestRoundTime = updatedAnswer.RoundDuration
+			}
+			if o.longestRoundBlocks < updatedAnswer.BlockDuration {
+				o.longestRoundBlocks = updatedAnswer.BlockDuration
+			}
+			if o.shortestRoundBlocks > updatedAnswer.BlockDuration {
+				o.shortestRoundBlocks = updatedAnswer.BlockDuration
+			}
+		}
+	}
+	o.averageRoundBlocks = totalRoundBlocks / o.totalRounds
+	o.averageRoundTime = totalRoundTime / time.Duration(o.totalRounds)
+	return len(o.AnomalousAnswerIndexes) > 0
+}
+
+// NewAnswerUpdated records a new round, updating expectations for the next one if necessary. Returns true if the answer
+// comes in as fully expected.
+func (o *OCRSoakTestReport) NewAnswerUpdated(newAnswer *OCRAnswerUpdated) bool {
+	fullyExpected := newAnswer.UpdatedRoundId == o.newRoundExpectedId &&
+		o.newRoundExpected &&
+		o.newRoundExpectedAnswer == newAnswer.UpdatedAnswer
+	newAnswer.ContractAddress = o.ContractAddress
+	newAnswer.ExpectedAnswer = o.newRoundExpectedAnswer
+	newAnswer.ExpectedUpdate = o.newRoundExpected
+	newAnswer.ExpectedRoundId = o.newRoundExpectedId
+	if newAnswer.UpdatedRoundId >= o.newRoundExpectedId {
+		o.newRoundExpectedId = newAnswer.UpdatedRoundId + 1
+	}
+
+	if fullyExpected { // Expected round came in correctly
+		newAnswer.StartingBlockNum = o.newRoundStartBlock
+		newAnswer.StartingTime = o.newRoundStartTime
+		o.newRoundExpected = false
+	}
+
+	o.UpdatedAnswers = append(o.UpdatedAnswers, newAnswer)
+	log.Info().
+		Uint64("Updated Round ID", newAnswer.UpdatedRoundId).
+		Uint64("Expected Round ID", newAnswer.ExpectedRoundId).
+		Int("Updated Answer", newAnswer.UpdatedAnswer).
+		Int("Expected Answer", newAnswer.ExpectedAnswer).
+		Str("Address", o.ContractAddress).
+		Uint64("Block Number", newAnswer.UpdatedBlockNum).
+		Str("Block Hash", newAnswer.UpdatedBlockHash).
+		Str("Event Tx Hash", newAnswer.RoundTxHash).
+		Msg("Answer Updated")
+	return fullyExpected
+}
+
+// NewAnswerExpected indicates that we're expecting a new answer on an OCR contract
+func (o *OCRSoakTestReport) NewAnswerExpected(answer int, startingBlock uint64) {
+	o.newRoundExpected = true
+	o.newRoundExpectedAnswer = answer
+	o.newRoundStartTime = time.Now()
+	o.newRoundStartBlock = startingBlock
+	log.Debug().
+		Str("Address", o.ContractAddress).
+		Uint64("Expected Round ID", o.newRoundExpectedId).
+		Int("Expected Answer", o.newRoundExpectedAnswer).
+		Msg("Expecting a New OCR Round")
+}
+
+func (o *OCRSoakTestReport) csvHeaders() []string {
+	return []string{
+		"Contract Address",
+		"Update Expected?",
+		"Expected Round ID",
+		"Event Round ID",
+		"On-Chain Round ID",
+		"Round Start Time",
+		"Round End Time",
+		"Round Duration",
+		"Round Triggered Block Number",
+		"Round Updated Block Number",
+		"Round Block Duration",
+		"Round Updated Block Hash",
+		"Round Tx Hash",
+		"Expected Answer",
+		"Event Answer",
+		"On-Chain Answer",
+		"Anomalous?",
+		"Anomalies",
+	}
+}
+
+// returns CSV formatted values for all updated answers
+func (o *OCRSoakTestReport) allCSVValues() [][]string {
+	csvValues := [][]string{}
+	for _, updatedAnswer := range o.UpdatedAnswers {
+		csvValues = append(csvValues, updatedAnswer.toCSV())
+	}
+	return csvValues
+}
+
+// returns all CSV formatted values of anomalous answers
+func (o *OCRSoakTestReport) anomalousCSVValues() [][]string {
+	csvValues := [][]string{}
+	for _, anomalousIndex := range o.AnomalousAnswerIndexes {
+		updatedAnswer := o.UpdatedAnswers[anomalousIndex]
+		csvValues = append(csvValues, updatedAnswer.toCSV())
+	}
+	return csvValues
+}
+
+// OCRAnswerUpdated records details of an OCRAnswerUpdated event and compares them against expectations
+type OCRAnswerUpdated struct {
+	// metadata
+	ContractAddress  string
+	ExpectedUpdate   bool
+	StartingBlockNum uint64
+	UpdatedBlockHash string
+	RoundTxHash      string
+	BlockDuration    uint64
+	StartingTime     time.Time
+	RoundDuration    time.Duration
+
+	// round data
+	ExpectedRoundId uint64
+	ExpectedAnswer  int
+
+	UpdatedRoundId  uint64
+	UpdatedBlockNum uint64
+	UpdatedTime     time.Time
+	UpdatedAnswer   int
+
+	OnChainRoundId uint64
+	OnChainAnswer  int
+
+	Anomalous bool
+	Anomalies []string
+}
+
+// ProcessAnomalies checks received data against expected data of the updated answer, returning if anything mismatches
+func (o *OCRAnswerUpdated) ProcessAnomalies(expectedRoundDuration time.Duration) bool {
+	if o.UpdatedRoundId == 0 && o.OnChainRoundId == 0 {
+		o.Anomalous = true
+		o.Anomalies = []string{fmt.Sprintf("Test likely ended before the round could be confirmed. Check for round %d on chain", o.ExpectedRoundId)}
+		return o.Anomalous
+	}
+
+	var isAnomaly bool
+	anomalies := []string{}
+	if !o.ExpectedUpdate {
+		isAnomaly = true
+		anomalies = append(anomalies, "Unexpected new round, possible double transmission")
+	}
+
+	if o.ExpectedRoundId != o.UpdatedRoundId || o.ExpectedRoundId != o.OnChainRoundId {
+		isAnomaly = true
+		anomalies = append(anomalies, "RoundID mismatch, possible double transmission")
+	}
+	if o.ExpectedAnswer != o.UpdatedAnswer || o.ExpectedAnswer != o.OnChainAnswer {
+		isAnomaly = true
+		anomalies = append(anomalies, "! ANSWER MISMATCH !")
+	}
+	if o.RoundDuration > expectedRoundDuration {
+		isAnomaly = true
+		anomalies = append(anomalies, fmt.Sprintf(
+			"Round took %s to complete, longer than expected time of %s", o.RoundDuration, expectedRoundDuration.String()),
+		)
+	}
+	o.Anomalous, o.Anomalies = isAnomaly, anomalies
+	return isAnomaly
+}
+
+func (o *OCRAnswerUpdated) toCSV() []string {
+	var ( // Values that could be affected by anomalies
+		startTime          string
+		roundTimeDuration  string
+		startingBlock      string
+		roundBlockDuration string
+	)
+
+	if o.StartingTime.IsZero() {
+		startTime = "Unknown"
+		roundTimeDuration = "Unknown"
+	} else {
+		startTime = o.StartingTime.Truncate(time.Second).String()
+		roundTimeDuration = o.UpdatedTime.Sub(o.StartingTime).Truncate(time.Second).String()
+	}
+
+	if o.StartingBlockNum == 0 {
+		startingBlock = "Unknown"
+		roundBlockDuration = "Unknown"
+	} else {
+		startingBlock = fmt.Sprint(o.StartingBlockNum)
+		roundBlockDuration = fmt.Sprint(o.UpdatedBlockNum - o.StartingBlockNum)
+	}
+
+	return []string{
+		o.ContractAddress,
+		fmt.Sprint(o.ExpectedUpdate),
+		fmt.Sprint(o.ExpectedRoundId),
+		fmt.Sprint(o.UpdatedRoundId),
+		fmt.Sprint(o.OnChainRoundId),
+		startTime,
+		o.UpdatedTime.Truncate(time.Second).String(),
+		roundTimeDuration,
+		startingBlock,
+		fmt.Sprint(o.UpdatedBlockNum),
+		roundBlockDuration,
+		o.UpdatedBlockHash,
+		o.RoundTxHash,
+		fmt.Sprint(o.ExpectedAnswer),
+		fmt.Sprint(o.UpdatedAnswer),
+		fmt.Sprint(o.OnChainAnswer),
+		fmt.Sprint(o.Anomalous),
+		strings.Join(o.Anomalies, " | "),
+	}
 }

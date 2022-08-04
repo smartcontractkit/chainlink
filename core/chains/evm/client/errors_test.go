@@ -25,6 +25,7 @@ type errorCase struct {
 
 func Test_Eth_Errors(t *testing.T) {
 	t.Parallel()
+
 	var err *evmclient.SendError
 	randomError := evmclient.NewSendErrorS("some old bollocks")
 
@@ -33,6 +34,7 @@ func Test_Eth_Errors(t *testing.T) {
 
 		tests := []errorCase{
 			{"nonce too low", true, "Geth"},
+			{"nonce too low: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 			{"Nonce too low", true, "Besu"},
 			{"nonce too low", true, "Erigon"},
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
@@ -164,6 +166,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.", true, "Parity"},
 			{"transaction rejected: insufficient funds for gas * price + value", true, "Arbitrum"},
 			{"not enough funds for gas", true, "Arbitrum"},
+			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
 			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
 		}
@@ -287,6 +290,8 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"forbidden sender address", true, "Arbitrum"},
 		{"tx dropped due to L2 congestion", false, "Arbitrum"},
 		{"execution reverted: error code", true, "Arbitrum"},
+		{"execution reverted", true, "Arbitrum"},
+		{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 
 		{"call failed: SenderIsContract", true, "Nethermind"},
 		{"call failed: Invalid", true, "Nethermind"},
@@ -309,6 +314,8 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 }
 
 func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
+	t.Parallel()
+
 	message := "important revert reason"
 	messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
 	sigHash := "12345678"
