@@ -77,6 +77,11 @@ Ethereum node versions currently tested and supported:
 [Officially supported]
 - [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
+
+[Supported but RPC node has bugs]
+
+Chainlink supports these clients, but the actual implementations have bugs that prevent Chainlink from working reliably on these platforms.
+
 - [Nethermind](https://github.com/NethermindEth/nethermind)
 - [Besu](https://github.com/hyperledger/besu)
 
