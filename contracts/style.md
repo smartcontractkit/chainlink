@@ -20,6 +20,24 @@ Our starting point is the [official Solidity Style Guide](https://solidity.readt
 
 - All contract variables should be private. Getters should be explicitly written and documented when you want to expose a variable publicly. Whether a getter function reads from storage, a constant, or calculates a value from somewhere else, that’s all implementation details that should not be exposed to the consumer by casing or other conventions.
 
+Examples:
+
+Good:
+
+```javascript
+uint256 private s_myVar;
+
+function getMyVar() external view returns(uint256){
+    return s_myVar;
+}
+```
+
+Bad:
+
+```javascript
+uint256 public s_myVar;
+```
+
 ### Naming and Casing
 
 - Function arguments are named like this: `argumentName`. No leading or trailing underscores necessary.
@@ -28,9 +46,65 @@ Our starting point is the [official Solidity Style Guide](https://solidity.readt
 - Internal/private constants should be all caps with underscores: `FOO_BAR`. Like other contract variables, constants should not be public. Create getter methods if you want to publicly expose constants.
 - Explicitly declare variable size: `uint256` not just `uint`. In addition to being explicit, it matches the naming used to calculate function selectors.
 
+Examples:
+
+Good:
+
+```javascript
+uint256 private s_myVar;
+uint256 private immutable i_myImmutVar;
+uint256 private constant MY_CONST_VAR;
+
+function getMyVar() external view returns(uint256){
+    return s_myVar;
+}
+```
+
+Bad:
+
+```javascript
+uint private s_myVar;
+uint256 private immutable myImmutVar;
+uint256 private constant s_myConstVar;
+
+function getMyVar_() external view returns(uint256){
+    return s_myVar;
+}
+```
+
 ### Types
 
 - If you are storing an address and know/expect it to be of a type(or interface), make the variable that type. This more clearly documents the behavior of this variable than the `address` type and often leads to less casting code whenever the address is used.
+
+Examples:
+
+Good:
+
+```javascript
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+// .
+// .
+// .
+AggregatorV3Interface private s_priceFeed;
+
+constructor(address priceFeed) {
+    s_priceFeed = AggregatorV3Interface(priceFeed);
+}
+```
+
+Bad:
+
+```javascript
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+// .
+// .
+// .
+address private s_priceFeed;
+
+constructor(address priceFeed) {
+    s_priceFeed = priceFeed;
+}
+```
 
 ## Functions
 
@@ -82,14 +156,16 @@ Whenever possible (Solidity v0.8+) use [custom errors](https://blog.soliditylang
 
 It is common to call a contract and then check the call succeeded:
 
-```bash
+```javascript
 (bool success, ) = to.call(data);
 require(success, "Contract call failed");
 ```
 
 While this may look descriptive it swallows the error. Instead bubble up the error:
 
-```bash
+```javascript
+error YourError(bytes response);
+
 (bool success, bytes memory response) = to.call(data);
 if (!success) revert YourError(response);
 ```
