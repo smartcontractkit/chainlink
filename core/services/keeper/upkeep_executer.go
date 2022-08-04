@@ -301,7 +301,7 @@ func addBuffer(val *big.Int, prct uint32) *big.Int {
 
 func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
-	block, err := ex.ethClient.BlockByNumber(context.Background(), big.NewInt(turnBlock))
+	block, err := ex.ethClient.HeaderByNumber(context.Background(), big.NewInt(turnBlock))
 	if err != nil {
 		return "", err
 	}

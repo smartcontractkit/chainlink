@@ -36,7 +36,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(362227)
+const CHECK_GAS_OVERHEAD = BigNumber.from(362287)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories

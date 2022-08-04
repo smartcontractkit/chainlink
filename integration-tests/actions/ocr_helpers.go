@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -167,11 +168,20 @@ func SetAllAdapterResponsesToTheSameValue(
 	mockserver *ctfClient.MockserverClient,
 ) func() {
 	return func() {
-		for _, ocrInstance := range ocrInstances {
-			for _, node := range chainlinkNodes {
-				SetAdapterResponse(response, ocrInstance, node, mockserver)()
+		var adapterVals sync.WaitGroup
+		for _, o := range ocrInstances {
+			ocrInstance := o
+			for _, n := range chainlinkNodes {
+				node := n
+				adapterVals.Add(1)
+				go func() {
+					defer adapterVals.Done()
+					SetAdapterResponse(response, ocrInstance, node, mockserver)()
+				}()
+
 			}
 		}
+		adapterVals.Wait()
 	}
 }
 
