@@ -154,25 +154,6 @@ describe('BatchBlockhashStore', () => {
         ])
         // eip 1559 header - switch to this if we upgrade hardhat
         // and use post-london forks of ethereum.
-        // const encodedHeader = rlp.encode([
-        // 	block.parentHash,
-        // 	block.sha3Uncles,
-        // 	ethers.utils.arrayify(block.miner),
-        // 	block.stateRoot,
-        // 	block.transactionsRoot,
-        // 	block.receiptsRoot,
-        // 	block.logsBloom,
-        // 	block.difficulty,
-        // 	block.number,
-        // 	block.gasLimit,
-        // 	block.gasUsed == '0x0' ? '0x' : block.gasUsed,
-        // 	block.timestamp,
-        // 	block.extraData,
-        // 	block.mixHash,
-        // 	block.nonce,
-        // 	block.baseFeePerGas,
-        // ])
-        // pre-london block header serialization
         const encodedHeader = rlp.encode([
           block.parentHash,
           block.sha3Uncles,
@@ -189,7 +170,26 @@ describe('BatchBlockhashStore', () => {
           block.extraData,
           block.mixHash,
           block.nonce,
+          block.baseFeePerGas,
         ])
+        // // pre-london block header serialization - kept for prosperity
+        // const encodedHeader = rlp.encode([
+        //   block.parentHash,
+        //   block.sha3Uncles,
+        //   ethers.utils.arrayify(block.miner),
+        //   block.stateRoot,
+        //   block.transactionsRoot,
+        //   block.receiptsRoot,
+        //   block.logsBloom,
+        //   block.difficulty,
+        //   block.number,
+        //   block.gasLimit,
+        //   block.gasUsed == '0x0' ? '0x' : block.gasUsed,
+        //   block.timestamp,
+        //   block.extraData,
+        //   block.mixHash,
+        //   block.nonce,
+        // ])
         blockHeaders.push('0x' + encodedHeader.toString('hex'))
         expectedBlockhashes.push(
           (

@@ -11905,7 +11905,7 @@ hardhat-contract-sizer@^2.5.1:
     chalk "^4.0.0"
     cli-table3 "^0.6.0"
 
-hardhat@^2.4.1:
+hardhat@^2.10.1:
   version "2.10.1"
   resolved "https://registry.npmjs.org/hardhat/-/hardhat-2.10.1.tgz#37fdc0c96d6a5d16b322269db2ad8f9f115c4046"
   integrity sha512-0FN9TyCtn7Lt25SB2ei2G7nA2rZjP+RN6MvFOm+zYwherxLZNo6RbD8nDz88eCbhRapevmXqOiL2nM8INKsjmA==
@@ -19391,9 +19391,9 @@ undici@^4.9.3:
   integrity sha512-t59IFVYiMnFThboJL9izqwsDEfSbZDPZ/8iCYBCkEFLy63x9m4YaNt0E+r5+X993syC9M0W/ksusZC9YuAamMg==
 
 undici@^5.4.0:
-  version "5.8.0"
-  resolved "https://registry.npmjs.org/undici/-/undici-5.8.0.tgz#dec9a8ccd90e5a1d81d43c0eab6503146d649a4f"
-  integrity sha512-1F7Vtcez5w/LwH2G2tGnFIihuWUlc58YidwLiCv+jR2Z50x0tNXpRRw7eOIJ+GvqCqIkg9SB7NWAJ/T9TLfv8Q==
+  version "5.8.1"
+  resolved "https://registry.npmjs.org/undici/-/undici-5.8.1.tgz#511d43ff6be02f84ec2513ae7f4b07c589319272"
+  integrity sha512-iDRmWX4Zar/4A/t+1LrKQRm102zw2l9Wgat3LtTlTn8ykvMZmAmpq9tjyHEigx18FsY7IfATvyN3xSw9BDz0eA==
 
 unfetch@^4.2.0:
   version "4.2.0"

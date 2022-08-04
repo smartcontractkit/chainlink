@@ -201,7 +201,6 @@ describe('AuthorizedForwarder', () => {
         let brokenMock: Contract
         let brokenPayload: string
         let brokenMsgPayload: string
-        let brokenCustomErrPayload: string
 
         beforeEach(async () => {
           brokenMock = await brokenFactory
@@ -210,10 +209,6 @@ describe('AuthorizedForwarder', () => {
           brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
             brokenFactory.interface.getFunction('revertWithMessage'),
             ['Failure message'],
-          )
-
-          brokenCustomErrPayload = brokenFactory.interface.encodeFunctionData(
-            brokenFactory.interface.getFunction('revertWithCustomError'),
           )
 
           brokenPayload = brokenFactory.interface.encodeFunctionData(
@@ -229,17 +224,6 @@ describe('AuthorizedForwarder', () => {
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenMsgPayload),
               "reverted with reason string 'Failure message'",
-            )
-          })
-        })
-
-        describe('when reverts with custom error', () => {
-          it('return revert custom error', async () => {
-            await evmRevert(
-              forwarder
-                .connect(roles.defaultAccount)
-                .forward(brokenMock.address, brokenCustomErrPayload),
-              'Unauthorized("param", 121)',
             )
           })
         })
