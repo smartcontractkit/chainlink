@@ -352,7 +352,7 @@ type FluxAggregatorRoundConfirmer struct {
 	doneChan     chan struct{}
 	context      context.Context
 	cancel       context.CancelFunc
-	done         bool
+	complete     bool
 }
 
 // NewFluxAggregatorRoundConfirmer provides a new instance of a FluxAggregatorRoundConfirmer
@@ -376,7 +376,7 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) 
 	if block.Block == nil {
 		return nil
 	}
-	if f.done {
+	if f.complete {
 		return nil
 	}
 	lr, err := f.fluxInstance.LatestRoundID(context.Background())
@@ -390,7 +390,7 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) 
 		Uint64("Block Number", block.NumberU64())
 	if lr.Cmp(f.roundID) >= 0 {
 		fluxLog.Msg("FluxAggregator round completed")
-		f.done = true
+		f.complete = true
 		f.doneChan <- struct{}{}
 	} else {
 		fluxLog.Msg("Waiting for FluxAggregator round")
@@ -400,6 +400,7 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) 
 
 // Wait is a blocking function that will wait until the round has confirmed, and timeout if the deadline has passed
 func (f *FluxAggregatorRoundConfirmer) Wait() error {
+	defer func() { f.complete = true }()
 	for {
 		select {
 		case <-f.doneChan:
@@ -409,6 +410,10 @@ func (f *FluxAggregatorRoundConfirmer) Wait() error {
 			return fmt.Errorf("timeout waiting for flux round to confirm: %d", f.roundID)
 		}
 	}
+}
+
+func (f *FluxAggregatorRoundConfirmer) Complete() bool {
+	return f.complete
 }
 
 // VRFConsumerRoundConfirmer is a header subscription that awaits for a certain VRF round to be completed
@@ -753,10 +758,10 @@ func (o *EthereumOffchainAggregator) Address() string {
 }
 
 // GetLatestRound returns data from the latest round
-func (o *EthereumOffchainAggregator) GetLatestRound(ctxt context.Context) (*RoundData, error) {
+func (o *EthereumOffchainAggregator) GetLatestRound(ctx context.Context) (*RoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
-		Context: ctxt,
+		Context: ctx,
 	}
 
 	roundData, err := o.ocr.LatestRoundData(opts)
@@ -771,6 +776,26 @@ func (o *EthereumOffchainAggregator) GetLatestRound(ctxt context.Context) (*Roun
 		StartedAt:       roundData.StartedAt,
 		UpdatedAt:       roundData.UpdatedAt,
 	}, err
+}
+
+// GetRound retrieves an OCR round by the round ID
+func (o *EthereumOffchainAggregator) GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	roundData, err := o.ocr.GetRoundData(opts, roundID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RoundData{
+		RoundId:         roundData.RoundId,
+		Answer:          roundData.Answer,
+		AnsweredInRound: roundData.AnsweredInRound,
+		StartedAt:       roundData.StartedAt,
+		UpdatedAt:       roundData.UpdatedAt,
+	}, nil
 }
 
 // ParseEventAnswerUpdated parses the log for event AnswerUpdated
@@ -844,6 +869,7 @@ type OffchainAggregatorRoundConfirmer struct {
 	cancel             context.CancelFunc
 	optionalTestReport *testreporters.OCRSoakTestReport
 	blocksSinceAnswer  uint
+	complete           bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -861,6 +887,7 @@ func NewOffchainAggregatorRoundConfirmer(
 		context:            ctx,
 		cancel:             ctxCancel,
 		optionalTestReport: optionalTestReport,
+		complete:           false,
 	}
 }
 
@@ -883,6 +910,7 @@ func (o *OffchainAggregatorRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) 
 	if currRound.Cmp(o.roundID) >= 0 {
 		ocrLog.Msg("OCR round completed")
 		o.doneChan <- struct{}{}
+		o.complete = true
 	} else {
 		ocrLog.Msg("Waiting for OCR round")
 	}
@@ -891,12 +919,7 @@ func (o *OffchainAggregatorRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) 
 
 // Wait is a blocking function that will wait until the round has confirmed, and timeout if the deadline has passed
 func (o *OffchainAggregatorRoundConfirmer) Wait() error {
-	startTime := time.Now()
-	defer func() {
-		if o.optionalTestReport != nil {
-			o.optionalTestReport.UpdateReport(time.Since(startTime), o.blocksSinceAnswer)
-		}
-	}()
+	defer func() { o.complete = true }()
 	for {
 		select {
 		case <-o.doneChan:
@@ -907,6 +930,10 @@ func (o *OffchainAggregatorRoundConfirmer) Wait() error {
 			return fmt.Errorf("timeout waiting for OCR round to confirm: %d", o.roundID)
 		}
 	}
+}
+
+func (o *OffchainAggregatorRoundConfirmer) Complete() bool {
+	return o.complete
 }
 
 // EthereumStorage acts as a conduit for the ethereum version of the storage contract

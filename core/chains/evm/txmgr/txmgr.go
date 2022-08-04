@@ -172,14 +172,14 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err := eb.Start(ctx); err != nil {
+		if err = eb.Start(ctx); err != nil {
 			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
-		if err := ec.Start(); err != nil {
+		if err = ec.Start(); err != nil {
 			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
-		if err := b.gasEstimator.Start(ctx); err != nil {
+		if err = b.gasEstimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
@@ -305,6 +305,7 @@ type NewTx struct {
 	EncodedPayload []byte
 	GasLimit       uint64
 	Meta           *EthTxMeta
+	Forwardable    bool
 
 	// Pipeline variables - if you aren't calling this from ethtx task within
 	// the pipeline, you don't need these variables
@@ -321,7 +322,7 @@ type NewTx struct {
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
 
-	if b.config.EvmUseForwarders() {
+	if b.config.EvmUseForwarders() && newTx.Forwardable {
 		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.

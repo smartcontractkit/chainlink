@@ -101,8 +101,6 @@ func TestClient_ListETHKeys(t *testing.T) {
 	require.Equal(t, 1, len(r.Renders))
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Key.Address.Hex(), balances[0].Address)
-
-	ethClient.AssertExpectations(t)
 }
 
 func TestClient_CreateETHKey(t *testing.T) {

@@ -38,6 +38,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -50,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -71,7 +73,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -417,6 +418,20 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			lggr.Fatal(err)
 		}
 	}
+	if cfg.StarkNetEnabled() {
+		starkLggr := lggr.Named("StarkNet")
+		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+			Config:   cfg,
+			Logger:   starkLggr,
+			DB:       db,
+			KeyStore: keyStore.StarkNet(),
+			// EventBroadcaster: eventBroadcaster,
+			ORM: starknet.NewORM(db, starkLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
+	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -455,25 +470,7 @@ func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
 }
 
 func NewEthMocks(t testing.TB) *evmMocks.Client {
-	c := new(evmMocks.Client)
-	c.Test(t)
-	switch tt := t.(type) {
-	case *testing.T:
-		t.Cleanup(func() {
-			c.AssertExpectations(tt)
-		})
-	}
-	return c
-}
-
-// Deprecated: use evmtest.NewEthClientMock
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	return evmtest.NewEthClientMock(t)
-}
-
-// Deprecated: use evmtest.NewEthClientMockWithDefaultChain
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
-	return evmtest.NewEthClientMockWithDefaultChain(t)
+	return evmMocks.NewClient(t)
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
@@ -1204,7 +1201,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	select {
 	case <-done:
 	case <-time.After(duration):
-		t.Fatal(fmt.Sprintf("CallbackOrTimeout: %s timed out", msg))
+		t.Fatalf("CallbackOrTimeout: %s timed out", msg)
 	}
 }
 
@@ -1263,25 +1260,16 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client) (verify func()) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client, sub *evmMocks.Subscription) {
 	t.Helper()
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	sub := new(evmMocks.Subscription)
-	sub.On("Err").Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()
-
-	// Stop
-	sub.On("Unsubscribe").Return(nil)
-
-	return func() {
-		ethClient.AssertExpectations(t)
-	}
 }
 
 func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {

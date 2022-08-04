@@ -259,6 +259,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHTxTask).chainSet = r.chainSet
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
+			task.(*ETHTxTask).allowForwarding = run.PipelineSpec.AllowForwarding
 		default:
 		}
 	}

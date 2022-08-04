@@ -28,7 +28,7 @@ func TestLogger_Passthrough(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			m := setupMockLogger()
+			m := setupMockLogger(t)
 			l := test.create(m)
 
 			l.With()
@@ -66,15 +66,12 @@ func TestLogger_Passthrough(t *testing.T) {
 			assert.ErrorIs(t, err, errTest)
 
 			l.Recover(errTest)
-
-			ok := m.AssertExpectations(t)
-			assert.True(t, ok)
 		})
 	}
 }
 
-func setupMockLogger() *MockLogger {
-	ml := &MockLogger{}
+func setupMockLogger(t *testing.T) *MockLogger {
+	ml := NewMockLogger(t)
 
 	ml.On("Helper", 1).Return(ml).Once()
 	ml.On("With", mock.Anything, mock.Anything).Return(ml)
