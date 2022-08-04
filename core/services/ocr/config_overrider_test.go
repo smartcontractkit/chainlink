@@ -52,8 +52,7 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	flagsContract := new(mocks.Flags)
-	flagsContract.Test(t)
+	flagsContract := mocks.NewFlags(t)
 
 	ticker := utils.NewPausableTicker(3 * time.Second)
 	uni := newConfigOverriderUni(t, &ticker, flagsContract)
@@ -83,8 +82,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Before first tick returns nil override, later does return a specific override when hibernating", func(t *testing.T) {
-		flagsContract := new(mocks.Flags)
-		flagsContract.Test(t)
+		flagsContract := mocks.NewFlags(t)
 
 		ticker := NewFakeTicker()
 		uni := newConfigOverriderUni(t, ticker, flagsContract)
@@ -112,8 +110,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("Before first tick is hibernating, later exists hibernation", func(t *testing.T) {
-		flagsContract := new(mocks.Flags)
-		flagsContract.Test(t)
+		flagsContract := mocks.NewFlags(t)
 
 		ticker := NewFakeTicker()
 		uni := newConfigOverriderUni(t, ticker, flagsContract)
@@ -157,10 +154,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 
 	t.Run("DeltaC should be stable per address", func(t *testing.T) {
 		var testLogger = logger.TestLogger(t)
-		flagsContract := new(mocks.Flags)
-		flagsContract.Test(t)
-		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
-			Return([]bool{true, true}, nil)
+		flagsContract := mocks.NewFlags(t)
 		flags := &ocr.ContractFlags{FlagsInterface: flagsContract}
 
 		address1, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(10000)).Hex())

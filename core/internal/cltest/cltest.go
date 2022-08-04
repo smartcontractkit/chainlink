@@ -470,25 +470,7 @@ func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
 }
 
 func NewEthMocks(t testing.TB) *evmMocks.Client {
-	c := new(evmMocks.Client)
-	c.Test(t)
-	switch tt := t.(type) {
-	case *testing.T:
-		t.Cleanup(func() {
-			c.AssertExpectations(tt)
-		})
-	}
-	return c
-}
-
-// Deprecated: use evmtest.NewEthClientMock
-func NewEthClientMock(t *testing.T) *evmMocks.Client {
-	return evmtest.NewEthClientMock(t)
-}
-
-// Deprecated: use evmtest.NewEthClientMockWithDefaultChain
-func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
-	return evmtest.NewEthClientMockWithDefaultChain(t)
+	return evmMocks.NewClient(t)
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
@@ -501,10 +483,10 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
-	block := types.NewBlockWithHeader(&types.Header{
+	block := &types.Header{
 		Number: big.NewInt(100),
-	})
-	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	}
+	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
 }
@@ -535,10 +517,10 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
-	block := types.NewBlockWithHeader(&types.Header{
+	block := &types.Header{
 		Number: big.NewInt(100),
-	})
-	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	}
+	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
 }
@@ -1278,25 +1260,16 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client) (verify func()) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client, sub *evmMocks.Subscription) {
 	t.Helper()
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	sub := new(evmMocks.Subscription)
-	sub.On("Err").Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()
-
-	// Stop
-	sub.On("Unsubscribe").Return(nil)
-
-	return func() {
-		ethClient.AssertExpectations(t)
-	}
 }
 
 func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
