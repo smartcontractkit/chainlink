@@ -31,9 +31,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
   // function, which includes 4 bytes for function selector, 32 bytes for upkeep id, 35 bytes for data padding, and
-  // 32 bytes for estimated perform data
+  // 64 bytes for estimated perform data
   bytes public MAX_INPUT_DATA =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -227,13 +227,15 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 linkEth,
     bool isExecution
   ) internal view returns (uint96 payment) {
-    uint256 gasWei = fastGasWei * s_storage.gasCeilingMultiplier;
+    Storage memory store = s_storage;
+    uint256 gasWei = fastGasWei * store.gasCeilingMultiplier;
+    // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
 
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
-    uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
+    uint256 premium = PPB_BASE + store.paymentPremiumPPB;
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
@@ -248,10 +250,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = s_storage.gasCeilingMultiplier * l1CostWei;
+      l1CostWei = store.gasCeilingMultiplier * l1CostWei;
     }
 
-    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(s_storage.flatFeeMicroLink) * 1e12;
+    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(store.flatFeeMicroLink) * 1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
