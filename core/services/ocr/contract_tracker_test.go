@@ -78,7 +78,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.db = new(ocrmocks.OCRContractTrackerDB)
 	uni.lb = new(logmocks.Broadcaster)
 	uni.hb = new(htmocks.HeadBroadcaster)
-	uni.ec = cltest.NewEthClientMock(t)
+	uni.ec = evmtest.NewEthClientMock(t)
 
 	db := pgtest.NewSqlxDB(t)
 	uni.tracker = ocr.NewOCRContractTracker(
