@@ -11,7 +11,7 @@ import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
-import {Config, State} from "../interfaces/KeeperRegistryInterfaceDev.sol";
+import {Config, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -35,6 +35,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   // 64 bytes for estimated perform data
   bytes public MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  UpkeepFormat public constant upkeepTranscoderVersionBase = UpkeepFormat.V1;
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -54,7 +55,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
-  UpkeepFormat public constant upkeepTranscoderVersionBase = UpkeepFormat.V1;
   OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
   PaymentModel public immutable PAYMENT_MODEL;
