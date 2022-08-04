@@ -75,10 +75,8 @@ func TestLoader_Chains(t *testing.T) {
 func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
 
-	evmChainSet := new(evmmocks.ChainSet)
-	evmChainSet.Test(t)
-	app := &coremocks.Application{}
-	app.Test(t)
+	evmChainSet := evmmocks.NewChainSet(t)
+	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(context.Background(), app)
 
 	defer t.Cleanup(func() {
