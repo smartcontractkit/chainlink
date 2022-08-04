@@ -43,6 +43,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   mapping(uint256 => Upkeep) internal s_upkeep;
   mapping(address => KeeperInfo) internal s_keeperInfo;
   mapping(address => address) internal s_proposedPayee;
+  mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
   Storage internal s_storage;
@@ -83,6 +84,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error GasLimitOutsideRange();
   error OnlyCallableByPayee();
   error OnlyCallableByProposedPayee();
+  error OnlyCallableByProposedAdmin();
   error GasLimitCanOnlyIncrease();
   error OnlyCallableByAdmin();
   error OnlyCallableByOwnerOrRegistrar();
@@ -168,6 +170,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
+  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
+  event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
 
   /**

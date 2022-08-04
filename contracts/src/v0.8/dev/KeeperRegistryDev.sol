@@ -257,6 +257,25 @@ contract KeeperRegistryDev is
   }
 
   /**
+   * @notice proposes the safe transfer of an upkeep's admin role to another address
+   * @param id the upkeep id to transfer admin
+   * @param proposed address to nominate for the new upkeep admin
+   */
+  function transferUpkeepAdmin(uint256 id, address proposed) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice accepts the safe transfer of admin role for an upkeep
+   * @param id the upkeep id
+   */
+  function acceptUpkeepAdmin(uint256 id) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
    * @notice signals to keepers that they should not perform upkeeps until the
    * contract has been unpaused
    */

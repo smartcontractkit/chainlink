@@ -261,6 +261,36 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @dev Called through KeeperRegistry main contract
    */
+  function transferUpkeepAdmin(uint256 id, address proposed) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
+    if (proposed == msg.sender) revert ValueNotChanged();
+    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
+
+    if (s_proposedAdmin[id] != proposed) {
+      s_proposedAdmin[id] = proposed;
+      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
+    }
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function acceptUpkeepAdmin(uint256 id) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
+    address past = upkeep.admin;
+    s_upkeep[id].admin = msg.sender;
+    s_proposedAdmin[id] = ZERO_ADDRESS;
+
+    emit UpkeepAdminTransferred(id, past, msg.sender);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
