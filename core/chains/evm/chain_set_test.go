@@ -56,7 +56,7 @@ func TestUpdateKeySpecificMaxGasPrice_ExistingEntry(t *testing.T) {
 func TestUpdateConfig(t *testing.T) {
 	t.Parallel()
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 	db := pgtest.NewSqlxDB(t)

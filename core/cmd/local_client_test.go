@@ -62,7 +62,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
-	app := new(mocks.Application)
+	app := mocks.NewApplication(t)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
@@ -203,8 +203,6 @@ CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 	assert.NoError(t, err)
 
 	require.Contains(t, logs, expected, fmt.Sprintf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", expected, logs, diff.Diff(expected, logs)))
-
-	app.AssertExpectations(t)
 }
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
@@ -393,8 +391,6 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
-
-			app.AssertExpectations(t)
 		})
 	}
 }
@@ -462,8 +458,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	borm := cltest.NewTxmORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
-	app := new(mocks.Application)
-	app.Test(t)
+	app := mocks.NewApplication(t)
 	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
@@ -493,9 +488,6 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	}
 
 	assert.NoError(t, client.RebroadcastTransactions(c))
-
-	app.AssertExpectations(t)
-	ethClient.AssertExpectations(t)
 }
 
 func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
@@ -537,8 +529,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			borm := cltest.NewTxmORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
-			app := new(mocks.Application)
-			app.Test(t)
+			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
@@ -570,8 +561,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			assert.NoError(t, client.RebroadcastTransactions(c))
 
 			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
-			app.AssertExpectations(t)
-			ethClient.AssertExpectations(t)
 		})
 	}
 }

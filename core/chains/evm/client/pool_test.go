@@ -288,13 +288,11 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 	for i := 0; i < nodeCount; i++ {
 		node := evmmocks.NewNode(t)
 		node.On("State").Return(evmclient.NodeStateAlive)
-		node.Test(t)
 		node.On("BatchCallContext", ctx, b).Return(nil).Once()
 		nodes = append(nodes, node)
 	}
 	for i := 0; i < sendOnlyCount; i++ {
 		s := evmmocks.NewSendOnlyNode(t)
-		s.Test(t)
 		s.On("BatchCallContext", ctx, b).Return(nil).Once()
 		sendonlys = append(sendonlys, s)
 	}
