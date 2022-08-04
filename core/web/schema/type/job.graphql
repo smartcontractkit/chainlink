@@ -3,6 +3,7 @@ type Job {
     name: String!
     schemaVersion: Int!
     gasLimit: Int
+    allowForwarding: Boolean
     maxTaskDuration: String!
     externalJobID: String!
     type: String!

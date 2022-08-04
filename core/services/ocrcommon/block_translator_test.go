@@ -5,16 +5,17 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_BlockTranslator(t *testing.T) {
-	ethClient := cltest.NewEthClientMock(t)
+	t.Parallel()
+
+	ethClient := evmtest.NewEthClientMock(t)
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
 
@@ -46,6 +47,4 @@ func Test_BlockTranslator(t *testing.T) {
 		bt = ocrcommon.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(t), ethClient, lggr)
 		assert.IsType(t, &ocrcommon.ArbitrumBlockTranslator{}, bt)
 	})
-
-	ethClient.AssertExpectations(t)
 }

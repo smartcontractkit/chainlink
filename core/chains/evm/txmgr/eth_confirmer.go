@@ -702,12 +702,15 @@ func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
 	res, err := ec.q.Exec(`
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
+FROM (
+	SELECT from_address, MAX(nonce) as max_nonce from eth_txes
+	WHERE state = 'confirmed' AND evm_chain_id = $1
+	GROUP BY from_address
+) AS max_table
 WHERE state = 'unconfirmed'
-AND nonce < (
-	SELECT MAX(nonce) FROM eth_txes
-	WHERE state = 'confirmed'
-)
-AND evm_chain_id = $1
+	AND evm_chain_id = $1
+	AND nonce < max_table.max_nonce
+	AND eth_txes.from_address = max_table.from_address
 	`, ec.chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "markAllConfirmedMissingReceipt failed")
