@@ -161,7 +161,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
 
     uint256 height = block.number;
     if (!isOwner) {
-      height = height + CANCELATION_DELAY;
+      height = height + CANCELLATION_DELAY;
     }
     s_upkeep[id].maxValidBlocknumber = uint64(height);
     s_upkeepIDs.remove(id);
@@ -172,7 +172,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function addFunds(uint256 id, uint96 amount) external onlyActiveUpkeep(id) {
+  function addFunds(uint256 id, uint96 amount) external onlyNonCanceledUpkeep(id) {
     s_upkeep[id].balance = s_upkeep[id].balance + amount;
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
     LINK.transferFrom(msg.sender, address(this), amount);
@@ -211,7 +211,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external onlyActiveUpkeep(id) onlyUpkeepAdmin(id) {
+  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external onlyNonCanceledUpkeep(id) onlyUpkeepAdmin(id) {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
 
     s_upkeep[id].executeGas = gasLimit;
@@ -277,7 +277,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       id = ids[idx];
       upkeep = s_upkeep[id];
       if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
-      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
+      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
@@ -348,7 +348,8 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       admin: admin,
       maxValidBlocknumber: UINT64_MAX,
       lastKeeper: ZERO_ADDRESS,
-      amountSpent: 0
+      amountSpent: 0,
+      paused: false
     });
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;

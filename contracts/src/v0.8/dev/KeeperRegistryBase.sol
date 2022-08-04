@@ -28,6 +28,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint64 internal constant UINT64_MAX = 2**64 - 1;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
+  UpkeepFormat internal constant upkeepTranscoderVersionBase = UpkeepFormat.V1;
+
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
@@ -35,7 +37,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   // 64 bytes for estimated perform data
   bytes public MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  UpkeepFormat public constant upkeepTranscoderVersionBase = UpkeepFormat.V1;
 
   address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
@@ -313,7 +314,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @dev ensures a upkeep is valid
    */
   modifier validUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
+    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     _;
   }
 
@@ -328,16 +329,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   /**
    * @dev Reverts if called on a cancelled upkeep
    */
-  modifier onlyActiveUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
-    _;
-  }
-
-  /**
-   * @dev Reverts if called by anyone other than the contract owner or registrar.
-   */
-  modifier onlyOwnerOrRegistrar() {
-    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
+  modifier onlyNonCanceledUpkeep(uint256 id) {
+    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
     _;
   }
 
@@ -347,6 +340,14 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    */
   modifier validRecipient(address to) {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    _;
+  }
+
+  /**
+   * @dev Reverts if called by anyone other than the contract owner or registrar.
+   */
+  modifier onlyOwnerOrRegistrar() {
+    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
     _;
   }
 }
