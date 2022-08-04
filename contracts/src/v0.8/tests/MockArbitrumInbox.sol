@@ -109,4 +109,8 @@ contract MockArbitrumInbox is IInbox {
   function bridge() external view override returns (IBridge) {
     return IBridge(address(0));
   }
+
+  function calculateRetryableSubmissionFee(uint256 dataLength, uint256 baseFee) public view returns (uint256) {
+    return (1400 + 6 * dataLength) * (baseFee == 0 ? block.basefee : baseFee);
+  }
 }

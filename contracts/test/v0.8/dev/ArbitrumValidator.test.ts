@@ -30,6 +30,7 @@ const truncateBigNumToAddress = (num: BigNumberish) => {
 describe('ArbitrumValidator', () => {
   const MAX_GAS = BigNumber.from(1_000_000)
   const GAS_PRICE_BID = BigNumber.from(1_000_000)
+  const BASE_FEE = BigNumber.from(14_000_000_000)
   /** Fake L2 target */
   const L2_SEQ_STATUS_RECORDER_ADDRESS =
     '0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b'
@@ -84,6 +85,7 @@ describe('ArbitrumValidator', () => {
       accessController.address,
       MAX_GAS /** L1 gas bid */,
       GAS_PRICE_BID /** L2 gas bid */,
+      BASE_FEE,
       l1GasFeed.address,
       0,
     )
@@ -120,7 +122,7 @@ describe('ArbitrumValidator', () => {
         .withArgs(
           L2_SEQ_STATUS_RECORDER_ADDRESS,
           0,
-          '367537500000',
+          '25312000000000',
           arbitrumValidatorL2Address,
           arbitrumValidatorL2Address,
           MAX_GAS,
