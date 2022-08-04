@@ -25,7 +25,7 @@ func TestNullLogger(t *testing.T) {
 
 		l := logger.NullLogger
 		l.SetLogLevel(zapcore.DebugLevel)
-		l.Trace()
+		l.Info()
 		l.Debug()
 		l.Info()
 		l.Warn()
@@ -33,7 +33,7 @@ func TestNullLogger(t *testing.T) {
 		l.Critical()
 		l.Panic()
 		l.Fatal()
-		l.Tracef("msg")
+		l.Infof("msg")
 		l.Debugf("msg")
 		l.Infof("msg")
 		l.Warnf("msg")
@@ -41,7 +41,7 @@ func TestNullLogger(t *testing.T) {
 		l.Criticalf("msg")
 		l.Panicf("msg")
 		l.Fatalf("msg")
-		l.Tracew("msg")
+		l.Infow("msg")
 		l.Debugw("msg")
 		l.Infow("msg")
 		l.Warnw("msg")
