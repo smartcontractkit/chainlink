@@ -845,6 +845,7 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	countMissed             int64   // Number of times we missed SLA for performing upkeep
 	upkeepCount             int64   // The count of upkeeps done so far
 	allCheckDelays          []int64 // Tracks the amount of blocks missed before an upkeep since it became eligible
+	complete                bool
 }
 
 // NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
@@ -870,6 +871,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		upkeepCount:             0,
 		allCheckDelays:          []int64{},
 		metricsReporter:         metricsReporter,
+		complete:                false,
 	}
 }
 
@@ -958,6 +960,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 			Msg("Finished Watching for Upkeeps")
 
 		o.doneChan <- true
+		o.complete = true
 		return nil
 	}
 	return nil
@@ -965,6 +968,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 
 // Wait is a blocking function that will wait until the round has confirmed, and timeout if the deadline has passed
 func (o *KeeperConsumerBenchmarkRoundConfirmer) Wait() error {
+	defer func() { o.complete = true }()
 	for {
 		select {
 		case <-o.doneChan:
@@ -975,6 +979,10 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) Wait() error {
 			return fmt.Errorf("timeout waiting for expected number of blocks: %d", o.blockRange)
 		}
 	}
+}
+
+func (o *KeeperConsumerBenchmarkRoundConfirmer) Complete() bool {
+	return o.complete
 }
 
 func (o *KeeperConsumerBenchmarkRoundConfirmer) logDetails() {
