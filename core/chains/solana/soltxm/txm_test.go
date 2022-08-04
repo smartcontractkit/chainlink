@@ -14,16 +14,19 @@ import (
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestTxm_Integration(t *testing.T) {
+	ctx := testutils.Context(t)
 	url := solanaClient.SetupLocalSolNode(t)
 
 	// setup key
@@ -69,10 +72,10 @@ func TestTxm_Integration(t *testing.T) {
 	assert.NotEqual(t, uint64(0), initBal) // should be funded
 
 	// start
-	require.NoError(t, txm.Start(context.Background()))
+	require.NoError(t, txm.Start(ctx))
 
 	// already started
-	assert.Error(t, txm.Start(context.Background()))
+	assert.Error(t, txm.Start(ctx))
 
 	createTx := func(signer solana.PublicKey, sender solana.PublicKey, receiver solana.PublicKey, amt uint64) *solana.Transaction {
 		// create transfer tx
@@ -108,8 +111,8 @@ func TestTxm_Integration(t *testing.T) {
 	}
 
 	// check to make sure all txs are closed out from inflight list (longest should last MaxConfirmTimeout)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 loop:
