@@ -10,6 +10,8 @@ import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typec
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
+import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
+import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
 import { KeeperRegistryLogic__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic__factory'
 import { KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic'
@@ -17,6 +19,8 @@ import { KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
+import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
+import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain'
 import { toWei } from '../../test-helpers/helpers'
 
@@ -32,7 +36,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(3625000)
+const CHECK_GAS_OVERHEAD = BigNumber.from(362287)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -44,6 +48,8 @@ let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let upkeepTranscoderFactory: UpkeepTranscoderFactory
+let mockArbGasInfoFactory: MockArbGasInfoFactory
+let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
 let personas: Personas
 
 before(async () => {
@@ -62,6 +68,10 @@ before(async () => {
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
   upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
+  mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
+  mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
+    'MockOVMGasPriceOracle',
+  )
 })
 
 describe('KeeperRegistryDev', () => {
@@ -71,6 +81,7 @@ describe('KeeperRegistryDev', () => {
   const executeGas = BigNumber.from('100000')
   const paymentPremiumBase = BigNumber.from('1000000000')
   const paymentPremiumPPB = BigNumber.from('250000000')
+  const premiumMultiplier = BigNumber.from('1000000000')
   const flatFeeMicroLink = BigNumber.from(0)
   const blockCountPerTurn = BigNumber.from(3)
   const emptyBytes = '0x00'
@@ -85,6 +96,8 @@ describe('KeeperRegistryDev', () => {
   const fallbackLinkPrice = BigNumber.from(200000000)
   const maxPerformGas = BigNumber.from(5000000)
   const minUpkeepSpend = BigNumber.from(0)
+  const l1CostWeiArb = BigNumber.from(1000000)
+  const l1CostWeiOpt = BigNumber.from(2000000)
 
   let owner: Signer
   let keeper1: Signer
@@ -105,6 +118,8 @@ describe('KeeperRegistryDev', () => {
   let registryLogic2: KeeperRegistryLogic
   let mock: UpkeepMock
   let transcoder: UpkeepTranscoder
+  let mockArbGasInfo: MockArbGasInfo
+  let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 
   let id: BigNumber
   let keepers: string[]
@@ -140,55 +155,81 @@ describe('KeeperRegistryDev', () => {
       .connect(owner)
       .deploy(9, linkEth)
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
+    mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
+    mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
+      .connect(owner)
+      .deploy()
+
+    const arbOracleCode = await ethers.provider.send('eth_getCode', [
+      mockArbGasInfo.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x000000000000000000000000000000000000006C',
+      arbOracleCode,
+    ])
+
+    const optOracleCode = await ethers.provider.send('eth_getCode', [
+      mockOVMGasPriceOracle.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x420000000000000000000000000000000000000F',
+      optOracleCode,
+    ])
+
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+      .deploy(
+        0,
+        registryGasOverhead,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
+
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      blockCountPerTurn,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder: transcoder.address,
+      registrar: ethers.constants.AddressZero,
+    }
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
+        0,
+        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
         registryLogic.address,
-        {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          blockCountPerTurn,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxPerformGas,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        },
+        config,
       )
     registryLogic2 = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+      .deploy(
+        0,
+        registryGasOverhead,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+      )
     registry2 = await keeperRegistryFactory
       .connect(owner)
       .deploy(
+        0,
+        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
         registryLogic2.address,
-        {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          blockCountPerTurn,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxPerformGas,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-          transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
-        },
+        config,
       )
     mock = await upkeepMockFactory.deploy()
     await linkToken
@@ -217,14 +258,81 @@ describe('KeeperRegistryDev', () => {
     upkeepGasSpent: BigNumberish,
     premiumPPB?: BigNumberish,
     flatFee?: BigNumberish,
+    l1CostWei?: BigNumber,
   ) => {
     premiumPPB = premiumPPB === undefined ? paymentPremiumPPB : premiumPPB
     flatFee = flatFee === undefined ? flatFeeMicroLink : flatFee
+    l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
     const gasSpent = registryGasOverhead.add(BigNumber.from(upkeepGasSpent))
     const base = gasWei.mul(gasSpent).mul(linkDivisibility).div(linkEth)
+    const l1Fee = l1CostWei
+      .mul(premiumMultiplier)
+      .mul(paymentPremiumBase.add(premiumPPB))
+      .div(linkEth)
     const premium = base.mul(premiumPPB).div(paymentPremiumBase)
     const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
-    return base.add(premium).add(flatFeeJules)
+    return base.add(premium).add(flatFeeJules).add(l1Fee)
+  }
+
+  const verifyMaxPayment = async (
+    paymentModel: number,
+    gasAmounts: number[],
+    premiums: number[],
+    flatFees: number[],
+    l1CostWei?: BigNumber,
+  ) => {
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      blockCountPerTurn,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder: transcoder.address,
+      registrar: ethers.constants.AddressZero,
+    }
+
+    let registry = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(
+        paymentModel,
+        registryGasOverhead,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        registryLogic.address,
+        config,
+      )
+
+    for (let idx = 0; idx < gasAmounts.length; idx++) {
+      const gas = gasAmounts[idx]
+      for (let jdx = 0; jdx < premiums.length; jdx++) {
+        const premium = premiums[jdx]
+        for (let kdx = 0; kdx < flatFees.length; kdx++) {
+          const flatFee = flatFees[kdx]
+          await registry.connect(owner).setConfig({
+            paymentPremiumPPB: premium,
+            flatFeeMicroLink: flatFee,
+            blockCountPerTurn,
+            checkGasLimit,
+            stalenessSeconds,
+            gasCeilingMultiplier,
+            minUpkeepSpend,
+            maxPerformGas,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+            transcoder: transcoder.address,
+            registrar: ethers.constants.AddressZero,
+          })
+          const price = await registry.getMaxPaymentForGas(gas)
+          expect(price).to.equal(linkForGas(gas, premium, flatFee, l1CostWei))
+        }
+      }
+    }
   }
 
   describe('#typeAndVersion', () => {
@@ -1607,16 +1715,6 @@ describe('KeeperRegistryDev', () => {
           .withArgs(id, BigNumber.from(receipt.blockNumber + delay))
       })
 
-      // it('updates the canceled registrations list', async () => {
-      //   let canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([], canceled)
-
-      //   await registry.connect(admin).cancelUpkeep(id)
-
-      //   canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([id], canceled)
-      // })
-
       it('immediately prevents upkeep', async () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
         await registry.connect(owner).addFunds(id, toWei('100'))
@@ -1641,15 +1739,6 @@ describe('KeeperRegistryDev', () => {
           'CannotCancel()',
         )
       })
-
-      // it('does not revert or double add the cancellation record if called by the owner immediately after', async () => {
-      //   await registry.connect(admin).cancelUpkeep(id)
-
-      //   await registry.connect(owner).cancelUpkeep(id)
-
-      //   const canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([id], canceled)
-      // })
 
       it('reverts if called by the owner after the timeout', async () => {
         await registry.connect(admin).cancelUpkeep(id)
@@ -2131,32 +2220,16 @@ describe('KeeperRegistryDev', () => {
     const gasAmounts = [100000, 10000000]
     const premiums = [0, 250000000]
     const flatFees = [0, 1000000]
-    it('calculates the max fee approptiately', async () => {
-      for (let idx = 0; idx < gasAmounts.length; idx++) {
-        const gas = gasAmounts[idx]
-        for (let jdx = 0; jdx < premiums.length; jdx++) {
-          const premium = premiums[jdx]
-          for (let kdx = 0; kdx < flatFees.length; kdx++) {
-            const flatFee = flatFees[kdx]
-            await registry.connect(owner).setConfig({
-              paymentPremiumPPB: premium,
-              flatFeeMicroLink: flatFee,
-              blockCountPerTurn,
-              checkGasLimit,
-              stalenessSeconds,
-              gasCeilingMultiplier,
-              minUpkeepSpend,
-              maxPerformGas,
-              fallbackGasPrice,
-              fallbackLinkPrice,
-              transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
-            })
-            const price = await registry.getMaxPaymentForGas(gas)
-            expect(price).to.equal(linkForGas(gas, premium, flatFee))
-          }
-        }
-      }
+    it('calculates the max fee appropriately', async () => {
+      await verifyMaxPayment(0, gasAmounts, premiums, flatFees)
+    })
+
+    it('calculates the max fee appropriately for Arbitrum', async () => {
+      await verifyMaxPayment(1, gasAmounts, premiums, flatFees, l1CostWeiArb)
+    })
+
+    it('calculates the max fee appropriately for Optimism', async () => {
+      await verifyMaxPayment(2, gasAmounts, premiums, flatFees, l1CostWeiOpt)
     })
   })
 

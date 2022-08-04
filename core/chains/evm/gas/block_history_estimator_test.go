@@ -812,7 +812,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	t.Run("ignores zero priced transactions on xDai", func(t *testing.T) {
 		chainID := big.NewInt(100)
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := evmtest.NewEthClientMock(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
