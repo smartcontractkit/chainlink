@@ -79,7 +79,7 @@ contract KeeperRegistryDev is
     bytes calldata checkData
   ) external override onlyOwnerOrRegistrar returns (uint256 id) {
     id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
     return id;
@@ -575,7 +575,8 @@ contract KeeperRegistryDev is
         upkeeps[idx].executeGas,
         upkeeps[idx].admin,
         upkeeps[idx].balance,
-        checkDatas[idx]
+        checkDatas[idx],
+        upkeeps[idx].paused
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
@@ -595,6 +596,7 @@ contract KeeperRegistryDev is
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
+   * @param paused if this upkeep is paused
    */
   function _createUpkeep(
     uint256 id,
@@ -602,7 +604,8 @@ contract KeeperRegistryDev is
     uint32 gasLimit,
     address admin,
     uint96 balance,
-    bytes memory checkData
+    bytes memory checkData,
+    bool paused
   ) internal whenNotPaused {
     if (!target.isContract()) revert NotAContract();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
@@ -614,7 +617,7 @@ contract KeeperRegistryDev is
       maxValidBlocknumber: UINT64_MAX,
       lastKeeper: ZERO_ADDRESS,
       amountSpent: 0,
-      paused: false
+      paused: paused
     });
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;

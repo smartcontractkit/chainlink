@@ -687,6 +687,7 @@ describe('KeeperRegistryDev', () => {
       assert.equal(mock.address, registration.target)
       assert.equal(0, registration.balance.toNumber())
       assert.equal(emptyBytes, registration.checkData)
+      assert.equal(registration.paused, false)
       assert(registration.maxValidBlocknumber.eq('0xffffffffffffffff'))
     })
   })
@@ -2285,6 +2286,29 @@ describe('KeeperRegistryDev', () => {
         )
         expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
       })
+
+      it('migrates a paused upkeep', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        await registry.connect(admin).pauseUpkeep(id)
+        // verify the upkeep is paused
+        expect((await registry.getUpkeep(id)).paused).to.equal(true)
+        // migrate
+        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
+        expect((await registry.getUpkeep(id)).balance).to.equal(0)
+        expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
+        expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
+          toWei('100'),
+        )
+        // verify the upkeep is still paused after migration
+        expect((await registry2.getUpkeep(id)).paused).to.equal(true)
+      })
+
       it('emits an event on both contracts', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
