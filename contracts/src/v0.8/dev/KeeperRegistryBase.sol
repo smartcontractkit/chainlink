@@ -158,7 +158,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
   event UpkeepPaused(uint256 indexed id);
   event UpkeepUnpaused(uint256 indexed id);
-  event UpkeepUpdated(uint256 indexed id);
+  event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);

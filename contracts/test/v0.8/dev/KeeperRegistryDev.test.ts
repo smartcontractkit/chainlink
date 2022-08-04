@@ -626,7 +626,9 @@ describe('KeeperRegistryDev', () => {
 
     it('updates the upkeep check data and emits an event', async () => {
       const tx = await registry.connect(admin).updateCheckData(id, randomBytes)
-      await expect(tx).to.emit(registry, 'UpkeepUpdated').withArgs(id)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepCheckDataUpdated')
+        .withArgs(id, randomBytes)
 
       const registration = await registry.getUpkeep(id)
       assert.equal(randomBytes, registration.checkData)

@@ -164,7 +164,7 @@ contract KeeperRegistryDev is
     Upkeep memory upkeep = s_upkeep[id];
     requireAdminAndNotCancelled(upkeep);
     s_checkData[id] = newCheckData;
-    emit UpkeepUpdated(id);
+    emit UpkeepCheckDataUpdated(id, newCheckData);
   }
 
   /**
