@@ -211,21 +211,21 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
-	ec.lggr.Tracew("Finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Infow("Finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
 	if err := ec.RebroadcastWhereNecessary(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "RebroadcastWhereNecessary failed")
 	}
 
-	ec.lggr.Tracew("Finished RebroadcastWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Infow("Finished RebroadcastWhereNecessary", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
 	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
 		return errors.Wrap(err, "EnsureConfirmedTransactionsInLongestChain failed")
 	}
 
-	ec.lggr.Tracew("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Infow("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
@@ -233,7 +233,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 			return errors.Wrap(err, "ResumePendingTaskRuns failed")
 		}
 
-		ec.lggr.Tracew("Finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
+		ec.lggr.Infow("Finished ResumePendingTaskRuns", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	}
 
 	ec.lggr.Debugw("processHead finish", "headNum", head.Number, "id", "eth_confirmer")
@@ -1515,7 +1515,7 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	if len(receipts) > 0 {
 		ec.lggr.Debugf("Resuming %d task runs pending receipt", len(receipts))
 	} else {
-		ec.lggr.Trace("No task runs to resume")
+		ec.lggr.Info("No task runs to resume")
 	}
 	for _, data := range receipts {
 		var taskErr error
@@ -1526,7 +1526,7 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 			output = data.Receipt
 		}
 
-		ec.lggr.Tracew("Callback: resuming ethtx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
+		ec.lggr.Infow("Callback: resuming ethtx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
 		if err := ec.resumeCallback(data.ID, output, taskErr); err != nil {
 			return err
 		}

@@ -87,7 +87,7 @@ func (s *prometheusLogger) SetLogLevel(level zapcore.Level) {
 }
 
 func (s *prometheusLogger) Trace(args ...interface{}) {
-	s.h.Trace(args...)
+	s.h.Info(args...)
 }
 
 func (s *prometheusLogger) Debug(args ...interface{}) {
@@ -124,7 +124,7 @@ func (s *prometheusLogger) Fatal(args ...interface{}) {
 }
 
 func (s *prometheusLogger) Tracef(format string, values ...interface{}) {
-	s.h.Tracef(format, values...)
+	s.h.Infof(format, values...)
 }
 
 func (s *prometheusLogger) Debugf(format string, values ...interface{}) {
@@ -161,7 +161,7 @@ func (s *prometheusLogger) Fatalf(format string, values ...interface{}) {
 }
 
 func (s *prometheusLogger) Tracew(msg string, keysAndValues ...interface{}) {
-	s.h.Tracew(msg, keysAndValues...)
+	s.h.Infow(msg, keysAndValues...)
 }
 
 func (s *prometheusLogger) Debugw(msg string, keysAndValues ...interface{}) {

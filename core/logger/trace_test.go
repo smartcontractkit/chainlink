@@ -31,12 +31,12 @@ func TestTrace(t *testing.T) {
 		testName    = "TestTrace"
 		testMessage = "Trace message"
 	)
-	lgr.Trace(testMessage)
+	lgr.Info(testMessage)
 	// [DEBUG] [TRACE] Trace message
 	requireNotContains(testMessage)
 
 	lgr.SetLogLevel(zapcore.DebugLevel)
-	lgr.Trace(testMessage)
+	lgr.Info(testMessage)
 	// [DEBUG] [TRACE] Trace message
 	requireContains("[DEBUG]", "[TRACE]", testMessage)
 }
