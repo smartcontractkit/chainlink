@@ -72,6 +72,7 @@ type Client interface {
 
 	// bind.ContractBackend methods
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
@@ -196,6 +197,10 @@ func (client *client) ChainID() *big.Int {
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
 	return client.pool.HeaderByNumber(ctx, n)
+}
+
+func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
+	return client.pool.HeaderByHash(ctx, h)
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set

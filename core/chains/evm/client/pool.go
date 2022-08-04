@@ -364,6 +364,9 @@ func (p *Pool) CodeAt(ctx context.Context, account common.Address, blockNumber *
 func (p *Pool) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
 	return p.getRoundRobin().HeaderByNumber(ctx, n)
 }
+func (p *Pool) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
+	return p.getRoundRobin().HeaderByHash(ctx, h)
+}
 
 func (p *Pool) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return p.getRoundRobin().SuggestGasTipCap(ctx)
