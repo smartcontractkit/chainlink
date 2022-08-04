@@ -62,7 +62,7 @@ func (l *zapLogger) Named(name string) Logger {
 	newLogger := *l
 	newLogger.name = joinName(l.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
-	newLogger.Trace("Named logger created")
+	newLogger.Info("Named logger created")
 	return &newLogger
 }
 

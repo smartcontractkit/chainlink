@@ -35,7 +35,7 @@ func TestLogger_Passthrough(t *testing.T) {
 			l.Named("xxx")
 			l.SetLogLevel(zapcore.DebugLevel)
 
-			l.Trace()
+			l.Info()
 			l.Debug()
 			l.Info()
 			l.Warn()
@@ -53,7 +53,7 @@ func TestLogger_Passthrough(t *testing.T) {
 			l.Panicf("msg")
 			l.Fatalf("msg")
 
-			l.Tracew("msg")
+			l.Infow("msg")
 			l.Debugw("msg")
 			l.Infow("msg")
 			l.Warnw("msg")
