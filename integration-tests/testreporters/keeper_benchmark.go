@@ -210,7 +210,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	k.Summary.Metrics.TotalTimesPerformed = totalPerformed
 	k.Summary.Metrics.AverageActualPerformsPerBlock = float64(totalPerformed) / float64(k.Summary.TestInputs["BlockRange"].(int64))
 
-	// TODO- Set test expectations
+	// TODO: Set test expectations
 	/* Expect(int64(pctWithinSLA)).Should(BeNumerically(">=", int64(80)), "Expected PercentWithinSLA to be greater than or equal to 80, but got %f", pctWithinSLA)
 	Expect(int64(pctReverted)).Should(BeNumerically("<=", int64(10)), "Expected PercentRevert to be less than or equal to 10, but got %f", pctReverted)
 	Expect(k.Summary.Metrics.AverageActualPerformsPerBlock).Should(BeNumerically("~", k.Summary.Load.AverageExpectedPerformsPerBlock, 10), "Expected PercentRevert to be less than 10, but got %f", pctReverted) */
