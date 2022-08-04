@@ -142,7 +142,7 @@ func (b *BlockHistoryEstimator) getCurrentBaseFee() *big.Int {
 // The provided context can be used to terminate Start sequence.
 func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
-		b.logger.Trace("Starting")
+		b.logger.Info("Starting")
 
 		fetchCtx, cancel := context.WithTimeout(ctx, MaxStartTime)
 		defer cancel()
@@ -165,7 +165,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		b.wg.Add(1)
 		go b.runLoop()
 
-		b.logger.Trace("Started")
+		b.logger.Info("Started")
 		return nil
 	})
 }
@@ -420,7 +420,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 
 	lggr := b.logger.With("head", head)
 
-	lggr.Tracew(fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
+	lggr.Infow(fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
 	if err := b.batchFetch(ctx, reqs); err != nil {
 		return err
 	}
@@ -499,7 +499,7 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 			j = len(reqs)
 		}
 
-		b.logger.Tracew(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
+		b.logger.Infow(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if errors.Is(err, context.DeadlineExceeded) {

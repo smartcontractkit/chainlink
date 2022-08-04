@@ -77,7 +77,7 @@ func (n *node) aliveLoop() {
 	pollInterval := n.cfg.NodePollInterval()
 
 	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
-	lggr.Tracew("Alive loop starting", "nodeState", n.State())
+	lggr.Infow("Alive loop starting", "nodeState", n.State())
 
 	var headsC <-chan *evmtypes.Head
 	var outOfSyncT *time.Ticker
@@ -130,7 +130,7 @@ func (n *node) aliveLoop() {
 		case <-pollCh:
 			var version string
 			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
-			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
+			lggr.Infow("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(context.Background(), pollInterval)
 			ctx, cancel2 := n.makeQueryCtx(ctx)
 			err := n.CallContext(ctx, &version, "web3_clientVersion")
@@ -164,13 +164,13 @@ func (n *node) aliveLoop() {
 				return
 			}
 			promEVMPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
-			lggr.Tracew("Got head", "head", bh)
+			lggr.Infow("Got head", "head", bh)
 			if bh.Number > latestReceivedBlockNumber {
 				promEVMPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.Number))
-				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
+				lggr.Infow("Got higher block number, resetting timer", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 				latestReceivedBlockNumber = bh.Number
 			} else {
-				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
+				lggr.Infow("Ignoring previously seen block number", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
 			outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
 		case err := <-subErrC:
@@ -232,7 +232,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 		return
 	}
 
-	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "stuckAtBlockNumber", stuckAtBlockNumber, "nodeState", n.State())
+	lggr.Infow("Successfully subscribed to heads feed on out-of-sync RPC node", "stuckAtBlockNumber", stuckAtBlockNumber, "nodeState", n.State())
 
 	ch := make(chan *evmtypes.Head)
 	subCtx, cancel := n.makeQueryCtx(context.Background())
@@ -305,7 +305,7 @@ func (n *node) unreachableLoop() {
 		case <-n.chStop:
 			return
 		case <-time.After(dialRetryBackoff.Duration()):
-			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
+			lggr.Infow("Trying to re-dial RPC node", "nodeState", n.State())
 
 			err := n.dial(context.Background())
 			if err != nil {

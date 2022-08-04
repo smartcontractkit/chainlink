@@ -943,7 +943,7 @@ func (n *node) wrapHTTP(err error) error {
 	if err != nil {
 		n.rpcLog.Debugw("Call failed", "err", err)
 	} else {
-		n.rpcLog.Trace("Call succeeded")
+		n.rpcLog.Info("Call succeeded")
 	}
 	return err
 }
