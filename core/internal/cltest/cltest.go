@@ -483,10 +483,10 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
-	block := types.NewBlockWithHeader(&types.Header{
+	block := &types.Header{
 		Number: big.NewInt(100),
-	})
-	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	}
+	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
 }
@@ -517,10 +517,10 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
-	block := types.NewBlockWithHeader(&types.Header{
+	block := &types.Header{
 		Number: big.NewInt(100),
-	})
-	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	}
+	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
 }

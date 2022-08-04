@@ -336,6 +336,10 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 	return c.b.HeaderByNumber(ctx, n)
 }
 
+func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
+	return c.b.HeaderByHash(ctx, h)
+}
+
 // SendTransaction sends a transaction.
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
