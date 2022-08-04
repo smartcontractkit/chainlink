@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 
@@ -41,18 +41,22 @@ contract KeeperRegistryDev is
   string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
 
   /**
+   * @param paymentModel one of Default, Arbitrum, and Optimism
+   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param config registry config settings
    */
   constructor(
+    PaymentModel paymentModel,
+    uint256 registryGasOverhead,
     address link,
     address linkEthFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
     Config memory config
-  ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setConfig(config);
   }
@@ -126,6 +130,32 @@ contract KeeperRegistryDev is
   }
 
   /**
+   * @notice pause an upkeep
+   * @param id upkeep to be paused
+   */
+  function pauseUpkeep(uint256 id) external override {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(upkeep);
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
+    s_upkeep[id].paused = true;
+    s_upkeepIDs.remove(id);
+    emit UpkeepPaused(id);
+  }
+
+  /**
+   * @notice unpause an upkeep
+   * @param id upkeep to be resumed
+   */
+  function unpauseUpkeep(uint256 id) external override {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(upkeep);
+    if (!upkeep.paused) revert OnlyPausedUpkeep();
+    s_upkeep[id].paused = false;
+    s_upkeepIDs.add(id);
+    emit UpkeepUnpaused(id);
+  }
+
+  /**
    * @notice adds LINK funding for an upkeep by transferring from the sender's
    * LINK balance
    * @param id upkeep to fund
@@ -150,7 +180,7 @@ contract KeeperRegistryDev is
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
+    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
@@ -171,14 +201,9 @@ contract KeeperRegistryDev is
   /**
    * @notice withdraws LINK funds collected through cancellation fees
    */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_ownerLinkBalance;
-
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_ownerLinkBalance = 0;
-
-    emit OwnerFundsWithdrawn(amount);
-    LINK.transfer(msg.sender, amount);
+  function withdrawOwnerFunds() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -197,9 +222,9 @@ contract KeeperRegistryDev is
    * gas limit. However, in our anticipated deployment, the number of upkeeps and
    * keepers will be low enough to avoid this problem.
    */
-  function recoverFunds() external onlyOwner {
-    uint256 total = LINK.balanceOf(address(this));
-    LINK.transfer(msg.sender, total - s_expectedLinkBalance);
+  function recoverFunds() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -235,16 +260,18 @@ contract KeeperRegistryDev is
    * @notice signals to keepers that they should not perform upkeeps until the
    * contract has been unpaused
    */
-  function pause() external onlyOwner {
-    _pause();
+  function pause() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
    * @notice signals to keepers that they can perform upkeeps once again after
    * having been paused
    */
-  function unpause() external onlyOwner {
-    _unpause();
+  function unpause() external {
+    // Executed through logic contract
+    _fallback();
   }
 
   // SETTERS
@@ -279,28 +306,9 @@ contract KeeperRegistryDev is
    * @param payees addresses corresponding to keepers who are allowed to
    * move payments which have been accrued
    */
-  function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
-    if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
-    for (uint256 i = 0; i < s_keeperList.length; i++) {
-      address keeper = s_keeperList[i];
-      s_keeperInfo[keeper].active = false;
-    }
-    for (uint256 i = 0; i < keepers.length; i++) {
-      address keeper = keepers[i];
-      KeeperInfo storage s_keeper = s_keeperInfo[keeper];
-      address oldPayee = s_keeper.payee;
-      address newPayee = payees[i];
-      if (
-        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
-      ) revert InvalidPayee();
-      if (s_keeper.active) revert DuplicateEntry();
-      s_keeper.active = true;
-      if (newPayee != IGNORE_ADDRESS) {
-        s_keeper.payee = newPayee;
-      }
-    }
-    s_keeperList = keepers;
-    emit KeepersUpdated(keepers, payees);
+  function setKeepers(address[] calldata keepers, address[] calldata payees) external {
+    // Executed through logic contract
+    _fallback();
   }
 
   // GETTERS
@@ -320,7 +328,8 @@ contract KeeperRegistryDev is
       address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
-      uint96 amountSpent
+      uint96 amountSpent,
+      bool paused
     )
   {
     Upkeep memory reg = s_upkeep[id];
@@ -332,16 +341,17 @@ contract KeeperRegistryDev is
       reg.lastKeeper,
       reg.admin,
       reg.maxValidBlocknumber,
-      reg.amountSpent
+      reg.amountSpent,
+      reg.paused
     );
   }
 
   /**
-   * @notice retrieve active upkeep IDs
+   * @notice retrieve active upkeep IDs. Active upkeep is defined as an upkeep which is not paused and not canceled.
    * @param startIndex starting index in list
    * @param maxCount max count to retrieve (0 = unlimited)
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
-   * should consider keeping the blockheight constant to ensure a wholistic picture of the contract state
+   * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
    */
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
@@ -419,9 +429,8 @@ contract KeeperRegistryDev is
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
-    (uint256 gasWei, uint256 linkEth) = _getFeedData();
-    uint256 adjustedGasWei = _adjustGasPrice(gasWei, false);
-    return _calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
+    return _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, false);
   }
 
   /**
@@ -434,8 +443,9 @@ contract KeeperRegistryDev is
   /**
    * @notice sets the peer registry migration permission
    */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
-    s_peerRegistryMigrationPermission[peer] = permission;
+  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
+    // Executed through logic contract
+    _fallback();
   }
 
   /**
@@ -514,8 +524,7 @@ contract KeeperRegistryDev is
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
-
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkEth, true);
 
     s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;

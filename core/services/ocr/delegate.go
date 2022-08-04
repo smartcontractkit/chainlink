@@ -222,11 +222,16 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		}
 		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
 
+		var allowForwarding bool
+		if jb.AllowForwarding.Valid {
+			allowForwarding = jb.AllowForwarding.Bool
+		}
+
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, allowForwarding, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),

@@ -32,7 +32,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 		registry         contracts.KeeperRegistry
 		consumer         contracts.KeeperConsumer
 		linkToken        contracts.LinkToken
-		chainlinkNodes   []client.Chainlink
+		chainlinkNodes   []*client.Chainlink
 		testEnvironment  *environment.Environment
 		profileTest      *testsetups.ChainlinkProfileTest
 	)
@@ -102,7 +102,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 		})
 
 		By("Setting up profiling", func() {
-			profileFunction := func(chainlinkNode client.Chainlink) {
+			profileFunction := func(chainlinkNode *client.Chainlink) {
 				defer GinkgoRecover()
 				if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
 					// Not the last node, hence not all nodes started profiling yet.

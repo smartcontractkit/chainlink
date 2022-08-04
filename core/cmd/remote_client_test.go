@@ -450,8 +450,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout.")
-
+	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout")
 }
 
 func TestClient_Profile(t *testing.T) {
@@ -476,6 +475,7 @@ func TestClient_Profile(t *testing.T) {
 	err = client.Profile(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 }
+
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 

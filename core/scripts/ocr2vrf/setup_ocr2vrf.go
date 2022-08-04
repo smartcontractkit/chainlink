@@ -165,10 +165,9 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	fmt.Println()
 	fmt.Println("Generated vrf setConfig command:")
 	vrfCommand := fmt.Sprintf(
-		"go run . coordinator-set-config -coordinator-address %s -conf-delays %s -key-id %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -schedule 1,1,1,1,1",
+		"go run . coordinator-set-config -coordinator-address %s -conf-delays %s -onchain-pub-keys %s -offchain-pub-keys %s -config-pub-keys %s -peer-ids %s -transmitters %s -schedule 1,1,1,1,1",
 		vrfAddress.String(),
 		*confDelays,
-		*keyID,
 		strings.Join(onChainPublicKeys[1:], ","),
 		strings.Join(offChainPublicKeys[1:], ","),
 		strings.Join(configPublicKeys[1:], ","),
@@ -179,4 +178,24 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 
 	fmt.Println()
 	fmt.Println("Consumer address:", consumerAddress.String())
+	fmt.Println("Consumer request command:")
+	requestCommand := fmt.Sprintf(
+		"go run . consumer-request-randomness -consumer-address %s -sub-id <sub-id>",
+		consumerAddress.Hex())
+	fmt.Println(requestCommand)
+	fmt.Println()
+
+	fmt.Println("Consumer callback request command:")
+	callbackCommand := fmt.Sprintf(
+		"go run . consumer-request-callback -consumer-address %s -sub-id <sub-id>",
+		consumerAddress.Hex())
+	fmt.Println(callbackCommand)
+	fmt.Println()
+
+	fmt.Println("Consumer redeem randomness command:")
+	redeemCommand := fmt.Sprintf(
+		"go run . consumer-redeem-randomness -consumer-address %s -request-id <req-id>",
+		consumerAddress.Hex())
+	fmt.Println(redeemCommand)
+	fmt.Println()
 }
