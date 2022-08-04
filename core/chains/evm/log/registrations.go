@@ -388,7 +388,7 @@ func (r *handler) isAddressRegistered(addr common.Address) bool {
 var _ broadcastCreator = &orm{}
 
 type broadcastCreator interface {
-	CreateBroadcast(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
+	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
 }
 
 func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
@@ -427,7 +427,7 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 		jobID := sub.listener.JobID()
 		if !exists {
 			// Create unconsumed broadcast
-			if err := bc.CreateBroadcast(log.BlockHash, log.BlockNumber, log.TxIndex, log.Index, jobID); err != nil {
+			if err := bc.CreateBroadcast(log.BlockHash, log.BlockNumber, log.Index, jobID); err != nil {
 				logger.Errorw("Could not create broadcast log", "blockNumber", log.BlockNumber,
 					"blockHash", log.BlockHash, "address", log.Address, "jobID", jobID, "error", err)
 				continue
