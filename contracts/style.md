@@ -55,8 +55,8 @@ uint256 private s_myVar;
 uint256 private immutable i_myImmutVar;
 uint256 private constant MY_CONST_VAR;
 
-function getMyVar() external view returns(uint256){
-    return s_myVar;
+function multiplyMyVar(uint256 multiplier) external view returns(uint256){
+    return multiplier * s_myVar;
 }
 ```
 
@@ -67,8 +67,8 @@ uint private s_myVar;
 uint256 private immutable myImmutVar;
 uint256 private constant s_myConstVar;
 
-function getMyVar_() external view returns(uint256){
-    return s_myVar;
+function multiplyMyVar_(uint _multiplier) external view returns(uint256){
+    return _mutliplier * s_myVar;
 }
 ```
 
