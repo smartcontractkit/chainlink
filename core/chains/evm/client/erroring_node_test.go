@@ -5,14 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
 func TestErroringNode(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.TestCtx(t)
+	ctx := testutils.Context(t)
 	n := &erroringNode{
 		"boo",
 	}

@@ -144,7 +144,7 @@ func TestDelegate_StartStop(t *testing.T) {
 
 	blocks := cltest.NewBlocks(t, 1)
 	testData.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(blocks.Head(0), nil)
-	err = services[0].Start(testutils.TestCtx(t))
+	err = services[0].Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
