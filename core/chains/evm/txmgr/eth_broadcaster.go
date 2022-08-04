@@ -264,11 +264,13 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 		maxInFlightTransactions := eb.config.EvmMaxInFlightTransactions()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := CountUnconfirmedTransactions(eb.q, fromAddress, eb.chainID)
+			nUnstarted, err := CountUnstartedTransactions(eb.q, fromAddress, eb.chainID)
+			eb.logger.Info(fmt.Sprintf(`Number of Unconfirmed Transactions: %d`, nUnconfirmed))
+			eb.logger.Info(fmt.Sprintf(`Number of Unstarted Transactions: %d`, nUnstarted))
 			if err != nil {
 				return errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
-				nUnstarted, err := CountUnstartedTransactions(eb.q, fromAddress, eb.chainID)
 				if err != nil {
 					return errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
@@ -324,6 +326,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) error {
 	etx, err := getInProgressEthTx(eb.q, fromAddress)
+	eb.logger.Info(fmt.Sprintf(`InProgress Transaction: %v`, *etx))
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {

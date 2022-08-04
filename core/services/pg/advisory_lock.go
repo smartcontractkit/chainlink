@@ -159,7 +159,7 @@ func (l *advisoryLock) loop(ctx context.Context) {
 			var gotLock bool
 
 			qctx, cancel := DefaultQueryCtxWithParent(ctx)
-			l.logger.Trace("Checking advisory lock")
+			l.logger.Info("Checking advisory lock")
 			err := l.conn.QueryRowContext(qctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
 				// conn was closed and advisory lock lost, try to check out a new connection and re-lock

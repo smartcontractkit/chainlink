@@ -31,7 +31,7 @@ func TestOCRWrapper(t *testing.T) {
 	}
 
 	w := NewOCRWrapper(ml, true, saveError)
-	w.Trace("msg", testFields)
+	w.Info("msg", testFields)
 	w.Debug("msg", testFields)
 	w.Info("msg", testFields)
 	w.Warn("msg", testFields)
@@ -50,7 +50,7 @@ func TestOCRWrapper_NoTrace(t *testing.T) {
 	ml.On("Helper", 2).Return(ml).Once()
 
 	w := NewOCRWrapper(ml, false, nil)
-	w.Trace("msg", commontypes.LogFields{})
+	w.Info("msg", commontypes.LogFields{})
 
 	ok := ml.AssertExpectations(t)
 	assert.True(t, ok)

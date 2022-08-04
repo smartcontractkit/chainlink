@@ -88,7 +88,7 @@ func (s *sentryLogger) SetLogLevel(level zapcore.Level) {
 }
 
 func (s *sentryLogger) Trace(args ...interface{}) {
-	s.h.Trace(args...)
+	s.h.Info(args...)
 }
 
 func (s *sentryLogger) Debug(args ...interface{}) {
@@ -155,7 +155,7 @@ func (s *sentryLogger) Fatal(args ...interface{}) {
 }
 
 func (s *sentryLogger) Tracef(format string, values ...interface{}) {
-	s.h.Tracef(format, values...)
+	s.h.Infof(format, values...)
 }
 
 func (s *sentryLogger) Debugf(format string, values ...interface{}) {
@@ -222,7 +222,7 @@ func (s *sentryLogger) Fatalf(format string, values ...interface{}) {
 }
 
 func (s *sentryLogger) Tracew(msg string, keysAndValues ...interface{}) {
-	s.h.Tracew(msg, keysAndValues...)
+	s.h.Infow(msg, keysAndValues...)
 }
 
 func (s *sentryLogger) Debugw(msg string, keysAndValues ...interface{}) {

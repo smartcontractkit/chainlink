@@ -236,7 +236,7 @@ var initialSQL = []string{
 // If the lease is currently held by someone else, returns false
 // If some other error occurred, returns the error
 func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool, err error) {
-	l.logger.Trace("Refreshing database lease")
+	l.logger.Info("Refreshing database lease")
 	leaseDuration := fmt.Sprintf("%f seconds", l.leaseDuration.Seconds())
 
 	// NOTE: Uses database time for all calculations since it's conceivable

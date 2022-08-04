@@ -16,12 +16,12 @@ func TestTrace(t *testing.T) {
 	const (
 		testMessage = "Trace message"
 	)
-	lgr.Trace(testMessage)
+	lgr.Info(testMessage)
 	// [DEBUG] [TRACE] Trace message
 	require.Empty(t, observed.TakeAll())
 
 	lgr.SetLogLevel(zapcore.DebugLevel)
-	lgr.Trace(testMessage)
+	lgr.Info(testMessage)
 	// [DEBUG] [TRACE] Trace message
 	logs := observed.TakeAll()
 	require.Len(t, logs, 1)

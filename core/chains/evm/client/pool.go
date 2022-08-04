@@ -154,7 +154,7 @@ func (p *Pool) report() {
 	}
 
 	live := total - dead
-	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	p.logger.Infow(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		p.logger.Criticalw(fmt.Sprintf("No EVM primary nodes available: 0/%d nodes are alive", total), "nodeStates", nodeStates)
 	} else if dead > 0 {
@@ -254,7 +254,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 			if err != nil {
 				p.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
-				p.logger.Trace("Secondary node BatchCallContext success")
+				p.logger.Info("Secondary node BatchCallContext success")
 			}
 		}(n)
 	}
