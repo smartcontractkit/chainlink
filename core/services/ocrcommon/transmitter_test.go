@@ -16,6 +16,8 @@ import (
 )
 
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -26,8 +28,8 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	allowForwarding := false
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := new(txmmocks.TxManager)
-	strategy := new(txmmocks.TxStrategy)
+	txm := txmmocks.NewTxManager(t)
+	strategy := txmmocks.NewTxStrategy(t)
 
 	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, allowForwarding, strategy, txmgr.TransmitCheckerSpec{})
 
@@ -40,6 +42,4 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(context.Background(), toAddress, payload))
-
-	txm.AssertExpectations(t)
 }
