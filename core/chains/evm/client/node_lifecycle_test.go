@@ -35,7 +35,7 @@ func newTestNodeWithCallback(t *testing.T, cfg NodeConfig, callback testutils.JS
 // dial sets up the node and puts it into the live state, bypassing the
 // normal Start() method which would fire off unwanted goroutines
 func dial(t *testing.T, n *node) {
-	ctx := testutils.TestCtx(t)
+	ctx := testutils.Context(t)
 	require.NoError(t, n.dial(ctx))
 	n.setState(NodeStateAlive)
 	start(t, n)
