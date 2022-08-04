@@ -859,57 +859,6 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_SingleConsumer_EIP150_SmallCallback(t *testing.T) {
-
-	callBackGasLimit := int64(100_000)              // base callback gas.
-	eip150Fee := int64(0)                           // no premium given for callWithExactGas
-	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
-	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
-
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_eip150_smallcallback")
-	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(gasLimit, true)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
-	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
-	consumer := uni.vrfConsumers[0]
-	consumerContract := uni.consumerContracts[0]
-	consumerContractAddress := uni.consumerContractAddresses[0]
-	// Create a subscription and fund with 500 LINK.
-	subAmount := big.NewInt(1).Mul(big.NewInt(5e18), big.NewInt(100))
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, subAmount, uni)
-
-	// Create gas lane.
-	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
-	configureSimChain(t, app, map[string]types.ChainCfg{
-		key1.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
-		},
-	}, assets.GWei(10))
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	// Create VRF job.
-	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, []int{10, 10}, app, uni, false)
-	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
-
-	// Make the first randomness request.
-	numWords := uint32(1)
-	requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uint32(callBackGasLimit), uni)
-
-	// Wait for simulation to pass.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
-		require.NoError(t, err)
-		t.Log("runs", len(runs))
-		return len(runs) == 1
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-
-	t.Log("Done!")
-}
-
 func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	callBackGasLimit := int64(2_500_000)            // base callback gas.
 	eip150Fee := int64(0)                           // no premium given for callWithExactGas
