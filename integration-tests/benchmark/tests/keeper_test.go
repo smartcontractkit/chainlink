@@ -68,7 +68,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 						FallbackLinkPrice:    big.NewInt(2e18),
 					},
 					CheckGasToBurn:       100000,
-					PerformGasToBurn:     150000,
+					PerformGasToBurn:     50000,
 					BlockRange:           3600,
 					BlockInterval:        20,
 					ChainlinkNodeFunding: big.NewFloat(1000000),
