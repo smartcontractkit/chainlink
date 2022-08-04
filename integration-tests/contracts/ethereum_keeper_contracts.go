@@ -849,7 +849,7 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 }
 
 // NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
-// Used to track and log performance test results for keepers
+// Used to track and log benchmark test results for keepers
 func NewKeeperConsumerBenchmarkRoundConfirmer(
 	contract KeeperConsumerBenchmark,
 	upkeepID *big.Int,

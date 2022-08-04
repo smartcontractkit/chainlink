@@ -120,7 +120,7 @@ func addSeparateChainlinkDeployments(
 	}
 }
 
-// builds tests, launches environment, and triggers the soak test to run
+// builds tests, launches environment, and triggers the benchmark test to run
 func benchmarkTestHelper(
 	t *testing.T,
 	testTag string,
