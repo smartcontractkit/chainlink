@@ -290,7 +290,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
-        upkeepTranscoderVersionBase,
+        UPKEEP_TRANSCODER_VESION_BASE,
         MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
       )

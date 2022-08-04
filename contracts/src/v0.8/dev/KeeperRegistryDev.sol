@@ -459,7 +459,7 @@ contract KeeperRegistryDev is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  UpkeepFormat public constant override upkeepTranscoderVersion = upkeepTranscoderVersionBase;
+  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VESION_BASE;
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
