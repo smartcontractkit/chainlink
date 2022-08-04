@@ -31,7 +31,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   struct GasConfig {
     uint256 maxGas;
     uint256 gasPriceBid;
-    uint256 baseFee;
+    uint256 baseFee; // Will use block.baseFee if set to 0
     address gasPriceL1FeedAddr;
   }
 
