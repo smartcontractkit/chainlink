@@ -52,7 +52,6 @@ func TestUnit_AddLog(t *testing.T) {
 	blockHash := common.BigToHash(big.NewInt(1))
 	l1 := types.Log{
 		BlockHash:   blockHash,
-		TxIndex:     37,
 		Index:       42,
 		BlockNumber: 1,
 	}
@@ -64,39 +63,26 @@ func TestUnit_AddLog(t *testing.T) {
 	assert.False(t, p.addLog(l1), "AddLog should have returned false for a 2nd reattempt")
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(blockHash))
 
-	// 2nd log with higher logIndex but same blockhash should add a new log, which shouldn't be minimum
+	// 2nd log with same loghash should add a new log, which shouldn't be minimum
 	l2 := l1
 	l2.Index = 43
-	assert.False(t, p.addLog(l2), "AddLog should have returned false for later log added")
+	assert.False(t, p.addLog(l2), "AddLog should have returned false for same log added")
 	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
 
-	// New log with same logIndex but lower txIndex should add a new log, which should be a minimum
-	l2 = l1
-	l2.TxIndex = 13
-	assert.False(t, p.addLog(l2), "AddLog should have returned false for earlier log added")
-	require.Equal(t, 3, p.testOnly_getNumLogsForBlock(blockHash))
-
-	// New log with different larger BlockNumber should add a new log, not as minimum
+	// New log with different larger BlockNumber/loghash should add a new log, not as minimum
 	l3 := l1
 	l3.BlockNumber = 3
 	l3.BlockHash = common.BigToHash(big.NewInt(3))
 	assert.False(t, p.addLog(l3), "AddLog should have returned false for same log added")
-	assert.Equal(t, 3, p.testOnly_getNumLogsForBlock(blockHash))
+	assert.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
 
-	// New log with different smaller BlockNumber should add a new log, as minimum
+	// New log with different smaller BlockNumber/loghash should add a new log, as minimum
 	l4 := l1
 	l4.BlockNumber = 0 // New minimum block number
 	l4.BlockHash = common.BigToHash(big.NewInt(0))
 	assert.True(t, p.addLog(l4), "AddLog should have returned true for smallest BlockNumber")
-	assert.Equal(t, 3, p.testOnly_getNumLogsForBlock(blockHash))
-	assert.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
-	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l4.BlockHash))
-
-	// Adding duplicate log should not increase number of logs in pool
-	l5 := l1
-	assert.False(t, p.addLog(l5), "AddLog should have returned false for smallest BlockNumber")
-	assert.Equal(t, 3, p.testOnly_getNumLogsForBlock(blockHash))
+	assert.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
 	assert.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l4.BlockHash))
 }
