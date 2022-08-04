@@ -93,6 +93,4 @@ func TestWebhookDelegate(t *testing.T) {
 
 	_, err = delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)
 	require.Equal(t, webhook.ErrJobNotExists, errors.Cause(err))
-
-	runner.AssertExpectations(t)
 }

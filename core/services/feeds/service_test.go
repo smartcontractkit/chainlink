@@ -78,42 +78,17 @@ type TestService struct {
 
 func setupTestService(t *testing.T) *TestService {
 	var (
-		orm          = &mocks.ORM{}
-		jobORM       = &jobmocks.ORM{}
-		connMgr      = &mocks.ConnectionsManager{}
-		spawner      = &jobmocks.Spawner{}
-		fmsClient    = &mocks.FeedsManagerClient{}
-		csaKeystore  = &ksmocks.CSA{}
-		p2pKeystore  = &ksmocks.P2P{}
-		ocr1Keystore = &ksmocks.OCR{}
-		ocr2Keystore = &ksmocks.OCR2{}
-		cfg          = &mocks.Config{}
+		orm          = mocks.NewORM(t)
+		jobORM       = jobmocks.NewORM(t)
+		connMgr      = mocks.NewConnectionsManager(t)
+		spawner      = jobmocks.NewSpawner(t)
+		fmsClient    = mocks.NewFeedsManagerClient(t)
+		csaKeystore  = ksmocks.NewCSA(t)
+		p2pKeystore  = ksmocks.NewP2P(t)
+		ocr1Keystore = ksmocks.NewOCR(t)
+		ocr2Keystore = ksmocks.NewOCR2(t)
+		cfg          = mocks.NewConfig(t)
 	)
-	orm.Test(t)
-	jobORM.Test(t)
-	connMgr.Test(t)
-	spawner.Test(t)
-	fmsClient.Test(t)
-	csaKeystore.Test(t)
-	p2pKeystore.Test(t)
-	ocr1Keystore.Test(t)
-	ocr2Keystore.Test(t)
-	cfg.Test(t)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			orm,
-			jobORM,
-			connMgr,
-			spawner,
-			fmsClient,
-			csaKeystore,
-			p2pKeystore,
-			ocr1Keystore,
-			ocr2Keystore,
-			cfg,
-		)
-	})
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
