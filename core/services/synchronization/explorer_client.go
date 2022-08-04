@@ -320,7 +320,7 @@ func (ec *explorerClient) writeMessage(message []byte, messageType int) error {
 	if _, err := writer.Write(message); err != nil {
 		return err
 	}
-	ec.lggr.Tracew("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
+	ec.lggr.Infow("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
 
 	return writer.Close()
 }
