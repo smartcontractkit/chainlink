@@ -1,5 +1,11 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+### Added
+
+- Added a Solidity style guide.
+
 ## 0.4.2 - 2022-07-20
 
 ### Changed
