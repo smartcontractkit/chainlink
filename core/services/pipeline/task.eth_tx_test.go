@@ -557,9 +557,7 @@ func TestETHTxTask(t *testing.T) {
 			}
 
 			keyStore := keystoremocks.NewEth(t)
-			keyStore.Test(t)
 			txManager := txmmocks.NewTxManager(t)
-			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
 			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(defaultGasLimit)
