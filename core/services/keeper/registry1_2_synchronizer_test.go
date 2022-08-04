@@ -76,10 +76,8 @@ func mockRegistry1_2(
 		Config:  config,
 		Keepers: keeperList,
 	}
-	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).Return(
-		&types.Header{
-			Number: big.NewInt(10),
-		}, nil)
+	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).
+		Return(&types.Header{Number: big.NewInt(10)}, nil)
 	if getStateTime > 0 {
 		registryMock.MockResponse("getState", getState).Times(getStateTime)
 	}
