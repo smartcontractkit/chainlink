@@ -397,7 +397,7 @@ var _ = Describe("Keeper Suite @keeper", func() {
 				)
 			}, "3m", "1s").Should(Succeed())
 
-			existingCnt, err := consumerPerformance.GetUpkeepCount(context.Background())
+			existingCnt, err = consumerPerformance.GetUpkeepCount(context.Background())
 			Expect(err).ShouldNot(HaveOccurred(), "Calling consumer's counter shouldn't fail")
 			log.Info().Int64("Upkeep counter", existingCnt.Int64()).Msg("Upkeep counter when consistently block finished")
 
