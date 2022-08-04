@@ -42,6 +42,7 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 ### Changed
 
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby` configuration for Nitro
 
 ## [1.6.0] - 2022-07-20
 
