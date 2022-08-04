@@ -250,9 +250,7 @@ func TestETHCallTask(t *testing.T) {
 			cfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(int64(drJobTypeGasLimit))
 
 			keyStore := keystoremocks.NewEth(t)
-			keyStore.Test(t)
 			txManager := txmmocks.NewTxManager(t)
-			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 
 			var cc evm.ChainSet

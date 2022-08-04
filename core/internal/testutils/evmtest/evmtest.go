@@ -299,15 +299,6 @@ type MockEth struct {
 	unsubscribeCalls atomic.Int32
 }
 
-func (m *MockEth) AssertExpectations(t *testing.T) {
-	m.EthClient.AssertExpectations(t)
-	m.subsMu.RLock()
-	defer m.subsMu.RUnlock()
-	for _, sub := range m.subs {
-		sub.AssertExpectations(t)
-	}
-}
-
 func (m *MockEth) SubscribeCallCount() int32 {
 	return m.subscribeCalls.Load()
 }
@@ -318,8 +309,7 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Inc()
-	sub := new(evmMocks.Subscription)
-	sub.Test(t)
+	sub := evmMocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
 		Return(func() <-chan error { return errCh })
