@@ -463,13 +463,13 @@ contract KeeperRegistryDev is
     view
     override
     returns (
-      // TODO: update this with all upkeep details
       address target,
       uint32 executeGas,
       bytes memory checkData,
       uint96 balance,
       address admin,
-      uint64 maxValidBlocknumber,
+      uint32 maxValidBlocknumber,
+      uint32 lastPerformBlockNumber,
       uint96 amountSpent,
       bool paused
     )
@@ -482,6 +482,7 @@ contract KeeperRegistryDev is
       reg.balance,
       reg.admin,
       reg.maxValidBlocknumber,
+      reg.lastPerformBlockNumber,
       reg.amountSpent,
       reg.paused
     );

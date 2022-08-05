@@ -79,7 +79,8 @@ interface KeeperRegistryBaseInterface {
       bytes memory checkData,
       uint96 balance,
       address admin,
-      uint64 maxValidBlocknumber,
+      uint32 maxValidBlocknumber,
+      uint32 lastPerformBlockNumber,
       uint96 amountSpent,
       bool paused
     );
