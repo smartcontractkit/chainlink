@@ -237,14 +237,14 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * TODO: update docs
-   * @notice executes the upkeep with the perform data returned from
-   * checkUpkeep, validates the keeper's permissions, and pays the keeper.
+   * @notice simulates the upkeep with the perform data returned from
+   * checkUpkeep
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
   function simulatePerformUpkeep(uint256 id, bytes calldata performData)
     external
+    override
     cannotExecute
     whenNotPaused
     returns (bool success, uint256 gasUsed)

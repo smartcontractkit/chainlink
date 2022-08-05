@@ -61,9 +61,6 @@ interface KeeperRegistryBaseInterface {
     bytes calldata checkData
   ) external returns (uint256 id);
 
-  // TODO: replace this by transmit?
-  //function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
-
   function cancelUpkeep(uint256 id) external;
 
   function pauseUpkeep(uint256 id) external;
@@ -93,7 +90,7 @@ interface KeeperRegistryBaseInterface {
   function getKeeperInfo(address query)
     external
     view
-   returns (
+    returns (
       bool active,
       uint8 index,
       uint96 balance,
@@ -126,6 +123,11 @@ interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
       int256 gasWei,
       int256 linkEth
     );
+
+  function simulatePerformUpkeep(uint256 id, bytes calldata performData)
+    external
+    view
+    returns (bool success, uint256 gasUsed);
 }
 
 interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
@@ -138,4 +140,8 @@ interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
       uint256 adjustedGasWei,
       uint256 linkEth
     );
+
+  function simulatePerformUpkeep(uint256 id, bytes calldata performData)
+    external
+    returns (bool success, uint256 gasUsed);
 }
