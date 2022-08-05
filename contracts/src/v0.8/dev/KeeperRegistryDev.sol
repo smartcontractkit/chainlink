@@ -55,7 +55,7 @@ contract KeeperRegistryDev is
     address fastGasFeed,
     address keeperRegistryLogic,
     RegistryParams memory params
-  ) KeeperRegistryBase(link, linkNativeFeed, fastGasFeed) {
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setRegistryParams(params);
   }
@@ -145,7 +145,7 @@ contract KeeperRegistryDev is
 
     // Deocde the report and performUpkeep
     Report memory parsedReport = _decodeReport(report);
-    if (report.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
+    if (parsedReport.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
 
     // Perform target upkeep
     PerformParams memory params = _generatePerformParams(
@@ -160,12 +160,12 @@ contract KeeperRegistryDev is
     uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkNativePrice, true);
     s_upkeep[parsedReport.upkeepId].balance = s_upkeep[params.id].balance - payment;
     s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + payment;
-    s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = block.number;
+    s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
 
     // TODO split across all signers
     s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + payment;
 
-    emit UpkeepPerformed(report.id, success, gasUsed, report.checkBlockNumber, payment);
+    emit UpkeepPerformed(parsedReport.upkeepId, success, gasUsed, parsedReport.checkBlockNumber, payment);
   }
 
   struct Report {
@@ -178,15 +178,15 @@ contract KeeperRegistryDev is
   // _decodeReport decodes a serialized report into a Report struct
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
     uint256 upkeepId;
-    uint32 checkBlockNum;
-    bytes performData;
+    uint32 checkBlockNumber;
+    bytes memory performData;
     uint256 linkNativePrice;
-    (upkeepId, checkBlockNum, performData, linkNativePrice) = abi.decode(rawReport, (uint256, uint32, bytes, uint256));
+    (upkeepId, checkBlockNumber, performData, linkNativePrice) = abi.decode(rawReport, (uint256, uint32, bytes, uint256));
 
     return
       Report({
         upkeepId: upkeepId,
-        checkBlockNum: checkBlockNum,
+        checkBlockNumber: checkBlockNumber,
         performData: performData,
         linkNativePrice: linkNativePrice
       });
@@ -312,7 +312,7 @@ contract KeeperRegistryDev is
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
@@ -418,7 +418,6 @@ contract KeeperRegistryDev is
     s_storage = Storage({
       paymentPremiumPPB: params.paymentPremiumPPB,
       flatFeeMicroLink: params.flatFeeMicroLink,
-      blockCountPerTurn: params.blockCountPerTurn,
       checkGasLimit: params.checkGasLimit,
       stalenessSeconds: params.stalenessSeconds,
       gasCeilingMultiplier: params.gasCeilingMultiplier,
@@ -454,11 +453,11 @@ contract KeeperRegistryDev is
     view
     override
     returns (
+      // TODO: update this with all upkeep details
       address target,
       uint32 executeGas,
       bytes memory checkData,
       uint96 balance,
-      address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
       uint96 amountSpent,
@@ -471,7 +470,6 @@ contract KeeperRegistryDev is
       reg.executeGas,
       s_checkData[id],
       reg.balance,
-      reg.lastKeeper,
       reg.admin,
       reg.maxValidBlocknumber,
       reg.amountSpent,
@@ -538,7 +536,6 @@ contract KeeperRegistryDev is
     state.numUpkeeps = s_upkeepIDs.length();
     params.paymentPremiumPPB = store.paymentPremiumPPB;
     params.flatFeeMicroLink = store.flatFeeMicroLink;
-    params.blockCountPerTurn = store.blockCountPerTurn;
     params.checkGasLimit = store.checkGasLimit;
     params.stalenessSeconds = store.stalenessSeconds;
     params.gasCeilingMultiplier = store.gasCeilingMultiplier;
@@ -564,8 +561,9 @@ contract KeeperRegistryDev is
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
-    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
-    return _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, false);
+    uint256 fastGasWei = _getFasGasFeedData();
+    uint256 linkNativePrice = _getLinkNativeFeedData();
+    return _calculatePaymentAmount(gasLimit, fastGasWei, linkNativePrice, false);
   }
 
   /**
@@ -654,11 +652,11 @@ contract KeeperRegistryDev is
   {
     Upkeep memory upkeep = s_upkeep[params.id];
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
+    if (upkeep.balance < params.maxLinkPayment) revert InsufficientFunds();
 
-    uint256 gasUsed = gasleft();
+    gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
-    success = _callWithExactGas(upkeep.gasLimit, upkeep.target, callData);
+    success = _callWithExactGas(upkeep.executeGas, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
     return (success, gasUsed);

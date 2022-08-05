@@ -27,7 +27,6 @@ pragma solidity ^0.8.0;
 struct RegistryParams {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
-  uint24 blockCountPerTurn;
   uint32 checkGasLimit;
   uint24 stalenessSeconds;
   uint16 gasCeilingMultiplier;
@@ -62,7 +61,8 @@ interface KeeperRegistryBaseInterface {
     bytes calldata checkData
   ) external returns (uint256 id);
 
-  function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
+  // TODO: replace this by transmit?
+  //function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
 
   function cancelUpkeep(uint256 id) external;
 
@@ -82,7 +82,6 @@ interface KeeperRegistryBaseInterface {
       uint32 executeGas,
       bytes memory checkData,
       uint96 balance,
-      address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
       uint96 amountSpent,
@@ -94,10 +93,11 @@ interface KeeperRegistryBaseInterface {
   function getKeeperInfo(address query)
     external
     view
-    returns (
-      address payee,
+   returns (
       bool active,
-      uint96 balance
+      uint8 index,
+      uint96 balance,
+      address payee
     );
 
   function getState()

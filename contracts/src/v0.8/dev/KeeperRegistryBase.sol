@@ -27,7 +27,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
-  uint64 internal constant UINT64_MAX = 2**64 - 1;
+  uint32 internal constant UINT32_MAX = 2**32 - 1;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VESION_BASE = UpkeepFormat.V1;
 
@@ -316,7 +316,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    */
   function requireAdminAndNotCancelled(Upkeep memory upkeep) internal view {
     if (msg.sender != upkeep.admin) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 
   /**
@@ -370,7 +370,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @dev Reverts if called on a cancelled upkeep
    */
   modifier onlyNonCanceledUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     _;
   }
 

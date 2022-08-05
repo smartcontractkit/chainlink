@@ -56,7 +56,8 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     if (!upkeepNeeded) return (false, performData, UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
 
     PerformParams memory params = _generatePerformParams(id, performData, false, 0);
-    if (upkeep.balance < maxLinkPayment) return (false, performData, UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
+    if (upkeep.balance < params.maxLinkPayment)
+      return (false, performData, UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
 
     return (true, performData, UpkeepFailureReason.NONE, gasUsed);
   }
@@ -85,8 +86,9 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  // TODO: needs to be re evaluated. Only allow updation of payees
   function setKeeperPayees(address[] calldata keepers, address[] calldata payees) external onlyOwner {
+    // TODO: needs to be re evaluated. Only allow updation of payees
+    /*
     if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
     for (uint256 i = 0; i < s_keeperList.length; i++) {
       address keeper = s_keeperList[i];
@@ -108,6 +110,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     }
     s_keeperList = keepers;
     emit KeepersUpdated(keepers, payees);
+    */
   }
 
   /**
@@ -144,7 +147,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   ) external override onlyOwner {
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
-    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNummberOfSigners();
+    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
     if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
 
     // remove any old signer/transmitter addresses
@@ -166,7 +169,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
 
       if (s_transmitters[transmitters[i]].active) revert RepeatedTransmitter();
       s_transmitters[transmitters[i]].active = true;
-      s_transmitters[transmitters[i]].actindexive = uint8(i);
+      s_transmitters[transmitters[i]].index = uint8(i);
     }
     s_signersList = signers;
     s_transmittersList = transmitters;
@@ -264,7 +267,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    */
   function cancelUpkeep(uint256 id) external {
     uint64 maxValid = s_upkeep[id].maxValidBlocknumber;
-    bool canceled = maxValid != UINT64_MAX;
+    bool canceled = maxValid != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
     if (canceled && !(isOwner && maxValid > block.number)) revert CannotCancel();
@@ -274,7 +277,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     if (!isOwner) {
       height = height + CANCELLATION_DELAY;
     }
-    s_upkeep[id].maxValidBlocknumber = uint64(height);
+    s_upkeep[id].maxValidBlocknumber = uint32(height);
     s_upkeepIDs.remove(id);
 
     emit UpkeepCanceled(id, uint64(height));
@@ -334,10 +337,10 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    * @dev Called through KeeperRegistry main contract
    */
   function withdrawPayment(address from, address to) external validRecipient(to) {
-    KeeperInfo memory keeper = s_keeperInfo[from];
+    Transmitter memory keeper = s_transmitters[from];
     if (keeper.payee != msg.sender) revert OnlyCallableByPayee();
 
-    s_keeperInfo[from].balance = 0;
+    s_transmitters[from].balance = 0;
     s_expectedLinkBalance = s_expectedLinkBalance - keeper.balance;
     emit PaymentWithdrawn(from, keeper.balance, to, msg.sender);
 
@@ -348,7 +351,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    * @dev Called through KeeperRegistry main contract
    */
   function transferPayeeship(address keeper, address proposed) external {
-    if (s_keeperInfo[keeper].payee != msg.sender) revert OnlyCallableByPayee();
+    if (s_transmitters[keeper].payee != msg.sender) revert OnlyCallableByPayee();
     if (proposed == msg.sender) revert ValueNotChanged();
 
     if (s_proposedPayee[keeper] != proposed) {
@@ -362,8 +365,8 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    */
   function acceptPayeeship(address keeper) external {
     if (s_proposedPayee[keeper] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_keeperInfo[keeper].payee;
-    s_keeperInfo[keeper].payee = msg.sender;
+    address past = s_transmitters[keeper].payee;
+    s_transmitters[keeper].payee = msg.sender;
     s_proposedPayee[keeper] = ZERO_ADDRESS;
 
     emit PayeeshipTransferred(keeper, past, msg.sender);
@@ -389,7 +392,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       id = ids[idx];
       upkeep = s_upkeep[id];
       if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
-      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+      if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
@@ -458,8 +461,8 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       executeGas: gasLimit,
       balance: balance,
       admin: admin,
-      maxValidBlocknumber: UINT64_MAX,
-      lastKeeper: ZERO_ADDRESS,
+      maxValidBlocknumber: UINT32_MAX,
+      lastPerformBlockNumber: 0,
       amountSpent: 0,
       paused: false
     });
