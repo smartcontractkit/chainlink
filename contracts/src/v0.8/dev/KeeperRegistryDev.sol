@@ -442,17 +442,6 @@ contract KeeperRegistryDev is
     );
   }
 
-  /**
-   * @notice update the list of keepers allowed to perform upkeep
-   * @param keepers list of addresses allowed to perform upkeep
-   * @param payees addresses corresponding to keepers who are allowed to
-   * move payments which have been accrued
-   */
-  function setKeepers(address[] calldata keepers, address[] calldata payees) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
   // GETTERS
 
   /**
