@@ -273,6 +273,14 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+	// nitro uses standard gas accounting, so restore default limits.
+	arbitrumRinkeby.gasLimitDefault = fallbackDefaultSet.gasLimitDefault
+	arbitrumRinkeby.gasLimitTransfer = fallbackDefaultSet.gasLimitTransfer
+	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
+	arbitrumRinkeby.gasPriceDefault = *assets.Wei(1e8)  // 0.1 gwei
+	arbitrumRinkeby.maxGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.minGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.gasFeeCapDefault = *assets.Wei(1e8) // 0.1 gwei
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
