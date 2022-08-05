@@ -430,20 +430,7 @@ contract KeeperRegistryDev is
    */
   function setRegistryConfig(RegistryConfig memory registryConfig) public onlyOwner {
     if (registryConfig.maxPerformGas < s_config.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    s_config = RegistryConfig({
-      paymentPremiumPPB: registryConfig.paymentPremiumPPB,
-      flatFeeMicroLink: registryConfig.flatFeeMicroLink,
-      checkGasLimit: registryConfig.checkGasLimit,
-      stalenessSeconds: registryConfig.stalenessSeconds,
-      gasCeilingMultiplier: registryConfig.gasCeilingMultiplier,
-      minUpkeepSpend: registryConfig.minUpkeepSpend,
-      maxPerformGas: registryConfig.maxPerformGas,
-      fallbackGasPrice: registryConfig.fallbackGasPrice,
-      fallbackLinkPrice: registryConfig.fallbackLinkPrice,
-      transcoder: registryConfig.transcoder,
-      registrar: registryConfig.registrar
-    });
-    emit RegistryConfigSet(registryConfig);
+    s_config = registryConfig;
 
     _computeAndStoreConfigDigest(
       s_signersList,
@@ -453,6 +440,8 @@ contract KeeperRegistryDev is
       s_offchainConfigVersion,
       s_offchainConfig
     );
+
+    emit RegistryConfigSet(registryConfig);
   }
 
   // GETTERS
