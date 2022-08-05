@@ -66,7 +66,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint32 internal s_latestConfigBlockNumber;
 
   LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
+  AggregatorV3Interface public immutable LINK_NATIVE_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
   OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
@@ -100,9 +100,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error OnlyCallableByOwnerOrRegistrar();
   error InvalidRecipient();
   error InvalidDataLength();
-  error TargetCheckReverted(bytes reason);
   error OnlyUnpausedUpkeep();
   error OnlyPausedUpkeep();
+  error ConfigDisgestMismatch();
+    error IncorrectNumberOfSignatures();
+  error OnlyActiveSigners();
+  error DuplicateSigners();
 
   enum MigrationPermission {
     NONE,
@@ -155,9 +158,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   struct PerformParams {
     uint256 id;
     bytes performData;
-    Upkeep upkeep;
     uint256 fastGasWei;
-    uint256 linkPrice;
+    uint256 linkNativePrice;
     uint256 maxLinkPayment;
   }
 
@@ -209,13 +211,13 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
     PAYMENT_MODEL = paymentModel;
     REGISTRY_GAS_OVERHEAD = registryGasOverhead;
     LINK = LinkTokenInterface(link);
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
+    LINK_NATIVE_FEED = AggregatorV3Interface(linkNativeFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
   }
 
@@ -241,12 +243,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @dev retrieves feed data for link/native price. If the feed
    * data is stale it uses the configured fallback price.
    */
-  function _getLinkPriceFeedData() internal view returns (uint256 linkEth) {
+  function _getLinkNativeFeedData() internal view returns (uint256 linkEth) {
     uint32 stalenessSeconds = s_storage.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
-    (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, feedValue, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
       linkEth = s_fallbackLinkPrice;
     } else {
@@ -314,15 +316,15 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 id,
     bytes memory performData,
     bool isExecution, // Whether this is an actual perform execution or just a simulation
-    uint256 executionLinkPrice // This price is used in case of execution, otherwise price is fetched from feed
+    uint256 executionLinkNativePrice // This price is used in case of execution, otherwise price is fetched from feed
   ) internal view returns (PerformParams memory) {
     Upkeep memory upkeep = s_upkeep[id];
     uint256 fastGasWei = _getFasGasFeedData();
     uint256 linkPrice;
     if (isExecution) {
-      linkPrice = executionLinkPrice;
+      linkNativePrice = executionLinkNativePrice;
     } else {
-      linkPrice = _getLinkPriceFeedData();
+      linkNativePrice = _getLinkNativeFeedData();
     }
     uint96 maxLinkPayment = _calculatePaymentAmount(s_upkeep[id].executeGas, fastGasWei, linkPrice, isExecution);
 
@@ -330,9 +332,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
       PerformParams({
         id: id,
         performData: performData,
-        upkeep: upkeep,
         fastGasWei: fastGasWei,
-        linkPrice: linkPrice,
+        linkNativePrice: linkNativePrice,
         maxLinkPayment: maxLinkPayment
       });
   }

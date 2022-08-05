@@ -51,11 +51,11 @@ contract KeeperRegistryDev is
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
     RegistryParams memory params
-  ) KeeperRegistryBase(link, linkEthFeed, fastGasFeed) {
+  ) KeeperRegistryBase(link, linkNativeFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setRegistryParams(params);
   }
@@ -117,25 +117,10 @@ contract KeeperRegistryDev is
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
-    uint256 initialGas = gasleft(); // This line must come first
+    if (!s_transmitters[msg.sender].active) revert OnlyActiveKeepers();
+    if (s_latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
 
-    HotVars memory hotVars = s_hotVars;
-
-    uint40 epochAndRound = uint40(uint256(reportContext[1]));
-    // TODO: Convert revret strings to errros
-
-    // TODO: Do we need this since we'll check last block of perform
-    require(hotVars.latestEpochAndRound < epochAndRound, "stale report");
-
-    require(s_transmitters[msg.sender].active, "unauthorized transmitter");
-
-    require(s_latestConfigDigest == reportContext[0], "configDigest mismatch");
-
-    // TODO: Maybe don't need this as payment calculation is separate in keepers
-    _requireExpectedMsgDataLength(report, rs, ss);
-
-    require(rs.length == hotVars.f + 1, "wrong number of signatures");
-    require(rs.length == ss.length, "signatures out of registration");
+    if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
     // Verify signatures attached to report
     {
@@ -148,38 +133,35 @@ contract KeeperRegistryDev is
       for (uint256 i = 0; i < rs.length; i++) {
         address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         signer = s_signers[signerAddress];
-        require(signer.active, "signature error");
+        if (!signer.active) revert OnlyActiveSigners();
         unchecked {
           signedCount += 1 << (8 * signer.index);
         }
       }
-
       // The first byte of the mask can be 0, because we only ever have 31 oracles
-      require(
-        signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 == signedCount,
-        "duplicate signer"
-      );
+      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount)
+        revert DuplicateSigners();
     }
 
-    int192 juelsPerFeeCoin = _report(hotVars, reportContext[0], epochAndRound, report);
-  }
-
-  function _report(
-    HotVars memory hotVars,
-    bytes32 configDigest,
-    uint40 epochAndRound,
-    bytes memory rawReport
-  ) internal returns (int192 juelsPerFeeCoin) {
+    // Deocde the report and performUpkeep
     Report memory report = _decodeReport(rawReport);
+    Upkeep upkeep = s_upkeep[report.upkeepId];
 
-    hotVars.latestEpochAndRound = epochAndRound;
-
-    hotVars.latestAggregatorRoundId++;
+    // check block number
 
     // performUpkeep here
+    _performUpkeepWithParams(_generatePerformParams(id, performData, false, 0));
 
-    // persist updates to hotVars
-    s_hotVars = hotVars;
+    // process payment
+    // update last perform block
+
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
+    s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
+    s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
+    s_upkeep[params.id].lastKeeper = params.from;
+    s_keeperInfo[params.from].balance = s_keeperInfo[params.from].balance + payment;
+
+    //emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
   }
 
   struct Report {
@@ -664,26 +646,15 @@ contract KeeperRegistryDev is
     validUpkeep(params.id)
     returns (bool success, uint256 gasUsed)
   {
-    if (params.upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (params.upkeep.balance < maxLinkPayment) revert InsufficientFunds();
+    Upkeep memory upkeep = s_upkeep[params.id];
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
+    if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
 
     uint256 gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
-    success = _callWithExactGas(params.gasLimit, upkeep.target, callData);
+    success = _callWithExactGas(upkeep.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
     return (success, gasUsed);
-  }
-
-  // TODO: Move this to transmit
-  //emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
-
-  // TODO: Call this in transmit
-  function _processUpkeepPayment(PerformParams memory params, uint256 gasUsed) private {
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
-    s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
-    s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
-    s_upkeep[params.id].lastKeeper = params.from;
-    s_keeperInfo[params.from].balance = s_keeperInfo[params.from].balance + payment;
   }
 }

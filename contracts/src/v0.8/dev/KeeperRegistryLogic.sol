@@ -25,9 +25,9 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
+  ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {}
 
   /**
    * @dev Called through KeeperRegistry main contract
@@ -85,6 +85,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @dev Called through KeeperRegistry main contract
    */
+   // TODO: needs to be re evaluated
   function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
     if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
     for (uint256 i = 0; i < s_keeperList.length; i++) {
