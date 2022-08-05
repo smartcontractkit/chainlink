@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 /**
- * @notice params of the registry
- * @dev only used in function parameters and return values
+ * @notice config of the registry
+ * @dev only used in params and return values
  * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
  * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
