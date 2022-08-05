@@ -36,7 +36,7 @@ func TestResolver_Jobs(t *testing.T) {
 						createdAt
 						externalJobID
 						gasLimit
-						allowForwarding
+						forwardingAllowed
 						maxTaskDuration
 						name
 						schemaVersion
@@ -105,7 +105,7 @@ func TestResolver_Jobs(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"externalJobID": "00000000-0000-0000-0000-000000000001",
 							"gasLimit": null,
-							"allowForwarding": null,
+							"forwardingAllowed": null,
 							"maxTaskDuration": "1s",
 							"name": "job1",
 							"schemaVersion": 1,
