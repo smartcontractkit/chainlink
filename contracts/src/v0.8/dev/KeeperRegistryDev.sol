@@ -535,8 +535,11 @@ contract KeeperRegistryDev is
     returns (
       State memory state,
       RegistryConfig memory config,
-      // Add OCR config here
-      address[] memory keepers
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f,
+      uint64 offchainConfigVersion,
+      bytes memory offchainConfig
     )
   {
     state.nonce = s_nonce;
@@ -544,7 +547,7 @@ contract KeeperRegistryDev is
     state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
     config = s_config;
-    return (state, config, s_transmittersList);
+    return (state, config, s_signersList, s_transmittersList, s_f, s_offchainConfigVersion, s_offchainConfig);
   }
 
   /**

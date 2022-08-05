@@ -102,8 +102,11 @@ interface KeeperRegistryBaseInterface {
     returns (
       State memory,
       RegistryConfig memory,
-      //TODO: OCR config here
-      address[] memory
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f,
+      uint64 offchainConfigVersion,
+      bytes memory offchainConfig
     );
 }
 
