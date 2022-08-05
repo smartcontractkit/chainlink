@@ -181,9 +181,9 @@ func NewFromJobSpec(
 		gasLimit = *cfg.EvmGasLimitFMJobType()
 	}
 
-	var allowForwarding bool
-	if jobSpec.AllowForwarding.Valid {
-		allowForwarding = jobSpec.AllowForwarding.Bool
+	var forwardingAllowed bool
+	if jobSpec.ForwardingAllowed.Valid {
+		forwardingAllowed = jobSpec.ForwardingAllowed.Bool
 	}
 
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
@@ -191,7 +191,7 @@ func NewFromJobSpec(
 		orm,
 		keyStore,
 		gasLimit,
-		allowForwarding,
+		forwardingAllowed,
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress(), ethClient)
