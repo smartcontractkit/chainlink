@@ -47,9 +47,6 @@ const (
 	// we don't log every time because on startup it can be lower, only if it
 	// persists does it indicate a serious problem
 	logAfterNConsecutiveBlocksChainTooShort = 10
-
-	// timeout value for batchSendTransactions
-	batchSendTransactionTimeout = 5 * time.Second
 )
 
 var (
