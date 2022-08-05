@@ -43,7 +43,7 @@ contract KeeperRegistryDev is
    * @param paymentModel one of Default, Arbitrum, and Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkNativeFeed address of the LINK/NATIVE price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param params registry parameters settings
    */

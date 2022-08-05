@@ -108,11 +108,11 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error DuplicateSigners();
   error StaleReport();
   error TooManyOracles();
-   error IncorrectNumberOfSigners();
-   error IncorrectNumberOfFaultyOracles();
-    error OnchainConfigNonEmpty();
-        error RepeatedSigner();
-            error RepeatedTransmitter();
+  error IncorrectNumberOfSigners();
+  error IncorrectNumberOfFaultyOracles();
+  error OnchainConfigNonEmpty();
+  error RepeatedSigner();
+  error RepeatedTransmitter();
 
   enum MigrationPermission {
     NONE,
@@ -211,7 +211,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkNativeFeed address of the LINK/NATIVE price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
@@ -330,7 +330,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   ) internal view returns (PerformParams memory) {
     Upkeep memory upkeep = s_upkeep[id];
     uint256 fastGasWei = _getFasGasFeedData();
-    uint256 linkPrice;
+    uint256 linkNativePrice;
     if (isExecution) {
       linkNativePrice = executionLinkNativePrice;
     } else {
