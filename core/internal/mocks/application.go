@@ -419,6 +419,22 @@ func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, r
 	return r0, r1
 }
 
+// SecretGenerator provides a mock function with given fields:
+func (_m *Application) SecretGenerator() chainlink.SecretGenerator {
+	ret := _m.Called()
+
+	var r0 chainlink.SecretGenerator
+	if rf, ok := ret.Get(0).(func() chainlink.SecretGenerator); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.SecretGenerator)
+		}
+	}
+
+	return r0
+}
+
 // SessionORM provides a mock function with given fields:
 func (_m *Application) SessionORM() sessions.ORM {
 	ret := _m.Called()

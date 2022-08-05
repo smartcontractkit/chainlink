@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/onsi/gomega"
@@ -287,9 +286,7 @@ type OperatorContracts struct {
 }
 
 func setupOperatorContracts(t *testing.T) OperatorContracts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
+	user := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000)},
 	}
@@ -615,9 +612,7 @@ observationSource   = """
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	owner := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
+	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
 	genesisData := core.GenesisAlloc{

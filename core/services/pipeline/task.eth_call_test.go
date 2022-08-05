@@ -27,6 +27,9 @@ import (
 )
 
 func TestETHCallTask(t *testing.T) {
+	t.Parallel()
+	testutils.SkipShortDB(t)
+
 	var specGasLimit uint32 = 123
 	const gasLimit uint32 = 500_000
 	const drJobTypeGasLimit uint32 = 789
@@ -220,7 +223,7 @@ func TestETHCallTask(t *testing.T) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
 					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
-					Return([]byte("baz quux"), nil)
+					Return([]byte("baz quux"), nil).Maybe()
 			},
 			nil, nil, "chain not found",
 		},
@@ -238,18 +241,16 @@ func TestETHCallTask(t *testing.T) {
 				Gas:        test.gas,
 			}
 
-			ethClient := new(evmmocks.Client)
-			config := new(pipelinemocks.Config)
+			ethClient := evmmocks.NewClient(t)
+			config := pipelinemocks.NewConfig(t)
 			test.setupClientMocks(ethClient, config)
 
 			cfg := configtest.NewTestGeneralConfig(t)
 			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(int64(gasLimit))
 			cfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(int64(drJobTypeGasLimit))
 
-			keyStore := new(keystoremocks.Eth)
-			keyStore.Test(t)
-			txManager := new(txmmocks.TxManager)
-			txManager.Test(t)
+			keyStore := keystoremocks.NewEth(t)
+			txManager := txmmocks.NewTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 
 			var cc evm.ChainSet

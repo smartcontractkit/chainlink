@@ -15,11 +15,12 @@ import (
 
 func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	var (
-		fluxAggregator = new(mocks.FluxAggregator)
-		orm            = new(fmmocks.ORM)
-		keyStore       = new(fmmocks.KeyStoreInterface)
-		gasLimit       = uint32(2100)
-		submitter      = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit)
+		fluxAggregator    = mocks.NewFluxAggregator(t)
+		orm               = fmmocks.NewORM(t)
+		keyStore          = fmmocks.NewKeyStoreInterface(t)
+		gasLimit          = uint32(2100)
+		forwardingAllowed = false
+		submitter         = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit, forwardingAllowed)
 
 		toAddress   = testutils.NewAddress()
 		fromAddress = testutils.NewAddress()

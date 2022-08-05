@@ -101,7 +101,6 @@ type GeneralConfigOverrides struct {
 	LogFileMaxSize                          null.String
 	LogFileMaxAge                           null.Int
 	LogFileMaxBackups                       null.Int
-	SecretGenerator                         config.SecretGenerator
 	TriggerFallbackDBPollInterval           *time.Duration
 	KeySpecific                             map[string]types.ChainCfg
 	LinkContractAddress                     null.String
@@ -319,13 +318,6 @@ func (c *TestGeneralConfig) EthereumURL() string {
 		return c.Overrides.EthereumURL.String
 	}
 	return c.GeneralConfig.EthereumURL()
-}
-
-func (c *TestGeneralConfig) SessionSecret() ([]byte, error) {
-	if c.Overrides.SecretGenerator != nil {
-		return c.Overrides.SecretGenerator.Generate(c.RootDir())
-	}
-	return c.GeneralConfig.SessionSecret()
 }
 
 func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {

@@ -259,6 +259,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*ETHTxTask).chainSet = r.chainSet
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
+			task.(*ETHTxTask).forwardingAllowed = run.PipelineSpec.ForwardingAllowed
 		default:
 		}
 	}
@@ -266,7 +267,11 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 	// retain old UUID values
 	for _, taskRun := range run.PipelineTaskRuns {
 		task := pipeline.ByDotID(taskRun.DotID)
-		task.Base().uuid = taskRun.ID
+		if task != nil && task.Base() != nil {
+			task.Base().uuid = taskRun.ID
+		} else {
+			return nil, errors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
+		}
 	}
 
 	return pipeline, nil
@@ -560,11 +565,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 }
 
 func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
-	result := Result{
+	run, start, err := r.orm.UpdateTaskRunResult(taskID, Result{
 		Value: value,
 		Error: err,
-	}
-	run, start, err := r.orm.UpdateTaskRunResult(taskID, result)
+	})
 	if err != nil {
 		return err
 	}

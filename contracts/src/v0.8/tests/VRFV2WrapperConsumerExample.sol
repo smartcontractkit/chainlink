@@ -6,6 +6,7 @@ import "../ConfirmedOwner.sol";
 
 contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
+  event WrapperRequestMade(uint256 indexed requestId, uint256 paid);
 
   struct RequestStatus {
     uint256 paid;
@@ -26,11 +27,9 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
     uint32 _numWords
   ) external onlyOwner returns (uint256 requestId) {
     requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords);
-    s_requests[requestId] = RequestStatus({
-      paid: VRF_V2_WRAPPER.calculateRequestPrice(_callbackGasLimit),
-      randomWords: new uint256[](0),
-      fulfilled: false
-    });
+    uint256 paid = VRF_V2_WRAPPER.calculateRequestPrice(_callbackGasLimit);
+    s_requests[requestId] = RequestStatus({paid: paid, randomWords: new uint256[](0), fulfilled: false});
+    emit WrapperRequestMade(requestId, paid);
     return requestId;
   }
 

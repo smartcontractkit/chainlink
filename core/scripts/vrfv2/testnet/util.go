@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
@@ -159,29 +158,49 @@ func decreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
 	return
 }
 
-func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]byte, err error) {
+func getRlpHeaders(env helpers.Environment, blockNumbers []*big.Int) (headers [][]byte, err error) {
 	headers = [][]byte{}
 	for _, blockNum := range blockNumbers {
-		// Get child block since it's the one that has the parent hash in it's header.
-		h, err := ec.HeaderByNumber(
-			context.Background(),
-			new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get header: %+v", err)
+		// Avalanche block headers are special, handle them by using the avalanche rpc client
+		// rather than the regular go-ethereum ethclient.
+		if helpers.IsAvaxNetwork(env.ChainID) {
+			// Get child block since it's the one that has the parent hash in its header.
+			h, err := env.AvaxEc.HeaderByNumber(
+				context.Background(),
+				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get header: %+v", err)
+			}
+			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
+			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
+			rlpHeader, err := rlp.EncodeToBytes(h)
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
+			}
+
+			bh := crypto.Keccak256Hash(rlpHeader)
+			fmt.Println("Calculated BH:", bh.String(),
+				"fetched BH:", h.Hash(),
+				"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
+
+			headers = append(headers, rlpHeader)
+		} else {
+			// Get child block since it's the one that has the parent hash in its header.
+			h, err := env.Ec.HeaderByNumber(
+				context.Background(),
+				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get header: %+v", err)
+			}
+			rlpHeader, err := rlp.EncodeToBytes(h)
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
+			}
+
+			headers = append(headers, rlpHeader)
 		}
-		rlpHeader, err := rlp.EncodeToBytes(h)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode rlp: %+v", err)
-		}
-		// Uncomment in case storeVerifyHeader calls are reverting, there may be an issue with the RLP
-		// encoding.
-		// h2, err := ec.HeaderByNumber(context.Background(), blockNum)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("failed to get header: %v", err)
-		// }
-		// fmt.Println("block number:", blockNum, "blockhash:", h2.Hash(), "encoded header of next block:", common.Bytes2Hex(rlpHeader))
-		headers = append(headers, rlpHeader)
 	}
 	return
 }

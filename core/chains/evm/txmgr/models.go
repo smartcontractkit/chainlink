@@ -48,6 +48,10 @@ type EthTxMeta struct {
 
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
+
+	// Used only for forwarded txs, tracks the original destination address.
+	// When this is set, it indicates tx is forwarded through To address.
+	FwdrDestAddress *common.Address `json:"ForwarderDestAddress,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -255,6 +259,10 @@ func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 
 		if meta.MaxLink != nil {
 			lgr = lgr.With("maxLink", *meta.MaxLink)
+		}
+
+		if meta.FwdrDestAddress != nil {
+			lgr = lgr.With("FwdrDestAddress", *meta.FwdrDestAddress)
 		}
 	}
 

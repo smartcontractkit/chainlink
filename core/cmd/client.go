@@ -166,7 +166,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.TerraEnabled() {
 		terraLggr := appLggr.Named("Terra")
-		if err := terra.SetupNodes(db, cfg, terraLggr); err != nil {
+		if err = terra.SetupNodes(db, cfg, terraLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup Terra nodes")
 		}
 		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
@@ -184,7 +184,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
-		if err := solana.SetupNodes(db, cfg, solLggr); err != nil {
+		if err = solana.SetupNodes(db, cfg, solLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup Solana nodes")
 		}
 		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
@@ -202,14 +202,14 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.StarkNetEnabled() {
 		starkLggr := appLggr.Named("StarkNet")
-		if err := starknet.SetupNodes(db, cfg, starkLggr); err != nil {
+		if err = starknet.SetupNodes(db, cfg, starkLggr); err != nil {
 			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
 		}
 		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
-			Config: cfg,
-			Logger: starkLggr,
-			DB:     db,
-			//TODO KeyStore:         keyStore.StarkNet(),
+			Config:   cfg,
+			Logger:   starkLggr,
+			DB:       db,
+			KeyStore: keyStore.StarkNet(),
 			//TODO EventBroadcaster: eventBroadcaster,
 			ORM: starknet.NewORM(db, starkLggr, cfg),
 		})
@@ -233,6 +233,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Version:                  static.Version,
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
+		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 	})
 }
 
@@ -694,9 +695,9 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 			email := t.prompter.Prompt("Enter API Email: ")
 			pwd := t.prompter.PasswordPrompt("Enter API Password: ")
 			// On a fresh DB, create an admin user
-			user, err := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
-			if err != nil {
-				t.lggr.Errorf("Error creating API user: ", err, "err")
+			user, err2 := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
+			if err2 != nil {
+				t.lggr.Errorw("Error creating API user", "err", err2)
 				continue
 			}
 			if err = orm.CreateUser(&user); err != nil {
@@ -746,9 +747,9 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 
 	// If there are no users in the database, create initial admin user from session request from file creds
 	if len(dbUsers) == 0 {
-		user, err := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
-		if err != nil {
-			return user, errors.Wrap(err, "failed to instantiate new user")
+		user, err2 := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
+		if err2 != nil {
+			return user, errors.Wrap(err2, "failed to instantiate new user")
 		}
 		return user, orm.CreateUser(&user)
 	}

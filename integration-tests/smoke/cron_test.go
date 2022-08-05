@@ -3,18 +3,19 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,79 +25,55 @@ import (
 var _ = Describe("Cronjob suite @cron", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("Cronjob suite on Simulated Network @simulated",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SimulatedEVM),
-				ethereum.New(nil),
-				chainlink.New(0, nil),
-			),
-			Entry("Cronjob suite on General EVM Network read from env vars @general",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.GeneralEVM()),
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.GeneralEVM().Name,
-					Simulated:   networks.GeneralEVM().Simulated,
-					WsURLs:      networks.GeneralEVM().URLs,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env": networks.GeneralEVM().ChainlinkValuesMap(),
-				}),
-			),
-			Entry("Cronjob suite on Metis Stardust @metis",
-				blockchain.NewMetisMultiNodeClientSetup(networks.MetisStardust),
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.MetisStardust.Name,
-					Simulated:   networks.MetisStardust.Simulated,
-					WsURLs:      networks.MetisStardust.URLs,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env": networks.MetisStardust.ChainlinkValuesMap(),
-				}),
-			),
-			Entry("Cronjob suite on Sepolia Testnet @sepolia",
-				blockchain.NewEthereumMultiNodeClientSetup(networks.SepoliaTestnet),
-				ethereum.New(&ethereum.Props{
-					NetworkName: networks.SepoliaTestnet.Name,
-					Simulated:   networks.SepoliaTestnet.Simulated,
-					WsURLs:      networks.SepoliaTestnet.URLs,
-				}),
-				chainlink.New(0, map[string]interface{}{
-					"env": networks.SepoliaTestnet.ChainlinkValuesMap(),
-				}),
-			),
+			Entry("Cronjob suite on Simulated Network @simulated", networks.SimulatedEVM),
+			Entry("Cronjob suite on General EVM Network read from env vars @general", networks.GeneralEVM()),
+			Entry("Cronjob suite on Metis Stardust @metis", networks.MetisStardust),
+			Entry("Cronjob suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet),
+			Entry("Cronjob suite on Görli Testnet @goerli", networks.GoerliTestnet),
+			Entry("Cronjob suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab),
 		}
 
 		err             error
 		job             *client.Job
-		chainlinkNode   client.Chainlink
-		mockServer      *client.MockserverClient
+		chainlinkNode   *client.Chainlink
+		mockServer      *ctfClient.MockserverClient
 		testEnvironment *environment.Environment
 	)
 
 	AfterEach(func() {
 		By("Tearing down the environment")
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []client.Chainlink{chainlinkNode}, nil, nil)
+		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, []*client.Chainlink{chainlinkNode}, nil, nil)
 		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 	})
 
 	DescribeTable("Cronjob suite on different EVM networks", func(
-		clientFunc func(*environment.Environment) (blockchain.EVMClient, error),
-		evmChart environment.ConnectedChart,
-		chainlinkCharts ...environment.ConnectedChart,
+		testNetwork *blockchain.EVMNetwork,
 	) {
+		evmChart := ethereum.New(nil)
+		if !testNetwork.Simulated {
+			evmChart = ethereum.New(&ethereum.Props{
+				NetworkName: testNetwork.Name,
+				Simulated:   testNetwork.Simulated,
+				WsURLs:      testNetwork.URLs,
+			})
+		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{NamespacePrefix: "smoke-cron"}).
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-cron-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		}).
 			AddHelm(mockservercfg.New(nil)).
 			AddHelm(mockserver.New(nil)).
-			AddHelm(evmChart)
-		for _, chainlinkChart := range chainlinkCharts {
-			testEnvironment.AddHelm(chainlinkChart)
-		}
+			AddHelm(evmChart).
+			AddHelm(chainlink.New(0, map[string]interface{}{
+				"env": testNetwork.ChainlinkValuesMap(),
+			}))
 		err = testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred(), "Error deploying test environment")
 
 		By("Connecting to launched resources")
 		cls, err := client.ConnectChainlinkNodes(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-		mockServer, err = client.ConnectMockServer(testEnvironment)
+		mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating mockserver client shouldn't fail")
 		chainlinkNode = cls[0]
 
@@ -109,17 +86,17 @@ var _ = Describe("Cronjob suite @cron", func() {
 			URL:         fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
 			RequestData: "{}",
 		}
-		err = chainlinkNode.CreateBridge(&bta)
+		err = chainlinkNode.MustCreateBridge(&bta)
 		Expect(err).ShouldNot(HaveOccurred(), "Creating bridge in chainlink node shouldn't fail")
 
-		job, err = chainlinkNode.CreateJob(&client.CronJobSpec{
+		job, err = chainlinkNode.MustCreateJob(&client.CronJobSpec{
 			Schedule:          "CRON_TZ=UTC * * * * * *",
 			ObservationSource: client.ObservationSourceSpecBridge(bta),
 		})
 		Expect(err).ShouldNot(HaveOccurred(), "Creating Cron Job in chainlink node shouldn't fail")
 
 		Eventually(func(g Gomega) {
-			jobRuns, err := chainlinkNode.ReadRunsByJob(job.Data.ID)
+			jobRuns, err := chainlinkNode.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(HaveOccurred(), "Reading Job run data shouldn't fail")
 
 			g.Expect(len(jobRuns.Data)).Should(BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))

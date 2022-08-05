@@ -5,8 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink-env/logging"
 )
 
 func init() {
@@ -20,20 +21,7 @@ var (
 	// SimulatedEVM represents a simulated network
 	SimulatedEVM *blockchain.EVMNetwork = blockchain.SimulatedEVMNetwork
 
-	// MetisStardust holds default values for the Metis Stardust testnet https://www.metis.io/
-	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
-		Name:                      "Metis Stardust",
-		ChainID:                   588,
-		URLs:                      []string{"wss://stardust-ws.metis.io/"},
-		Simulated:                 false,
-		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
-		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
-		MinimumConfirmations:      1,
-		GasEstimationBuffer:       1000,
-	}
-
-	// SepoliaTestnet holds default values for the Sepolia testnet https://sepolia.dev/
+	// SepoliaTestnet https://sepolia.dev/
 	SepoliaTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Sepolia Testnet",
 		ChainID:                   11155111,
@@ -46,8 +34,21 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
-	// KlaytnTestnet https://klaytn.foundation/
-	KlaytnTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+	// GoerliTestnet https://goerli.net/
+	GoerliTestnet *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Goerli Testnet",
+		ChainID:                   5,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute * 5,
+		MinimumConfirmations:      5,
+		GasEstimationBuffer:       1000,
+	}
+
+	// KlaytnBaobab https://klaytn.foundation/
+	KlaytnBaobab *blockchain.EVMNetwork = &blockchain.EVMNetwork{
 		Name:                      "Klaytn Baobab",
 		ChainID:                   1001,
 		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
@@ -56,6 +57,45 @@ var (
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	// MetisStardust https://www.metis.io/
+	MetisStardust *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Metis Stardust",
+		ChainID:                   588,
+		URLs:                      []string{"wss://stardust-ws.metis.io/"},
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
+	// ArbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
+	ArbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Arbitrum Goerli",
+		ChainID:                   421613,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
+	}
+
+	// ArbitrumRinkeby https://developer.offchainlabs.com/docs/public_chains - soon to be deprecated
+	ArbitrumRinkeby *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Arbitrum Rinkeby",
+		ChainID:                   421611,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
 )

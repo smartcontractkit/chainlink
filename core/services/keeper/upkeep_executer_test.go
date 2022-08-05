@@ -44,8 +44,7 @@ func newHead() evmtypes.Head {
 }
 
 func mockEstimator(t *testing.T) (estimator *gasmocks.Estimator) {
-	estimator = new(gasmocks.Estimator)
-	estimator.Test(t)
+	estimator = gasmocks.NewEstimator(t)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
 	estimator.On("GetDynamicFee", mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
 		FeeCap: assets.GWei(60),
@@ -74,13 +73,10 @@ func setup(t *testing.T, estimator *gasmocks.Estimator) (
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	block := types.NewBlockWithHeader(&types.Header{
-		Number: big.NewInt(1),
-	})
-	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
-	txm := new(txmmocks.TxManager)
-	txm.Test(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	block := &types.Header{Number: big.NewInt(1)}
+	ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	txm := txmmocks.NewTxManager(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
@@ -380,8 +376,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 
 		t.Run("EIP1559", func(t *testing.T) {
-			estimator := new(gasmocks.Estimator)
-			estimator.Test(t)
+			estimator := gasmocks.NewEstimator(t)
 			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(100000000000000)).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
 				TipCap: assets.GWei(60),
@@ -390,8 +385,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		})
 
 		t.Run("non-EIP1559", func(t *testing.T) {
-			estimator := new(gasmocks.Estimator)
-			estimator.Test(t)
+			estimator := gasmocks.NewEstimator(t)
 			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
 		})

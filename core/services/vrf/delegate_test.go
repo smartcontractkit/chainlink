@@ -57,11 +57,9 @@ type vrfUniverse struct {
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
 	// Mock all chain interactions
-	lb := new(log_mocks.Broadcaster)
-	lb.Test(t)
+	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
-	ec := new(eth_mocks.Client)
-	ec.Test(t)
+	ec := eth_mocks.NewClient(t)
 	ec.On("ChainID").Return(big.NewInt(0))
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
@@ -96,11 +94,6 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 		cc:        cc,
 		cid:       *ec.ChainID(),
 	}
-}
-
-func (v vrfUniverse) Assert(t *testing.T) {
-	v.lb.AssertExpectations(t)
-	v.ec.AssertExpectations(t)
 }
 
 func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
@@ -167,7 +160,6 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	t.Cleanup(func() {
 		listener.chStop <- struct{}{}
 		waitForChannel(t, listener.waitOnStop, time.Second, "did not clean up properly")
-		vuni.txm.AssertExpectations(t)
 	})
 	return vuni, listener, jb
 }
@@ -255,10 +247,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	}
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
 	txHash := utils.NewHash()
-	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-	}).Return(nil).Once()
-	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
+	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
+	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
+	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil).Maybe()
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
@@ -415,7 +406,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
 		// Should record that we've responded to this request
 		assert.Equal(t, uint64(1), listener.respCount[tc.reqID])
-		vuni.Assert(t)
 	}
 }
 

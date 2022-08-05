@@ -2777,18 +2777,18 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '1 micro'
-PriceMax = '1 micro'
-PriceMin = '1 micro'
-LimitDefault = 7000000
+PriceDefault = '100 mwei'
+PriceMax = '100 mwei'
+PriceMin = '100 mwei'
+LimitDefault = 500000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
@@ -2811,6 +2811,71 @@ PollInterval = '10s'
 
 [OCR]
 ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Ethereum Sepolia (11155111)<a id='EVM-11155111'></a></summary><p>
+
+```toml
+FinalityDepth = 50
+LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.1 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 4
+TransactionPercentile = 50
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '1m0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '3m0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'

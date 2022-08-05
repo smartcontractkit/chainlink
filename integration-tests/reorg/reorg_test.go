@@ -14,17 +14,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
-	"github.com/smartcontractkit/chainlink-testing-framework/actions"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/contracts"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 var (
@@ -47,11 +49,11 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 		err            error
 		c              blockchain.EVMClient
 		cd             contracts.ContractDeployer
-		chainlinkNodes []client.Chainlink
+		chainlinkNodes []*client.Chainlink
 		oracle         contracts.Oracle
 		consumer       contracts.APIConsumer
 		jobUUID        uuid.UUID
-		ms             *client.MockserverClient
+		ms             *ctfClient.MockserverClient
 		e              *environment.Environment
 	)
 	reorgBlocks := 50
@@ -99,13 +101,13 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 		})
 
 		By("Connecting to launched resources", func() {
-			c, err = blockchain.NewEthereumMultiNodeClientSetup(networkSettings)(e)
+			c, err = blockchain.NewEVMClient(networkSettings, e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(c)
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
 			chainlinkNodes, err = client.ConnectChainlinkNodes(e)
 			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-			ms, err = client.ConnectMockServer(e)
+			ms, err = ctfClient.ConnectMockServer(e)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
@@ -137,7 +139,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 				Name: fmt.Sprintf("five-%s", jobUUID.String()),
 				URL:  fmt.Sprintf("%s/variable", ms.Config.ClusterURL),
 			}
-			err = chainlinkNodes[0].CreateBridge(&bta)
+			err = chainlinkNodes[0].MustCreateBridge(&bta)
 			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
 
 			os := &client.DirectRequestTxPipelineSpec{
@@ -147,7 +149,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 			ost, err := os.String()
 			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-			_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
+			_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
 				Name:                     "direct_request",
 				MinIncomingConfirmations: minIncomingConfirmations,
 				ContractAddress:          oracle.Address(),

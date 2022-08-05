@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -41,9 +42,7 @@ import (
 // were sharing a common global verifier (which is fine, because all methods are
 // pure.) Revert to that, and see if it helps.
 func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to create root ethereum identity")
-	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
+	auth := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)

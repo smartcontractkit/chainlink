@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -79,14 +78,6 @@ type fluxAggregatorUniverse struct {
 	nallory *bind.TransactOpts // Node operator Flux Monitor Oracle running this node
 }
 
-// newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with contract golang wrappers
-func newIdentity(t *testing.T) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-}
-
 type fluxAggregatorUniverseConfig struct {
 	MinSubmission *big.Int
 	MaxSubmission *big.Int
@@ -113,15 +104,17 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		optFn(cfg)
 	}
 
-	key := cltest.MustGenerateRandomKey(t)
-	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
+	key, err := ethkey.NewV2()
+	require.NoError(t, err)
+	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
+	require.NoError(t, err)
 
 	var f fluxAggregatorUniverse
-	f.evmChainID = *big.NewInt(cltest.SimulatedBackendEVMChainID)
+	f.evmChainID = *testutils.SimulatedChainID
 	f.key = key
-	f.sergey = newIdentity(t)
-	f.neil = newIdentity(t)
-	f.ned = newIdentity(t)
+	f.sergey = testutils.MustNewSimTransactor(t)
+	f.neil = testutils.MustNewSimTransactor(t)
+	f.ned = testutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
 		f.sergey.From:  {Balance: assets.Ether(1000)},
@@ -132,7 +125,6 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
-	var err error
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 
@@ -425,7 +417,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, p
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
 		orm := log.NewORM(db, lggr, cfg, fa.evmChainID)
-		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
+		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed

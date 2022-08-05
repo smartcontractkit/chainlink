@@ -272,23 +272,24 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 				ChainType:        null.StringFrom(string(config.ChainArbitrum)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("mainnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(42161), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
+				GasEstimatorMode:                      null.StringFrom("BlockHistory"),
+				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(1),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 		t.Run("testnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(421611), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("Optimism"),
+				GasEstimatorMode: null.StringFrom("L2Suggested"),
 			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
+			assert.NoError(t, cfg.Validate())
 		})
 	})
 

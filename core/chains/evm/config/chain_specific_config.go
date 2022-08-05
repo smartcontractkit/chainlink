@@ -182,6 +182,10 @@ func setChainSpecificConfigDefaultSets() {
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
 	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	rinkeby.operatorFactoryAddress = ""
+	sepolia := mainnet
+	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
+	sepolia.operatorFactoryAddress = "" // doesn't exist yet
+	sepolia.eip1559DynamicFees = true
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -269,6 +273,14 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+	// nitro uses standard gas accounting, so restore default limits.
+	arbitrumRinkeby.gasLimitDefault = fallbackDefaultSet.gasLimitDefault
+	arbitrumRinkeby.gasLimitTransfer = fallbackDefaultSet.gasLimitTransfer
+	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
+	arbitrumRinkeby.gasPriceDefault = *assets.Wei(1e8)  // 0.1 gwei
+	arbitrumRinkeby.maxGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.minGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.gasFeeCapDefault = *assets.Wei(1e8) // 0.1 gwei
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -374,6 +386,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[3] = ropsten
 	chainSpecificConfigDefaultSets[4] = rinkeby
 	chainSpecificConfigDefaultSets[5] = goerli
+	chainSpecificConfigDefaultSets[11155111] = sepolia
 	chainSpecificConfigDefaultSets[42] = kovan
 	chainSpecificConfigDefaultSets[10] = optimismMainnet
 	chainSpecificConfigDefaultSets[69] = optimismKovan

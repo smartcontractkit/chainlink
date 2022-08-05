@@ -5,11 +5,15 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
@@ -41,6 +45,12 @@ const (
 	configSetEvent = "ConfigSet"
 )
 
+// block is used to key into a set that tracks beacon blocks.
+type block struct {
+	blockNumber uint64
+	confDelay   uint32
+}
+
 type coordinator struct {
 	lggr logger.Logger
 
@@ -55,7 +65,13 @@ type coordinator struct {
 	dkgAddress common.Address
 
 	evmClient evmclient.Client
-	orm       ORM
+
+	// set of blocks that have been scheduled for transmission.
+	toBeTransmittedBlocks map[block]struct{}
+	// set of request id's that have been scheduled for transmission.
+	toBeTransmittedCallbacks map[uint64]struct{}
+	// transmittedMu protects the toBeTransmittedBlocks and toBeTransmittedCallbacks
+	transmittedMu sync.Mutex
 }
 
 // New creates a new CoordinatorInterface implementor.
@@ -66,14 +82,13 @@ func New(
 	client evmclient.Client,
 	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
-	orm ORM,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
 	coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "coordinator wrapper creation")
 	}
 
-	t, err := newTopics()
+	t := newTopics()
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
@@ -82,31 +97,53 @@ func New(
 		t.randomnessFulfillmentRequestedTopic,
 		t.randomWordsFulfilledTopic,
 		t.configSetTopic,
-		t.newTransmissionTopic,
-	}, coordinatorAddress)
-
-	// We need ConfigSet events from the DKG contract as well.
-	logPoller.MergeFilter([]common.Hash{
-		t.configSetTopic,
-	}, dkgAddress)
-
+		t.newTransmissionTopic}, []common.Address{coordinatorAddress, dkgAddress})
 	return &coordinator{
-		coordinatorContract: coordinatorContract,
-		coordinatorAddress:  coordinatorAddress,
-		dkgAddress:          dkgAddress,
-		lp:                  logPoller,
-		topics:              t,
-		lookbackBlocks:      lookbackBlocks,
-		evmClient:           client,
-		orm:                 orm,
-		lggr:                lggr.Named("OCR2VRFCoordinator"),
+		coordinatorContract:      coordinatorContract,
+		coordinatorAddress:       coordinatorAddress,
+		dkgAddress:               dkgAddress,
+		lp:                       logPoller,
+		topics:                   t,
+		lookbackBlocks:           lookbackBlocks,
+		evmClient:                client,
+		lggr:                     lggr.Named("OCR2VRFCoordinator"),
+		toBeTransmittedBlocks:    make(map[block]struct{}),
+		toBeTransmittedCallbacks: make(map[uint64]struct{}),
+		transmittedMu:            sync.Mutex{},
 	}, nil
 }
 
-// block is used to key into a set that tracks unfulfilled beacon blocks.
-type block struct {
-	blockNumber uint64
-	confDelay   uint32
+// ReportIsOnchain returns true iff a report for the given OCR epoch/round is
+// present onchain.
+func (c *coordinator) ReportIsOnchain(ctx context.Context, epoch uint32, round uint8) (presentOnchain bool, err error) {
+	// Check if a NewTransmission event was emitted on-chain with the
+	// provided epoch and round.
+
+	epochAndRound := toEpochAndRoundUint40(epoch, round)
+
+	// this is technically NOT a hash in the regular meaning,
+	// however it has the same size as a common.Hash. We need
+	// to left-pad by bytes because it has to be 256 (or 32 bytes)
+	// long in order to use as a topic filter.
+	enrTopic := common.BytesToHash(common.LeftPadBytes(epochAndRound.Bytes(), 32))
+
+	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
+	logs, err := c.lp.IndexedLogs(
+		c.topics.newTransmissionTopic,
+		c.coordinatorAddress,
+		2,
+		[]common.Hash{
+			enrTopic,
+		},
+		1,
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		return false, errors.Wrap(err, "log poller IndexedLogs")
+	}
+
+	c.lggr.Info(fmt.Sprintf("NewTransmission logs: %+v", logs))
+
+	return len(logs) >= 1, nil
 }
 
 // ReportBlocks returns the heights and hashes of the blocks which require VRF
@@ -140,6 +177,8 @@ func (c *coordinator) ReportBlocks(
 	}
 	currentHeight := currentHead.Number
 
+	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
+
 	logs, err := c.lp.LogsWithSigs(
 		currentHeight-c.lookbackBlocks,
 		currentHeight,
@@ -156,11 +195,20 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	c.lggr.Info(fmt.Sprintf("vrf LogsWithSigs: %+v", logs))
+
 	randomnessRequestedLogs,
 		randomnessFulfillmentRequestedLogs,
 		randomWordsFulfilledLogs,
 		newTransmissionLogs,
 		err := c.unmarshalLogs(logs)
+	if err != nil {
+		err = errors.Wrap(err, "unmarshal logs")
+		return
+	}
+
+	c.lggr.Info(fmt.Sprintf("finished unmarshalLogs: RandomnessRequested: %+v , RandomnessFulfillmentRequested: %+v , RandomWordsFulfilled: %+v , NewTransmission: %+v",
+		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
 
 	blocksRequested := make(map[block]struct{})
 	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
@@ -168,10 +216,14 @@ func (c *coordinator) ReportBlocks(
 		blocksRequested[uf] = struct{}{}
 	}
 
+	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
+
 	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
+
+	c.lggr.Info(fmt.Sprintf("filtered eligible callbacks: %+v, unfulfilled: %+v", callbacksRequested, unfulfilled))
 
 	// Remove blocks that have already received responses so that we don't
 	// respond to them again.
@@ -179,6 +231,8 @@ func (c *coordinator) ReportBlocks(
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
 	}
+
+	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Construct the slice of blocks to return. At this point
 	// we only need to fetch the blockhashes of the blocks that
@@ -188,14 +242,18 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
+
 	// Find unfulfilled callback requests by filtering out already fulfilled callbacks.
 	fulfilledRequestIDs := c.getFulfilledRequestIDs(randomWordsFulfilledLogs)
 	callbacks = c.filterUnfulfilledCallbacks(callbacksRequested, fulfilledRequestIDs, confirmationDelays, currentHeight)
 
+	c.lggr.Info(fmt.Sprintf("filtered unfulfilled callbacks: %+v, fulfilled: %+v", callbacks, fulfilledRequestIDs))
+
 	return
 }
 
-func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []vrf_wrapper.VRFBeaconCoordinatorNewTransmission) (fulfilled []block) {
+func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []*vrf_wrapper.VRFBeaconCoordinatorNewTransmission) (fulfilled []block) {
 	for _, r := range newTransmissionLogs {
 		for _, o := range r.OutputsServed {
 			fulfilled = append(fulfilled, block{
@@ -212,34 +270,29 @@ func (c *coordinator) getBlocks(
 	ctx context.Context,
 	blocksRequested map[block]struct{},
 ) (blocks []ocr2vrftypes.Block, err error) {
-	// Get all the block hashes for the blocks that we need to service from the head saver.
+	// Get all the block hashes for the blocks that we need to service from the log poller.
 	// Note that we do this to avoid making an RPC call for each block height separately.
 	// Alternatively, we could do a batch RPC call.
 	var blockHeights []uint64
-	for k, _ := range blocksRequested {
+	for k := range blocksRequested {
 		blockHeights = append(blockHeights, k.blockNumber)
 	}
 
-	// TODO: is it possible that the head saver doesn't have some of these heights?
-	heads, err := c.orm.HeadsByNumbers(ctx, blockHeights)
-	if err != nil {
-		err = errors.Wrap(err, "heads by numbers")
-		return
-	}
+	heads, err := c.lp.GetBlocks(blockHeights, pg.WithParentCtx(ctx))
 	if len(heads) != len(blockHeights) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockHeights), len(heads))
 		return
 	}
 
-	headSet := make(map[uint64]*evmtypes.Head)
+	headSet := make(map[uint64]logpoller.LogPollerBlock)
 	for _, h := range heads {
-		headSet[uint64(h.Number)] = h
+		headSet[uint64(h.BlockNumber)] = h
 	}
 
-	for k, _ := range blocksRequested {
+	for k := range blocksRequested {
 		if head, ok := headSet[k.blockNumber]; ok {
 			blocks = append(blocks, ocr2vrftypes.Block{
-				Hash:              head.Hash,
+				Hash:              head.BlockHash,
 				Height:            k.blockNumber,
 				ConfirmationDelay: k.confDelay,
 			})
@@ -249,7 +302,7 @@ func (c *coordinator) getBlocks(
 }
 
 // getFulfilledRequestIDs returns the request IDs referenced by the given RandomWordsFulfilled logs slice.
-func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
+func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled) map[uint64]struct{} {
 	fulfilledRequestIDs := make(map[uint64]struct{})
 	for _, r := range randomWordsFulfilledLogs {
 		for i, requestID := range r.RequestIDs {
@@ -264,7 +317,7 @@ func (c *coordinator) getFulfilledRequestIDs(randomWordsFulfilledLogs []vrf_wrap
 // filterUnfulfilledCallbacks returns unfulfilled callback requests given the
 // callback request logs and the already fulfilled callback request IDs.
 func (c *coordinator) filterUnfulfilledCallbacks(
-	callbacksRequested []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	callbacksRequested []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
 	fulfilledRequestIDs map[uint64]struct{},
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
@@ -283,6 +336,8 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 				continue
 			}
 
+			// NOTE: we already check if the callback has been fulfilled in filterEligibleCallbacks,
+			// so we don't need to do that again here.
 			if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 				callbacks = append(callbacks, ocr2vrftypes.AbstractCostedCallbackRequest{
 					BeaconHeight:      r.NextBeaconOutputHeight,
@@ -307,10 +362,13 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 // based on their readiness to be fulfilled. It also returns any unfulfilled blocks
 // associated with those callbacks.
 func (c *coordinator) filterEligibleCallbacks(
-	randomnessFulfillmentRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
-) (callbacks []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
+) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
+	c.transmittedMu.Lock()
+	defer c.transmittedMu.Unlock()
+
 	for _, r := range randomnessFulfillmentRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -322,7 +380,10 @@ func (c *coordinator) filterEligibleCallbacks(
 			continue
 		}
 
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+		// check that the callback hasn't been scheduled for transmission
+		// so we don't fulfill the callback twice.
+		_, transmitted := c.toBeTransmittedCallbacks[r.Callback.RequestID.Uint64()]
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) && !transmitted {
 			callbacks = append(callbacks, r)
 
 			// We could have a callback request that was made in a different block than what we
@@ -339,10 +400,13 @@ func (c *coordinator) filterEligibleCallbacks(
 // filterEligibleRandomnessRequests extracts valid randomness requests from the given logs,
 // based on their readiness to be fulfilled.
 func (c *coordinator) filterEligibleRandomnessRequests(
-	randomnessRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
+	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
 ) (unfulfilled []block) {
+	c.transmittedMu.Lock()
+	defer c.transmittedMu.Unlock()
+
 	for _, r := range randomnessRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -354,7 +418,13 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 			continue
 		}
 
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
+		// check if the block has been scheduled for transmission so that we don't
+		// retransmit for the same block.
+		_, blockTransmitted := c.toBeTransmittedBlocks[block{
+			blockNumber: r.NextBeaconOutputHeight,
+			confDelay:   uint32(r.ConfDelay.Uint64()),
+		}]
+		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) && !blockTransmitted {
 			unfulfilled = append(unfulfilled, block{
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
@@ -367,46 +437,75 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 func (c *coordinator) unmarshalLogs(
 	logs []logpoller.Log,
 ) (
-	randomnessRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
-	randomnessFulfillmentRequestedLogs []vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
-	randomWordsFulfilledLogs []vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled,
-	newTransmissionLogs []vrf_wrapper.VRFBeaconCoordinatorNewTransmission,
+	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
+	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
+	randomWordsFulfilledLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled,
+	newTransmissionLogs []*vrf_wrapper.VRFBeaconCoordinatorNewTransmission,
 	err error,
 ) {
 	for _, lg := range logs {
+		rawLog := toGethLog(lg)
 		switch {
 		case bytes.Equal(lg.EventSig, c.randomnessRequestedTopic[:]):
-			unpacked, err2 := unmarshalRandomnessRequested(lg)
+			unpacked, err2 := c.coordinatorContract.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessRequested log")
 				return
 			}
-			randomnessRequestedLogs = append(randomnessRequestedLogs, unpacked)
+			rr, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested)
+			if !ok {
+				// should never happen
+				err = errors.New("cast to *VRFBeaconCoordinatorRandomnessRequested")
+				return
+			}
+			randomnessRequestedLogs = append(randomnessRequestedLogs, rr)
 		case bytes.Equal(lg.EventSig, c.randomnessFulfillmentRequestedTopic[:]):
-			unpacked, err2 := unmarshalRandomnessFulfillmentRequested(lg)
+			unpacked, err2 := c.coordinatorContract.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomnessFulfillmentRequested log")
 				return
 			}
-			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, unpacked)
+			rfr, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested)
+			if !ok {
+				// should never happen
+				err = errors.New("cast to *VRFBeaconCoordinatorRandomnessFulfillmentRequested")
+				return
+			}
+			randomnessFulfillmentRequestedLogs = append(randomnessFulfillmentRequestedLogs, rfr)
 		case bytes.Equal(lg.EventSig, c.randomWordsFulfilledTopic[:]):
-			unpacked, err2 := unmarshalRandomWordsFulfilled(lg)
+			unpacked, err2 := c.coordinatorContract.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal RandomWordsFulfilled log")
 				return
 			}
-			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, unpacked)
+			rwf, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorRandomWordsFulfilled)
+			if !ok {
+				// should never happen
+				err = errors.New("cast to *VRFBeaconCoordinatorRandomWordsFulfilled")
+				return
+			}
+			randomWordsFulfilledLogs = append(randomWordsFulfilledLogs, rwf)
 		case bytes.Equal(lg.EventSig, c.newTransmissionTopic[:]):
-			unpacked, err2 := unmarshalNewTransmission(lg)
+			unpacked, err2 := c.coordinatorContract.ParseLog(rawLog)
 			if err2 != nil {
 				// should never happen
 				err = errors.Wrap(err2, "unmarshal NewTransmission log")
 				return
 			}
-			newTransmissionLogs = append(newTransmissionLogs, unpacked)
+			nt, ok := unpacked.(*vrf_wrapper.VRFBeaconCoordinatorNewTransmission)
+			if !ok {
+				// should never happen
+				err = errors.New("cast to *vrf_wrapper.VRFBeaconCoordinatorNewTransmission")
+			}
+			newTransmissionLogs = append(newTransmissionLogs, nt)
+		default:
+			c.lggr.Error(fmt.Sprintf("Unexpected event sig: %s", hexutil.Encode(lg.EventSig)))
+			c.lggr.Error(fmt.Sprintf("expected one of: %s %s %s %s",
+				hexutil.Encode(c.randomnessRequestedTopic[:]), hexutil.Encode(c.randomnessFulfillmentRequestedTopic[:]),
+				hexutil.Encode(c.randomWordsFulfilledTopic[:]), hexutil.Encode(c.newTransmissionTopic[:])))
 		}
 	}
 	return
@@ -416,8 +515,17 @@ func (c *coordinator) unmarshalLogs(
 // local node has accepted the AbstractReport for transmission, so that its
 // blocks and callbacks can be tracked for possible later retransmission
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
-	// TODO: implement me
-	// Improve upon the implementation in the future in a more optimized version.
+	c.transmittedMu.Lock()
+	defer c.transmittedMu.Unlock()
+	for _, output := range report.Outputs {
+		c.toBeTransmittedBlocks[block{
+			blockNumber: output.BlockHeight,
+			confDelay:   output.ConfirmationDelay,
+		}] = struct{}{}
+		for _, cb := range output.Callbacks {
+			c.toBeTransmittedCallbacks[cb.RequestID] = struct{}{}
+		}
+	}
 	return nil
 }
 
@@ -499,6 +607,30 @@ func (c *coordinator) BeaconPeriod(ctx context.Context) (uint16, error) {
 	return uint16(beaconPeriodBlocks.Int64()), nil
 }
 
+// ConfirmationDelays returns the list of confirmation delays defined in the coordinator's contract
+func (c *coordinator) ConfirmationDelays(ctx context.Context) ([]uint32, error) {
+	confDelays, err := c.coordinatorContract.GetConfirmationDelays(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get confirmation delays")
+	}
+	var result []uint32
+	for _, c := range confDelays {
+		result = append(result, uint32(c.Uint64()))
+	}
+	return result, nil
+}
+
+// KeyID returns the key ID from coordinator's contract
+func (c *coordinator) KeyID(ctx context.Context) (dkg.KeyID, error) {
+	keyID, err := c.coordinatorContract.SKeyID(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return dkg.KeyID{}, errors.Wrap(err, "could not get key ID")
+	}
+	return keyID, nil
+}
+
 // isBlockEligible returns true if and only if the nextBeaconOutputHeight plus
 // the confDelay is less than the current blockchain height, meaning that the beacon
 // output height has enough confirmations.
@@ -510,4 +642,27 @@ func isBlockEligible(nextBeaconOutputHeight uint64, confDelay *big.Int, currentH
 	cond := confDelay.Int64() < currentHeight // Edge case: for simulated chains with low block numbers
 	cond = cond && (nextBeaconOutputHeight+confDelay.Uint64()) < uint64(currentHeight)
 	return cond
+}
+
+// toEpochAndRoundUint40 returns a single unsigned 40 bit big.Int object
+// that has the epoch in the first 32 bytes and the round in the last 8 bytes,
+// in a big-endian fashion.
+func toEpochAndRoundUint40(epoch uint32, round uint8) *big.Int {
+	return big.NewInt((int64(epoch) << 8) + int64(round))
+}
+
+func toGethLog(lg logpoller.Log) types.Log {
+	var topics []common.Hash
+	for _, b := range lg.Topics {
+		topics = append(topics, common.BytesToHash(b))
+	}
+	return types.Log{
+		Data:        lg.Data,
+		Address:     lg.Address,
+		BlockHash:   lg.BlockHash,
+		BlockNumber: uint64(lg.BlockNumber),
+		Topics:      topics,
+		TxHash:      lg.TxHash,
+		Index:       uint(lg.LogIndex),
+	}
 }
