@@ -158,12 +158,11 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
 
   struct PerformParams {
     uint256 id;
-    Upkeep upkeep_info;
     bytes performData;
-    uint256 maxLinkPayment;
-    uint256 gasLimit;
+    Upkeep upkeep_info;
     uint256 fastGasWei;
-    uint256 linkEth;
+    uint256 linkPrice;
+    uint256 maxLinkPayment;
   }
 
   // TODO: evaluate if we should store payment here
@@ -254,12 +253,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   }
 
   /**
-   * @dev retrieves feed data for fast gas/eth and link/eth prices. if the feed
-   * data is stale it uses the configured fallback price. Once a price is picked
-   * for gas it takes the min of gas price in the transaction or the fast gas
-   * price in order to reduce costs for the upkeep clients.
+   * @dev retrieves feed data for fast gas/eth. if the feed
+   * data is stale it uses the configured fallback price.
    */
-  function _getFeedData() internal view returns (uint256 gasWei, uint256 linkEth) {
+  function _getFasGasFeedData() internal view returns (uint256 gasWei) {
     uint32 stalenessSeconds = s_storage.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -270,13 +267,25 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     } else {
       gasWei = uint256(feedValue);
     }
+    return gasWei;
+  }
+
+  /**
+   * @dev retrieves feed data for link/native price. If the feed
+   * data is stale it uses the configured fallback price.
+   */
+  function _getLinkPriceFeedData() internal view returns (uint256 linkEth) {
+    uint32 stalenessSeconds = s_storage.stalenessSeconds;
+    bool staleFallback = stalenessSeconds > 0;
+    uint256 timestamp;
+    int256 feedValue;
     (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
       linkEth = s_fallbackLinkPrice;
     } else {
       linkEth = uint256(feedValue);
     }
-    return (gasWei, linkEth);
+    return linkEth;
   }
 
   /**
@@ -352,25 +361,27 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   function _generatePerformParams(
     uint256 id,
     bytes memory performData,
-    bool isExecution
+    bool isExecution, // Whether this is an actual perform execution or just a simulation
+    uint256 executionLinkPrice // This price is used in case of execution, otherwise price is fetched from feed
   ) internal view returns (PerformParams memory) {
-    Upkeep memory upkeep = s_upkeep[params.id];
-    uint256 gasLimit = s_upkeep[id].executeGas;
-    // TODO: Refactor this to allow injection of linkEth
-    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, isExecution);
+    Upkeep memory upkeep = s_upkeep[id];
+    uint256 fastGasWei = _getFasGasFeedData();
+    uint256 linkPrice;
+    if (isExecution) {
+      linkPrice = executionLinkPrice;
+    } else {
+      linkPrice = _getLinkPriceFeedData();
+    }
+    uint96 maxLinkPayment = _calculatePaymentAmount(s_upkeep[id].executeGas, fastGasWei, linkPrice, isExecution);
 
     return
-      // TODO: Add the whole s_upkeep object here
       PerformParams({
         id: id,
-        upkeep_info: upkeep,
         performData: performData,
-        maxLinkPayment: maxLinkPayment,
-        // TODO: Rename this to linkPrice
-        gasLimit: gasLimit,
+        upkeep_info: upkeep,
         fastGasWei: fastGasWei,
-        linkEth: linkEth
+        linkPrice: linkPrice,
+        maxLinkPayment: maxLinkPayment
       });
   }
 
