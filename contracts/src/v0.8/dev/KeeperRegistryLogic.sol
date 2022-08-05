@@ -47,7 +47,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
 
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_config.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
     if (!success) return (false, performData, UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed);
@@ -255,9 +255,9 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     address admin,
     bytes calldata checkData
   ) external onlyOwnerOrRegistrar returns (uint256 id) {
-    id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
+    id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData);
-    s_storage.nonce++;
+    s_nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
     return id;
   }
@@ -299,7 +299,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   function withdrawFunds(uint256 id, address to) external validRecipient(to) onlyUpkeepAdmin(id) {
     if (s_upkeep[id].maxValidBlocknumber > block.number) revert UpkeepNotCanceled();
 
-    uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
+    uint96 minUpkeepSpend = s_config.minUpkeepSpend;
     uint96 amountLeft = s_upkeep[id].balance;
     uint96 amountSpent = s_upkeep[id].amountSpent;
 
@@ -326,7 +326,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    * @dev Called through KeeperRegistry main contract
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external onlyNonCanceledUpkeep(id) onlyUpkeepAdmin(id) {
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_config.maxPerformGas) revert GasLimitOutsideRange();
 
     s_upkeep[id].executeGas = gasLimit;
 
@@ -381,7 +381,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    if (s_transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
+    if (s_config.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
     uint256 id;
     Upkeep memory upkeep;
@@ -404,7 +404,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
-      UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
+      UpkeepTranscoderInterface(s_config.transcoder).transcodeUpkeeps(
         UPKEEP_TRANSCODER_VESION_BASE,
         MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
@@ -455,7 +455,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     bytes memory checkData
   ) internal whenNotPaused {
     if (!target.isContract()) revert NotAContract();
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
+    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_config.maxPerformGas) revert GasLimitOutsideRange();
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,

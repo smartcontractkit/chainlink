@@ -10,7 +10,7 @@ import "./ExecutionPrevention.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import {RegistryParams, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
+import {RegistryConfig, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "./interfaces/OCR2Abstract.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
 
@@ -39,20 +39,19 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes public MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
+  // Upkeep storage
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
-  mapping(address => address) internal s_proposedPayee;
   mapping(uint256 => bytes) internal s_checkData;
-  mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
-  Storage internal s_storage;
-  uint256 internal s_fallbackGasPrice; // not in config object for gas savings
-  uint256 internal s_fallbackLinkPrice; // not in config object for gas savings
-  uint96 internal s_ownerLinkBalance;
-  uint256 internal s_expectedLinkBalance;
-  address internal s_transcoder;
-  address internal s_registrar;
 
-  // OCR storage variables
+  // Proposed payees for keepers
+  mapping(address => address) internal s_proposedPayee;
+  mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
+
+  // TODO: optimise EVM word storage
+  RegistryConfig internal s_config;
+
+  // OCR config storage
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
@@ -64,6 +63,11 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes32 internal s_latestConfigDigest;
   // makes it easier for offchain systems to extract config from logs
   uint32 internal s_latestConfigBlockNumber;
+
+  // State of registry
+  uint32 internal s_nonce; // Nonce for each upkeep created
+  uint96 internal s_ownerLinkBalance;
+  uint256 internal s_expectedLinkBalance;
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_NATIVE_FEED;
@@ -135,21 +139,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     INSUFFICIENT_BALANCE
   }
 
-  /**
-   * @notice storage of the registry, contains a mix of params and state data
-   */
-  struct Storage {
-    // TODO: optimise EVM word storage
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink;
-    uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend;
-    uint32 maxPerformGas;
-    uint32 nonce;
-  }
-
   // TODO: optimise EVM word storage
   struct Upkeep {
     uint96 balance;
@@ -200,7 +189,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event OwnerFundsWithdrawn(uint96 amount);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event RegistryParamsSet(RegistryParams params);
+  event RegistryConfigSet(RegistryConfig params);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
@@ -233,13 +222,13 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * data is stale it uses the configured fallback price.
    */
   function _getFasGasFeedData() internal view returns (uint256 gasWei) {
-    uint32 stalenessSeconds = s_storage.stalenessSeconds;
+    uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      gasWei = s_fallbackGasPrice;
+      gasWei = s_config.fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
@@ -251,13 +240,13 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * data is stale it uses the configured fallback price.
    */
   function _getLinkNativeFeedData() internal view returns (uint256 linkEth) {
-    uint32 stalenessSeconds = s_storage.stalenessSeconds;
+    uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      linkEth = s_fallbackLinkPrice;
+      linkEth = s_config.fallbackLinkPrice;
     } else {
       linkEth = uint256(feedValue);
     }
@@ -277,15 +266,15 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 linkNativePrice,
     bool isExecution
   ) internal view returns (uint96 payment) {
-    Storage memory store = s_storage;
-    uint256 gasWei = fastGasWei * store.gasCeilingMultiplier;
+    RegistryConfig memory config = s_config;
+    uint256 gasWei = fastGasWei * config.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
 
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
-    uint256 premium = PPB_BASE + store.paymentPremiumPPB;
+    uint256 premium = PPB_BASE + config.paymentPremiumPPB;
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
@@ -300,12 +289,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = store.gasCeilingMultiplier * l1CostWei;
+      l1CostWei = config.gasCeilingMultiplier * l1CostWei;
     }
 
     uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) /
       linkNativePrice +
-      uint256(store.flatFeeMicroLink) *
+      uint256(config.flatFeeMicroLink) *
       1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
@@ -387,7 +376,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @dev Reverts if called by anyone other than the contract owner or registrar.
    */
   modifier onlyOwnerOrRegistrar() {
-    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
+    if (msg.sender != owner() && msg.sender != s_config.registrar) revert OnlyCallableByOwnerOrRegistrar();
     _;
   }
 }

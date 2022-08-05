@@ -54,10 +54,10 @@ contract KeeperRegistryDev is
     address linkNativeFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
-    RegistryParams memory params
+    RegistryConfig memory params
   ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
-    setRegistryParams(params);
+    setRegistryConfig(params);
   }
 
   /**
@@ -181,7 +181,10 @@ contract KeeperRegistryDev is
     uint32 checkBlockNumber;
     bytes memory performData;
     uint256 linkNativePrice;
-    (upkeepId, checkBlockNumber, performData, linkNativePrice) = abi.decode(rawReport, (uint256, uint32, bytes, uint256));
+    (upkeepId, checkBlockNumber, performData, linkNativePrice) = abi.decode(
+      rawReport,
+      (uint256, uint32, bytes, uint256)
+    );
 
     return
       Report({
@@ -410,26 +413,26 @@ contract KeeperRegistryDev is
 
   /**
    * @notice updates the configuration of the registry
-   * @param params registry parameter fields
+   * @param registryConfig registry configuration fields
    */
-  // TODO: Try to combine with onChain config
-  function setRegistryParams(RegistryParams memory params) public onlyOwner {
-    if (params.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    s_storage = Storage({
-      paymentPremiumPPB: params.paymentPremiumPPB,
-      flatFeeMicroLink: params.flatFeeMicroLink,
-      checkGasLimit: params.checkGasLimit,
-      stalenessSeconds: params.stalenessSeconds,
-      gasCeilingMultiplier: params.gasCeilingMultiplier,
-      minUpkeepSpend: params.minUpkeepSpend,
-      maxPerformGas: params.maxPerformGas,
-      nonce: s_storage.nonce
+  function setRegistryConfig(RegistryConfig memory registryConfig) public onlyOwner {
+    if (registryConfig.maxPerformGas < s_config.maxPerformGas) revert GasLimitCanOnlyIncrease();
+    s_config = RegistryConfig({
+      paymentPremiumPPB: registryConfig.paymentPremiumPPB,
+      flatFeeMicroLink: registryConfig.flatFeeMicroLink,
+      checkGasLimit: registryConfig.checkGasLimit,
+      stalenessSeconds: registryConfig.stalenessSeconds,
+      gasCeilingMultiplier: registryConfig.gasCeilingMultiplier,
+      minUpkeepSpend: registryConfig.minUpkeepSpend,
+      maxPerformGas: registryConfig.maxPerformGas,
+      fallbackGasPrice: registryConfig.fallbackGasPrice,
+      fallbackLinkPrice: registryConfig.fallbackLinkPrice,
+      transcoder: registryConfig.transcoder,
+      registrar: registryConfig.registrar
     });
-    s_fallbackGasPrice = params.fallbackGasPrice;
-    s_fallbackLinkPrice = params.fallbackLinkPrice;
-    s_transcoder = params.transcoder;
-    s_registrar = params.registrar;
-    emit RegistryParamsSet(params);
+    emit RegistryConfigSet(registryConfig);
+
+    // TODO: Calculate onChainConfig and emit setConfig event
   }
 
   /**
@@ -524,28 +527,17 @@ contract KeeperRegistryDev is
     override
     returns (
       State memory state,
-      RegistryParams memory params,
+      RegistryConfig memory config,
       // Add OCR config here
       address[] memory keepers
     )
   {
-    Storage memory store = s_storage;
-    state.nonce = store.nonce;
+    state.nonce = s_nonce;
     state.ownerLinkBalance = s_ownerLinkBalance;
     state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
-    params.paymentPremiumPPB = store.paymentPremiumPPB;
-    params.flatFeeMicroLink = store.flatFeeMicroLink;
-    params.checkGasLimit = store.checkGasLimit;
-    params.stalenessSeconds = store.stalenessSeconds;
-    params.gasCeilingMultiplier = store.gasCeilingMultiplier;
-    params.minUpkeepSpend = store.minUpkeepSpend;
-    params.maxPerformGas = store.maxPerformGas;
-    params.fallbackGasPrice = s_fallbackGasPrice;
-    params.fallbackLinkPrice = s_fallbackLinkPrice;
-    params.transcoder = s_transcoder;
-    params.registrar = s_registrar;
-    return (state, params, s_transmittersList);
+    config = s_config;
+    return (state, config, s_transmittersList);
   }
 
   /**

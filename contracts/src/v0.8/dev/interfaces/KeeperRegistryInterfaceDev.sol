@@ -23,8 +23,7 @@ pragma solidity ^0.8.0;
  * @member transcoder address of the transcoder contract
  * @member registrar address of the registrar contract
  */
-// TODO rename back to registryConfig
-struct RegistryParams {
+struct RegistryConfig {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
   uint32 checkGasLimit;
@@ -102,7 +101,8 @@ interface KeeperRegistryBaseInterface {
     view
     returns (
       State memory,
-      RegistryParams memory,
+      RegistryConfig memory,
+      //TODO: OCR config here
       address[] memory
     );
 }
