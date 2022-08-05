@@ -156,6 +156,18 @@ contract KeeperRegistryDev is
   }
 
   /**
+   * @notice update the check data of an upkeep
+   * @param id the id of the upkeep whose check data needs to be updated
+   * @param newCheckData the new check data
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(upkeep);
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataUpdated(id, newCheckData);
+  }
+
+  /**
    * @notice adds LINK funding for an upkeep by transferring from the sender's
    * LINK balance
    * @param id upkeep to fund

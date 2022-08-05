@@ -73,6 +73,8 @@ interface KeeperRegistryBaseInterface {
 
   function acceptUpkeepAdmin(uint256 id) external;
 
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external;
+
   function addFunds(uint256 id, uint96 amount) external;
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;

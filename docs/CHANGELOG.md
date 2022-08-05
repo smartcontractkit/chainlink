@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 
-- `allowForwarding` per job attribute to allow forwarding txs submitted by the job.
+- `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 - Added official support for Sepolia chain
 - Added `hexdecode` and `base64decode` tasks (pipeline).
@@ -42,6 +42,7 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 ### Changed
 
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby` configuration for Nitro
 
 ## [1.6.0] - 2022-07-20
 

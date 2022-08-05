@@ -557,6 +557,42 @@ describe('KeeperRegistryDev', () => {
     })
   })
 
+  describe('#updateCheckData', () => {
+    it('reverts if the caller is not upkeep admin', async () => {
+      await evmRevert(
+        registry.connect(keeper1).updateCheckData(id, randomBytes),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is cancelled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
+
+      await evmRevert(
+        registry.connect(admin).updateCheckData(id, randomBytes),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('updates the paused upkeep check data', async () => {
+      await registry.connect(admin).pauseUpkeep(id)
+      await registry.connect(admin).updateCheckData(id, randomBytes)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(randomBytes, registration.checkData)
+    })
+
+    it('updates the upkeep check data and emits an event', async () => {
+      const tx = await registry.connect(admin).updateCheckData(id, randomBytes)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepCheckDataUpdated')
+        .withArgs(id, randomBytes)
+
+      const registration = await registry.getUpkeep(id)
+      assert.equal(randomBytes, registration.checkData)
+    })
+  })
+
   describe('#registerUpkeep', () => {
     context('and the registry is paused', () => {
       beforeEach(async () => {

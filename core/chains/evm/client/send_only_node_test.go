@@ -113,7 +113,7 @@ func TestSendTransaction(t *testing.T) {
 	)).Once().Return(nil)
 	s.SetEthClient(nil, mockTxSender)
 
-	err := s.SendTransaction(testutils.TestCtx(t), signedTx)
+	err := s.SendTransaction(testutils.Context(t), signedTx)
 	assert.NoError(t, err)
 	testutils.WaitForLogMessage(t, observedLogs, "SendOnly RPC call")
 }
