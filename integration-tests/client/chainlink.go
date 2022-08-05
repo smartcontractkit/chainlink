@@ -830,6 +830,30 @@ func (c *Chainlink) Profile(profileTime time.Duration, profileFunction func(*Cha
 	return profileResults, profileErrorGroup.Wait() // Wait for all the results of the profiled function to come in
 }
 
+// ExportEVMKeys exports Chainlink private EVM keys
+func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
+	exportedKeys := make([]*ExportedEVMKey, 0)
+	log.Info().Str("Node URL", c.Config.URL).Msg("Exporting EVM Keys")
+	keys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys.Data {
+		if key.Attributes.ETHBalance != "0" {
+			exportedKey := &ExportedEVMKey{}
+			resp, err := c.APIClient.R().
+				SetBody(`{"newpassword": "twochains"}`).
+				SetResult(exportedKey).
+				Post(fmt.Sprintf("/v2/keys/eth/export/%s", key.Attributes.Address))
+			if err != nil {
+				return nil, err
+			}
+			exportedKeys = append(exportedKeys, exportedKey)
+		}
+	}
+	return exportedKeys, nil
+}
+
 // SetPageSize globally sets the page
 func (c *Chainlink) SetPageSize(size int) {
 	c.pageSize = size

@@ -82,7 +82,7 @@ var (
 		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Second * 10,
-		MinimumConfirmations:      1,
+		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
 
@@ -95,7 +95,7 @@ var (
 		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   time.Second * 10,
-		MinimumConfirmations:      1,
+		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
 )
