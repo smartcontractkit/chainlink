@@ -122,6 +122,7 @@ contract KeeperRegistryDev is
 
     if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
+    uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {
       bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
@@ -137,6 +138,7 @@ contract KeeperRegistryDev is
         unchecked {
           signedCount += 1 << (8 * signer.index);
         }
+        signerIndices[i] = signer.index;
       }
       // The first byte of the mask can be 0, because we only ever have 31 oracles
       if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount)
@@ -163,15 +165,18 @@ contract KeeperRegistryDev is
       params.linkNativePrice,
       true
     );
-    uint96 premiumPerSigner = premium / rs.length;
-    uint96 totalPayment = gasPayment + premiumPerSigner * rs.length;
+    uint96 premiumPerSigner = premium / uint96(rs.length);
+    uint96 totalPayment = gasPayment + premiumPerSigner * uint96(rs.length);
 
     s_upkeep[parsedReport.upkeepId].balance = s_upkeep[params.id].balance - totalPayment;
     s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + totalPayment;
     s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
 
     s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
-    // TODO split premium across all signers
+    for (uint256 i = 0; i < rs.length; i++) {
+      address transmitterToPay = s_transmittersList[signerIndices[i]];
+      s_transmitters[transmitterToPay].balance += premiumPerSigner;
+    }
 
     emit UpkeepPerformed(parsedReport.upkeepId, success, gasUsed, parsedReport.checkBlockNumber, totalPayment);
   }
