@@ -263,9 +263,6 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 		// Retry forever to save logs,
 		// unblocked by resolving db connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
-			// Note the insert param limit is 65535 and we have 10 columns per log.
-			// Thus the maximum number of logs we can insert in a given block is 6500.
-			// TODO (https://app.shortcut.com/chainlinklabs/story/48377/support-arbitrary-number-of-logs-per-block)
 			if err := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithParentCtx(ctx)); err != nil {
 				lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", from, "to", to)
 				return true
