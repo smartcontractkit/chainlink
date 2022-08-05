@@ -145,28 +145,32 @@ contract KeeperRegistryDev is
 
     // Deocde the report and performUpkeep
     Report memory report = _decodeReport(rawReport);
-    Upkeep upkeep = s_upkeep[report.upkeepId];
+    if (report.checkBlockNumber <= s_upkeep[report.upkeepId].lastPerformBlockNumber) revert StaleReport();
 
-    // check block number
+    // Perform target upkeep
+    PerformParams memory params = _generatePerformParams(
+      report.upkeepId,
+      report.performData,
+      true,
+      report.linkNativePrice
+    );
+    (bool success, uint256 gasUsed) = _performUpkeepWithParams(params);
 
-    // performUpkeep here
-    _performUpkeepWithParams(_generatePerformParams(id, performData, false, 0));
+    // Calculate actual payment amount
+    uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkNativePrice, true);
+    s_upkeep[report.upkeepId].balance = s_upkeep[params.id].balance - payment;
+    s_upkeep[report.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + payment;
+    s_upkeep[report.upkeepId].lastPerformBlockNumber = block.number;
 
-    // process payment
-    // update last perform block
+    // TODO split across all signers
+    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + payment;
 
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
-    s_upkeep[params.id].balance = s_upkeep[params.id].balance - payment;
-    s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent + payment;
-    s_upkeep[params.id].lastKeeper = params.from;
-    s_keeperInfo[params.from].balance = s_keeperInfo[params.from].balance + payment;
-
-    //emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
+    emit UpkeepPerformed(report.id, success, gasUsed, report.checkBlockNumber, payment);
   }
 
   struct Report {
     uint256 upkeepId; // Id of upkeep
-    uint32 checkBlockNum; // Block number at which checkUpkeep was true
+    uint32 checkBlockNumber; // Block number at which checkUpkeep was true
     bytes performData; // Perform Data for the upkeep
     uint256 linkNativePrice; // Price of link to native token (18 decimals)
   }

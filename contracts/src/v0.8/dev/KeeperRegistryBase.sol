@@ -103,9 +103,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error OnlyUnpausedUpkeep();
   error OnlyPausedUpkeep();
   error ConfigDisgestMismatch();
-    error IncorrectNumberOfSignatures();
+  error IncorrectNumberOfSignatures();
   error OnlyActiveSigners();
   error DuplicateSigners();
+  error StaleReport();
 
   enum MigrationPermission {
     NONE,
@@ -148,7 +149,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint96 balance;
     uint32 executeGas;
     uint32 maxValidBlocknumber;
-    uint32 lastPerformedBlocknumber;
+    uint32 lastPerformBlockNumber;
     address target;
     uint96 amountSpent;
     address admin;
@@ -181,9 +182,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   event UpkeepPerformed(
     uint256 indexed id,
     bool indexed success,
-    address indexed from,
-    uint96 payment,
-    bytes performData
+    uint256 gasUsed,
+    uint32 checkBlockNumber,
+    uint96 payment
   );
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
   event UpkeepPaused(uint256 indexed id);
@@ -261,13 +262,13 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param fastGasWei the fast gas price
-   * @param linkEth the exchange ratio between LINK and ETH
+   * @param linkNativePrice the exchange ratio between LINK and Native token
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
     uint256 gasLimit,
     uint256 fastGasWei,
-    uint256 linkEth,
+    uint256 linkNativePrice,
     bool isExecution
   ) internal view returns (uint96 payment) {
     Storage memory store = s_storage;
@@ -296,7 +297,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
       l1CostWei = store.gasCeilingMultiplier * l1CostWei;
     }
 
-    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(store.flatFeeMicroLink) * 1e12;
+    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) /
+      linkNativePrice +
+      uint256(store.flatFeeMicroLink) *
+      1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
