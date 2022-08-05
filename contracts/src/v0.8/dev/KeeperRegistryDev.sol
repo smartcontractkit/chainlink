@@ -144,23 +144,23 @@ contract KeeperRegistryDev is
     }
 
     // Deocde the report and performUpkeep
-    Report memory report = _decodeReport(rawReport);
-    if (report.checkBlockNumber <= s_upkeep[report.upkeepId].lastPerformBlockNumber) revert StaleReport();
+    Report memory parsedReport = _decodeReport(report);
+    if (report.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
 
     // Perform target upkeep
     PerformParams memory params = _generatePerformParams(
-      report.upkeepId,
-      report.performData,
+      parsedReport.upkeepId,
+      parsedReport.performData,
       true,
-      report.linkNativePrice
+      parsedReport.linkNativePrice
     );
     (bool success, uint256 gasUsed) = _performUpkeepWithParams(params);
 
     // Calculate actual payment amount
     uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkNativePrice, true);
-    s_upkeep[report.upkeepId].balance = s_upkeep[params.id].balance - payment;
-    s_upkeep[report.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + payment;
-    s_upkeep[report.upkeepId].lastPerformBlockNumber = block.number;
+    s_upkeep[parsedReport.upkeepId].balance = s_upkeep[params.id].balance - payment;
+    s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + payment;
+    s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = block.number;
 
     // TODO split across all signers
     s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + payment;
@@ -507,13 +507,14 @@ contract KeeperRegistryDev is
     view
     override
     returns (
-      address payee,
       bool active,
-      uint96 balance
+      uint8 index,
+      uint96 balance,
+      address payee
     )
   {
-    KeeperInfo memory keeper = s_keeperInfo[query];
-    return (keeper.payee, keeper.active, keeper.balance);
+    Transmitter memory keeper = s_transmitters[query];
+    return (keeper.active, keeper.index, keeper.balance, keeper.payee);
   }
 
   /**
@@ -526,6 +527,7 @@ contract KeeperRegistryDev is
     returns (
       State memory state,
       RegistryParams memory params,
+      // Add OCR config here
       address[] memory keepers
     )
   {
@@ -546,7 +548,7 @@ contract KeeperRegistryDev is
     params.fallbackLinkPrice = s_fallbackLinkPrice;
     params.transcoder = s_transcoder;
     params.registrar = s_registrar;
-    return (state, params, s_keeperList);
+    return (state, params, s_transmittersList);
   }
 
   /**

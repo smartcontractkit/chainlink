@@ -336,7 +336,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     } else {
       linkNativePrice = _getLinkNativeFeedData();
     }
-    uint96 maxLinkPayment = _calculatePaymentAmount(s_upkeep[id].executeGas, fastGasWei, linkPrice, isExecution);
+    uint96 maxLinkPayment = _calculatePaymentAmount(s_upkeep[id].executeGas, fastGasWei, linkNativePrice, isExecution);
 
     return
       PerformParams({
