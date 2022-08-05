@@ -39,12 +39,8 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes public MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  // TODO: refactor this with ocr config
-  address[] internal s_keeperList;
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
-  // TODO: refactor this with ocr transmitter info config
-  mapping(address => KeeperInfo) internal s_keeperInfo;
   mapping(address => address) internal s_proposedPayee;
   mapping(uint256 => bytes) internal s_checkData;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
@@ -61,11 +57,11 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
-  bytes32 internal s_latestConfigDigest;
-  HotVars internal s_hotVars;
+  uint8 internal s_f; // Number of faulty oracles allowed
   // incremented each time a new config is posted. This count is incorporated
   // into the config digest to prevent replay attacks.
   uint32 internal s_configCount;
+  bytes32 internal s_latestConfigDigest;
   // makes it easier for offchain systems to extract config from logs
   uint32 internal s_latestConfigBlockNumber;
 
@@ -133,35 +129,27 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    * @notice storage of the registry, contains a mix of params and state data
    */
   struct Storage {
+    // TODO: optimise EVM word storage
     uint32 paymentPremiumPPB;
     uint32 flatFeeMicroLink;
-    // TODO: Remove BCPT
-    uint24 blockCountPerTurn;
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend; // 1 full evm word
+    uint96 minUpkeepSpend;
     uint32 maxPerformGas;
     uint32 nonce;
   }
 
+  // TODO: optimise EVM word storage
   struct Upkeep {
     uint96 balance;
-    // TODO: remove lastKeeper
-    address lastKeeper; // 1 full evm word
     uint32 executeGas;
-    uint64 maxValidBlocknumber;
-    address target; // 2 full evm words
+    uint32 maxValidBlocknumber;
+    uint32 lastPerformedBlocknumber;
+    address target;
     uint96 amountSpent;
-    address admin; // 3 full evm words
-    // TODO: Add last performBlock number here
+    address admin;
     bool paused;
-  }
-
-  struct KeeperInfo {
-    address payee;
-    uint96 balance;
-    bool active;
   }
 
   struct PerformParams {
@@ -173,47 +161,18 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 maxLinkPayment;
   }
 
-  // TODO: evaluate if we should store payment here
   struct Transmitter {
     bool active;
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
-    // juels-denominated payment for transmitters, covering gas costs incurred
-    // by the transmitter plus additional rewards. The entire LINK supply (1e9
-    // LINK = 1e27 Juels) will always fit into a uint96.
-    uint96 paymentJuels;
+    uint96 balance;
+    address payee;
   }
 
   struct Signer {
     bool active;
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
-  }
-
-  // TODO: evaluate if we need this
-  // Storing these fields used on the hot path in a HotVars variable reduces the
-  // retrieval of all of them to a single SLOAD.
-  struct HotVars {
-    // maximum number of faulty oracles
-    uint8 f;
-    // epoch and round from OCR protocol.
-    // 32 most sig bits for epoch, 8 least sig bits for round
-    uint40 latestEpochAndRound;
-    // Chainlink Aggregators expose a roundId to consumers. The offchain reporting
-    // protocol does not use this id anywhere. We increment it whenever a new
-    // transmission is made to provide callers with contiguous ids for successive
-    // reports.
-    uint32 latestAggregatorRoundId;
-    // Highest compensated gas price, in gwei uints
-    uint32 maximumGasPriceGwei;
-    // If gas price is less (in gwei units), transmitter gets half the savings
-    uint32 reasonableGasPriceGwei;
-    // Fixed LINK reward for each observer
-    uint32 observationPaymentGjuels;
-    // Fixed reward for transmitter
-    uint32 transmissionPaymentGjuels;
-    // Overhead incurred by accounting logic
-    uint24 accountingGas;
   }
 
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
@@ -338,18 +297,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(store.flatFeeMicroLink) * 1e12;
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
-  }
-
-  // TODO: Rename _prePerformUpkeep
-  /**
-   * @dev ensures some required checks are passed before an upkeep is performed. 
-   */
-  function _prePerformUpkeep(
-    Upkeep memory upkeep,
-    uint256 maxLinkPayment
-  ) internal view {
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
   }
 
   /**
