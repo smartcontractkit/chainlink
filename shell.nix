@@ -2,7 +2,7 @@
 
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
-    go_1_17
+    go_1_18
 
     postgresql_13
     python3
@@ -11,7 +11,7 @@ pkgs.mkShell {
     nodejs-16_x
     (yarn.override { nodejs = nodejs-16_x; })
     # TODO: compiler / gcc for secp compilation
-    nodePackages.ganache-cli
+    # nodePackages.ganache-cli
     # py3: web3 slither-analyzer crytic-compile
     # echidna
     # go-ethereum # geth
@@ -19,7 +19,7 @@ pkgs.mkShell {
     # go-mockery
 
     # tooling
-    goimports
+    gotools
     gopls
     delve
     golangci-lint
