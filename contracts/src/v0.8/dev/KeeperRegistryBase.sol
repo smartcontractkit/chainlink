@@ -268,7 +268,15 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 fastGasWei,
     uint256 linkNativePrice,
     bool isExecution
-  ) internal view returns (uint96 payment) {
+  )
+    internal
+    view
+    returns (
+      uint96 total,
+      uint96 gasPayment,
+      uint96 premium
+    )
+  {
     RegistryConfig memory config = s_config;
     uint256 gasWei = fastGasWei * config.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
@@ -277,7 +285,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     }
 
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
-    uint256 premium = PPB_BASE + config.paymentPremiumPPB;
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
@@ -295,12 +302,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
       l1CostWei = config.gasCeilingMultiplier * l1CostWei;
     }
 
-    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) /
-      linkNativePrice +
-      uint256(config.flatFeeMicroLink) *
-      1e12;
+    uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNativePrice;
+    uint256 premium = (gasPayment * config.paymentPremiumPPB) / 1e9 + uint256(config.flatFeeMicroLink) * 1e12;
+    uint256 total = gasPayment + premium;
+    // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
+    return (uint96(total), uint96(gasPayment), uint96(premium));
   }
 
   /**
@@ -328,7 +335,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     } else {
       linkNativePrice = _getLinkNativeFeedData();
     }
-    uint96 maxLinkPayment = _calculatePaymentAmount(s_upkeep[id].executeGas, fastGasWei, linkNativePrice, isExecution);
+    (uint96 maxLinkPayment, uint96 _gasPayment, uint96 _premium) = _calculatePaymentAmount(
+      s_upkeep[id].executeGas,
+      fastGasWei,
+      linkNativePrice,
+      isExecution
+    );
 
     return
       PerformParams({

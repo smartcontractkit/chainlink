@@ -157,15 +157,20 @@ contract KeeperRegistryDev is
     (bool success, uint256 gasUsed) = _performUpkeepWithParams(params);
 
     // Calculate actual payment amount
-    uint96 payment = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkNativePrice, true);
-    s_upkeep[parsedReport.upkeepId].balance = s_upkeep[params.id].balance - payment;
-    s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + payment;
+    (uint96 total, uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      gasUsed,
+      params.fastGasWei,
+      params.linkNativePrice,
+      true
+    );
+    s_upkeep[parsedReport.upkeepId].balance = s_upkeep[params.id].balance - total;
+    s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + total;
     s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
 
     // TODO split across all signers
-    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + payment;
+    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + total;
 
-    emit UpkeepPerformed(parsedReport.upkeepId, success, gasUsed, parsedReport.checkBlockNumber, payment);
+    emit UpkeepPerformed(parsedReport.upkeepId, success, gasUsed, parsedReport.checkBlockNumber, total);
   }
 
   struct Report {
@@ -555,7 +560,13 @@ contract KeeperRegistryDev is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     uint256 fastGasWei = _getFasGasFeedData();
     uint256 linkNativePrice = _getLinkNativeFeedData();
-    return _calculatePaymentAmount(gasLimit, fastGasWei, linkNativePrice, false);
+    (uint96 total, uint96 _gasPayment, uint96 _premium) = _calculatePaymentAmount(
+      gasLimit,
+      fastGasWei,
+      linkNativePrice,
+      false
+    );
+    return total;
   }
 
   /**
