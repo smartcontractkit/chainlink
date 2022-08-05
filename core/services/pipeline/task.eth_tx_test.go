@@ -41,7 +41,7 @@ func TestETHTxTask(t *testing.T) {
 		evmChainID            string
 		transmitChecker       string
 		specGasLimit          *uint32
-		allowForwarding       bool
+		forwardingAllowed     bool
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager)
