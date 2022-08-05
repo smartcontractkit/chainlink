@@ -174,35 +174,10 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     s_signersList = signers;
     s_transmittersList = transmitters;
     s_f = f;
+    s_offchainConfigVersion = offchainConfigVersion;
+    s_offchainConfig = onchainConfig;
 
-    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
-    s_latestConfigBlockNumber = uint32(block.number);
-    s_configCount += 1;
-
-    // TODO: compute onchainConfig config here
-    s_latestConfigDigest = _configDigestFromConfigData(
-      block.chainid,
-      address(this),
-      s_configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    emit ConfigSet(
-      previousConfigBlockNumber,
-      s_latestConfigDigest,
-      s_configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
+    _computeAndStoreConfigDigest(signers, transmitters, f, abi.encode(s_config), offchainConfigVersion, offchainConfig);
   }
 
   /**

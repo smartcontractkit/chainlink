@@ -57,9 +57,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   uint8 internal s_f; // Number of faulty oracles allowed
-  // incremented each time a new config is posted. This count is incorporated
-  // into the config digest to prevent replay attacks.
-  uint32 internal s_configCount;
+  uint64 s_offchainConfigVersion;
+  bytes s_offchainConfig;
+
+  // OCR state
+  uint32 internal s_configCount; // incremented each time a new config is posted, The count
+  // is incorporated into the config digest to prevent replay attacks.
   bytes32 internal s_latestConfigDigest;
   // makes it easier for offchain systems to extract config from logs
   uint32 internal s_latestConfigBlockNumber;
@@ -335,6 +338,43 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         linkNativePrice: linkNativePrice,
         maxLinkPayment: maxLinkPayment
       });
+  }
+
+  function _computeAndStoreConfigDigest(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) internal {
+    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
+    s_latestConfigBlockNumber = uint32(block.number);
+    s_configCount += 1;
+
+    s_latestConfigDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(this),
+      s_configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    emit ConfigSet(
+      previousConfigBlockNumber,
+      s_latestConfigDigest,
+      s_configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
   }
 
   // MODIFIERS

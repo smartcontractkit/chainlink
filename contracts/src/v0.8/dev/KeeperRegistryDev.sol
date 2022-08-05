@@ -45,7 +45,7 @@ contract KeeperRegistryDev is
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/NATIVE price feed
    * @param fastGasFeed address of the Fast Gas price feed
-   * @param params registry parameters settings
+   * @param config registry config
    */
   constructor(
     PaymentModel paymentModel,
@@ -54,10 +54,10 @@ contract KeeperRegistryDev is
     address linkNativeFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
-    RegistryConfig memory params
+    RegistryConfig memory config
   ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
-    setRegistryConfig(params);
+    setRegistryConfig(config);
   }
 
   /**
@@ -432,7 +432,14 @@ contract KeeperRegistryDev is
     });
     emit RegistryConfigSet(registryConfig);
 
-    // TODO: Calculate onChainConfig and emit setConfig event
+    _computeAndStoreConfigDigest(
+      s_signersList,
+      s_transmittersList,
+      s_f,
+      abi.encode(s_config),
+      s_offchainConfigVersion,
+      s_offchainConfig
+    );
   }
 
   /**
