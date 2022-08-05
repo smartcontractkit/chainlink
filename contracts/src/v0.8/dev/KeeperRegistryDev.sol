@@ -250,23 +250,20 @@ contract KeeperRegistryDev is
     _fallback();
   }
 
-  // TODO: Make this non executable but simulatable
-  // This is used to simulate performUpkeep, but is not actually executed in a tx
-  // Actual perform happens in transmit function based on the OCR report
   /**
+   * TODO: update docs
    * @notice executes the upkeep with the perform data returned from
    * checkUpkeep, validates the keeper's permissions, and pays the keeper.
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeepSimulate(uint256 id, bytes calldata performData)
+  function simulatePerformUpkeep(uint256 id, bytes calldata performData)
     external
-    override
-    whenNotPaused
     cannotExecute
-    returns (bool success)
+    whenNotPaused
+    returns (bool success, uint256 gasUsed)
   {
-    return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
+    return _performUpkeepWithParams(_generatePerformParams(id, performData, false, 0));
   }
 
   /**
@@ -667,8 +664,8 @@ contract KeeperRegistryDev is
     validUpkeep(params.id)
     returns (bool success, uint256 gasUsed)
   {
-    Upkeep memory upkeep = s_upkeep[params.id];
-    _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
+    if (params.upkeep.paused) revert OnlyUnpausedUpkeep();
+    if (params.upkeep.balance < maxLinkPayment) revert InsufficientFunds();
 
     uint256 gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
@@ -676,10 +673,10 @@ contract KeeperRegistryDev is
     gasUsed = gasUsed - gasleft();
 
     return (success, gasUsed);
-
-    // TODO: Move this to transmit
-    //emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
   }
+
+  // TODO: Move this to transmit
+  //emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
 
   // TODO: Call this in transmit
   function _processUpkeepPayment(PerformParams memory params, uint256 gasUsed) private {

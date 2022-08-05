@@ -167,7 +167,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   struct PerformParams {
     uint256 id;
     bytes performData;
-    Upkeep upkeep_info;
+    Upkeep upkeep;
     uint256 fastGasWei;
     uint256 linkPrice;
     uint256 maxLinkPayment;
@@ -383,7 +383,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
       PerformParams({
         id: id,
         performData: performData,
-        upkeep_info: upkeep,
+        upkeep: upkeep,
         fastGasWei: fastGasWei,
         linkPrice: linkPrice,
         maxLinkPayment: maxLinkPayment

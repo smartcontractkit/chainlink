@@ -29,6 +29,9 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     address fastGasFeed
   ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
   function checkUpkeep(uint256 id)
     external
     cannotExecute
@@ -40,6 +43,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     )
   {
     Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.paused) return (false, performData, UpkeepFailureReason.UPKEEP_PAUSED, gasUsed);
 
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
@@ -48,14 +52,13 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
 
     if (!success) return (false, performData, UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed);
 
-    (success, performData) = abi.decode(result, (bool, bytes));
-    if (!success) return (false, performData, UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded) return (false, performData, UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
 
     PerformParams memory params = _generatePerformParams(id, performData, false, 0);
-    if (upkeep.paused) return (false, performData, UpkeepFailureReason.UPKEEP_PAUSED, gasUsed);
     if (upkeep.balance < maxLinkPayment) return (false, performData, UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
 
-    return (false, performData, UpkeepFailureReason.NONE, gasUsed);
+    return (true, performData, UpkeepFailureReason.NONE, gasUsed);
   }
 
   /**
