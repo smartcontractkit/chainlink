@@ -311,6 +311,8 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
+      // nullify existing proposed admin change if an upkeep is being migrated
+      delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }

@@ -2357,6 +2357,10 @@ describe('KeeperRegistryDev', () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
         expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        await registry
+          .connect(admin)
+          .transferUpkeepAdmin(id, await payee1.getAddress())
+
         // migrate
         await registry.connect(admin).migrateUpkeeps([id], registry2.address)
         expect((await registry.getState()).state.numUpkeeps).to.equal(0)
@@ -2368,6 +2372,13 @@ describe('KeeperRegistryDev', () => {
           toWei('100'),
         )
         expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+        // migration will delete the upkeep and nullify admin transfer
+        await expect(
+          registry.connect(payee1).acceptUpkeepAdmin(id),
+        ).to.be.revertedWith('UpkeepCancelled()')
+        await expect(
+          registry2.connect(payee1).acceptUpkeepAdmin(id),
+        ).to.be.revertedWith('OnlyCallableByProposedAdmin()')
       })
       it('emits an event on both contracts', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
