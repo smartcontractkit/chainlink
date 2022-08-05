@@ -107,6 +107,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error OnlyActiveSigners();
   error DuplicateSigners();
   error StaleReport();
+  error TooManyOracles();
+   error IncorrectNumberOfSigners();
+   error IncorrectNumberOfFaultyOracles();
+    error OnchainConfigNonEmpty();
+        error RepeatedSigner();
+            error RepeatedTransmitter();
 
   enum MigrationPermission {
     NONE,

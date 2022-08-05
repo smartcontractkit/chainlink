@@ -142,11 +142,10 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override onlyOwner {
-    require(signers.length <= maxNumOracles, "too many oracles");
-    require(signers.length == transmitters.length, "oracle length mismatch");
-    require(3 * f < signers.length, "faulty-oracle f too high");
-    require(0 < f, "f must be positive");
-    require(onchainConfig.length == 0, "onchainConfig must be empty");
+    if (signers.length > maxNumOracles) revert TooManyOracles();
+    if (f == 0) revert IncorrectNumberOfFaultyOracles();
+    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNummberOfSigners();
+    if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
@@ -154,26 +153,30 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       address signer = s_signersList[i];
       address transmitter = s_transmittersList[i];
       delete s_signers[signer];
-      delete s_transmitters[transmitter];
+      // Do not delete the whole transmitter struct as it has balance information stored
+      s_transmitters[transmitter].active = false;
     }
     delete s_signersList;
     delete s_transmittersList;
 
     // add new signer/transmitter addresses
     for (uint256 i = 0; i < signers.length; i++) {
-      require(!s_signers[signers[i]].active, "repeated signer address");
+      if (s_signers[signers[i]].active) revert RepeatedSigner();
       s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
-      require(!s_transmitters[transmitters[i]].active, "repeated transmitter address");
-      s_transmitters[transmitters[i]] = Transmitter({active: true, index: uint8(i), paymentJuels: 0});
+
+      if (s_transmitters[transmitters[i]].active) revert RepeatedTransmitter();
+      s_transmitters[transmitters[i]].active = true;
+      s_transmitters[transmitters[i]].actindexive = uint8(i);
     }
     s_signersList = signers;
     s_transmittersList = transmitters;
+    s_f = f;
 
-    s_hotVars.latestEpochAndRound = 0;
-    s_hotVars.f = f;
     uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
     s_latestConfigBlockNumber = uint32(block.number);
     s_configCount += 1;
+
+    // TODO: compute onchainConfig config here
     s_latestConfigDigest = _configDigestFromConfigData(
       block.chainid,
       address(this),
@@ -197,12 +200,6 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
       offchainConfigVersion,
       offchainConfig
     );
-
-    // TODO: understand if this is needed
-    /*uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
-    for (uint256 i = 0; i < signers.length; i++) {
-      s_rewardFromAggregatorRoundId[i] = latestAggregatorRoundId;
-    }*/
   }
 
   /**
