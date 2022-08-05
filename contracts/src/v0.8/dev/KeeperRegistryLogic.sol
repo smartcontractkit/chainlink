@@ -29,38 +29,33 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     address fastGasFeed
   ) KeeperRegistryBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
-  function checkUpkeep(uint256 id, address from)
+  function checkUpkeep(uint256 id)
     external
     cannotExecute
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      uint256 adjustedGasWei,
-      uint256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed
     )
   {
     Upkeep memory upkeep = s_upkeep[id];
 
+    gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    gasUsed = gasUsed - gasleft();
 
-    if (!success) revert TargetCheckReverted(result);
+    if (!success) return (false, performData, UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed);
 
     (success, performData) = abi.decode(result, (bool, bytes));
-    if (!success) revert UpkeepNotNeeded();
+    if (!success) return (false, performData, UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
 
-    PerformParams memory params = _generatePerformParams(from, id, performData, false);
-    _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
+    PerformParams memory params = _generatePerformParams(id, performData, false, 0);
+    if (upkeep.paused) return (false, performData, UpkeepFailureReason.UPKEEP_PAUSED, gasUsed);
+    if (upkeep.balance < maxLinkPayment) return (false, performData, UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
 
-    return (
-      performData,
-      params.maxLinkPayment,
-      params.gasLimit,
-      // adjustedGasWei equals fastGasWei multiplies gasCeilingMultiplier in non-execution cases
-      params.fastGasWei * s_storage.gasCeilingMultiplier,
-      params.linkEth
-    );
+    return (false, performData, UpkeepFailureReason.NONE, gasUsed);
   }
 
   /**
@@ -249,7 +244,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
    */
   function typeAndVersion() external pure override returns (string memory) {}
-  
+
   function registerUpkeep(
     address target,
     uint32 gasLimit,

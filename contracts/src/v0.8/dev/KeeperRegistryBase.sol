@@ -121,6 +121,14 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     OPTIMISM
   }
 
+  enum UpkeepFailureReason {
+    NONE,
+    TARGET_CHECK_REVERTED,
+    UPKEEP_NOT_NEEDED,
+    UPKEEP_PAUSED,
+    INSUFFICIENT_BALANCE
+  }
+
   /**
    * @notice storage of the registry, contains a mix of params and state data
    */
@@ -332,19 +340,16 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
-  // TODO: Remove checks here about 'from'. Refactor this into transmit
+  // TODO: Rename _prePerformUpkeep
   /**
-   * @dev ensures all required checks are passed before an upkeep is performed
+   * @dev ensures some required checks are passed before an upkeep is performed. 
    */
   function _prePerformUpkeep(
     Upkeep memory upkeep,
-    address from,
     uint256 maxLinkPayment
   ) internal view {
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
-    if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();
   }
 
   /**
