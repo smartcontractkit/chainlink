@@ -261,7 +261,7 @@ contract KeeperRegistryDev is
    * @param id the upkeep id to transfer admin
    * @param proposed address to nominate for the new upkeep admin
    */
-  function transferUpkeepAdmin(uint256 id, address proposed) external {
+  function transferUpkeepAdmin(uint256 id, address proposed) external override {
     // Executed through logic contract
     _fallback();
   }
@@ -270,7 +270,7 @@ contract KeeperRegistryDev is
    * @notice accepts the safe transfer of admin role for an upkeep
    * @param id the upkeep id
    */
-  function acceptUpkeepAdmin(uint256 id) external {
+  function acceptUpkeepAdmin(uint256 id) external override {
     // Executed through logic contract
     _fallback();
   }

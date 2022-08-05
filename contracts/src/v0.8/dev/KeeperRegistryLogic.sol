@@ -263,8 +263,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
-    if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
+    requireAdminAndNotCancelled(upkeep);
     if (proposed == msg.sender) revert ValueNotChanged();
     if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
@@ -306,8 +305,7 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
-      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+      requireAdminAndNotCancelled(upkeep);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
