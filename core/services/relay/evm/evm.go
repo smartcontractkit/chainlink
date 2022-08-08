@@ -144,7 +144,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
-		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, false /* allowForwarding */, strategy, txm.TransmitCheckerSpec{}),
+		ocrcommon.NewTransmitter(configWatcher.chain.TxManager(), transmitterAddress, gasLimit, rargs.ForwardingAllowed, strategy, txm.TransmitCheckerSpec{}),
 		configWatcher.chain.LogPoller(),
 		lggr,
 	)

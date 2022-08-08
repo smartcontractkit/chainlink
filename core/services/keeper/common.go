@@ -21,8 +21,8 @@ type Config interface {
 	KeeperGasTipCapBufferPercent() uint32
 	KeeperBaseFeeBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
-	KeeperRegistryCheckGasOverhead() uint64
-	KeeperRegistryPerformGasOverhead() uint64
+	KeeperRegistryCheckGasOverhead() uint32
+	KeeperRegistryPerformGasOverhead() uint32
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
