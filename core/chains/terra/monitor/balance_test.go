@@ -29,6 +29,7 @@ func TestBalanceMonitor(t *testing.T) {
 		"100000.000000000000000000luna",
 	}
 	client := new(mocks.ReaderWriter)
+	client.Test(t)
 	type update struct{ acc, bal string }
 	var exp []update
 	for i := range bals {

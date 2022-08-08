@@ -38,6 +38,13 @@ func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddres
 	return wasmtypes.NewMsgExecuteContract(from, to, msg, cosmostypes.Coins{})
 }
 
+func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
+	tc := new(tcmocks.ReaderWriter)
+	tc.Test(t)
+	t.Cleanup(func() { tc.AssertExpectations(t) })
+	return tc
+}
+
 func TestTxm(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := testutils.LoggerAssertMaxLevel(t, zapcore.ErrorLevel)
@@ -69,7 +76,7 @@ func TestTxm(t *testing.T) {
 	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
 
@@ -102,11 +109,10 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(completed))
 		assert.Equal(t, completed[0].State, Confirmed)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("two msgs different accounts", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
@@ -158,11 +164,10 @@ func TestTxm(t *testing.T) {
 		require.Equal(t, 2, len(completed))
 		assert.Equal(t, Errored, completed[0].State) // cancelled
 		assert.Equal(t, Confirmed, completed[1].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("two msgs different contracts", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
@@ -218,11 +223,10 @@ func TestTxm(t *testing.T) {
 		require.Equal(t, 2, len(completed))
 		assert.Equal(t, Confirmed, completed[0].State)
 		assert.Equal(t, Confirmed, completed[1].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("failed to confirm", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
@@ -241,7 +245,6 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(m))
 		assert.Equal(t, Errored, m[0].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("confirm any unconfirmed", func(t *testing.T) {
@@ -249,7 +252,7 @@ func TestTxm(t *testing.T) {
 		txHash1 := "0x1234"
 		txHash2 := "0x1235"
 		txHash3 := "0xabcd"
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tc.On("Tx", txHash1).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash1},
 		}, nil).Once()
@@ -290,7 +293,6 @@ func TestTxm(t *testing.T) {
 		assert.Equal(t, Confirmed, msgs[0].State)
 		assert.Equal(t, Confirmed, msgs[1].State)
 		assert.Equal(t, Confirmed, msgs[2].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("expired msgs", func(t *testing.T) {

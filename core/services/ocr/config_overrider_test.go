@@ -42,10 +42,6 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 
 	uni.contractAddress = contractAddress
 
-	t.Cleanup(func() {
-		flagsContract.AssertExpectations(t)
-	})
-
 	return uni
 }
 

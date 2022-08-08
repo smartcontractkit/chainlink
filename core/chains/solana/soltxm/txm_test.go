@@ -46,8 +46,7 @@ func TestTxm_Integration(t *testing.T) {
 	solanaClient.FundTestAccounts(t, []solana.PublicKey{pubKey, loadTestKey.PublicKey()}, url)
 
 	// setup mock keystore
-	mkey := new(mocks.Solana)
-	defer mkey.AssertExpectations(t)
+	mkey := mocks.NewSolana(t)
 	mkey.On("Get", key.ID()).Return(key, nil)
 	mkey.On("Get", loadTestKey.ID()).Return(loadTestKey, nil)
 	mkey.On("Get", pubKeyReceiver.String()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: pubKeyReceiver.String(), KeyType: "Solana"})

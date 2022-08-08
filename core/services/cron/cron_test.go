@@ -2,7 +2,6 @@ package cron_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -62,10 +61,12 @@ func TestCronV2Schedule(t *testing.T) {
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:  &pipeline.Spec{},
 	}
-	runner := new(pipelinemocks.Runner)
-
+	runner := pipelinemocks.NewRunner(t)
+	awaiter := cltest.NewAwaiter()
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
-		Return(false, nil).Once()
+		Run(func(args mock.Arguments) { awaiter.ItHappened() }).
+		Return(false, nil).
+		Once()
 
 	service, err := cron.NewCronFromJobSpec(spec, runner, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -73,5 +74,5 @@ func TestCronV2Schedule(t *testing.T) {
 	require.NoError(t, err)
 	defer service.Close()
 
-	cltest.EventuallyExpectationsMet(t, runner, 10*time.Second, 1*time.Second)
+	awaiter.AwaitOrFail(t)
 }
