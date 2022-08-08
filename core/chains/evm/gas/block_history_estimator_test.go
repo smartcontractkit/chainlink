@@ -1332,13 +1332,13 @@ func TestBlockHistoryEstimator_Block_Unmarshal(t *testing.T) {
 	require.Len(t, block.Transactions, 3)
 
 	assert.Equal(t, int64(1), block.Transactions[0].GasPrice.Int64())
-	assert.Equal(t, uint64(1), block.Transactions[0].GasLimit)
+	assert.Equal(t, uint32(1), block.Transactions[0].GasLimit)
 
 	assert.Equal(t, int64(0), block.Transactions[1].GasPrice.Int64())
-	assert.Equal(t, uint64(0), block.Transactions[1].GasLimit)
+	assert.Equal(t, uint32(0), block.Transactions[1].GasLimit)
 
 	assert.Equal(t, big.NewInt(4566182400000), block.Transactions[2].GasPrice)
-	assert.Equal(t, uint64(2000000), block.Transactions[2].GasLimit)
+	assert.Equal(t, uint32(2000000), block.Transactions[2].GasLimit)
 }
 
 func TestBlockHistoryEstimator_EIP1559Block_Unmarshal(t *testing.T) {

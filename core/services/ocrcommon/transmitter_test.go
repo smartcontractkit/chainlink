@@ -24,7 +24,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	gasLimit := uint64(1000)
+	gasLimit := uint32(1000)
 	forwardingAllowed := false
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}

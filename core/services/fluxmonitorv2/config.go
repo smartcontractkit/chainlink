@@ -12,8 +12,8 @@ type Config interface {
 	DefaultHTTPTimeout() models.Duration
 	FlagsContractAddress() string
 	MinimumContractPayment() *assets.Link
-	EvmGasLimitDefault() uint64
-	EvmGasLimitFMJobType() *uint64
+	EvmGasLimitDefault() uint32
+	EvmGasLimitFMJobType() *uint32
 	EvmMaxQueuedTransactions() uint64
 	FMDefaultTransactionQueueDepth() uint32
 	LogSQL() bool

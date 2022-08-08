@@ -17,7 +17,7 @@ type KeeperIndexMap map[ethkey.EIP55Address]int32
 type Registry struct {
 	ID                int64
 	BlockCountPerTurn int32
-	CheckGas          int32
+	CheckGas          uint32
 	ContractAddress   ethkey.EIP55Address
 	FromAddress       ethkey.EIP55Address
 	JobID             int32
@@ -29,7 +29,7 @@ type Registry struct {
 type UpkeepRegistration struct {
 	ID                  int32
 	CheckData           []byte
-	ExecuteGas          uint64
+	ExecuteGas          uint32
 	LastRunBlockHeight  int64
 	RegistryID          int64
 	Registry            Registry
