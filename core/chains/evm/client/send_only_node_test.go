@@ -105,23 +105,17 @@ func TestSendTransaction(t *testing.T) {
 
 	signedTx := createSignedTx(t, chainID, 1, []byte{1, 2, 3})
 
-	mockTxSender := new(mocks.TxSender)
-	mockTxSender.Test(t)
-
+	mockTxSender := mocks.NewTxSender(t)
 	mockTxSender.On("SendTransaction", mock.Anything, mock.MatchedBy(
 		func(tx *types.Transaction) bool {
-			if tx.Nonce() != uint64(1) {
-				return false
-			}
-			return true
+			return tx.Nonce() == uint64(1)
 		},
 	)).Once().Return(nil)
 	s.SetEthClient(nil, mockTxSender)
 
-	err := s.SendTransaction(testutils.TestCtx(t), signedTx)
+	err := s.SendTransaction(testutils.Context(t), signedTx)
 	assert.NoError(t, err)
 	testutils.WaitForLogMessage(t, observedLogs, "SendOnly RPC call")
-	mockTxSender.AssertExpectations(t)
 }
 
 func TestBatchCallContext(t *testing.T) {
@@ -147,8 +141,7 @@ func TestBatchCallContext(t *testing.T) {
 			Args:   []interface{}{1, false}},
 	}
 
-	mockBatchSender := new(mocks.BatchSender)
-	mockBatchSender.Test(t)
+	mockBatchSender := mocks.NewBatchSender(t)
 	mockBatchSender.On("BatchCallContext", mock.Anything,
 		mock.MatchedBy(
 			func(b []rpc.BatchElem) bool {
@@ -160,5 +153,4 @@ func TestBatchCallContext(t *testing.T) {
 
 	err := s.BatchCallContext(context.Background(), req)
 	assert.NoError(t, err)
-	mockBatchSender.AssertExpectations(t)
 }

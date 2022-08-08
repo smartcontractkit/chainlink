@@ -78,42 +78,17 @@ type TestService struct {
 
 func setupTestService(t *testing.T) *TestService {
 	var (
-		orm          = &mocks.ORM{}
-		jobORM       = &jobmocks.ORM{}
-		connMgr      = &mocks.ConnectionsManager{}
-		spawner      = &jobmocks.Spawner{}
-		fmsClient    = &mocks.FeedsManagerClient{}
-		csaKeystore  = &ksmocks.CSA{}
-		p2pKeystore  = &ksmocks.P2P{}
-		ocr1Keystore = &ksmocks.OCR{}
-		ocr2Keystore = &ksmocks.OCR2{}
-		cfg          = &mocks.Config{}
+		orm          = mocks.NewORM(t)
+		jobORM       = jobmocks.NewORM(t)
+		connMgr      = mocks.NewConnectionsManager(t)
+		spawner      = jobmocks.NewSpawner(t)
+		fmsClient    = mocks.NewFeedsManagerClient(t)
+		csaKeystore  = ksmocks.NewCSA(t)
+		p2pKeystore  = ksmocks.NewP2P(t)
+		ocr1Keystore = ksmocks.NewOCR(t)
+		ocr2Keystore = ksmocks.NewOCR2(t)
+		cfg          = mocks.NewConfig(t)
 	)
-	orm.Test(t)
-	jobORM.Test(t)
-	connMgr.Test(t)
-	spawner.Test(t)
-	fmsClient.Test(t)
-	csaKeystore.Test(t)
-	p2pKeystore.Test(t)
-	ocr1Keystore.Test(t)
-	ocr2Keystore.Test(t)
-	cfg.Test(t)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			orm,
-			jobORM,
-			connMgr,
-			spawner,
-			fmsClient,
-			csaKeystore,
-			p2pKeystore,
-			ocr1Keystore,
-			ocr2Keystore,
-			cfg,
-		)
-	})
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
@@ -293,8 +268,8 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
 			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0000",
-			AdminAddress:   "0x0001",
+			AccountAddress: "0x0000000000000000000000000000000000000000",
+			AdminAddress:   "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -333,6 +308,27 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 	actual, err := svc.CreateChainConfig(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+}
+
+func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.CreateChainConfig(cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
 func Test_Service_DeleteChainConfig(t *testing.T) {
@@ -395,8 +391,8 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			FeedsManagerID:    mgr.ID,
 			ChainID:           "42",
 			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0000",
-			AdminAddress:      "0x0001",
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
 			OCR2Config:        feeds.OCR2Config{Enabled: false},
@@ -429,6 +425,27 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 	actual, err := svc.UpdateChainConfig(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+}
+
+func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.UpdateChainConfig(cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
 func Test_Service_ProposeJob(t *testing.T) {
