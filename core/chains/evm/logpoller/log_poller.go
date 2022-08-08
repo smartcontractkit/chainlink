@@ -409,7 +409,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			return nil, errors.New("Unable to find LCA after reorg, retrying")
 		}
 
-		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number(), "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number.Int64(), "currentBlockNumber", currentBlockNumber)
 		// We truncate all the blocks and logs after the LCA.
 		// We could preserve the logs for forensics, since its possible
 		// that applications see them and take action upon it, however that
@@ -432,7 +432,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			}
 			// Tell all callbacks about the reorg.
 			for _, callback := range lp.callbacks {
-				if err2 := callback.Reorg(tx, blockAfterLCA.Number().Int64(), currentBlockNumber); err2 != nil {
+				if err2 := callback.Reorg(tx, blockAfterLCA.Number.Int64(), currentBlockNumber); err2 != nil {
 					return err2
 				}
 			}
