@@ -544,6 +544,7 @@ contract KeeperRegistryDev is
    */
   function _performUpkeepWithParams(PerformParams memory params) private nonReentrant returns (bool success) {
     Upkeep memory upkeep = s_upkeep[params.id];
+    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
     uint256 gasUsed = gasleft();

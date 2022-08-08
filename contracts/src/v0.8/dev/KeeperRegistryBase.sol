@@ -274,7 +274,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 maxLinkPayment
   ) internal view {
-    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
