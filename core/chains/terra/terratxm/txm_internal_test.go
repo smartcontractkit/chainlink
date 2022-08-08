@@ -7,18 +7,17 @@ import (
 	"testing"
 	"time"
 
+	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
+	cosmostypes "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
-
-	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
-	cosmostypes "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
