@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint64) *backends.SimulatedBackend {
-	backend := backends.NewSimulatedBackend(alloc, gasLimit)
+func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
+	backend := backends.NewSimulatedBackend(alloc, uint64(gasLimit))
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {

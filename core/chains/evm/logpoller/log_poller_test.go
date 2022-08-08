@@ -67,6 +67,30 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 	}
 }
 
+func TestLogPoller_Batching(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+	event1 := EmitterABI.Events["Log1"].ID
+	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
+
+	var logs []logpoller.Log
+	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
+	// a maximum of 6553 log inserts per tx. As inserting more than 6553 would result in
+	// an error without batching, this test makes sure batching is enabled.
+	for i := 0; i < 15000; i++ {
+		logs = append(logs, GenLog(chainID, int64(i+1), 1, "0x3", event1[:], address1))
+	}
+	require.NoError(t, o.InsertLogs(logs))
+	lgs, err := o.SelectLogsByBlockRange(1, 1)
+	require.NoError(t, err)
+	// Make sure all logs are inserted
+	require.Equal(t, len(logs), len(lgs))
+}
+
 func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 	// The log poller's blocks table should remain synchronized
 	// with the canonical chain of geth's despite arbitrary mixes of mining and reorgs.

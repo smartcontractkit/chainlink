@@ -8,9 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -41,10 +42,6 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 	require.NoError(t, err)
 
 	uni.contractAddress = contractAddress
-
-	t.Cleanup(func() {
-		flagsContract.AssertExpectations(t)
-	})
 
 	return uni
 }
