@@ -56,9 +56,22 @@ func (k *KeeperIndexMap) Value() (driver.Value, error) {
 }
 
 func (upkeep UpkeepRegistration) PrettyID() string {
-	result, err := utils.Uint256ToBytes(upkeep.UpkeepID.ToInt())
+	return NewUpkeepIdentifier(upkeep.UpkeepID).String()
+}
+
+func NewUpkeepIdentifier(i *utils.Big) *UpkeepIdentifier {
+	val := UpkeepIdentifier(*i)
+	return &val
+}
+
+type UpkeepIdentifier utils.Big
+
+// String produces a hex encoded value, zero padded, prefixed with UpkeepPrefix
+func (ui UpkeepIdentifier) String() string {
+	val := utils.Big(ui)
+	result, err := utils.Uint256ToBytes(val.ToInt())
 	if err != nil {
 		panic(errors.Wrap(err, "invariant, invalid upkeepID"))
 	}
-	return "UPx" + hex.EncodeToString(result)
+	return fmt.Sprintf("%s%s", UpkeepPrefix, hex.EncodeToString(result))
 }

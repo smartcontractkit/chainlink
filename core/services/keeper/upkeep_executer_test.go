@@ -362,6 +362,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 
 		t.Run("EIP1559", func(t *testing.T) {
+			testutils.SkipShort(t, "db dependency")
+
 			estimator := gasmocks.NewEstimator(t)
 			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(100000000000000)).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
@@ -371,6 +373,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		})
 
 		t.Run("non-EIP1559", func(t *testing.T) {
+			testutils.SkipShort(t, "db dependency")
+
 			estimator := gasmocks.NewEstimator(t)
 			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
