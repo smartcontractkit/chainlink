@@ -13,6 +13,8 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
@@ -38,11 +40,26 @@ const (
 	TransmitCheckTimeout = 2 * time.Second
 )
 
+var (
+	promTimeUntilBroadcast = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_time_until_tx_broadcast",
+		Help: "The amount of time elapsed from when a transaction is enqueued to until it is broadcast.",
+		Buckets: []float64{
+			float64(500 * time.Millisecond),
+			float64(time.Second),
+			float64(5 * time.Second),
+			float64(15 * time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+		},
+	}, []string{"evmChainID"})
+)
+
 var errEthTxRemoved = errors.New("eth_tx removed")
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory interface {
-
 	// BuildChecker builds a new TransmitChecker based on the given spec.
 	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error)
 }
@@ -515,6 +532,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	}
 
 	if sendError == nil {
+		// We want to observe the time until the first _successful_ broadcast.
+		// Since we can re-enter this method by way of tryAgainBumpingGas,
+		// and we pass the same initialBroadcastAt timestamp there, when we re-enter
+		// this function we'll be using the same initialBroadcastAt.
+		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
+
 		return saveAttempt(eb.q, &etx, attempt, EthTxAttemptBroadcast), true
 	}
 
@@ -733,7 +756,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) (err error, retyrable bool) {
+func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint32) (err error, retyrable bool) {
 	replacementAttempt, err := eb.NewLegacyAttempt(etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed"), true
@@ -746,7 +769,7 @@ func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, lgr logg
 	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newDynamicFee gas.DynamicFee, newGasLimit uint64) (err error, retyrable bool) {
+func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, lgr logger.Logger, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newDynamicFee gas.DynamicFee, newGasLimit uint32) (err error, retyrable bool) {
 	replacementAttempt, err := eb.NewDynamicFeeAttempt(etx, newDynamicFee, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed"), true
@@ -817,4 +840,9 @@ func IncrementNextNonce(q pg.Queryer, address gethCommon.Address, chainID *big.I
 			"Either the key is missing or the nonce has been modified by an external process. This is an unrecoverable error")
 	}
 	return nil
+}
+
+func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {
+	duration := float64(broadcastAt.Sub(createdAt))
+	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
 }
