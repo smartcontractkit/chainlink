@@ -205,7 +205,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 	toAddress := testutils.NewAddress()
-	gasLimit := uint64(1000)
+	gasLimit := uint32(1000)
 	payload := []byte{1, 2, 3}
 
 	config := newMockConfig(t)
@@ -532,7 +532,7 @@ func newMockConfig(t *testing.T) *txmmocks.Config {
 	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe().Once()
 	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
 	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
-	cfg.On("EvmGasLimitDefault").Return(uint64(42)).Maybe().Once()
+	cfg.On("EvmGasLimitDefault").Return(uint32(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBatchSize").Return(uint32(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBlockDelay").Return(uint16(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(42)).Maybe().Once()
@@ -565,7 +565,7 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
 
 	fromAddress := thisKey.Address.Address()
-	gasLimit := uint64(1000)
+	gasLimit := uint32(1000)
 	toAddress := testutils.NewAddress()
 
 	config := newMockConfig(t)

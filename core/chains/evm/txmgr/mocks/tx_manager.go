@@ -124,18 +124,18 @@ func (_m *TxManager) RegisterResumeCallback(fn txmgr.ResumeCallback) {
 }
 
 // SendEther provides a mock function with given fields: chainID, from, to, value, gasLimit
-func (_m *TxManager) SendEther(chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint64) (txmgr.EthTx, error) {
+func (_m *TxManager) SendEther(chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint32) (txmgr.EthTx, error) {
 	ret := _m.Called(chainID, from, to, value, gasLimit)
 
 	var r0 txmgr.EthTx
-	if rf, ok := ret.Get(0).(func(*big.Int, common.Address, common.Address, assets.Eth, uint64) txmgr.EthTx); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, common.Address, common.Address, assets.Eth, uint32) txmgr.EthTx); ok {
 		r0 = rf(chainID, from, to, value, gasLimit)
 	} else {
 		r0 = ret.Get(0).(txmgr.EthTx)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*big.Int, common.Address, common.Address, assets.Eth, uint64) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, common.Address, common.Address, assets.Eth, uint32) error); ok {
 		r1 = rf(chainID, from, to, value, gasLimit)
 	} else {
 		r1 = ret.Error(1)

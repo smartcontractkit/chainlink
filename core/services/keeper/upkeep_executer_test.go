@@ -45,11 +45,11 @@ func newHead() evmtypes.Head {
 
 func mockEstimator(t *testing.T) (estimator *gasmocks.Estimator) {
 	estimator = gasmocks.NewEstimator(t)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
 	estimator.On("GetDynamicFee", mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
 		FeeCap: assets.GWei(60),
 		TipCap: assets.GWei(60),
-	}, uint64(60), nil)
+	}, uint32(60), nil)
 	return
 }
 
@@ -87,7 +87,7 @@ func setup(t *testing.T, estimator *gasmocks.Estimator) (
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start(testutils.Context(t))
-	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
+	t.Cleanup(func() { executer.Close() })
 	require.NoError(t, err)
 	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm, keyStore, ch, orm
 }
@@ -161,9 +161,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		assert.False(t, runs[0].HasErrors())
 		assert.False(t, runs[0].HasFatalErrors())
 		waitLastRunHeight(t, db, upkeep, 20)
-
-		ethMock.AssertExpectations(t)
-		txm.AssertExpectations(t)
 	})
 
 	t.Run("runs upkeep on triggering block number on EIP1559 and non-EIP1559 chains", func(t *testing.T) {
@@ -216,9 +213,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			assert.False(t, runs[0].HasErrors())
 			assert.False(t, runs[0].HasFatalErrors())
 			waitLastRunHeight(t, db, upkeep, 20)
-
-			ethMock.AssertExpectations(t)
-			txm.AssertExpectations(t)
 		}
 
 		t.Run("EIP1559", func(t *testing.T) {
@@ -262,8 +256,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		require.Len(t, runs, 1)
 		assert.True(t, runs[0].HasErrors())
 		assert.True(t, runs[0].HasFatalErrors())
-
-		ethMock.AssertExpectations(t)
 	})
 
 	t.Run("errors if submission chain not found", func(t *testing.T) {
@@ -282,7 +274,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// TODO we want to see an errored run result once this is completed
 		// https://app.shortcut.com/chainlinklabs/story/25397/remove-failearly-flag-from-eth-call-task
 		cltest.AssertPipelineRunsStays(t, jb.PipelineSpecID, db, 0)
-		ethMock.AssertExpectations(t)
 	})
 
 	t.Run("triggers if heads are skipped but later heads arrive within range", func(t *testing.T) {
@@ -317,8 +308,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		assert.False(t, runs[0].HasErrors())
 		etxs[0].AwaitOrFail(t)
 		waitLastRunHeight(t, db, upkeep, 36)
-
-		ethMock.AssertExpectations(t)
 	})
 
 	t.Run("verify key specific max gas price is passed into estimator for EIP1559 and non-EIP1559 chains", func(t *testing.T) {
@@ -370,9 +359,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			assert.False(t, runs[0].HasErrors())
 			assert.False(t, runs[0].HasFatalErrors())
 			waitLastRunHeight(t, db, upkeep, 20)
-
-			ethMock.AssertExpectations(t)
-			txm.AssertExpectations(t)
 		}
 
 		t.Run("EIP1559", func(t *testing.T) {
@@ -380,13 +366,13 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(100000000000000)).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
 				TipCap: assets.GWei(60),
-			}, uint64(60), nil)
+			}, uint32(60), nil)
 			runTest(t, estimator, true)
 		})
 
 		t.Run("non-EIP1559", func(t *testing.T) {
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint64(0), nil)
+			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
 		})
 	})
@@ -394,6 +380,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
+
 	g := gomega.NewWithT(t)
 
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t))
@@ -409,5 +396,4 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, "eth_txes", 0)
-	ethMock.AssertExpectations(t)
 }
