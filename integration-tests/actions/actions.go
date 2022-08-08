@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -73,11 +74,7 @@ func FundChainlinkNodesLink(
 			return err
 		}
 	}
-	if err := blockchain.WaitForEvents(); err != nil {
-		return err
-	}
-
-	return logChainlinkKeys(nodes)
+	return blockchain.WaitForEvents()
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
@@ -192,7 +189,7 @@ func TeardownSuite(
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 && !c.NetworkSimulated() {
-		if err := logChainlinkKeys(chainlinkNodes); err != nil {
+		if err := LogChainlinkKeys(chainlinkNodes); err != nil {
 			log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 					"Environment is left running so you can try manually!")
@@ -237,7 +234,7 @@ func TeardownRemoteSuite(
 	if err = testreporters.SendReport(env, "./", optionalTestReporter); err != nil {
 		log.Warn().Err(err).Msg("Error writing test report")
 	}
-	if err = logChainlinkKeys(chainlinkNodes); err != nil {
+	if err = LogChainlinkKeys(chainlinkNodes); err != nil {
 		log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
@@ -247,9 +244,14 @@ func TeardownRemoteSuite(
 
 // logChainlinkKeys retrieves and decrypts funded keys on the Chainlink nodes, and logs them.
 // This is used for tests on real networks, and WILL LOG PRIVATE KEY INFO OF THE NODES. Use only for tests where the
-// keys aren't used for anything else, and the nodes are ephemeral.
+// keys aren't used for anything else, and the nodes are ephemeral. This will also use a significant amount of RAM.
 // TODO: Modify method to directly transfer funds instead of logging keys.
-func logChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
+func LogChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
+	var (
+		keysMutex     sync.Mutex
+		keysToDecrypt = [][]byte{}
+	)
+
 	fundsErrGroup := new(errgroup.Group)
 	for _, n := range chainlinkNodes {
 		node := n
@@ -264,20 +266,26 @@ func logChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
 				if err != nil {
 					return err
 				}
-				decrypted, err := keystore.DecryptKey(keyJson, client.ChainlinkKeyPassword)
-				if err != nil {
-					return err
-				}
-				hexPrivateKey := fmt.Sprintf("%x", crypto.FromECDSA(decrypted.PrivateKey))
-				// TODO: The estimations for this actually turns out to be trickier than initially thought. For now can just
-				// lean on importing to Metamask. The keys are ephemeral and never used in production, or repeated
-				log.Info().Str("Key", hexPrivateKey).Str("Node", node.URL()).Msg("Funded Chainlink Key")
+				keysMutex.Lock()
+				keysToDecrypt = append(keysToDecrypt, keyJson)
+				keysMutex.Unlock()
 			}
 			return nil
 		})
 	}
+	if err := fundsErrGroup.Wait(); err != nil {
+		return err
+	}
 
-	return fundsErrGroup.Wait()
+	for _, key := range keysToDecrypt {
+		log.Debug().Msg("Decrypting Key. This can take some time (and a good bit of RAM)")
+		decrypted, err := keystore.DecryptKey(key, client.ChainlinkKeyPassword)
+		if err != nil {
+			return err
+		}
+		log.Info().Str("Key", fmt.Sprintf("%x", crypto.FromECDSA(decrypted.PrivateKey))).Msg("Decrypted Chainlink Node Key")
+	}
+	return nil
 }
 
 // FundAddresses will fund a list of addresses with an amount of native currency

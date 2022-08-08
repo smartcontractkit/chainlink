@@ -91,6 +91,7 @@ func (t *OCRSoakTest) Setup(env *environment.Environment) {
 	// Fund Chainlink nodes, excluding the bootstrap node
 	err = actions.FundChainlinkNodes(t.chainlinkNodes[1:], t.chainClient, t.Inputs.ChainlinkNodeFunding)
 	Expect(err).ShouldNot(HaveOccurred(), "Error funding Chainlink nodes")
+	actions.LogChainlinkKeys(t.chainlinkNodes[1:])
 
 	t.ocrInstances = actions.DeployOCRContracts(
 		t.Inputs.NumberOfContracts,
