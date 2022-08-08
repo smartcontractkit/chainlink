@@ -7,7 +7,6 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/cbor"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 

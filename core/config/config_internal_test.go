@@ -57,24 +57,6 @@ func TestGeneralConfig_GlobalOCRContractTransmitterTransmitTimeout(t *testing.T)
 	require.Equal(t, 3*time.Second, timeout)
 }
 
-func TestGeneralConfig_sessionSecret(t *testing.T) {
-	t.Parallel()
-	config := NewGeneralConfig(logger.TestLogger(t))
-	// config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
-	// err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
-	// require.NoError(t, err)
-	// defer os.RemoveAll(config.RootDir())
-
-	initial, err := config.SessionSecret()
-	require.NoError(t, err)
-	require.NotEqual(t, "", initial)
-	require.NotEqual(t, "clsession_test_secret", initial)
-
-	second, err := config.SessionSecret()
-	require.NoError(t, err)
-	require.Equal(t, initial, second)
-}
-
 func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
 	v.Set("ROOT", "../../tools/clroot/")

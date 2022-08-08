@@ -216,19 +216,23 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.New("TransmitterAddress is missing")
 		}
 
+		var jsGasLimit *uint32
+		if jb.GasLimit.Valid {
+			jsGasLimit = &jb.GasLimit.Uint32
+		}
+		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
+
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy, checker),
+			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), gasLimit, strategy, checker),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
-		jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
-		jb.PipelineSpec.JobID = jb.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)

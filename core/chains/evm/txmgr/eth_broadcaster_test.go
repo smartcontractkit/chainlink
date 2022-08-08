@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -45,7 +46,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
 
@@ -59,7 +60,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	gasLimit := uint64(242)
 
 	t.Run("no eth_txes at all", func(t *testing.T) {
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 	})
 
 	t.Run("eth_txes exist for a different from address", func(t *testing.T) {
@@ -75,7 +78,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		}
 		require.NoError(t, borm.InsertEthTx(&etx))
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 	})
 
 	t.Run("existing eth_txes with broadcast_at or error", func(t *testing.T) {
@@ -108,7 +113,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, borm.InsertEthTx(&etxUnconfirmed))
 		require.NoError(t, borm.InsertEthTx(&etxWithError))
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 	})
 
 	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
@@ -183,7 +190,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, borm.InsertEthTx(&earlierEthTx))
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check earlierEthTx and it's attempt
 		// This was the earlier one sent so it has the lower nonce
@@ -279,7 +288,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, borm.InsertEthTx(&eipTxWithoutAl))
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check eipTxWithAl and it's attempt
 		// This was the earlier one sent so it has the lower nonce
@@ -345,7 +358,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			require.NoError(t, borm.InsertEthTx(&ethTx))
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+			{
+				err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+				assert.NoError(t, err)
+				assert.False(t, retryable)
+			}
 
 			// Check ethtx was sent
 			ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
@@ -376,7 +393,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			require.NoError(t, borm.InsertEthTx(&ethTx))
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+			{
+				err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+				assert.NoError(t, err)
+				assert.False(t, retryable)
+			}
 
 			ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
 			require.NoError(t, err)
@@ -409,7 +430,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			require.NoError(t, borm.InsertEthTx(&ethTx))
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+			{
+				err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+				assert.NoError(t, err)
+				assert.False(t, retryable)
+			}
 
 			ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
 			require.NoError(t, err)
@@ -431,7 +456,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	checkerFactory := &testCheckerFactory{}
 
@@ -461,7 +486,11 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		})).Return(nil).Once()
 
 		require.NoError(t, borm.InsertEthTx(&ethTx))
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check ethtx was sent
 		ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
@@ -492,7 +521,11 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		})).Return(nil).Once()
 
 		require.NoError(t, borm.InsertEthTx(&ethTx))
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check ethtx was sent
 		ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
@@ -520,7 +553,11 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		}
 
 		require.NoError(t, borm.InsertEthTx(&ethTx))
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check ethtx was sent
 		ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
@@ -538,7 +575,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	cfg, db := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking")
 	borm := cltest.NewTxmORM(t, db, cfg)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -588,8 +625,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		close(chBlock)
 	}()
 
-	err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
-	require.NoError(t, err)
+	{
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
+	}
 
 	estimator.AssertExpectations(t)
 }
@@ -605,7 +645,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	cfg.Overrides.GlobalEvmGasLimitMultiplier = null.FloatFrom(1.3)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -626,7 +666,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	require.NoError(t, borm.InsertEthTx(&tx))
 
 	// Do the thing
-	require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+	{
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
+	}
 	ethClient.AssertExpectations(t)
 }
 
@@ -646,7 +690,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	ethNodeNonce := uint64(22)
 
 	t.Run("when eth node returns error", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates, &testCheckerFactory{})
 
@@ -677,7 +721,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	})
 
 	t.Run("when eth node returns nonce", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates, &testCheckerFactory{})
 
@@ -762,7 +806,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -776,7 +820,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err := borm.FindEthTxWithAttempts(inProgressEthTx.ID)
@@ -798,7 +846,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -812,7 +860,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("exceeds block gas limit")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err := borm.FindEthTxWithAttempts(inProgressEthTx.ID)
@@ -834,7 +886,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -848,7 +900,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err := borm.FindEthTxWithAttempts(inProgressEthTx.ID)
@@ -869,7 +925,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -883,7 +939,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("nonce too low")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err := borm.FindEthTxWithAttempts(inProgressEthTx.ID)
@@ -906,7 +966,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -920,9 +980,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(failedToReachNodeError).Once()
 
 		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), failedToReachNodeError.Error())
+		assert.True(t, retryable)
 
 		// Check it was left in the unfinished state
 		etx, err := borm.FindEthTxWithAttempts(inProgressEthTx.ID)
@@ -949,7 +1010,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		cfg.Overrides.GlobalEvmGasPriceDefault = big.NewInt(500000000000)
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -968,7 +1029,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err := borm.FindEthTxWithAttempts(inProgressEthTx.ID)
@@ -1014,7 +1079,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
@@ -1037,7 +1102,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		ethClient.AssertExpectations(t)
 
@@ -1083,7 +1152,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				return tx.Nonce() == localNextNonce
 			})).Return(errors.New(fatalErrorExample)).Once()
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+			{
+				err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+				assert.NoError(t, err)
+				assert.False(t, retryable)
+			}
 
 			// Check it was saved correctly with its attempt
 			etx, err = borm.FindEthTxWithAttempts(etx.ID)
@@ -1130,9 +1203,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return tx.Nonce() == localNextNonce
 				})).Return(errors.New(fatalErrorExample)).Once()
 
-				err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+				err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "something exploded in the callback")
+				assert.True(t, retryable)
 			})
 
 			t.Run("calls resume with error", func(t *testing.T) {
@@ -1150,9 +1224,30 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return tx.Nonce() == localNextNonce
 				})).Return(errors.New(fatalErrorExample)).Once()
 
-				require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
-			})
+				{
+					err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+					assert.NoError(t, err)
+					assert.False(t, retryable)
+				}
 
+				// same as the parent test, but callback is set by ctor
+				t.Run("callback set by ctor", func(t *testing.T) {
+					eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
+					err := eventBroadcaster.Start(testutils.Context(t))
+					require.NoError(t, err)
+					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
+					lggr := logger.TestLogger(t)
+					eb := txmgr.NewEthBroadcaster(db, ethClient, evmcfg, ethKeyStore, eventBroadcaster,
+						[]ethkey.State{keyState}, gas.NewFixedPriceEstimator(evmcfg, lggr), fn, lggr,
+						&testCheckerFactory{})
+
+					{
+						err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+						assert.NoError(t, err)
+						assert.False(t, retryable)
+					}
+				})
+			})
 		})
 
 		ethClient.AssertExpectations(t)
@@ -1176,20 +1271,32 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		})).Return(errors.New(TxFeeExceedsCapError)).Once()
+		})).Return(errors.New(TxFeeExceedsCapError)).Twice()
+		// In the first case, the tx was NOT accepted into the mempool. In the case
+		// of multiple RPC nodes, it is possible that it can be accepted by
+		// another node even if the primary one returns "exceeds the configured
+		// cap"
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
+			assert.Contains(t, err.Error(), "error while sending transaction")
+			assert.True(t, retryable)
+		}
 
-		// Check it was saved with no attempt and a fatal error
+		// Check it was saved with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
-		assert.Nil(t, etx.InitialBroadcastAt)
-		require.Nil(t, etx.Nonce)
-		assert.True(t, etx.Error.Valid)
-		assert.Contains(t, etx.Error.String, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
-		assert.Len(t, etx.EthTxAttempts, 0)
+		assert.Nil(t, etx.InitialBroadcastAt) // Note that InitialBroadcastAt really means "InitialDefinitelySuccessfulBroadcastAt"
+		assert.Equal(t, int64(localNextNonce), *etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
 
 		// Check that the key had its nonce reset
 		var state ethkey.State
@@ -1199,11 +1306,32 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.NotNil(t, state.NextNonce)
 		require.Equal(t, int64(localNextNonce), state.NextNonce)
 
+		// On the second try, the tx has been accepted into the mempool
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce+1, nil).Once()
+
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
+
+		// Check it was saved with its attempt
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt) // Note that InitialBroadcastAt really means "InitialDefinitelySuccessfulBroadcastAt"
+		assert.Equal(t, int64(localNextNonce), *etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt = etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("eth Client call fails with an unexpected random error", func(t *testing.T) {
-		retryableErrorExample := "geth shit the bed again"
+	t.Run("eth Client call fails with an unexpected random error, and transaction was not accepted into mempool", func(t *testing.T) {
+		retryableErrorExample := "some unknown error"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
 		etx := txmgr.EthTx{
@@ -1219,11 +1347,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
 		})).Return(errors.New(retryableErrorExample)).Once()
+		// Nonce is the same as localNextNonce, implying that this sent transaction has not been accepted
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
 
 		// Do the thing
-		err = eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: %s", etx.ID, retryableErrorExample))
+		require.Contains(t, err.Error(), retryableErrorExample)
+		assert.True(t, retryable)
 
 		// Check it was saved correctly with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
@@ -1245,7 +1376,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		})).Return(nil).Once()
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
@@ -1258,6 +1393,115 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("eth client call fails with an unexpected random error, and the nonce check also subsequently fails", func(t *testing.T) {
+		retryableErrorExample := "some unknown error"
+		localNextNonce := getLocalNextNonce(t, q, fromAddress)
+
+		etx := txmgr.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          txmgr.EthTxUnstarted,
+		}
+		require.NoError(t, borm.InsertEthTx(&etx))
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(retryableErrorExample)).Once()
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("pending nonce fetch failed")).Once()
+
+		// Do the thing
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), retryableErrorExample)
+		require.Contains(t, err.Error(), "pending nonce fetch failed")
+		assert.True(t, retryable)
+
+		// Check it was saved correctly with its attempt
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.Nil(t, etx.BroadcastAt)
+		assert.Nil(t, etx.InitialBroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Equal(t, txmgr.EthTxInProgress, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt.State)
+
+		ethClient.AssertExpectations(t)
+
+		// Now on the second run, it is successful
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(nil).Once()
+
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
+
+		// Check it was saved correctly with its attempt
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt = etx.EthTxAttempts[0]
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("eth Client call fails with an unexpected random error, and transaction was accepted into mempool", func(t *testing.T) {
+		retryableErrorExample := "some strange RPC returns an unexpected thing"
+		localNextNonce := getLocalNextNonce(t, q, fromAddress)
+
+		etx := txmgr.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          txmgr.EthTxUnstarted,
+		}
+		require.NoError(t, borm.InsertEthTx(&etx))
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(retryableErrorExample)).Once()
+		// Nonce is one higher than localNextNonce, implying that despite the error, this sent transaction has been accepted into the mempool
+		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce+1, nil).Once()
+
+		// Do the thing
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+		require.NoError(t, err)
+		assert.False(t, retryable)
+
+		// Check it was saved correctly with its attempt, in a broadcast state
+		etx, err = borm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.False(t, etx.Error.Valid)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
+		assert.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
 		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
 
 		ethClient.AssertExpectations(t)
@@ -1296,7 +1540,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		ethClient.AssertExpectations(t)
 
@@ -1332,9 +1580,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(failedToReachNodeError).Once()
 
 		// Do the thing
-		err = eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: context deadline exceeded", etxUnfinished.ID))
+		assert.Contains(t, err.Error(), "context deadline exceeded")
+		assert.True(t, retryable)
 
 		// Check it was left in the unfinished state
 		etx, err := borm.FindEthTxWithAttempts(etxUnfinished.ID)
@@ -1364,7 +1613,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(temporarilyUnderpricedError)).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+		{
+			err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
 
 		// Check it was saved correctly with its attempt
 		etx, err := borm.FindEthTxWithAttempts(etxUnfinished.ID)
@@ -1415,9 +1668,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas price of 20000000000 is equal to original gas price of 20000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes WHERE nonce = $1`, localNextNonce)
@@ -1442,9 +1696,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		})).Return(errors.New(insufficientEthError)).Once()
 
-		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient funds for transfer")
+		assert.True(t, retryable)
 
 		// Check it was saved correctly with its attempt
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
@@ -1500,9 +1755,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Check gas tip cap verification
-		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas tip cap of 1 is less than or equal to original gas tip cap of 1")
+		assert.True(t, retryable)
 
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 	})
@@ -1526,9 +1782,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Check gas tip cap verification
 		cfg.Overrides.GlobalEvmGasTipCapDefault = big.NewInt(0)
-		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 for key")
+		assert.True(t, retryable)
 
 		gasTipCapDefault := big.NewInt(42)
 		cfg.Overrides.GlobalEvmGasTipCapDefault = gasTipCapDefault
@@ -1545,8 +1802,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault, big.NewInt(0).Mul(evmcfg.EvmGasBumpWei(), big.NewInt(2)))) == 0
 		})).Return(nil).Once()
 
-		err = eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable = eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.NoError(t, err)
+		assert.False(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes WHERE nonce = $1`, localNextNonce)
@@ -1571,7 +1829,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, realKeystore.Eth())
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	kst := new(ksmocks.Eth)
 	eb := cltest.NewEthBroadcaster(t, db, ethClient, kst, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
@@ -1596,9 +1854,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 			})).Return(&tx, errors.New("could not sign transaction")).Once()
 
 		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		err, retryable := eb.ProcessUnstartedEthTxs(testutils.Context(t), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "could not sign transaction")
+		assert.True(t, retryable)
 
 		// Check that the transaction is left in unstarted state
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
@@ -1661,7 +1920,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	eb := cltest.NewEthBroadcaster(t, db, cltest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{})
+	eb := cltest.NewEthBroadcaster(t, db, evmtest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{})
 
 	eb.Trigger(testutils.NewAddress())
 	eb.Trigger(testutils.NewAddress())

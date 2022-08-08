@@ -32,9 +32,6 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-// this permission grants read / write access to file owners only
-const readWritePerms = os.FileMode(0600)
-
 //nolint
 var (
 	ErrUnset   = errors.New("env var unset")
@@ -155,9 +152,9 @@ type GeneralOnlyConfig interface {
 	RootDir() string
 	SecureCookies() bool
 	SessionOptions() sessions.Options
-	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SolanaNodes() string
+	StarkNetNodes() string
 	TerraNodes() string
 	TLSCertPath() string
 	TLSDir() string
@@ -204,6 +201,11 @@ type GlobalConfig interface {
 	GlobalEvmGasLimitDefault() (uint64, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
+	GlobalEvmGasLimitOCRJobType() (uint64, bool)
+	GlobalEvmGasLimitDRJobType() (uint64, bool)
+	GlobalEvmGasLimitVRFJobType() (uint64, bool)
+	GlobalEvmGasLimitFMJobType() (uint64, bool)
+	GlobalEvmGasLimitKeeperJobType() (uint64, bool)
 	GlobalEvmGasPriceDefault() (*big.Int, bool)
 	GlobalEvmGasTipCapDefault() (*big.Int, bool)
 	GlobalEvmGasTipCapMinimum() (*big.Int, bool)
@@ -249,7 +251,6 @@ type GeneralConfig interface {
 type generalConfig struct {
 	lggr             logger.Logger
 	viper            *viper.Viper
-	secretGenerator  SecretGenerator
 	randomP2PPort    uint16
 	randomP2PPortMtx sync.RWMutex
 	dialect          dialects.DialectName
@@ -267,7 +268,6 @@ type generalConfig struct {
 func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
 	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))
-	c.secretGenerator = FilePersistedSecretGenerator{}
 	c.dialect = dialects.Postgres
 	return c
 }
@@ -417,7 +417,7 @@ EVM_ENABLED=false
 		if !(c.Dev() || skipDatabasePasswordComplexityCheck) {
 			if err := validateDBURL(c.DatabaseURL()); err != nil {
 				// TODO: Make this a hard error in some future version of Chainlink > 1.4.x
-				c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink. To bypass this check at your own risk, you may set SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true\n\n", err, utils.PasswordComplexityRequirements)
+				c.lggr.Errorf("DEPRECATION WARNING: Database has missing or insufficiently complex password: %s.\nDatabase should be secured by a password matching the following complexity requirements:\n%s\nThis error will PREVENT BOOT in a future version of Chainlink. To bypass this check at your own risk, you may set SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true\n\n", err, utils.PasswordComplexityRequirements)
 			}
 		}
 	}
@@ -433,14 +433,24 @@ func validateDBURL(dbURI url.URL) error {
 	if strings.Contains(dbURI.Redacted(), "_test") {
 		return nil
 	}
-	userInfo := dbURI.User
-	if userInfo == nil {
-		return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+
+	// url params take priority if present, multiple params are ignored by postgres (it picks the first)
+	q := dbURI.Query()
+	// careful, this is a raw database password
+	pw := q.Get("password")
+	if pw == "" {
+		// fallback to user info
+		userInfo := dbURI.User
+		if userInfo == nil {
+			return errors.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+		}
+		var pwSet bool
+		pw, pwSet = userInfo.Password()
+		if !pwSet {
+			return errors.Errorf("DB URL must be authenticated; password is required")
+		}
 	}
-	pw, pwSet := userInfo.Password()
-	if !pwSet {
-		return errors.Errorf("DB URL must be authenticated; password is required")
-	}
+
 	return utils.VerifyPasswordComplexity(pw)
 }
 
@@ -758,14 +768,14 @@ func (c *generalConfig) SolanaEnabled() bool {
 	return c.viper.GetBool(envvar.Name("SolanaEnabled"))
 }
 
+// StarkNetEnabled allows StarkNet to be used
+func (c *generalConfig) StarkNetEnabled() bool {
+	return c.viper.GetBool(envvar.Name("StarknetEnabled"))
+}
+
 // TerraEnabled allows Terra to be used
 func (c *generalConfig) TerraEnabled() bool {
 	return c.viper.GetBool(envvar.Name("TerraEnabled"))
-}
-
-// StarkNetEnabled allows StarkNet to be used
-func (c *generalConfig) StarkNetEnabled() bool {
-	return c.viper.GetBool(envvar.Name("StarkNetEnabled"))
 }
 
 // P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol
@@ -894,6 +904,12 @@ func (c *generalConfig) ExplorerSecret() string {
 // sets up multiple nodes
 func (c *generalConfig) SolanaNodes() string {
 	return c.viper.GetString(envvar.Name("SolanaNodes"))
+}
+
+// StarkNetNodes is a hack to allow node operators to give a JSON string that
+// sets up multiple nodes
+func (c *generalConfig) StarkNetNodes() string {
+	return c.viper.GetString(envvar.Name("StarknetNodes"))
 }
 
 // TerraNodes is a hack to allow node operators to give a JSON string that
@@ -1130,12 +1146,6 @@ func (c *generalConfig) CertFile() string {
 	return c.TLSCertPath()
 }
 
-// SessionSecret returns a sequence of bytes to be used as a private key for
-// session signing or encryption.
-func (c *generalConfig) SessionSecret() ([]byte, error) {
-	return c.secretGenerator.Generate(c.RootDir())
-}
-
 // SessionOptions returns the sessions.Options struct used to configure
 // the session store.
 func (c *generalConfig) SessionOptions() sessions.Options {
@@ -1254,6 +1264,21 @@ func (c *generalConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
 }
 func (c *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasPriceDefault"), parse.BigInt)
+}
+func (c *generalConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitOCRJobType"), parse.Uint64)
+}
+func (c *generalConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitDRJobType"), parse.Uint64)
+}
+func (c *generalConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitVRFJobType"), parse.Uint64)
+}
+func (c *generalConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitFMJobType"), parse.Uint64)
+}
+func (c *generalConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitKeeperJobType"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmHeadTrackerHistoryDepth() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmHeadTrackerHistoryDepth"), parse.Uint32)

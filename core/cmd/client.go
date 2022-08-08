@@ -30,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -199,6 +200,24 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
+	if cfg.StarkNetEnabled() {
+		starkLggr := appLggr.Named("StarkNet")
+		if err := starknet.SetupNodes(db, cfg, starkLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup StarkNet nodes")
+		}
+		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+			Config: cfg,
+			Logger: starkLggr,
+			DB:     db,
+			//TODO KeyStore:         keyStore.StarkNet(),
+			//TODO EventBroadcaster: eventBroadcaster,
+			ORM: starknet.NewORM(db, starkLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load StarkNet chainset")
+		}
+	}
+
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg, appLggr)
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg)
@@ -214,6 +233,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Version:                  static.Version,
 		RestrictedHTTPClient:     restrictedClient,
 		UnrestrictedHTTPClient:   unrestrictedClient,
+		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 	})
 }
 
@@ -648,37 +668,58 @@ type APIInitializer interface {
 
 type promptingAPIInitializer struct {
 	prompter Prompter
+	lggr     logger.Logger
 }
 
 // NewPromptingAPIInitializer creates a concrete instance of APIInitializer
 // that uses the terminal to solicit credentials from the user.
-func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
-	return &promptingAPIInitializer{prompter: prompter}
+func NewPromptingAPIInitializer(prompter Prompter, lggr logger.Logger) APIInitializer {
+	return &promptingAPIInitializer{prompter: prompter, lggr: lggr}
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
 func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
-		return user, err
+	// Load list of users to determine which to assume, or if a user needs to be created
+	dbUsers, err := orm.ListUsers()
+	if err != nil {
+		return sessions.User{}, err
 	}
 
-	if !t.prompter.IsTerminal() {
-		return sessions.User{}, ErrorNoAPICredentialsAvailable
+	// If there are no users in the database, prompt for initial admin user creation
+	if len(dbUsers) == 0 {
+		if !t.prompter.IsTerminal() {
+			return sessions.User{}, ErrorNoAPICredentialsAvailable
+		}
+
+		for {
+			email := t.prompter.Prompt("Enter API Email: ")
+			pwd := t.prompter.PasswordPrompt("Enter API Password: ")
+			// On a fresh DB, create an admin user
+			user, err := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
+			if err != nil {
+				t.lggr.Errorf("Error creating API user: ", err, "err")
+				continue
+			}
+			if err = orm.CreateUser(&user); err != nil {
+				t.lggr.Errorf("Error creating API user: ", err, "err")
+			}
+			return user, err
+		}
 	}
 
-	for {
-		email := t.prompter.Prompt("Enter API Email: ")
-		pwd := t.prompter.PasswordPrompt("Enter API Password: ")
-		user, err := sessions.NewUser(email, pwd)
-		if err != nil {
-			fmt.Println("Error creating API user: ", err)
-			continue
-		}
-		if err = orm.CreateUser(&user); err != nil {
-			fmt.Println("Error creating API user: ", err)
-		}
-		return user, err
+	// Attempt to contextually return the correct admin user, CLI access here implies admin
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, t.lggr); found {
+		return adminUser, nil
 	}
+
+	// Otherwise, multiple admin users exist, prompt for which to use
+	email := t.prompter.Prompt("Enter email of API user account to assume: ")
+	user, err := orm.FindUser(email)
+
+	if err != nil {
+		return sessions.User{}, err
+	}
+	return user, nil
 }
 
 type fileAPIInitializer struct {
@@ -693,20 +734,71 @@ func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
 }
 
 func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
-	if user, err := orm.FindUser(); err == nil {
-		return user, err
-	}
-
 	request, err := credentialsFromFile(f.file, f.lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
 
-	user, err := sessions.NewUser(request.Email, request.Password)
+	// Load list of users to determine which to assume, or if a user needs to be created
+	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return user, err
+		return sessions.User{}, err
 	}
-	return user, orm.CreateUser(&user)
+
+	// If there are no users in the database, create initial admin user from session request from file creds
+	if len(dbUsers) == 0 {
+		user, err := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
+		if err != nil {
+			return user, errors.Wrap(err, "failed to instantiate new user")
+		}
+		return user, orm.CreateUser(&user)
+	}
+
+	// Attempt to contextually return the correct admin user, CLI access here implies admin
+	if adminUser, found := attemptAssumeAdminUser(dbUsers, orm, f.lggr); found {
+		return adminUser, nil
+	}
+
+	// Otherwise, multiple admin users exist, attempt to load email specified in session request
+	user, err := orm.FindUser(request.Email)
+	if err != nil {
+		return sessions.User{}, err
+	}
+	return user, nil
+}
+
+func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger.Logger) (sessions.User, bool) {
+	if len(users) == 0 {
+		return sessions.User{}, false
+	}
+
+	// If there is only a single DB user, select it within the context of CLI
+	if len(users) == 1 {
+		lggr.Infof("Defaulted to assume single DB API User", "email", users[0].Email)
+		return users[0], true
+	}
+
+	// If there is only one admin user, use it within the context of CLI
+	var singleAdmin sessions.User
+	populatedUser := false
+	for _, user := range users {
+		if user.Role == sessions.UserRoleAdmin {
+			// If multiple admin users found, don't use assume any and clear to continue to prompt
+			if populatedUser {
+				// Clear flag to skip return
+				populatedUser = false
+				break
+			}
+			singleAdmin = user
+			populatedUser = true
+		}
+	}
+	if populatedUser {
+		lggr.Infof("Defaulted to assume single DB admin API User", "email", singleAdmin)
+		return singleAdmin, true
+	}
+
+	return sessions.User{}, false
 }
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")

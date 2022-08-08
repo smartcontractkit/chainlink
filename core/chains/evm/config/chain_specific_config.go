@@ -45,6 +45,11 @@ type (
 		gasLimitDefault                                uint64
 		gasLimitMultiplier                             float32
 		gasLimitTransfer                               uint64
+		gasLimitOCRJobType                             *uint32
+		gasLimitDRJobType                              *uint32
+		gasLimitVRFJobType                             *uint32
+		gasLimitFMJobType                              *uint32
+		gasLimitKeeperJobType                          *uint32
 		gasPriceDefault                                big.Int
 		gasTipCapDefault                               big.Int
 		gasTipCapMinimum                               big.Int
@@ -177,6 +182,10 @@ func setChainSpecificConfigDefaultSets() {
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
 	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	rinkeby.operatorFactoryAddress = ""
+	sepolia := mainnet
+	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
+	sepolia.operatorFactoryAddress = "" // doesn't exist yet
+	sepolia.eip1559DynamicFees = true
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -288,13 +297,15 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
+	fantomMainnet.balanceMonitorBlockDelay = 2
 	fantomMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
+	fantomMainnet.blockHistoryEstimatorBlockDelay = 2
 	fantomMainnet.gasPriceDefault = *assets.GWei(15)
-	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
-	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.logPollInterval = 1 * time.Second
+	fantomMainnet.maxGasPriceWei = *assets.GWei(200000)
+	fantomMainnet.minIncomingConfirmations = 3
+	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 
@@ -367,6 +378,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[3] = ropsten
 	chainSpecificConfigDefaultSets[4] = rinkeby
 	chainSpecificConfigDefaultSets[5] = goerli
+	chainSpecificConfigDefaultSets[11155111] = sepolia
 	chainSpecificConfigDefaultSets[42] = kovan
 	chainSpecificConfigDefaultSets[10] = optimismMainnet
 	chainSpecificConfigDefaultSets[69] = optimismKovan

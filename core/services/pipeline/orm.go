@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+
+	"github.com/smartcontractkit/sqlx"
 )
 
 // KeepersObservationSource is the same for all keeper jobs and it is not perisisted in DB
@@ -187,8 +187,8 @@ func (o *orm) StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error) {
 			}
 		} else {
 			// Simply finish the run, no need to do any sort of locking
-			if run.Outputs.Val == nil || len(run.FatalErrors) == 0 {
-				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.FatalErrors)
+			if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
+				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
 			}
 			sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, all_errors= :all_errors, fatal_errors= :fatal_errors, outputs = :outputs WHERE id = :id`
 			if _, err = sqlx.NamedExec(tx, sql, run); err != nil {
@@ -255,7 +255,6 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 			start = true
 			run.State = RunStatusRunning
 
-			// We're going to restart the run, so set it back to "in progress"
 			sql = `UPDATE pipeline_runs SET state = $2 WHERE id = $1`
 			if _, err = tx.Exec(sql, run.ID, run.State); err != nil {
 				return errors.Wrap(err, "UpdateTaskRunResult")
@@ -324,8 +323,8 @@ func (o *orm) checkFinishedRun(run *Run, saveSuccessfulTaskRuns bool) error {
 	if run.FinishedAt.IsZero() {
 		return errors.New("run.FinishedAt must be set")
 	}
-	if run.Outputs.Val == nil || len(run.FatalErrors) == 0 {
-		return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.FatalErrors)
+	if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
+		return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
 	}
 	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return errors.New("must provide task run results")
