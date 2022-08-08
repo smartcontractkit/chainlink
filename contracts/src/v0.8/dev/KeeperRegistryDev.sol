@@ -156,6 +156,18 @@ contract KeeperRegistryDev is
   }
 
   /**
+   * @notice update the check data of an upkeep
+   * @param id the id of the upkeep whose check data needs to be updated
+   * @param newCheckData the new check data
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(upkeep);
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataUpdated(id, newCheckData);
+  }
+
+  /**
    * @notice adds LINK funding for an upkeep by transferring from the sender's
    * LINK balance
    * @param id upkeep to fund
@@ -252,6 +264,25 @@ contract KeeperRegistryDev is
    * @param keeper address to accept the payee role for
    */
   function acceptPayeeship(address keeper) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice proposes the safe transfer of an upkeep's admin role to another address
+   * @param id the upkeep id to transfer admin
+   * @param proposed address to nominate for the new upkeep admin
+   */
+  function transferUpkeepAdmin(uint256 id, address proposed) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice accepts the safe transfer of admin role for an upkeep
+   * @param id the upkeep id
+   */
+  function acceptUpkeepAdmin(uint256 id) external override {
     // Executed through logic contract
     _fallback();
   }
