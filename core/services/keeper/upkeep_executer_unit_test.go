@@ -18,27 +18,27 @@ type registryGasCheckMock struct {
 	mock.Mock
 }
 
-func (_m *registryGasCheckMock) KeeperRegistryCheckGasOverhead() uint64 {
+func (_m *registryGasCheckMock) KeeperRegistryCheckGasOverhead() uint32 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
 }
 
-func (_m *registryGasCheckMock) KeeperRegistryPerformGasOverhead() uint64 {
+func (_m *registryGasCheckMock) KeeperRegistryPerformGasOverhead() uint32 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
@@ -66,8 +66,8 @@ func TestBuildJobSpec(t *testing.T) {
 	m := &registryGasCheckMock{}
 	m.Mock.Test(t)
 
-	m.On("KeeperRegistryPerformGasOverhead").Return(uint64(9)).Times(2)
-	m.On("KeeperRegistryCheckGasOverhead").Return(uint64(6)).Times(1)
+	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(2)
+	m.On("KeeperRegistryCheckGasOverhead").Return(uint32(6)).Times(1)
 
 	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
@@ -78,8 +78,8 @@ func TestBuildJobSpec(t *testing.T) {
 			"contractAddress":       contract.String(),
 			"upkeepID":              "4",
 			"prettyID":              fmt.Sprintf("UPx%064d", 4),
-			"performUpkeepGasLimit": uint64(21),
-			"checkUpkeepGasLimit":   uint64(38),
+			"performUpkeepGasLimit": uint32(21),
+			"checkUpkeepGasLimit":   uint32(38),
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
 			"gasFeeCap":             gasFeeCap,
