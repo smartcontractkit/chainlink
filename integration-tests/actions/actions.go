@@ -73,7 +73,11 @@ func FundChainlinkNodesLink(
 			return err
 		}
 	}
-	return blockchain.WaitForEvents()
+	if err := blockchain.WaitForEvents(); err != nil {
+		return err
+	}
+
+	return LogChainlinkKeys(nodes)
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
@@ -187,8 +191,8 @@ func TeardownSuite(
 	if err := testreporters.WriteTeardownLogs(env, optionalTestReporter); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
-	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
-		if err := returnFunds(chainlinkNodes, c); err != nil {
+	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 && !c.NetworkSimulated() {
+		if err := LogChainlinkKeys(chainlinkNodes); err != nil {
 			log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 					"Environment is left running so you can try manually!")
@@ -233,7 +237,7 @@ func TeardownRemoteSuite(
 	if err = testreporters.SendReport(env, "./", optionalTestReporter); err != nil {
 		log.Warn().Err(err).Msg("Error writing test report")
 	}
-	if err = returnFunds(chainlinkNodes, client); err != nil {
+	if err = LogChainlinkKeys(chainlinkNodes); err != nil {
 		log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
@@ -241,18 +245,11 @@ func TeardownRemoteSuite(
 	return err
 }
 
-// Returns all the funds from the chainlink nodes to the networks default address
-func returnFunds(chainlinkNodes []*client.Chainlink, chainClient blockchain.EVMClient) error {
-	if chainClient == nil {
-		log.Warn().Msg("No blockchain client found, unable to return funds from chainlink nodes.")
-	}
-	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-	if chainClient.NetworkSimulated() {
-		log.Info().Str("Network Name", chainClient.GetNetworkName()).
-			Msg("Network is a simulated network. Skipping fund return.")
-		return nil
-	}
-
+// GetChainlinkKeys retrieves and decrypts funded keys on the Chainlink nodes, and logs them.
+// This is used for tests on real networks, and WILL LOG PRIVATE KEY INFO OF THE NODES. Use only for tests where the
+// keys aren't used for anything else, and the nodes are ephemeral.
+// TODO: Modify method to directly transfer funds instead of logging keys.
+func LogChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
 	fundsErrGroup := new(errgroup.Group)
 	for _, n := range chainlinkNodes {
 		node := n
@@ -274,7 +271,7 @@ func returnFunds(chainlinkNodes []*client.Chainlink, chainClient blockchain.EVMC
 				hexPrivateKey := fmt.Sprintf("%x", crypto.FromECDSA(decrypted.PrivateKey))
 				// TODO: The estimations for this actually turns out to be trickier than initially thought. For now can just
 				// lean on importing to Metamask. The keys are ephemeral and never used in production, or repeated
-				log.Info().Str("Key", hexPrivateKey).Str("Node", node.URL()).Msg("Funding Key, Import in MetaMask to Send Funds Back")
+				log.Info().Str("Key", hexPrivateKey).Str("Node", node.URL()).Msg("Funded Chainlink Key")
 			}
 			return nil
 		})

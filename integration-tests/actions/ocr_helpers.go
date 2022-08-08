@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 
@@ -176,6 +177,7 @@ func SetAllAdapterResponsesToTheSameValue(
 				adapterVals.Add(1)
 				go func() {
 					defer adapterVals.Done()
+					defer ginkgo.GinkgoRecover()
 					SetAdapterResponse(response, ocrInstance, node, mockserver)()
 				}()
 
