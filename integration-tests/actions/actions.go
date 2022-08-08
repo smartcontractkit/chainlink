@@ -77,7 +77,7 @@ func FundChainlinkNodesLink(
 		return err
 	}
 
-	return LogChainlinkKeys(nodes)
+	return logChainlinkKeys(nodes)
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
@@ -192,7 +192,7 @@ func TeardownSuite(
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 && !c.NetworkSimulated() {
-		if err := LogChainlinkKeys(chainlinkNodes); err != nil {
+		if err := logChainlinkKeys(chainlinkNodes); err != nil {
 			log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 					"Environment is left running so you can try manually!")
@@ -237,7 +237,7 @@ func TeardownRemoteSuite(
 	if err = testreporters.SendReport(env, "./", optionalTestReporter); err != nil {
 		log.Warn().Err(err).Msg("Error writing test report")
 	}
-	if err = LogChainlinkKeys(chainlinkNodes); err != nil {
+	if err = logChainlinkKeys(chainlinkNodes); err != nil {
 		log.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
@@ -245,11 +245,11 @@ func TeardownRemoteSuite(
 	return err
 }
 
-// GetChainlinkKeys retrieves and decrypts funded keys on the Chainlink nodes, and logs them.
+// logChainlinkKeys retrieves and decrypts funded keys on the Chainlink nodes, and logs them.
 // This is used for tests on real networks, and WILL LOG PRIVATE KEY INFO OF THE NODES. Use only for tests where the
 // keys aren't used for anything else, and the nodes are ephemeral.
 // TODO: Modify method to directly transfer funds instead of logging keys.
-func LogChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
+func logChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
 	fundsErrGroup := new(errgroup.Group)
 	for _, n := range chainlinkNodes {
 		node := n
