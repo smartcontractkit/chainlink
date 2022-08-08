@@ -21,7 +21,7 @@ import (
 type batchFulfillment struct {
 	proofs        []batch_vrf_coordinator_v2.VRFTypesProof
 	commitments   []batch_vrf_coordinator_v2.VRFTypesRequestCommitment
-	totalGasLimit uint64
+	totalGasLimit uint32
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	lbs           []log.Broadcast
@@ -61,11 +61,11 @@ func newBatchFulfillment(result vrfPipelineResult) *batchFulfillment {
 // batchGasLimit easy via the addRun method.
 type batchFulfillments struct {
 	fulfillments  []*batchFulfillment
-	batchGasLimit uint64
+	batchGasLimit uint32
 	currIndex     int
 }
 
-func newBatchFulfillments(batchGasLimit uint64) *batchFulfillments {
+func newBatchFulfillments(batchGasLimit uint32) *batchFulfillments {
 	return &batchFulfillments{
 		fulfillments:  []*batchFulfillment{},
 		batchGasLimit: batchGasLimit,
@@ -103,7 +103,7 @@ func (lsn *listenerV2) processBatch(
 	subID uint64,
 	fromAddress common.Address,
 	startBalanceNoReserveLink *big.Int,
-	maxCallbackGasLimit uint64,
+	maxCallbackGasLimit uint32,
 	batch *batchFulfillment,
 ) (processedRequestIDs []string) {
 	start := time.Now()
@@ -219,10 +219,10 @@ func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (un
 
 func batchFulfillmentGasEstimate(
 	batchSize uint64,
-	maxCallbackGasLimit uint64,
+	maxCallbackGasLimit uint32,
 	gasMultiplier float64,
-) uint64 {
-	return uint64(
-		gasMultiplier * float64((maxCallbackGasLimit+400_000)+batchSize*BatchFulfillmentIterationGasCost),
+) uint32 {
+	return uint32(
+		gasMultiplier * float64((uint64(maxCallbackGasLimit)+400_000)+batchSize*BatchFulfillmentIterationGasCost),
 	)
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint64) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -48,7 +48,7 @@ var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint64, etx EthTx) error {
+func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint32, etx EthTx) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -83,13 +83,13 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint64, etx 
 	return nil
 }
 
-func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint64, chainID, gasTipCap, gasFeeCap *big.Int, data []byte, accessList types.AccessList) types.DynamicFeeTx {
+func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID, gasTipCap, gasFeeCap *big.Int, data []byte, accessList types.AccessList) types.DynamicFeeTx {
 	return types.DynamicFeeTx{
 		ChainID:    chainID,
 		Nonce:      nonce,
 		GasTipCap:  gasTipCap,
 		GasFeeCap:  gasFeeCap,
-		Gas:        gasLimit,
+		Gas:        uint64(gasLimit),
 		To:         &to,
 		Value:      value,
 		Data:       data,
@@ -97,7 +97,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 	}
 }
 
-func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
+func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit uint32) (attempt EthTxAttempt, err error) {
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -131,7 +131,7 @@ func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit 
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *big.Int, gasLimit uint64, etx EthTx) error {
+func validateLegacyGas(cfg Config, gasPrice *big.Int, gasLimit uint32, etx EthTx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
@@ -161,12 +161,12 @@ func (c *ChainKeyStore) newSignedAttempt(etx EthTx, tx *types.Transaction) (atte
 	return attempt, nil
 }
 
-func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) types.LegacyTx {
+func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) types.LegacyTx {
 	return types.LegacyTx{
 		Nonce:    nonce,
 		To:       &to,
 		Value:    value,
-		Gas:      gasLimit,
+		Gas:      uint64(gasLimit),
 		GasPrice: gasPrice,
 		Data:     data,
 	}

@@ -171,7 +171,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 	require.Equal(t, int32(0), registry.KeeperIndex)
 	require.Equal(t, int32(1), registry.NumKeepers)
 	require.Equal(t, upkeepConfig1_1.CheckData, upkeepRegistration.CheckData)
-	require.Equal(t, uint64(upkeepConfig1_1.ExecuteGas), upkeepRegistration.ExecuteGas)
+	require.Equal(t, upkeepConfig1_1.ExecuteGas, upkeepRegistration.ExecuteGas)
 
 	assertUpkeepIDs(t, db, []int64{0, 2})
 
