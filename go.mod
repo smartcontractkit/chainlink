@@ -90,7 +90,7 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require github.com/smartcontractkit/chainlink-starknet v0.0.0-20220805074930-9582a28cf137 // indirect
+require github.com/smartcontractkit/chainlink-starknet v0.0.0-20220808083807-74ed2abf5256 // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
