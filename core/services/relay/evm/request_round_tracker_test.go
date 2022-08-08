@@ -7,6 +7,8 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -25,8 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mocks"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
