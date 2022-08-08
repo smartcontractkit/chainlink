@@ -32,6 +32,6 @@ type Config interface {
 }
 
 type RegistryGasChecker interface {
-	KeeperRegistryCheckGasOverhead() uint64
-	KeeperRegistryPerformGasOverhead() uint64
+	KeeperRegistryCheckGasOverhead() uint32
+	KeeperRegistryPerformGasOverhead() uint32
 }
