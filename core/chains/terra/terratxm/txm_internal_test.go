@@ -17,6 +17,9 @@ import (
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
+	wasmtypes "github.com/terra-money/core/x/wasm/types"
+
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
@@ -27,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
-	wasmtypes "github.com/terra-money/core/x/wasm/types"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {
