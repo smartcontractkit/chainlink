@@ -45,11 +45,11 @@ func newHead() evmtypes.Head {
 
 func mockEstimator(t *testing.T) (estimator *gasmocks.Estimator) {
 	estimator = gasmocks.NewEstimator(t)
-	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint32(0), nil)
 	estimator.On("GetDynamicFee", mock.Anything, mock.Anything).Maybe().Return(gas.DynamicFee{
 		FeeCap: assets.GWei(60),
 		TipCap: assets.GWei(60),
-	}, uint64(60), nil)
+	}, uint32(60), nil)
 	return
 }
 
@@ -366,13 +366,13 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			estimator.On("GetDynamicFee", mock.Anything, big.NewInt(100000000000000)).Return(gas.DynamicFee{
 				FeeCap: assets.GWei(60),
 				TipCap: assets.GWei(60),
-			}, uint64(60), nil)
+			}, uint32(60), nil)
 			runTest(t, estimator, true)
 		})
 
 		t.Run("non-EIP1559", func(t *testing.T) {
 			estimator := gasmocks.NewEstimator(t)
-			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint64(0), nil)
+			estimator.On("GetLegacyGas", mock.Anything, mock.Anything, big.NewInt(100000000000000)).Return(assets.GWei(60), uint32(0), nil)
 			runTest(t, estimator, false)
 		})
 	})
