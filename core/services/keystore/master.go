@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
@@ -13,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
@@ -22,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var ErrLocked = errors.New("Keystore is locked")
@@ -36,6 +38,7 @@ type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 type Master interface {
 	CSA() CSA
 	DKGSign() DKGSign
+	DKGEncrypt() DKGEncrypt
 	Eth() Eth
 	OCR() OCR
 	OCR2() OCR2
@@ -51,16 +54,17 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa      *csa
-	eth      *eth
-	ocr      *ocr
-	ocr2     ocr2
-	p2p      *p2p
-	solana   *solana
-	terra    *terra
-	starknet *starknet
-	vrf      *vrf
-	dkgSign  *dkgSign
+	csa        *csa
+	eth        *eth
+	ocr        *ocr
+	ocr2       ocr2
+	p2p        *p2p
+	solana     *solana
+	terra      *terra
+	starknet   *starknet
+	vrf        *vrf
+	dkgSign    *dkgSign
+	dkgEncrypt *dkgEncrypt
 }
 
 func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
@@ -87,7 +91,12 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 		starknet:   newStarkNetKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		dkgSign:    newDKGSignKeyStore(km),
+		dkgEncrypt: newDKGEncryptKeyStore(km),
 	}
+}
+
+func (ks *master) DKGEncrypt() DKGEncrypt {
+	return ks.dkgEncrypt
 }
 
 func (ks master) DKGSign() DKGSign {
@@ -335,6 +344,8 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "VRF", nil
 	case dkgsignkey.Key:
 		return "DKGSign", nil
+	case dkgencryptkey.Key:
+		return "DKGEncrypt", nil
 	}
 	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }

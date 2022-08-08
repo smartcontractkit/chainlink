@@ -2251,7 +2251,7 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
+BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2271,7 +2271,7 @@ TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
+BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
 
@@ -2446,7 +2446,7 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
+BlockDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -2466,7 +2466,7 @@ TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
+BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
 
@@ -2818,6 +2818,71 @@ ObservationGracePeriod = '1s'
 
 </p></details>
 
+<details><summary>Ethereum Sepolia (11155111)<a id='EVM-11155111'></a></summary><p>
+
+```toml
+FinalityDepth = 50
+LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.1 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 4
+TransactionPercentile = 50
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '1m0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '3m0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
 <details><summary>Harmony Mainnet (1666600000)<a id='EVM-1666600000'></a></summary><p>
 
 ```toml
@@ -3138,6 +3203,11 @@ PriceDefault = '20 gwei' # Default
 PriceMax = '100 micro' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
+LimitOCRJobType = 100_000 # Example
+LimitDRJobType = 100_000 # Example
+LimitVRFJobType = 100_000 # Example
+LimitFMJobType = 100_000 # Example
+LimitKeeperJobType = 100_000 # Example
 LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 BumpMin = '5 gwei' # Default
@@ -3208,6 +3278,36 @@ LimitDefault = 500_000 # Default
 ```
 LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+
+### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
+```toml
+LimitOCRJobType = 100_000 # Example
+```
+LimitOCRJobType overrides LimitDefault for OCR jobs.
+
+### LimitDRJobType<a id='EVM-GasEstimator-LimitDRJobType'></a>
+```toml
+LimitDRJobType = 100_000 # Example
+```
+LimitDRJobType overrides LimitDefault for Direct Request jobs.
+
+### LimitVRFJobType<a id='EVM-GasEstimator-LimitVRFJobType'></a>
+```toml
+LimitVRFJobType = 100_000 # Example
+```
+LimitVRFJobType overrides LimitDefault for VRF jobs.
+
+### LimitFMJobType<a id='EVM-GasEstimator-LimitFMJobType'></a>
+```toml
+LimitFMJobType = 100_000 # Example
+```
+LimitFMJobType overrides LimitDefault for Flux Monitor jobs.
+
+### LimitKeeperJobType<a id='EVM-GasEstimator-LimitKeeperJobType'></a>
+```toml
+LimitKeeperJobType = 100_000 # Example
+```
+LimitKeeperJobType overrides LimitDefault for Keeper jobs.
 
 ### LimitMultiplier<a id='EVM-GasEstimator-LimitMultiplier'></a>
 ```toml

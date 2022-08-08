@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -760,6 +761,59 @@ func TestStartStopOnce(t *testing.T) {
 	ok = s.IfNotStopped(incCount)
 	assert.False(t, ok)
 	assert.Equal(t, int32(2), callsCount.Load())
+}
+
+func TestStartStopOnce_StartErrors(t *testing.T) {
+	var s utils.StartStopOnce
+
+	err := s.StartOnce("foo", func() error { return errors.New("foo") })
+	assert.Error(t, err)
+
+	var callsCount atomic.Int32
+	incCount := func() {
+		callsCount.Inc()
+	}
+
+	assert.False(t, s.IfStarted(incCount))
+	assert.Equal(t, int32(0), callsCount.Load())
+
+	err = s.StartOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo has already been started once")
+	err = s.StopOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo is not started or has already been stopped; state=StartFailed")
+
+	assert.Equal(t, utils.StartStopOnce_StartFailed, s.LoadState())
+}
+
+func TestStartStopOnce_StopErrors(t *testing.T) {
+	var s utils.StartStopOnce
+
+	err := s.StartOnce("foo", func() error { return nil })
+	require.NoError(t, err)
+
+	var callsCount atomic.Int32
+	incCount := func() {
+		callsCount.Inc()
+	}
+
+	err = s.StopOnce("foo", func() error { return errors.New("explodey mcsplode") })
+	assert.Error(t, err)
+
+	assert.False(t, s.IfStarted(incCount))
+	assert.Equal(t, int32(0), callsCount.Load())
+	assert.True(t, s.IfNotStopped(incCount))
+	assert.Equal(t, int32(1), callsCount.Load())
+
+	err = s.StartOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo has already been started once")
+	err = s.StopOnce("foo", func() error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "foo is not started or has already been stopped; state=StopFailed")
+
+	assert.Equal(t, utils.StartStopOnce_StopFailed, s.LoadState())
 }
 
 func TestStartStopOnce_Ready_Healthy(t *testing.T) {

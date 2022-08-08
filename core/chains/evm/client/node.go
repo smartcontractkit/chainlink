@@ -549,6 +549,7 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 	return err
 }
 
+// PendingNonceAt returns one higher than the highest nonce from both mempool and mined transactions
 func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
@@ -714,7 +715,7 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("msg", msg, "blockNumber", blockNumber)
+	lggr := n.newRqLggr(switching(n)).With("callMsg", msg, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#CallContract")
 	start := time.Now()

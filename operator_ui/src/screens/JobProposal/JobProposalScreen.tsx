@@ -59,8 +59,8 @@ export const REJECT_JOB_PROPOSAL_SPEC_MUTATION = gql`
 `
 
 export const APPROVE_JOB_PROPOSAL_SPEC_MUTATION = gql`
-  mutation ApproveJobProposalSpec($id: ID!) {
-    approveJobProposalSpec(id: $id) {
+  mutation ApproveJobProposalSpec($id: ID!, $force: Boolean) {
+    approveJobProposalSpec(id: $id, force: $force) {
       ... on ApproveJobProposalSpecSuccess {
         spec {
           id
@@ -205,7 +205,7 @@ export const JobProposalScreen: React.FC = () => {
   const handleApproveJobProposal = async (specID: string) => {
     try {
       const result = await approveJobProposalSpec({
-        variables: { id: specID },
+        variables: { id: specID, force: true },
       })
       const payload = result.data?.approveJobProposalSpec
       switch (payload?.__typename) {

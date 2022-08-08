@@ -353,7 +353,7 @@ func setupTerraChainsControllerTest(t *testing.T) *TestTerraChainsController {
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient()
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestTerraChainsController{
 		app:    app,
