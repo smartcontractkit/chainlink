@@ -4,19 +4,19 @@ import "sync"
 
 // Subprocesses is an abstraction over the following pattern of sync.WaitGroup:
 //
-//   var wg sync.Subprocesses
-//   wg.Add(1)
-//   go func() {
-//     defer wg.Done()
-//     // ...
-//   }()
+// var wg sync.Subprocesses
+// wg.Add(1)
+// go func() {
+// defer wg.Done()
+// ...
+// }()
 //
 // Which becomes:
 //
-//  var subs utils.Subprocesses
-//  subs.Go(func() {
-//     // ...
-//  })
+// var subs utils.Subprocesses
+// subs.Go(func() {
+// ...
+// })
 //
 // Note that it's important to not call Subprocesses.Wait() when there are
 // no `Go()`ed functions in progress. This will panic.
