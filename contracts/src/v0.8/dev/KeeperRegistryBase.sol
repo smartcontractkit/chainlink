@@ -26,7 +26,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
-  uint64 internal constant UINT64_MAX = 2**64 - 1;
+  uint32 internal constant UINT32_MAX = type(uint32).max;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VESION_BASE = UpkeepFormat.V1;
 
@@ -126,7 +126,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint96 balance;
     address lastKeeper; // 1 full evm word
     uint32 executeGas;
-    uint64 maxValidBlocknumber;
+    uint32 maxValidBlocknumber;
     address target; // 2 full evm words
     uint96 amountSpent;
     address admin; // 3 full evm words
@@ -274,6 +274,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     address from,
     uint256 maxLinkPayment
   ) internal view {
+    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
     if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
@@ -285,7 +286,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
    */
   function requireAdminAndNotCancelled(Upkeep memory upkeep) internal view {
     if (msg.sender != upkeep.admin) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 
   /**
@@ -311,48 +312,5 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
         fastGasWei: fastGasWei,
         linkEth: linkEth
       });
-  }
-
-  // MODIFIERS
-
-  /**
-   * @dev ensures a upkeep is valid
-   */
-  modifier validUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepCancelled();
-    _;
-  }
-
-  /**
-   * @dev Reverts if called by anyone other than the admin of upkeep #id
-   */
-  modifier onlyUpkeepAdmin(uint256 id) {
-    if (msg.sender != s_upkeep[id].admin) revert OnlyCallableByAdmin();
-    _;
-  }
-
-  /**
-   * @dev Reverts if called on a cancelled upkeep
-   */
-  modifier onlyNonCanceledUpkeep(uint256 id) {
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
-    _;
-  }
-
-  /**
-   * @dev ensures that burns don't accidentally happen by sending to the zero
-   * address
-   */
-  modifier validRecipient(address to) {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    _;
-  }
-
-  /**
-   * @dev Reverts if called by anyone other than the contract owner or registrar.
-   */
-  modifier onlyOwnerOrRegistrar() {
-    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
-    _;
   }
 }
