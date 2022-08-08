@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -154,7 +153,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		)
 
 		head := newHead()
-		executer.OnNewLongestChain(context.Background(), &head)
+		executer.OnNewLongestChain(testutils.Context(t), &head)
 		ethTxCreated.AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -206,7 +205,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			head := newHead()
 			head.BaseFeePerGas = baseFeePerGas
 
-			executer.OnNewLongestChain(context.Background(), &head)
+			executer.OnNewLongestChain(testutils.Context(t), &head)
 			ethTxCreated.AwaitOrFail(t)
 			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 			require.Len(t, runs, 1)
@@ -251,7 +250,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		)
 
 		head := newHead()
-		executer.OnNewLongestChain(context.Background(), &head)
+		executer.OnNewLongestChain(testutils.Context(t), &head)
 		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.True(t, runs[0].HasErrors())
@@ -270,7 +269,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		err := executer.Start(testutils.Context(t))
 		require.NoError(t, err)
 		head := newHead()
-		executer.OnNewLongestChain(context.Background(), &head)
+		executer.OnNewLongestChain(testutils.Context(t), &head)
 		// TODO we want to see an errored run result once this is completed
 		// https://app.shortcut.com/chainlinklabs/story/25397/remove-failearly-flag-from-eth-call-task
 		cltest.AssertPipelineRunsStays(t, jb.PipelineSpecID, db, 0)
@@ -302,7 +301,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
 		head := cltest.Head(36)
 
-		executer.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChain(testutils.Context(t), head)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
@@ -352,7 +351,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			head := newHead()
 			head.BaseFeePerGas = baseFeePerGas
 
-			executer.OnNewLongestChain(context.Background(), &head)
+			executer.OnNewLongestChain(testutils.Context(t), &head)
 			ethTxCreated.AwaitOrFail(t)
 			runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 8, jpv2.Jrm, time.Second, 100*time.Millisecond)
 			require.Len(t, runs, 1)

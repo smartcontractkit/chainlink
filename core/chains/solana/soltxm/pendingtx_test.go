@@ -10,12 +10,14 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
 func TestPendingTxContext(t *testing.T) {
 	// setup
 	var wg sync.WaitGroup
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	newProcess := func(i int) (solana.Signature, context.CancelFunc) {
 		// make random signature
 		sig := make([]byte, 64)
@@ -53,7 +55,7 @@ func TestPendingTxContext(t *testing.T) {
 }
 
 func TestPendingTxContext_expired(t *testing.T) {
-	_, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(testutils.Context(t))
 	sig := solana.Signature{}
 	txs := newPendingTxContext()
 

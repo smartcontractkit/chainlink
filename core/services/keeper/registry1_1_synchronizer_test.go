@@ -153,13 +153,13 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Valid
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
 	g.Eventually(func() int64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Int64
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 
 	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
@@ -416,12 +416,12 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(200)))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(200)))
 
 	g.Eventually(func() int64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Int64
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 }

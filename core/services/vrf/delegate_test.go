@@ -2,10 +2,11 @@ package vrf
 
 import (
 	"bytes"
-	"context"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -253,9 +253,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
+			preSeed,                 // preSeed
+			utils.NewHash().Bytes(), // sender
+			utils.NewHash().Bytes(), // fee
 			reqID.Bytes()}, []byte{}, // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
@@ -302,7 +302,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID1.Bytes()},                          // requestID
+					reqID1.Bytes()}, // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
 				Topics: []common.Hash{
@@ -324,7 +324,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID2.Bytes()},                          // requestID
+					reqID2.Bytes()}, // requestID
 					[]byte{}),
 				Topics: []common.Hash{
 					VRFRandomnessRequestLogTopic(),
@@ -372,7 +372,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
 		// Feed it a head which confirms it.
-		listener.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 16})
+		listener.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 16})
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
@@ -427,7 +427,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			utils.NewHash().Bytes(),                      // key hash
+			utils.NewHash().Bytes(), // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
 			utils.NewHash().Bytes()...), // sender
 			utils.NewHash().Bytes()...), // fee
@@ -447,7 +447,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}, vuni.cid, nil))
 	waitForChannel(t, added, time.Second, "request not queued")
 	// Feed it a head which confirms it.
-	listener.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 16})
+	listener.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should create a run that errors in the vrf task
@@ -495,7 +495,7 @@ func TestFulfilledCheck(t *testing.T) {
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
 				utils.NewHash().Bytes(),                  // sender
 				utils.NewHash().Bytes(),                  // fee
-				utils.NewHash().Bytes()},                 // requestID
+				utils.NewHash().Bytes()}, // requestID
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
@@ -509,7 +509,7 @@ func TestFulfilledCheck(t *testing.T) {
 
 	// Should queue the request, even though its already fulfilled
 	waitForChannel(t, added, time.Second, "request not queued")
-	listener.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 16})
+	listener.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should consume the log with no run

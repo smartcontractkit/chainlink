@@ -1,7 +1,6 @@
 package blockhashes_test
 
 import (
-	"context"
 	"errors"
 	"math/big"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/blockhashes"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,7 +23,7 @@ func Test_FixedBlockhashProvider(t *testing.T) {
 	client := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	p := blockhashes.NewFixedBlockhashProvider(client, 0, 0)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	t.Run("returns current height", func(t *testing.T) {
 		h := &evmtypes.Head{Number: 100}
@@ -50,7 +50,7 @@ func Test_OnchainVerifiableBlocks(t *testing.T) {
 	t.Parallel()
 
 	client := evmtest.NewEthClientMockWithDefaultChain(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	h := &evmtypes.Head{Number: 100}
 
 	t.Run("returns expected number of hashes", func(t *testing.T) {
