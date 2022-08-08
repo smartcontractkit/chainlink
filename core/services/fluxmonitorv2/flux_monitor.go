@@ -176,7 +176,7 @@ func NewFromJobSpec(
 
 	gasLimit := cfg.EvmGasLimitDefault()
 	if jobSpec.GasLimit.Valid {
-		gasLimit = uint64(jobSpec.GasLimit.Uint32)
+		gasLimit = jobSpec.GasLimit.Uint32
 	} else if cfg.EvmGasLimitFMJobType() != nil {
 		gasLimit = *cfg.EvmGasLimitFMJobType()
 	}

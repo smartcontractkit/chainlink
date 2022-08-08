@@ -208,7 +208,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 	tests := []struct {
 		name                           string
 		chainID                        int64
-		expectedGasLimitDefault        uint64
+		expectedGasLimitDefault        uint32
 		expectedMinimumContractPayment string
 	}{
 		{"default", 0, 500000, "0.00001"},
