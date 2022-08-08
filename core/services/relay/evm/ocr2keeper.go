@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 )
 
 // OCR2KeeperProvider provides all components needed for a OCR2Keeper plugin.
@@ -59,6 +61,11 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
+	var pluginConfig config.PluginConfig
+	if err = json.Unmarshal(pargs.PluginConfig, &pluginConfig); err != nil {
+		return nil, err
+	}
+
 	return &ocr2keeperProvider{
 		configWatcher:       cfgWatcher,
 		contractTransmitter: contractTransmitter,
@@ -68,6 +75,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 type ocr2keeperProvider struct {
 	*configWatcher
 	contractTransmitter *ContractTransmitter
+	pluginConfig        config.PluginConfig
 }
 
 func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {
@@ -84,6 +92,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
 	}
+
 	configPoller := NewConfigPoller(
 		lggr.With("contractID", contractID),
 		chain.LogPoller(),

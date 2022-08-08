@@ -1,6 +1,7 @@
 package reportingplugin
 
 import (
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -9,17 +10,19 @@ import (
 // factory implements types.ReportingPluginFactory interface and creates keepers reporting plugin.
 type factory struct {
 	logger logger.Logger
+	hb     httypes.HeadBroadcaster
 }
 
 // NewFactory is the constructor of factory
-func NewFactory(logger logger.Logger) types.ReportingPluginFactory {
+func NewFactory(logger logger.Logger, hb httypes.HeadBroadcaster) types.ReportingPluginFactory {
 	return &factory{
 		logger: logger,
+		hb:     hb,
 	}
 }
 
-func (f *factory) NewReportingPlugin(types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	p := NewPlugin(f.logger)
+func (f *factory) NewReportingPlugin(rpc types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+	p := NewPlugin(f.logger, f.hb)
 	pi := types.ReportingPluginInfo{
 		Name:          "OCR2Keeper",
 		UniqueReports: false,

@@ -371,7 +371,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
 		}
 
-		if err = ocr2keeperconfig.ValidatePluginConfig(cfg); err != nil {
+		if err = cfg.Validate(); err != nil {
 			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
 		}
 
@@ -391,26 +391,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err2, "failed to create new ocr2keeper provider")
 		}
 
-		oracle, err2 := libocr2.NewOracle(libocr2.OracleArgs{
-			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          keeperProvider.ContractTransmitter(),
-			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
-			Database:                     ocrDB,
-			LocalConfig:                  lc,
-			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-			ReportingPluginFactory: keeperreportingplugin.NewFactory(
-				lggr.Named("Keeper"),
-			),
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "error calling NewOracle")
-		}
-
 		// RunResultSaver needs to be started first, so it's available
 		// to read odb writes. It is stopped last after the OraclePlugin is shut down
 		// so no further runs are enqueued, and we can drain the queue.
@@ -421,9 +401,34 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			lggr,
 		)
 
-		oracleCtx := job.NewServiceAdapter(oracle)
+		services := []job.ServiceCtx{runResultSaver, keeperProvider}
 
-		return []job.ServiceCtx{runResultSaver, keeperProvider, oracleCtx}, nil
+		for i := int64(0); i < cfg.OCRInstances; i++ {
+			var oracle *libocr2.Oracle
+			if oracle, err = libocr2.NewOracle(libocr2.OracleArgs{
+				BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+				V2Bootstrappers:              bootstrapPeers,
+				ContractTransmitter:          keeperProvider.ContractTransmitter(),
+				ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
+				Database:                     ocrDB,
+				LocalConfig:                  lc,
+				Logger:                       ocrLogger,
+				MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+				OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+				OffchainKeyring:              kb,
+				OnchainKeyring:               kb,
+				ReportingPluginFactory: keeperreportingplugin.NewFactory(
+					lggr.Named("OCR2Keeper").With("instance", i),
+					chain.HeadBroadcaster(),
+				),
+			}); err != nil {
+				return nil, errors.Wrap(err, "error calling NewOracle")
+			}
+
+			services = append(services, job.NewServiceAdapter(oracle))
+		}
+
+		return services, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
