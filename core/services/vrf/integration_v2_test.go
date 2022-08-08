@@ -143,7 +143,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		}
 	}
 
-	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	consumerABI, err := abi.JSON(strings.NewReader(
 		vrf_consumer_v2.VRFConsumerV2ABI))
 	require.NoError(t, err)
@@ -1506,7 +1506,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 		owner.From:  {Balance: assets.Ether(10)},
 		random.From: {Balance: assets.Ether(10)},
 	}
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		owner, backend)
 	require.NoError(t, err)
@@ -1566,7 +1566,7 @@ func TestSimpleConsumerExample(t *testing.T) {
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: assets.Ether(10)},
 	}
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		owner, backend)
 	require.NoError(t, err)
@@ -2153,7 +2153,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgr.EthTxAttemptBroadcast,
 			CreatedAt:               time.Now(),
-			ChainSpecificGasLimit:   uint64(100),
+			ChainSpecificGasLimit:   uint32(100),
 		})
 	}
 	// add eth_tx_attempts for unconfirmed
@@ -2165,7 +2165,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 			Hash:                  utils.NewHash(),
 			State:                 txmgr.EthTxAttemptInProgress,
 			CreatedAt:             time.Now(),
-			ChainSpecificGasLimit: uint64(100),
+			ChainSpecificGasLimit: uint32(100),
 		})
 	}
 	for _, txAttempt := range txAttempts {
