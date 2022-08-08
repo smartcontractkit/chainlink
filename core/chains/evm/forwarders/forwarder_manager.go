@@ -76,8 +76,8 @@ func (f *FwdMgr) Start() error {
 		f.ctx, f.cancel = context.WithCancel(context.Background())
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(f.ctx, fwdrs)
-			if err := f.subscribeForwardersLogs(fwdrs); err != nil {
-				return err
+			if err2 := f.subscribeForwardersLogs(fwdrs); err2 != nil {
+				return err2
 			}
 		}
 

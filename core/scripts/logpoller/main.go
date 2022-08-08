@@ -45,7 +45,7 @@ func (c cfg) LogSQL() bool {
 
 func main() {
 	lggr, done := logger.NewLogger()
-	defer done()
+	defer func() { _ = done() }()
 	err := os.Setenv("DATABASE_URL", "TODO")
 	panicErr(err)
 	db, err := pg.OpenUnlockedDB(config.NewGeneralConfig(lggr), lggr)
@@ -70,6 +70,7 @@ func main() {
 	defer cancel()
 	// TODO: can add filters to test log inserts.
 	err = lp.Start(ctx)
+	panicErr(err)
 	<-ctx.Done()
 	// Inspect DB to check the log poller can keep up with the chain, has the logs expected etc.
 }

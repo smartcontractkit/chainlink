@@ -432,8 +432,8 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			}
 			// Tell all callbacks about the reorg.
 			for _, callback := range lp.callbacks {
-				if err2 := callback.Reorg(tx, blockAfterLCA.Number.Int64(), currentBlockNumber); err2 != nil {
-					return err2
+				if err3 := callback.Reorg(tx, blockAfterLCA.Number.Int64(), currentBlockNumber); err3 != nil {
+					return err3
 				}
 			}
 			return nil
