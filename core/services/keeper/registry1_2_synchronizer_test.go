@@ -140,7 +140,6 @@ func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
 
 	err = synchronizer.Start(testutils.Context(t))
 	require.Error(t, err)
-	ethMock.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
@@ -196,7 +195,6 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 	require.Equal(t, upkeepConfig1_2.ExecuteGas, upkeepRegistration.ExecuteGas)
 
 	assertUpkeepIDs(t, db, []int64{3, 69, 420})
-	ethMock.AssertExpectations(t)
 
 	// 2nd sync. Cancel upkeep (id 3) and add a new upkeep (id 2022)
 	mockRegistry1_2(
@@ -215,8 +213,6 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)
 	assertUpkeepIDs(t, db, []int64{69, 420, 2022})
-
-	ethMock.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
@@ -256,7 +252,7 @@ func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryConfigSet{}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -270,8 +266,6 @@ func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
 		return registry.BlockCountPerTurn == 40
 	})
 	cltest.AssertCount(t, db, "keeper_registries", 1)
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
@@ -310,7 +304,7 @@ func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryKeepersUpdated{}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -324,8 +318,6 @@ func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
 		return registry.NumKeepers == 2
 	})
 	cltest.AssertCount(t, db, "keeper_registries", 1)
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
@@ -355,7 +347,7 @@ func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepCanceled{Id: big.NewInt(3)}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -366,8 +358,6 @@ func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
@@ -400,7 +390,7 @@ func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepRegistered{Id: big.NewInt(420)}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -411,8 +401,6 @@ func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
@@ -446,7 +434,7 @@ func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
 	log := registry1_2.KeeperRegistryUpkeepPerformed{Id: big.NewInt(3), From: fromAddress}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -469,9 +457,6 @@ func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Int64
 	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
-
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
@@ -515,7 +500,7 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepGasLimitSet{Id: big.NewInt(3), GasLimit: big.NewInt(4_000_000)}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -526,8 +511,6 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 
 	g.Eventually(getExecuteGas, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(uint32(4_000_000)))
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
@@ -560,7 +543,7 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepReceived{Id: big.NewInt(420)}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -571,8 +554,6 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer1_2_UpkeepMigratedLog(t *testing.T) {
@@ -602,7 +583,7 @@ func Test_RegistrySynchronizer1_2_UpkeepMigratedLog(t *testing.T) {
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepMigrated{Id: big.NewInt(3)}
-	logBroadcast := new(logmocks.Broadcast)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -613,6 +594,4 @@ func Test_RegistrySynchronizer1_2_UpkeepMigratedLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
-	ethMock.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
 }
