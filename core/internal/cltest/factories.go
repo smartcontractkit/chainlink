@@ -137,7 +137,7 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.EthTx {
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
-		GasLimit:       uint64(1000000000),
+		GasLimit:       uint32(1000000000),
 		State:          txmgr.EthTxUnstarted,
 	}
 }
@@ -591,7 +591,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, r
 	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
-		ExecuteGas: uint64(150_000),
+		ExecuteGas: uint32(150_000),
 		Registry:   registry,
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),
