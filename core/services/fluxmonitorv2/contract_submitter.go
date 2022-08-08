@@ -25,7 +25,7 @@ type FluxAggregatorContractSubmitter struct {
 	flux_aggregator_wrapper.FluxAggregatorInterface
 	orm               ORM
 	keyStore          KeyStoreInterface
-	gasLimit          uint64
+	gasLimit          uint32
 	forwardingAllowed bool
 }
 
@@ -34,7 +34,7 @@ func NewFluxAggregatorContractSubmitter(
 	contract flux_aggregator_wrapper.FluxAggregatorInterface,
 	orm ORM,
 	keyStore KeyStoreInterface,
-	gasLimit uint64,
+	gasLimit uint32,
 	forwardingAllowed bool,
 ) *FluxAggregatorContractSubmitter {
 	return &FluxAggregatorContractSubmitter{
