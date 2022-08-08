@@ -151,6 +151,7 @@ func (t *OCRSoakTest) Run() {
 		case answer := <-answerUpdated:
 			if t.processNewAnswer(answer) {
 				remainingExpectedAnswers--
+				log.Debug().Int("Remaining Expected Answers", remainingExpectedAnswers).Msg("Answer Expected")
 			}
 			if remainingExpectedAnswers <= 0 {
 				if testOver {
@@ -170,7 +171,7 @@ func (t *OCRSoakTest) Run() {
 			log.Warn().Msg("OCR round timed out")
 			expiredRoundTrigger = time.NewTimer(t.Inputs.RoundTimeout)
 			remainingExpectedAnswers = len(t.ocrInstances)
-			t.triggerNewRound(rand.Int()) // #nosec G404 | Just triggering a random number
+			t.triggerNewRound(rand.Intn(t.Inputs.StartingAdapterValue*25) + t.Inputs.StartingAdapterValue + 1) // #nosec G404 | Just triggering a random number
 		}
 	}
 }
@@ -209,7 +210,11 @@ func (t *OCRSoakTest) processNewEvent(
 	for {
 		select {
 		case err := <-errorChan:
-			log.Error().Err(err).Msg("Error while confirming event")
+			if err.Error() == "not found" {
+				log.Trace().Msg("Event dropped while confirming")
+			} else {
+				log.Error().Err(err).Msg("Error while confirming event")
+			}
 			return
 		case confirmed := <-eventConfirmed:
 			if confirmed {

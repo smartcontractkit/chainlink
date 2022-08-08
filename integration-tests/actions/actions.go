@@ -7,11 +7,10 @@ import (
 	"math/big"
 	"os"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/avast/retry-go"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -243,145 +242,45 @@ func TeardownRemoteSuite(
 }
 
 // Returns all the funds from the chainlink nodes to the networks default address
-func returnFunds(chainlinkNodes []*client.Chainlink, client blockchain.EVMClient) error {
-	if client == nil {
+func returnFunds(chainlinkNodes []*client.Chainlink, chainClient blockchain.EVMClient) error {
+	if chainClient == nil {
 		log.Warn().Msg("No blockchain client found, unable to return funds from chainlink nodes.")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-	if client.NetworkSimulated() {
-		log.Info().Str("Network Name", client.GetNetworkName()).
+	if chainClient.NetworkSimulated() {
+		log.Info().Str("Network Name", chainClient.GetNetworkName()).
 			Msg("Network is a simulated network. Skipping fund return.")
 		return nil
 	}
 
-	addressMap, err := sendFunds(chainlinkNodes, client)
-	if err != nil {
-		return err
-	}
-
-	err = checkFunds(chainlinkNodes, addressMap, strings.ToLower(client.GetDefaultWallet().Address()))
-	if err != nil {
-		return err
-	}
-	addressMap, err = sendFunds(chainlinkNodes, client)
-	if err != nil {
-		return err
-	}
-	return checkFunds(chainlinkNodes, addressMap, strings.ToLower(client.GetDefaultWallet().Address()))
-}
-
-// Requests that all the chainlink nodes send their funds back to the network's default wallet
-// This is surprisingly tricky, and fairly annoying due to Go's lack of syntactic sugar and how chainlink nodes handle txs
-func sendFunds(chainlinkNodes []*client.Chainlink, network blockchain.EVMClient) (map[int]string, error) {
-	chainlinkTransactionAddresses := make(map[int]string)
-	var addressesMutex sync.Mutex
-	sendFundsErrGroup := new(errgroup.Group)
-	for ni, n := range chainlinkNodes {
-		nodeIndex := ni // https://golang.org/doc/faq#closures_and_goroutines
+	fundsErrGroup := new(errgroup.Group)
+	for _, n := range chainlinkNodes {
 		node := n
-		// Send async request to each chainlink node to send a transaction back to the network default wallet
-		sendFundsErrGroup.Go(
-			func() error {
-				primaryEthKeyData, err := node.ReadPrimaryETHKey()
+		fundsErrGroup.Go(func() error {
+			keys, err := node.ExportEVMKeys()
+			if err != nil {
+				return err
+			}
+			for _, key := range keys {
+				log.Debug().Str("Password", client.ChainlinkKeyPassword).Interface("Key", key).Msg("Decrypting Key")
+				keyJson, err := json.Marshal(key)
 				if err != nil {
-					// TODO: Support non-EVM chain fund returns
-					if strings.Contains(err.Error(), "No ETH keys present") {
-						log.Warn().Msg("Not returning any funds. Only support EVM chains for fund returns at the moment")
-						return nil
-					}
 					return err
 				}
-
-				nodeBalanceString := primaryEthKeyData.Attributes.ETHBalance
-				if nodeBalanceString != "0" { // If key has a non-zero balance, attempt to transfer it back
-					gasCost, err := network.EstimateTransactionGasCost()
-					if err != nil {
-						return err
-					}
-
-					// TODO: Imperfect gas calculation buffer of 50 Gwei. Seems to be the result of differences in chainlink
-					// gas handling. Working with core team on a better solution
-					gasCost = gasCost.Add(gasCost, big.NewInt(50000000000))
-					nodeBalance, _ := big.NewInt(0).SetString(nodeBalanceString, 10)
-					transferAmount := nodeBalance.Sub(nodeBalance, gasCost)
-					_, err = node.MustSendNativeToken(transferAmount, primaryEthKeyData.Attributes.Address, network.GetDefaultWallet().Address())
-					if err != nil {
-						return err
-					}
-					// Add the address to our map to check for later (hashes aren't returned, sadly)
-					addressesMutex.Lock()
-					chainlinkTransactionAddresses[nodeIndex] = strings.ToLower(primaryEthKeyData.Attributes.Address)
-					addressesMutex.Unlock()
+				decrypted, err := keystore.DecryptKey(keyJson, client.ChainlinkKeyPassword)
+				if err != nil {
+					return err
 				}
-				return nil
-			},
-		)
-
-	}
-	return chainlinkTransactionAddresses, sendFundsErrGroup.Wait()
-}
-
-// checks that the funds made it from the chainlink node to the network address
-// this turns out to be tricky to do, given how chainlink handles pending transactions, thus the complexity
-func checkFunds(chainlinkNodes []*client.Chainlink, sentFromAddressesMap map[int]string, toAddress string) error {
-	successfulConfirmations := make(map[int]bool)
-	err := retry.Do( // Might take some time for txs to confirm, check up on the nodes a few times
-		func() error {
-			log.Debug().Msg("Attempting to confirm chainlink nodes transferred back funds")
-			transactionErrGroup := new(errgroup.Group)
-			for i, n := range chainlinkNodes {
-				nodeIndex := i
-				node := n // https://golang.org/doc/faq#closures_and_goroutines
-				sentFromAddress, nodeHasFunds := sentFromAddressesMap[nodeIndex]
-				successfulConfirmation := successfulConfirmations[nodeIndex]
-				// Async check on all the nodes if their transactions are confirmed
-				if nodeHasFunds && !successfulConfirmation { // Only if node has funds and hasn't already sent them
-					transactionErrGroup.Go(func() error {
-						err := confirmTransaction(node, sentFromAddress, toAddress)
-						if err == nil {
-							successfulConfirmations[nodeIndex] = true
-						}
-						return err
-					})
-				} else {
-					log.Debug().Int("Node Number", nodeIndex).Msg("Chainlink node had no funds to return")
-				}
+				hexPrivateKey := fmt.Sprintf("%x", crypto.FromECDSA(decrypted.PrivateKey))
+				// TODO: The estimations for this actually turns out to be trickier than initially thought. For now can just
+				// lean on importing to Metamask. The keys are ephemeral and never used in production, or repeated
+				log.Info().Str("Key", hexPrivateKey).Str("Node", node.URL()).Msg("Funding Key, Import in MetaMask to Send Funds Back")
 			}
-
-			return transactionErrGroup.Wait()
-		},
-		retry.Delay(time.Second*5),
-		retry.MaxDelay(time.Second*5),
-		retry.Attempts(20),
-	)
-
-	return err
-}
-
-// helper to confirm that the latest attempted transaction on the chainlink node with the expected from and to addresses
-// has been confirmed
-func confirmTransaction(
-	chainlinkNode *client.Chainlink,
-	fromAddress string,
-	toAddress string,
-) error {
-	transactionAttempts, err := chainlinkNode.MustReadTransactionAttempts()
-	if err != nil {
-		return err
+			return nil
+		})
 	}
-	log.Debug().Str("From", fromAddress).
-		Str("To", toAddress).
-		Msg("Attempting to confirm node returned funds")
-	// Loop through all transactions on the node
-	for _, tx := range transactionAttempts.Data {
-		if tx.Attributes.From == fromAddress && strings.ToLower(tx.Attributes.To) == toAddress {
-			if tx.Attributes.State == "confirmed" {
-				return nil
-			}
-			return fmt.Errorf("Expected transaction to be confirmed. From: %s To: %s State: %s", fromAddress, toAddress, tx.Attributes.State)
-		}
-	}
-	return fmt.Errorf("Did not find expected transaction on node. From: %s To: %s", fromAddress, toAddress)
+
+	return fundsErrGroup.Wait()
 }
 
 // FundAddresses will fund a list of addresses with an amount of native currency

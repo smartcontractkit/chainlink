@@ -3,7 +3,6 @@ module github.com/smartcontractkit/chainlink/integration-tests
 go 1.18
 
 require (
-	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/ethereum/go-ethereum v1.10.21
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/onsi/ginkgo/v2 v2.1.4
@@ -13,13 +12,15 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/slack-go/slack v0.11.2
 	github.com/smartcontractkit/chainlink-env v0.2.31
-	github.com/smartcontractkit/chainlink-testing-framework v1.5.6
+	github.com/smartcontractkit/chainlink-testing-framework v1.5.7
 	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/atomic v1.9.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/guregu/null.v4 v4.0.0
 )
+
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

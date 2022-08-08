@@ -21,7 +21,10 @@ import (
 )
 
 // OneLINK representation of a single LINK token
-var OneLINK = big.NewFloat(1e18)
+var (
+	ChainlinkKeyPassword = "twochains"
+	OneLINK              = big.NewFloat(1e18)
+)
 
 type Chainlink struct {
 	APIClient         *resty.Client
@@ -833,7 +836,6 @@ func (c *Chainlink) Profile(profileTime time.Duration, profileFunction func(*Cha
 // ExportEVMKeys exports Chainlink private EVM keys
 func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 	exportedKeys := make([]*ExportedEVMKey, 0)
-	log.Info().Str("Node URL", c.Config.URL).Msg("Exporting EVM Keys")
 	keys, err := c.MustReadETHKeys()
 	if err != nil {
 		return nil, err
@@ -841,16 +843,19 @@ func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 	for _, key := range keys.Data {
 		if key.Attributes.ETHBalance != "0" {
 			exportedKey := &ExportedEVMKey{}
-			resp, err := c.APIClient.R().
-				SetBody(`{"newpassword": "twochains"}`).
+			_, err := c.APIClient.R().
 				SetResult(exportedKey).
-				Post(fmt.Sprintf("/v2/keys/eth/export/%s", key.Attributes.Address))
+				Post(fmt.Sprintf("/v2/keys/eth/export/%s?newpassword=%s", key.Attributes.Address, ChainlinkKeyPassword))
 			if err != nil {
 				return nil, err
 			}
 			exportedKeys = append(exportedKeys, exportedKey)
 		}
 	}
+	log.Info().
+		Str("Node URL", c.Config.URL).
+		Str("Password", ChainlinkKeyPassword).
+		Msg("Exported EVM Keys")
 	return exportedKeys, nil
 }
 
