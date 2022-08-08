@@ -14,15 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+
+	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 )
 
 func TestTxm_Integration(t *testing.T) {

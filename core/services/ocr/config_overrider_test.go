@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 type configOverriderUni struct {

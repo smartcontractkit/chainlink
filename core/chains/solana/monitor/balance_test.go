@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+
+	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 )
 
 func TestBalanceMonitor(t *testing.T) {

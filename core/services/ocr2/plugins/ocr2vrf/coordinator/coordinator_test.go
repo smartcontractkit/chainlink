@@ -16,6 +16,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/ocr2vrf/dkg"
+	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -25,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2vrf/coordinator/mocks"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 )
 
 func TestCoordinator_BeaconPeriod(t *testing.T) {
