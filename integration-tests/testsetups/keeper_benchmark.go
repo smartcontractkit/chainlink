@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-env/environment"
 
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -183,11 +184,16 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
 	Expect(err).ShouldNot(HaveOccurred(), "Subscribing to upkeep performed events log shouldn't fail")
 	go func() {
+		defer ginkgo.GinkgoRecover()
 		var numRevertedUpkeeps int64
 		for {
 			select {
 			case err := <-sub.Err():
-				Expect(err).ShouldNot(HaveOccurred(), "Retrieving upkeep performed log shouldn't fail")
+				log.Error().Err(err).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
+				sub.Unsubscribe()
+
+				sub, err = k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+				Expect(err).ShouldNot(HaveOccurred(), "Error re-subscribing to event logs")
 			case vLog := <-eventLogs:
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
 				Expect(err).ShouldNot(HaveOccurred(), "Getting event details for subscribed log shouldn't fail")
