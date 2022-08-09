@@ -10,7 +10,7 @@ import (
 )
 
 // LogPollerBlock represents an unfinalized block
-// used for Reorg detection when polling.
+// used for reorg detection when polling.
 type LogPollerBlock struct {
 	EvmChainId *utils.Big
 	BlockHash  common.Hash

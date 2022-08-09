@@ -97,7 +97,7 @@ func (lp *logPoller) ChainID() *big.Int {
 
 // MergeFilter adds the provided eventID to the log poller's log filter query.
 // If an event matching any of the given event signatures is emitted from any of the provided addresses,
-// the log poller will pick those up and Save them. For topic specific queries see content based querying.
+// the log poller will pick those up and save them. For topic specific queries see content based querying.
 // Clients may choose to MergeFilter and then replay in order to ensure desired logs are present.
 // NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
 // MergeFilter([]EventID{{event1, addr1}}
@@ -132,13 +132,13 @@ type Callback struct {
 }
 
 // MergeFilterWithCallbacks is the same as merge filter, except additionally
-// you specify a callback which is called upon log Save and log Reorg.
-// It is possible that Save or Reorg may be called more than once with the same arguments,
-// for example on DB commit errors, so its expected that Save/Reorg are idempotent operations.
+// you specify a callback which is called upon log save and log reorg.
+// It is possible that save or reorg may be called more than once with the same arguments,
+// for example on DB commit errors, so its expected that save/reorg are idempotent operations.
 // The callbacks are called as part of a db tx processing a new block, so you should only return
 // an error from the callback if a db operation fails OR if there is some unrecoverable programmer error meaning
 // the node is completely broken.
-// The common expected use case is simply to parse and Save the logs in a structured format
+// The common expected use case is simply to parse and save the logs in a structured format
 // in Save(..), and delete or mark as reorged all logs implicated in Reorg(...). This ensures
 // you always have persistent, structured log data which is eventually consistent with the canonical chain.
 // If you intend to do something more sophisticated than that in the callback, be certain you know what
@@ -343,7 +343,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 			continue
 		}
 		lp.lggr.Infow("Backfill found logs", "from", from, "to", to, "logs", len(logs))
-		// Retry forever to Save logs,
+		// Retry forever to save logs,
 		// unblocked by resolving db connectivity issues.
 		logsByEventID := lp.groupByEventID(logs)
 		utils.RetryWithBackoff(ctx, func() bool {
@@ -476,7 +476,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	// Backfill finalized blocks if we can for performance. If we crash during backfill, we may reprocess logs.
 	// Log insertion is idempotent so this is ok.
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
-	// Although 5 is finalized, we still need to Save it to the db for reorg detection if 6 is a reorg.
+	// Although 5 is finalized, we still need to save it to the db for reorg detection if 6 is a reorg.
 	// start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
 	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= currentBlockNumber {
