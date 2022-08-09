@@ -67,12 +67,12 @@ struct State {
 struct Upkeep {
   uint96 balance;
   address lastKeeper; // 1 full evm word
-  uint32 executeGas;
-  uint64 maxValidBlocknumber;
-  address target; // 2 full evm words
   uint96 amountSpent;
-  address admin; // 3 full evm words
-  bool paused;
+  address admin; // 2 full evm words
+  uint32 executeGas;
+  uint32 maxValidBlocknumber;
+  address target;
+  bool paused; // 24 bits to 3 full evm words
 }
 
 interface KeeperRegistryBaseInterface {
