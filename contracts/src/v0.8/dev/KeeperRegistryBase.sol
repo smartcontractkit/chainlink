@@ -5,12 +5,12 @@ import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPr
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../ConfirmedOwner.sol";
 import "./ExecutionPrevention.sol";
+import "./interfaces/UpkeepTranscoderInterfaceDev.sol";
+import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import "../interfaces/UpkeepTranscoderInterface.sol";
 import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
@@ -28,7 +28,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint64 internal constant UINT64_MAX = 2**64 - 1;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V2;
+  UpkeepFormatDev internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormatDev.V2;
 
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";

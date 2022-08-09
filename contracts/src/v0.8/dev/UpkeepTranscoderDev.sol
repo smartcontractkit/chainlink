@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
+pragma solidity 0.8.6;
 
-pragma solidity ^0.8.0;
-
-import "../interfaces/UpkeepTranscoderInterface.sol";
+import "./interfaces/UpkeepTranscoderInterfaceDev.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
 /**
- * @notice Transcoder for converting upkeep data from one keeper
- * registry version to another
+ * @notice Transcoder for converting upkeep data from one keeper registry version to another
  */
-contract UpkeepTranscoderDev is UpkeepTranscoderInterface, TypeAndVersionInterface {
+contract UpkeepTranscoderDev is UpkeepTranscoderInterfaceDev, TypeAndVersionInterface {
   error InvalidTranscoding();
 
   /**
@@ -31,8 +29,8 @@ contract UpkeepTranscoderDev is UpkeepTranscoderInterface, TypeAndVersionInterfa
    * and migration paths are added
    */
   function transcodeUpkeeps(
-    UpkeepFormat fromVersion,
-    UpkeepFormat toVersion,
+    UpkeepFormatDev fromVersion,
+    UpkeepFormatDev toVersion,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
     if (fromVersion != toVersion) {
