@@ -3,7 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"math"
-	"math/big"
 	"net"
 	"strings"
 	"testing"
@@ -328,8 +327,8 @@ func TestConfig_Marshal(t *testing.T) {
 		GasTipCapBufferPercent:       ptr[uint32](43),
 		BaseFeeBufferPercent:         ptr[uint32](89),
 		MaximumGracePeriod:           ptr[int64](31),
-		RegistryCheckGasOverhead:     utils.NewBigI(90),
-		RegistryPerformGasOverhead:   utils.NewBig(new(big.Int).SetUint64(math.MaxUint64)),
+		RegistryCheckGasOverhead:     ptr[uint32](90),
+		RegistryPerformGasOverhead:   ptr[uint32](math.MaxUint32),
 		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
 		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
 		TurnLookBack:                 ptr[int64](91),
@@ -677,8 +676,8 @@ GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaximumGracePeriod = 31
-RegistryCheckGasOverhead = '90'
-RegistryPerformGasOverhead = '18446744073709551615'
+RegistryCheckGasOverhead = 90
+RegistryPerformGasOverhead = 4294967295
 RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91

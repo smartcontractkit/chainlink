@@ -243,8 +243,8 @@ type Keeper struct {
 	GasTipCapBufferPercent       *uint32
 	BaseFeeBufferPercent         *uint32
 	MaximumGracePeriod           *int64
-	RegistryCheckGasOverhead     *utils.Big
-	RegistryPerformGasOverhead   *utils.Big
+	RegistryCheckGasOverhead     *uint32
+	RegistryPerformGasOverhead   *uint32
 	RegistrySyncInterval         *models.Duration
 	RegistrySyncUpkeepQueueSize  *uint32
 	TurnLookBack                 *int64

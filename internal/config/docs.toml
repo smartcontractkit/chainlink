@@ -387,10 +387,10 @@ BaseFeeBufferPercent = 20 # Default
 MaximumGracePeriod = 100 # Default
 # **ADVANCED**
 # RegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
-RegistryCheckGasOverhead = '200000' # Default
+RegistryCheckGasOverhead = 200_000 # Default
 # **ADVANCED**
 # RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
-RegistryPerformGasOverhead = '150000' # Default
+RegistryPerformGasOverhead = 150_000 # Default
 # **ADVANCED**
 # RegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
 RegistrySyncInterval = '30m' # Default

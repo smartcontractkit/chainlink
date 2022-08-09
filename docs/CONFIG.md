@@ -999,8 +999,8 @@ GasPriceBufferPercent = 20 # Default
 GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaximumGracePeriod = 100 # Default
-RegistryCheckGasOverhead = '200000' # Default
-RegistryPerformGasOverhead = '150000' # Default
+RegistryCheckGasOverhead = 200_000 # Default
+RegistryPerformGasOverhead = 150_000 # Default
 RegistrySyncInterval = '30m' # Default
 RegistrySyncUpkeepQueueSize = 10 # Default
 TurnLookBack = 1000 # Default
@@ -1044,14 +1044,14 @@ MaximumGracePeriod is the maximum number of blocks that a keeper will wait after
 ### RegistryCheckGasOverhead<a id='Keeper-RegistryCheckGasOverhead'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-RegistryCheckGasOverhead = '200000' # Default
+RegistryCheckGasOverhead = 200_000 # Default
 ```
 RegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
 
 ### RegistryPerformGasOverhead<a id='Keeper-RegistryPerformGasOverhead'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-RegistryPerformGasOverhead = '150000' # Default
+RegistryPerformGasOverhead = 150_000 # Default
 ```
 RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
 

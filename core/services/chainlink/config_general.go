@@ -324,12 +324,12 @@ func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
 	return *g.c.Keeper.MaximumGracePeriod
 }
 
-func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint64 {
-	return g.c.Keeper.RegistryCheckGasOverhead.ToInt().Uint64()
+func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
+	return *g.c.Keeper.RegistryCheckGasOverhead
 }
 
-func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint64 {
-	return g.c.Keeper.RegistryPerformGasOverhead.ToInt().Uint64()
+func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
+	return *g.c.Keeper.RegistryPerformGasOverhead
 }
 
 func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {

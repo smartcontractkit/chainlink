@@ -45,9 +45,9 @@ func (g *generalConfig) GlobalEvmGasBumpThreshold() (uint64, bool)    { panic("u
 func (g *generalConfig) GlobalEvmGasBumpTxDepth() (uint16, bool)      { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool)        { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool)  { panic("unimplemented") }
-func (g *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool)     { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool)     { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) { panic("unimplemented") }
-func (g *generalConfig) GlobalEvmGasLimitTransfer() (uint64, bool)    { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitTransfer() (uint32, bool)    { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool)   { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool)  { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool)  { panic("unimplemented") }
@@ -97,8 +97,8 @@ func (g *generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) 
 	panic("unimplemented")
 }
 
-func (g *generalConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool)    { panic("unimplemented") }
-func (g *generalConfig) GlobalEvmGasLimitDRJobType() (uint64, bool)     { panic("unimplemented") }
-func (g *generalConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool)    { panic("unimplemented") }
-func (g *generalConfig) GlobalEvmGasLimitFMJobType() (uint64, bool)     { panic("unimplemented") }
-func (g *generalConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitOCRJobType() (uint32, bool)    { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitDRJobType() (uint32, bool)     { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitVRFJobType() (uint32, bool)    { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitFMJobType() (uint32, bool)     { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitKeeperJobType() (uint32, bool) { panic("unimplemented") }
