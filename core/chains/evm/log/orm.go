@@ -28,13 +28,13 @@ type ORM interface {
 	// FindBroadcasts returns broadcasts for a range of block numbers, both consumed and unconsumed.
 	FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
 	// CreateBroadcast inserts an unconsumed log broadcast for jobID.
-	CreateBroadcast(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) error
+	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error
 	// WasBroadcastConsumed returns true if jobID consumed the log broadcast.
-	WasBroadcastConsumed(blockHash common.Hash, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error)
+	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error)
 	// MarkBroadcastConsumed marks the log broadcast as consumed by jobID.
-	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) error
+	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error
 	// MarkBroadcastsConsumed marks the log broadcasts as consumed by jobID.
-	MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, txIndexes []uint, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error
+	MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error
 	// MarkBroadcastsUnconsumed marks all log broadcasts from all jobs on or after fromBlock as
 	// unconsumed.
 	MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error
@@ -60,18 +60,16 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, evmChainID big.In
 	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
 }
 
-func (o *orm) WasBroadcastConsumed(blockHash common.Hash, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {
+func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {
 	query := `
 		SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1
-		AND (tx_index = -1 OR tx_index = $2)
-		AND log_index = $3
-		AND job_id = $4
-		AND evm_chain_id = $5
+		AND log_index = $2
+		AND job_id = $3
+		AND evm_chain_id = $4
     `
 	args := []interface{}{
 		blockHash,
-		txIndex,
 		logIndex,
 		jobID,
 		o.evmChainID,
@@ -87,7 +85,7 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, txIndex uint, logIndex
 func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error) {
 	var broadcasts []LogBroadcast
 	query := `
-		SELECT block_hash, consumed, tx_index, log_index, job_id FROM log_broadcasts
+		SELECT block_hash, consumed, log_index, job_id FROM log_broadcasts
 		WHERE block_number >= $1
 		AND block_number <= $2
 		AND evm_chain_id = $3
@@ -99,55 +97,53 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 	return broadcasts, err
 }
 
-func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
+func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
-        INSERT INTO log_broadcasts (block_hash, block_number, tx_index, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), false, $6)
-    `, blockHash, blockNumber, txIndex, logIndex, jobID, o.evmChainID)
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
+    `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	return errors.Wrap(err, "failed to create log broadcast")
 }
 
-func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
+func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
-        INSERT INTO log_broadcasts (block_hash, block_number, tx_index, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), true, $6)
-		ON CONFLICT (job_id, block_hash, tx_index, log_index, evm_chain_id) DO UPDATE
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), true, $5)
+		ON CONFLICT (job_id, block_hash, log_index, evm_chain_id) DO UPDATE
 		SET consumed = true, updated_at = NOW()
-    `, blockHash, blockNumber, txIndex, logIndex, jobID, o.evmChainID)
+    `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	return errors.Wrap(err, "failed to mark log broadcast as consumed")
 }
 
 // MarkBroadcastsConsumed marks many broadcasts as consumed.
 // The lengths of all the provided slices must be equal, otherwise an error is returned.
-func (o *orm) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, txIndexes []uint, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error {
-	if !utils.AllEqual(len(blockHashes), len(blockNumbers), len(txIndexes), len(logIndexes), len(jobIDs)) {
-		return fmt.Errorf("all arg slice lengths must be equal, got: %d %d %d %d %d",
-			len(blockHashes), len(blockNumbers), len(txIndexes), len(logIndexes), len(jobIDs),
+func (o *orm) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error {
+	if !utils.AllEqual(len(blockHashes), len(blockNumbers), len(logIndexes), len(jobIDs)) {
+		return fmt.Errorf("all arg slice lengths must be equal, got: %d %d %d %d",
+			len(blockHashes), len(blockNumbers), len(logIndexes), len(jobIDs),
 		)
 	}
 
 	type input struct {
 		BlockHash   common.Hash `db:"blockHash"`
 		BlockNumber uint64      `db:"blockNumber"`
-		TxIndex     uint        `db:"txIndex"`
 		LogIndex    uint        `db:"logIndex"`
 		JobID       int32       `db:"jobID"`
 		ChainID     utils.Big   `db:"chainID"`
 	}
 	inputs := make([]input, len(blockHashes))
 	query := `
-INSERT INTO log_broadcasts (block_hash, block_number, tx_index, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
-VALUES (:blockHash, :blockNumber, :txIndex, :logIndex, :jobID, NOW(), NOW(), true, :chainID)
-ON CONFLICT (job_id, block_hash, tx_index, log_index, evm_chain_id) DO UPDATE
+INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
+VALUES (:blockHash, :blockNumber, :logIndex, :jobID, NOW(), NOW(), true, :chainID)
+ON CONFLICT (job_id, block_hash, log_index, evm_chain_id) DO UPDATE
 SET consumed = true, updated_at = NOW();
 	`
 	for i := range blockHashes {
 		inputs[i] = input{
 			BlockHash:   blockHashes[i],
 			BlockNumber: blockNumbers[i],
-			TxIndex:     txIndexes[i],
 			LogIndex:    logIndexes[i],
 			JobID:       jobIDs[i],
 			ChainID:     o.evmChainID,
@@ -255,7 +251,6 @@ func (o *orm) removeUnconsumed(qopts ...pg.QOpt) error {
 type LogBroadcast struct {
 	BlockHash common.Hash
 	Consumed  bool
-	TxIndex   uint
 	LogIndex  uint
 	JobID     int32
 }
@@ -263,7 +258,6 @@ type LogBroadcast struct {
 func (b LogBroadcast) AsKey() LogBroadcastAsKey {
 	return LogBroadcastAsKey{
 		b.BlockHash,
-		b.TxIndex,
 		b.LogIndex,
 		b.JobID,
 	}
@@ -272,7 +266,6 @@ func (b LogBroadcast) AsKey() LogBroadcastAsKey {
 // LogBroadcastAsKey - used as key in a map to filter out already consumed logs
 type LogBroadcastAsKey struct {
 	BlockHash common.Hash
-	TxIndex   uint // Needed for uniqueness with besu client
 	LogIndex  uint
 	JobId     int32
 }
@@ -280,7 +273,6 @@ type LogBroadcastAsKey struct {
 func NewLogBroadcastAsKey(log types.Log, listener Listener) LogBroadcastAsKey {
 	return LogBroadcastAsKey{
 		log.BlockHash,
-		log.TxIndex,
 		log.Index,
 		listener.JobID(),
 	}
