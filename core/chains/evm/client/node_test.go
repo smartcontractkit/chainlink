@@ -10,6 +10,8 @@ import (
 )
 
 func Test_NodeWrapError(t *testing.T) {
+	t.Parallel()
+
 	t.Run("handles nil errors", func(t *testing.T) {
 		err := evmclient.Wrap(nil, "foo")
 		assert.NoError(t, err)

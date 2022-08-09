@@ -16,8 +16,8 @@ import (
 type (
 	keyring interface {
 		ocrtypes.OnchainKeyring
-		marshal() ([]byte, error)
-		unmarshal(in []byte) error
+		Marshal() ([]byte, error)
+		Unmarshal(in []byte) error
 	}
 
 	keyBundle[K keyring] struct {
@@ -103,7 +103,7 @@ func (kb *keyBundle[K]) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	keyringBytes, err := kb.keyring.marshal()
+	keyringBytes, err := kb.keyring.Marshal()
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 		return err
 	}
 
-	err = kb.keyring.unmarshal(rawKeyData.Keyring)
+	err = kb.keyring.Unmarshal(rawKeyData.Keyring)
 	if err != nil {
 		return err
 	}

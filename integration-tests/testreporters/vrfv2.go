@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 )
 

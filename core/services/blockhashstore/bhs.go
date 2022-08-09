@@ -19,7 +19,7 @@ import (
 var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
-	EvmGasLimitDefault() uint64
+	EvmGasLimitDefault() uint32
 }
 
 // BulletproofBHS is an implementation of BHS that writes "store" transactions to a bulletproof

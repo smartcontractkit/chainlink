@@ -4,6 +4,12 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/avast/retry-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/ginkgo/v2"
@@ -11,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -18,11 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"golang.org/x/sync/errgroup"
-	"math/big"
-	"os"
-	"strings"
-	"time"
 )
 
 // GinkgoSuite provides the default setup for running a Ginkgo test suite
@@ -271,6 +274,7 @@ func returnFunds(chainlinkNodes []*client.Chainlink, client blockchain.EVMClient
 // This is surprisingly tricky, and fairly annoying due to Go's lack of syntactic sugar and how chainlink nodes handle txs
 func sendFunds(chainlinkNodes []*client.Chainlink, network blockchain.EVMClient) (map[int]string, error) {
 	chainlinkTransactionAddresses := make(map[int]string)
+	var addressesMutex sync.Mutex
 	sendFundsErrGroup := new(errgroup.Group)
 	for ni, n := range chainlinkNodes {
 		nodeIndex := ni // https://golang.org/doc/faq#closures_and_goroutines
@@ -305,7 +309,9 @@ func sendFunds(chainlinkNodes []*client.Chainlink, network blockchain.EVMClient)
 						return err
 					}
 					// Add the address to our map to check for later (hashes aren't returned, sadly)
+					addressesMutex.Lock()
 					chainlinkTransactionAddresses[nodeIndex] = strings.ToLower(primaryEthKeyData.Attributes.Address)
+					addressesMutex.Unlock()
 				}
 				return nil
 			},
