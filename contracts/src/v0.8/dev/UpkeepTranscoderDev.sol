@@ -14,6 +14,7 @@ contract UpkeepTranscoderDev is UpkeepTranscoderInterface, TypeAndVersionInterfa
 
   /**
    * @notice versions:
+   * - UpkeepTranscoder 1.3.0: placeholder to be replaced with logic to convert Upkeep V1 to V2
    * - UpkeepTranscoder 1.0.0: placeholder to allow new formats in the future
    */
   string public constant override typeAndVersion = "UpkeepTranscoder 1.3.0";
