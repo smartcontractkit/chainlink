@@ -2472,13 +2472,13 @@ TransactionPercentile = 60
 
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
 
