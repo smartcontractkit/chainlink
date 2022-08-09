@@ -101,22 +101,22 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		var keeperIndex uint64
 
 		if isVersion12 {
-			state, err := keeperRegistry12.GetState(callOpts)
-			if err != nil {
-				log.Fatal("failed to fetch registry state: ", err)
+			state, err2 := keeperRegistry12.GetState(callOpts)
+			if err2 != nil {
+				log.Fatal("failed to fetch registry state: ", err2)
 			}
 			bcpt = state.Config.BlockCountPerTurn.Uint64()
 			keepers = state.Keepers
 			keepersCnt := uint64(len(state.Keepers))
 
-			upkeep, err := keeperRegistry12.GetUpkeep(callOpts, upkeepId)
-			if err != nil {
-				log.Fatal("failed to fetch the upkeep: ", err)
+			upkeep, err2 := keeperRegistry12.GetUpkeep(callOpts, upkeepId)
+			if err2 != nil {
+				log.Fatal("failed to fetch the upkeep: ", err2)
 			}
 
-			turnBinary, err := turnBlockHashBinary(block, bcpt, defaultLookBackRange, k.client)
-			if err != nil {
-				log.Fatal("failed to calculate turn block hash: ", err)
+			turnBinary, err2 := turnBlockHashBinary(block, bcpt, defaultLookBackRange, k.client)
+			if err2 != nil {
+				log.Fatal("failed to calculate turn block hash: ", err2)
 			}
 
 			// least significant 32 bits of upkeep id
@@ -136,24 +136,27 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 			if keepers[keeperIndex] == upkeep.LastKeeper {
 				keeperIndex = (keeperIndex + keepersCnt - 1) % keepersCnt
 			}
-			payload, err = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
+			payload, err2 = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
+			if err2 != nil {
+				log.Fatal("failed to pack checkUpkeep: ", err2)
+			}
 		} else {
-			config, err := keeperRegistry11.GetConfig(callOpts)
-			if err != nil {
-				log.Fatal("failed to fetch registry config: ", err)
+			config, err2 := keeperRegistry11.GetConfig(callOpts)
+			if err2 != nil {
+				log.Fatal("failed to fetch registry config: ", err2)
 			}
 
 			bcpt = config.BlockCountPerTurn.Uint64()
-			keepers, err = keeperRegistry11.GetKeeperList(callOpts)
-			if err != nil {
-				log.Fatal("failed to fetch keepers list: ", err)
+			keepers, err2 = keeperRegistry11.GetKeeperList(callOpts)
+			if err2 != nil {
+				log.Fatal("failed to fetch keepers list: ", err2)
 			}
 
 			keeperIndex = (uint64(positioningConstant) + ((block - (block % bcpt)) / bcpt)) % uint64(len(keepers))
-			payload, err = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
-		}
-		if err != nil {
-			log.Fatal("failed to pack checkUpkeep: ", err)
+			payload, err2 = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
+			if err2 != nil {
+				log.Fatal("failed to pack checkUpkeep: ", err2)
+			}
 		}
 
 		args := map[string]interface{}{

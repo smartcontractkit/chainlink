@@ -36,15 +36,15 @@ func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int)
 	paginatedResponse(c, "forwarder", size, page, resources, count, err)
 }
 
-// CreateEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
-type CreateEVMForwarderRequest struct {
+// TrackEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
+type TrackEVMForwarderRequest struct {
 	EVMChainID *utils.Big     `json:"chainID"`
 	Address    common.Address `json:"address"`
 }
 
-// Create adds a new EVM forwarder.
-func (cc *EVMForwardersController) Create(c *gin.Context) {
-	request := &CreateEVMForwarderRequest{}
+// Track adds a new EVM forwarder.
+func (cc *EVMForwardersController) Track(c *gin.Context) {
+	request := &TrackEVMForwarderRequest{}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

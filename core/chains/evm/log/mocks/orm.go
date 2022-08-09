@@ -15,20 +15,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateBroadcast provides a mock function with given fields: blockHash, blockNumber, logIndex, jobID, qopts
-func (_m *ORM) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
+// CreateBroadcast provides a mock function with given fields: blockHash, blockNumber, txIndex, logIndex, jobID, qopts
+func (_m *ORM) CreateBroadcast(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, blockHash, blockNumber, logIndex, jobID)
+	_ca = append(_ca, blockHash, blockNumber, txIndex, logIndex, jobID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Hash, uint64, uint, int32, ...pg.QOpt) error); ok {
-		r0 = rf(blockHash, blockNumber, logIndex, jobID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Hash, uint64, uint, uint, int32, ...pg.QOpt) error); ok {
+		r0 = rf(blockHash, blockNumber, txIndex, logIndex, jobID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -88,20 +88,20 @@ func (_m *ORM) GetPendingMinBlock(qopts ...pg.QOpt) (*int64, error) {
 	return r0, r1
 }
 
-// MarkBroadcastConsumed provides a mock function with given fields: blockHash, blockNumber, logIndex, jobID, qopts
-func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
+// MarkBroadcastConsumed provides a mock function with given fields: blockHash, blockNumber, txIndex, logIndex, jobID, qopts
+func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, blockHash, blockNumber, logIndex, jobID)
+	_ca = append(_ca, blockHash, blockNumber, txIndex, logIndex, jobID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Hash, uint64, uint, int32, ...pg.QOpt) error); ok {
-		r0 = rf(blockHash, blockNumber, logIndex, jobID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Hash, uint64, uint, uint, int32, ...pg.QOpt) error); ok {
+		r0 = rf(blockHash, blockNumber, txIndex, logIndex, jobID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -109,20 +109,20 @@ func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, 
 	return r0
 }
 
-// MarkBroadcastsConsumed provides a mock function with given fields: blockHashes, blockNumbers, logIndexes, jobIDs, qopts
-func (_m *ORM) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error {
+// MarkBroadcastsConsumed provides a mock function with given fields: blockHashes, blockNumbers, txIndexes, logIndexes, jobIDs, qopts
+func (_m *ORM) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, txIndexes []uint, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, blockHashes, blockNumbers, logIndexes, jobIDs)
+	_ca = append(_ca, blockHashes, blockNumbers, txIndexes, logIndexes, jobIDs)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]common.Hash, []uint64, []uint, []int32, ...pg.QOpt) error); ok {
-		r0 = rf(blockHashes, blockNumbers, logIndexes, jobIDs, qopts...)
+	if rf, ok := ret.Get(0).(func([]common.Hash, []uint64, []uint, []uint, []int32, ...pg.QOpt) error); ok {
+		r0 = rf(blockHashes, blockNumbers, txIndexes, logIndexes, jobIDs, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -201,27 +201,27 @@ func (_m *ORM) SetPendingMinBlock(blockNum *int64, qopts ...pg.QOpt) error {
 	return r0
 }
 
-// WasBroadcastConsumed provides a mock function with given fields: blockHash, logIndex, jobID, qopts
-func (_m *ORM) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error) {
+// WasBroadcastConsumed provides a mock function with given fields: blockHash, txIndex, logIndex, jobID, qopts
+func (_m *ORM) WasBroadcastConsumed(blockHash common.Hash, txIndex uint, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, blockHash, logIndex, jobID)
+	_ca = append(_ca, blockHash, txIndex, logIndex, jobID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(common.Hash, uint, int32, ...pg.QOpt) bool); ok {
-		r0 = rf(blockHash, logIndex, jobID, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Hash, uint, uint, int32, ...pg.QOpt) bool); ok {
+		r0 = rf(blockHash, txIndex, logIndex, jobID, qopts...)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Hash, uint, int32, ...pg.QOpt) error); ok {
-		r1 = rf(blockHash, logIndex, jobID, qopts...)
+	if rf, ok := ret.Get(1).(func(common.Hash, uint, uint, int32, ...pg.QOpt) error); ok {
+		r1 = rf(blockHash, txIndex, logIndex, jobID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

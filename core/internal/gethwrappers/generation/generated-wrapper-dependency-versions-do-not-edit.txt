@@ -42,5 +42,5 @@ vrf_ownerless_consumer_example: ../../../contracts/solc/v0.8.6/VRFOwnerlessConsu
 vrf_single_consumer_example: ../../../contracts/solc/v0.8.6/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8.6/VRFSingleConsumerExample.bin 892a5ed35da2e933f7fd7835cd6f7f70ef3aa63a9c03a22c5b1fd026711b0ece
 vrfv2_reverting_example: ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8.6/VRFV2RevertingExample.bin 0e4eb8e0f92fab1f74a6bef7951b511e2c2f7b7134ca1dc65928234ec73dca9a
 vrfv2_wrapper: ../../../contracts/solc/v0.8.15/VRFV2Wrapper.abi ../../../contracts/solc/v0.8.15/VRFV2Wrapper.bin e18f09518df46c9fd67cbbfff1482d1a9addcfa1055158ee8d231d2d379dc11d
-vrfv2_wrapper_consumer_example: ../../../contracts/solc/v0.8.15/VRFV2WrapperConsumerExample.abi ../../../contracts/solc/v0.8.15/VRFV2WrapperConsumerExample.bin 7d6969b399d7388d0a9a8782753976d6f474f50cc2393e80ef2a07c2f342353a
+vrfv2_wrapper_consumer_example: ../../../contracts/solc/v0.8.15/VRFV2WrapperConsumerExample.abi ../../../contracts/solc/v0.8.15/VRFV2WrapperConsumerExample.bin ae6be802336ceace603946477c2548b5adbaed1c3c3ca3b4a718ff73856d0ab3
 vrfv2_wrapper_interface: ../../../contracts/solc/v0.8.15/VRFV2WrapperInterface.abi ../../../contracts/solc/v0.8.15/VRFV2WrapperInterface.bin ff8560169de171a68b360b7438d13863682d07040d984fd0fb096b2379421003

@@ -240,7 +240,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
 	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
-		return cli.errorOut(errors.New("profile duration should be less than server write timeout."))
+		return cli.errorOut(errors.New("profile duration should be less than server write timeout"))
 	}
 
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))

@@ -12,17 +12,19 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	keyMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 type soltxmProm struct {
@@ -62,21 +64,26 @@ func getTx(t *testing.T, pubkey solana.PublicKey) *solana.Transaction {
 	return tx
 }
 
+func newReaderWriterMock(t *testing.T) *mocks.ReaderWriter {
+	m := new(mocks.ReaderWriter)
+	m.Test(t)
+	t.Cleanup(func() { m.AssertExpectations(t) })
+	return m
+}
+
 func TestTxm(t *testing.T) {
 	// set up configs needed in txm
 	id := "mocknet"
 	lggr := logger.TestLogger(t)
 	cfg := config.NewConfig(db.ChainCfg{}, lggr)
-	mc := new(mocks.ReaderWriter)
-	defer mc.AssertExpectations(t)
+	mc := newReaderWriterMock(t)
 
 	// mock solana keystore
 	key, err := solkey.New()
 	pubkey := key.PublicKey()
 
 	require.NoError(t, err)
-	mkey := new(keyMocks.Solana)
-	defer mkey.AssertExpectations(t)
+	mkey := keyMocks.NewSolana(t)
 	mkey.On("Get", key.ID()).Return(key, nil)
 
 	txm := NewTxm(id, func() (client.ReaderWriter, error) {
@@ -435,16 +442,14 @@ func TestTxm_Enqueue(t *testing.T) {
 	// set up configs needed in txm
 	lggr := logger.TestLogger(t)
 	cfg := config.NewConfig(db.ChainCfg{}, lggr)
-	mc := new(mocks.ReaderWriter)
-	defer mc.AssertExpectations(t)
+	mc := newReaderWriterMock(t)
 
 	// mock solana keystore
 	key, err := solkey.New()
 	pubkey := key.PublicKey()
 
 	require.NoError(t, err)
-	mkey := new(keyMocks.Solana)
-	defer mkey.AssertExpectations(t)
+	mkey := keyMocks.NewSolana(t)
 	mkey.On("Get", key.ID()).Return(key, nil)
 	zerokey := solana.PublicKey{}
 	mkey.On("Get", zerokey.String()).Return(solkey.Key{}, keystore.KeyNotFoundError{ID: zerokey.String(), KeyType: "Solana"})

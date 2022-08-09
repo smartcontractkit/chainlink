@@ -90,9 +90,9 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	var selectedGas uint64
+	var selectedGas uint32
 	if gas > 0 {
-		selectedGas = uint64(gas)
+		selectedGas = uint32(gas)
 	} else {
 		selectedGas = SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	}
@@ -101,7 +101,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		To:        (*common.Address)(&contractAddr),
 		From:      (common.Address)(from),
 		Data:      []byte(data),
-		Gas:       selectedGas,
+		Gas:       uint64(selectedGas),
 		GasPrice:  gasPrice.BigInt(),
 		GasTipCap: gasTipCap.BigInt(),
 		GasFeeCap: gasFeeCap.BigInt(),

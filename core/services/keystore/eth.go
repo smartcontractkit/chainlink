@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -395,8 +396,7 @@ If you are running Chainlink with EVM_ENABLED=false and don't care about EVM key
 
 pqsl> TRUNCATE keys;
 
-WARNING: This will PERMANENTLY AND IRRECOVERABLY delete any legacy eth keys, so please be absolutely sure this is what you want before you run this. Consider taking a database backup first.
-`, len(v1Keys))
+WARNING: This will PERMANENTLY AND IRRECOVERABLY delete any legacy eth keys, so please be absolutely sure this is what you want before you run this. Consider taking a database backup first`, len(v1Keys))
 	}
 	for _, keyV1 := range v1Keys {
 		dKey, err := keystore.DecryptKey(keyV1.JSON, ks.password)
