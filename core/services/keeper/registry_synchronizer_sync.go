@@ -34,7 +34,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
 	}
 
-	if err := rs.orm.UpsertRegistry(&registry); err != nil {
+	if err = rs.orm.UpsertRegistry(&registry); err != nil {
 		return Registry{}, errors.Wrap(err, "failed to upsert registry")
 	}
 

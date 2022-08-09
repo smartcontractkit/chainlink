@@ -5,6 +5,9 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
@@ -162,7 +165,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
+				ContractID:    spec.ContractID.String(),
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -188,7 +191,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
+				ContractID:    spec.ContractID.String(),
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -237,7 +240,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
+				ContractID:    spec.ContractID.String(),
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -283,7 +286,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 
 		coordinator, err2 := ocr2coordinator.New(
 			lggr.Named("OCR2VRFCoordinator"),
-			common.HexToAddress(spec.ContractID),
+			common.HexToAddress(spec.ContractID.String()),
 			common.HexToAddress(cfg.DKGContractAddress),
 			chain.Client(),
 			cfg.LookbackBlocks,
@@ -318,7 +321,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			VRFContractTransmitter:    vrfProvider.ContractTransmitter(),
 			VRFDatabase:               ocrDB,
 			VRFLocalConfig:            lc,
-			VRFMonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			VRFMonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID.String()),
 			// DKG-specific configs
 			DKGContractConfigTracker:  dkgProvider.ContractConfigTracker(),
 			DKGOffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
@@ -381,7 +384,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
 				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
+				ContractID:    spec.ContractID.String(),
 				RelayConfig:   spec.RelayConfig.Bytes(),
 			}, types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
@@ -401,6 +404,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			lggr,
 		)
 
+		// Create ORM layer
+		strategy := txmgr.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+		orm := keeper.NewORM(d.db, lggr, chain.Config(), strategy)
+
 		services := []job.ServiceCtx{runResultSaver, keeperProvider}
 
 		for i := int64(0); i < cfg.OCRInstances; i++ {
@@ -413,13 +420,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				Database:                     ocrDB,
 				LocalConfig:                  lc,
 				Logger:                       ocrLogger,
-				MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+				MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID.String()),
 				OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 				OffchainKeyring:              kb,
 				OnchainKeyring:               kb,
 				ReportingPluginFactory: keeperreportingplugin.NewFactory(
 					lggr.Named("OCR2Keeper").With("instance", i),
+					chain.Config(),
+					orm,
+					chain.Client(),
 					chain.HeadBroadcaster(),
+					spec.ContractID,
 				),
 			}); err != nil {
 				return nil, errors.Wrap(err, "error calling NewOracle")
@@ -454,7 +465,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID.String()),
 		OffchainConfigDigester:       ocr2Provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
