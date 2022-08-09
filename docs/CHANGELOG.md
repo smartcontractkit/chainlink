@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `hexencode` and `base64encode` tasks (pipeline).
+- `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
+
+### Changed
+
+- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby` configuration for Nitro
+
+## 1.7.0 - 2022-08-08
+
+### Added
 
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
