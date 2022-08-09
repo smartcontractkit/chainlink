@@ -93,11 +93,11 @@ func New(
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
 	err = logPoller.MergeFilter([]logpoller.EventID{
-		{t.randomnessRequestedTopic, coordinatorAddress},
-		{t.randomnessFulfillmentRequestedTopic, coordinatorAddress},
-		{t.randomWordsFulfilledTopic, coordinatorAddress},
-		{t.configSetTopic, dkgAddress},
-		{t.newTransmissionTopic, dkgAddress},
+		{EventSig: t.randomnessRequestedTopic, Address: coordinatorAddress},
+		{EventSig: t.randomnessFulfillmentRequestedTopic, Address: coordinatorAddress},
+		{EventSig: t.randomWordsFulfilledTopic, Address: coordinatorAddress},
+		{EventSig: t.configSetTopic, Address: dkgAddress},
+		{EventSig: t.newTransmissionTopic, Address: dkgAddress},
 	})
 	if err != nil {
 		return nil, err
