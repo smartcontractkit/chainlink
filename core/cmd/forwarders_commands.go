@@ -84,7 +84,7 @@ func (cli *Client) DeleteForwarder(c *cli.Context) (err error) {
 	return nil
 }
 
-// AddForwarder adds forwarder address to node db.
+// TrackForwarder tracks forwarder address in db.
 func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 	addressHex := c.String("address")
 	chainIDStr := c.String("evmChainID")
