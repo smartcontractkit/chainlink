@@ -86,6 +86,14 @@ func (r *JobResolver) GasLimit() *int32 {
 	return &v
 }
 
+// ForwardingAllowed sets whether txs submitted by this job should be forwarded when possible.
+func (r *JobResolver) ForwardingAllowed() *bool {
+	if r.j.ForwardingAllowed.Valid {
+		return r.j.ForwardingAllowed.Ptr()
+	}
+	return nil
+}
+
 // Type resolves the job's type.
 func (r *JobResolver) Type() string {
 	return string(r.j.Type)

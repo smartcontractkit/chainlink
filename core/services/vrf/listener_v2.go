@@ -46,7 +46,7 @@ var (
 )
 
 const (
-	// Gas used after computing the payment
+	// GasAfterPaymentCalculation is the gas used after computing the payment
 	GasAfterPaymentCalculation = 21000 + // base cost of the transaction
 		100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
 		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
@@ -143,7 +143,7 @@ type vrfPipelineResult struct {
 	juelsNeeded   *big.Int
 	run           pipeline.Run
 	payload       string
-	gasLimit      uint64
+	gasLimit      uint32
 	req           pendingRequest
 	proof         vrf_coordinator_v2.VRFProof
 	reqCommitment vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
@@ -523,7 +523,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}
 
 	// Add very conservative upper bound estimate on verification costs.
-	batchMaxGas := uint64(config.MaxGasLimit + 400_000)
+	batchMaxGas := uint32(config.MaxGasLimit + 400_000)
 
 	l := lsn.l.With(
 		"subID", reqs[0].req.SubId,
@@ -588,6 +588,14 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			continue
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+		// Cases:
+		// 1. Never simulated: in this case, we want to observe the time until simulated
+		// on the utcTimestamp field of the pending request.
+		// 2. Simulated before: in this case, lastTry will be set to a non-zero time value,
+		// in which case we'd want to use that as a relative point from when we last tried
+		// the request.
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		batches := newBatchFulfillments(batchMaxGas)
@@ -738,6 +746,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			continue
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
@@ -1031,7 +1041,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeEstimateGasLimit {
-			res.gasLimit = trr.Result.Value.(uint64)
+			res.gasLimit = trr.Result.Value.(uint32)
 		}
 	}
 	return res

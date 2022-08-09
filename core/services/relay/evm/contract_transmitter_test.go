@@ -20,9 +20,11 @@ import (
 )
 
 func TestContractTransmitter(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.TestLogger(t)
-	c := new(evmmocks.Client)
-	lp := new(lpmocks.LogPoller)
+	c := evmmocks.NewClient(t)
+	lp := lpmocks.NewLogPoller(t)
 	// scanLogs = false
 	digestAndEpochDontScanLogs, _ := hex.DecodeString(
 		"0000000000000000000000000000000000000000000000000000000000000000" + // false
@@ -54,5 +56,4 @@ func TestContractTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-	c.AssertExpectations(t)
 }

@@ -15,6 +15,7 @@ export function buildJob(
     externalJobID: '00000000-0000-0000-0000-0000000000001',
     maxTaskDuration: '10s',
     gasLimit: 1000,
+    forwardingAllowed: false,
     spec: {
       __typename: 'DirectRequestSpec',
       contractAddress: '0x0000000000000000000000000000000000000000',

@@ -64,6 +64,10 @@ type broadcasterHelperCfg struct {
 }
 
 func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
+	if c.db == nil {
+		// ensure we check before registering any mock Cleanup assertions
+		testutils.SkipShortDB(t)
+	}
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
@@ -363,8 +367,7 @@ type mockEthClientExpectedCalls struct {
 }
 
 func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtest.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtest.MockEth {
-	ethClient := new(evmmocks.Client)
-	ethClient.Test(t)
+	ethClient := evmmocks.NewClient(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	mockEth.EthClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).

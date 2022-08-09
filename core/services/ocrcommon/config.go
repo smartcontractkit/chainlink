@@ -14,7 +14,7 @@ import (
 
 type Config interface {
 	LogSQL() bool
-	EvmGasLimitDefault() uint64
+	EvmGasLimitDefault() uint32
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16

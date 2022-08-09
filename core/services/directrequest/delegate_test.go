@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,8 +32,8 @@ import (
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	runner := new(pipeline_mocks.Runner)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	runner := pipeline_mocks.NewRunner(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
@@ -68,10 +67,9 @@ type DirectRequestUniverse struct {
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGeneralConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	broadcaster := new(log_mocks.Broadcaster)
-	broadcaster.Test(t)
-	runner := new(pipeline_mocks.Runner)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	broadcaster := log_mocks.NewBroadcaster(t)
+	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
 
 	db := pgtest.NewSqlxDB(t)
@@ -123,12 +121,14 @@ func (uni *DirectRequestUniverse) Cleanup() {
 }
 
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
-		defer log.AssertExpectations(t)
+		log := log_mocks.NewBroadcast(t)
 		log.On("ReceiptsRoot").Return(common.Hash{})
 		log.On("TransactionsRoot").Return(common.Hash{})
 		log.On("StateRoot").Return(common.Hash{})
@@ -144,6 +144,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
+		log.On("String").Return("")
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
@@ -170,15 +171,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 
 	t.Run("Log is not consumed, as it's too young", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
+		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -192,12 +191,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			BlockNumber: 0,
 		}).Maybe()
 		log.On("DecodedLog").Return(&logOracleRequest).Maybe()
+		log.On("String").Return("")
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
-
-		log.AssertExpectations(t)
 
 		uni.listener.HandleLog(log)
 
@@ -217,35 +215,34 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		// but should after this one, as the head Number is larger
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
-		cltest.EventuallyExpectationsMet(t, log, 3*time.Second, 100*time.Millisecond)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 
 	t.Run("Log has wrong jobID", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
+		log := log_mocks.NewBroadcast(t)
+		lbAwaiter := cltest.NewAwaiter()
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) { lbAwaiter.ItHappened() }).Return(nil)
 
 		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
-		log.On("DecodedLog").Return(&logCancelOracleRequest)
+		logAwaiter := cltest.NewAwaiter()
+		log.On("DecodedLog").Run(func(args mock.Arguments) { logAwaiter.ItHappened() }).Return(&logCancelOracleRequest)
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{{}, {}},
 		})
+		log.On("String").Return("")
 
 		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
 
-		cltest.EventuallyExpectationsMet(t, uni.logBroadcaster, 3*time.Second, 100*time.Millisecond)
-		cltest.EventuallyExpectationsMet(t, uni.runner, 3*time.Second, 100*time.Millisecond)
-		cltest.EventuallyExpectationsMet(t, log, 3*time.Second, 100*time.Millisecond)
+		logAwaiter.AwaitOrFail(t)
+		lbAwaiter.AwaitOrFail(t)
 
 		uni.service.Close()
 	})
@@ -254,7 +251,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
+		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
@@ -264,17 +261,17 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 				uni.spec.ExternalIDEncodeStringToTopic(),
 			},
 		})
+		log.On("String").Return("")
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
-		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		lbAwaiter := cltest.NewAwaiter()
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) { lbAwaiter.ItHappened() }).Return(nil)
 
 		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
 
-		cltest.EventuallyExpectationsMet(t, uni.logBroadcaster, 3*time.Second, 100*time.Millisecond)
-		cltest.EventuallyExpectationsMet(t, uni.runner, 3*time.Second, 100*time.Millisecond)
-		cltest.EventuallyExpectationsMet(t, log, 3*time.Second, 100*time.Millisecond)
+		lbAwaiter.AwaitOrFail(t)
 
 		uni.service.Close()
 	})
@@ -283,7 +280,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
 		defer uni.Cleanup()
 
-		runLog := new(log_mocks.Broadcast)
+		runLog := log_mocks.NewBroadcast(t)
 		runLog.On("ReceiptsRoot").Return(common.Hash{})
 		runLog.On("TransactionsRoot").Return(common.Hash{})
 		runLog.On("StateRoot").Return(common.Hash{})
@@ -300,9 +297,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		runLog.On("DecodedLog").Return(&logOracleRequest)
+		runLog.On("String").Return("")
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		cancelLog := new(log_mocks.Broadcast)
+		cancelLog := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
@@ -313,6 +311,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
+		cancelLog.On("String").Return("")
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
 		err := uni.service.Start(testutils.Context(t))
@@ -334,16 +333,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.listener.HandleLog(runLog)
 
 		runBeganAwaiter.AwaitOrFail(t, timeout)
-		runLog.AssertExpectations(t)
 
 		uni.listener.HandleLog(cancelLog)
 
 		runCancelledAwaiter.AwaitOrFail(t, timeout)
-		cancelLog.AssertExpectations(t)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 
 	t.Run("Log has sufficient funds", func(t *testing.T) {
@@ -353,8 +348,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
-		defer log.AssertExpectations(t)
+		log := log_mocks.NewBroadcast(t)
 		log.On("ReceiptsRoot").Return(common.Hash{})
 		log.On("TransactionsRoot").Return(common.Hash{})
 		log.On("StateRoot").Return(common.Hash{})
@@ -371,6 +365,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
+		log.On("String").Return("")
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
@@ -394,8 +389,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 
 	t.Run("Log has insufficient funds", func(t *testing.T) {
@@ -405,8 +398,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
-		defer log.AssertExpectations(t)
+		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -420,6 +412,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
+		log.On("String").Return("")
 		markConsumedLogAwaiter := cltest.NewAwaiter()
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			markConsumedLogAwaiter.ItHappened()
@@ -433,8 +426,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 
 	t.Run("requesters is specified and log is requested by a whitelisted address", func(t *testing.T) {
@@ -447,8 +438,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		})
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
-		defer log.AssertExpectations(t)
+		log := log_mocks.NewBroadcast(t)
 		log.On("ReceiptsRoot").Return(common.Hash{})
 		log.On("TransactionsRoot").Return(common.Hash{})
 		log.On("StateRoot").Return(common.Hash{})
@@ -466,6 +456,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
+		log.On("String").Return("")
 		markConsumedLogAwaiter := cltest.NewAwaiter()
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			markConsumedLogAwaiter.ItHappened()
@@ -492,8 +483,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 
 	t.Run("requesters is specified and log is requested by a non-whitelisted address", func(t *testing.T) {
@@ -506,8 +495,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		})
 		defer uni.Cleanup()
 
-		log := new(log_mocks.Broadcast)
-		defer log.AssertExpectations(t)
+		log := log_mocks.NewBroadcast(t)
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -522,6 +510,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			},
 		})
 		log.On("DecodedLog").Return(&logOracleRequest)
+		log.On("String").Return("")
 		markConsumedLogAwaiter := cltest.NewAwaiter()
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			markConsumedLogAwaiter.ItHappened()
@@ -535,7 +524,5 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
-		uni.logBroadcaster.AssertExpectations(t)
-		uni.runner.AssertExpectations(t)
 	})
 }

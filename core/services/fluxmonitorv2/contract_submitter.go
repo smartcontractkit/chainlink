@@ -23,9 +23,10 @@ type ContractSubmitter interface {
 // FluxAggregatorContractSubmitter submits the polled answer in an eth tx.
 type FluxAggregatorContractSubmitter struct {
 	flux_aggregator_wrapper.FluxAggregatorInterface
-	orm      ORM
-	keyStore KeyStoreInterface
-	gasLimit uint64
+	orm               ORM
+	keyStore          KeyStoreInterface
+	gasLimit          uint32
+	forwardingAllowed bool
 }
 
 // NewFluxAggregatorContractSubmitter constructs a new NewFluxAggregatorContractSubmitter
@@ -33,13 +34,15 @@ func NewFluxAggregatorContractSubmitter(
 	contract flux_aggregator_wrapper.FluxAggregatorInterface,
 	orm ORM,
 	keyStore KeyStoreInterface,
-	gasLimit uint64,
+	gasLimit uint32,
+	forwardingAllowed bool,
 ) *FluxAggregatorContractSubmitter {
 	return &FluxAggregatorContractSubmitter{
 		FluxAggregatorInterface: contract,
 		orm:                     orm,
 		keyStore:                keyStore,
 		gasLimit:                gasLimit,
+		forwardingAllowed:       forwardingAllowed,
 	}
 }
 

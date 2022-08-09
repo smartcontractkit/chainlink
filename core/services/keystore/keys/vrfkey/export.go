@@ -4,9 +4,10 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 
-	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -18,7 +19,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
 	}
 
 	// NOTE: We do this shuffle to an anonymous struct
-	// solely to add a a throwaway UUID, so we can leverage
+	// solely to add a throwaway UUID, so we can leverage
 	// the keystore.DecryptKey from the geth which requires it
 	// as of 1.10.0.
 	keyJSON, err := json.Marshal(struct {

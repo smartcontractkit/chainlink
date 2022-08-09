@@ -1,21 +1,17 @@
 package cltest
 
 import (
-	"crypto/ecdsa"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint64) *backends.SimulatedBackend {
-	backend := backends.NewSimulatedBackend(alloc, gasLimit)
+func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
+	backend := backends.NewSimulatedBackend(alloc, uint64(gasLimit))
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
@@ -35,14 +31,6 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint64)
 }
 
 const SimulatedBackendEVMChainID int64 = 1337
-
-// newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with contract golang wrappers
-func NewSimulatedBackendIdentity(t *testing.T) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	return MustNewSimulatedBackendKeyedTransactor(t, key)
-}
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
@@ -58,7 +46,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 		cfg.Overrides.P2PEnabled = null.BoolFrom(false)
 	}
 
-	client := NewSimulatedBackendClient(t, backend, chainId)
+	client := client.NewSimulatedBackendClient(t, backend, chainId)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
@@ -82,18 +70,6 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 	//  app.Stop() will call client.Close on the simulated backend
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
-}
-
-func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
-	t.Helper()
-	return MustNewKeyedTransactor(t, key, SimulatedBackendEVMChainID)
-}
-
-func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
-	t.Helper()
-	transactor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
-	require.NoError(t, err)
-	return transactor
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds

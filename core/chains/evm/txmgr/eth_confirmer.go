@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -74,9 +75,40 @@ var (
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
 	}, []string{"evmChainID"})
+	promFwdTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_fwd_tx_count",
+		Help: "The number of forwarded transaction attempts labeled by status",
+	}, []string{"evmChainID", "successful"})
 	promTxAttemptCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "tx_manager_tx_attempt_count",
 		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
+	}, []string{"evmChainID"})
+	promTimeUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_time_until_tx_confirmed",
+		Help: "The amount of time elapsed from a transaction being broadcast to being included in a block.",
+		Buckets: []float64{
+			float64(500 * time.Millisecond),
+			float64(time.Second),
+			float64(5 * time.Second),
+			float64(15 * time.Second),
+			float64(30 * time.Second),
+			float64(time.Minute),
+			float64(2 * time.Minute),
+			float64(5 * time.Minute),
+			float64(10 * time.Minute),
+		},
+	}, []string{"evmChainID"})
+	promBlocksUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "tx_manager_blocks_until_tx_confirmed",
+		Help: "The amount of blocks that have been mined from a transaction being broadcast to being included in a block.",
+		Buckets: []float64{
+			float64(1),
+			float64(5),
+			float64(10),
+			float64(20),
+			float64(50),
+			float64(100),
+		},
 	}, []string{"evmChainID"})
 )
 
@@ -110,7 +142,7 @@ type EthConfirmer struct {
 func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
-	context, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
 	q := pg.NewQ(db, lggr, config)
 
@@ -129,7 +161,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 		resumeCallback,
 		keyStates,
 		utils.NewMailbox[*evmtypes.Head](1),
-		context,
+		ctx,
 		cancel,
 		sync.WaitGroup{},
 		0,
@@ -291,7 +323,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -412,6 +444,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
+	var allReceipts []evmtypes.Receipt
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
@@ -430,7 +463,12 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
+
+		allReceipts = append(allReceipts, receipts...)
 	}
+
+	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
+
 	return nil
 }
 
@@ -459,6 +497,15 @@ func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethC
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) (receipts []evmtypes.Receipt, err error) {
 	var reqs []rpc.BatchElem
+
+	// Metadata is required to determine whether a tx is forwarded or not.
+	if ec.config.EvmUseForwarders() {
+		err = loadEthTxes(ec.q, attempts)
+		if err != nil {
+			return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error loading txs for attempts")
+		}
+	}
+
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
@@ -531,6 +578,19 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
 		} else {
 			promNumSuccessfulTxs.WithLabelValues(ec.chainID.String()).Add(1)
+		}
+
+		// This is only recording forwarded tx that were mined and have a status.
+		// Counters are prune to being in-accurate due to re-orgs.
+		if ec.config.EvmUseForwarders() {
+			meta, err := attempt.EthTx.GetMeta()
+			if err != nil {
+				continue
+			}
+			if meta.FwdrDestAddress != nil {
+				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
+				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.Status != 0)).Add(1)
+			}
 		}
 
 		receipts = append(receipts, *receipt)
@@ -1059,7 +1119,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 	switch previousAttempt.TxType {
 	case 0x0: // Legacy
 		var bumpedGasPrice *big.Int
-		var bumpedGasLimit uint64
+		var bumpedGasLimit uint32
 		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
@@ -1068,7 +1128,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 		}
 	case 0x2: // EIP1559
 		var bumpedFee gas.DynamicFee
-		var bumpedGasLimit uint64
+		var bumpedGasLimit uint32
 		original := previousAttempt.DynamicFee()
 		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
@@ -1463,7 +1523,7 @@ func unbroadcastAttempt(q pg.Queryer, attempt EthTxAttempt) error {
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
+func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint32) error {
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
@@ -1499,7 +1559,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 	return nil
 }
 
-func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint64, gasPriceWei uint64) (gethCommon.Hash, error) {
+func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (gethCommon.Hash, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
@@ -1572,4 +1632,40 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtype
 	}
 
 	return nil
+}
+
+// observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
+// transaction.
+func observeUntilTxConfirmed(chainID big.Int, attempts []EthTxAttempt, receipts []evmtypes.Receipt) {
+	for _, attempt := range attempts {
+		for _, r := range receipts {
+			if attempt.Hash != r.TxHash {
+				continue
+			}
+
+			// We estimate the time until confirmation by subtracting from the time the eth tx (not the attempt)
+			// was created. We want to measure the amount of time taken from when a transaction is created
+			// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
+			// were needed to achieve this.
+			duration := time.Since(attempt.EthTx.CreatedAt)
+			promTimeUntilTxConfirmed.
+				WithLabelValues(chainID.String()).
+				Observe(float64(duration))
+
+			// Since a eth tx can have many attempts, we take the number of blocks to confirm as the block number
+			// of the receipt minus the block number of the first ever broadcast for this transaction.
+			broadcastBefore := utils.MinKey(attempt.EthTx.EthTxAttempts, func(attempt EthTxAttempt) int64 {
+				if attempt.BroadcastBeforeBlockNum != nil {
+					return *attempt.BroadcastBeforeBlockNum
+				}
+				return 0
+			})
+			if broadcastBefore > 0 {
+				blocksElapsed := r.BlockNumber.Int64() - broadcastBefore
+				promBlocksUntilTxConfirmed.
+					WithLabelValues(chainID.String()).
+					Observe(float64(blocksElapsed))
+			}
+		}
+	}
 }

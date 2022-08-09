@@ -63,7 +63,7 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, createdAt.Format(time.RFC3339))
 }
 
-func TestClient_CreateEVMForwarder(t *testing.T) {
+func TestClient_TrackEVMForwarder(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
@@ -83,7 +83,7 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 	set.Bool("bypass-version-check", true, "")
 	set.String("address", "0x5431F5F973781809D18643b87B44921b11355d81", "")
 	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
-	err = client.CreateForwarder(cli.NewContext(nil, set, nil))
+	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
 	createOutput, ok := r.Renders[0].(*cmd.EVMForwarderPresenter)
@@ -108,7 +108,7 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 	require.Equal(t, 0, len(fwds))
 }
 
-func TestClient_CreateEVMForwarder_BadAddress(t *testing.T) {
+func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
@@ -131,7 +131,7 @@ func TestClient_CreateEVMForwarder_BadAddress(t *testing.T) {
 	set.Bool("bypass-version-check", true, "")
 	set.String("address", "0xWrongFormatAddress", "")
 	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
-	err = client.CreateForwarder(cli.NewContext(nil, set, nil))
+	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")
 }
 
