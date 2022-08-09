@@ -64,6 +64,10 @@ type broadcasterHelperCfg struct {
 }
 
 func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
+	if c.db == nil {
+		// ensure we check before registering any mock Cleanup assertions
+		testutils.SkipShortDB(t)
+	}
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
