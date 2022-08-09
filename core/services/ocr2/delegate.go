@@ -408,7 +408,30 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		strategy := txmgr.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
 		orm := keeper.NewORM(d.db, lggr, chain.Config(), strategy)
 
-		services := []job.ServiceCtx{runResultSaver, keeperProvider}
+		registryWrapper, err := keeper.NewRegistryWrapper(spec.ContractID, chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create keeper registry wrapper")
+		}
+
+		minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
+		//if spec.KeeperSpec.MinIncomingConfirmations != nil {
+		//	minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
+		//}
+
+		registrySynchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
+			Job:                      jobSpec,
+			RegistryWrapper:          *registryWrapper,
+			ORM:                      orm,
+			JRM:                      d.jobORM,
+			LogBroadcaster:           chain.LogBroadcaster(),
+			SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
+			MinIncomingConfirmations: minIncomingConfirmations,
+			Logger:                   lggr,
+			SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+			NewTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
+		})
+
+		services := []job.ServiceCtx{runResultSaver, keeperProvider, registrySynchronizer}
 
 		for i := int64(0); i < cfg.OCRInstances; i++ {
 			var oracle *libocr2.Oracle
