@@ -261,7 +261,7 @@ func LogChainlinkKeys(chainlinkNodes []*client.Chainlink) error {
 				return err
 			}
 			for _, key := range keys {
-				log.Debug().Str("Password", client.ChainlinkKeyPassword).Interface("Key", key).Msg("Decrypting Key")
+				log.Debug().Str("Password", client.ChainlinkKeyPassword).Interface("Key", key).Msg("Exported Key")
 				keyJson, err := json.Marshal(key)
 				if err != nil {
 					return err

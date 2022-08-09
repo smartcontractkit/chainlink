@@ -845,8 +845,9 @@ func (c *Chainlink) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 			exportedKey := &ExportedEVMKey{}
 			_, err := c.APIClient.R().
 				SetResult(exportedKey).
+				SetPathParam("keyAddress", key.Attributes.Address).
 				SetQueryParam("newpassword", ChainlinkKeyPassword).
-				Post(fmt.Sprintf("/v2/keys/eth/export"))
+				Post("/v2/keys/eth/export/{keyAddress}")
 			if err != nil {
 				return nil, err
 			}
