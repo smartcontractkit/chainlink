@@ -64,10 +64,9 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID i
 	query := `
 		SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1
-		AND (tx_index = -1 OR tx_index = $2)
-		AND log_index = $3
-		AND job_id = $4
-		AND evm_chain_id = $5
+		AND log_index = $2
+		AND job_id = $3
+		AND evm_chain_id = $4
     `
 	args := []interface{}{
 		blockHash,
