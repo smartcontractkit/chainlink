@@ -101,9 +101,11 @@ var besu = ClientErrors{
 }
 
 // Erigon
-// See: https://github.com/ledgerwatch/erigon/blob/devel/core/tx_pool.go
-//      https://github.com/ledgerwatch/erigon/blob/devel/core/error.go
-//      https://github.com/ledgerwatch/erigon/blob/devel/core/vm/errors.go
+// See:
+//   - https://github.com/ledgerwatch/erigon/blob/devel/core/tx_pool.go
+//   - https://github.com/ledgerwatch/erigon/blob/devel/core/error.go
+//   - https://github.com/ledgerwatch/erigon/blob/devel/core/vm/errors.go
+//
 // Note: some error definitions are unused, many errors are created inline.
 var erigonFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
 var erigon = ClientErrors{
@@ -125,7 +127,7 @@ var arbitrum = ClientErrors{
 	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
 	NonceTooLow: regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
 	// TODO: Is it terminally or replacement?
-	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$|(: |^)max fee per gas less than block base fee(:|$)`),
 	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
 	Fatal:                 arbitrumFatal,
 }
