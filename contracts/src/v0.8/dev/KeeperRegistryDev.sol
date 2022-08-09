@@ -192,7 +192,7 @@ contract KeeperRegistryDev is
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
@@ -542,13 +542,9 @@ contract KeeperRegistryDev is
    * @dev calls the Upkeep target with the performData param passed in by the
    * keeper and the exact gas required by the Upkeep
    */
-  function _performUpkeepWithParams(PerformParams memory params)
-    private
-    nonReentrant
-    validUpkeep(params.id)
-    returns (bool success)
-  {
+  function _performUpkeepWithParams(PerformParams memory params) private nonReentrant returns (bool success) {
     Upkeep memory upkeep = s_upkeep[params.id];
+    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
     uint256 gasUsed = gasleft();

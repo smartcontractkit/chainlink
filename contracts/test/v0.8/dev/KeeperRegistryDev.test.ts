@@ -686,7 +686,7 @@ describe('KeeperRegistryDev', () => {
       assert.equal(mock.address, registration.target)
       assert.equal(0, registration.balance.toNumber())
       assert.equal(emptyBytes, registration.checkData)
-      assert(registration.maxValidBlocknumber.eq('0xffffffffffffffff'))
+      assert(registration.maxValidBlocknumber.eq('0xffffffff'))
     })
   })
 
