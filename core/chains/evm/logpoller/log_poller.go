@@ -347,9 +347,6 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 		// unblocked by resolving db connectivity issues.
 		logsByEventID := lp.groupByEventID(logs)
 		utils.RetryWithBackoff(ctx, func() bool {
-			// Note the insert param limit is 65535 and we have 10 columns per log.
-			// Thus the maximum number of logs we can insert in a given block is 6500.
-			// TODO (https://app.shortcut.com/chainlinklabs/story/48377/support-arbitrary-number-of-logs-per-block)
 			err := lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 				if err2 := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithParentCtx(ctx)); err2 != nil {
 					return err2
@@ -388,7 +385,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// If not, there was a reorg, so we need to rewind.
 	expectedParent, err1 := lp.orm.SelectBlockByNumber(currentBlockNumber-1, pg.WithParentCtx(ctx))
 	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
-		// If err is not a no rows error, assume transient db issue and retry
+		// If err is not a 'no rows' error, assume transient db issue and retry
 		lp.lggr.Warnw("Unable to read latestBlockNumber currentBlock saved", "err", err1, "currentBlockNumber", currentBlockNumber)
 		return nil, errors.New("Unable to read latestBlockNumber currentBlock saved")
 	}
@@ -414,7 +411,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// We could preserve the logs for forensics, since its possible
 		// that applications see them and take action upon it, however that
 		// results in significantly slower reads since we must then compute
-		// the canonical set per read. Typically if an application took action on a log
+		// the canonical set per read. Typically, if an application took action on a log
 		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
@@ -450,11 +447,13 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 }
 
 // pollAndSaveLogs On startup/crash current is the first block after the last processed block.
+// currentBlockNumber is the block from where new logs are to be polled & saved. Under normal
+// conditions this would be equal to lastProcessed.BlockNumber + 1.
 func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
 	lp.lggr.Infow("Polling for logs", "currentBlockNumber", currentBlockNumber)
-	latestBlock, err1 := lp.ec.HeaderByNumber(ctx, nil)
-	if err1 != nil {
-		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err1, "currentBlockNumber", currentBlockNumber)
+	latestBlock, err := lp.ec.HeaderByNumber(ctx, nil)
+	if err != nil {
+		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
 		return
 	}
 	latestBlockNumber := latestBlock.Number.Int64()
@@ -466,11 +465,11 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 	// Possibly handle a reorg. For example if we crash, we'll be in the middle of processing unfinalized blocks.
 	// Returns (currentBlock || LCA+1 if reorg detected, error)
-	currentBlock, err1 := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
-	if err1 != nil {
+	currentBlock, err := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
+	if err != nil {
 		// If there's an error handling the reorg, we can't be sure what state the db was left in.
 		// Resume from the latest block saved.
-		lp.lggr.Errorw("Unable to get current block", "err", err1)
+		lp.lggr.Errorw("Unable to get current block", "err", err)
 		return
 	}
 	currentBlockNumber = currentBlock.Number.Int64()
@@ -479,30 +478,32 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
 	// Although 5 is finalized, we still need to Save it to the db for reorg detection if 6 is a reorg.
 	// start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
-	if (latestBlockNumber - currentBlockNumber) >= (lp.finalityDepth + 1) {
-		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", latestBlockNumber-lp.finalityDepth-1)
-		currentBlockNumber = lp.backfill(ctx, currentBlockNumber, latestBlockNumber-lp.finalityDepth-1)
+	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
+	if lastSafeBackfillBlock >= currentBlockNumber {
+		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
+		currentBlockNumber = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock)
 	}
 
 	for currentBlockNumber <= latestBlockNumber {
 		// Same reorg detection on unfinalized blocks.
-		currentBlock, err2 := lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
-		if err2 != nil {
+		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber)
+		if err != nil {
 			// If there's an error handling the reorg, we can't be sure what state the db was left in.
 			// Resume from the latest block saved.
-			lp.lggr.Errorw("Unable to get current block", "err", err1)
+			lp.lggr.Errorw("Unable to get current block", "err", err)
 			return
 		}
 		currentBlockNumber = currentBlock.Number.Int64()
 		h := currentBlock.Hash()
-		logs, err2 := lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
-		if err2 != nil {
-			lp.lggr.Warnw("Unable query for logs, retrying", "err", err2, "block", currentBlockNumber)
+		var logs []types.Log
+		logs, err = lp.ec.FilterLogs(ctx, lp.filter(nil, nil, &h))
+		if err != nil {
+			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
 			return
 		}
 		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
 		logsByEventID := lp.groupByEventID(logs)
-		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			if err3 := lp.orm.InsertBlock(currentBlock.Hash(), currentBlockNumber, pg.WithQueryer(tx)); err3 != nil {
 				return err3
 			}
@@ -522,8 +523,8 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			}
 			return nil
 		})
-		if err2 != nil {
-			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err2, "block", currentBlockNumber)
+		if err != nil {
+			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)
 			return
 		}
 		currentBlockNumber++

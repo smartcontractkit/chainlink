@@ -111,7 +111,7 @@ func newVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) coordinatorUn
 		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000)}
 	}
 
-	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	consumerABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_consumer_interface.VRFConsumerABI))
 	require.NoError(t, err)
@@ -338,7 +338,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = evmconfig.DefaultGasLimit
+	neil.GasLimit = uint64(evmconfig.DefaultGasLimit)
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()

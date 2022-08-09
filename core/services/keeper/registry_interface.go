@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -25,7 +26,22 @@ const (
 	RegistryVersion_1_2
 )
 
+func (rv RegistryVersion) String() string {
+	switch rv {
+	case RegistryVersion_1_0, RegistryVersion_1_1, RegistryVersion_1_2:
+		return fmt.Sprintf("v1.%d", rv)
+	default:
+		return "unknown registry version"
+	}
+}
+
 const ActiveUpkeepIDBatchSize int64 = 10000
+
+// upkeepGetter is declared as a private interface as it is only needed
+// internally to the keeper package for now
+type upkeepGetter interface {
+	GetUpkeep(*bind.CallOpts, *big.Int) (*UpkeepConfig, error)
+}
 
 // RegistryWrapper implements a layer on top of different versions of registry wrappers
 // to provide a unified layer to rest of the codebase
@@ -200,7 +216,7 @@ func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 
 type RegistryConfig struct {
 	BlockCountPerTurn int32
-	CheckGas          int32
+	CheckGas          uint32
 	KeeperAddresses   []common.Address
 }
 
@@ -209,26 +225,29 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		config, err := rw.contract1_1.GetConfig(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get contract config")
+			// TODO: error wrapping with %w should be done here to preserve the error type as it bubbles up
+			// pkg/errors doesn't support the native errors.Is/As capabilities
+			// using pkg/errors produces a stack trace in the logs and this behavior is too valuable to let go
+			return nil, errors.Errorf("%s [%s]: getConfig %s", ErrContractCallFailure, err, rw.Version)
 		}
 		keeperAddresses, err := rw.contract1_1.GetKeeperList(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get keeper list")
+			return nil, errors.Errorf("%s [%s]: getKeeperList %s", ErrContractCallFailure, err, rw.Version)
 		}
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(config.BlockCountPerTurn.Int64()),
-			CheckGas:          int32(config.CheckGasLimit),
+			CheckGas:          config.CheckGasLimit,
 			KeeperAddresses:   keeperAddresses,
 		}, nil
 	case RegistryVersion_1_2:
 		state, err := rw.contract1_2.GetState(opts)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get contract state")
+			return nil, errors.Errorf("%s [%s]: getState %s", ErrContractCallFailure, err, rw.Version)
 		}
 
 		return &RegistryConfig{
 			BlockCountPerTurn: int32(state.Config.BlockCountPerTurn.Int64()),
-			CheckGas:          int32(state.Config.CheckGasLimit),
+			CheckGas:          state.Config.CheckGasLimit,
 			KeeperAddresses:   state.Keepers,
 		}, nil
 	default:
