@@ -2,11 +2,14 @@ import { ethers } from 'hardhat'
 import { BigNumber, Signer } from 'ethers'
 import moment from 'moment'
 import { assert } from 'chai'
-import { CanaryUpkeep } from '../../typechain/CanaryUpkeep'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
-import { fastForward, reset } from '../test-helpers/helpers'
-import { getUsers, Personas } from '../test-helpers/setup'
-import { evmRevert } from '../test-helpers/matchers'
+import { fastForward, reset } from '../../test-helpers/helpers'
+import { getUsers, Personas } from '../../test-helpers/setup'
+import { evmRevert } from '../../test-helpers/matchers'
+import { CanaryUpkeep } from '../../../typechain/CanaryUpkeep'
+import { KeeperRegistryDev } from '../../../typechain/KeeperRegistryDev'
+import { KeeperRegistryDev__factory as KeeperRegistryDevFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
+import { KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic'
+import { KeeperRegistryLogic__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic__factory'
 
 let personas: Personas
 let canaryUpkeep: CanaryUpkeep
@@ -15,7 +18,10 @@ let nelly: Signer
 let nancy: Signer
 let ned: Signer
 let keeperAddresses: string[]
-let keeperRegistry: KeeperRegistry
+let keeperRegistry: KeeperRegistryDev
+let registryLogic: KeeperRegistryLogic
+let keeperRegistryDevFactory: KeeperRegistryDevFactory
+let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 
 const defaultInterval = 300
 const paymentPremiumPPB = BigNumber.from(250000000)
@@ -28,6 +34,7 @@ const fallbackGasPrice = BigNumber.from(200)
 const fallbackLinkPrice = BigNumber.from(200000000)
 const maxPerformGas = BigNumber.from(5000000)
 const minUpkeepSpend = BigNumber.from('1000000000000000000')
+const registryGasOverhead = BigNumber.from(80000)
 const transcoder = ethers.constants.AddressZero
 const registrar = ethers.constants.AddressZero
 const config = {
@@ -60,15 +67,32 @@ describe('CanaryUpkeep', () => {
   })
 
   beforeEach(async () => {
-    const keeperRegistryFactory = await ethers.getContractFactory(
-      'KeeperRegistry',
+    keeperRegistryDevFactory = await ethers.getContractFactory(
+      'KeeperRegistryDev',
     )
-    keeperRegistry = await keeperRegistryFactory
+    keeperRegistryLogicFactory = await ethers.getContractFactory(
+      'KeeperRegistryLogic',
+    )
+
+    registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
+        0,
+        registryGasOverhead,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
+      )
+
+    keeperRegistry = await keeperRegistryDevFactory
+      .connect(owner)
+      .deploy(
+        0,
+        registryGasOverhead,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        registryLogic.address,
         config,
       )
     await keeperRegistry.deployed()

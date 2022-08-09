@@ -1,13 +1,13 @@
 import { ethers } from 'hardhat'
 import { BigNumber, Signer } from 'ethers'
 import { assert } from 'chai'
-import { KeeperRegistryCheckUpkeepGasUsageWrapper } from '../../../typechain/KeeperRegistryCheckUpkeepGasUsageWrapper'
 import { getUsers, Personas } from '../../test-helpers/setup'
 import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { abi as registryAbi } from '../../../artifacts/src/v0.8/KeeperRegistry.sol/KeeperRegistry.json'
+import { KeeperRegistryCheckUpkeepGasUsageWrapper } from '../../../typechain/KeeperRegistryCheckUpkeepGasUsageWrapper'
+import { abi as registryAbi } from '../../../artifacts/src/v0.8/dev/KeeperRegistryDev.sol/KeeperRegistryDev.json'
 
 let personas: Personas
 let owner: Signer
