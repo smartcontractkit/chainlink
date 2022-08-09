@@ -29,29 +29,29 @@ func (_m *Config) EvmFinalityDepth() uint32 {
 }
 
 // EvmGasLimitDefault provides a mock function with given fields:
-func (_m *Config) EvmGasLimitDefault() uint64 {
+func (_m *Config) EvmGasLimitDefault() uint32 {
 	ret := _m.Called()
 
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(uint64)
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
 }
 
 // EvmGasLimitVRFJobType provides a mock function with given fields:
-func (_m *Config) EvmGasLimitVRFJobType() *uint64 {
+func (_m *Config) EvmGasLimitVRFJobType() *uint32 {
 	ret := _m.Called()
 
-	var r0 *uint64
-	if rf, ok := ret.Get(0).(func() *uint64); ok {
+	var r0 *uint32
+	if rf, ok := ret.Get(0).(func() *uint32); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*uint64)
+			r0 = ret.Get(0).(*uint32)
 		}
 	}
 

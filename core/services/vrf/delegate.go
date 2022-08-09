@@ -44,8 +44,8 @@ type GethKeyStore interface {
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint64
-	EvmGasLimitVRFJobType() *uint64
+	EvmGasLimitDefault() uint32
+	EvmGasLimitVRFJobType() *uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	MinIncomingConfirmations() uint32
 }

@@ -41,6 +41,8 @@ func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, send
 }
 
 func TestEthClient_TransactionReceipt(t *testing.T) {
+	t.Parallel()
+
 	txHash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
 
 	mustReadResult := func(t *testing.T, file string) []byte {
@@ -217,6 +219,8 @@ func TestReceipt_UnmarshalEmptyBlockHash(t *testing.T) {
 }
 
 func TestEthClient_HeaderByNumber(t *testing.T) {
+	t.Parallel()
+
 	expectedBlockNum := big.NewInt(1)
 	expectedBlockHash := "0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"
 
