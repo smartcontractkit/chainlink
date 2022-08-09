@@ -15,6 +15,7 @@ const extractJobFields = (job: JobPayload_Fields, ...otherKeys: string[]) => {
     'name',
     'externalJobID',
     'gasLimit',
+    'forwardingAllowed',
     ...otherKeys,
   )
 }
