@@ -395,9 +395,10 @@ describe('VRFV2Wrapper', () => {
   describe('#onTokenTransfer/#fulfillRandomWords', async () => {
     it('cannot request randomness when not configured', async () => {
       await expect(
-        consumer
-          .connect(consumerOwner)
-          .makeRequest(80_000, 3, 2, { gasPrice: oneHundredGwei }),
+        consumer.connect(consumerOwner).makeRequest(80_000, 3, 2, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.be.reverted
     })
     it('can only be called through LinkToken', async () => {
@@ -405,12 +406,16 @@ describe('VRFV2Wrapper', () => {
       await expect(
         wrongLink
           .connect(owner)
-          .transfer(consumerWrongLink.address, oneHundredLink),
+          .transfer(consumerWrongLink.address, oneHundredLink, {
+            gasPrice: oneHundredGwei,
+            gasLimit: 1_000_000,
+          }),
       ).to.not.be.reverted
       await expect(
-        consumerWrongLink
-          .connect(consumerOwner)
-          .makeRequest(80_000, 3, 2, { gasPrice: oneHundredGwei }),
+        consumerWrongLink.connect(consumerOwner).makeRequest(80_000, 3, 2, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.be.reverted
     })
     it('can request and fulfill randomness', async () => {
@@ -419,9 +424,10 @@ describe('VRFV2Wrapper', () => {
       await fundSub()
 
       await expect(
-        consumer
-          .connect(consumerOwner)
-          .makeRequest(100_000, 3, 1, { gasPrice: oneHundredGwei }),
+        consumer.connect(consumerOwner).makeRequest(100_000, 3, 1, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.emit(coordinator, 'RandomWordsRequested')
 
       const price = calculatePrice(100_000)
@@ -437,7 +443,9 @@ describe('VRFV2Wrapper', () => {
       await expect(
         coordinator
           .connect(owner)
-          .fulfillRandomWordsWithOverride(1, wrapper.address, [123]),
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasLimit: 1_000_000,
+          }),
       )
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(consumer, 'WrappedRequestFulfilled')
@@ -455,9 +463,10 @@ describe('VRFV2Wrapper', () => {
       await fundSub()
 
       await expect(
-        consumerOutOfGas
-          .connect(consumerOwner)
-          .makeRequest(100_000, 3, 1, { gasPrice: oneHundredGwei }),
+        consumerOutOfGas.connect(consumerOwner).makeRequest(100_000, 3, 1, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.emit(coordinator, 'RandomWordsRequested')
 
       const price = calculatePrice(100_000)
@@ -469,7 +478,9 @@ describe('VRFV2Wrapper', () => {
       await expect(
         coordinator
           .connect(owner)
-          .fulfillRandomWordsWithOverride(1, wrapper.address, [123]),
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasLimit: 1_000_000,
+          }),
       )
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(wrapper, 'WrapperFulfillmentFailed')
@@ -480,9 +491,10 @@ describe('VRFV2Wrapper', () => {
       await fundSub()
 
       await expect(
-        consumerRevert
-          .connect(consumerOwner)
-          .makeRequest(100_000, 3, 1, { gasPrice: oneHundredGwei }),
+        consumerRevert.connect(consumerOwner).makeRequest(100_000, 3, 1, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.emit(coordinator, 'RandomWordsRequested')
 
       const price = calculatePrice(100_000)
@@ -513,16 +525,18 @@ describe('VRFV2Wrapper', () => {
 
       await expect(wrapper.connect(owner).disable()).to.not.be.reverted
       await expect(
-        wrapper
-          .connect(consumerOwner)
-          .calculateRequestPrice(100_000, { gasPrice: oneHundredGwei }),
+        wrapper.connect(consumerOwner).calculateRequestPrice(100_000, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.be.reverted
 
       await expect(wrapper.connect(owner).enable()).to.not.be.reverted
       await expect(
-        wrapper
-          .connect(consumerOwner)
-          .calculateRequestPrice(100_000, { gasPrice: oneHundredGwei }),
+        wrapper.connect(consumerOwner).calculateRequestPrice(100_000, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.not.be.reverted
     })
 
@@ -556,16 +570,18 @@ describe('VRFV2Wrapper', () => {
 
       await expect(wrapper.connect(owner).disable()).to.not.be.reverted
       await expect(
-        consumer
-          .connect(consumerOwner)
-          .makeRequest(100_000, 3, 1, { gasPrice: oneHundredGwei }),
+        consumer.connect(consumerOwner).makeRequest(100_000, 3, 1, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.be.reverted
 
       await expect(wrapper.connect(owner).enable()).to.not.be.reverted
       await expect(
-        consumer
-          .connect(consumerOwner)
-          .makeRequest(100_000, 3, 1, { gasPrice: oneHundredGwei }),
+        consumer.connect(consumerOwner).makeRequest(100_000, 3, 1, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.not.be.reverted
     })
 
@@ -575,16 +591,19 @@ describe('VRFV2Wrapper', () => {
       await fundSub()
 
       await expect(
-        consumer
-          .connect(consumerOwner)
-          .makeRequest(100_000, 3, 1, { gasPrice: oneHundredGwei }),
+        consumer.connect(consumerOwner).makeRequest(100_000, 3, 1, {
+          gasPrice: oneHundredGwei,
+          gasLimit: 1_000_000,
+        }),
       ).to.not.be.reverted
       await expect(wrapper.connect(owner).disable()).to.not.be.reverted
 
       await expect(
         coordinator
           .connect(owner)
-          .fulfillRandomWordsWithOverride(1, wrapper.address, [123]),
+          .fulfillRandomWordsWithOverride(1, wrapper.address, [123], {
+            gasLimit: 1_000_000,
+          }),
       )
         .to.emit(coordinator, 'RandomWordsFulfilled')
         .to.emit(consumer, 'WrappedRequestFulfilled')

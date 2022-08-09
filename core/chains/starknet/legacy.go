@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	starknetdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
+	starknetdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )

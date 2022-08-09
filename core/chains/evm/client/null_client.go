@@ -115,6 +115,11 @@ func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 	return nil, nil
 }
 
+func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
+	nc.lggr.Debug("HeaderByHash")
+	return nil, nil
+}
+
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	nc.lggr.Debug("SendTransaction")
 	return nil

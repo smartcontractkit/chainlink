@@ -133,9 +133,9 @@ func (cll *chainSet) Index(offset, limit int) ([]types.DBChain, int, error) {
 
 func (cll *chainSet) Default() (Chain, error) {
 	cll.chainsMu.RLock()
-	len := len(cll.chains)
+	length := len(cll.chains)
 	cll.chainsMu.RUnlock()
-	if len == 0 {
+	if length == 0 {
 		return nil, errors.Wrap(ErrNoChains, "cannot get default EVM chain; no EVM chains are available")
 	}
 	if cll.defaultID == nil {

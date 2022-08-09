@@ -19,6 +19,29 @@ type VRFBeaconCoordinator struct {
 	mock.Mock
 }
 
+// GetConfirmationDelays provides a mock function with given fields: opts
+func (_m *VRFBeaconCoordinator) GetConfirmationDelays(opts *bind.CallOpts) ([8]*big.Int, error) {
+	ret := _m.Called(opts)
+
+	var r0 [8]*big.Int
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) [8]*big.Int); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([8]*big.Int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IBeaconPeriodBlocks provides a mock function with given fields: opts
 func (_m *VRFBeaconCoordinator) IBeaconPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -58,6 +81,29 @@ func (_m *VRFBeaconCoordinator) ParseLog(log types.Log) (generated.AbigenLog, er
 	var r1 error
 	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
 		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SKeyID provides a mock function with given fields: opts
+func (_m *VRFBeaconCoordinator) SKeyID(opts *bind.CallOpts) ([32]byte, error) {
+	ret := _m.Called(opts)
+
+	var r0 [32]byte
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) [32]byte); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([32]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}

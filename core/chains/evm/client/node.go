@@ -107,6 +107,7 @@ type Node interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error)
 
@@ -520,7 +521,31 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 	}
 	duration := time.Since(start)
 
-	n.logResult(lggr, err, duration, n.getRPCDomain(), "HeaderByNumber",
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "HeaderByNumber", "header", header)
+
+	return
+}
+
+func (n *node) HeaderByHash(ctx context.Context, hash common.Hash) (header *types.Header, err error) {
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n)).With("hash", hash)
+
+	lggr.Debug("RPC call: evmclient.Client#HeaderByHash")
+	start := time.Now()
+	if n.http != nil {
+		header, err = n.http.geth.HeaderByHash(ctx, hash)
+		err = n.wrapHTTP(err)
+	} else {
+		header, err = n.ws.geth.HeaderByHash(ctx, hash)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "HeaderByHash",
 		"header", header,
 	)
 
