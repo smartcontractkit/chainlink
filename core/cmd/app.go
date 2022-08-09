@@ -1085,9 +1085,9 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ListForwarders,
 				},
 				{
-					Name:   "create",
-					Usage:  "Create a new forwarder",
-					Action: client.CreateForwarder,
+					Name:   "track",
+					Usage:  "Track a new forwarder",
+					Action: client.TrackForwarder,
 					Flags: []cli.Flag{
 						cli.Int64Flag{
 							Name:  "evmChainID, c",
