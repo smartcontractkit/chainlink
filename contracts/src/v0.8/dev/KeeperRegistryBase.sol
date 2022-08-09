@@ -11,7 +11,7 @@ import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
-import {Config, State} from "./interfaces/KeeperRegistryInterfaceDev.sol";
+import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -118,17 +118,6 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint96 minUpkeepSpend; // 1 full evm word
     uint32 maxPerformGas;
     uint32 nonce;
-  }
-
-  struct Upkeep {
-    uint96 balance;
-    address lastKeeper; // 1 full evm word
-    uint32 executeGas;
-    uint64 maxValidBlocknumber;
-    address target; // 2 full evm words
-    uint96 amountSpent;
-    address admin; // 3 full evm words
-    bool paused;
   }
 
   struct KeeperInfo {
