@@ -125,12 +125,12 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   struct Upkeep {
     uint96 balance;
     address lastKeeper; // 1 full evm word
+    uint96 amountSpent;
+    address admin; // 2 full evm words
     uint32 executeGas;
     uint32 maxValidBlocknumber;
-    address target; // 2 full evm words
-    uint96 amountSpent;
-    address admin; // 3 full evm words
-    bool paused;
+    address target;
+    bool paused; // 24 bits to 3 full evm words
   }
 
   struct KeeperInfo {

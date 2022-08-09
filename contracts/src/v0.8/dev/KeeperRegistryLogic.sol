@@ -154,12 +154,12 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    * @dev Called through KeeperRegistry main contract
    */
   function cancelUpkeep(uint256 id) external {
-    uint64 maxValid = s_upkeep[id].maxValidBlocknumber;
-    bool canceled = maxValid != UINT32_MAX;
+    Upkeep memory upkeep = s_upkeep[id];
+    bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
-    if (canceled && !(isOwner && maxValid > block.number)) revert CannotCancel();
-    if (!isOwner && msg.sender != s_upkeep[id].admin) revert OnlyCallableByOwnerOrAdmin();
+    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > block.number)) revert CannotCancel();
+    if (!isOwner && msg.sender != upkeep.admin) revert OnlyCallableByOwnerOrAdmin();
 
     uint256 height = block.number;
     if (!isOwner) {
@@ -167,6 +167,19 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     }
     s_upkeep[id].maxValidBlocknumber = uint32(height);
     s_upkeepIDs.remove(id);
+
+    // charge the cancellation fee if the minUpkeepSpend is not met
+    uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
+    uint96 cancellationFee = 0;
+    // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
+    if (upkeep.amountSpent < minUpkeepSpend) {
+      cancellationFee = minUpkeepSpend - upkeep.amountSpent;
+      if (cancellationFee > upkeep.balance) {
+        cancellationFee = upkeep.balance;
+      }
+    }
+    s_upkeep[id].balance = upkeep.balance - cancellationFee;
+    s_ownerLinkBalance = s_ownerLinkBalance + cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -193,24 +206,9 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > block.number) revert UpkeepNotCanceled();
 
-    uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
-    uint96 amountLeft = upkeep.balance;
-    uint96 amountSpent = upkeep.amountSpent;
-
-    uint96 cancellationFee = 0;
-    // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
-    if (amountSpent < minUpkeepSpend) {
-      cancellationFee = minUpkeepSpend - amountSpent;
-      if (cancellationFee > amountLeft) {
-        cancellationFee = amountLeft;
-      }
-    }
-    uint96 amountToWithdraw = amountLeft - cancellationFee;
-
-    s_upkeep[id].balance = 0;
-    s_ownerLinkBalance = s_ownerLinkBalance + cancellationFee;
-
+    uint96 amountToWithdraw = s_upkeep[id].balance;
     s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
+    s_upkeep[id].balance = 0;
     emit FundsWithdrawn(id, amountToWithdraw, to);
 
     LINK.transfer(to, amountToWithdraw);

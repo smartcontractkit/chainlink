@@ -316,6 +316,8 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
+	fantomTestnet.blockEmissionIdleWarningThreshold = 0
+	fantomTestnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Fantom testnet only emits blocks when a new tx is received, so this method of liveness detection is not useful
 
 	// RSK
 	// RSK prices its txes in sats not wei
