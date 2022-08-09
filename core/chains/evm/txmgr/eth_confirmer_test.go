@@ -2616,7 +2616,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
 	gasPriceWei := uint64(assets.GWei(52).Int64())
-	overrideGasLimit := uint64(20000)
+	overrideGasLimit := uint32(20000)
 
 	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -2625,7 +2625,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) &&
 				uint64(tx.GasPrice().Int64()) == gasPriceWei &&
-				tx.Gas() == overrideGasLimit &&
+				tx.Gas() == uint64(overrideGasLimit) &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				*tx.To() == etx1.ToAddress
 		})).Return(nil).Once()
@@ -2640,7 +2640,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Nonce) &&
 				uint64(tx.GasPrice().Int64()) == gasPriceWei &&
-				tx.Gas() == etx1.GasLimit &&
+				tx.Gas() == uint64(etx1.GasLimit) &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				*tx.To() == etx1.ToAddress
 		})).Return(nil).Once()
@@ -2653,10 +2653,10 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx1.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == overrideGasLimit
+			return tx.Nonce() == uint64(*etx1.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == uint64(overrideGasLimit)
 		})).Return(nil).Once()
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx2.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == overrideGasLimit
+			return tx.Nonce() == uint64(*etx2.Nonce) && uint64(tx.GasPrice().Int64()) == gasPriceWei && tx.Gas() == uint64(overrideGasLimit)
 		})).Return(nil).Once()
 
 		require.NoError(t, ec.ForceRebroadcast(1, 2, gasPriceWei, fromAddress, overrideGasLimit))
@@ -2677,7 +2677,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 				return tx.Nonce() == uint64(nonce) &&
 					uint64(tx.GasPrice().Int64()) == gasPriceWei &&
-					tx.Gas() == overrideGasLimit &&
+					tx.Gas() == uint64(overrideGasLimit) &&
 					*tx.To() == fromAddress &&
 					tx.Value().Cmp(big.NewInt(0)) == 0 &&
 					len(tx.Data()) == 0
@@ -2692,7 +2692,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint64(tx.Gas()) == config.EvmGasLimitDefault()
+			return tx.Nonce() == uint64(0) && uint64(tx.GasPrice().Int64()) == gasPriceWei && uint32(tx.Gas()) == config.EvmGasLimitDefault()
 		})).Return(nil).Once()
 
 		require.NoError(t, ec.ForceRebroadcast(0, 0, gasPriceWei, fromAddress, 0))

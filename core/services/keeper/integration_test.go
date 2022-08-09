@@ -150,7 +150,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				nodeAddress: {Balance: assets.Ether(1000)},
 			}
 
-			gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 			backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
 			stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads

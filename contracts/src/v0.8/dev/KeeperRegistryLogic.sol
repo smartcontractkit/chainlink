@@ -261,6 +261,35 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
   /**
    * @dev Called through KeeperRegistry main contract
    */
+  function transferUpkeepAdmin(uint256 id, address proposed) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(upkeep);
+    if (proposed == msg.sender) revert ValueNotChanged();
+    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
+
+    if (s_proposedAdmin[id] != proposed) {
+      s_proposedAdmin[id] = proposed;
+      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
+    }
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function acceptUpkeepAdmin(uint256 id) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
+    address past = upkeep.admin;
+    s_upkeep[id].admin = msg.sender;
+    s_proposedAdmin[id] = ZERO_ADDRESS;
+
+    emit UpkeepAdminTransferred(id, past, msg.sender);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
@@ -276,13 +305,14 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
-      if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+      requireAdminAndNotCancelled(upkeep);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
+      // nullify existing proposed admin change if an upkeep is being migrated
+      delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }

@@ -44,7 +44,7 @@ import (
 func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	auth := testutils.MustNewSimTransactor(t)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")

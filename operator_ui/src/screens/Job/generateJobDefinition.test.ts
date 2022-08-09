@@ -104,6 +104,7 @@ observationSource = """
       externalJobID: '00000000-0000-0000-0000-0000000000001',
       maxTaskDuration: '10s',
       gasLimit: 1000,
+      forwardingAllowed: false,
       spec: {
         __typename: 'KeeperSpec',
         contractAddress: '0x0000000000000000000000000000000000000000',
@@ -120,6 +121,7 @@ schemaVersion = 1
 name = "keeper job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
 gasLimit = 1_000
+forwardingAllowed = false
 contractAddress = "0x0000000000000000000000000000000000000000"
 evmChainID = "42"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
