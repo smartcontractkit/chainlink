@@ -49,9 +49,8 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	}
 
 	t.Run("on logger creation", func(t *testing.T) {
-		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock := utilsmocks.NewDiskStatsProvider(t)
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
-		defer diskMock.AssertExpectations(t)
 
 		pollChan := make(chan time.Time)
 		stop := func() {
@@ -83,9 +82,8 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 
 	t.Run("on logger creation generic error", func(t *testing.T) {
-		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock := utilsmocks.NewDiskStatsProvider(t)
 		diskMock.On("AvailableSpace", logsDir).Return(utils.FileSize(0), fmt.Errorf("custom error"))
-		defer diskMock.AssertExpectations(t)
 
 		pollChan := make(chan time.Time)
 		stop := func() {
@@ -117,9 +115,8 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 
 	t.Run("after logger is created", func(t *testing.T) {
-		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock := utilsmocks.NewDiskStatsProvider(t)
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil).Once()
-		defer diskMock.AssertExpectations(t)
 
 		pollChan := make(chan time.Time)
 		stop := func() {
@@ -167,9 +164,8 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 
 	t.Run("after logger is created, recovers disk space", func(t *testing.T) {
-		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock := utilsmocks.NewDiskStatsProvider(t)
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil).Once()
-		defer diskMock.AssertExpectations(t)
 
 		pollChan := make(chan time.Time)
 		stop := func() {
@@ -251,9 +247,8 @@ func TestZapLogger_LogCaller(t *testing.T) {
 		diskPollConfig: pollCfg,
 	}
 
-	diskMock := &utilsmocks.DiskStatsProvider{}
+	diskMock := utilsmocks.NewDiskStatsProvider(t)
 	diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil)
-	defer diskMock.AssertExpectations(t)
 
 	pollChan := make(chan time.Time)
 	stop := func() {
@@ -284,5 +279,5 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:275")
+	require.Contains(t, lines[0], "logger/zap_test.go:270")
 }

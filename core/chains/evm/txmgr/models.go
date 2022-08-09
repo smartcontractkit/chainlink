@@ -165,7 +165,7 @@ type EthTx struct {
 	Value          assets.Eth
 	// GasLimit on the EthTx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
-	GasLimit uint64
+	GasLimit uint32
 	Error    null.String
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
@@ -289,7 +289,7 @@ type EthTxAttempt struct {
 	GasTipCap *utils.Big
 	GasFeeCap *utils.Big
 	// ChainSpecificGasLimit on the EthTxAttempt is always the same as the on-chain encoded value for gas limit
-	ChainSpecificGasLimit   uint64
+	ChainSpecificGasLimit   uint32
 	SignedRawTx             []byte
 	Hash                    common.Hash
 	CreatedAt               time.Time

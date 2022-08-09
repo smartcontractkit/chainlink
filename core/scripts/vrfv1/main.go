@@ -209,6 +209,15 @@ func main() {
 		tx, err := link.TransferAndCall(e.Owner, common.HexToAddress(*consumerAddr), payment, data)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "load-test-read":
+		cmd := flag.NewFlagSet("load-test-read", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "load test consumer address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		consumer, err := vrfltoc.NewVRFLoadTestOwnerlessConsumer(common.HexToAddress(*consumerAddress), e.Ec)
+		helpers.PanicErr(err)
+		count, err := consumer.SResponseCount(nil)
+		helpers.PanicErr(err)
+		fmt.Println("response count:", count.String(), "consumer:", *consumerAddress)
 	case "ownerless-consumer-read":
 		cmd := flag.NewFlagSet("ownerless-consumer-read", flag.ExitOnError)
 		consumerAddr := cmd.String("consumer-address", "", "address of the deployed ownerless consumer")
