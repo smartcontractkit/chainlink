@@ -122,7 +122,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		f.ned.From:     {Balance: assets.Ether(1000)},
 		f.nallory.From: {Balance: assets.Ether(1000)},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
@@ -144,7 +144,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	waitTimeMs := int64(faTimeout * 5000)
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	oldGasLimit := f.sergey.GasLimit
-	f.sergey.GasLimit = gasLimit
+	f.sergey.GasLimit = uint64(gasLimit)
 	f.aggregatorContractAddress, _, f.aggregatorContract, err = faw.DeployFluxAggregator(
 		f.sergey,
 		f.backend,

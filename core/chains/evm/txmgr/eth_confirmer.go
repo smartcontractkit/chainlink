@@ -323,7 +323,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	reqs, err := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
@@ -702,12 +702,15 @@ func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
 	res, err := ec.q.Exec(`
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
+FROM (
+	SELECT from_address, MAX(nonce) as max_nonce from eth_txes
+	WHERE state = 'confirmed' AND evm_chain_id = $1
+	GROUP BY from_address
+) AS max_table
 WHERE state = 'unconfirmed'
-AND nonce < (
-	SELECT MAX(nonce) FROM eth_txes
-	WHERE state = 'confirmed'
-)
-AND evm_chain_id = $1
+	AND evm_chain_id = $1
+	AND nonce < max_table.max_nonce
+	AND eth_txes.from_address = max_table.from_address
 	`, ec.chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "markAllConfirmedMissingReceipt failed")
@@ -1116,7 +1119,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 	switch previousAttempt.TxType {
 	case 0x0: // Legacy
 		var bumpedGasPrice *big.Int
-		var bumpedGasLimit uint64
+		var bumpedGasLimit uint32
 		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
@@ -1125,7 +1128,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 		}
 	case 0x2: // EIP1559
 		var bumpedFee gas.DynamicFee
-		var bumpedGasLimit uint64
+		var bumpedGasLimit uint32
 		original := previousAttempt.DynamicFee()
 		bumpedFee, bumpedGasLimit, err = ec.estimator.BumpDynamicFee(original, previousAttempt.EthTx.GasLimit, keySpecificMaxGasPriceWei)
 		if err == nil {
@@ -1520,7 +1523,7 @@ func unbroadcastAttempt(q pg.Queryer, attempt EthTxAttempt) error {
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
+func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint32) error {
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
 
 	for n := beginningNonce; n <= endingNonce; n++ {
@@ -1556,7 +1559,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 	return nil
 }
 
-func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint64, gasPriceWei uint64) (gethCommon.Hash, error) {
+func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress gethCommon.Address, nonce uint, overrideGasLimit uint32, gasPriceWei uint64) (gethCommon.Hash, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()

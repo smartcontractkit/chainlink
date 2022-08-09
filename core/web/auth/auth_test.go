@@ -303,7 +303,7 @@ var routesRolesMap = [...]routeRules{
 	{"DELETE", "/v2/nodes/solana/MOCK", false, false, true},
 	{"DELETE", "/v2/nodes/terra/MOCK", false, false, true},
 	{"GET", "/v2/nodes/evm/forwarders", true, true, true},
-	{"POST", "/v2/nodes/evm/forwarders", false, false, true},
+	{"POST", "/v2/nodes/evm/forwarders/track", false, false, true},
 	{"DELETE", "/v2/nodes/evm/forwarders/MOCK", false, false, true},
 	{"GET", "/v2/build_info", true, true, true},
 	{"GET", "/v2/ping", true, true, true},

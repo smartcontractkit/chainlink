@@ -63,6 +63,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 }
 
 func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		numConfirmations            = 1
 		numContracts                = 3
@@ -129,6 +130,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		lastStoredBlockHeight       = 100
 		blockHeight           int64 = 125
@@ -186,6 +188,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 }
 
 func TestBroadcaster_ReplaysLogs(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		blockHeight = 10
 	)
@@ -444,6 +447,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 }
 
 func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		lastStoredBlockHeight       = 100
 		blockHeight           int64 = 125
@@ -492,6 +496,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillInBatches(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		numConfirmations            = 1
 		blockHeight           int64 = 120
@@ -548,6 +553,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
+	testutils.SkipShortDB(t)
 	g := gomega.NewWithT(t)
 	const (
 		lastStoredBlockHeight int64 = 10
@@ -1111,6 +1117,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 }
 
 func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		backfillTimes = 1
 		blockHeight   = 15
@@ -1455,7 +1462,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
@@ -1660,6 +1667,7 @@ func requireEqualLogs(t *testing.T, expectedLogs, actualLogs []types.Log) {
 }
 
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
+	testutils.SkipShortDB(t)
 	gm := gomega.NewWithT(t)
 
 	ethClient := evmmocks.NewClient(t)

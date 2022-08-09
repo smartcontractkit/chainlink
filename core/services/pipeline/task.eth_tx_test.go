@@ -41,7 +41,7 @@ func TestETHTxTask(t *testing.T) {
 		evmChainID            string
 		transmitChecker       string
 		specGasLimit          *uint32
-		allowForwarding       bool
+		forwardingAllowed     bool
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *txmmocks.TxManager)
@@ -69,7 +69,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := uint64(12345)
+				gasLimit := uint32(12345)
 				jobID := int32(321)
 				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
 				txMeta := &txmgr.EthTxMeta{
@@ -121,7 +121,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := uint64(12345)
+				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -156,7 +156,7 @@ func TestETHTxTask(t *testing.T) {
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
-				"gasLimit":  uint64(12345),
+				"gasLimit":  uint32(12345),
 				"requestData": map[string]interface{}{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
@@ -169,7 +169,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := uint64(12345)
+				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -204,7 +204,7 @@ func TestETHTxTask(t *testing.T) {
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
-				"gasLimit":  uint64(12345),
+				"gasLimit":  uint32(12345),
 				"requestData": map[string]interface{}{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
@@ -217,7 +217,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := uint64(12345)
+				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -255,7 +255,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := uint64(12345)
+				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{FailOnRevert: null.BoolFrom(false)}
 				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateEthTransaction", txmgr.NewTx{
@@ -299,7 +299,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       uint64(drJobTypeGasLimit),
+					GasLimit:       drJobTypeGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EthTx{}, nil)
@@ -336,7 +336,7 @@ func TestETHTxTask(t *testing.T) {
 					FromAddress:    from,
 					ToAddress:      to,
 					EncodedPayload: data,
-					GasLimit:       uint64(specGasLimit),
+					GasLimit:       specGasLimit,
 					Meta:           txMeta,
 					Strategy:       txmgr.SendEveryStrategy{},
 				}).Return(txmgr.EthTx{}, nil)
@@ -359,7 +359,7 @@ func TestETHTxTask(t *testing.T) {
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
-				"gasLimit":  uint64(12345),
+				"gasLimit":  uint32(12345),
 				"requestData": map[string]interface{}{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
@@ -392,7 +392,7 @@ func TestETHTxTask(t *testing.T) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
 				to := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				data := []byte("foobar")
-				gasLimit := uint64(12345)
+				gasLimit := uint32(12345)
 				txMeta := &txmgr.EthTxMeta{
 					JobID:         &jid,
 					RequestID:     &reqID,
@@ -526,7 +526,7 @@ func TestETHTxTask(t *testing.T) {
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":          []byte("foobar"),
-				"gasLimit":      uint64(12345),
+				"gasLimit":      uint32(12345),
 				"jobID":         int32(321),
 				"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 				"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -557,9 +557,7 @@ func TestETHTxTask(t *testing.T) {
 			}
 
 			keyStore := keystoremocks.NewEth(t)
-			keyStore.Test(t)
 			txManager := txmmocks.NewTxManager(t)
-			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
 			cfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(defaultGasLimit)
