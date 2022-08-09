@@ -73,11 +73,11 @@ func TestLogPoller_Batching(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
-	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+	o := NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
 	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 
-	var logs []logpoller.Log
+	var logs []Log
 	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
 	// a maximum of 6553 log inserts per tx. As inserting more than 6553 would result in
 	// an error without batching, this test makes sure batching is enabled.
