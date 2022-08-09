@@ -13,7 +13,8 @@ PriceMax = '0.2 milli'
 BlockDelay = 2
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
+BlockEmissionIdleWarningThreshold = '0'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
+# Fantom testnet only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
