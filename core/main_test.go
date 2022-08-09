@@ -770,7 +770,7 @@ func ExampleRun_forwarders() {
 	//
 	// COMMANDS:
 	//    list    List all stored forwarders addresses
-	//    create  Create a new forwarder
+	//    track   Track a new forwarder
 	//    delete  Delete a forwarder address
 	//
 	// OPTIONS:
