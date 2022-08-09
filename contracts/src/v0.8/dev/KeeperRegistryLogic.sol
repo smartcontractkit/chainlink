@@ -153,11 +153,10 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
    */
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
-    uint64 maxValid = upkeep.maxValidBlocknumber;
-    bool canceled = maxValid != UINT64_MAX;
+    bool canceled = upkeep.maxValidBlocknumber != UINT64_MAX;
     bool isOwner = msg.sender == owner();
 
-    if (canceled && !(isOwner && maxValid > block.number)) revert CannotCancel();
+    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > block.number)) revert CannotCancel();
     if (!isOwner && msg.sender != upkeep.admin) revert OnlyCallableByOwnerOrAdmin();
 
     uint256 height = block.number;
@@ -169,14 +168,12 @@ contract KeeperRegistryLogic is KeeperRegistryBase {
 
     // charge the cancellation fee if the minUpkeepSpend is not met
     uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
-    uint96 amountLeft = upkeep.balance;
-    uint96 amountSpent = upkeep.amountSpent;
     uint96 cancellationFee = 0;
     // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
-    if (amountSpent < minUpkeepSpend) {
-      cancellationFee = minUpkeepSpend - amountSpent;
-      if (cancellationFee > amountLeft) {
-        cancellationFee = amountLeft;
+    if (upkeep.amountSpent < minUpkeepSpend) {
+      cancellationFee = minUpkeepSpend - upkeep.amountSpent;
+      if (cancellationFee > upkeep.balance) {
+        cancellationFee = upkeep.balance;
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
