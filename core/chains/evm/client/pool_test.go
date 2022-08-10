@@ -133,7 +133,7 @@ func TestPool_Dial(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
+			ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 			defer cancel()
 
 			nodes := make([]evmclient.Node, len(test.nodes))
@@ -246,7 +246,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	n3.On("State").Return(evmclient.NodeStateOutOfSync)
 	n3.On("ChainID").Return(testutils.FixtureChainID).Once()
 
-	require.NoError(t, p.Dial(context.Background()))
+	require.NoError(t, p.Dial(testutils.Context(t)))
 	t.Cleanup(p.Close)
 
 	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")

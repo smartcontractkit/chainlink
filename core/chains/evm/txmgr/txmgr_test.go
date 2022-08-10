@@ -12,10 +12,11 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
@@ -678,7 +679,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	head := cltest.Head(42)
 	// It should not hang or panic
-	txm.OnNewLongestChain(context.Background(), head)
+	txm.OnNewLongestChain(testutils.Context(t), head)
 
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
@@ -687,7 +688,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
 	t.Cleanup(cancel)
 	txm.OnNewLongestChain(ctx, head)
 	require.NoError(t, ctx.Err())

@@ -1,7 +1,6 @@
 package logpoller_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -124,7 +123,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
 	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1})
-	require.NoError(t, lp.Start(context.Background()))
+	require.NoError(t, lp.Start(testutils.Context(t)))
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
@@ -134,7 +133,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	}
 	// The poller starts on a new chain at latest-finality (5 in this case),
 	// replay to ensure we get all the logs.
-	require.NoError(t, lp.Replay(context.Background(), 1))
+	require.NoError(t, lp.Replay(testutils.Context(t), 1))
 
 	// We should eventually receive all those Log1 logs.
 	testutils.AssertEventually(t, func() bool {
@@ -146,10 +145,10 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Now let's update the filter and replay to get Log2 logs.
 	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1})
 	// Replay an invalid block should error
-	assert.Error(t, lp.Replay(context.Background(), 0))
-	assert.Error(t, lp.Replay(context.Background(), 20))
+	assert.Error(t, lp.Replay(testutils.Context(t), 0))
+	assert.Error(t, lp.Replay(testutils.Context(t), 20))
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
-	require.NoError(t, lp.Replay(context.Background(), 4))
+	require.NoError(t, lp.Replay(testutils.Context(t), 4))
 
 	// We should eventually see 4 logs2 logs.
 	testutils.AssertEventually(t, func() bool {
