@@ -1,8 +1,9 @@
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
+import { BigNumber, BigNumberish, Signer } from 'ethers'
 import { evmRevert } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
-import { BigNumber, BigNumberish, Signer } from 'ethers'
+import { toWei } from '../../test-helpers/helpers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
@@ -12,17 +13,15 @@ import { UpkeepTranscoderDev__factory as UpkeepTranscoderDevFactory } from '../.
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
 import { KeeperRegistryLogic__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic__factory'
+import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
 import { KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic'
-
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
-import { UpkeepTranscoderDev } from '../../../typechain'
-import { toWei } from '../../test-helpers/helpers'
+import { UpkeepTranscoderDev } from '../../../typechain/UpkeepTranscoderDev'
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
