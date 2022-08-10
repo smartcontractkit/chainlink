@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -609,7 +608,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 	jb.OCROracleSpec.TransmitterAddress = &key.Address
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)

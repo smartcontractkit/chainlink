@@ -219,7 +219,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("this error doesn't matter"))
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
 		err := bhe.Start(ctx)
 		require.Error(t, err)
@@ -259,13 +259,13 @@ func TestBlockHistoryEstimator_OnNewLongestChain(t *testing.T) {
 
 	// non EIP-1559 block
 	h := cltest.Head(1)
-	bhe.OnNewLongestChain(context.Background(), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 	assert.Nil(t, gas.GetLatestBaseFee(bhe))
 
 	// EIP-1559 block
 	h = cltest.Head(2)
 	h.BaseFeePerGas = utils.NewBigI(500)
-	bhe.OnNewLongestChain(context.Background(), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	assert.Equal(t, big.NewInt(500), gas.GetLatestBaseFee(bhe))
 }
@@ -284,7 +284,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 
 		head := cltest.Head(42)
-		err := bhe.FetchBlocks(context.Background(), head)
+		err := bhe.FetchBlocks(testutils.Context(t), head)
 		require.Error(t, err)
 		require.EqualError(t, err, "BlockHistoryEstimator: history size must be > 0, got: 0")
 	})
@@ -301,7 +301,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		for i := -1; i < 3; i++ {
 			head := cltest.Head(i)
-			err := bhe.FetchBlocks(context.Background(), head)
+			err := bhe.FetchBlocks(testutils.Context(t), head)
 			require.Error(t, err)
 			require.EqualError(t, err, fmt.Sprintf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY=3", i))
 		}
@@ -321,7 +321,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
-		err := bhe.FetchBlocks(context.Background(), cltest.Head(42))
+		err := bhe.FetchBlocks(testutils.Context(t), cltest.Head(42))
 		require.Error(t, err)
 		assert.EqualError(t, err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext: something exploded")
 	})
@@ -373,7 +373,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[0].Result = &b41
 		})
 
-		err := bhe.FetchBlocks(context.Background(), cltest.Head(43))
+		err := bhe.FetchBlocks(testutils.Context(t), cltest.Head(43))
 		require.NoError(t, err)
 
 		require.Len(t, bhe.RollingBlockHistory(), 2)
@@ -404,7 +404,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		})
 
 		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		err = bhe.FetchBlocks(context.Background(), &head)
+		err = bhe.FetchBlocks(testutils.Context(t), &head)
 		require.NoError(t, err)
 
 		require.Len(t, bhe.RollingBlockHistory(), 3)
@@ -466,7 +466,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		head3.Parent = &head2
-		err := bhe.FetchBlocks(context.Background(), &head3)
+		err := bhe.FetchBlocks(testutils.Context(t), &head3)
 		require.NoError(t, err)
 
 		require.Len(t, bhe.RollingBlockHistory(), 3)
@@ -530,7 +530,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[0].Result = &b3New
 		})
 
-		err := bhe.FetchBlocks(context.Background(), &head3)
+		err := bhe.FetchBlocks(testutils.Context(t), &head3)
 		require.NoError(t, err)
 
 		require.Len(t, bhe.RollingBlockHistory(), 3)
@@ -583,7 +583,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
-		err := bhe.FetchBlocks(context.Background(), &head3)
+		err := bhe.FetchBlocks(testutils.Context(t), &head3)
 		require.NoError(t, err)
 
 		require.Len(t, bhe.RollingBlockHistory(), 3)
@@ -639,7 +639,7 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 		elems[2].Result = &b1
 	})
 
-	bhe.FetchBlocksAndRecalculate(context.Background(), cltest.Head(3))
+	bhe.FetchBlocksAndRecalculate(testutils.Context(t), cltest.Head(3))
 
 	price := gas.GetGasPrice(bhe)
 	require.Equal(t, big.NewInt(100), price)
@@ -1595,7 +1595,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 
 	h := cltest.Head(1)
 	h.BaseFeePerGas = utils.NewBigI(112500)
-	bhe.OnNewLongestChain(context.Background(), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	t.Run("if gas bumping is enabled", func(t *testing.T) {
 		cfg.On("EvmGasBumpThreshold").Return(uint64(1)).Once()
@@ -1639,7 +1639,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 
 	h = cltest.Head(1)
 	h.BaseFeePerGas = utils.NewBigI(900000)
-	bhe.OnNewLongestChain(context.Background(), h)
+	bhe.OnNewLongestChain(testutils.Context(t), h)
 
 	t.Run("if gas bumping is enabled and global max gas price lower than local max gas price", func(t *testing.T) {
 		cfg.On("EvmGasBumpThreshold").Return(uint64(1)).Once()

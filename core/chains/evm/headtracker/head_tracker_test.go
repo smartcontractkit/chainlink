@@ -211,7 +211,7 @@ func TestHeadTracker_Start_CancelContext(t *testing.T) {
 
 	ht := createHeadTracker(t, ethClient, config, orm)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(testutils.Context(t))
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
@@ -380,7 +380,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	trackable := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config, orm, trackable)
 
-	require.NoError(t, orm.IdempotentInsertHead(context.Background(), heads[2]))
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), heads[2]))
 
 	ht.Start(t)
 
@@ -765,7 +765,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		h15,
 	}
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	t.Run("does nothing if all the heads are in database", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -972,13 +972,13 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 	}
 }
 
-func createHeadTrackerWithNeverSleeper(t testing.TB, ethClient evmclient.Client, cfg *configtest.TestGeneralConfig, orm headtracker.ORM) *headTrackerUniverse {
+func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client, cfg *configtest.TestGeneralConfig, orm headtracker.ORM) *headTrackerUniverse {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, evmcfg)
 	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, hb, hs)
-	_, err := hs.LoadFromDB(context.Background())
+	_, err := hs.LoadFromDB(testutils.Context(t))
 	require.NoError(t, err)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
