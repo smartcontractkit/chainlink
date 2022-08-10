@@ -71,7 +71,7 @@ type logPoller struct {
 // NewLogPoller creates a log poller. Note there is an assumption
 // that blocks can be processed faster than they are produced for the given chain, or the poller will fall behind.
 // Block processing involves in the steady state (non-reorg case):
-// - eth_getBlockByNumber,
+// - eth_getBlockByNumber - headers only (transaction hashes, not full transaction objects),
 // - 1 db read latest block
 // - 1 db tx including block write and logs write to logs and custom log writes if any.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
