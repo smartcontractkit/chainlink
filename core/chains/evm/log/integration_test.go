@@ -63,6 +63,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 }
 
 func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		numConfirmations            = 1
 		numContracts                = 3
@@ -129,6 +130,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		lastStoredBlockHeight       = 100
 		blockHeight           int64 = 125
@@ -186,6 +188,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 }
 
 func TestBroadcaster_ReplaysLogs(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		blockHeight = 10
 	)
@@ -361,7 +364,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.Equal(t, int64(log2.BlockNumber), *blockNum)
 	require.NotEmpty(t, listener.getUniqueLogs())
 	require.Empty(t, listener2.getUniqueLogs())
-	c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.TxIndex, log1.Index, listener.JobID())
+	c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
 	require.NoError(t, err)
 	require.False(t, c)
 
@@ -399,10 +402,10 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.Nil(t, blockNum)
 	require.NotEmpty(t, listener.getUniqueLogs())
 	require.NotEmpty(t, listener2.getUniqueLogs())
-	c, err = orm.WasBroadcastConsumed(log1.BlockHash, log1.TxIndex, log1.Index, listener.JobID())
+	c, err = orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
 	require.NoError(t, err)
 	require.True(t, c)
-	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.TxIndex, log2.Index, listener2.JobID())
+	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
 	require.NoError(t, err)
 	require.False(t, c)
 
@@ -438,12 +441,13 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.Nil(t, blockNum)
 	require.Empty(t, listener.getUniqueLogs())
 	require.NotEmpty(t, listener2.getUniqueLogs())
-	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.TxIndex, log2.Index, listener2.JobID())
+	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
 	require.NoError(t, err)
 	require.True(t, c)
 }
 
 func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		lastStoredBlockHeight       = 100
 		blockHeight           int64 = 125
@@ -492,6 +496,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillInBatches(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		numConfirmations            = 1
 		blockHeight           int64 = 120
@@ -548,6 +553,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
+	testutils.SkipShortDB(t)
 	g := gomega.NewWithT(t)
 	const (
 		lastStoredBlockHeight int64 = 10
@@ -1111,6 +1117,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 }
 
 func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) {
+	testutils.SkipShortDB(t)
 	const (
 		backfillTimes = 1
 		blockHeight   = 15
@@ -1660,6 +1667,7 @@ func requireEqualLogs(t *testing.T, expectedLogs, actualLogs []types.Log) {
 }
 
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
+	testutils.SkipShortDB(t)
 	gm := gomega.NewWithT(t)
 
 	ethClient := evmmocks.NewClient(t)

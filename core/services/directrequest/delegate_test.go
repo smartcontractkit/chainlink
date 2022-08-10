@@ -121,6 +121,7 @@ func (uni *DirectRequestUniverse) Cleanup() {
 }
 
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
+	testutils.SkipShortDB(t)
 	t.Parallel()
 
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
