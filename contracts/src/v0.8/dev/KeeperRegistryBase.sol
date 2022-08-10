@@ -1,17 +1,17 @@
 pragma solidity 0.8.6;
 
-import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "./ExecutionPrevention.sol";
+import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "./interfaces/UpkeepTranscoderInterfaceDev.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -23,6 +23,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 internal constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
   uint256 internal constant PERFORM_GAS_MIN = 2_300;
+  // cancellation delay is introduced to make sure NOPs get paid if users cancel upkeeps right before perform upkeeps
   uint256 internal constant CANCELLATION_DELAY = 50;
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
@@ -51,9 +52,10 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   uint256 internal s_fallbackLinkPrice; // not in config object for gas savings
   uint96 internal s_ownerLinkBalance;
   uint256 internal s_expectedLinkBalance;
-  address internal s_transcoder;
-  address internal s_registrar;
+  address internal s_transcoder; // use interface as type
+  address internal s_registrar; // cannot use interface as type bc only use case is to check if msg.sender == s_registrar
 
+  // all the interfaces should be named like: ILinkToken, IAggregatorV3
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
@@ -62,6 +64,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   PaymentModel public immutable PAYMENT_MODEL;
   uint256 public immutable REGISTRY_GAS_OVERHEAD;
 
+  // sort errors?
   error CannotCancel();
   error UpkeepCancelled();
   error MigrationNotPermitted();
@@ -138,6 +141,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 linkEth;
   }
 
+  // sort these?
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
   event UpkeepPerformed(
     uint256 indexed id,

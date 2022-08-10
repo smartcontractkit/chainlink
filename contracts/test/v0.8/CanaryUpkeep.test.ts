@@ -2,11 +2,11 @@ import { ethers } from 'hardhat'
 import { BigNumber, Signer } from 'ethers'
 import moment from 'moment'
 import { assert } from 'chai'
-import { CanaryUpkeep } from '../../typechain/CanaryUpkeep'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
 import { fastForward, reset } from '../test-helpers/helpers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { evmRevert } from '../test-helpers/matchers'
+import { CanaryUpkeep } from '../../typechain/CanaryUpkeep'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
 
 let personas: Personas
 let canaryUpkeep: CanaryUpkeep

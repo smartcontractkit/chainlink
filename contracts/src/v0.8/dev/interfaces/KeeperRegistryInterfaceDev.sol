@@ -76,6 +76,7 @@ struct Upkeep {
 }
 
 interface KeeperRegistryBaseInterface {
+  // split this to a new interface for keeper registrar
   function registerUpkeep(
     address target,
     uint32 gasLimit,
