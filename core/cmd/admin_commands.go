@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
@@ -73,6 +75,26 @@ func (cli *Client) ListUsers(c *cli.Context) (err error) {
 
 // CreateUser creates a new user by prompting for email, password, and role
 func (cli *Client) CreateUser(c *cli.Context) (err error) {
+	resp, err := cli.HTTP.Get("/v2/users/", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	var links jsonapi.Links
+	var users AdminUsersPresenters
+	if err := cli.deserializeAPIResponse(resp, &users, &links); err != nil {
+		return cli.errorOut(err)
+	}
+	for _, user := range users {
+		if strings.EqualFold(user.Email, c.String("email")) {
+			return cli.errorOut(fmt.Errorf("user with email %s already exists", user.Email))
+		}
+	}
+
 	fmt.Println("Password of new user:")
 	pwd := cli.PasswordPrompter.Prompt()
 
