@@ -1,15 +1,16 @@
 package txmgr_test
 
 import (
-	"context"
 	"testing"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -36,7 +37,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
-		err := ns.SyncAll(context.Background(), sendingKeys)
+		err := ns.SyncAll(testutils.Context(t), sendingKeys)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 
@@ -61,7 +62,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
-		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
+		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 
 		cltest.AssertCount(t, db, "eth_txes", 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
@@ -85,7 +86,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
-		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
+		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 
 		cltest.AssertCount(t, db, "eth_txes", 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
@@ -115,7 +116,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
-		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
+		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 
 		assertDatabaseNonce(t, db, key1, 5)
 	})
@@ -139,7 +140,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
 
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
-		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
+		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 		assertDatabaseNonce(t, db, key1, 0)
 
 		ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
@@ -150,7 +151,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		})).Return(uint64(2), nil)
 		ns = txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
 
-		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
+		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 		assertDatabaseNonce(t, db, key1, 1)
 	})
 }
