@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -58,14 +57,14 @@ func TestConfigPoller(t *testing.T) {
 	cfg := pgtest.NewPGCfg(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
 	logPoller := NewConfigPoller(lggr, lp, ocrAddress)
 	// Should have no config to begin with.
-	_, config, err := logPoller.LatestConfigDetails(context.Background())
+	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
 	// Set the config
@@ -77,23 +76,23 @@ func TestConfigPoller(t *testing.T) {
 		DeltaC:              10,
 	}, ocrContract, user)
 	b.Commit()
-	latest, err := b.BlockByNumber(context.Background(), nil)
+	latest, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	// Ensure we capture this config set log.
-	require.NoError(t, lp.Replay(context.Background(), latest.Number().Int64()-1))
+	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))
 
 	// Send blocks until we see the config updated.
 	var configBlock uint64
 	var digest [32]byte
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		b.Commit()
-		configBlock, digest, err = logPoller.LatestConfigDetails(context.Background())
+		configBlock, digest, err = logPoller.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Assert the config returned is the one we configured.
-	newConfig, err := logPoller.LatestConfig(context.Background(), configBlock)
+	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))

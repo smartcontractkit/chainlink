@@ -66,11 +66,11 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 
 		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(context.Background())
+		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
 		hash := common.HexToHash(txHash)
-		receipt, err := ethClient.TransactionReceipt(context.Background(), hash)
+		receipt, err := ethClient.TransactionReceipt(testutils.Context(t), hash)
 		require.NoError(t, err)
 		assert.Equal(t, hash, receipt.TxHash)
 		assert.Equal(t, big.NewInt(11), receipt.BlockNumber)
@@ -86,11 +86,11 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 
 		ethClient := mustNewClient(t, wsURL)
-		err := ethClient.Dial(context.Background())
+		err := ethClient.Dial(testutils.Context(t))
 		require.NoError(t, err)
 
 		hash := common.HexToHash(txHash)
-		_, err = ethClient.TransactionReceipt(context.Background(), hash)
+		_, err = ethClient.TransactionReceipt(testutils.Context(t), hash)
 		require.Equal(t, ethereum.NotFound, errors.Cause(err))
 	})
 }
@@ -110,10 +110,10 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	})
 
 	ethClient := mustNewClient(t, wsURL)
-	err := ethClient.Dial(context.Background())
+	err := ethClient.Dial(testutils.Context(t))
 	require.NoError(t, err)
 
-	result, err := ethClient.PendingNonceAt(context.Background(), address)
+	result, err := ethClient.PendingNonceAt(testutils.Context(t), address)
 	require.NoError(t, err)
 
 	var expected uint64 = 256
@@ -145,10 +145,10 @@ func TestEthClient_BalanceAt(t *testing.T) {
 			})
 
 			ethClient := mustNewClient(t, wsURL)
-			err := ethClient.Dial(context.Background())
+			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
 
-			result, err := ethClient.BalanceAt(context.Background(), address, nil)
+			result, err := ethClient.BalanceAt(testutils.Context(t), address, nil)
 			require.NoError(t, err)
 			assert.Equal(t, test.balance, result)
 		})
@@ -190,7 +190,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			})
 
 			ethClient := mustNewClient(t, wsURL)
-			err := ethClient.Dial(context.Background())
+			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
 
 			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)
@@ -257,11 +257,11 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			})
 
 			ethClient := mustNewClient(t, wsURL)
-			err := ethClient.Dial(context.Background())
+			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
 			defer ethClient.Close()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
 			defer cancel()
 			result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
 			if test.error != nil {
@@ -287,10 +287,10 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	})
 
 	ethClient := mustNewClient(t, wsURL)
-	err := ethClient.Dial(context.Background())
+	err := ethClient.Dial(testutils.Context(t))
 	require.NoError(t, err)
 
-	err = ethClient.SendTransaction(context.Background(), tx)
+	err = ethClient.SendTransaction(testutils.Context(t), tx)
 	assert.NoError(t, err)
 }
 
@@ -314,15 +314,15 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	sendonlyURL := *cltest.MustParseURL(t, ts.URL)
 	ethClient := mustNewClient(t, wsURL, sendonlyURL, sendonlyURL)
 	defer ethClient.Close()
-	err := ethClient.Dial(context.Background())
+	err := ethClient.Dial(testutils.Context(t))
 	require.NoError(t, err)
 
-	err = ethClient.SendTransaction(context.Background(), tx)
+	err = ethClient.SendTransaction(testutils.Context(t), tx)
 	require.NoError(t, err)
 
 	// Unfortunately it's a bit tricky to test this, since there is no
 	// synchronization. We have to rely on timing instead.
-	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, testutils.WaitTimeout(t), 500*time.Millisecond)
 }
 
 type sendTxService struct {
@@ -342,7 +342,7 @@ func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexuti
 func TestEthClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
+	ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 	defer cancel()
 
 	chainId := big.NewInt(123456)
@@ -359,7 +359,7 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	})
 
 	ethClient := mustNewClientWithChainID(t, wsURL, chainId)
-	err := ethClient.Dial(context.Background())
+	err := ethClient.Dial(testutils.Context(t))
 	require.NoError(t, err)
 
 	headCh := make(chan *evmtypes.Head)

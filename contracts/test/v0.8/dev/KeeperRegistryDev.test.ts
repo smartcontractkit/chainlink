@@ -8,7 +8,7 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../t
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
+import { UpkeepTranscoderDev__factory as UpkeepTranscoderDevFactory } from '../../../typechain/factories/UpkeepTranscoderDev__factory'
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
@@ -21,7 +21,7 @@ import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
-import { UpkeepTranscoder } from '../../../typechain'
+import { UpkeepTranscoderDev } from '../../../typechain'
 import { toWei } from '../../test-helpers/helpers'
 
 async function getUpkeepID(tx: any) {
@@ -47,7 +47,7 @@ let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let upkeepTranscoderFactory: UpkeepTranscoderFactory
+let upkeepTranscoderDevFactory: UpkeepTranscoderDevFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
 let personas: Personas
@@ -67,7 +67,9 @@ before(async () => {
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
-  upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
+  upkeepTranscoderDevFactory = await ethers.getContractFactory(
+    'UpkeepTranscoderDev',
+  )
   mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
   mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
     'MockOVMGasPriceOracle',
@@ -117,7 +119,7 @@ describe('KeeperRegistryDev', () => {
   let registry2: KeeperRegistry
   let registryLogic2: KeeperRegistryLogic
   let mock: UpkeepMock
-  let transcoder: UpkeepTranscoder
+  let transcoder: UpkeepTranscoderDev
   let mockArbGasInfo: MockArbGasInfo
   let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 
@@ -154,7 +156,7 @@ describe('KeeperRegistryDev', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
+    transcoder = await upkeepTranscoderDevFactory.connect(owner).deploy()
     mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
       .connect(owner)
@@ -338,7 +340,7 @@ describe('KeeperRegistryDev', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.0')
+      assert.equal(typeAndVersion, 'KeeperRegistry 1.3.0')
     })
   })
 
@@ -686,7 +688,8 @@ describe('KeeperRegistryDev', () => {
       assert.equal(mock.address, registration.target)
       assert.equal(0, registration.balance.toNumber())
       assert.equal(emptyBytes, registration.checkData)
-      assert(registration.maxValidBlocknumber.eq('0xffffffffffffffff'))
+      assert.equal(registration.paused, false)
+      assert(registration.maxValidBlocknumber.eq('0xffffffff'))
     })
   })
 
@@ -2429,6 +2432,29 @@ describe('KeeperRegistryDev', () => {
           registry2.connect(payee1).acceptUpkeepAdmin(id),
         ).to.be.revertedWith('OnlyCallableByProposedAdmin()')
       })
+
+      it('migrates a paused upkeep', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        await registry.connect(admin).pauseUpkeep(id)
+        // verify the upkeep is paused
+        expect((await registry.getUpkeep(id)).paused).to.equal(true)
+        // migrate
+        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
+        expect((await registry.getUpkeep(id)).balance).to.equal(0)
+        expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
+        expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
+          toWei('100'),
+        )
+        // verify the upkeep is still paused after migration
+        expect((await registry2.getUpkeep(id)).paused).to.equal(true)
+      })
+
       it('emits an event on both contracts', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
