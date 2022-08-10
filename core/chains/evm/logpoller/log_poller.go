@@ -103,7 +103,8 @@ func (lp *logPoller) ChainID() *big.Int {
 // MergeFilter([]EventID{{event1, addr1}}
 // MergeFilter([]EventID{{event2, addr2}}
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
-// Generally speaking this should be rare and is harmless.
+// Generally speaking this is harmless. We enforce that the filter contains an address and eventID,
+// which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
 func (lp *logPoller) MergeFilter(eventIDs []EventID) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
@@ -348,7 +349,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 		logsByEventID := lp.groupByEventID(logs)
 		utils.RetryWithBackoff(ctx, func() bool {
 			err := lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-				if err2 := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithParentCtx(ctx)); err2 != nil {
+				if err2 := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx)); err2 != nil {
 					return err2
 				}
 				for eventID, logsForEventID := range logsByEventID {
@@ -534,7 +535,7 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 func (lp *logPoller) groupByEventID(logs []types.Log) map[EventID][]types.Log {
 	logsByEventID := make(map[EventID][]types.Log)
 	for _, log := range logs {
-		eventID := EventID{Address: log.Address, EventSig: log.Topics[0]} // TODO: could topics ever be len < 1?
+		eventID := EventID{Address: log.Address, EventSig: log.Topics[0]}
 		logsByEventID[eventID] = append(logsByEventID[eventID], log)
 	}
 	return logsByEventID
