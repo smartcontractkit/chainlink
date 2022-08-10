@@ -43,22 +43,22 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
-	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 0 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
-	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 }
 
@@ -106,11 +106,11 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), time.Second)
 	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
-	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	helper.unsubscribeAll()
 
 	// now the backfill must use the blockBackfillDepth
@@ -122,11 +122,11 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	listenerLast := helper.newLogListenerWithJob("last")
 	helper.register(listenerLast, newMockContract(), 1)
 
-	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
 	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
 	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
-	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
@@ -176,15 +176,15 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
-		require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
-		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, testutils.WaitTimeout(t), time.Second)
 
 		helper.lb.ReplayFromBlock(replayFrom, false)
 
-		require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, cltest.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, testutils.WaitTimeout(t), time.Second)
 	}()
 
-	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_ReplaysLogs(t *testing.T) {
@@ -216,7 +216,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		defer helper.stop()
 
 		// To start, no logs are sent
-		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 0 }, cltest.WaitTimeout(t), time.Second,
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 0 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 0 but was %d", len(listener.getUniqueLogs()))
 
 		// Replay from block 2, the logs should be delivered. An incoming head must be simulated to
@@ -228,7 +228,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
-		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, cltest.WaitTimeout(t), time.Second,
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 2 but was %d", len(listener.getUniqueLogs()))
 
 		// Replay again, the logs are already marked consumed so they should not be included in
@@ -240,7 +240,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
-		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, cltest.WaitTimeout(t), time.Second,
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 2 but was %d", len(listener.getUniqueLogs()))
 
 		// Replay again with forceBroadcast. The logs are consumed again.
@@ -251,12 +251,12 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
-		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, cltest.WaitTimeout(t), time.Second,
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), time.Second,
 			"expected unique logs to be 4 but was %d", len(listener.getUniqueLogs()))
 
 	}()
 
-	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
@@ -316,7 +316,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		require.Eventually(t, func() bool {
 			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum != nil && *blockNum == int64(log1.BlockNumber)
-		}, cltest.WaitTimeout(t), time.Second)
+		}, testutils.WaitTimeout(t), time.Second)
 	}()
 
 	// Pool min block in DB and neither listener received a broadcast
@@ -354,7 +354,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		require.Eventually(t, func() bool {
 			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum != nil && *blockNum == int64(log2.BlockNumber)
-		}, cltest.WaitTimeout(t), time.Second)
+		}, testutils.WaitTimeout(t), time.Second)
 	}()
 
 	// Pool min block in DB and one listener received but didn't consume
@@ -393,7 +393,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		require.Eventually(t, func() bool {
 			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum == nil
-		}, cltest.WaitTimeout(t), time.Second)
+		}, testutils.WaitTimeout(t), time.Second)
 	}()
 
 	// Pool empty and one consumed but other didn't
@@ -433,7 +433,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		require.Eventually(t, func() bool {
 			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum == nil
-		}, cltest.WaitTimeout(t), time.Second)
+		}, testutils.WaitTimeout(t), time.Second)
 	}()
 	// Pool empty, one broadcasted and consumed
 	blockNum, err = orm.GetPendingMinBlock()
@@ -488,11 +488,11 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
-		require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
-		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), time.Second)
+		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, testutils.WaitTimeout(t), time.Second)
 	}()
 
-	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_BackfillInBatches(t *testing.T) {
@@ -545,11 +545,11 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return backfillCount.Load() == expectedBatches }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return backfillCount.Load() == expectedBatches }, testutils.WaitTimeout(t), time.Second)
 
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return helper.mockEth.UnsubscribeCallCount() >= 1 }, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
@@ -603,10 +603,10 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	helper.register(listener, newMockContract(), 1)
 	helper.start()
 	defer helper.stop()
-	g.Eventually(func() int64 { return backfillCount.Load() }, cltest.WaitTimeout(t), time.Second).Should(gomega.Equal(int64(expectedBatches)))
+	g.Eventually(func() int64 { return backfillCount.Load() }, testutils.WaitTimeout(t), time.Second).Should(gomega.Equal(int64(expectedBatches)))
 
 	helper.unsubscribeAll()
-	g.Eventually(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, cltest.WaitTimeout(t), time.Second).Should(gomega.BeNumerically(">=", int32(1)))
+	g.Eventually(func() int32 { return helper.mockEth.UnsubscribeCallCount() }, testutils.WaitTimeout(t), time.Second).Should(gomega.BeNumerically(">=", int32(1)))
 }
 
 func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
@@ -961,11 +961,11 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	<-headsDone
 
-	require.Eventually(t, func() bool { return len(listener0.received.getUniqueLogs()) == 4 }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return len(listener1.received.getUniqueLogs()) == 4 }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return len(listener2.received.getUniqueLogs()) == 2 }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return len(listener3.received.getUniqueLogs()) == 3 }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return len(listener4.received.getUniqueLogs()) == 1 }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener0.received.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener1.received.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener2.received.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener3.received.getUniqueLogs()) == 3 }, testutils.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener4.received.getUniqueLogs()) == 1 }, testutils.WaitTimeout(t), 500*time.Millisecond)
 }
 
 func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
@@ -1213,13 +1213,13 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	// Await startup
 	select {
 	case <-chStarted:
-	case <-time.After(cltest.WaitTimeout(t)):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("never started")
 	}
 
 	select {
 	case <-chchRawLogs:
-	case <-time.After(cltest.WaitTimeout(t)):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("did not subscribe")
 	}
 
@@ -1228,7 +1228,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 
 	select {
 	case <-chchRawLogs:
-	case <-time.After(cltest.WaitTimeout(t)):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("did not subscribe")
 	}
 
@@ -1237,7 +1237,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 
 	select {
 	case <-chchRawLogs:
-	case <-time.After(cltest.WaitTimeout(t)):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("did not subscribe")
 	}
 
@@ -1246,11 +1246,11 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 
 	select {
 	case <-chchRawLogs:
-	case <-time.After(cltest.WaitTimeout(t)):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("did not subscribe")
 	}
 
-	cltest.EventuallyExpectationsMet(t, ethClient, cltest.WaitTimeout(t), time.Second)
+	cltest.EventuallyExpectationsMet(t, ethClient, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
@@ -1526,7 +1526,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	chRawLogs.TrySend(log2)
 
 	<-headsDone
-	require.Eventually(t, func() bool { return len(logListener.received.getUniqueLogs()) >= 2 }, cltest.WaitTimeout(t), time.Second)
+	require.Eventually(t, func() bool { return len(logListener.received.getUniqueLogs()) >= 2 }, testutils.WaitTimeout(t), time.Second)
 	helper.requireBroadcastCount(2)
 }
 
@@ -1594,7 +1594,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	for _, event := range events {
 		switch x := event.(type) {
 		case *evmtypes.Head:
-			ctx, _ := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
+			ctx, _ := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
 			chRawLogs.TrySend(x)
@@ -1602,9 +1602,9 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	g.Eventually(func() []uint64 { return listenerA.getUniqueLogsBlockNumbers() }, cltest.WaitTimeout(t), time.Second).
+	g.Eventually(func() []uint64 { return listenerA.getUniqueLogsBlockNumbers() }, testutils.WaitTimeout(t), time.Second).
 		Should(gomega.Equal([]uint64{0, 1, 2, 1, 2, 3, 3}))
-	g.Eventually(func() []uint64 { return listenerB.getUniqueLogsBlockNumbers() }, cltest.WaitTimeout(t), time.Second).
+	g.Eventually(func() []uint64 { return listenerB.getUniqueLogsBlockNumbers() }, testutils.WaitTimeout(t), time.Second).
 		Should(gomega.Equal([]uint64{0, 1, 1, 2, 2}))
 
 	helper.unsubscribeAll()
@@ -1635,7 +1635,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 	}
 	helper.registerWithTopics(listener1, contract, topics1, 1)
-	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 1 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	<-helper.chchRawLogs
@@ -1644,7 +1644,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 	}
 	helper.registerWithTopics(listener2, contract, topics2, 1)
-	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 2 }, cltest.WaitTimeout(t), 100*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.SubscribeCallCount() == 2 }, testutils.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.SubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
 
 	helper.unsubscribeAll()
@@ -1759,7 +1759,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 
 	// Send a block to trigger sending the logs from the pool
 	// to the subscribers
-	helper.lb.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 2})
+	helper.lb.OnNewLongestChain(testutils.Context(t), &evmtypes.Head{Number: 2})
 
 	// The subs should each get exactly 3 broadcasts each
 	// If we do not receive a broadcast for 1 second

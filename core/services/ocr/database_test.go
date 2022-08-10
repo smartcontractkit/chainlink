@@ -2,25 +2,23 @@ package ocr_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-var ctx = context.Background()
 
 func Test_DB_ReadWriteState(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
@@ -40,10 +38,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{3},
 		}
 
-		err := odb.WriteState(ctx, configDigest, state)
+		err := odb.WriteState(testutils.Context(t), configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := odb.ReadState(ctx, configDigest)
+		readState, err := odb.ReadState(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 
 		require.Equal(t, state, *readState)
@@ -57,10 +55,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{4, 5},
 		}
 
-		err := odb.WriteState(ctx, configDigest, newState)
+		err := odb.WriteState(testutils.Context(t), configDigest, newState)
 		require.NoError(t, err)
 
-		readState, err := odb.ReadState(ctx, configDigest)
+		readState, err := odb.ReadState(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 
 		require.Equal(t, newState, *readState)
@@ -74,13 +72,13 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{5, 6},
 		}
 
-		err := odb.WriteState(ctx, configDigest, state)
+		err := odb.WriteState(testutils.Context(t), configDigest, state)
 		require.NoError(t, err)
 
 		// db with different spec
 		odb = ocr.NewTestDB(t, db, -1)
 
-		readState, err := odb.ReadState(ctx, configDigest)
+		readState, err := odb.ReadState(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -94,10 +92,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{6, 7},
 		}
 
-		err := odb.WriteState(ctx, configDigest, state)
+		err := odb.WriteState(testutils.Context(t), configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := odb.ReadState(ctx, cltest.MakeConfigDigest(t))
+		readState, err := odb.ReadState(testutils.Context(t), cltest.MakeConfigDigest(t))
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -125,10 +123,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("reads and writes config", func(t *testing.T) {
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
-		err := db.WriteConfig(ctx, config)
+		err := db.WriteConfig(testutils.Context(t), config)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(ctx)
+		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.Equal(t, &config, readConfig)
@@ -146,10 +144,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 			Encoded:              []byte{2, 3, 4, 5, 6},
 		}
 
-		err := db.WriteConfig(ctx, newConfig)
+		err := db.WriteConfig(testutils.Context(t), newConfig)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(ctx)
+		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.Equal(t, &newConfig, readConfig)
@@ -158,12 +156,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
-		err := db.WriteConfig(ctx, config)
+		err := db.WriteConfig(testutils.Context(t), config)
 		require.NoError(t, err)
 
 		db = ocr.NewTestDB(t, sqlDB, -1)
 
-		readConfig, err := db.ReadConfig(ctx)
+		readConfig, err := db.ReadConfig(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.Nil(t, readConfig)
@@ -220,9 +218,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err := odb.StorePendingTransmission(ctx, k, p)
+		err := odb.StorePendingTransmission(testutils.Context(t), k, p)
 		require.NoError(t, err)
-		m, err := odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		assertPendingTransmissionEqual(t, m[k], p)
 
@@ -235,9 +233,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err = odb.StorePendingTransmission(ctx, k, p)
+		err = odb.StorePendingTransmission(testutils.Context(t), k, p)
 		require.NoError(t, err)
-		m, err = odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		assertPendingTransmissionEqual(t, m[k], p)
 
@@ -250,7 +248,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err = odb.StorePendingTransmission(ctx, k2, p2)
+		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
 		require.NoError(t, err)
 
 		kRedHerring := ocrtypes.PendingTransmissionKey{
@@ -267,10 +265,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err = odb.StorePendingTransmission(ctx, kRedHerring, pRedHerring)
+		err = odb.StorePendingTransmission(testutils.Context(t), kRedHerring, pRedHerring)
 		require.NoError(t, err)
 
-		m, err = odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 
 		require.Len(t, m, 2)
@@ -290,7 +288,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Equal(t, p2, m[k2])
 
 		// No keys for this oracleSpecID yet
-		m, err = odb2.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = odb2.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 0)
 	})
@@ -304,20 +302,20 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err := odb.StorePendingTransmission(ctx, k, p)
+		err := odb.StorePendingTransmission(testutils.Context(t), k, p)
 		require.NoError(t, err)
-		err = odb2.StorePendingTransmission(ctx, k, p)
-		require.NoError(t, err)
-
-		err = odb.DeletePendingTransmission(ctx, k)
+		err = odb2.StorePendingTransmission(testutils.Context(t), k, p)
 		require.NoError(t, err)
 
-		m, err := odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		err = odb.DeletePendingTransmission(testutils.Context(t), k)
+		require.NoError(t, err)
+
+		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
 		// Did not affect other oracleSpecID
-		m, err = odb2.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = odb2.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 	})
@@ -331,10 +329,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err := odb.StorePendingTransmission(ctx, k2, p)
+		err := odb.StorePendingTransmission(testutils.Context(t), k2, p)
 		require.NoError(t, err)
 
-		m, err := odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 		require.Equal(t, p.Median, m[k2].Median)
@@ -350,7 +348,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err := odb.StorePendingTransmission(ctx, k, p)
+		err := odb.StorePendingTransmission(testutils.Context(t), k, p)
 		require.NoError(t, err)
 
 		p2 := ocrtypes.PendingTransmission{
@@ -361,7 +359,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err = odb.StorePendingTransmission(ctx, k2, p2)
+		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
 		require.NoError(t, err)
 
 		p2 = ocrtypes.PendingTransmission{
@@ -373,19 +371,19 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err = odb.StorePendingTransmission(ctx, k2, p2)
+		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
 		require.NoError(t, err)
 
-		err = odb.DeletePendingTransmissionsOlderThan(ctx, time.Unix(900, 0))
+		err = odb.DeletePendingTransmissionsOlderThan(testutils.Context(t), time.Unix(900, 0))
 		require.NoError(t, err)
 
-		m, err := odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
 		odb = ocr.NewTestDB(t, sqlDB, spec2.ID)
-		m, err = odb.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 	})

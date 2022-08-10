@@ -315,7 +315,7 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	received := listener.received
 	require.Eventually(t, func() bool {
 		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
-	}, cltest.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
+	}, testutils.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 
 	received.Lock()
 	defer received.Unlock()

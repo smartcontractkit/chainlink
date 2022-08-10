@@ -161,7 +161,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		require.NotNil(t, uni.listener, "listener was nil; expected broadcaster.Register to have been called")
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(testutils.Context(t), uni.listener.JobID())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -379,7 +379,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(testutils.Context(t), uni.listener.JobID())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -473,7 +473,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(testutils.Context(t), uni.listener.JobID())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
