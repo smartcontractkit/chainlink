@@ -129,7 +129,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
 	require.NoError(t, lp.MergeFilter([]logpoller.EventID{{EventSig: EmitterABI.Events["Log1"].ID, Address: emitterAddress1}}))
-	require.NoError(t, lp.Start(testutils.Context(t))
+	require.NoError(t, lp.Start(testutils.Context(t)))
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
@@ -198,7 +198,7 @@ func TestLogWritesScale(t *testing.T) {
 	// If block processing is slower than block production rate of the chain, we can fall behind unless we
 	// add some sort of block sampling. Note below is only measuring db writes, not network calls.
 	s := time.Now()
-	lp.PollAndSaveLogs(context.Background(), 2)
+	lp.PollAndSaveLogs(testutils.Context(t), 2)
 	t.Log(time.Since(s))
 	// Try 1k logs in a single block.
 	for i := 0; i < 1000; i++ {
@@ -206,6 +206,6 @@ func TestLogWritesScale(t *testing.T) {
 	}
 	ec.Commit()
 	s = time.Now()
-	lp.PollAndSaveLogs(context.Background(), 3)
+	lp.PollAndSaveLogs(testutils.Context(t), 3)
 	t.Log(time.Since(s)) // ~100ms on local db.
 }

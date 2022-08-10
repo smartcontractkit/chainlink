@@ -417,18 +417,18 @@ func TestLogPoller_Callbacks(t *testing.T) {
 		require.NoError(t, err)
 		th.ec.Commit()
 	}
-	th.lp.pollAndSaveLogs(context.Background(), 1)
+	th.lp.pollAndSaveLogs(testutils.Context(t), 1)
 	t.Log(parsedLogs)
-	b, err := th.ec.BlockByNumber(context.Background(), big.NewInt(2))
+	b, err := th.ec.BlockByNumber(testutils.Context(t), big.NewInt(2))
 	require.NoError(t, err)
 	// Add two logs values 3 and 4 on reorg.
-	require.NoError(t, th.ec.Fork(context.Background(), b.Hash()))
+	require.NoError(t, th.ec.Fork(testutils.Context(t), b.Hash()))
 	for i := 3; i < 5; i++ {
 		_, err := th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
 		th.ec.Commit()
 	}
-	th.lp.pollAndSaveLogs(context.Background(), b.Number().Int64()+2)
+	th.lp.pollAndSaveLogs(testutils.Context(t), b.Number().Int64()+2)
 	t.Log(parsedLogs)
 	// We should only log values 1, 3, 4 (2 was reorged out)
 	expected := map[int64]struct{}{1: {}, 3: {}, 4: {}}
