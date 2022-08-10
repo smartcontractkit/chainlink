@@ -60,13 +60,13 @@ func (c *UserController) Create(ctx *gin.Context) {
 		return
 	}
 
-	if err := clsession.ValidateEmail(request.Email); err != nil {
-		jsonAPIError(ctx, http.StatusBadRequest, err)
+	if verr := clsession.ValidateEmail(request.Email); verr != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, verr)
 		return
 	}
 
-	if err := utils.VerifyPasswordComplexity(request.Password, request.Email); err != nil {
-		jsonAPIError(ctx, http.StatusBadRequest, err)
+	if verr := utils.VerifyPasswordComplexity(request.Password, request.Email); verr != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, verr)
 		return
 	}
 
