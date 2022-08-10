@@ -1,7 +1,6 @@
 package vrf_test
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -81,7 +80,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				// keep blocks coming in for the lb to send the backfilled logs.
 				cu.backend.Commit()
 				return len(runs) == 2 && runs[0].State == pipeline.RunStatusCompleted && runs[1].State == pipeline.RunStatusCompleted
-			}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+			}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
 			assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
 			assert.Equal(t, 4, len(runs[1].PipelineTaskRuns))
@@ -94,7 +93,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				uc, err2 := txmgr.CountUnconfirmedTransactions(q, key1.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
-			}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
 			var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
@@ -106,14 +105,14 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 					rf = append(rf, rfIterator.Event)
 				}
 				return len(rf) == 2
-			}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
+			}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 
 			// Check that each sending address sent one transaction
-			n1, err := cu.backend.PendingNonceAt(context.Background(), key1.Address.Address())
+			n1, err := cu.backend.PendingNonceAt(testutils.Context(t), key1.Address.Address())
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n1)
 
-			n2, err := cu.backend.PendingNonceAt(context.Background(), key2.Address.Address())
+			n2, err := cu.backend.PendingNonceAt(testutils.Context(t), key2.Address.Address())
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n2)
 		})
@@ -167,7 +166,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 			t.Fatal(err)
 			return false
 		}
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside the 256 block window
 	for i := 0; i < 160; i++ {

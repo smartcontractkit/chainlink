@@ -1,10 +1,10 @@
 package ocrcommon_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
@@ -16,7 +16,7 @@ func Test_BlockTranslator(t *testing.T) {
 	t.Parallel()
 
 	ethClient := evmtest.NewEthClientMock(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {

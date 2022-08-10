@@ -29,7 +29,9 @@ contract KeeperRegistryDev is
 
   /**
    * @notice versions:
-   * - KeeperRegistry 2.0.0: Split contract into Proxy and Logic
+   * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
+   *                       : account for Arbitrum and Optimism L1 gas fee
+   *                       : allow users to configure upkeeps
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
@@ -38,7 +40,7 @@ contract KeeperRegistryDev is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
+  string public constant override typeAndVersion = "KeeperRegistry 1.3.0";
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism

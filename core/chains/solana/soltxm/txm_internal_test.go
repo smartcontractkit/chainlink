@@ -1,7 +1,6 @@
 package soltxm
 
 import (
-	"context"
 	"math/rand"
 	"sync"
 	"testing"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
@@ -89,7 +89,7 @@ func TestTxm(t *testing.T) {
 	txm := NewTxm(id, func() (client.ReaderWriter, error) {
 		return mc, nil
 	}, cfg, mkey, lggr)
-	require.NoError(t, txm.Start(context.Background()))
+	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// tracking prom metrics
 	prom := soltxmProm{id: id}
