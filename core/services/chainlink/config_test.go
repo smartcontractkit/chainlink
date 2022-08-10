@@ -117,7 +117,7 @@ var (
 					MaxRetries: ptr[int64](12),
 				},
 				Nodes: []solcfg.Node{
-					{Name: "primary", URL: relayutils.MustParseURL("http://mainnet.solana.com")},
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://mainnet.solana.com")},
 				},
 			},
 			{
@@ -126,7 +126,7 @@ var (
 					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
 				Nodes: []solcfg.Node{
-					{Name: "primary", URL: relayutils.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -482,9 +482,9 @@ func TestConfig_Marshal(t *testing.T) {
 				MaxRetries:          ptr[int64](7),
 			},
 			Nodes: []solcfg.Node{
-				{Name: "primary", URL: relayutils.MustParseURL("http://solana.web")},
-				{Name: "foo", URL: relayutils.MustParseURL("http://solana.foo")},
-				{Name: "bar", URL: relayutils.MustParseURL("http://solana.bar")},
+				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
+				{Name: ptr("foo"), URL: relayutils.MustParseURL("http://solana.foo")},
+				{Name: ptr("bar"), URL: relayutils.MustParseURL("http://solana.bar")},
 			},
 		},
 	}

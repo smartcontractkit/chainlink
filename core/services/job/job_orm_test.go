@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -209,7 +210,7 @@ func TestORM(t *testing.T) {
 
 		err = orm.CreateJob(&jb)
 		require.NoError(t, err)
-		savedJob, err := orm.FindJob(context.Background(), jb.ID)
+		savedJob, err := orm.FindJob(testutils.Context(t), jb.ID)
 		require.NoError(t, err)
 		require.Equal(t, jb.ID, savedJob.ID)
 		require.Equal(t, jb.Type, savedJob.Type)
@@ -225,7 +226,7 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockhashStoreSpec.FromAddress, savedJob.BlockhashStoreSpec.FromAddress)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		_, err = orm.FindJob(context.Background(), jb.ID)
+		_, err = orm.FindJob(testutils.Context(t), jb.ID)
 		require.Error(t, err)
 	})
 }
@@ -609,7 +610,7 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
 		defer cancel()
 		jb, err := orm.FindJob(ctx, job.ID)
 		require.NoError(t, err)
