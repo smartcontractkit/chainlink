@@ -372,6 +372,30 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 	return end + 1
 }
 
+func (lp *logPoller) reorgFn(blockAfterLCA *types.Header, currentBlockNumber int64) func(tx pg.Queryer) error {
+	return func(tx pg.Queryer) error {
+		// These deletes are bounded by reorg depth, so they are
+		// fast and should not slow down the log readers.
+		err := lp.orm.DeleteRangeBlocks(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
+		if err != nil {
+			lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
+			return err
+		}
+		err = lp.orm.DeleteLogs(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
+		if err != nil {
+			lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
+			return err
+		}
+		// Tell all callbacks about the reorg.
+		for _, callback := range lp.callbacks {
+			if err2 := callback.Reorg(tx, blockAfterLCA.Number.Int64(), currentBlockNumber); err2 != nil {
+				return err2
+			}
+		}
+		return nil
+	}
+}
+
 // getCurrentBlockMaybeHandleReorg accepts a block number
 // and will return that block if its parent points to our last saved block.
 // If its parent does not point to our last saved block we know a reorg has occurred.
@@ -415,27 +439,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// the canonical set per read. Typically, if an application took action on a log
 		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
-		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			// These deletes are bounded by reorg depth, so they are
-			// fast and should not slow down the log readers.
-			err2 = lp.orm.DeleteRangeBlocks(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
-			if err2 != nil {
-				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err2)
-				return err2
-			}
-			err2 = lp.orm.DeleteLogs(blockAfterLCA.Number.Int64(), currentBlockNumber, pg.WithQueryer(tx))
-			if err2 != nil {
-				lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err2)
-				return err2
-			}
-			// Tell all callbacks about the reorg.
-			for _, callback := range lp.callbacks {
-				if err3 := callback.Reorg(tx, blockAfterLCA.Number.Int64(), currentBlockNumber); err3 != nil {
-					return err3
-				}
-			}
-			return nil
-		})
+		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(lp.reorgFn(blockAfterLCA, currentBlockNumber))
 		if err2 != nil {
 			// If we error on db commit, we can't know if the tx went through or not.
 			// We return an error here which will cause us to restart polling from lastBlockSaved + 1
