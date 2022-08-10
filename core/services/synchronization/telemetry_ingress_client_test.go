@@ -1,7 +1,6 @@
 package synchronization_test
 
 import (
-	"context"
 	"net/url"
 	"testing"
 
@@ -43,7 +42,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	telemetry := []byte("101010")
 	address := common.HexToAddress("0xa")
 	telemPayload := synchronization.TelemPayload{
-		Ctx:        context.Background(),
+		Ctx:        testutils.Context(t),
 		Telemetry:  telemetry,
 		ContractID: address.String(),
 	}

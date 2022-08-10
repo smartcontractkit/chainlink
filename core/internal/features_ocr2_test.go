@@ -2,7 +2,6 @@ package internal_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -122,13 +121,13 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	transmitter := sendingKeys[0].Address.Address()
 
 	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(context.Background(), owner.From, nil)
+	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -191,7 +190,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		transmitters,
 	)
 	require.NoError(t, err)
-	blockBeforeConfig, err := b.BlockByNumber(context.Background(), nil)
+	blockBeforeConfig, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
@@ -234,7 +233,7 @@ contractID			= "%s"
 chainID 			= 1337
 `, ocrContractAddress))
 	require.NoError(t, err)
-	err = appBootstrap.AddJobV2(context.Background(), &ocrJob)
+	err = appBootstrap.AddJobV2(testutils.Context(t), &ocrJob)
 	require.NoError(t, err)
 
 	var jids []int32
@@ -329,16 +328,16 @@ juelsPerFeeCoinSource = """
 """
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
-		err = apps[i].AddJobV2(context.Background(), &ocrJob)
+		err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 		require.NoError(t, err)
 		jids = append(jids, ocrJob.ID)
 	}
 
 	// Once all the jobs are added, replay to ensure we have the configSet logs.
 	for _, app := range apps {
-		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
+		require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
 	}
-	require.NoError(t, appBootstrap.Chains.EVM.Chains()[0].LogPoller().Replay(context.Background(), blockBeforeConfig.Number().Int64()))
+	require.NoError(t, appBootstrap.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
 	var wg sync.WaitGroup
@@ -386,7 +385,7 @@ juelsPerFeeCoinSource = """
 	require.NoError(t, err)
 	ct, err := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, apps[0].Chains.EVM.Chains()[0].LogPoller(), lggr)
 	require.NoError(t, err)
-	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(context.Background())
+	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
 	details, err := ocrContract.LatestConfigDetails(nil)
 	require.NoError(t, err)

@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"context"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -35,7 +35,7 @@ func TestContractTransmitter(t *testing.T) {
 	lp.On("MergeFilter", mock.Anything, mock.Anything)
 	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, nil, lp, lggr)
 	require.NoError(t, err)
-	digest, epoch, err := ot.LatestConfigDigestAndEpoch(context.Background())
+	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc776", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
@@ -52,7 +52,7 @@ func TestContractTransmitter(t *testing.T) {
 	lp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything).Return(&logpoller.Log{
 		Data: transmitted2,
 	}, nil)
-	digest, epoch, err = ot.LatestConfigDigestAndEpoch(context.Background())
+	digest, epoch, err = ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
