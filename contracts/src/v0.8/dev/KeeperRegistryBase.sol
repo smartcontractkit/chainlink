@@ -1,17 +1,17 @@
 pragma solidity 0.8.6;
 
-import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import "./vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "./ExecutionPrevention.sol";
+import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "./interfaces/UpkeepTranscoderInterfaceDev.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -62,37 +62,37 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   PaymentModel public immutable PAYMENT_MODEL;
   uint256 public immutable REGISTRY_GAS_OVERHEAD;
 
+  error ArrayHasNoEntries();
   error CannotCancel();
-  error UpkeepCancelled();
+  error DuplicateEntry();
+  error GasLimitCanOnlyIncrease();
+  error GasLimitOutsideRange();
+  error IndexOutOfRange();
+  error InsufficientFunds();
+  error InvalidDataLength();
+  error InvalidPayee();
+  error InvalidRecipient();
+  error KeepersMustTakeTurns();
   error MigrationNotPermitted();
+  error NotAContract();
+  error OnlyActiveKeepers();
+  error OnlyCallableByAdmin();
+  error OnlyCallableByLINKToken();
+  error OnlyCallableByOwnerOrAdmin();
+  error OnlyCallableByOwnerOrRegistrar();
+  error OnlyCallableByPayee();
+  error OnlyCallableByProposedAdmin();
+  error OnlyCallableByProposedPayee();
+  error OnlyPausedUpkeep();
+  error OnlyUnpausedUpkeep();
+  error ParameterLengthError();
+  error PaymentGreaterThanAllLINK();
+  error TargetCheckReverted(bytes reason);
+  error TranscoderNotSet();
+  error UpkeepCancelled();
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
-  error NotAContract();
-  error PaymentGreaterThanAllLINK();
-  error OnlyActiveKeepers();
-  error InsufficientFunds();
-  error KeepersMustTakeTurns();
-  error ParameterLengthError();
-  error OnlyCallableByOwnerOrAdmin();
-  error OnlyCallableByLINKToken();
-  error InvalidPayee();
-  error DuplicateEntry();
   error ValueNotChanged();
-  error IndexOutOfRange();
-  error TranscoderNotSet();
-  error ArrayHasNoEntries();
-  error GasLimitOutsideRange();
-  error OnlyCallableByPayee();
-  error OnlyCallableByProposedPayee();
-  error OnlyCallableByProposedAdmin();
-  error GasLimitCanOnlyIncrease();
-  error OnlyCallableByAdmin();
-  error OnlyCallableByOwnerOrRegistrar();
-  error InvalidRecipient();
-  error InvalidDataLength();
-  error TargetCheckReverted(bytes reason);
-  error OnlyUnpausedUpkeep();
-  error OnlyPausedUpkeep();
 
   enum MigrationPermission {
     NONE,
@@ -138,7 +138,21 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint256 linkEth;
   }
 
-  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
+  event ConfigSet(Config config);
+  event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event KeepersUpdated(address[] keepers, address[] payees);
+  event OwnerFundsWithdrawn(uint96 amount);
+  event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
+  event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
+  event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
+  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
+  event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
+  event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
+  event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
+  event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
+  event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(
     uint256 indexed id,
     bool indexed success,
@@ -146,23 +160,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
     uint96 payment,
     bytes performData
   );
-  event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event UpkeepPaused(uint256 indexed id);
-  event UpkeepUnpaused(uint256 indexed id);
-  event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
-  event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
-  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
-  event OwnerFundsWithdrawn(uint96 amount);
-  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event ConfigSet(Config config);
-  event KeepersUpdated(address[] keepers, address[] payees);
-  event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
-  event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
-  event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
-  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
-  event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
-  event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  event UpkeepUnpaused(uint256 indexed id);
+  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
 
   /**
    * @param paymentModel the payment model of default, Arbitrum, or Optimism

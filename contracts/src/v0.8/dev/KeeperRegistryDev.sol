@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "./interfaces/MigratableKeeperRegistryInterfaceDev.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 
 /**
