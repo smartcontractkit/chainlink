@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,16 @@ func (c *UserController) Create(ctx *gin.Context) {
 		return
 	}
 
+	if verr := clsession.ValidateEmail(request.Email); verr != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, verr)
+		return
+	}
+
+	if verr := utils.VerifyPasswordComplexity(request.Password, request.Email); verr != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, verr)
+		return
+	}
+
 	user, err := clsession.NewUser(request.Email, request.Password, userRole)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("error creating API user: %s", err))
@@ -96,13 +107,31 @@ func (c *UserController) Update(ctx *gin.Context) {
 		return
 	}
 
+	if request.NewEmail != "" {
+		if err := clsession.ValidateEmail(request.NewEmail); err != nil {
+			jsonAPIError(ctx, http.StatusBadRequest, err)
+			return
+		}
+	}
+
+	if request.NewPassword != "" {
+		if err := utils.VerifyPasswordComplexity(request.NewPassword, request.Email); err != nil {
+			jsonAPIError(ctx, http.StatusBadRequest, err)
+			return
+		}
+		if err := utils.VerifyPasswordComplexity(request.NewPassword, request.NewEmail); err != nil {
+			jsonAPIError(ctx, http.StatusBadRequest, err)
+			return
+		}
+	}
+
 	// Don't allow current admin user to edit self
 	sessionUser, ok := webauth.GetAuthenticatedUser(ctx)
 	if !ok {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	if sessionUser.Email == request.Email {
+	if strings.EqualFold(sessionUser.Email, request.Email) {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("can not change state or permissions of current admin user"))
 		return
 	}
@@ -133,7 +162,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	if sessionUser.Email == email {
+	if strings.EqualFold(sessionUser.Email, email) {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("can not delete currently logged in admin user"))
 		return
 	}
