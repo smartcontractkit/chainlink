@@ -1,14 +1,17 @@
 package v2
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -42,7 +45,7 @@ type Chain struct {
 
 	HeadTracker *HeadTracker
 
-	KeySpecific []KeySpecific `toml:",omitempty"`
+	KeySpecific KeySpecificConfig `toml:",omitempty"`
 
 	NodePool *NodePool
 
@@ -91,6 +94,21 @@ type BlockHistoryEstimator struct {
 	BlockHistorySize          *uint16
 	EIP1559FeeCapBufferBlocks *uint16
 	TransactionPercentile     *uint16
+}
+
+type KeySpecificConfig []KeySpecific
+
+func (ks KeySpecificConfig) ValidateConfig() (err error) {
+	addrs := map[string]struct{}{}
+	for _, k := range ks {
+		addr := k.Key.String()
+		if _, ok := addrs[addr]; ok {
+			err = multierr.Append(err, fmt.Errorf("duplicate address: %s", addr))
+		} else {
+			addrs[addr] = struct{}{}
+		}
+	}
+	return
 }
 
 type KeySpecific struct {
@@ -357,6 +375,23 @@ type Node struct {
 	WSURL    *models.URL
 	HTTPURL  *models.URL
 	SendOnly *bool
+}
+
+func (n *Node) ValidateConfig() (err error) {
+	if n.Name == nil {
+		err = multierr.Append(err, v2.ErrMissing{Name: "Name", Msg: "required for all nodes"})
+	} else if *n.Name == "" {
+		err = multierr.Append(err, v2.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
+	}
+	if s := n.SendOnly; s != nil && *s {
+		if n.WSURL == nil {
+			err = multierr.Append(err, v2.ErrMissing{Name: "WSURL", Msg: "required for SendOnly nodes"})
+		}
+	}
+	if n.HTTPURL == nil {
+		err = multierr.Append(err, v2.ErrMissing{Name: "HTTPURL", Msg: "required for all nodes"})
+	}
+	return
 }
 
 func (n *Node) SetFromDB(db types.Node) (err error) {

@@ -80,6 +80,7 @@ func Defaults(chainID *utils.Big) (c Chain, name string) {
 	return
 }
 
+// SetFrom updates c with any non-nil values from f.
 func (c *Chain) SetFrom(f *Chain) {
 	if v := f.BlockBackfillDepth; v != nil {
 		c.BlockBackfillDepth = v
@@ -234,7 +235,17 @@ func (c *Chain) SetFrom(f *Chain) {
 			}
 		}
 	}
-	// skip KeySpecific
+	if ks := f.KeySpecific; ks != nil {
+		for _, v := range ks {
+			if i := slices.IndexFunc(c.KeySpecific, func(k KeySpecific) bool { return k.Key == v.Key }); i == -1 {
+				c.KeySpecific = append(c.KeySpecific, v)
+			} else {
+				if v := v.GasEstimator; v != nil {
+					c.KeySpecific[i].GasEstimator = v
+				}
+			}
+		}
+	}
 	if h := f.HeadTracker; h != nil {
 		if c.HeadTracker == nil {
 			c.HeadTracker = &HeadTracker{}
