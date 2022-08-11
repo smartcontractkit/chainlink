@@ -122,6 +122,7 @@ func (lsn *listenerV1) Start(context.Context) error {
 			// called.
 			// We listen one block early so that the log can be stored in pendingRequests to avoid this.
 			MinIncomingConfirmations: spec.MinIncomingConfirmations - 1,
+			ReplayStartedCallback:    lsn.ReplayStartedCallback,
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
@@ -463,4 +464,11 @@ func (lsn *listenerV1) fromAddresses() []common.Address {
 // Job complies with log.Listener
 func (lsn *listenerV1) JobID() int32 {
 	return lsn.job.ID
+}
+
+// ReplayStartedCallback is called by the log broadcaster when a replay is about to start.
+func (lsn *listenerV1) ReplayStartedCallback() {
+	// Clear the log deduper cache so that we don't incorrectly ignore logs that have been sent that
+	// are already in the cache.
+	lsn.deduper.clear()
 }
