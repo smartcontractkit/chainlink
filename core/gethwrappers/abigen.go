@@ -93,7 +93,7 @@ func ImproveAbigenOutput(path string, abiPath string) {
 	logNames := getLogNames(fileNode)
 	if len(logNames) > 0 {
 		astutil.AddImport(fset, fileNode, "fmt")
-		astutil.AddImport(fset, fileNode, "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated")
+		astutil.AddImport(fset, fileNode, "github.com/smartcontractkit/chainlink/core/gethwrappers/generated")
 	}
 	contractName := getContractName(fileNode)
 	fileNode = addContractStructFields(contractName, fileNode)

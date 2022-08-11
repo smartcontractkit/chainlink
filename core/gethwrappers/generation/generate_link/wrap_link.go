@@ -3,7 +3,7 @@
 //
 //  Usage:
 //
-// With core/internal/gethwrappers as your working directory, run
+// With core/gethwrappers as your working directory, run
 //
 //  go run generation/generate_link/wrap.go
 //

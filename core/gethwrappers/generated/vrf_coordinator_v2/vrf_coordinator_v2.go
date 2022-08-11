@@ -9,13 +9,12 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum"
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
-
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 )
 
@@ -927,9 +926,9 @@ type VRFCoordinatorV2ConfigSet struct {
 	MaxGasLimit                 uint32
 	StalenessSeconds            uint32
 	GasAfterPaymentCalculation  uint32
-	FallbackWeiPerUnitLink *big.Int
-	FeeConfig              VRFCoordinatorV2FeeConfig
-	Raw                    types.Log
+	FallbackWeiPerUnitLink      *big.Int
+	FeeConfig                   VRFCoordinatorV2FeeConfig
+	Raw                         types.Log
 }
 
 func (_VRFCoordinatorV2 *VRFCoordinatorV2Filterer) FilterConfigSet(opts *bind.FilterOpts) (*VRFCoordinatorV2ConfigSetIterator, error) {
