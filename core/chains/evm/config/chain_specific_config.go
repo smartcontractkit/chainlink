@@ -12,7 +12,7 @@ import (
 var (
 	// DefaultGasFeeCap is the default value to use for Fee Cap in EIP-1559 transactions
 	DefaultGasFeeCap                     = assets.GWei(100)
-	DefaultGasLimit               uint64 = 500000
+	DefaultGasLimit               uint32 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
 	DefaultGasTip                        = big.NewInt(1)                               // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
@@ -42,9 +42,9 @@ type (
 		gasBumpWei                                     big.Int
 		gasEstimatorMode                               string
 		gasFeeCapDefault                               big.Int
-		gasLimitDefault                                uint64
+		gasLimitDefault                                uint32
 		gasLimitMultiplier                             float32
-		gasLimitTransfer                               uint64
+		gasLimitTransfer                               uint32
 		gasLimitOCRJobType                             *uint32
 		gasLimitDRJobType                              *uint32
 		gasLimitVRFJobType                             *uint32
@@ -273,6 +273,14 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+	// nitro uses standard gas accounting, so restore default limits.
+	arbitrumRinkeby.gasLimitDefault = fallbackDefaultSet.gasLimitDefault
+	arbitrumRinkeby.gasLimitTransfer = fallbackDefaultSet.gasLimitTransfer
+	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
+	arbitrumRinkeby.gasPriceDefault = *assets.Wei(1e8)  // 0.1 gwei
+	arbitrumRinkeby.maxGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.minGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.gasFeeCapDefault = *assets.Wei(1e8) // 0.1 gwei
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -308,6 +316,8 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
+	fantomTestnet.blockEmissionIdleWarningThreshold = 0
+	fantomTestnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Fantom testnet only emits blocks when a new tx is received, so this method of liveness detection is not useful
 
 	// RSK
 	// RSK prices its txes in sats not wei

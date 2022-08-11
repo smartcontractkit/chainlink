@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 )
@@ -21,7 +22,7 @@ func TestUniClient(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(len(privKey), len(pubKey))
 	lggr := logger.TestLogger(t)
-	c, err := wsrpc.DialUniWithContext(context.Background(),
+	c, err := wsrpc.DialUniWithContext(testutils.Context(t),
 		lggr,
 		"TODO",
 		privKey,
@@ -29,7 +30,7 @@ func TestUniClient(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(c)
 	client := telem.NewTelemClient(c)
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(testutils.Context(t), 500*time.Millisecond)
 	resp, err := client.Telem(ctx, &telem.TelemRequest{
 		Telemetry: []byte(`hello world`),
 		Address:   "myaddress",

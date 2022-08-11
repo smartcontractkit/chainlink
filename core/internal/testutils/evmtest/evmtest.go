@@ -312,7 +312,7 @@ func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	sub := evmMocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
-		Return(func() <-chan error { return errCh })
+		Return(func() <-chan error { return errCh }).Maybe()
 	sub.On("Unsubscribe").
 		Run(func(mock.Arguments) {
 			m.unsubscribeCalls.Inc()

@@ -64,6 +64,10 @@ type broadcasterHelperCfg struct {
 }
 
 func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
+	if c.db == nil {
+		// ensure we check before registering any mock Cleanup assertions
+		testutils.SkipShortDB(t)
+	}
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
@@ -311,7 +315,7 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	received := listener.received
 	require.Eventually(t, func() bool {
 		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
-	}, cltest.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
+	}, testutils.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 
 	received.Lock()
 	defer received.Unlock()
@@ -340,11 +344,11 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lggr logger.
 }
 
 func (listener *simpleLogListener) WasAlreadyConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().TxIndex, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 
 func (listener *simpleLogListener) MarkConsumed(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().TxIndex, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(listener.db, lggr, cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

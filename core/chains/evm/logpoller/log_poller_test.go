@@ -1,7 +1,6 @@
 package logpoller_test
 
 import (
-	"context"
 	"database/sql"
 	"math/big"
 	"strings"
@@ -59,9 +58,33 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 	for i := start; i < end; i++ {
 		blk, err := orm.SelectBlockByNumber(int64(i))
 		require.NoError(t, err, "block %v", i)
-		chainBlk, err := ec.BlockByNumber(context.Background(), big.NewInt(int64(i)))
+		chainBlk, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
+}
+
+func TestLogPoller_Batching(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
+	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+	event1 := EmitterABI.Events["Log1"].ID
+	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
+
+	var logs []logpoller.Log
+	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
+	// a maximum of 6553 log inserts per tx. As inserting more than 6553 would result in
+	// an error without batching, this test makes sure batching is enabled.
+	for i := 0; i < 15000; i++ {
+		logs = append(logs, GenLog(chainID, int64(i+1), 1, "0x3", event1[:], address1))
+	}
+	require.NoError(t, o.InsertLogs(logs))
+	lgs, err := o.SelectLogsByBlockRange(1, 1)
+	require.NoError(t, err)
+	// Make sure all logs are inserted
+	require.Equal(t, len(logs), len(lgs))
 }
 
 func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
@@ -97,15 +120,15 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			ec.Commit()
 		}
 		currentBlock := int64(1)
-		currentBlock = lp.PollAndSaveLogs(context.Background(), currentBlock)
+		currentBlock = lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
 		matchesGeth := func() bool {
 			// Check every block is identical
-			latest, err := ec.BlockByNumber(context.Background(), nil)
+			latest, err := ec.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
 			for i := 1; i < int(latest.NumberU64()); i++ {
 				ourBlock, err := lp.BlockByNumber(int64(i))
 				require.NoError(t, err)
-				gethBlock, err := ec.BlockByNumber(context.Background(), big.NewInt(int64(i)))
+				gethBlock, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
 				require.NoError(t, err)
 				if ourBlock.BlockHash != gethBlock.Hash() {
 					t.Logf("Initial poll our block differs at height %d got %x want %x\n", i, ourBlock.BlockHash, gethBlock.Hash())
@@ -123,19 +146,19 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				// Mine blocks
 				for j := 0; j < int(mineOrReorg[i]); j++ {
 					ec.Commit()
-					latest, err := ec.BlockByNumber(context.Background(), nil)
+					latest, err := ec.BlockByNumber(testutils.Context(t), nil)
 					require.NoError(t, err)
 					t.Log("mined block", latest.Hash())
 				}
 			} else {
 				// Reorg blocks
 				// Get the hash of reorg block
-				latest, err := ec.BlockByNumber(context.Background(), nil)
+				latest, err := ec.BlockByNumber(testutils.Context(t), nil)
 				require.NoError(t, err)
 				reorgedBlock := big.NewInt(0).Sub(latest.Number(), big.NewInt(int64(mineOrReorg[i])))
-				reorg, err := ec.BlockByNumber(context.Background(), reorgedBlock)
+				reorg, err := ec.BlockByNumber(testutils.Context(t), reorgedBlock)
 				require.NoError(t, err)
-				require.NoError(t, ec.Fork(context.Background(), reorg.Hash()))
+				require.NoError(t, ec.Fork(testutils.Context(t), reorg.Hash()))
 				t.Logf("Reorging from (%v, %x) back to (%v, %x)\n", latest.NumberU64(), latest.Hash(), reorgedBlock.Uint64(), reorg.Hash())
 				// Actually need to change the block here to trigger the reorg.
 				_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
@@ -143,11 +166,11 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				for j := 0; j < int(mineOrReorg[i]+1); j++ { // Need +1 to make it actually longer height so we detect it.
 					ec.Commit()
 				}
-				latest, err = ec.BlockByNumber(context.Background(), nil)
+				latest, err = ec.BlockByNumber(testutils.Context(t), nil)
 				require.NoError(t, err)
 				t.Logf("New latest (%v, %x), latest parent %x)\n", latest.NumberU64(), latest.Hash(), latest.ParentHash())
 			}
-			currentBlock = lp.PollAndSaveLogs(context.Background(), currentBlock)
+			currentBlock = lp.PollAndSaveLogs(testutils.Context(t), currentBlock)
 		}
 		return matchesGeth()
 	}, gen.SliceOfN(numChainInserts, gen.UInt64Range(1, uint64(finalityDepth-1))))) // Max reorg depth is finality depth - 1
@@ -180,14 +203,14 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 2, 3)
 	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1, emitterAddress2})
 
-	b, err := ec.BlockByNumber(context.Background(), nil)
+	b, err := ec.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), b.NumberU64())
 
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
 	// DB: empty
-	newStart := lp.PollAndSaveLogs(context.Background(), 1)
+	newStart := lp.PollAndSaveLogs(testutils.Context(t), 1)
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
@@ -203,7 +226,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assertHaveCanonical(t, 1, 1, ec, orm)
 
 	// Polling again should be a noop, since we are at the latest.
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(2), newStart)
 	latest, err := orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -218,7 +241,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	ec.Commit()
 
 	// Polling should get us the L1 log.
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(3), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -240,11 +263,11 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// - Update the block 2's hash
 	// - Save L1'
 	// - L1_1 deleted
-	reorgedOutBlock, err := ec.BlockByNumber(context.Background(), big.NewInt(2))
+	reorgedOutBlock, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(2))
 	require.NoError(t, err)
-	lca, err := ec.BlockByNumber(context.Background(), big.NewInt(1))
+	lca, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(1))
 	require.NoError(t, err)
-	require.NoError(t, ec.Fork(context.Background(), lca.Hash()))
+	require.NoError(t, ec.Fork(testutils.Context(t), lca.Hash()))
 	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
 	// Create 2'
@@ -252,7 +275,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	ec.Commit()
 
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(4), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -266,14 +289,14 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Test scenario: reorg back to previous tip.
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
 	//                \ 2'(L1_2) <- 3
-	require.NoError(t, ec.Fork(context.Background(), reorgedOutBlock.Hash()))
+	require.NoError(t, ec.Fork(testutils.Context(t), reorgedOutBlock.Hash()))
 	_, err = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(3)})
 	require.NoError(t, err)
 	// Create 3'
 	ec.Commit()
 	// Create 4
 	ec.Commit()
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(5), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -306,7 +329,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 5
 	ec.Commit()
 
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(7), newStart)
 	lgs, err = orm.SelectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
@@ -333,7 +356,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		ec.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(11), newStart)
 	lgs, err = orm.SelectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
@@ -359,7 +382,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		ec.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(testutils.Context(t), newStart)
 	assert.Equal(t, int64(18), newStart)
 	lgs, err = orm.SelectLogsByBlockRange(11, 17)
 	require.NoError(t, err)

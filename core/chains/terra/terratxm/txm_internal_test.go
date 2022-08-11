@@ -1,29 +1,24 @@
 package terratxm
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
+	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
+	cosmostypes "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
+	wasmtypes "github.com/terra-money/core/x/wasm/types"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
-	cosmostypes "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
-	wasmtypes "github.com/terra-money/core/x/wasm/types"
-
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -31,11 +26,21 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
 	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {
 	return wasmtypes.NewMsgExecuteContract(from, to, msg, cosmostypes.Coins{})
+}
+
+func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
+	tc := new(tcmocks.ReaderWriter)
+	tc.Test(t)
+	t.Cleanup(func() { tc.AssertExpectations(t) })
+	return tc
 }
 
 func TestTxm(t *testing.T) {
@@ -69,7 +74,7 @@ func TestTxm(t *testing.T) {
 	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
 
@@ -102,11 +107,10 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(completed))
 		assert.Equal(t, completed[0].State, Confirmed)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("two msgs different accounts", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
@@ -158,11 +162,10 @@ func TestTxm(t *testing.T) {
 		require.Equal(t, 2, len(completed))
 		assert.Equal(t, Errored, completed[0].State) // cancelled
 		assert.Equal(t, Confirmed, completed[1].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("two msgs different contracts", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
@@ -218,11 +221,10 @@ func TestTxm(t *testing.T) {
 		require.Equal(t, 2, len(completed))
 		assert.Equal(t, Confirmed, completed[0].State)
 		assert.Equal(t, Confirmed, completed[1].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("failed to confirm", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
@@ -241,7 +243,6 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(m))
 		assert.Equal(t, Errored, m[0].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("confirm any unconfirmed", func(t *testing.T) {
@@ -249,7 +250,7 @@ func TestTxm(t *testing.T) {
 		txHash1 := "0x1234"
 		txHash2 := "0x1235"
 		txHash3 := "0xabcd"
-		tc := new(tcmocks.ReaderWriter)
+		tc := newReaderWriterMock(t)
 		tc.On("Tx", txHash1).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash1},
 		}, nil).Once()
@@ -290,7 +291,6 @@ func TestTxm(t *testing.T) {
 		assert.Equal(t, Confirmed, msgs[0].State)
 		assert.Equal(t, Confirmed, msgs[1].State)
 		assert.Equal(t, Confirmed, msgs[2].State)
-		tc.AssertExpectations(t)
 	})
 
 	t.Run("expired msgs", func(t *testing.T) {
@@ -308,7 +308,7 @@ func TestTxm(t *testing.T) {
 		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		// Should be marked errored
 		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
@@ -320,7 +320,7 @@ func TestTxm(t *testing.T) {
 		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
 		assert.Equal(t, Errored, ms[0].State)
@@ -358,7 +358,7 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&terraclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
 		assert.Equal(t, Confirmed, m[0].State)
@@ -382,7 +382,7 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&terraclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
 		assert.Equal(t, Confirmed, ms[0].State)

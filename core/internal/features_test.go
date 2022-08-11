@@ -290,7 +290,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	genesisData := core.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000)},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b)
 	require.NoError(t, err)
@@ -363,12 +363,12 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
 			// Fund node account with ETH.
-			n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+			n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
 			tx = types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
-			err = b.SendTransaction(context.Background(), signedTx)
+			err = b.SendTransaction(testutils.Context(t), signedTx)
 			require.NoError(t, err)
 			b.Commit()
 
@@ -459,12 +459,12 @@ func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorC
 	require.NoError(t, err)
 
 	// Fund node account with ETH.
-	n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
 	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -618,7 +618,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
@@ -698,13 +698,13 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	transmitter := sendingKeys[0].Address.Address()
 
 	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(context.Background(), owner.From, nil)
+	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -814,7 +814,7 @@ isBootstrapPeer    = true
 `, ocrContractAddress))
 			require.NoError(t, err)
 			jb.Name = null.NewString("boot", true)
-			err = appBootstrap.AddJobV2(context.Background(), &jb)
+			err = appBootstrap.AddJobV2(testutils.Context(t), &jb)
 			require.NoError(t, err)
 
 			// Raising flags to initiate hibernation
@@ -904,7 +904,7 @@ observationSource = """
 `, ocrContractAddress, bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				jb.Name = null.NewString("testocr", true)
-				err = apps[i].AddJobV2(context.Background(), &jb)
+				err = apps[i].AddJobV2(testutils.Context(t), &jb)
 				require.NoError(t, err)
 				jids = append(jids, jb.ID)
 			}
@@ -925,7 +925,7 @@ observationSource = """
 				answer, err := ocrContract.LatestAnswer(nil)
 				require.NoError(t, err)
 				return answer.String()
-			}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
+			}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
 			for _, app := range apps {
 				jobs, _, err := app.JobORM().FindJobs(0, 1000)
@@ -1034,7 +1034,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	estimator := chain.TxManager().GetGasEstimator()
 	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(500000), gasLimit)
+	assert.Equal(t, uint32(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 
@@ -1057,7 +1057,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 		require.NoError(t, err)
 		return gasPrice.String()
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {

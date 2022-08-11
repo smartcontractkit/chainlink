@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -160,7 +159,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, resource.OffChainReportingSpec)
 
@@ -200,7 +199,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, resource.KeeperSpec)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
@@ -222,7 +221,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -239,7 +238,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -256,7 +255,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.DirectRequestSpec)
 
@@ -276,7 +275,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.DirectRequestSpec)
 
@@ -299,7 +298,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
@@ -322,7 +321,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.VRFSpec)
 
@@ -370,7 +369,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 
 	jorm := app.JobORM()
-	_, err = jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+	_, err = jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 	require.NoError(t, err)
 }
 
@@ -542,12 +541,12 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
 	jb.OCROracleSpec.TransmitterAddress = &app.Key.Address
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
 	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
-	err = app.AddJobV2(context.Background(), &erejb)
+	err = app.AddJobV2(testutils.Context(t), &erejb)
 	require.NoError(t, err)
 
 	return app, client, jb, jb.ID, erejb, erejb.ID

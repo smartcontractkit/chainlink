@@ -27,7 +27,7 @@ import (
 
 var (
 	checkData  = common.Hex2Bytes("ABC123")
-	executeGas = uint64(10_000)
+	executeGas = uint32(10_000)
 )
 
 func setupKeeperDB(t *testing.T) (
@@ -125,7 +125,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	var upkeepFromDB keeper.UpkeepRegistration
 	err = db.Get(&upkeepFromDB, `SELECT * FROM upkeep_registrations ORDER BY id LIMIT 1`)
 	require.NoError(t, err)
-	require.Equal(t, uint64(20_000), upkeepFromDB.ExecuteGas)
+	require.Equal(t, uint32(20_000), upkeepFromDB.ExecuteGas)
 	require.Equal(t, "8888", common.Bytes2Hex(upkeepFromDB.CheckData))
 	require.Equal(t, int64(1), upkeepFromDB.LastRunBlockHeight) // shouldn't change on upsert
 }
