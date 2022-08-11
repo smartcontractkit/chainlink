@@ -31,7 +31,7 @@ type ORM interface {
 	CreateSession(sr SessionRequest) (string, error)
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
-	UpdateUser(email, newEmail, newPassword, newRole string) (User, error)
+	UpdateUser(email, newEmail, newRole string) (User, error)
 	SetAuthToken(user *User, token *auth.Token) error
 	CreateAndSetAuthToken(user *User) (*auth.Token, error)
 	DeleteAuthToken(user *User) error
@@ -259,7 +259,7 @@ func (o *orm) CreateUser(user *User) error {
 }
 
 // UpdateUser overwrites key fields of the user specified by email using new values present in the passed user struct.
-func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, error) {
+func (o *orm) UpdateUser(email, newEmail, newRole string) (User, error) {
 	var userToEdit User
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		// First, attempt to load specified user by email
@@ -281,17 +281,6 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 			purgeSessions = true
 		}
 
-		// Patch validated password is newPassword is specified
-		if newPassword != "" {
-			pwd, err := ValidateAndHashPassword(newPassword)
-			if err != nil {
-				return err
-			}
-			userToEdit.HashedPassword = pwd
-			// Password changed, purge associated sessions at final step
-			purgeSessions = true
-		}
-
 		// Patch validated role is newRole is specified
 		if newRole != "" {
 			userRole, err := GetUserRole(newRole)
@@ -310,8 +299,8 @@ func (o *orm) UpdateUser(email, newEmail, newPassword, newRole string) (User, er
 			}
 		}
 
-		sql := "UPDATE users SET email = $1, hashed_password = $2, role = $3, updated_at = now() WHERE lower(email) = lower($4) RETURNING *"
-		if err := tx.Get(&userToEdit, sql, strings.ToLower(userToEdit.Email), userToEdit.HashedPassword, userToEdit.Role, email); err != nil {
+		sql := "UPDATE users SET email = $1, role = $2, updated_at = now() WHERE lower(email) = lower($3) RETURNING *"
+		if err := tx.Get(&userToEdit, sql, strings.ToLower(userToEdit.Email), userToEdit.Role, email); err != nil {
 			// If this is a duplicate key error (code 23505), return a nicer error message
 			var pgErr *pgconn.PgError
 			if ok := errors.As(err, &pgErr); ok {

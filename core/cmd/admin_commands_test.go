@@ -48,3 +48,39 @@ func TestClient_CreateUser(t *testing.T) {
 		})
 	}
 }
+
+func TestClient_EditUser(t *testing.T) {
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+	user := cltest.MustRandomUser(t)
+	require.NoError(t, app.SessionORM().CreateUser(&user))
+
+	tests := []struct {
+		name  string
+		email string
+		role  string
+		err   string
+	}{
+		{"No params", "", "", "error updating API user"},
+		{"No email", "", "view", "error updating API user"},
+		{"Unknown user", cltest.MustRandomUser(t).Email, "admin", "error updating API user"},
+		{"Valid params", user.Email, "view", ""},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			set := flag.NewFlagSet("test", 0)
+			set.String("email", "", "")
+			set.String("role", "", "")
+			require.NoError(t, set.Set("email", test.email))
+			require.NoError(t, set.Set("role", test.role))
+			c := cli.NewContext(nil, set, nil)
+			if test.err != "" {
+				assert.ErrorContains(t, client.EditUser(c), test.err)
+			} else {
+				assert.NoError(t, client.EditUser(c))
+			}
+		})
+	}
+}

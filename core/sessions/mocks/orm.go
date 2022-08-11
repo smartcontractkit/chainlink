@@ -327,20 +327,20 @@ func (_m *ORM) SetPassword(user *sessions.User, newPassword string) error {
 	return r0
 }
 
-// UpdateUser provides a mock function with given fields: email, newEmail, newPassword, newRole
-func (_m *ORM) UpdateUser(email string, newEmail string, newPassword string, newRole string) (sessions.User, error) {
-	ret := _m.Called(email, newEmail, newPassword, newRole)
+// UpdateUser provides a mock function with given fields: email, newEmail, newRole
+func (_m *ORM) UpdateUser(email string, newEmail string, newRole string) (sessions.User, error) {
+	ret := _m.Called(email, newEmail, newRole)
 
 	var r0 sessions.User
-	if rf, ok := ret.Get(0).(func(string, string, string, string) sessions.User); ok {
-		r0 = rf(email, newEmail, newPassword, newRole)
+	if rf, ok := ret.Get(0).(func(string, string, string) sessions.User); ok {
+		r0 = rf(email, newEmail, newRole)
 	} else {
 		r0 = ret.Get(0).(sessions.User)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string, string) error); ok {
-		r1 = rf(email, newEmail, newPassword, newRole)
+	if rf, ok := ret.Get(1).(func(string, string, string) error); ok {
+		r1 = rf(email, newEmail, newRole)
 	} else {
 		r1 = ret.Error(1)
 	}

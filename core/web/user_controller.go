@@ -92,13 +92,12 @@ func (c *UserController) Create(ctx *gin.Context) {
 	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
-// Update changes sets email, password, or role fields of a specified API user.
+// Update changes sets email or role fields of a specified API user.
 func (c *UserController) Update(ctx *gin.Context) {
 	type updateUserRequest struct {
-		Email       string `json:"email"`
-		NewEmail    string `json:"newEmail"`
-		NewPassword string `json:"newPassword"`
-		NewRole     string `json:"newRole"`
+		Email    string `json:"email"`
+		NewEmail string `json:"newEmail"`
+		NewRole  string `json:"newRole"`
 	}
 
 	var request updateUserRequest
@@ -109,17 +108,6 @@ func (c *UserController) Update(ctx *gin.Context) {
 
 	if request.NewEmail != "" {
 		if err := clsession.ValidateEmail(request.NewEmail); err != nil {
-			jsonAPIError(ctx, http.StatusBadRequest, err)
-			return
-		}
-	}
-
-	if request.NewPassword != "" {
-		if err := utils.VerifyPasswordComplexity(request.NewPassword, request.Email); err != nil {
-			jsonAPIError(ctx, http.StatusBadRequest, err)
-			return
-		}
-		if err := utils.VerifyPasswordComplexity(request.NewPassword, request.NewEmail); err != nil {
 			jsonAPIError(ctx, http.StatusBadRequest, err)
 			return
 		}
@@ -136,7 +124,7 @@ func (c *UserController) Update(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.SessionORM().UpdateUser(request.Email, request.NewEmail, request.NewPassword, request.NewRole)
+	user, err := c.App.SessionORM().UpdateUser(request.Email, request.NewEmail, request.NewRole)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("error updating API user"))
 		return
