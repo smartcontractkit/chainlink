@@ -295,7 +295,6 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
-	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
 	arbitrumGoerli := arbitrumRinkeby
 	arbitrumGoerli.linkContractAddress = "" //TODO
 
