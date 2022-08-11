@@ -201,6 +201,14 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return *g.c.AutoPprof.ProfileRoot
 }
 
+func (g *generalConfig) PyroscopeAuthToken() string {
+	return *g.c.Pyroscope.AuthToken
+}
+
+func (g *generalConfig) PyroscopeServerAddress() string {
+	return *g.c.Pyroscope.ServerAddress
+}
+
 func (g *generalConfig) BlockBackfillDepth() uint64 {
 	//TODO implement me
 	panic("implement me")
