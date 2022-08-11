@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
@@ -22,12 +24,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
 	_ log.Listener   = &listenerV1{}
 	_ job.ServiceCtx = &listenerV1{}
 )
+
+var callbacksTimeout time.Duration = 30 * time.Second
 
 type request struct {
 	confirmedAtBlock uint64
@@ -343,7 +348,16 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 	// 4. The eth node sees the request reorg and tells us about it. We do our fulfillment
 	// check and the node says its already fulfilled (hasn't seen the fulfillment reorged yet),
 	// so we don't process the request.
-	callback, err := lsn.coordinator.Callbacks(nil, req.req.RequestID)
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not
+	// found" errors.
+	currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
+	m := bigmath.Max(req.confirmedAtBlock, currBlock)
+	ctx, cancel := context.WithTimeout(context.Background(), callbacksTimeout)
+	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
+		BlockNumber: m,
+		Context:     ctx,
+	}, req.req.RequestID)
+	cancel()
 	if err != nil {
 		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
