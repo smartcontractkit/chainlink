@@ -50,23 +50,14 @@ For the latest information on setting up a development environment, see the [Dev
 
 ### Mac M1/ARM64 [EXPERIMENTAL]
 
-Chainlink can be experimentally compiled with ARM64 as the target arch. You may run into errors with cosmwasm:
+Chainlink can be experimentally compiled with ARM64 as the target arch.
 
+To build an ARM64 supported Docker image you'll need to add extra build arguments:
+
+```bash
+# CosmWasm (libwasmvm.so) architecture choice, defaults to x86_64
+$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile --build-arg LIBWASMVM_ARCH=aarch64
 ```
-# github.com/CosmWasm/wasmvm/api
-ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
-Undefined symbols for architecture arm64:# github.com/CosmWasm/wasmvm/api
-ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
-Undefined symbols for architecture arm64:
-```
-
-In this case, try the following steps:
-
-1. `git clone git@github.com:mandrean/terra-core.git`
-2. `cd terra-core; git checkout feat/multiarch`
-3. `make install; cd ..`
-4. `go work init /path/to/chainlink`
-5. `go work use /path/to/terra-core`
 
 ### Ethereum Execution Client Requirements
 
