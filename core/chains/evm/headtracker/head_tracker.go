@@ -75,10 +75,6 @@ func NewHeadTracker(
 	}
 }
 
-func (ht *headTracker) SetLogLevel(lvl zapcore.Level) {
-	ht.log.SetLogLevel(lvl)
-}
-
 // Start starts HeadTracker service.
 func (ht *headTracker) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
