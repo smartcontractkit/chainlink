@@ -50,6 +50,12 @@ func zombieNodeCheckInterval(cfg NodeConfig) time.Duration {
 	return utils.WithJitter(interval)
 }
 
+func (n *node) setLatestReceivedBlockNumber(number int64) {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	n.latestReceivedBlockNumber = number
+}
+
 // Node is a FSM
 // Each state has a loop that goes with it, which monitors the node and moves it into another state as necessary.
 // Only one loop must run at a time.
@@ -173,9 +179,7 @@ func (n *node) aliveLoop() {
 				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
 			outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
-			n.stateMu.Lock()
-			n.latestReceivedBlockNumber = bh.Number
-			n.stateMu.Unlock()
+			n.setLatestReceivedBlockNumber(bh.Number)
 		case err := <-subErrC:
 			lggr.Errorw("Subscription was terminated", "err", err, "nodeState", n.State())
 			n.declareUnreachable()

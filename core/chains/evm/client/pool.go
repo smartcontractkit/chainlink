@@ -201,7 +201,7 @@ func (p *Pool) getBestNode() Node {
 	var node Node
 	for _, n := range p.nodes {
 		latestReceivedBlockNumber := n.LatestReceivedBlockNumber()
-		if n.State() == NodeStateAlive && n.LatestReceivedBlockNumber() > highestHeadNumber {
+		if n.State() == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
 			node = n
 			highestHeadNumber = latestReceivedBlockNumber
 		}
@@ -209,7 +209,7 @@ func (p *Pool) getBestNode() Node {
 
 	p.lastBestNodeMu.Lock()
 	if p.lastBestNode != nil {
-		if p.lastBestNode.LatestReceivedBlockNumber() >= highestHeadNumber {
+		if p.lastBestNode != node && p.lastBestNode.LatestReceivedBlockNumber() >= highestHeadNumber {
 			node = p.lastBestNode
 		}
 	} else {

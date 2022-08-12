@@ -189,6 +189,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
+	n.latestReceivedBlockNumber = -1
 	return n
 }
 
