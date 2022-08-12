@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"

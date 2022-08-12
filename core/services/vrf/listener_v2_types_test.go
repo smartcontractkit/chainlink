@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
