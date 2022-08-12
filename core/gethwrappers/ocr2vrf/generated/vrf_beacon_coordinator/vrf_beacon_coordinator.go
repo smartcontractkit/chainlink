@@ -2272,9 +2272,9 @@ func (it *VRFBeaconCoordinatorRandomnessFulfillmentRequestedIterator) Close() er
 type VRFBeaconCoordinatorRandomnessFulfillmentRequested struct {
 	NextBeaconOutputHeight uint64
 	ConfDelay              *big.Int
-	SubID    uint64
-	Callback VRFBeaconTypesCallback
-	Raw      types.Log
+	SubID                  uint64
+	Callback               VRFBeaconTypesCallback
+	Raw                    types.Log
 }
 
 func (_VRFBeaconCoordinator *VRFBeaconCoordinatorFilterer) FilterRandomnessFulfillmentRequested(opts *bind.FilterOpts) (*VRFBeaconCoordinatorRandomnessFulfillmentRequestedIterator, error) {

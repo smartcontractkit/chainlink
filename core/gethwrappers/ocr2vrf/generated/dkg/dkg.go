@@ -747,9 +747,9 @@ func (it *DKGKeyGeneratedIterator) Close() error {
 
 type DKGKeyGenerated struct {
 	ConfigDigest [32]byte
-	KeyID [32]byte
-	Key   KeyDataStructKeyData
-	Raw   types.Log
+	KeyID        [32]byte
+	Key          KeyDataStructKeyData
+	Raw          types.Log
 }
 
 func (_DKG *DKGFilterer) FilterKeyGenerated(opts *bind.FilterOpts, configDigest [][32]byte, keyID [][32]byte) (*DKGKeyGeneratedIterator, error) {
