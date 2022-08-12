@@ -281,21 +281,25 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	return nil
 }
 
-// ResetETHKey exports an ETH key,
-// address must be passed
-func (cli *Client) ResetETHKey(c *cli.Context) (err error) {
+// UpdateChainEVMKey updates settings for the given key on the given chain
+func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
+	chainURL := url.URL{Path: "/v2/keys/eth/chain"}
+	query := chainURL.Query()
+
 	addr := c.String("address")
-	cid := c.String("evmChainID")
-	nonce := c.String("nextNonce")
-
-	resetUrl := url.URL{Path: "/v2/keys/eth/reset"}
-	query := resetUrl.Query()
 	query.Set("address", addr)
+	cid := c.String("evmChainID")
 	query.Set("evmChainID", cid)
-	query.Set("nextNonce", nonce)
 
-	resetUrl.RawQuery = query.Encode()
-	resp, err := cli.HTTP.Post(resetUrl.String(), nil)
+	if c.IsSet("setNextNonce") {
+		query.Set("nextNonce", c.String("setNextNonce"))
+	}
+	if c.IsSet("setEnabled") {
+		query.Set("enabled", c.String("setEnabled"))
+	}
+
+	chainURL.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(chainURL.String(), nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

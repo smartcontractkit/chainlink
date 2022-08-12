@@ -232,7 +232,7 @@ func ExampleRun_keys_eth() {
 	//    delete  Delete the ETH key by address
 	//    import  Import an ETH key from a JSON file
 	//    export  Exports an ETH key to a JSON file
-	//    reset   Manually set the next nonce for a key. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node
+	//    chain   Update an EVM key for the given chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help

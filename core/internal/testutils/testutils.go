@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"math"
 	"math/big"
@@ -381,4 +382,8 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
+}
+
+func NewTestFlagSet() *flag.FlagSet {
+	return flag.NewFlagSet("test", flag.PanicOnError)
 }

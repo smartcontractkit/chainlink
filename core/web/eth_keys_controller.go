@@ -312,15 +312,20 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 	c.Data(http.StatusOK, MediaType, bytes)
 }
 
-// Reset resets the key's nonce
-func (ekc *ETHKeysController) Reset(c *gin.Context) {
+// Chain updates settings for a given chain for the key
+func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	kst := ekc.App.GetKeyStore().Eth()
 	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
 	addressHex := c.Query("address")
-	cid := c.Query("evmChainID")
-	nonceStr := c.Query("nextNonce")
+	addressBytes, err := hexutil.Decode(addressHex)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid address"))
+		return
+	}
+	address := common.BytesToAddress(addressBytes)
 
+	cid := c.Query("evmChainID")
 	chain, err := getChain(ekc.App.GetChains().EVM, cid)
 	if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -330,23 +335,38 @@ func (ekc *ETHKeysController) Reset(c *gin.Context) {
 		return
 	}
 
-	addressBytes, err := hexutil.Decode(addressHex)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid address"))
-		return
-	}
-	address := common.BytesToAddress(addressBytes)
+	nonceStr := c.Query("nextNonce")
+	if nonceStr != "" {
+		nonce, err := strconv.ParseInt(nonceStr, 10, 64)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid nonce"))
+			return
+		}
 
-	nonce, err := strconv.ParseInt(nonceStr, 10, 64)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid nonce"))
-		return
+		err = kst.Reset(address, chain.ID(), nonce)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
-	err = kst.Reset(address, chain.ID(), nonce)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
+	enabledStr := c.Query("enabled")
+	if enabledStr != "" {
+		enabled, err := strconv.ParseBool(enabledStr)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "enabled must be bool"))
+			return
+		}
+
+		if enabled {
+			err = kst.Enable(address, chain.ID())
+		} else {
+			err = kst.Disable(address, chain.ID())
+		}
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
 	key, err := kst.Get(address.Hex())

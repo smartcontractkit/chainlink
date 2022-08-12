@@ -18,8 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
 - Updated `Arbitrum Rinkeby` configuration for Nitro
 - `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
-- It is now possible to use the same key across multiple chains. TODO: details enable/disable etc
-- The `setnextnonce` local client command has been removed, and replaced by a remote client reset command. This can be accessed at `/v2/keys/eth/reset` or `chainlink evm keys reset --address "0xDEAD" --evmChainID 99 --nextNonce 42`
+- It is now possible to use the same key across multiple chains.
+- The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+
+### NEW `evm keys chain` command
+
+This can also be accessed at `/v2/keys/eth/chain`.
+
+Usage examples:
+
+Manually (re)set a nonce:
+`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+
+Enable a key for a particular chain:
+`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
+
+Disable a key for a particular chain:
+`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
 
 ## 1.7.0 - 2022-08-08
 

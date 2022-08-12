@@ -27,7 +27,6 @@ type Eth interface {
 	Import(keyJSON []byte, password string, chainIDs ...*big.Int) (ethkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 
-	// TODO: Expose this in commands, add to README
 	Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Disable(address common.Address, chainID *big.Int) error
 	Reset(address common.Address, chainID *big.Int, nonce int64) error
