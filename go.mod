@@ -10,7 +10,7 @@ require (
 	github.com/prometheus/client_golang v1.12.0
 	github.com/riferrei/srclient v0.4.1-0.20211229125508-8edc580da179
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20220701150323-d815c8d0eab8
+	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/goleak v1.1.12

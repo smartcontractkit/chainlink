@@ -428,7 +428,7 @@ func generateContractConfig(n int) (
 		Min: generateBigInt(128),
 		Max: generateBigInt(128),
 	}
-	onchainConfigEncoded, err := onchainConfig.Encode()
+	onchainConfigEncoded, err := median.StandardOnchainConfigCodec{}.Encode(onchainConfig)
 	if err != nil {
 		return types.ContractConfig{}, median.OnchainConfig{}, nil, nil, err
 	}
