@@ -180,7 +180,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     bytes memory message = abi.encodeWithSelector(ArbSys.withdrawEth.selector, address(this));
     // Make the xDomain call
     // NOTICE: We approximate the max submission cost of sending a retryable tx with specific calldata length.
-
     uint256 maxSubmissionCost = _approximateMaxSubmissionCost(message.length);
     uint256 maxGas = 120_000; // static `maxGas` for L2 -> L1 transfer
     uint256 gasPriceBid = s_gasConfig.gasPriceBid;
