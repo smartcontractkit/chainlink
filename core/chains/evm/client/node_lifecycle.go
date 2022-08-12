@@ -316,11 +316,12 @@ func (n *node) unreachableLoop() {
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
 				continue
 			}
-			defer cancel()
 
 			n.setState(NodeStateDialed)
 
 			err = n.verify(ctx)
+			cancel()
+
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				n.declareInvalidChainID()
