@@ -120,7 +120,7 @@ func (n *node) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
-	var latestReceivedBlockNumber int64 = -1
+	var latestReceivedBlockNumber int64 = n.LatestReceivedBlockNumber()
 	var pollFailures uint32
 
 	for {

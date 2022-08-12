@@ -32,10 +32,11 @@ var (
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes     []Node
-	sendonlys []SendOnlyNode
-	chainID   *big.Int
-	logger    logger.Logger
+	nodes        []Node
+	sendonlys    []SendOnlyNode
+	chainID      *big.Int
+	logger       logger.Logger
+	lastBestNode Node
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
@@ -51,6 +52,7 @@ func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chain
 		sendonlys,
 		chainID,
 		logger.Named("Pool").With("evmChainID", chainID.String()),
+		nil,
 		make(chan struct{}),
 		sync.WaitGroup{},
 	}
@@ -194,12 +196,22 @@ func (p *Pool) ChainID() *big.Int {
 
 func (p *Pool) getBestNode() Node {
 	highestHeadNumber := int64(-1)
+	var maxLatestReceivedBlockNumber int64
 	var node Node
 	for _, n := range p.nodes {
-		if n.State() == NodeStateAlive && n.LatestReceivedBlockNumber() > highestHeadNumber {
+		latestReceivedBlockNumber := n.LatestReceivedBlockNumber()
+		if n.State() == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
 			node = n
-			break
+			maxLatestReceivedBlockNumber = latestReceivedBlockNumber
 		}
+	}
+
+	if p.lastBestNode != nil {
+		if p.lastBestNode.LatestReceivedBlockNumber() >= maxLatestReceivedBlockNumber {
+			node = p.lastBestNode
+		}
+	} else {
+		p.lastBestNode = node
 	}
 
 	if node == nil {
