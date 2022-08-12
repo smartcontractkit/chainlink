@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sort"
 	"sync"
 	"time"
 
@@ -194,31 +193,21 @@ func (p *Pool) ChainID() *big.Int {
 }
 
 func (p *Pool) getBestNode() Node {
-	nodes := p.liveNodes()
+	highestHeadNumber := int64(-1)
+	var node Node
+	for _, n := range p.nodes {
+		if n.State() == NodeStateAlive && n.LatestReceivedBlockNumber() > highestHeadNumber {
+			node = n
+			break
+		}
+	}
 
-	// Sorting by LatestReceivedBlockNumber, because other nodes may still be syncing
-	// TODO: https://app.shortcut.com/chainlinklabs/story/50269/add-syncing-to-liveness-checker
-	// TODO: https://app.shortcut.com/chainlinklabs/story/35230/rpc-failover-should-compare-head-to-other-nodes-in-the-pool
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].LatestReceivedBlockNumber() > nodes[j].LatestReceivedBlockNumber()
-	})
-
-	nNodes := len(nodes)
-	if nNodes == 0 {
+	if node == nil {
 		p.logger.Critical("No live RPC nodes available")
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 
-	return nodes[0]
-}
-
-func (p *Pool) liveNodes() (liveNodes []Node) {
-	for _, n := range p.nodes {
-		if n.State() == NodeStateAlive {
-			liveNodes = append(liveNodes, n)
-		}
-	}
-	return
+	return node
 }
 
 func (p *Pool) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
