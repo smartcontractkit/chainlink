@@ -170,9 +170,9 @@ func NewApp(client *Client) *cli.App {
 							},
 						},
 						{
-							Name:   "update",
-							Usage:  "Updates an API user. email, password, and role can be updated",
-							Action: client.EditUser,
+							Name:   "chrole",
+							Usage:  "Changes an API user's role",
+							Action: client.ChangeRole,
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:     "email",
@@ -180,18 +180,8 @@ func NewApp(client *Client) *cli.App {
 									Required: true,
 								},
 								cli.StringFlag{
-									Name:     "newemail",
-									Usage:    "optional new email to set for user",
-									Required: false,
-								},
-								cli.StringFlag{
 									Name:     "newrole",
 									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
-									Required: false,
-								},
-								cli.BoolFlag{
-									Name:     "promptnewpassword",
-									Usage:    "optional flag to prompt and set new password for a user",
 									Required: false,
 								},
 							},
