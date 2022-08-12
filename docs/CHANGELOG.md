@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### NEW `evm keys chain` command
 
-This can also be accessed at `/v2/keys/eth/chain`.
+This can also be accessed at `/v2/keys/evm/chain`.
 
 Usage examples:
 

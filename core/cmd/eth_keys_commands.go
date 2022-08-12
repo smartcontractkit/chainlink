@@ -61,7 +61,7 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 
 // ListETHKeys renders the active account address with its ETH & LINK balance
 func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/keys/eth")
+	resp, err := cli.HTTP.Get("/v2/keys/evm")
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -78,7 +78,7 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 // as the one used to unlock the existing key.
 func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	createUrl := url.URL{
-		Path: "/v2/keys/eth",
+		Path: "/v2/keys/evm",
 	}
 	query := createUrl.Query()
 
@@ -111,7 +111,7 @@ func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
 	}
 	address := c.Args().Get(0)
 	updateUrl := url.URL{
-		Path: "/v2/keys/eth/" + address,
+		Path: "/v2/keys/evm/" + address,
 	}
 
 	query := updateUrl.Query()
@@ -143,7 +143,7 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	}
 	address := c.Args().Get(0)
 	deleteUrl := url.URL{
-		Path: "/v2/keys/eth/" + address,
+		Path: "/v2/keys/evm/" + address,
 	}
 	query := deleteUrl.Query()
 
@@ -196,7 +196,7 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 	}
 
 	importUrl := url.URL{
-		Path: "/v2/keys/eth/import",
+		Path: "/v2/keys/evm/import",
 	}
 	query := importUrl.Query()
 
@@ -243,7 +243,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 
 	address := c.Args().Get(0)
 	exportUrl := url.URL{
-		Path: "/v2/keys/eth/export/" + address,
+		Path: "/v2/keys/evm/export/" + address,
 	}
 	query := exportUrl.Query()
 	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
@@ -283,7 +283,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 
 // UpdateChainEVMKey updates settings for the given key on the given chain
 func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
-	chainURL := url.URL{Path: "/v2/keys/eth/chain"}
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
 	addr := c.String("address")

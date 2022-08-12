@@ -337,7 +337,8 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 
 	nonceStr := c.Query("nextNonce")
 	if nonceStr != "" {
-		nonce, err := strconv.ParseInt(nonceStr, 10, 64)
+		var nonce int64
+		nonce, err = strconv.ParseInt(nonceStr, 10, 64)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "invalid nonce"))
 			return
@@ -352,7 +353,8 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 
 	enabledStr := c.Query("enabled")
 	if enabledStr != "" {
-		enabled, err := strconv.ParseBool(enabledStr)
+		var enabled bool
+		enabled, err = strconv.ParseBool(enabledStr)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "enabled must be bool"))
 			return
