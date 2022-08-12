@@ -174,6 +174,11 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 			return
 		}
 	}
+	var fetchedUpkeepIDs []string
+	for _, activeUpkeep := range activeUpkeeps {
+		fetchedUpkeepIDs = append(fetchedUpkeepIDs, NewUpkeepIdentifier(activeUpkeep.UpkeepID).String())
+	}
+	ex.logger.Debugw("Fetched list of active upkeeps", "active upkeeps list", fetchedUpkeepIDs)
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
@@ -238,11 +243,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
+		rowsAffected, err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
 		if err != nil {
 			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
-		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
+		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress, "rowsAffected", rowsAffected)
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.

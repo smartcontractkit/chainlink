@@ -189,11 +189,11 @@ func TestKeeperDB_SetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 
 	// check normal behavior
-	err := orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress)
+	_, err := orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress)
 	require.NoError(t, err)
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// check that if we put in an unknown from address nothing breaks
-	err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, cltest.NewEIP55Address())
+	_, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, cltest.NewEIP55Address())
 	require.NoError(t, err)
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 }
