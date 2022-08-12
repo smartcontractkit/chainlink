@@ -196,18 +196,17 @@ func (p *Pool) ChainID() *big.Int {
 
 func (p *Pool) getBestNode() Node {
 	highestHeadNumber := int64(-1)
-	var maxLatestReceivedBlockNumber int64
 	var node Node
 	for _, n := range p.nodes {
 		latestReceivedBlockNumber := n.LatestReceivedBlockNumber()
-		if n.State() == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
+		if n.State() == NodeStateAlive && n.LatestReceivedBlockNumber() > highestHeadNumber {
 			node = n
-			maxLatestReceivedBlockNumber = latestReceivedBlockNumber
+			highestHeadNumber = latestReceivedBlockNumber
 		}
 	}
 
 	if p.lastBestNode != nil {
-		if p.lastBestNode.LatestReceivedBlockNumber() >= maxLatestReceivedBlockNumber {
+		if p.lastBestNode.LatestReceivedBlockNumber() >= highestHeadNumber {
 			node = p.lastBestNode
 		}
 	} else {
