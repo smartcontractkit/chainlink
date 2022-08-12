@@ -86,6 +86,7 @@ type Node interface {
 	Close()
 
 	State() NodeState
+	LatestReceivedBlockNumber() int64
 	// Unique identifier for node
 	ID() int32
 	ChainID() *big.Int
@@ -155,6 +156,9 @@ type node struct {
 	// moved to out-of-sync state. It is better to have one out-of-sync node
 	// than no nodes at all.
 	nLiveNodes func() int
+
+	// Each node is tracking the last received head number
+	latestReceivedBlockNumber int64
 }
 
 // NodeConfig allows configuration of the node
@@ -329,6 +333,12 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	promEVMPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 
 	return nil
+}
+
+func (n *node) LatestReceivedBlockNumber() int64 {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	return n.latestReceivedBlockNumber
 }
 
 func (n *node) Close() {

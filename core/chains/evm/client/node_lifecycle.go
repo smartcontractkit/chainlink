@@ -173,6 +173,9 @@ func (n *node) aliveLoop() {
 				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
 			outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
+			n.stateMu.Lock()
+			n.latestReceivedBlockNumber = bh.Number
+			n.stateMu.Unlock()
 		case err := <-subErrC:
 			lggr.Errorw("Subscription was terminated", "err", err, "nodeState", n.State())
 			n.declareUnreachable()

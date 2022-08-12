@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -195,19 +196,23 @@ func (p *Pool) ChainID() *big.Int {
 	return p.chainID
 }
 
-func (p *Pool) getRoundRobin() Node {
+func (p *Pool) getBestNode() Node {
 	nodes := p.liveNodes()
+
+	// Sorting by LatestReceivedBlockNumber, because other nodes may still be syncing
+	// TODO: https://app.shortcut.com/chainlinklabs/story/50269/add-syncing-to-liveness-checker
+	// TODO: https://app.shortcut.com/chainlinklabs/story/35230/rpc-failover-should-compare-head-to-other-nodes-in-the-pool
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].LatestReceivedBlockNumber() > nodes[j].LatestReceivedBlockNumber()
+	})
+
 	nNodes := len(nodes)
 	if nNodes == 0 {
 		p.logger.Critical("No live RPC nodes available")
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 
-	// NOTE: Inc returns the number after addition, so we must -1 to get the "current" counter
-	count := p.roundRobinCount.Inc() - 1
-	idx := int(count % uint32(nNodes))
-
-	return nodes[idx]
+	return nodes[0]
 }
 
 func (p *Pool) liveNodes() (liveNodes []Node) {
@@ -220,11 +225,11 @@ func (p *Pool) liveNodes() (liveNodes []Node) {
 }
 
 func (p *Pool) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return p.getRoundRobin().CallContext(ctx, result, method, args...)
+	return p.getBestNode().CallContext(ctx, result, method, args...)
 }
 
 func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	return p.getRoundRobin().BatchCallContext(ctx, b)
+	return p.getBestNode().BatchCallContext(ctx, b)
 }
 
 // BatchCallContextAll calls BatchCallContext for every single node including
@@ -235,7 +240,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	main := p.getRoundRobin()
+	main := p.getBestNode()
 	var all []SendOnlyNode
 	for _, n := range p.nodes {
 		all = append(all, n)
@@ -264,7 +269,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 
 // Wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	main := p.getRoundRobin()
+	main := p.getBestNode()
 	var all []SendOnlyNode
 	for _, n := range p.nodes {
 		all = append(all, n)
@@ -309,70 +314,70 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 }
 
 func (p *Pool) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	return p.getRoundRobin().PendingCodeAt(ctx, account)
+	return p.getBestNode().PendingCodeAt(ctx, account)
 }
 
 func (p *Pool) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	return p.getRoundRobin().PendingNonceAt(ctx, account)
+	return p.getBestNode().PendingNonceAt(ctx, account)
 }
 
 func (p *Pool) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	return p.getRoundRobin().NonceAt(ctx, account, blockNumber)
+	return p.getBestNode().NonceAt(ctx, account, blockNumber)
 }
 
 func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return p.getRoundRobin().TransactionReceipt(ctx, txHash)
+	return p.getBestNode().TransactionReceipt(ctx, txHash)
 }
 
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return p.getRoundRobin().BlockByNumber(ctx, number)
+	return p.getBestNode().BlockByNumber(ctx, number)
 }
 
 func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return p.getRoundRobin().BlockByHash(ctx, hash)
+	return p.getBestNode().BlockByHash(ctx, hash)
 }
 
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	return p.getRoundRobin().BalanceAt(ctx, account, blockNumber)
+	return p.getBestNode().BalanceAt(ctx, account, blockNumber)
 }
 
 func (p *Pool) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	return p.getRoundRobin().FilterLogs(ctx, q)
+	return p.getBestNode().FilterLogs(ctx, q)
 }
 
 func (p *Pool) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	return p.getRoundRobin().SubscribeFilterLogs(ctx, q, ch)
+	return p.getBestNode().SubscribeFilterLogs(ctx, q, ch)
 }
 
 func (p *Pool) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	return p.getRoundRobin().EstimateGas(ctx, call)
+	return p.getBestNode().EstimateGas(ctx, call)
 }
 
 func (p *Pool) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	return p.getRoundRobin().SuggestGasPrice(ctx)
+	return p.getBestNode().SuggestGasPrice(ctx)
 }
 
 func (p *Pool) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return p.getRoundRobin().CallContract(ctx, msg, blockNumber)
+	return p.getBestNode().CallContract(ctx, msg, blockNumber)
 }
 
 func (p *Pool) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	return p.getRoundRobin().CodeAt(ctx, account, blockNumber)
+	return p.getBestNode().CodeAt(ctx, account, blockNumber)
 }
 
 // bind.ContractBackend methods
 func (p *Pool) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	return p.getRoundRobin().HeaderByNumber(ctx, n)
+	return p.getBestNode().HeaderByNumber(ctx, n)
 }
 func (p *Pool) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
-	return p.getRoundRobin().HeaderByHash(ctx, h)
+	return p.getBestNode().HeaderByHash(ctx, h)
 }
 
 func (p *Pool) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	return p.getRoundRobin().SuggestGasTipCap(ctx)
+	return p.getBestNode().SuggestGasTipCap(ctx)
 }
 
 // EthSubscribe implements evmclient.Client
 func (p *Pool) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
-	return p.getRoundRobin().EthSubscribe(ctx, channel, args...)
+	return p.getBestNode().EthSubscribe(ctx, channel, args...)
 }
