@@ -179,7 +179,7 @@ func TestUserController_CreateUser(t *testing.T) {
 	}
 }
 
-func TestUserController_UpdateUser(t *testing.T) {
+func TestUserController_UpdateRole(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -204,15 +204,8 @@ func TestUserController_UpdateUser(t *testing.T) {
 			wantErrCount:   1,
 		},
 		{
-			name:           "Wrong email format",
-			reqBody:        fmt.Sprintf(`{"email": "%s", "newEmail": "12345678", "newRole": "view"}`, user.Email),
-			wantStatusCode: http.StatusBadRequest,
-			wantErrCount:   1,
-			wantErrMessage: "mail: missing '@' or angle-addr",
-		},
-		{
 			name:           "Success",
-			reqBody:        fmt.Sprintf(`{"email": "%s", "newEmail": "%s", "newRole": "edit"}`, user.Email, cltest.MustRandomUser(t).Email),
+			reqBody:        fmt.Sprintf(`{"email": "%s", "newRole": "edit"}`, user.Email),
 			wantStatusCode: http.StatusOK,
 		},
 	}

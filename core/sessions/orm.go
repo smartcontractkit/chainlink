@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -31,7 +30,7 @@ type ORM interface {
 	CreateSession(sr SessionRequest) (string, error)
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
-	UpdateUser(email, newEmail, newRole string) (User, error)
+	UpdateRole(email, newRole string) (User, error)
 	SetAuthToken(user *User, token *auth.Token) error
 	CreateAndSetAuthToken(user *User) (*auth.Token, error)
 	DeleteAuthToken(user *User) error
@@ -258,62 +257,42 @@ func (o *orm) CreateUser(user *User) error {
 	return o.q.Get(user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role)
 }
 
-// UpdateUser overwrites key fields of the user specified by email using new values present in the passed user struct.
-func (o *orm) UpdateUser(email, newEmail, newRole string) (User, error) {
+// UpdateRole overwrites role field of the user specified by email.
+func (o *orm) UpdateRole(email, newRole string) (User, error) {
 	var userToEdit User
+
+	if newRole == "" {
+		return userToEdit, errors.New("user role must be specified")
+	}
+
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		// First, attempt to load specified user by email
 		if err := tx.Get(&userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
 			return errors.New("no matching user for provided email")
 		}
 
-		// Changes to the user may require the entries in the sessions table to be removed
-		purgeSessions := false
+		// Patch validated role
+		userRole, err := GetUserRole(newRole)
+		if err != nil {
+			return err
+		}
+		userToEdit.Role = userRole
 
-		// Patch validated email is newEmail is specified
-		if newEmail != "" {
-			if err := ValidateEmail(newEmail); err != nil {
-				return err
-			}
-			userToEdit.Email = newEmail
-
-			// Email changed, purge associated sessions at final step
-			purgeSessions = true
+		_, err = tx.Exec("DELETE FROM sessions WHERE email = lower($1)", email)
+		if err != nil {
+			o.lggr.Errorf("Failed to purge user sessions for UpdateRole", "err", err)
+			return errors.New("error updating API user")
 		}
 
-		// Patch validated role is newRole is specified
-		if newRole != "" {
-			userRole, err := GetUserRole(newRole)
-			if err != nil {
-				return err
-			}
-			userToEdit.Role = userRole
-			purgeSessions = true
-		}
-
-		if purgeSessions {
-			_, err := tx.Exec("DELETE FROM sessions WHERE email = $1", email)
-			if err != nil {
-				o.lggr.Errorf("Failed to purge user sessions via DeleteSessionByUser", "err", err)
-				return errors.New("error updating API user")
-			}
-		}
-
-		sql := "UPDATE users SET email = $1, role = $2, updated_at = now() WHERE lower(email) = lower($3) RETURNING *"
-		if err := tx.Get(&userToEdit, sql, strings.ToLower(userToEdit.Email), userToEdit.Role, email); err != nil {
-			// If this is a duplicate key error (code 23505), return a nicer error message
-			var pgErr *pgconn.PgError
-			if ok := errors.As(err, &pgErr); ok {
-				if pgErr.Code == "23505" {
-					return errors.Errorf("user with email %s already exists", userToEdit.Email)
-				}
-			}
+		sql := "UPDATE users SET role = $1, updated_at = now() WHERE lower(email) = lower($2) RETURNING *"
+		if err := tx.Get(&userToEdit, sql, userToEdit.Role, email); err != nil {
 			o.lggr.Errorf("Error updating API user", "err", err)
 			return errors.New("error updating API user")
 		}
 
 		return nil
 	})
+
 	return userToEdit, err
 }
 

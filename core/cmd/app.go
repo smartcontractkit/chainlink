@@ -170,19 +170,14 @@ func NewApp(client *Client) *cli.App {
 							},
 						},
 						{
-							Name:   "update",
-							Usage:  "Updates an API user. email and role can be updated",
-							Action: client.EditUser,
+							Name:   "chrole",
+							Usage:  "Changes an API user's role",
+							Action: client.ChangeRole,
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:     "email",
 									Usage:    "email of user to be editted",
 									Required: true,
-								},
-								cli.StringFlag{
-									Name:     "newemail",
-									Usage:    "optional new email to set for user",
-									Required: false,
 								},
 								cli.StringFlag{
 									Name:     "newrole",

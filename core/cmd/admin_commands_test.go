@@ -49,7 +49,7 @@ func TestClient_CreateUser(t *testing.T) {
 	}
 }
 
-func TestClient_EditUser(t *testing.T) {
+func TestClient_ChangeRole(t *testing.T) {
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -72,14 +72,14 @@ func TestClient_EditUser(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
 			set.String("email", "", "")
-			set.String("role", "", "")
+			set.String("newrole", "", "")
 			require.NoError(t, set.Set("email", test.email))
-			require.NoError(t, set.Set("role", test.role))
+			require.NoError(t, set.Set("newrole", test.role))
 			c := cli.NewContext(nil, set, nil)
 			if test.err != "" {
-				assert.ErrorContains(t, client.EditUser(c), test.err)
+				assert.ErrorContains(t, client.ChangeRole(c), test.err)
 			} else {
-				assert.NoError(t, client.EditUser(c))
+				assert.NoError(t, client.ChangeRole(c))
 			}
 		})
 	}
