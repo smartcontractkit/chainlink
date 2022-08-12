@@ -39,11 +39,6 @@ Disable a key for a particular chain:
 ## 1.7.0 - 2022-08-08
 
 ### Added
-- Added official support for Sepolia chain
-
-## [1.6.0] - 2022-07-20
-
-### Added 
 
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 - Added official support for Sepolia chain

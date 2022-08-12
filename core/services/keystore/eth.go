@@ -515,7 +515,6 @@ func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-// returns all keys if chainID is nil
 func (ks *eth) keysForChain(chainID *big.Int, includeDisabled bool) (keys []ethkey.KeyV2) {
 	states := ks.keyStates.ChainIDKeyID[chainID.String()]
 	if states == nil {

@@ -8,7 +8,7 @@ export const ETH_KEYS_PAYLOAD__RESULTS_FIELDS = gql`
     }
     createdAt
     ethBalance
-    isFunding
+    isDisabled
     linkBalance
   }
 `
