@@ -40,6 +40,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
+  /// @notice The address of Arbitrum's DelayedInbox
   address public immutable CROSS_DOMAIN_MESSENGER;
   address public immutable L2_SEQ_STATUS_RECORDER;
   // L2 xDomain alias address of this contract
@@ -316,7 +317,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @notice Internal method that approximates the `maxSubmissionCost`
-   * @dev On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
+   * @dev  This function estimates the max submission cost using the formula
+   * implemented in Arbitrum DelayedInbox's calculateRetryableSubmissionFee function
    * @param calldataSizeInBytes xDomain message size in bytes
    */
   function _approximateMaxSubmissionCost(uint256 calldataSizeInBytes) internal view returns (uint256) {
