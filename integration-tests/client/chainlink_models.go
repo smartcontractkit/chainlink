@@ -295,6 +295,10 @@ type TxKeyData struct {
 // TxKeyAttributes is the model that represents the created keys when read
 type TxKeyAttributes struct {
 	PublicKey string `json:"publicKey"`
+
+	// starknet specific (uses contract model instead of EOA)
+	AccountAddr string `json:"accountAddr,omitempty"`
+	StarkKey    string `json:"starkPubKey,omitempty"`
 }
 
 type SingleTransactionDataWrapper struct {
