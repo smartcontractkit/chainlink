@@ -179,7 +179,7 @@ func TestUserController_CreateUser(t *testing.T) {
 	}
 }
 
-func TestUserController_UpdateUser(t *testing.T) {
+func TestUserController_UpdateRole(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -204,29 +204,8 @@ func TestUserController_UpdateUser(t *testing.T) {
 			wantErrCount:   1,
 		},
 		{
-			name:           "Wrong email format",
-			reqBody:        fmt.Sprintf(`{"email": "%s", "newEmail": "12345678", "newRole": "view", "newPassword": "%v"}`, user.Email, cltest.Password),
-			wantStatusCode: http.StatusBadRequest,
-			wantErrCount:   1,
-			wantErrMessage: "mail: missing '@' or angle-addr",
-		},
-		{
-			name:           "Password contains old email",
-			reqBody:        `{"email": "asd@email.com", "newPassword": "asd@email.comasd@email.comasd@email.com"}`,
-			wantStatusCode: http.StatusBadRequest,
-			wantErrCount:   1,
-			wantErrMessage: `password may not contain: "asd@email.com"`,
-		},
-		{
-			name:           "Password contains new email",
-			reqBody:        `{"email": "asd@email.com", "newEmail": "tyu@email.com", "newPassword": "tyu@email.comtyu@email.comtyu@email.com"}`,
-			wantStatusCode: http.StatusBadRequest,
-			wantErrCount:   1,
-			wantErrMessage: `password may not contain: "tyu@email.com"`,
-		},
-		{
 			name:           "Success",
-			reqBody:        fmt.Sprintf(`{"email": "%s", "newEmail": "%s", "newRole": "edit", "newPassword": ""}`, user.Email, cltest.MustRandomUser(t).Email),
+			reqBody:        fmt.Sprintf(`{"email": "%s", "newRole": "edit"}`, user.Email),
 			wantStatusCode: http.StatusOK,
 		},
 	}
