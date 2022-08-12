@@ -10,7 +10,7 @@ import "../SimpleWriteAccessController.sol";
 /* ./dev dependencies - to be moved from ./dev after audit */
 import "./interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
 import "./interfaces/FlagsInterface.sol";
-import "./vendor/arbitrum/IArbitrumDelayedInbox.sol";
+import "./interfaces/IArbitrumDelayedInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
