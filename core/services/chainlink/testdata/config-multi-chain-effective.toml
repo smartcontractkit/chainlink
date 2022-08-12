@@ -1,0 +1,261 @@
+RootDir = 'my/root/dir'
+
+[Database]
+
+[Database.Listener]
+FallbackPollInterval = '2m0s'
+
+[Log]
+JSONConsole = true
+
+[JobPipeline]
+DefaultHTTPRequestTimeout = '30s'
+
+[OCR2]
+DatabaseTimeout = '20s'
+
+[OCR]
+BlockchainTimeout = '5s'
+
+[P2P]
+IncomingMessageBufferSize = 999
+
+[Keeper]
+GasPriceBufferPercent = 10
+
+[AutoPprof]
+CPUProfileRate = 7
+
+[[EVM]]
+ChainID = '1'
+FinalityDepth = 26
+LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.1 link'
+NonceAutoSync = true
+OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 4
+TransactionPercentile = 50
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '1m0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+NoNewHeadsThreshold = '3m0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[EVM.OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/mainnet'
+
+[[EVM.Nodes]]
+Name = 'secondary'
+HTTPURL = 'http://broadcast.mirror'
+SendOnly = true
+
+[[EVM]]
+ChainID = '42'
+FinalityDepth = 50
+LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.1 link'
+NonceAutoSync = true
+OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '9.223372036854775807 ether'
+PriceMax = '100 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 4
+TransactionPercentile = 50
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '1m0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+NoNewHeadsThreshold = '3m0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[EVM.OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
+
+[[EVM]]
+ChainID = '137'
+FinalityDepth = 500
+LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
+LogBackfillBatchSize = 100
+LogPollInterval = '1s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 5000
+MinIncomingConfirmations = 5
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[EVM.BalanceMonitor]
+Enabled = true
+BlockDelay = 13
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '30 gwei'
+PriceMax = '200 micro'
+PriceMin = '30 gwei'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '20 gwei'
+BumpPercent = 20
+BumpThreshold = 5
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+
+[EVM.GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 10
+BlockHistorySize = 24
+TransactionPercentile = 60
+
+[EVM.HeadTracker]
+BlockEmissionIdleWarningThreshold = '15s'
+HistoryDepth = 2000
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[EVM.NodePool]
+NoNewHeadsThreshold = '30s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[EVM.OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+
+[[EVM.Nodes]]
+Name = 'primary'
+WSURL = 'wss://web.socket/test'
+
+[[Solana]]
+ChainID = 'mainnet'
+MaxRetries = 12
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://mainnet.solana.com'
+
+[[Solana]]
+ChainID = 'testnet'
+OCR2CachePollPeriod = '1m0s'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://testnet.solana.com'
+
+[[Terra]]
+ChainID = 'Columbus-5'
+MaxMsgsPerBatch = 13
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://columbus.terra.com'
+
+[[Terra]]
+ChainID = 'Bombay-12'
+BlocksUntilTxTimeout = 20
+
+[[Terra.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://bombay.terra.com'

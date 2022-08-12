@@ -4,17 +4,18 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func AssertFieldsNotNil(t *testing.T, s interface{}) {
 	err := assertValNotNil(t, "", reflect.ValueOf(s))
-	assert.NoError(t, err, MultiErrorList(err))
+	assert.NoError(t, err, utils.MultiErrorList(err))
 }
 
 // assertFieldsNotNil recursively checks the struct s for nil fields.
@@ -98,28 +99,4 @@ func assertValNotNil(t *testing.T, key string, val reflect.Value) error {
 	default:
 		return nil
 	}
-}
-
-type multiErrorList []error
-
-// MultiErrorList returns an error which formats underlying errors as a list, or nil if err is nil.
-func MultiErrorList(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return multiErrorList(multierr.Errors(err))
-}
-
-func (m multiErrorList) Error() string {
-	l := len(m)
-	if l == 1 {
-		return m[0].Error()
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%d errors:", l)
-	for _, e := range m {
-		fmt.Fprintf(&sb, "\n\t- %v", e)
-	}
-	return sb.String()
 }
