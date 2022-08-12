@@ -120,7 +120,7 @@ func (n *node) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
-	var latestReceivedBlockNumber int64 = n.LatestReceivedBlockNumber()
+	var highestReceivedBlockNumber int64 = n.LatestReceivedBlockNumber()
 	var pollFailures uint32
 
 	for {
@@ -165,12 +165,12 @@ func (n *node) aliveLoop() {
 			}
 			promEVMPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Got head", "head", bh)
-			if bh.Number > latestReceivedBlockNumber {
+			if bh.Number > highestReceivedBlockNumber {
 				promEVMPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.Number))
-				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
-				latestReceivedBlockNumber = bh.Number
+				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
+				highestReceivedBlockNumber = bh.Number
 			} else {
-				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", latestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
+				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.Number, "nodeState", n.State())
 			}
 			outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
 			n.stateMu.Lock()
@@ -183,7 +183,7 @@ func (n *node) aliveLoop() {
 		case <-outOfSyncTC:
 			// We haven't received a head on the channel for at least the
 			// threshold amount of time, mark it broken
-			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, latestReceivedBlockNumber), "nodeState", n.State(), "latestReceivedBlockNumber", latestReceivedBlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
+			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, highestReceivedBlockNumber), "nodeState", n.State(), "latestReceivedBlockNumber", highestReceivedBlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
 			if n.nLiveNodes != nil && n.nLiveNodes() < 2 {
 				lggr.Critical("RPC endpoint detected out of sync; but cannot disable this connection because there are no other RPC endpoints, or all other RPC endpoints dead. Chainlink is now operating in a degraded state and urgent action is required to resolve the issue")
 				// We don't necessarily want to wait the full timeout to check again, we should
@@ -191,7 +191,7 @@ func (n *node) aliveLoop() {
 				outOfSyncT.Reset(zombieNodeCheckInterval(n.cfg))
 				continue
 			}
-			n.declareOutOfSync(latestReceivedBlockNumber)
+			n.declareOutOfSync(highestReceivedBlockNumber)
 			return
 		}
 	}
