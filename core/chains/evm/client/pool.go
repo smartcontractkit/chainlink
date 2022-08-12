@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/atomic"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -34,11 +33,10 @@ var (
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes           []Node
-	sendonlys       []SendOnlyNode
-	chainID         *big.Int
-	roundRobinCount atomic.Uint32
-	logger          logger.Logger
+	nodes     []Node
+	sendonlys []SendOnlyNode
+	chainID   *big.Int
+	logger    logger.Logger
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
@@ -53,7 +51,6 @@ func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chain
 		nodes,
 		sendonlys,
 		chainID,
-		atomic.Uint32{},
 		logger.Named("Pool").With("evmChainID", chainID.String()),
 		make(chan struct{}),
 		sync.WaitGroup{},
