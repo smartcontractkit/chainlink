@@ -219,12 +219,41 @@ func (p *Pool) liveNodes() (liveNodes []Node) {
 	return
 }
 
+// If a call (made with user defined fn function) returns an error,
+// we try repeat the call with the next node until we tried all alive nodes.
+func retryWithRoundRobin[T any](p *Pool, fn func(node Node) (T, error)) (t T, err error) {
+	firstNode := p.getRoundRobin()
+	nextNode := firstNode
+	for {
+		t, err = fn(nextNode)
+		if err != nil {
+			nextNode = p.getRoundRobin()
+			if nextNode == firstNode {
+				return
+			}
+			continue
+		}
+		return
+	}
+}
+
+func (p *Pool) retryWithRoundRobin(fn func(node Node) error) error {
+	_, err := retryWithRoundRobin(p, func(node Node) (struct{}, error) {
+		return struct{}{}, fn(node)
+	})
+	return err
+}
+
 func (p *Pool) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return p.getRoundRobin().CallContext(ctx, result, method, args...)
+	return p.retryWithRoundRobin(func(node Node) error {
+		return node.CallContext(ctx, result, method, args...)
+	})
 }
 
 func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	return p.getRoundRobin().BatchCallContext(ctx, b)
+	return p.retryWithRoundRobin(func(node Node) error {
+		return node.BatchCallContext(ctx, b)
+	})
 }
 
 // BatchCallContextAll calls BatchCallContext for every single node including
@@ -309,70 +338,104 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 }
 
 func (p *Pool) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	return p.getRoundRobin().PendingCodeAt(ctx, account)
+	return retryWithRoundRobin(p, func(node Node) ([]byte, error) {
+		return node.PendingCodeAt(ctx, account)
+	})
 }
 
 func (p *Pool) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	return p.getRoundRobin().PendingNonceAt(ctx, account)
+	return retryWithRoundRobin(p, func(node Node) (uint64, error) {
+		return node.PendingNonceAt(ctx, account)
+	})
 }
 
 func (p *Pool) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	return p.getRoundRobin().NonceAt(ctx, account, blockNumber)
+	return retryWithRoundRobin(p, func(node Node) (uint64, error) {
+		return node.NonceAt(ctx, account, blockNumber)
+	})
 }
 
 func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return p.getRoundRobin().TransactionReceipt(ctx, txHash)
+	return retryWithRoundRobin(p, func(node Node) (*types.Receipt, error) {
+		return node.TransactionReceipt(ctx, txHash)
+	})
 }
 
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return p.getRoundRobin().BlockByNumber(ctx, number)
+	return retryWithRoundRobin(p, func(node Node) (*types.Block, error) {
+		return node.BlockByNumber(ctx, number)
+	})
 }
 
 func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return p.getRoundRobin().BlockByHash(ctx, hash)
+	return retryWithRoundRobin(p, func(node Node) (*types.Block, error) {
+		return node.BlockByHash(ctx, hash)
+	})
 }
 
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	return p.getRoundRobin().BalanceAt(ctx, account, blockNumber)
+	return retryWithRoundRobin(p, func(node Node) (*big.Int, error) {
+		return node.BalanceAt(ctx, account, blockNumber)
+	})
 }
 
 func (p *Pool) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	return p.getRoundRobin().FilterLogs(ctx, q)
+	return retryWithRoundRobin(p, func(node Node) ([]types.Log, error) {
+		return node.FilterLogs(ctx, q)
+	})
 }
 
 func (p *Pool) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	return p.getRoundRobin().SubscribeFilterLogs(ctx, q, ch)
+	return retryWithRoundRobin(p, func(node Node) (ethereum.Subscription, error) {
+		return node.SubscribeFilterLogs(ctx, q, ch)
+	})
 }
 
 func (p *Pool) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	return p.getRoundRobin().EstimateGas(ctx, call)
+	return retryWithRoundRobin(p, func(node Node) (uint64, error) {
+		return node.EstimateGas(ctx, call)
+	})
 }
 
 func (p *Pool) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	return p.getRoundRobin().SuggestGasPrice(ctx)
+	return retryWithRoundRobin(p, func(node Node) (*big.Int, error) {
+		return node.SuggestGasPrice(ctx)
+	})
 }
 
 func (p *Pool) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return p.getRoundRobin().CallContract(ctx, msg, blockNumber)
+	return retryWithRoundRobin(p, func(node Node) ([]byte, error) {
+		return node.CallContract(ctx, msg, blockNumber)
+	})
 }
 
 func (p *Pool) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	return p.getRoundRobin().CodeAt(ctx, account, blockNumber)
+	return retryWithRoundRobin(p, func(node Node) ([]byte, error) {
+		return node.CodeAt(ctx, account, blockNumber)
+	})
 }
 
 // bind.ContractBackend methods
 func (p *Pool) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	return p.getRoundRobin().HeaderByNumber(ctx, n)
+	return retryWithRoundRobin(p, func(node Node) (*types.Header, error) {
+		return node.HeaderByNumber(ctx, n)
+	})
 }
 func (p *Pool) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
-	return p.getRoundRobin().HeaderByHash(ctx, h)
+	return retryWithRoundRobin(p, func(node Node) (*types.Header, error) {
+		return node.HeaderByHash(ctx, h)
+	})
 }
 
 func (p *Pool) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	return p.getRoundRobin().SuggestGasTipCap(ctx)
+	return retryWithRoundRobin(p, func(node Node) (*big.Int, error) {
+		return node.SuggestGasTipCap(ctx)
+	})
 }
 
 // EthSubscribe implements evmclient.Client
 func (p *Pool) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
-	return p.getRoundRobin().EthSubscribe(ctx, channel, args...)
+	return retryWithRoundRobin(p, func(node Node) (ethereum.Subscription, error) {
+		return node.EthSubscribe(ctx, channel, args...)
+	})
 }

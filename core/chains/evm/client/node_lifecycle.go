@@ -131,7 +131,7 @@ func (n *node) aliveLoop() {
 			var version string
 			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
-			ctx, cancel := context.WithTimeout(context.Background(), pollInterval)
+			ctx, cancel := utils.ContextFromChanWithDeadline(n.chStop, pollInterval)
 			ctx, cancel2 := n.makeQueryCtx(ctx)
 			err := n.CallContext(ctx, &version, "web3_clientVersion")
 			cancel2()
@@ -217,16 +217,17 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
-	err := n.dial(context.Background())
-	if err != nil {
+	ctx, cancel := utils.ContextFromChan(n.chStop)
+	if err := n.dial(ctx); err != nil {
+		cancel()
 		lggr.Errorw("Failed to dial out-of-sync RPC node", "nodeState", n.State())
 		n.declareUnreachable()
 		return
 	}
 
 	// Manually re-verify since out-of-sync nodes are automatically disconnected
-	err = n.verify(context.Background())
-	if err != nil {
+	if err := n.verify(ctx); err != nil {
+		cancel()
 		lggr.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
 		n.declareInvalidChainID()
 		return
@@ -235,9 +236,10 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "stuckAtBlockNumber", stuckAtBlockNumber, "nodeState", n.State())
 
 	ch := make(chan *evmtypes.Head)
-	subCtx, cancel := n.makeQueryCtx(context.Background())
+	subCtx, cancel2 := n.makeQueryCtx(ctx)
 	// raw call here to bypass node state checking
 	sub, err := n.ws.rpc.EthSubscribe(subCtx, ch, "newHeads")
+	cancel2()
 	cancel()
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
@@ -307,15 +309,18 @@ func (n *node) unreachableLoop() {
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
 
-			err := n.dial(context.Background())
+			ctx, cancel := utils.ContextFromChan(n.chStop)
+			err := n.dial(ctx)
 			if err != nil {
+				cancel()
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
 				continue
 			}
+			defer cancel()
 
 			n.setState(NodeStateDialed)
 
-			err = n.verify(context.Background())
+			err = n.verify(ctx)
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				n.declareInvalidChainID()
@@ -360,7 +365,9 @@ func (n *node) invalidChainIDLoop() {
 		case <-n.chStop:
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			err := n.verify(context.Background())
+			ctx, cancel := utils.ContextFromChan(n.chStop)
+			err := n.verify(ctx)
+			cancel()
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				continue

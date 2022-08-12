@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"net/http/httptest"
 	"net/url"
@@ -300,4 +301,40 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 	p := evmclient.NewPool(logger.TestLogger(t), nodes, sendonlys, &cltest.FixtureChainID)
 
 	p.BatchCallContextAll(ctx, b)
+}
+
+func TestUnit_Pool_retryWithRoundRobin(t *testing.T) {
+	t.Parallel()
+
+	b := []rpc.BatchElem{
+		{Method: "method", Args: []interface{}{1, false}},
+		{Method: "method2"},
+	}
+
+	ctx := testutils.Context(t)
+	callErr := errors.New("failed to decode block number")
+
+	var nodes []evmclient.Node
+	for i := 0; i < 5; i++ {
+		node := evmmocks.NewNode(t)
+		if i == 0 {
+			// One node is unreachable
+			node.On("State").Return(evmclient.NodeStateUnreachable)
+		} else if i < 4 {
+			// Three nodes are alive, but the call returns error
+			node.On("State").Return(evmclient.NodeStateAlive)
+			node.On("BatchCallContext", ctx, b).Return(callErr).Once()
+		} else {
+			// The last node is alive and return no error
+			// getRoundRobin() will pick it last
+			node.On("State").Return(evmclient.NodeStateAlive)
+			node.On("BatchCallContext", ctx, b).Return(nil).Once()
+		}
+		nodes = append(nodes, node)
+	}
+
+	pool := evmclient.NewPool(logger.TestLogger(t), nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+
+	err := pool.BatchCallContext(ctx, b)
+	assert.NoError(t, err)
 }
