@@ -32,11 +32,12 @@ var (
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes        []Node
-	sendonlys    []SendOnlyNode
-	chainID      *big.Int
-	logger       logger.Logger
-	lastBestNode Node
+	nodes          []Node
+	sendonlys      []SendOnlyNode
+	chainID        *big.Int
+	logger         logger.Logger
+	lastBestNodeMu sync.Mutex
+	lastBestNode   Node
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
@@ -52,6 +53,7 @@ func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chain
 		sendonlys,
 		chainID,
 		logger.Named("Pool").With("evmChainID", chainID.String()),
+		sync.Mutex{},
 		nil,
 		make(chan struct{}),
 		sync.WaitGroup{},
@@ -205,6 +207,7 @@ func (p *Pool) getBestNode() Node {
 		}
 	}
 
+	p.lastBestNodeMu.Lock()
 	if p.lastBestNode != nil {
 		if p.lastBestNode.LatestReceivedBlockNumber() >= highestHeadNumber {
 			node = p.lastBestNode
@@ -212,6 +215,7 @@ func (p *Pool) getBestNode() Node {
 	} else {
 		p.lastBestNode = node
 	}
+	p.lastBestNodeMu.Unlock()
 
 	if node == nil {
 		p.logger.Critical("No live RPC nodes available")
