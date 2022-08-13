@@ -221,10 +221,10 @@ func (p *Pool) getBestNode() Node {
 	if node == nil {
 		p.logger.Critical("No live RPC nodes available")
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
-	} else {
-		if p.lastBestNode == nil {
-			p.lastBestNode = node
-		}
+	}
+
+	if p.lastBestNode == nil {
+		p.lastBestNode = node
 	}
 
 	return node
