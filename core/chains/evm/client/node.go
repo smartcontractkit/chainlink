@@ -137,6 +137,9 @@ type node struct {
 	state   NodeState
 	stateMu sync.RWMutex
 
+	// Each node is tracking the last received head number
+	latestReceivedBlockNumber int64
+
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
 	subs []ethereum.Subscription
@@ -156,9 +159,6 @@ type node struct {
 	// moved to out-of-sync state. It is better to have one out-of-sync node
 	// than no nodes at all.
 	nLiveNodes func() int
-
-	// Each node is tracking the last received head number
-	latestReceivedBlockNumber int64
 }
 
 // NodeConfig allows configuration of the node
@@ -337,8 +337,8 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 }
 
 func (n *node) LatestReceivedBlockNumber() int64 {
-	n.stateMu.Lock()
-	defer n.stateMu.Unlock()
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	return n.latestReceivedBlockNumber
 }
 

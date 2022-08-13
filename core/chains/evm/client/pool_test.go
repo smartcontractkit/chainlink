@@ -303,3 +303,67 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	p.BatchCallContextAll(ctx, b)
 }
+
+func TestUnit_Pool_getBestNode(t *testing.T) {
+	t.Parallel()
+
+	var nodes []evmclient.Node
+
+	ctx := testutils.Context(t)
+	blockNumber := big.NewInt(123)
+	address := cltest.NewEIP55Address().Address()
+
+	for i := 0; i < 3; i++ {
+		node := evmmocks.NewNode(t)
+		if i == 0 {
+			// first node is out of sync
+			node.On("State").Return(evmclient.NodeStateOutOfSync)
+			node.On("LatestReceivedBlockNumber").Return(int64(-1))
+		} else if i == 1 {
+			// second node is alive, LatestReceivedBlockNumber = 1
+			node.On("State").Return(evmclient.NodeStateAlive)
+			node.On("LatestReceivedBlockNumber").Return(int64(1))
+		} else {
+			// third node is alive, LatestReceivedBlockNumber = 2 (best node)
+			node.On("State").Return(evmclient.NodeStateAlive)
+			node.On("NonceAt", ctx, address, blockNumber).Return(uint64(777), nil).Twice()
+			node.On("LatestReceivedBlockNumber").Return(int64(2))
+		}
+		nodes = append(nodes, node)
+	}
+
+	p := evmclient.NewPool(logger.TestLogger(t), nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+
+	nonce, err := p.NonceAt(ctx, address, blockNumber)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(777), nonce)
+
+	t.Run("stick to the same node", func(t *testing.T) {
+		node := evmmocks.NewNode(t)
+		// fourth node is alive, LatestReceivedBlockNumber = 2 (same as 3rd)
+		node.On("State").Return(evmclient.NodeStateAlive)
+		node.On("LatestReceivedBlockNumber").Return(int64(2))
+		nodes = append(nodes, node)
+
+		p := evmclient.NewPool(logger.TestLogger(t), nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+
+		nonce, err := p.NonceAt(ctx, address, blockNumber)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(777), nonce)
+	})
+
+	t.Run("another best node", func(t *testing.T) {
+		node := evmmocks.NewNode(t)
+		// fifth node is alive, LatestReceivedBlockNumber = 3 (better than 3rd and 4th)
+		node.On("State").Return(evmclient.NodeStateAlive).Maybe()
+		node.On("NonceAt", ctx, address, blockNumber).Return(uint64(888), nil).Once()
+		node.On("LatestReceivedBlockNumber").Return(int64(3))
+		nodes = append(nodes, node)
+
+		p := evmclient.NewPool(logger.TestLogger(t), nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+
+		nonce, err := p.NonceAt(ctx, address, blockNumber)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(888), nonce)
+	})
+}

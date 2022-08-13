@@ -197,9 +197,20 @@ func (p *Pool) ChainID() *big.Int {
 }
 
 func (p *Pool) getBestNode() Node {
-	highestHeadNumber := int64(-1)
+	p.lastBestNodeMu.Lock()
+	defer p.lastBestNodeMu.Unlock()
+
 	var node Node
+	highestHeadNumber := int64(-1)
+	if p.lastBestNode != nil {
+		highestHeadNumber = p.lastBestNode.LatestReceivedBlockNumber()
+		node = p.lastBestNode
+	}
+
 	for _, n := range p.nodes {
+		if n == p.lastBestNode {
+			continue
+		}
 		latestReceivedBlockNumber := n.LatestReceivedBlockNumber()
 		if n.State() == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
 			node = n
@@ -207,19 +218,13 @@ func (p *Pool) getBestNode() Node {
 		}
 	}
 
-	p.lastBestNodeMu.Lock()
-	if p.lastBestNode != nil {
-		if p.lastBestNode != node && p.lastBestNode.LatestReceivedBlockNumber() >= highestHeadNumber {
-			node = p.lastBestNode
-		}
-	} else {
-		p.lastBestNode = node
-	}
-	p.lastBestNodeMu.Unlock()
-
 	if node == nil {
 		p.logger.Critical("No live RPC nodes available")
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
+	} else {
+		if p.lastBestNode == nil {
+			p.lastBestNode = node
+		}
 	}
 
 	return node

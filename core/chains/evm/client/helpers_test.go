@@ -30,7 +30,9 @@ func NewClientWithTestNode(cfg NodeConfig, lggr logger.Logger, rpcUrl string, rp
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	primaries := []Node{NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID)}
+	n := NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID)
+	n.(*node).setLatestReceivedBlockNumber(0)
+	primaries := []Node{n}
 
 	var sendonlys []SendOnlyNode
 	for i, url := range sendonlyRPCURLs {
