@@ -28,6 +28,16 @@ var (
 	}, []string{"evmChainID", "state"})
 )
 
+const (
+	NodeSelectionMode_HighestHead = "HighestHead"
+	NodeSelectionMode_RoundRobin  = "RoundRobin"
+)
+
+// PoolConfig represents settings for the Pool
+type PoolConfig interface {
+	NodeSelectionMode() string
+}
+
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
@@ -36,6 +46,7 @@ type Pool struct {
 	sendonlys      []SendOnlyNode
 	chainID        *big.Int
 	logger         logger.Logger
+	config         PoolConfig
 	lastBestNodeMu sync.Mutex
 	lastBestNode   Node
 
@@ -43,7 +54,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
+func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -53,6 +64,7 @@ func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chain
 		sendonlys,
 		chainID,
 		logger.Named("Pool").With("evmChainID", chainID.String()),
+		cfg,
 		sync.Mutex{},
 		nil,
 		make(chan struct{}),

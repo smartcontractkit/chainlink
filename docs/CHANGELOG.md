@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `hexencode` and `base64encode` tasks (pipeline).
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
+- `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`.
 
 ### Changed
 

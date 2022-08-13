@@ -131,6 +131,7 @@ type NodePool struct {
 	NoNewHeadsThreshold  *models.Duration
 	PollFailureThreshold *uint32
 	PollInterval         *models.Duration
+	SelectionMode        *string
 }
 
 type OCR struct {

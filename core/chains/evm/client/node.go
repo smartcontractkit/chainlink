@@ -166,6 +166,7 @@ type NodeConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	NodePollFailureThreshold() uint32
 	NodePollInterval() time.Duration
+	NodeSelectionMode() string
 }
 
 // NewNode returns a new *node as Node
