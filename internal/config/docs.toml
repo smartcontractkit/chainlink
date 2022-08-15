@@ -434,6 +434,12 @@ MemThreshold = '4gb' # Default
 # GoroutineThreshold is the maximum number of actively-running goroutines the node can spawn before profiling begins.
 GoroutineThreshold = 5000 # Default
 
+[Pyroscope]
+# ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
+ServerAddress = '' # Default
+# AuthToken configures the needed Auth Token on Server Addresses that require an Auth Token.
+AuthToken = '' # Default
+
 [Sentry]
 # **ADVANCED**
 # Debug enables printing of Sentry SDK debug messages.
