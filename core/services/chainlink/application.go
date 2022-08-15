@@ -198,17 +198,23 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	var nurse *services.Nurse
 	var prflr *pyroscope.Profiler
-	if cfg.AutoPprofEnabled() {
+	if cfg.PyroscopeServerAddress() != "" {
+		globalLogger.Info("pyroscope (automatic pprof profiling) is enabled")
 		var err error
 		prflr, err = logger.StartPyroscope(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
+	} else {
+		globalLogger.Info("pyroscope (automatic pprof profiling) is disabled")
+	}
+
+	var nurse *services.Nurse
+	if cfg.AutoPprofEnabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
 		nurse = services.NewNurse(cfg, globalLogger)
-		err = nurse.Start()
+		err := nurse.Start()
 		if err != nil {
 			return nil, err
 		}
