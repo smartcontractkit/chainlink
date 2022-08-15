@@ -4,6 +4,7 @@ package chainlink_test
 
 import (
 	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,6 +63,9 @@ func TestChainlinkApplication_ConfigDump(t *testing.T) {
 
 			got, err := chainlink.FakeConfigDump(chainsJSON)
 			require.NoError(t, err)
+			if name == "none-valid" {
+				fmt.Println(got)
+			}
 			assert.Equal(t, string(exp), got, diff.Diff(string(exp), got))
 		})
 	}

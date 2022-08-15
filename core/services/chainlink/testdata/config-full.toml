@@ -165,6 +165,10 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
+[Pyroscope]
+AuthToken = 'pyroscope-token'
+ServerAddress = 'http://localhost:4040'
+
 [Sentry]
 Debug = true
 DSN = 'sentry-dsn'

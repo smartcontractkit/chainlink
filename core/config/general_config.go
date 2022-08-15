@@ -541,10 +541,12 @@ func (c *generalConfig) AutoPprofGoroutineThreshold() int {
 	return c.viper.GetInt(envvar.Name("AutoPprofGoroutineThreshold"))
 }
 
+// PyroscopeAuthToken specifies the Auth Token used to send profiling info to Pyroscope
 func (c *generalConfig) PyroscopeAuthToken() string {
 	return c.viper.GetString(envvar.Name("PyroscopeAuthToken"))
 }
 
+// PyroscopeServerAddress specifies the Server Address where the Pyroscope instance lives
 func (c *generalConfig) PyroscopeServerAddress() string {
 	return c.viper.GetString(envvar.Name("PyroscopeServerAddress"))
 }

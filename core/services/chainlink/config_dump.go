@@ -883,8 +883,8 @@ func (c *Config) loadLegacyCoreEnv() {
 		AuthToken:     envvar.NewString("PyroscopeAuthToken").ParsePtr(),
 		ServerAddress: envvar.NewString("PyroscopeServerAddress").ParsePtr(),
 	}
-	if isZeroPtr(c.AutoPprof) {
-		c.AutoPprof = nil
+	if isZeroPtr(c.Pyroscope) {
+		c.Pyroscope = nil
 	}
 
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
