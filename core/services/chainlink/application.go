@@ -575,7 +575,9 @@ func (app *ChainlinkApplication) stop() (err error) {
 
 		if app.Nurse != nil {
 			err = multierr.Append(err, app.Nurse.Close())
-			// when Nurse gets enabled, pyroscope is enabled
+		}
+
+		if app.prflr != nil {
 			err = multierr.Append(err, app.prflr.Stop())
 		}
 
