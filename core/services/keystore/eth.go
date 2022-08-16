@@ -477,7 +477,7 @@ func (ks *eth) XXXTestingOnlySetState(state ethkey.State) {
 	}
 }
 
-/// XXXTestingOnlyAdd is only used in tests to manually add a key
+// XXXTestingOnlyAdd is only used in tests to manually add a key
 func (ks *eth) XXXTestingOnlyAdd(key ethkey.KeyV2) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
