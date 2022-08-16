@@ -5,8 +5,11 @@ import (
 	"context"
 	"math/big"
 	"net/http"
+	"os"
 	"reflect"
+	"runtime/pprof"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -504,6 +507,20 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	}
 
 	app.started = true
+
+	ticker := time.NewTicker(1 * time.Hour)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 
 	return nil
 }
