@@ -848,6 +848,7 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 
 func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer) (ids []int64, err error) {
 	var filter string
+	lggr := logger.Sugared(o.lggr)
 
 	if jobID != nil {
 		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d AND ", *jobID)
@@ -899,10 +900,11 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 				}
 				offset -= skipped
 				if offset < 0 { // sanity assertion, if this ever happened it would probably mean db corruption or pg bug
+					lggr.AssumptionViolationw("offset < 0 while reading pipeline_runs")
 					err = errors.Wrap(err, "internal db error while reading pipeline_runs")
 					return
 				}
-				o.lggr.Debugw("loadPipelineRunIDs empty batch", "minId", minID, "maxID", maxID, "n", n, "len(ids)", len(ids), "limit", limit, "offset", offset, "skipped", skipped)
+				lggr.Debugw("loadPipelineRunIDs empty batch", "minId", minID, "maxID", maxID, "n", n, "len(ids)", len(ids), "limit", limit, "offset", offset, "skipped", skipped)
 
 			}
 		}

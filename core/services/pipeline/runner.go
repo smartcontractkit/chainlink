@@ -597,10 +597,10 @@ func (r *runner) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qo
 
 func (r *runner) runReaper() {
 	r.lggr.Debugw("Pipeline run reaper starting")
-	ctx, cancel := utils.ContextFromChan(r.chStop)
+	ctx, cancel := utils.ContextFromChanWithDeadline(r.chStop, r.config.JobPipelineReaperInterval())
 	defer cancel()
 
-	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold(), r.config.JobPipelineReaperInterval())
+	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
 	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	} else {

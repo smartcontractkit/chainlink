@@ -73,7 +73,7 @@ type ORM interface {
 	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
 	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
 
-	DeleteRunsOlderThan(context.Context, time.Duration, time.Duration) error
+	DeleteRunsOlderThan(context.Context, time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
 	GetUnfinishedRuns(context.Context, time.Time, func(run Run) error) error
@@ -375,11 +375,11 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
-//  This is guaranteed not to run longer than the timeout
-func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration, timeout time.Duration) error {
+// Caller is expected to set timeout on calling context.
+func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
 	start := time.Now()
 
-	q := o.q.WithOpts(pg.WithParentCtx(ctx), func(q *pg.Q) { q.QueryTimeout = timeout })
+	q := o.q.WithOpts(pg.WithParentCtxInheritTimeout(ctx))
 
 	queryThreshold := start.Add(-threshold)
 
@@ -415,9 +415,6 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 
 	mark := time.Now()
 	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "duration", mark.Sub(start))
-
-	// Give VACUUM ANALYZE query whatever time is left until original timeout deadline
-	q = o.q.WithOpts(pg.WithParentCtx(ctx), func(q *pg.Q) { q.QueryTimeout = timeout - mark.Sub(start) })
 
 	err = q.ExecQ("VACUUM ANALYZE pipeline_runs")
 	if err != nil {
