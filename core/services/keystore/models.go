@@ -105,19 +105,19 @@ func (ks *keyStates) get(addr common.Address, chainID *big.Int) *ethkey.State {
 }
 
 // warning: not thread-safe! caller must sync
-func (ks keyStates) enable(addr common.Address, chainID *big.Int) {
+func (ks *keyStates) enable(addr common.Address, chainID *big.Int) {
 	state := ks.get(addr, chainID)
 	state.Disabled = false
 }
 
 // warning: not thread-safe! caller must sync
-func (ks keyStates) disable(addr common.Address, chainID *big.Int) {
+func (ks *keyStates) disable(addr common.Address, chainID *big.Int) {
 	state := ks.get(addr, chainID)
 	state.Disabled = true
 }
 
 // warning: not thread-safe! caller must sync
-func (ks keyStates) delete(addr common.Address) {
+func (ks *keyStates) delete(addr common.Address) {
 	var chainIDs []*big.Int
 	for i := len(ks.All) - 1; i >= 0; i-- {
 		if ks.All[i].Address.Address() == addr {

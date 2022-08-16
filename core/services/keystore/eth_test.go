@@ -418,7 +418,7 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 
 	count := atomic.NewInt32(0)
 
-	assertCount := func(expected int32) {
+	assertCountAtLeast := func(expected int32) {
 		require.Eventually(
 			t,
 			func() bool { return count.Load() >= expected },
@@ -442,18 +442,35 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 		}
 	}()
 
+	drainAndReset := func() {
+		for len(chSub) > 0 {
+			<-chSub
+		}
+		count.Store(0)
+	}
+
 	err := ks.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
-	assertCount(1)
+	assertCountAtLeast(1)
+
+	drainAndReset()
 
 	// Create the key includes a state, triggering notify
 	k1, err := ks.Create(testutils.FixtureChainID)
 	require.NoError(t, err)
-	assertCount(2)
+	assertCountAtLeast(1)
+
+	drainAndReset()
 
 	// Enabling the key for a new state triggers the notification callback again
 	require.NoError(t, ks.Enable(k1.Address, testutils.SimulatedChainID))
-	assertCount(3)
+	assertCountAtLeast(1)
+
+	drainAndReset()
+
+	// Disabling triggers a notify
+	require.NoError(t, ks.Disable(k1.Address, testutils.SimulatedChainID))
+	assertCountAtLeast(1)
 }
 
 func Test_EthKeyStore_EnsureKeys(t *testing.T) {

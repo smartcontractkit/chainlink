@@ -60,7 +60,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
 	ec := eth_mocks.NewClient(t)
-	ec.On("ChainID").Return(big.NewInt(0))
+	ec.On("ChainID").Return(testutils.FixtureChainID)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
@@ -73,9 +73,9 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
-	_, err := ks.Eth().Create(big.NewInt(0))
+	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
-	submitter, err := ks.Eth().GetRoundRobinAddress(testutils.FixtureChainID)
+	submitter := k.Address
 	require.NoError(t, err)
 	vrfkey, err := ks.VRF().Create()
 	require.NoError(t, err)

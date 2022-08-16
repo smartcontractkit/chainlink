@@ -11,14 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `hexencode` and `base64encode` tasks (pipeline).
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
-
-### Changed
-
 - Keypath now supports paths with any depth, instead of limiting it to 2
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
 - Updated `Arbitrum Rinkeby` configuration for Nitro
 - `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 - It is now possible to use the same key across multiple chains.
+
+### Changed
+
 - The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
 
 ### NEW `evm keys chain` command

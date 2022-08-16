@@ -211,6 +211,7 @@ RETURNING id, address, evm_chain_id, disabled, created_at, updated_at;`
 		return errors.Wrap(err, "failed to insert evm_key_state")
 	}
 	ks.keyStates.add(state)
+	ks.notify()
 	return nil
 }
 
@@ -223,6 +224,7 @@ func (ks *eth) Disable(address common.Address, chainID *big.Int) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	ks.keyStates.disable(address, chainID)
+	ks.notify()
 	return nil
 }
 

@@ -617,7 +617,7 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 		return nil, errors.Wrap(err, "findNextUnstartedTransactionFromAddress failed")
 	}
 
-	nonce, err := eb.getNextNonce(eb.q, etx.FromAddress, &eb.chainID)
+	nonce, err := eb.getNextNonce(etx.FromAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -672,7 +672,7 @@ func (eb *EthBroadcaster) saveAttempt(etx *EthTx, attempt EthTxAttempt, NewAttem
 	etx.State = EthTxUnconfirmed
 	attempt.State = NewAttemptState
 	return eb.q.Transaction(func(tx pg.Queryer) error {
-		if err := eb.incrementNextNonce(tx, etx.FromAddress, etx.EVMChainID.ToInt(), *etx.Nonce); err != nil {
+		if err := eb.incrementNextNonce(etx.FromAddress, *etx.Nonce, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
 		if err := tx.Get(etx, `UPDATE eth_txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, etx.State, etx.Error, etx.BroadcastAt, etx.InitialBroadcastAt, etx.ID); err != nil {
@@ -818,12 +818,12 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(lgr logger.Logger, etx *
 	})
 }
 
-func (eb *EthBroadcaster) getNextNonce(q pg.Q, address gethCommon.Address, chainID *big.Int) (nonce int64, err error) {
-	return eb.ChainKeyStore.keystore.GetNextNonce(address, chainID, pg.WithQueryer(q))
+func (eb *EthBroadcaster) getNextNonce(address gethCommon.Address) (nonce int64, err error) {
+	return eb.ChainKeyStore.keystore.GetNextNonce(address, &eb.chainID)
 }
 
-func (eb *EthBroadcaster) incrementNextNonce(q pg.Queryer, address gethCommon.Address, chainID *big.Int, currentNonce int64) error {
-	return eb.ChainKeyStore.keystore.IncrementNextNonce(address, chainID, currentNonce, pg.WithQueryer(q))
+func (eb *EthBroadcaster) incrementNextNonce(address gethCommon.Address, currentNonce int64, qopts ...pg.QOpt) error {
+	return eb.ChainKeyStore.keystore.IncrementNextNonce(address, &eb.chainID, currentNonce, qopts...)
 }
 
 func observeTimeUntilBroadcast(chainID big.Int, createdAt, broadcastAt time.Time) {

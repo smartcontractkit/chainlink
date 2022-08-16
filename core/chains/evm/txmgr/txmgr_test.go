@@ -258,6 +258,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, payload, etx.EncodedPayload)
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
+
+		config.AssertExpectations(t)
 	})
 
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, fromAddress)
@@ -274,6 +276,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Txm#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS")
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
@@ -301,10 +305,11 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, tx1.ID, tx2.ID)
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
-		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Twice()
 		rndAddr := testutils.NewAddress()
 		_, err := txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    rndAddr,
@@ -327,6 +332,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("cannot send transaction from %s on chain ID 0: eth key with address %s exists but is has not been enabled for chain 0 (enabled only for chain IDs: 1337)", otherAddress.Hex(), otherAddress.Hex()))
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("simulate transmit checker", func(t *testing.T) {
@@ -353,6 +360,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("meta and vrf checker", func(t *testing.T) {
@@ -396,6 +405,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
@@ -436,6 +447,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress, fwdrAddr)
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("skips forwarding when forwardable=false even with suitable forwarder setup.", func(t *testing.T) {
@@ -477,6 +490,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress, toAddress)
+
+		config.AssertExpectations(t)
 	})
 
 	t.Run("skips forwarding tx when forwarder doesn't authorize sender", func(t *testing.T) {
@@ -518,6 +533,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress, toAddress)
+
+		config.AssertExpectations(t)
 	})
 }
 

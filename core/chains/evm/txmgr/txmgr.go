@@ -323,6 +323,10 @@ type NewTx struct {
 
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+	if err = b.checkEnabled(newTx.FromAddress); err != nil {
+		return etx, err
+	}
+
 	q := b.q.WithOpts(qs...)
 
 	if b.config.EvmUseForwarders() && newTx.Forwardable {
@@ -361,9 +365,6 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 				return nil
 			}
 		}
-		if err = b.checkEnabled(tx, newTx.FromAddress); err != nil {
-			return err
-		}
 		err := tx.Get(&etx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
 VALUES (
@@ -387,7 +388,7 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *Txm) checkEnabled(q pg.Queryer, addr common.Address) error {
+func (b *Txm) checkEnabled(addr common.Address) error {
 	err := b.keyStore.CheckEnabled(addr, &b.chainID)
 	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.Hex(), b.chainID.String())
 }

@@ -1609,7 +1609,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
-	keys, err := app.KeyStore.Eth().EnabledKeysForChain(nil)
+	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	require.NoError(t, err)
 
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
 	// max gas limit of 2M and a key specific max 10 gwei price.
