@@ -301,7 +301,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6)
 	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2', 3'
-	// - Should Save 4, 5, 6 blocks
+	// - Should save 4, 5, 6 blocks
 	// - Should obtain logs L1_3, L2_5, L1_6
 	_, err = th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(4)})
 	require.NoError(t, err)
@@ -330,7 +330,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assertHaveCanonical(t, 3, 6, th.ec, th.orm)
 
 	// Test scenario: node down for exactly finality + 2 blocks
-	// Note we only backfill up to finalized - 1 blocks, because we need to Save the
+	// Note we only backfill up to finalized - 1 blocks, because we need to save the
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10 (L1_10)
 	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2, 3, 4, 5, 6
@@ -352,7 +352,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, int64(8), lgs[1].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
 	assert.Equal(t, int64(9), lgs[2].BlockNumber)
-	assertDontHave(t, 7, 7, th.orm) // Do not expect to Save backfilled blocks.
+	assertDontHave(t, 7, 7, th.orm) // Do not expect to save backfilled blocks.
 	assertHaveCanonical(t, 8, 10, th.ec, th.orm)
 
 	// Test scenario large backfill (multiple batches)
@@ -373,7 +373,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 7, len(lgs))
 	assertHaveCanonical(t, 15, 16, th.ec, th.orm)
-	assertDontHave(t, 11, 14, th.orm) // Do not expect to Save backfilled blocks.
+	assertDontHave(t, 11, 14, th.orm) // Do not expect to save backfilled blocks.
 }
 
 type testHarness struct {

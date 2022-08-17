@@ -140,12 +140,12 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 	for addr := range lp.addresses {
 		addresses = append(addresses, addr)
 	}
-	for eventSig := range lp.eventSigs {
-		eventSigs = append(eventSigs, eventSig)
-	}
 	sort.Slice(addresses, func(i, j int) bool {
 		return bytes.Compare(addresses[i][:], addresses[j][:]) < 0
 	})
+	for eventSig := range lp.eventSigs {
+		eventSigs = append(eventSigs, eventSig)
+	}
 	sort.Slice(eventSigs, func(i, j int) bool {
 		return bytes.Compare(eventSigs[i][:], eventSigs[j][:]) < 0
 	})
@@ -520,7 +520,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Heade
 	return nil, errors.New("Reorg greater than finality depth")
 }
 
-// Logs returns logs matching topics and Address (exactly) in the given block range,
+// Logs returns logs matching topics and address (exactly) in the given block range,
 // which are canonical at time of query.
 func (lp *logPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig[:], qopts...)
