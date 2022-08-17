@@ -181,7 +181,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		for _, activeUpkeep := range activeUpkeeps {
 			fetchedUpkeepIDs = append(fetchedUpkeepIDs, NewUpkeepIdentifier(activeUpkeep.UpkeepID).String())
 		}
-		ex.logger.Debugw("Fetched list of active upkeeps", "active upkeeps list", fetchedUpkeepIDs)
+		ex.logger.Debugw("Fetched list of active upkeeps", "blockNum", head.Number, "active upkeeps list", fetchedUpkeepIDs)
 	}
 
 	wg := sync.WaitGroup{}
