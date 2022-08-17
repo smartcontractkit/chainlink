@@ -405,20 +405,24 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	require.NoError(t, err, "UPDATE keeper_registries")
 
 	// update
-	_, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress)
+	rowsAffected, err := orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress)
 	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to lower block height not allowed
-	_, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, registry.FromAddress)
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, registry.FromAddress)
 	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(0))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to same block height allowed
-	_, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, ethkey.EIP55AddressFromAddress(utils.ZeroAddress))
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, ethkey.EIP55AddressFromAddress(utils.ZeroAddress))
 	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 100, 1)
 	// update to higher block height allowed
-	_, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress)
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress)
 	require.NoError(t, err)
+	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 101, 0)
 }
 
