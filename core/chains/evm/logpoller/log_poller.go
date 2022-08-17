@@ -28,7 +28,6 @@ type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
 	MergeFilter(eventIDs []EventID) error
-	MergeFilterWithCallbacks(callbacks map[EventID]Callback) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	ChainID() *big.Int
@@ -59,13 +58,14 @@ type logPoller struct {
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
 
 	filterMu  sync.Mutex
-	events    map[EventID]struct{}
-	callbacks map[EventID]Callback
+	addresses map[common.Address]struct{}
+	eventSigs map[common.Hash]struct{}
 
-	replay chan int64
-	ctx    context.Context
-	cancel context.CancelFunc
-	done   chan struct{}
+	replayStart    chan int64
+	replayComplete chan struct{}
+	ctx            context.Context
+	cancel         context.CancelFunc
+	done           chan struct{}
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -73,7 +73,7 @@ type logPoller struct {
 // Block processing involves in the steady state (non-reorg case):
 // - eth_getBlockByNumber - headers only (transaction hashes, not full transaction objects),
 // - 1 db read latest block
-// - 1 db tx including block write and logs write to logs and custom log writes if any.
+// - 1 db tx including block write and logs write to logs.
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize int64) *logPoller {
@@ -81,13 +81,14 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
-		replay:            make(chan int64),
+		replayStart:       make(chan int64),
+		replayComplete:    make(chan struct{}),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
 		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
-		events:            make(map[EventID]struct{}),
-		callbacks:         make(map[EventID]Callback),
+		addresses:         make(map[common.Address]struct{}),
+		eventSigs:         make(map[common.Hash]struct{}),
 	}
 }
 
@@ -98,7 +99,7 @@ func (lp *logPoller) ChainID() *big.Int {
 // MergeFilter adds the provided eventID to the log poller's log filter query.
 // If an event matching any of the given event signatures is emitted from any of the provided addresses,
 // the log poller will pick those up and save them. For topic specific queries see content based querying.
-// Clients may choose to MergeFilter and then replay in order to ensure desired logs are present.
+// Clients may choose to MergeFilter and then replayStart in order to ensure desired logs are present.
 // NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
 // MergeFilter([]EventID{{event1, addr1}}
 // MergeFilter([]EventID{{event2, addr2}}
@@ -108,6 +109,7 @@ func (lp *logPoller) ChainID() *big.Int {
 func (lp *logPoller) MergeFilter(eventIDs []EventID) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
+	// Add any valid unique eventSigs or addresses.
 	for _, eventID := range eventIDs {
 		// Force specification of both address and eventSig to avoid
 		// events from unknown addresses.
@@ -117,7 +119,8 @@ func (lp *logPoller) MergeFilter(eventIDs []EventID) error {
 		if eventID.Address == [common.AddressLength]byte{} {
 			return errors.Errorf("empty address")
 		}
-		lp.events[eventID] = struct{}{}
+		lp.addresses[eventID.Address] = struct{}{}
+		lp.eventSigs[eventID.EventSig] = struct{}{}
 	}
 	return nil
 }
@@ -127,53 +130,6 @@ type EventID struct {
 	Address  common.Address
 }
 
-type Callback struct {
-	Save  func(tx pg.Queryer, logs []types.Log) error
-	Reorg func(tx pg.Queryer, start, end int64) error
-}
-
-// MergeFilterWithCallbacks is the same as merge filter, except additionally
-// you specify a callback which is called upon log save and log reorg.
-// It is possible that save or reorg may be called more than once with the same arguments,
-// for example on DB commit errors, so its expected that save/reorg are idempotent operations.
-// The callbacks are called as part of a db tx processing a new block, so you should only return
-// an error from the callback if a db operation fails OR if there is some unrecoverable programmer error meaning
-// the node is completely broken.
-// The common expected use case is simply to parse and save the logs in a structured format
-// in Save(..), and delete or mark as reorged all logs implicated in Reorg(...). This ensures
-// you always have persistent, structured log data which is eventually consistent with the canonical chain.
-// If you intend to do something more sophisticated than that in the callback, be certain you know what
-// you are doing.
-func (lp *logPoller) MergeFilterWithCallbacks(
-	callbacks map[EventID]Callback) error {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
-	if callbacks == nil {
-		return errors.Errorf("no callbacks specified")
-	}
-	for eventID, callback := range callbacks {
-		if _, ok := lp.callbacks[eventID]; ok {
-			// Error prone to allow overwriting the callback, so we disallow that.
-			return errors.Errorf("callback already registered for event %x address %x", eventID.EventSig[:], eventID.Address[:])
-		}
-		if callback.Save == nil {
-			return errors.Errorf("Save callback is nil")
-		}
-		if callback.Reorg == nil {
-			return errors.Errorf("Reorg callback is nil")
-		}
-		if eventID.EventSig == [common.HashLength]byte{} {
-			return errors.Errorf("empty event sig")
-		}
-		if eventID.Address == [common.AddressLength]byte{} {
-			return errors.Errorf("empty address")
-		}
-		lp.events[eventID] = struct{}{}
-		lp.callbacks[eventID] = callback
-	}
-	return nil
-}
-
 func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
@@ -181,17 +137,11 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 		addresses []common.Address
 		eventSigs []common.Hash
 	)
-	addressMp := make(map[common.Address]struct{})
-	eventSigMp := make(map[common.Hash]struct{})
-	for eventID := range lp.events {
-		if _, ok := addressMp[eventID.Address]; !ok {
-			addressMp[eventID.Address] = struct{}{}
-			addresses = append(addresses, eventID.Address)
-		}
-		if _, ok := eventSigMp[eventID.EventSig]; !ok {
-			eventSigMp[eventID.EventSig] = struct{}{}
-			eventSigs = append(eventSigs, eventID.EventSig)
-		}
+	for addr := range lp.addresses {
+		addresses = append(addresses, addr)
+	}
+	for eventSig := range lp.eventSigs {
+		eventSigs = append(eventSigs, eventSig)
 	}
 	sort.Slice(addresses, func(i, j int) bool {
 		return bytes.Compare(addresses[i][:], addresses[j][:]) < 0
@@ -209,16 +159,39 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 }
 
 // Replay signals that the poller should resume from a new block.
-// Blocks until the replay starts.
+// Blocks until the replay is complete.
+// Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
+// For example, to run a job which maintains a block pointer of logs which have been processed:
+// runJob() {
+//    lp.MergeFilter(JobEventID)
+//    blockPointer := readBlockPointer(db)
+//    if blockPointer != nil {
+//        blockPointer = jobSpec.InitialStartBlock
+//    }
+//    lp.Replay(blockPointer) // Ensure logs from our last block going forward are present, for example first time job add.
+//    for {
+//    	db.Transaction(func(tx pg.Tx) {
+//    		blockPointer, latestBlock := readBlockPointer(tx), lp.LatestBlock(tx)
+//    		latestFinalizedBlock := lp.LatestBlock(tx) - lp.finalityDepth
+//      	finalizedLogs := lp.Logs(tx, lastBlock, latestFinalizedBlock)
+//      	unfinalizedLogs := lp.Logs(tx, latestFinalizedBlock, latestBlock)
+//      	processFinalizedLogs(tx, finalizedLogs) // Parse/save/enqueue response transaction etc.
+//      	processUnfinalizedLogs(tx, unfinalizedLogs) // optional, logs may be reorged!
+//      	writeLastBlock(latestFinalizedBlock, tx)
+//    	})
+//      time.Sleep(pollPeriod)
+//    }
+// }
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	latest, err := lp.ec.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
 	if fromBlock < 1 || fromBlock > latest.Number.Int64() {
-		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
+		return errors.Errorf("Invalid replayStart block number %v, acceptable range [1, %v]", fromBlock, latest)
 	}
-	lp.replay <- fromBlock
+	lp.replayStart <- fromBlock
+	<-lp.replayComplete
 	return nil
 }
 
@@ -248,10 +221,10 @@ func (lp *logPoller) run() {
 		select {
 		case <-lp.ctx.Done():
 			return
-		case fromBlock := <-lp.replay:
+		case fromBlock := <-lp.replayStart:
 			lp.lggr.Warnw("Replay requested", "from", fromBlock)
 			replay = fromBlock
-			// Immediate replay.
+			// Immediate replayStart.
 			tick = time.After(0)
 		case <-tick:
 			tick = time.After(utils.WithJitter(lp.pollPeriod))
@@ -284,13 +257,16 @@ func (lp *logPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-			// Note replay is already validated, can assume its in [1, lastBlockProcessed].
+			// Note replayStart is already validated, can assume its in [1, lastBlockProcessed].
 			if replay > 0 {
 				start = replay
-				replay = 0 // Clear replay
-				lp.lggr.Warnw("Executing replay", "replay", replay)
+				lp.lggr.Warnw("Executing replayStart", "replayStart", replay)
 			}
 			lp.pollAndSaveLogs(lp.ctx, start)
+			if replay > 0 {
+				replay = 0 // Clear replay
+				lp.replayComplete <- struct{}{}
+			}
 		}
 	}
 }
@@ -346,21 +322,9 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 		lp.lggr.Infow("Backfill found logs", "from", from, "to", to, "logs", len(logs))
 		// Retry forever to save logs,
 		// unblocked by resolving db connectivity issues.
-		logsByEventID := lp.groupByEventID(logs)
 		utils.RetryWithBackoff(ctx, func() bool {
 			err := lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-				if err2 := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx)); err2 != nil {
-					return err2
-				}
-				for eventID, logsForEventID := range logsByEventID {
-					if _, ok := lp.callbacks[eventID]; !ok {
-						continue
-					}
-					if err2 := lp.callbacks[eventID].Save(tx, logsForEventID); err2 != nil {
-						return err2
-					}
-				}
-				return nil
+				return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
 			})
 			if err != nil {
 				lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", from, "to", to)
@@ -385,12 +349,6 @@ func (lp *logPoller) reorgFn(blockAfterLCA *types.Header, currentBlockNumber int
 		if err != nil {
 			lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
 			return err
-		}
-		// Tell all callbacks about the reorg.
-		for _, callback := range lp.callbacks {
-			if err2 := callback.Reorg(tx, blockAfterLCA.Number.Int64(), currentBlockNumber); err2 != nil {
-				return err2
-			}
 		}
 		return nil
 	}
@@ -507,7 +465,6 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Infow("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash())
-		logsByEventID := lp.groupByEventID(logs)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			if err3 := lp.orm.InsertBlock(currentBlock.Hash(), currentBlockNumber, pg.WithQueryer(tx)); err3 != nil {
 				return err3
@@ -518,14 +475,6 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			if err3 := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx)); err3 != nil {
 				return err3
 			}
-			for eventID, logsForEventID := range logsByEventID {
-				if _, ok := lp.callbacks[eventID]; !ok {
-					continue
-				}
-				if err3 := lp.callbacks[eventID].Save(tx, logsForEventID); err3 != nil {
-					return err3
-				}
-			}
 			return nil
 		})
 		if err != nil {
@@ -534,15 +483,6 @@ func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		}
 		currentBlockNumber++
 	}
-}
-
-func (lp *logPoller) groupByEventID(logs []types.Log) map[EventID][]types.Log {
-	logsByEventID := make(map[EventID][]types.Log)
-	for _, log := range logs {
-		eventID := EventID{Address: log.Address, EventSig: log.Topics[0]}
-		logsByEventID[eventID] = append(logsByEventID[eventID], log)
-	}
-	return logsByEventID
 }
 
 // Find the first place where our chain and their chain have the same block,

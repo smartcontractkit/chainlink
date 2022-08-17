@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -28,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -376,67 +374,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, 7, len(lgs))
 	assertHaveCanonical(t, 15, 16, th.ec, th.orm)
 	assertDontHave(t, 11, 14, th.orm) // Do not expect to Save backfilled blocks.
-}
-
-type LogID struct {
-	ChainID     uint64
-	BlockNumber int64
-	LogIndex    uint
-}
-
-func TestLogPoller_Callbacks(t *testing.T) {
-	th := setupTH(t)
-	// Test hooks.
-	parsedLogs := make(map[LogID]*big.Int) // Simulate a custom table.
-	require.NoError(t, th.lp.MergeFilterWithCallbacks(map[EventID]Callback{
-		EventID{EmitterABI.Events["Log1"].ID, th.emitterAddress1}: {
-			Save: func(tx pg.Queryer, logs []types.Log) error {
-				t.Log("Save")
-				for _, log := range logs {
-					parsedLog, err := th.emitter1.ParseLog1(log)
-					require.NoError(t, err)
-					logID := LogID{ChainID: th.lp.ChainID().Uint64(), BlockNumber: int64(log.BlockNumber), LogIndex: log.Index}
-					parsedLogs[logID] = parsedLog.Arg0
-				}
-				return nil
-			},
-			Reorg: func(tx pg.Queryer, start, end int64) error {
-				t.Log("Reorg")
-				for logID := range parsedLogs {
-					if start <= logID.BlockNumber && logID.BlockNumber <= end {
-						delete(parsedLogs, logID)
-					}
-				}
-				return nil
-			},
-		},
-	}))
-	// Add two logs values 1 and 2, block 2 and 3
-	for i := 1; i < 3; i++ {
-		_, err := th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err)
-		th.ec.Commit()
-	}
-	th.lp.pollAndSaveLogs(testutils.Context(t), 1)
-	t.Log(parsedLogs)
-	b, err := th.ec.BlockByNumber(testutils.Context(t), big.NewInt(2))
-	require.NoError(t, err)
-	// Add two logs values 3 and 4 on reorg.
-	require.NoError(t, th.ec.Fork(testutils.Context(t), b.Hash()))
-	for i := 3; i < 5; i++ {
-		_, err := th.emitter1.EmitLog1(th.owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err)
-		th.ec.Commit()
-	}
-	th.lp.pollAndSaveLogs(testutils.Context(t), b.Number().Int64()+2)
-	t.Log(parsedLogs)
-	// We should only log values 1, 3, 4 (2 was reorged out)
-	expected := map[int64]struct{}{1: {}, 3: {}, 4: {}}
-	have := make(map[int64]struct{})
-	for _, v := range parsedLogs {
-		have[v.Int64()] = struct{}{}
-	}
-	assert.Equal(t, expected, have)
 }
 
 type testHarness struct {

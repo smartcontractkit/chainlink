@@ -405,20 +405,6 @@ func (_m *LogPoller) MergeFilter(eventIDs []logpoller.EventID) error {
 	return r0
 }
 
-// MergeFilterWithCallbacks provides a mock function with given fields: callbacks
-func (_m *LogPoller) MergeFilterWithCallbacks(callbacks map[logpoller.EventID]logpoller.Callback) error {
-	ret := _m.Called(callbacks)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(map[logpoller.EventID]logpoller.Callback) error); ok {
-		r0 = rf(callbacks)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Ready provides a mock function with given fields:
 func (_m *LogPoller) Ready() error {
 	ret := _m.Called()
