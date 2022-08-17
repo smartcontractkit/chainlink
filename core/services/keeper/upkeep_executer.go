@@ -177,9 +177,9 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	if head.Number%10 == 0 {
 		// Log this once every 10 blocks
-		var fetchedUpkeepIDs []string
-		for _, activeUpkeep := range activeUpkeeps {
-			fetchedUpkeepIDs = append(fetchedUpkeepIDs, NewUpkeepIdentifier(activeUpkeep.UpkeepID).String())
+		fetchedUpkeepIDs := make([]string, len(activeUpkeeps))
+		for i, activeUpkeep := range activeUpkeeps {
+			fetchedUpkeepIDs[i] = NewUpkeepIdentifier(activeUpkeep.UpkeepID).String()
 		}
 		ex.logger.Debugw("Fetched list of active upkeeps", "blockNum", head.Number, "active upkeeps list", fetchedUpkeepIDs)
 	}
