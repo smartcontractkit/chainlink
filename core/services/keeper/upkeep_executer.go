@@ -196,6 +196,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	wg.Wait()
+	ex.logger.Debugw("Finished checking upkeeps", "blockNum", head.Number)
 }
 
 // execute triggers the pipeline run
