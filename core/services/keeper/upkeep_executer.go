@@ -174,11 +174,15 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 			return
 		}
 	}
-	var fetchedUpkeepIDs []string
-	for _, activeUpkeep := range activeUpkeeps {
-		fetchedUpkeepIDs = append(fetchedUpkeepIDs, NewUpkeepIdentifier(activeUpkeep.UpkeepID).String())
+
+	if head.Number%10 == 0 {
+		// Log this once every 10 blocks
+		var fetchedUpkeepIDs []string
+		for _, activeUpkeep := range activeUpkeeps {
+			fetchedUpkeepIDs = append(fetchedUpkeepIDs, NewUpkeepIdentifier(activeUpkeep.UpkeepID).String())
+		}
+		ex.logger.Debugw("Fetched list of active upkeeps", "active upkeeps list", fetchedUpkeepIDs)
 	}
-	ex.logger.Debugw("Fetched list of active upkeeps", "active upkeeps list", fetchedUpkeepIDs)
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
