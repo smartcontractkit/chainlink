@@ -180,6 +180,19 @@ var harmony = ClientErrors{
 
 var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon}
 
+// Klaytn
+// https://github.com/klaytn/klaytn/blob/dev/blockchain/error.go
+// https://github.com/klaytn/klaytn/blob/dev/blockchain/tx_pool.go
+var klaytn = ClientErrors{
+	NonceTooLow:                 regexp.MustCompile(`(: |^)nonce too low$`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(known transaction|there is another tx which has the same nonce in the tx pool)`),
+	TerminallyUnderpriced:       regexp.MustCompile(`(: |^)(transaction underpriced|^intrinsic gas too low)`),
+	LimitReached:                regexp.MustCompile(`(: |^)txpool is full`),
+	InsufficientEth:             regexp.MustCompile(`(: |^)insufficient funds`),
+	TxFeeExceedsCap:             regexp.MustCompile(`(: |^)(invalid gas fee cap|^max fee per gas higher than max priority fee per gas)`),
+	Fatal:                       gethFatal,
+}
+
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
 		return false
