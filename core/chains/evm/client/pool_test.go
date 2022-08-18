@@ -247,15 +247,15 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 
 	// n1 is alive
 	n1.On("Start", mock.Anything).Return(nil).Once()
-	n1.On("State").Return(evmclient.NodeStateAlive)
+	n1.On("State").Return(evmclient.NodeStateAlive, int64(1))
 	n1.On("ChainID").Return(testutils.FixtureChainID).Once()
 	// n2 is unreachable
 	n2.On("Start", mock.Anything).Return(nil).Once()
-	n2.On("State").Return(evmclient.NodeStateUnreachable)
+	n2.On("State").Return(evmclient.NodeStateUnreachable, int64(0))
 	n2.On("ChainID").Return(testutils.FixtureChainID).Once()
 	// n3 is out of sync
 	n3.On("Start", mock.Anything).Return(nil).Once()
-	n3.On("State").Return(evmclient.NodeStateOutOfSync)
+	n3.On("State").Return(evmclient.NodeStateOutOfSync, int64(0))
 	n3.On("ChainID").Return(testutils.FixtureChainID).Once()
 
 	require.NoError(t, p.Dial(testutils.Context(t)))
@@ -299,15 +299,13 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	for i := 0; i < nodeCount; i++ {
 		node := evmmocks.NewNode(t)
-		node.On("State").Return(evmclient.NodeStateAlive).Maybe()
+		node.On("State").Return(evmclient.NodeStateAlive, int64(1)).Maybe()
 		node.On("BatchCallContext", ctx, b).Return(nil).Once()
-		node.On("LatestReceivedBlockNumber").Return(int64(1)).Maybe()
 		nodes = append(nodes, node)
 	}
 	for i := 0; i < sendOnlyCount; i++ {
 		s := evmmocks.NewSendOnlyNode(t)
 		s.On("BatchCallContext", ctx, b).Return(nil).Once()
-		s.On("LatestReceivedBlockNumber").Return(int64(1)).Maybe()
 		sendonlys = append(sendonlys, s)
 	}
 

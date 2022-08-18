@@ -18,10 +18,10 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 		node := evmmocks.NewNode(t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("State").Return(evmclient.NodeStateOutOfSync)
+			node.On("State").Return(evmclient.NodeStateOutOfSync, int64(0))
 		} else {
 			// second & third nodes are alive
-			node.On("State").Return(evmclient.NodeStateAlive)
+			node.On("State").Return(evmclient.NodeStateAlive, int64(0))
 		}
 		nodes = append(nodes, node)
 	}
@@ -42,10 +42,10 @@ func TestRoundRobinNodeSelector_None(t *testing.T) {
 		node := evmmocks.NewNode(t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("State").Return(evmclient.NodeStateOutOfSync)
+			node.On("State").Return(evmclient.NodeStateOutOfSync, int64(0))
 		} else {
 			// others are unreachable
-			node.On("State").Return(evmclient.NodeStateUnreachable)
+			node.On("State").Return(evmclient.NodeStateUnreachable, int64(0))
 		}
 		nodes = append(nodes, node)
 	}

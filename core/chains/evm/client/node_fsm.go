@@ -94,11 +94,11 @@ func init() {
 
 // FSM methods
 
-// State allows reading the current state of the node
-func (n *node) State() NodeState {
+// State allows reading the current state of the node with the latestReceivedBlockNumber.
+func (n *node) State() (NodeState, int64) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.state
+	return n.state, n.latestReceivedBlockNumber
 }
 
 // setState is only used by internal state management methods.

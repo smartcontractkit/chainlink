@@ -85,8 +85,8 @@ type Node interface {
 	Start(ctx context.Context) error
 	Close()
 
-	State() NodeState
-	LatestReceivedBlockNumber() int64
+	// State() returns NodeState with the LatestReceivedBlockNumber
+	State() (NodeState, int64)
 	// Unique identifier for node
 	ID() int32
 	ChainID() *big.Int
@@ -295,7 +295,7 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 		promEVMPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
 	}
 
-	st := n.State()
+	st, _ := n.State()
 	switch st {
 	case NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID:
 	default:

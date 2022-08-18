@@ -106,7 +106,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return int(calls.Load()) > threshold+1
 		})
 
-		assert.Equal(t, NodeStateAlive, n.State())
+		assert.Equal(t, NodeStateAlive, n.getState())
 	})
 
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		go n.aliveLoop()
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateUnreachable
+			return n.getState() == NodeStateUnreachable
 		})
 	})
 
@@ -150,7 +150,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return int(calls.Load()) > threshold+1
 		})
 
-		assert.Equal(t, NodeStateAlive, n.State())
+		assert.Equal(t, NodeStateAlive, n.getState())
 	})
 
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		n.wg.Add(1)
 		n.aliveLoop()
 
-		assert.Equal(t, NodeStateUnreachable, n.State())
+		assert.Equal(t, NodeStateUnreachable, n.getState())
 		// sc-39341: ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
 		assert.Len(t, n.subs, 0)
 	})
@@ -210,14 +210,14 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 		testutils.WaitWithTimeout(t, chPolled, "timed out waiting for initial poll")
 
-		assert.Equal(t, NodeStateAlive, n.State())
+		assert.Equal(t, NodeStateAlive, n.getState())
 
 		// Simulate remote websocket disconnect
 		// This causes sub.Err() to close
 		s.Close()
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateUnreachable
+			return n.getState() == NodeStateUnreachable
 		})
 	})
 
@@ -253,7 +253,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for InSync")
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateOutOfSync
+			return n.getState() == NodeStateOutOfSync
 		})
 
 		// Otherwise, there may be data race on dial() vs Close() (accessing ws.rpc)
@@ -287,7 +287,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// wait for the log twice to be sure we have fully completed the code path and gone around the loop
 		testutils.WaitForLogMessageCount(t, observedLogs, "RPC endpoint detected out of sync; but cannot disable this connection because there are no other RPC endpoints, or all other RPC endpoints dead. Chainlink is now operating in a degraded state and urgent action is required to resolve the issue", 2)
 
-		assert.Equal(t, NodeStateAlive, n.State())
+		assert.Equal(t, NodeStateAlive, n.getState())
 	})
 }
 
@@ -321,7 +321,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.wg.Add(1)
 		n.outOfSyncLoop(0)
 
-		assert.Equal(t, NodeStateUnreachable, n.State())
+		assert.Equal(t, NodeStateUnreachable, n.getState())
 	})
 
 	t.Run("transitions to unreachable if remote RPC subscription channel closed", func(t *testing.T) {
@@ -354,14 +354,14 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
-		assert.Equal(t, NodeStateOutOfSync, n.State())
+		assert.Equal(t, NodeStateOutOfSync, n.getState())
 
 		// Simulate remote websocket disconnect
 		// This causes sub.Err() to close
 		s.Close()
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateUnreachable
+			return n.getState() == NodeStateUnreachable
 		})
 	})
 
@@ -400,14 +400,14 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
-		assert.Equal(t, NodeStateOutOfSync, n.State())
+		assert.Equal(t, NodeStateOutOfSync, n.getState())
 
 		// heads less than latest seen head are ignored; they do not make the node live
 		for i := 0; i < 43; i++ {
 			msg := makeNewHeadWSMessage(i)
 			s.MustWriteBinaryMessageSync(t, msg)
 			testutils.WaitForLogMessageCount(t, observedLogs, "Received previously seen block for RPC node", i+1)
-			assert.Equal(t, NodeStateOutOfSync, n.State())
+			assert.Equal(t, NodeStateOutOfSync, n.getState())
 		}
 
 		msg := makeNewHeadWSMessage(43)
@@ -416,7 +416,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, "Received new block for RPC node")
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			return n.getState() == NodeStateAlive
 		})
 	})
 
@@ -452,7 +452,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			return n.getState() == NodeStateAlive
 		})
 	})
 }
@@ -486,7 +486,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		go n.unreachableLoop()
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			return n.getState() == NodeStateAlive
 		})
 	})
 
@@ -506,7 +506,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, "Failed to redial RPC node; remote endpoint returned the wrong chain ID")
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateInvalidChainID
+			return n.getState() == NodeStateInvalidChainID
 		})
 	})
 
@@ -524,7 +524,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		testutils.WaitForLogMessageCount(t, observedLogs, "Failed to redial RPC node", 3)
 
-		assert.Equal(t, NodeStateUnreachable, n.State())
+		assert.Equal(t, NodeStateUnreachable, n.getState())
 	})
 }
 func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
@@ -557,7 +557,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		go n.invalidChainIDLoop()
 
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			return n.getState() == NodeStateAlive
 		})
 	})
 
@@ -576,6 +576,6 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 
 		testutils.WaitForLogMessageCount(t, observedLogs, "Failed to redial RPC node; remote endpoint returned the wrong chain ID", 3)
 
-		assert.Equal(t, NodeStateInvalidChainID, n.State())
+		assert.Equal(t, NodeStateInvalidChainID, n.getState())
 	})
 }

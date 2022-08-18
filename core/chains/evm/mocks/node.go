@@ -323,20 +323,6 @@ func (_m *Node) ID() int32 {
 	return r0
 }
 
-// LatestReceivedBlockNumber provides a mock function with given fields:
-func (_m *Node) LatestReceivedBlockNumber() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
 // NonceAt provides a mock function with given fields: ctx, account, blockNumber
 func (_m *Node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	ret := _m.Called(ctx, account, blockNumber)
@@ -431,7 +417,7 @@ func (_m *Node) Start(ctx context.Context) error {
 }
 
 // State provides a mock function with given fields:
-func (_m *Node) State() client.NodeState {
+func (_m *Node) State() (client.NodeState, int64) {
 	ret := _m.Called()
 
 	var r0 client.NodeState
@@ -441,7 +427,14 @@ func (_m *Node) State() client.NodeState {
 		r0 = ret.Get(0).(client.NodeState)
 	}
 
-	return r0
+	var r1 int64
+	if rf, ok := ret.Get(1).(func() int64); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(int64)
+	}
+
+	return r0, r1
 }
 
 // String provides a mock function with given fields:

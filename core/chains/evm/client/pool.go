@@ -131,7 +131,8 @@ func (p *Pool) Dial(ctx context.Context) error {
 // nLiveNodes returns the number of currently alive nodes
 func (p *Pool) nLiveNodes() (nLiveNodes int) {
 	for _, n := range p.nodes {
-		if n.State() == NodeStateAlive {
+		state, _ := n.State()
+		if state == NodeStateAlive {
 			nLiveNodes++
 		}
 	}
@@ -169,7 +170,7 @@ func (p *Pool) report() {
 	counts := make(map[NodeState]int)
 	nodeStates := make([]nodeWithState, len(p.nodes))
 	for i, n := range p.nodes {
-		state := n.State()
+		state, _ := n.State()
 		nodeStates[i] = nodeWithState{n.String(), state.String()}
 		total++
 		if state != NodeStateAlive {
