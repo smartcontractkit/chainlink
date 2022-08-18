@@ -302,6 +302,8 @@ func setChainSpecificConfigDefaultSets() {
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
+	optimismGoerli := optimismKovan
+	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -392,6 +394,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[42] = kovan
 	chainSpecificConfigDefaultSets[10] = optimismMainnet
 	chainSpecificConfigDefaultSets[69] = optimismKovan
+	chainSpecificConfigDefaultSets[420] = optimismGoerli
 	chainSpecificConfigDefaultSets[42161] = arbitrumMainnet
 	chainSpecificConfigDefaultSets[421611] = arbitrumRinkeby
 	chainSpecificConfigDefaultSets[56] = bscMainnet
