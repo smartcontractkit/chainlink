@@ -4,8 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -20,7 +18,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 		keyStore          = fmmocks.NewKeyStoreInterface(t)
 		gasLimit          = uint32(2100)
 		forwardingAllowed = false
-		submitter         = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit, forwardingAllowed)
+		submitter         = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit, forwardingAllowed, testutils.FixtureChainID)
 
 		toAddress   = testutils.NewAddress()
 		fromAddress = testutils.NewAddress()
@@ -31,7 +29,7 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	payload, err := fluxmonitorv2.FluxAggregatorABI.Pack("submit", roundID, submission)
 	assert.NoError(t, err)
 
-	keyStore.On("GetRoundRobinAddress", mock.Anything).Return(fromAddress, nil)
+	keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
 	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit).Return(nil)
 
