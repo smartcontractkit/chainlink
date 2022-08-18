@@ -242,11 +242,13 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
+	reaperInterval := time.Duration(0) // disable reaper
 	overrides := configtest.GeneralConfigOverrides{
-		Dialect:             dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:      null.IntFrom(NewRandomPositiveInt64()),
-		P2PEnabled:          null.BoolFrom(false),
-		ShutdownGracePeriod: &shutdownGracePeriod,
+		Dialect:                   dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:            null.IntFrom(NewRandomPositiveInt64()),
+		P2PEnabled:                null.BoolFrom(false),
+		ShutdownGracePeriod:       &shutdownGracePeriod,
+		JobPipelineReaperInterval: &reaperInterval,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
