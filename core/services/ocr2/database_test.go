@@ -59,7 +59,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
+	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
@@ -150,7 +150,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
+	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
@@ -215,8 +215,8 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	lggr := logger.TestLogger(t)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
-	spec2 := MustInsertOCROracleSpec(t, sqlDB, key.Address)
+	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
+	spec2 := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	db := ocr2.NewDB(sqlDB, spec.ID, lggr, cfg)
 	db2 := ocr2.NewDB(sqlDB, spec2.ID, lggr, cfg)
 	configDigest := testhelpers.MakeConfigDigest(t)

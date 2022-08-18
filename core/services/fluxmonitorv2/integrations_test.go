@@ -499,6 +499,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	contractAddress   = "%s"
 	threshold = 2.0
 	absoluteThreshold = 0.0
+	evmChainID        = 1337
 
 	idleTimerPeriod = "10s"
 	idleTimerDisabled = false

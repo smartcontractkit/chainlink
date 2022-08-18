@@ -348,7 +348,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.EthTxAttempt {
 }
 
 func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.EthReceipt {
-	transactionIndex := uint(NewRandomInt64())
+	transactionIndex := uint(NewRandomPositiveInt64())
 
 	receipt := evmtypes.Receipt{
 		BlockNumber:      big.NewInt(blockNumber),
@@ -401,17 +401,19 @@ func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.
 	k := MustGenerateRandomKey(t)
 	MustAddKeyToKeystore(t, k, &FixtureChainID, ethKeyStore)
 
-	return k, k.Address.Address()
+	return k, k.Address
 }
 
 func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
 	t.Helper()
-	err := ethKeyStore.Add(key, chainID)
+	ethKeyStore.XXXTestingOnlyAdd(key)
+	err := ethKeyStore.Enable(key.Address, chainID)
 	require.NoError(t, err)
 }
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
 // secure) key for testing
+// By default it is enabled for the fixture chain
 func MustInsertRandomKey(
 	t testing.TB,
 	keystore keystore.Eth,
@@ -419,37 +421,41 @@ func MustInsertRandomKey(
 ) (ethkey.KeyV2, common.Address) {
 	t.Helper()
 
-	chainID := *utils.NewBig(&FixtureChainID)
+	chainIDs := []utils.Big{*utils.NewBig(&FixtureChainID)}
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case utils.Big:
-			chainID = v
+			chainIDs[0] = v
+		case []utils.Big:
+			chainIDs = v
 		}
 	}
 
 	key := MustGenerateRandomKey(t)
-	require.NoError(t, keystore.Add(key, chainID.ToInt()))
-	state, err := keystore.GetState(key.ID())
-	require.NoError(t, err)
+	keystore.XXXTestingOnlyAdd(key)
 
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case int:
-			state.NextNonce = int64(v)
-		case int64:
-			state.NextNonce = v
-		case bool:
-			state.IsFunding = v
-		case utils.Big:
-			state.EVMChainID = v
-		default:
-			t.Fatalf("unrecognised option type: %T", v)
+	for _, cid := range chainIDs {
+		var nonce int64
+		enabled := true
+		for _, opt := range opts {
+			switch v := opt.(type) {
+			case int:
+				nonce = int64(v)
+			case int64:
+				nonce = v
+			case bool:
+				enabled = v
+			}
 		}
+		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
+		if !enabled {
+			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
+		}
+		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
+		require.NoError(t, err)
 	}
-	err = keystore.SetState(state)
-	require.NoError(t, err)
 
-	return key, key.Address.Address()
+	return key, key.Address
 }
 
 func MustInsertRandomKeyReturningState(t testing.TB,
@@ -564,7 +570,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
-	from := key.Address
+	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
 	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
