@@ -148,7 +148,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
-		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
+		nodeSelectionMode:                     client.NodeSelectionMode_RoundRobin,
 		nonceAutoSync:                         true,
 		useForwarders:                         false,
 		ocrContractConfirmations:              4,

@@ -36,7 +36,7 @@ func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.C
 
 func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
 	cfg := evmclient.TestNodeConfig{
-		SelectionMode: evmclient.NodeSelectionMode_HighestHead,
+		SelectionMode: evmclient.NodeSelectionMode_RoundRobin,
 	}
 	c, err := evmclient.NewClientWithTestNode(cfg, logger.TestLogger(t), wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)

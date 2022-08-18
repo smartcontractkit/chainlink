@@ -724,7 +724,7 @@ PollFailureThreshold = 3 # Default
 # Set to zero to disable poll checking.
 PollInterval = '10s' # Default
 # SelectionMode controls node selection strategy: HighestHead or RoundRobin.
-SelectionMode = 'HighestHead' # Default
+SelectionMode = 'RoundRobin' # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

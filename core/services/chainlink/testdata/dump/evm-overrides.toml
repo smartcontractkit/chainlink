@@ -62,7 +62,7 @@ SamplingInterval = '5s'
 NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [EVM.OCR]
 ObservationTimeout = '8m0s'
@@ -140,7 +140,7 @@ SamplingInterval = '5s'
 NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [[EVM.Nodes]]
 Name = 'primary_42_1'
@@ -204,7 +204,7 @@ SamplingInterval = '5s'
 NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [[EVM.Nodes]]
 Name = 'sendonly_43_1'
@@ -270,7 +270,7 @@ SamplingInterval = '5s'
 NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [[EVM.Nodes]]
 Name = 'primary_1337_1'

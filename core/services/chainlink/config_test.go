@@ -173,7 +173,7 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &a
 	}
-	selectionMode := client.NodeSelectionMode_HighestHead
+	selectionMode := client.NodeSelectionMode_RoundRobin
 
 	global := Config{
 		Core: config.Core{
@@ -782,7 +782,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [EVM.OCR]
 ContractConfirmations = 11

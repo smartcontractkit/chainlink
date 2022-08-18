@@ -49,7 +49,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m'
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [OCR]
 ContractConfirmations = 4

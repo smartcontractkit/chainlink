@@ -236,7 +236,7 @@ PriceMax = '42 wei'
 NoNewHeadsThreshold = '5m0s'
 PollFailureThreshold = 3
 PollInterval = '1m0s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [EVM.OCR]
 ObservationTimeout = '8m0s'

@@ -81,7 +81,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -153,7 +153,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -219,7 +219,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
+SelectionMode = 'RoundRobin'
 
 [EVM.OCR]
 ContractConfirmations = 4
