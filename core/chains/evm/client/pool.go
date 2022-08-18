@@ -33,6 +33,13 @@ const (
 	NodeSelectionMode_RoundRobin  = "RoundRobin"
 )
 
+// NodeSelector represents a strategy to select the next node from the pool.
+type NodeSelector interface {
+	// Select() returns a Node, or nil if none can be selected.
+	// Implementation must be thread-safe.
+	Select() Node
+}
+
 // PoolConfig represents settings for the Pool
 type PoolConfig interface {
 	NodeSelectionMode() string
@@ -42,13 +49,12 @@ type PoolConfig interface {
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes          []Node
-	sendonlys      []SendOnlyNode
-	chainID        *big.Int
-	logger         logger.Logger
-	config         PoolConfig
-	lastBestNodeMu sync.Mutex
-	lastBestNode   Node
+	nodes        []Node
+	sendonlys    []SendOnlyNode
+	chainID      *big.Int
+	logger       logger.Logger
+	config       PoolConfig
+	nodeSelector NodeSelector
 
 	chStop chan struct{}
 	wg     sync.WaitGroup
@@ -58,19 +64,29 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 	if chainID == nil {
 		panic("chainID is required")
 	}
-	p := &Pool{
+
+	nodeSelector := func() NodeSelector {
+		switch cfg.NodeSelectionMode() {
+		case NodeSelectionMode_HighestHead:
+			return NewHighestHeadNodeSelector(nodes)
+		case NodeSelectionMode_RoundRobin:
+			return NewRoundRobinSelector(nodes)
+		default:
+			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", cfg.NodeSelectionMode()))
+		}
+	}()
+
+	return &Pool{
 		utils.StartStopOnce{},
 		nodes,
 		sendonlys,
 		chainID,
 		logger.Named("Pool").With("evmChainID", chainID.String()),
 		cfg,
-		sync.Mutex{},
-		nil,
+		nodeSelector,
 		make(chan struct{}),
 		sync.WaitGroup{},
 	}
-	return p
 }
 
 // Dial starts every node in the pool
@@ -208,46 +224,23 @@ func (p *Pool) ChainID() *big.Int {
 	return p.chainID
 }
 
-func (p *Pool) getBestNode() Node {
-	p.lastBestNodeMu.Lock()
-	defer p.lastBestNodeMu.Unlock()
-
-	var node Node
-	highestHeadNumber := int64(-1)
-	if p.lastBestNode != nil {
-		highestHeadNumber = p.lastBestNode.LatestReceivedBlockNumber()
-		node = p.lastBestNode
-	}
-
-	for _, n := range p.nodes {
-		if n == p.lastBestNode {
-			continue
-		}
-		latestReceivedBlockNumber := n.LatestReceivedBlockNumber()
-		if n.State() == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
-			node = n
-			highestHeadNumber = latestReceivedBlockNumber
-		}
-	}
+func (p *Pool) selectNode() Node {
+	node := p.nodeSelector.Select()
 
 	if node == nil {
 		p.logger.Critical("No live RPC nodes available")
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 
-	if p.lastBestNode == nil {
-		p.lastBestNode = node
-	}
-
 	return node
 }
 
 func (p *Pool) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return p.getBestNode().CallContext(ctx, result, method, args...)
+	return p.selectNode().CallContext(ctx, result, method, args...)
 }
 
 func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	return p.getBestNode().BatchCallContext(ctx, b)
+	return p.selectNode().BatchCallContext(ctx, b)
 }
 
 // BatchCallContextAll calls BatchCallContext for every single node including
@@ -258,7 +251,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	main := p.getBestNode()
+	main := p.selectNode()
 	var all []SendOnlyNode
 	for _, n := range p.nodes {
 		all = append(all, n)
@@ -287,7 +280,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 
 // Wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	main := p.getBestNode()
+	main := p.selectNode()
 	var all []SendOnlyNode
 	for _, n := range p.nodes {
 		all = append(all, n)
@@ -332,70 +325,70 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 }
 
 func (p *Pool) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	return p.getBestNode().PendingCodeAt(ctx, account)
+	return p.selectNode().PendingCodeAt(ctx, account)
 }
 
 func (p *Pool) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	return p.getBestNode().PendingNonceAt(ctx, account)
+	return p.selectNode().PendingNonceAt(ctx, account)
 }
 
 func (p *Pool) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	return p.getBestNode().NonceAt(ctx, account, blockNumber)
+	return p.selectNode().NonceAt(ctx, account, blockNumber)
 }
 
 func (p *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return p.getBestNode().TransactionReceipt(ctx, txHash)
+	return p.selectNode().TransactionReceipt(ctx, txHash)
 }
 
 func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return p.getBestNode().BlockByNumber(ctx, number)
+	return p.selectNode().BlockByNumber(ctx, number)
 }
 
 func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return p.getBestNode().BlockByHash(ctx, hash)
+	return p.selectNode().BlockByHash(ctx, hash)
 }
 
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	return p.getBestNode().BalanceAt(ctx, account, blockNumber)
+	return p.selectNode().BalanceAt(ctx, account, blockNumber)
 }
 
 func (p *Pool) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	return p.getBestNode().FilterLogs(ctx, q)
+	return p.selectNode().FilterLogs(ctx, q)
 }
 
 func (p *Pool) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	return p.getBestNode().SubscribeFilterLogs(ctx, q, ch)
+	return p.selectNode().SubscribeFilterLogs(ctx, q, ch)
 }
 
 func (p *Pool) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	return p.getBestNode().EstimateGas(ctx, call)
+	return p.selectNode().EstimateGas(ctx, call)
 }
 
 func (p *Pool) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	return p.getBestNode().SuggestGasPrice(ctx)
+	return p.selectNode().SuggestGasPrice(ctx)
 }
 
 func (p *Pool) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return p.getBestNode().CallContract(ctx, msg, blockNumber)
+	return p.selectNode().CallContract(ctx, msg, blockNumber)
 }
 
 func (p *Pool) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	return p.getBestNode().CodeAt(ctx, account, blockNumber)
+	return p.selectNode().CodeAt(ctx, account, blockNumber)
 }
 
 // bind.ContractBackend methods
 func (p *Pool) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	return p.getBestNode().HeaderByNumber(ctx, n)
+	return p.selectNode().HeaderByNumber(ctx, n)
 }
 func (p *Pool) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
-	return p.getBestNode().HeaderByHash(ctx, h)
+	return p.selectNode().HeaderByHash(ctx, h)
 }
 
 func (p *Pool) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	return p.getBestNode().SuggestGasTipCap(ctx)
+	return p.selectNode().SuggestGasTipCap(ctx)
 }
 
 // EthSubscribe implements evmclient.Client
 func (p *Pool) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
-	return p.getBestNode().EthSubscribe(ctx, channel, args...)
+	return p.selectNode().EthSubscribe(ctx, channel, args...)
 }
