@@ -187,6 +187,27 @@ func setChainSpecificConfigDefaultSets() {
 	sepolia.operatorFactoryAddress = "" // doesn't exist yet
 	sepolia.eip1559DynamicFees = true
 
+	// simulated chain is actually a local client that "pretends" to be a blockchain
+	// see: https://goethereumbook.org/en/client-simulated/
+	// generally speaking, this is only used in tests
+	simulated := fallbackDefaultSet
+	simulated.balanceMonitorBlockDelay = 0
+	simulated.blockEmissionIdleWarningThreshold = 0
+	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
+	simulated.ethTxResendAfterThreshold = 0
+	simulated.finalityDepth = 1    // Simulated does not have re-orgs
+	simulated.gasBumpThreshold = 0 // Never bump gas
+	simulated.gasEstimatorMode = "FixedPrice"
+	simulated.headTrackerHistoryDepth = 10
+	simulated.headTrackerSamplingInterval = 1 * time.Second
+	simulated.minIncomingConfirmations = 1
+	simulated.minGasPriceWei = *big.NewInt(0)
+	simulated.ocrContractConfirmations = 1
+	simulated.headTrackerMaxBufferSize = 100
+	simulated.headTrackerSamplingInterval = 0
+	simulated.ethTxReaperThreshold = 0
+	simulated.minimumContractPayment = assets.NewLinkFromJuels(100)
+
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
 	// NOTE: xDai is planning to move to Honeybadger BFT which might have different finality guarantees
@@ -411,6 +432,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
+
+	chainSpecificConfigDefaultSets[1337] = simulated
 
 	// sanity check
 	for id, c := range chainSpecificConfigDefaultSets {
