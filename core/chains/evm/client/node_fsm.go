@@ -94,8 +94,15 @@ func init() {
 
 // FSM methods
 
-// State allows reading the current state of the node with the latestReceivedBlockNumber.
-func (n *node) State() (NodeState, int64) {
+// State allows reading the current state of the node.
+func (n *node) State() NodeState {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.state
+}
+
+// State allows reading the current state of the node with the latest received block number.
+func (n *node) StateAndLatestBlockNumber() (NodeState, int64) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state, n.latestReceivedBlockNumber

@@ -131,8 +131,7 @@ func (client *client) Close() {
 func (client *client) NodeStates() (states map[int32]string) {
 	states = make(map[int32]string)
 	for _, n := range client.pool.nodes {
-		state, _ := n.State()
-		states[n.ID()] = state.String()
+		states[n.ID()] = n.State().String()
 	}
 	return
 }

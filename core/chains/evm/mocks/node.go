@@ -417,7 +417,21 @@ func (_m *Node) Start(ctx context.Context) error {
 }
 
 // State provides a mock function with given fields:
-func (_m *Node) State() (client.NodeState, int64) {
+func (_m *Node) State() client.NodeState {
+	ret := _m.Called()
+
+	var r0 client.NodeState
+	if rf, ok := ret.Get(0).(func() client.NodeState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(client.NodeState)
+	}
+
+	return r0
+}
+
+// StateAndLatestBlockNumber provides a mock function with given fields:
+func (_m *Node) StateAndLatestBlockNumber() (client.NodeState, int64) {
 	ret := _m.Called()
 
 	var r0 client.NodeState

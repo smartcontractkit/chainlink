@@ -48,16 +48,13 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil)
 	n := iN.(*node)
 
-	state, _ := n.State()
-	assert.Equal(t, NodeStateUndialed, state)
+	assert.Equal(t, NodeStateUndialed, n.State())
 
 	t.Run("setState", func(t *testing.T) {
 		n.setState(NodeStateAlive)
-		state, _ := n.State()
-		assert.Equal(t, NodeStateAlive, state)
+		assert.Equal(t, NodeStateAlive, n.State())
 		n.setState(NodeStateUndialed)
-		state, _ = n.State()
-		assert.Equal(t, NodeStateUndialed, state)
+		assert.Equal(t, NodeStateUndialed, n.State())
 	})
 
 	// must dial to set rpc client for use in state transitions
@@ -171,8 +168,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		assert.NoError(t, err)
 		n.Close()
 
-		state, _ := n.State()
-		assert.Equal(t, NodeStateClosed, state)
+		assert.Equal(t, NodeStateClosed, n.State())
 		// second attempt panics due to node being stopped twice
 		assert.Panics(t, n.Close)
 	})

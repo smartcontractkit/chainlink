@@ -115,7 +115,11 @@ func (e *erroringNode) String() string {
 	return "<erroring node>"
 }
 
-func (e *erroringNode) State() (NodeState, int64) {
+func (e *erroringNode) State() NodeState {
+	return NodeStateUnreachable
+}
+
+func (e *erroringNode) StateAndLatestBlockNumber() (NodeState, int64) {
 	return NodeStateUnreachable, -1
 }
 

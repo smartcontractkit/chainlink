@@ -76,7 +76,7 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 		}
 	}()
 
-	return &Pool{
+	p := &Pool{
 		utils.StartStopOnce{},
 		nodes,
 		sendonlys,
@@ -87,6 +87,10 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 		make(chan struct{}),
 		sync.WaitGroup{},
 	}
+
+	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", cfg.NodeSelectionMode())
+
+	return p
 }
 
 // Dial starts every node in the pool
@@ -131,8 +135,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 // nLiveNodes returns the number of currently alive nodes
 func (p *Pool) nLiveNodes() (nLiveNodes int) {
 	for _, n := range p.nodes {
-		state, _ := n.State()
-		if state == NodeStateAlive {
+		if n.State() == NodeStateAlive {
 			nLiveNodes++
 		}
 	}
@@ -170,7 +173,7 @@ func (p *Pool) report() {
 	counts := make(map[NodeState]int)
 	nodeStates := make([]nodeWithState, len(p.nodes))
 	for i, n := range p.nodes {
-		state, _ := n.State()
+		state := n.State()
 		nodeStates[i] = nodeWithState{n.String(), state.String()}
 		total++
 		if state != NodeStateAlive {
@@ -229,7 +232,7 @@ func (p *Pool) selectNode() Node {
 	node := p.nodeSelector.Select()
 
 	if node == nil {
-		p.logger.Critical("No live RPC nodes available")
+		p.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", p.config.NodeSelectionMode())
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 

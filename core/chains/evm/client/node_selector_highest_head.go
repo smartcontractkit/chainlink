@@ -23,7 +23,7 @@ func (s *highestHeadNodeSelector) Select() Node {
 	var node Node
 	highestHeadNumber := int64(-1)
 	if s.lastBestNode != nil {
-		state, latestReceivedBlockNumber := s.lastBestNode.State()
+		state, latestReceivedBlockNumber := s.lastBestNode.StateAndLatestBlockNumber()
 		if state == NodeStateAlive {
 			node = s.lastBestNode
 			highestHeadNumber = latestReceivedBlockNumber
@@ -34,16 +34,14 @@ func (s *highestHeadNodeSelector) Select() Node {
 		if n == s.lastBestNode {
 			continue
 		}
-		state, latestReceivedBlockNumber := n.State()
+		state, latestReceivedBlockNumber := n.StateAndLatestBlockNumber()
 		if state == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
 			node = n
 			highestHeadNumber = latestReceivedBlockNumber
 		}
 	}
 
-	if s.lastBestNode == nil {
-		s.lastBestNode = node
-	}
+	s.lastBestNode = node
 
 	return node
 }

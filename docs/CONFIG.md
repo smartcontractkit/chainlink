@@ -2333,6 +2333,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'RoundRobin'
 
 [OCR]
 ContractConfirmations = 1
