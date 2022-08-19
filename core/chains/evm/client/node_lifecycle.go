@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -93,8 +94,7 @@ func (n *node) aliveLoop() {
 		lggr.Debugw("Head liveness checking enabled", "nodeState", n.State())
 		var err error
 		writableCh := make(chan *evmtypes.Head)
-		ctx, cancel := utils.ContextFromChan(n.chStop)
-		sub, err = n.EthSubscribe(ctx, writableCh, "newHeads")
+		sub, err = n.EthSubscribe(n.nodeCtx, writableCh, "newHeads")
 		headsC = writableCh
 		if err != nil {
 			lggr.Errorw("Initial subscribe for liveness checking failed", "nodeState", n.State())
@@ -102,7 +102,6 @@ func (n *node) aliveLoop() {
 			return
 		}
 		defer sub.Unsubscribe()
-		defer cancel()
 		outOfSyncT = time.NewTicker(noNewHeadsTimeoutThreshold)
 		defer outOfSyncT.Stop()
 		outOfSyncTC = outOfSyncT.C
@@ -127,7 +126,7 @@ func (n *node) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
-	var highestReceivedBlockNumber int64 = n.LatestReceivedBlockNumber()
+	_, highestReceivedBlockNumber := n.StateAndLatestBlockNumber()
 	var pollFailures uint32
 
 	for {
@@ -138,7 +137,7 @@ func (n *node) aliveLoop() {
 			var version string
 			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
-			ctx, cancel := utils.ContextFromChanWithDeadline(n.chStop, pollInterval)
+			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
 			ctx, cancel2 := n.makeQueryCtx(ctx)
 			err := n.CallContext(ctx, &version, "web3_clientVersion")
 			cancel2()
@@ -225,17 +224,14 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
-	ctx, cancel := utils.ContextFromChan(n.chStop)
-	if err := n.dial(ctx); err != nil {
-		cancel()
+	if err := n.dial(n.nodeCtx); err != nil {
 		lggr.Errorw("Failed to dial out-of-sync RPC node", "nodeState", n.State())
 		n.declareUnreachable()
 		return
 	}
 
 	// Manually re-verify since out-of-sync nodes are automatically disconnected
-	if err := n.verify(ctx); err != nil {
-		cancel()
+	if err := n.verify(n.nodeCtx); err != nil {
 		lggr.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
 		n.declareInvalidChainID()
 		return
@@ -244,11 +240,10 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "stuckAtBlockNumber", stuckAtBlockNumber, "nodeState", n.State())
 
 	ch := make(chan *evmtypes.Head)
-	subCtx, cancel2 := n.makeQueryCtx(ctx)
+	subCtx, cancel2 := n.makeQueryCtx(n.nodeCtx)
 	// raw call here to bypass node state checking
 	sub, err := n.ws.rpc.EthSubscribe(subCtx, ch, "newHeads")
 	cancel2()
-	cancel()
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
 		n.declareUnreachable()
@@ -317,18 +312,15 @@ func (n *node) unreachableLoop() {
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
 
-			ctx, cancel := utils.ContextFromChan(n.chStop)
-			err := n.dial(ctx)
+			err := n.dial(n.nodeCtx)
 			if err != nil {
-				cancel()
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
 				continue
 			}
 
 			n.setState(NodeStateDialed)
 
-			err = n.verify(ctx)
-			cancel()
+			err = n.verify(n.nodeCtx)
 
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
@@ -374,9 +366,7 @@ func (n *node) invalidChainIDLoop() {
 		case <-n.chStop:
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			ctx, cancel := utils.ContextFromChan(n.chStop)
-			err := n.verify(ctx)
-			cancel()
+			err := n.verify(n.nodeCtx)
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				continue

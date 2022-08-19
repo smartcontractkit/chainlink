@@ -152,6 +152,10 @@ type node struct {
 	chStopInFlight chan struct{}
 	// chStop signals the node to exit
 	chStop chan struct{}
+	// nodeCtx is context bound to chStop
+	nodeCtx context.Context
+	// cancelNodeCtx cancels nodeCtx when stopping the node
+	cancelNodeCtx context.CancelFunc
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -184,6 +188,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	}
 	n.chStopInFlight = make(chan struct{})
 	n.chStop = make(chan struct{})
+	n.nodeCtx, n.cancelNodeCtx = utils.ContextFromChan(n.chStop)
 	lggr = lggr.Named("Node").With(
 		"nodeTier", "primary",
 		"nodeName", name,
@@ -339,12 +344,6 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	return nil
 }
 
-func (n *node) LatestReceivedBlockNumber() int64 {
-	n.stateMu.RLock()
-	defer n.stateMu.RUnlock()
-	return n.latestReceivedBlockNumber
-}
-
 func (n *node) Close() {
 	err := n.StopOnce(n.name, func() error {
 		defer n.wg.Wait()
@@ -352,6 +351,7 @@ func (n *node) Close() {
 		n.stateMu.Lock()
 		defer n.stateMu.Unlock()
 
+		n.cancelNodeCtx()
 		close(n.chStop)
 		n.cancelInflightRequests()
 		n.state = NodeStateClosed
