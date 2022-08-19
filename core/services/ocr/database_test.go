@@ -27,7 +27,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
+	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
 		fmt.Println("creating DB")
@@ -117,8 +117,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	}
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
-	transmitterAddress := key.Address.Address()
+	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
+	transmitterAddress := key.Address
 
 	t.Run("reads and writes config", func(t *testing.T) {
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
@@ -191,8 +191,8 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
-	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
+	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
+	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 	odb := ocr.NewTestDB(t, sqlDB, spec.ID)
 	odb2 := ocr.NewTestDB(t, sqlDB, spec2.ID)
 	configDigest := cltest.MakeConfigDigest(t)

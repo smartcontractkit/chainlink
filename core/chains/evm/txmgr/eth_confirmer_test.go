@@ -147,8 +147,9 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, cfg.DefaultChainID())
-		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, big.NewInt(1337))
+		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, testutils.SimulatedChainID)
 
 		require.NoError(t, ec.SetBroadcastBeforeBlockNum(headNum))
 
@@ -2303,7 +2304,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	keys, err := ethKeyStore.SendingKeys(nil)
+	keys, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
 	require.NoError(t, err)
 	keyStates, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)

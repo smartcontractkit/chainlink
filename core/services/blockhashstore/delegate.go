@@ -63,7 +63,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Config().EvmFinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
 	}
 
-	keys, err := d.ks.SendingKeys(chain.ID())
+	keys, err := d.ks.EnabledKeysForChain(chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
@@ -72,7 +72,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 	fromAddress := keys[0].Address
 	if jb.BlockhashStoreSpec.FromAddress != nil {
-		fromAddress = *jb.BlockhashStoreSpec.FromAddress
+		fromAddress = jb.BlockhashStoreSpec.FromAddress.Address()
 	}
 
 	bhs, err := blockhash_store.NewBlockhashStore(
@@ -101,7 +101,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, NewV2Coordinator(c))
 	}
 
-	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddress.Address(), chain.TxManager(), bhs)
+	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddress, chain.TxManager(), bhs)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
