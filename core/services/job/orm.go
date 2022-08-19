@@ -847,18 +847,9 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 }
 
 func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer) (ids []int64, err error) {
-	var filter string
 	lggr := logger.Sugared(o.lggr)
 
-	if jobID != nil {
-		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d AND ", *jobID)
-	} else {
-		filter = "WHERE "
-	}
-	stmt := fmt.Sprintf(`SELECT p.id FROM pipeline_runs AS p %s p.id >= $3 AND p.id <= $4
-			ORDER BY p.id DESC OFFSET $1 LIMIT $2`, filter)
 	var res sql.NullInt64
-
 	if err = tx.Get(&res, "SELECT MAX(id) FROM pipeline_runs"); err != nil {
 		err = errors.Wrap(err, "error while loading runs")
 		return
@@ -866,10 +857,19 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 		// MAX() will return NULL if there are no rows in table.  This is not an error
 		return
 	}
-
 	maxID := res.Int64
 
-	// Only search the most recent n jobs (whether deleted or not), starting with n = 1000 and
+	var filter string
+	if jobID != nil {
+		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d AND ", *jobID)
+	} else {
+		filter = "WHERE "
+	}
+
+	stmt := fmt.Sprintf(`SELECT p.id FROM pipeline_runs AS p %s p.id >= $3 AND p.id <= $4
+			ORDER BY p.id DESC OFFSET $1 LIMIT $2`, filter)
+
+	// Only search the most recent n pipeline runs (whether deleted or not), starting with n = 1000 and
 	//  doubling only if we still need more.  Without this, large tables can result in the UI
 	//  becoming unusably slow, continuously flashing, or timing out.  The ORDER BY in
 	//  this query requires a sort of all runs matching jobID, so we restrict it to the
