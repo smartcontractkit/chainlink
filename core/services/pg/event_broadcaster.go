@@ -262,7 +262,9 @@ func (sub *subscription) processQueue() {
 		select {
 		case sub.chEvents <- event:
 		case <-ctx.Done():
+			return
 		case <-sub.chDone:
+			return
 		}
 	}
 }
