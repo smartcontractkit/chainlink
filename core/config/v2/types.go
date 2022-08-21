@@ -272,6 +272,7 @@ type AutoPprof struct {
 type Pyroscope struct {
 	AuthToken     *string
 	ServerAddress *string
+	Environment   *string
 }
 
 type Sentry struct {

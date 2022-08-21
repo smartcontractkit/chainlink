@@ -1186,6 +1186,7 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 [Pyroscope]
 ServerAddress = '' # Default
 AuthToken = '' # Default
+Environment = 'mainnet' # Default
 ```
 
 
@@ -1199,7 +1200,13 @@ ServerAddress sets the address that will receive the profile logs. It enables th
 ```toml
 AuthToken = '' # Default
 ```
-AuthToken configures the needed Auth Token on Server Addresses that require an Auth Token.
+AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
+
+### Environment<a id='Pyroscope-Environment'></a>
+```toml
+Environment = 'mainnet' # Default
+```
+Environment sets the target environment tag in which profiles will be added to.
 
 ## Sentry<a id='Sentry'></a>
 ```toml

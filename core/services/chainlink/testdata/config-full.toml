@@ -168,6 +168,7 @@ GoroutineThreshold = 999
 [Pyroscope]
 AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
+Environment = 'tests'
 
 [Sentry]
 Debug = true

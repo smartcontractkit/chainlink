@@ -209,6 +209,10 @@ func (g *generalConfig) PyroscopeServerAddress() string {
 	return *g.c.Pyroscope.ServerAddress
 }
 
+func (g *generalConfig) PyroscopeEnvironment() string {
+	return *g.c.Pyroscope.Environment
+}
+
 func (g *generalConfig) BlockBackfillDepth() uint64 {
 	//TODO implement me
 	panic("implement me")

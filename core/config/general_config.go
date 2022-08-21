@@ -151,6 +151,7 @@ type GeneralOnlyConfig interface {
 	Port() uint16
 	PyroscopeAuthToken() string
 	PyroscopeServerAddress() string
+	PyroscopeEnvironment() string
 	RPID() string
 	RPOrigin() string
 	ReaperExpiration() models.Duration
@@ -549,6 +550,11 @@ func (c *generalConfig) PyroscopeAuthToken() string {
 // PyroscopeServerAddress specifies the Server Address where the Pyroscope instance lives
 func (c *generalConfig) PyroscopeServerAddress() string {
 	return c.viper.GetString(envvar.Name("PyroscopeServerAddress"))
+}
+
+// PyroscopeEnvironment specifies the Environment where the Pyroscope logs will be categorized
+func (c *generalConfig) PyroscopeEnvironment() string {
+	return c.viper.GetString(envvar.Name("PyroscopeEnvironment"))
 }
 
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the

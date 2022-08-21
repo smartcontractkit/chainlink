@@ -882,6 +882,7 @@ func (c *Config) loadLegacyCoreEnv() {
 	c.Pyroscope = &config.Pyroscope{
 		AuthToken:     envvar.NewString("PyroscopeAuthToken").ParsePtr(),
 		ServerAddress: envvar.NewString("PyroscopeServerAddress").ParsePtr(),
+		Environment:   envvar.NewString("PyroscopeEnvironment").ParsePtr(),
 	}
 	if isZeroPtr(c.Pyroscope) {
 		c.Pyroscope = nil

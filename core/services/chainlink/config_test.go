@@ -352,6 +352,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.Pyroscope = &config.Pyroscope{
 		AuthToken:     ptr("pyroscope-token"),
 		ServerAddress: ptr("http://localhost:4040"),
+		Environment:   ptr("tests"),
 	}
 	full.Sentry = &config.Sentry{
 		Debug:       ptr(true),
@@ -707,6 +708,7 @@ GoroutineThreshold = 999
 [Pyroscope]
 AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
+Environment = 'tests'
 `},
 		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `
 [Sentry]

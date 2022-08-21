@@ -10,6 +10,7 @@ import (
 type PyroscopeConfig interface {
 	PyroscopeServerAddress() string
 	PyroscopeAuthToken() string
+	PyroscopeEnvironment() string
 
 	AutoPprofBlockProfileRate() int
 	AutoPprofMutexProfileFraction() int
@@ -29,6 +30,10 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 
 		// We disable logging the profiling info, it will be in the Pyroscope instance anyways...
 		Logger: nil,
+
+		Tags: map[string]string{
+			"Environment": cfg.PyroscopeEnvironment(),
+		},
 
 		ProfileTypes: []pyroscope.ProfileType{
 			// these profile types are enabled by default:
