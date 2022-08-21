@@ -1,7 +1,6 @@
 package cmd_test
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	"math/big"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -265,58 +263,6 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
-	t.Parallel()
-
-	lggr := logger.TestLogger(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	db := pgtest.NewSqlxDB(t)
-	pCfg := cltest.NewTestGeneralConfig(t)
-	sessionORM := sessions.NewORM(db, time.Minute, lggr, pCfg)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
-	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
-	require.NoError(t, err)
-
-	app := new(mocks.Application)
-	app.On("SessionORM").Return(sessionORM)
-	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-	app.On("Start", mock.Anything).Maybe().Return(nil)
-	app.On("Stop").Maybe().Return(nil)
-	app.On("ID").Maybe().Return(uuid.NewV4())
-
-	ethClient := evmtest.NewEthClientMock(t)
-	ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
-
-	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
-	require.NoError(t, err)
-
-	apiPrompt := cltest.NewMockAPIInitializer(t)
-	cLggr := logger.TestLogger(t)
-
-	client := cmd.Client{
-		Config:                 cfg,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		FallbackAPIInitializer: apiPrompt,
-		Runner:                 cltest.EmptyRunner{},
-		Logger:                 cLggr,
-		CloseLogger:            cLggr.Sync,
-	}
-
-	var keyState = ethkey.State{}
-	err = db.Get(&keyState, `SELECT * FROM eth_key_states WHERE is_funding = TRUE`)
-	assert.EqualError(t, err, sql.ErrNoRows.Error())
-
-	set := flag.NewFlagSet("test", 0)
-	set.String("password", "../internal/fixtures/correct_password.txt", "")
-	ctx := cli.NewContext(nil, set, nil)
-
-	assert.NoError(t, client.RunNode(ctx))
-
-	assert.NoError(t, db.Get(&keyState, `SELECT * FROM eth_key_states WHERE is_funding = TRUE`))
-	assert.NotEmpty(t, keyState.ID, "expected a new funding key")
 }
 
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
@@ -563,33 +509,4 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
 		})
 	}
-}
-
-func TestClient_SetNextNonce(t *testing.T) {
-	// Need to use separate database
-	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce")
-	ethKeyStore := cltest.NewKeyStore(t, sqlxDB, config).Eth()
-	lggr := logger.TestLogger(t)
-
-	client := cmd.Client{
-		Config:      config,
-		Runner:      cltest.EmptyRunner{},
-		Logger:      lggr,
-		CloseLogger: lggr.Sync,
-	}
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.Uint("nextNonce", 42, "")
-	set.String("address", fromAddress.Hex(), "")
-	c := cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.SetNextNonce(c))
-
-	var state ethkey.State
-	require.NoError(t, sqlxDB.Get(&state, `SELECT * FROM eth_key_states`))
-	require.NotNil(t, state.NextNonce)
-	require.Equal(t, int64(42), state.NextNonce)
 }

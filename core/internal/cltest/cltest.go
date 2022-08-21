@@ -161,7 +161,7 @@ func init() {
 	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
-func NewRandomInt64() int64 {
+func NewRandomPositiveInt64() int64 {
 	id := rand.Int63()
 	return id
 }
@@ -244,7 +244,7 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
 		Dialect:             dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		AdvisoryLockID:      null.IntFrom(NewRandomPositiveInt64()),
 		P2PEnabled:          null.BoolFrom(false),
 		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
@@ -297,7 +297,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 			chainID = v.ID
 		}
 	}
-	if app.Key.Address.IsZero() {
+	if app.Key.Address == utils.ZeroAddress {
 		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
 	} else {
 		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
@@ -1492,11 +1492,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 }
 
 func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
-	t.Helper()
-	var count int64
-	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
-	require.NoError(t, err)
-	require.Equal(t, expected, count)
+	testutils.AssertCount(t, db, tableName, expected)
 }
 
 func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
@@ -1533,8 +1529,8 @@ func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt s
 	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
-	keys, err := ethKeyStore.SendingKeys(nil)
+func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth, chainID *big.Int) []ethkey.State {
+	keys, err := ethKeyStore.EnabledKeysForChain(chainID)
 	require.NoError(t, err)
 	states, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)

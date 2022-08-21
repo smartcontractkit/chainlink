@@ -27,6 +27,7 @@ type FluxAggregatorContractSubmitter struct {
 	keyStore          KeyStoreInterface
 	gasLimit          uint32
 	forwardingAllowed bool
+	chainID           *big.Int
 }
 
 // NewFluxAggregatorContractSubmitter constructs a new NewFluxAggregatorContractSubmitter
@@ -36,6 +37,7 @@ func NewFluxAggregatorContractSubmitter(
 	keyStore KeyStoreInterface,
 	gasLimit uint32,
 	forwardingAllowed bool,
+	chainID *big.Int,
 ) *FluxAggregatorContractSubmitter {
 	return &FluxAggregatorContractSubmitter{
 		FluxAggregatorInterface: contract,
@@ -43,13 +45,14 @@ func NewFluxAggregatorContractSubmitter(
 		keyStore:                keyStore,
 		gasLimit:                gasLimit,
 		forwardingAllowed:       forwardingAllowed,
+		chainID:                 chainID,
 	}
 }
 
 // Submit submits the answer by writing a EthTx for the txmgr to
 // pick up
 func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *big.Int, qopts ...pg.QOpt) error {
-	fromAddress, err := c.keyStore.GetRoundRobinAddress(nil) // FIXME: FluxMonitor probably not compatible with multichain here: https://app.shortcut.com/chainlinklabs/story/34394/fluxmonitor-is-probably-not-compatible-with-multichain
+	fromAddress, err := c.keyStore.GetRoundRobinAddress(c.chainID)
 	if err != nil {
 		return err
 	}

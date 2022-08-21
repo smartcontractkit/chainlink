@@ -109,14 +109,14 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
-	fromAddress := key.Address.Address()
+	fromAddress := key.Address
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
 	ethMock := newEthMockWithTransactionsOnBlocksAssertions(t)
 
-	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := startNewApplication(t,
 		withKey(),
@@ -156,14 +156,14 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
-	fromAddress := key.Address.Address()
+	fromAddress := key.Address
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
 	ethMock := newEthMockWithTransactionsOnBlocksAssertions(t)
 
-	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := startNewApplication(t,
 		withKey(),

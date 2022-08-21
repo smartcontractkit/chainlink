@@ -2282,6 +2282,72 @@ ObservationGracePeriod = '1s'
 
 </p></details>
 
+<details><summary>Optimism Goerli (420)<a id='EVM-420'></a></summary><p>
+
+```toml
+ChainType = 'optimism'
+FinalityDepth = 1
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 1
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '15s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 0
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '30m0s'
+HistoryDepth = 10
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
 <details><summary>Metis Rinkeby (588)<a id='EVM-588'></a></summary><p>
 
 ```toml

@@ -132,7 +132,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			// setup node key
 			nodeKey := cltest.MustGenerateRandomKey(t)
-			nodeAddress := nodeKey.Address.Address()
+			nodeAddress := nodeKey.Address
 			nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
 
 			// setup blockchain

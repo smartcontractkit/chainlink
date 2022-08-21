@@ -1,0 +1,26 @@
+ChainID = '420'
+ChainType = 'optimism'
+FinalityDepth = 1
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
+MinIncomingConfirmations = 1
+OCR.ContractConfirmations = 1
+TxResendAfterThreshold = '15s'
+
+[BalanceMonitor]
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceMin = '0'
+BumpThreshold = 0
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '30m'
+HistoryDepth = 10
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0'
