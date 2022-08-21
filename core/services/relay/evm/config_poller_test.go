@@ -62,7 +62,8 @@ func TestConfigPoller(t *testing.T) {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller := NewConfigPoller(lggr, lp, ocrAddress)
+	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
+	require.NoError(t, err)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)

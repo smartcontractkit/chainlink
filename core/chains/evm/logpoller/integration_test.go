@@ -3,9 +3,11 @@ package logpoller_test
 import (
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -20,6 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	EmitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
 )
 
 func logRuntime(t *testing.T) func() {
@@ -122,7 +128,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
 		client.NewSimulatedBackendClient(t, ec, chainID), lggr, 100*time.Millisecond, 2, 3)
 	// Only filter for log1 events.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1})
+	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{emitterAddress1}))
 	require.NoError(t, lp.Start(testutils.Context(t)))
 
 	// Emit some logs in blocks 3->7.
@@ -143,7 +149,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		return len(logs) == 5
 	})
 	// Now let's update the filter and replay to get Log2 logs.
-	lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1})
+	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1}))
 	// Replay an invalid block should error
 	assert.Error(t, lp.Replay(testutils.Context(t), 0))
 	assert.Error(t, lp.Replay(testutils.Context(t), 20))
