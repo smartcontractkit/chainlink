@@ -23,6 +23,7 @@
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
 - [AutoPprof](#AutoPprof)
+- [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
 - [EVM](#EVM)
 	- [BalanceMonitor](#EVM-BalanceMonitor)
@@ -1179,6 +1180,26 @@ MemThreshold sets the maximum amount of memory the node can actively consume bef
 GoroutineThreshold = 5000 # Default
 ```
 GoroutineThreshold is the maximum number of actively-running goroutines the node can spawn before profiling begins.
+
+## Pyroscope<a id='Pyroscope'></a>
+```toml
+[Pyroscope]
+ServerAddress = '' # Default
+AuthToken = '' # Default
+```
+
+
+### ServerAddress<a id='Pyroscope-ServerAddress'></a>
+```toml
+ServerAddress = '' # Default
+```
+ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
+
+### AuthToken<a id='Pyroscope-AuthToken'></a>
+```toml
+AuthToken = '' # Default
+```
+AuthToken configures the needed Auth Token on Server Addresses that require an Auth Token.
 
 ## Sentry<a id='Sentry'></a>
 ```toml
