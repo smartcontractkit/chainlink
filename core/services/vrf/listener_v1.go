@@ -243,8 +243,18 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 }
 
 func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
-	lsn.l.Infow("Log received", lb.String(), lb.DecodedLog())
+	lggr := lsn.l.With(
+		"log", lb.String(),
+		"decodedLog", lb.DecodedLog(),
+		"blockNumber", lb.RawLog().BlockNumber,
+		"blockHash", lb.RawLog().BlockHash,
+		"txHash", lb.RawLog().TxHash,
+	)
+
+	lggr.Infow("Log received")
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
+		lggr.Debugw("Got fulfillment log",
+			"requestID", hex.EncodeToString(v.RequestId[:]))
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -261,7 +271,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
-		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lggr.Errorw("Failed to parse RandomnessRequest log", "err", err)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -279,7 +289,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
-	lsn.l.Debugw("Enqueued randomness request",
+	lggr.Infow("Enqueued randomness request",
 		"requestID", hex.EncodeToString(req.RequestID[:]),
 		"requestJobID", hex.EncodeToString(req.JobID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
@@ -319,7 +329,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
-			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"requestID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 		incDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 	}
@@ -334,6 +344,19 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 		return true
 	}
 
+	lggr := lsn.l.With(
+		"log", req.lb.String(),
+		"requestID", hex.EncodeToString(req.req.RequestID[:]),
+		"txHah", req.req.Raw.TxHash,
+		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+		"jobID", hex.EncodeToString(req.req.JobID[:]),
+		"sender", req.req.Sender.Hex(),
+		"blockNumber", req.req.Raw.BlockNumber,
+		"blockHash", req.req.Raw.BlockHash,
+		"seed", req.req.Seed,
+		"fee", req.req.Fee,
+	)
+
 	// Check if the vrf req has already been fulfilled
 	// Note we have to do this after the log has been confirmed.
 	// If not, the following problematic (example) scenario can arise:
@@ -346,32 +369,23 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 	// so we don't process the request.
 	callback, err := lsn.coordinator.Callbacks(nil, req.req.RequestID)
 	if err != nil {
-		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
+		lggr.Errorw("Unable to check if already fulfilled, processing anyways", "err", err)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("Request already fulfilled", "txHash", req.req.Raw.TxHash, "reqID", req.req.RequestID)
+		lggr.Infow("Request already fulfilled")
 		lsn.markLogAsConsumed(req.lb)
 		return true
 	}
 
 	// Check if we can ignore the request due to its age.
 	if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
-		lsn.l.Infow("Request too old, dropping it",
-			"txHash", req.req.Raw.TxHash, "reqID", req.req.RequestID)
+		lggr.Infow("Request too old, dropping it")
 		lsn.markLogAsConsumed(req.lb)
 		return true
 	}
 
-	lsn.l.Infow("Received log request",
-		"log", req.lb.String(),
-		"reqID", hex.EncodeToString(req.req.RequestID[:]),
-		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-		"txHash", req.req.Raw.TxHash,
-		"blockNumber", req.req.Raw.BlockNumber,
-		"blockHash", req.req.Raw.BlockHash,
-		"seed", req.req.Seed,
-		"fee", req.req.Fee)
+	lggr.Infow("Processing log request")
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -392,27 +406,22 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
-			lsn.l.Errorw("Failed mark consumed", "err", err)
+			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
 	}); err != nil {
-		lsn.l.Errorw("Failed executing run",
-			"err", err,
-			"reqID", hex.EncodeToString(req.req.RequestID[:]),
-			"reqTxHash", req.req.Raw.TxHash)
+		lggr.Errorw("Failed to execute VRFV1 pipeline run",
+			"err", err)
 		return false
 	}
 
 	// At this point the pipeline runner has completed the run of the pipeline,
 	// but it may have errored out.
 	if run.HasErrors() || run.HasFatalErrors() {
-		lsn.l.Error("VRFV1 pipeline run failed with errors",
-			"reqID", hex.EncodeToString(req.req.RequestID[:]),
-			"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-			"reqTxHash", req.req.Raw.TxHash,
+		lggr.Error("VRFV1 pipeline run failed with errors",
 			"runErrors", run.AllErrors.ToError(),
 			"runFatalErrors", run.FatalErrors.ToError(),
 		)
@@ -421,11 +430,7 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 
 	// At this point, the pipeline run executed successfully, and we mark
 	// the request as processed.
-	lsn.l.Debugw("Executed VRFV1 fulfillment run",
-		"reqID", hex.EncodeToString(req.req.RequestID[:]),
-		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-		"reqTxHash", req.req.Raw.TxHash,
-	)
+	lggr.Infow("Executed VRFV1 fulfillment run")
 	incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 	return true
 }
@@ -442,13 +447,13 @@ func (lsn *listenerV1) Close() error {
 
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
-		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
+		lsn.l.Debugw("skipping duplicate log broadcast", "log", lb.RawLog())
 		return
 	}
 
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
-		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
+		lsn.l.Error("log mailbox is over capacity - dropped the oldest log")
 		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, reasonMailboxSize)
 	}
 }
