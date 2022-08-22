@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	heaps "github.com/theodesp/go-heaps"
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 )
@@ -50,14 +51,16 @@ type logPool struct {
 	// This min-heap maintains block numbers of logs in the pool.
 	// it helps us easily determine the minimum log block number
 	// in the pool (while the set of log block numbers is dynamically changing).
-	heap *pairingHeap.PairHeap
+	heap   *pairingHeap.PairHeap
+	logger logger.Logger
 }
 
-func newLogPool() *logPool {
+func newLogPool(logger logger.Logger) *logPool {
 	return &logPool{
 		hashesByBlockNumbers: make(map[uint64]map[common.Hash]struct{}),
 		logsByBlockHash:      make(map[common.Hash]map[uint]types.Log),
 		heap:                 pairingHeap.New(),
+		logger:               logger.Named("LogPool"),
 	}
 }
 
@@ -73,6 +76,7 @@ func (pool *logPool) addLog(log types.Log) bool {
 	pool.logsByBlockHash[log.BlockHash][log.Index] = log
 	min := pool.heap.FindMin()
 	pool.heap.Insert(Uint64(log.BlockNumber))
+	pool.logger.Infow("inserted block to log pool", "blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "index", log.Index, "prevMinBlockNumber", min)
 	// first or new min
 	return min == nil || log.BlockNumber < uint64(min.(Uint64))
 }

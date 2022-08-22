@@ -241,6 +241,7 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead evmtypes.H
 			// so here we need to see if this particular listener actually should receive it at this depth
 			isOldEnough := numConfirmations == 0 || (logsPerBlock.BlockNumber+uint64(numConfirmations)-1) <= latestBlockNumber
 			if !isOldEnough {
+				r.logger.Infow("Skipping logs that don't have enough confirmations", "numConfirmations", numConfirmations, "blockNumber", logsPerBlock.BlockNumber, "latestBlockNumber", latestBlockNumber)
 				continue
 			}
 
@@ -404,12 +405,19 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 		currentBroadcast := NewLogBroadcastAsKey(log, sub.listener)
 		consumed, exists := broadcasts[currentBroadcast]
 		if exists && consumed {
+			logger.Infow("log broadcast exists and is already consumed",
+				"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
+				"address", log.Address, "latestBlockNumber", latestBlockNumber)
 			continue
 		}
 
 		if len(filters) > 0 && len(log.Topics) > 1 {
 			topicValues := log.Topics[1:]
 			if !filtersContainValues(topicValues, filters) {
+				logger.Infow("filters did not contain expected topic",
+					"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
+					"address", log.Address, "latestBlockNumber", latestBlockNumber,
+					"topicValues", topicValues, "filters", filters)
 				continue
 			}
 		}
