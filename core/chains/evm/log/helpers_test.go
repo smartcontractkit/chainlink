@@ -27,9 +27,9 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -64,6 +64,10 @@ type broadcasterHelperCfg struct {
 }
 
 func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
+	if c.db == nil {
+		// ensure we check before registering any mock Cleanup assertions
+		testutils.SkipShortDB(t)
+	}
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
@@ -311,7 +315,7 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	received := listener.received
 	require.Eventually(t, func() bool {
 		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
-	}, cltest.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
+	}, testutils.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 
 	received.Lock()
 	defer received.Unlock()
@@ -363,8 +367,7 @@ type mockEthClientExpectedCalls struct {
 }
 
 func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtest.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtest.MockEth {
-	ethClient := new(evmmocks.Client)
-	ethClient.Test(t)
+	ethClient := evmmocks.NewClient(t)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
 	mockEth.EthClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).

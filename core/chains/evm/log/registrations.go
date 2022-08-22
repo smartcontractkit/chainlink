@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -125,7 +125,7 @@ func (r *registrations) handlersWithGreaterConfs(confs uint32) (handlersWithGrea
 // maps modified are only used for checks
 func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 	if sub.opts.MinIncomingConfirmations <= 0 {
-		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined.", sub.opts.MinIncomingConfirmations)
+		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined", sub.opts.MinIncomingConfirmations)
 	}
 
 	jobID := sub.listener.JobID()

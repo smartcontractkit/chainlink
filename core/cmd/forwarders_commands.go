@@ -84,8 +84,8 @@ func (cli *Client) DeleteForwarder(c *cli.Context) (err error) {
 	return nil
 }
 
-// AddForwarder adds forwarder address to node db.
-func (cli *Client) CreateForwarder(c *cli.Context) (err error) {
+// TrackForwarder tracks forwarder address in db.
+func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 	addressHex := c.String("address")
 	chainIDStr := c.String("evmChainID")
 
@@ -104,7 +104,7 @@ func (cli *Client) CreateForwarder(c *cli.Context) (err error) {
 		}
 	}
 
-	request, err := json.Marshal(web.CreateEVMForwarderRequest{
+	request, err := json.Marshal(web.TrackEVMForwarderRequest{
 		EVMChainID: (*utils.Big)(chainID),
 		Address:    address,
 	})
@@ -112,7 +112,7 @@ func (cli *Client) CreateForwarder(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/nodes/evm/forwarders", bytes.NewReader(request))
+	resp, err := cli.HTTP.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(request))
 	if err != nil {
 		return cli.errorOut(err)
 	}

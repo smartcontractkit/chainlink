@@ -9,12 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `hexencode` and `base64encode` tasks (pipeline).
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
+- Keypath now supports paths with any depth, instead of limiting it to 2
+- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby` configuration for Nitro
+- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
+- It is now possible to use the same key across multiple chains.
 
 ### Changed
 
-- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
-- Updated `Arbitrum Rinkeby` configuration for Nitro
+- The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+
+### NEW `evm keys chain` command
+
+This can also be accessed at `/v2/keys/evm/chain`.
+
+Usage examples:
+
+Manually (re)set a nonce:
+`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+
+Enable a key for a particular chain:
+`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
+
+Disable a key for a particular chain:
+`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
 
 ## 1.7.1 - 2022-08-22
 
@@ -24,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.7.0 - 2022-08-08
 
-### Added 
+### Added
 
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 - Added official support for Sepolia chain

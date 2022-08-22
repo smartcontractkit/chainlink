@@ -3,7 +3,7 @@ package sessions
 import (
 	"crypto/subtle"
 	"fmt"
-	"regexp"
+	"net/mail"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -35,9 +35,6 @@ const (
 	UserRoleView  UserRole = "view"
 )
 
-// https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
-var emailRegexp = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-
 // https://security.stackexchange.com/questions/39849/does-bcrypt-have-a-maximum-password-length
 const (
 	MaxBcryptPasswordLength = 50
@@ -66,10 +63,8 @@ func ValidateEmail(email string) error {
 	if len(email) == 0 {
 		return errors.New("Must enter an email")
 	}
-	if !emailRegexp.MatchString(email) {
-		return errors.New("Invalid email format")
-	}
-	return nil
+	_, err := mail.ParseAddress(email)
+	return err
 }
 
 // ValidateAndHashPassword is the single point of logic for user password validations

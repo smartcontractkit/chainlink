@@ -168,9 +168,6 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 	if cfg.DKGContractAddress == "" {
 		return errors.New("dkgContractAddress must be provided")
 	}
-	if len(cfg.ConfirmationDelays) != 8 {
-		return fmt.Errorf("confirmationDelays must have length 8, given: %+v", cfg.ConfirmationDelays)
-	}
 	if cfg.LookbackBlocks <= 0 {
 		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
 	}
