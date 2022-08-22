@@ -7,9 +7,10 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"golang.org/x/sync/errgroup"
 )
 
 type ChainlinkProfileTestReporter struct {

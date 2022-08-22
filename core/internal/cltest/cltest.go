@@ -38,6 +38,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -50,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -71,7 +74,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -159,7 +161,7 @@ func init() {
 	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
-func NewRandomInt64() int64 {
+func NewRandomPositiveInt64() int64 {
 	id := rand.Int63()
 	return id
 }
@@ -242,7 +244,7 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
 		Dialect:             dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		AdvisoryLockID:      null.IntFrom(NewRandomPositiveInt64()),
 		P2PEnabled:          null.BoolFrom(false),
 		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
@@ -295,7 +297,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 			chainID = v.ID
 		}
 	}
-	if app.Key.Address.IsZero() {
+	if app.Key.Address == utils.ZeroAddress {
 		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
 	} else {
 		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
@@ -417,6 +419,20 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			lggr.Fatal(err)
 		}
 	}
+	if cfg.StarkNetEnabled() {
+		starkLggr := lggr.Named("StarkNet")
+		chains.StarkNet, err = starknet.NewChainSet(starknet.ChainSetOpts{
+			Config:   cfg,
+			Logger:   starkLggr,
+			DB:       db,
+			KeyStore: keyStore.StarkNet(),
+			// EventBroadcaster: eventBroadcaster,
+			ORM: starknet.NewORM(db, starkLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
+	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -455,25 +471,7 @@ func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client) {
 }
 
 func NewEthMocks(t testing.TB) *evmMocks.Client {
-	c := new(evmMocks.Client)
-	c.Test(t)
-	switch tt := t.(type) {
-	case *testing.T:
-		t.Cleanup(func() {
-			c.AssertExpectations(tt)
-		})
-	}
-	return c
-}
-
-// Deprecated: use evmtest.NewEthClientMock
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	return evmtest.NewEthClientMock(t)
-}
-
-// Deprecated: use evmtest.NewEthClientMockWithDefaultChain
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
-	return evmtest.NewEthClientMockWithDefaultChain(t)
+	return evmMocks.NewClient(t)
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
@@ -486,10 +484,10 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
-	block := types.NewBlockWithHeader(&types.Header{
+	block := &types.Header{
 		Number: big.NewInt(100),
-	})
-	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	}
+	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
 }
@@ -520,10 +518,10 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Clien
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
-	block := types.NewBlockWithHeader(&types.Header{
+	block := &types.Header{
 		Number: big.NewInt(100),
-	})
-	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+	}
+	c.On("HeaderByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 
 	return c
 }
@@ -888,10 +886,6 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitTimeout is just preserved for compatibility. Use testutils.WaitTimeout directly instead.
-// Deprecated
-var WaitTimeout = testutils.WaitTimeout
-
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
 func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job.SpecError {
@@ -903,7 +897,7 @@ func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job
 		err := db.Select(&jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
-	}, WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
 }
 
@@ -1204,7 +1198,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	select {
 	case <-done:
 	case <-time.After(duration):
-		t.Fatal(fmt.Sprintf("CallbackOrTimeout: %s timed out", msg))
+		t.Fatalf("CallbackOrTimeout: %s timed out", msg)
 	}
 }
 
@@ -1263,25 +1257,16 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client) (verify func()) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client, sub *evmMocks.Subscription) {
 	t.Helper()
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	sub := new(evmMocks.Subscription)
-	sub.On("Err").Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()
-
-	// Stop
-	sub.On("Unsubscribe").Return(nil)
-
-	return func() {
-		ethClient.AssertExpectations(t)
-	}
 }
 
 func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
@@ -1316,7 +1301,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done c
 
 	// Build the full chain of heads
 	heads := args.Blocks.Heads
-	ctx, cancel := context.WithTimeout(context.Background(), WaitTimeout(t))
+	ctx, cancel := context.WithTimeout(context.Background(), testutils.WaitTimeout(t))
 	t.Cleanup(cancel)
 	done = make(chan struct{})
 	go func(t *testing.T) {
@@ -1507,11 +1492,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 }
 
 func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
-	t.Helper()
-	var count int64
-	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
-	require.NoError(t, err)
-	require.Equal(t, expected, count)
+	testutils.AssertCount(t, db, tableName, expected)
 }
 
 func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
@@ -1523,7 +1504,7 @@ func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
 		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
 		return count
-	}, WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
@@ -1545,11 +1526,11 @@ func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt s
 		err := db.Get(model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
-	}, WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
-	keys, err := ethKeyStore.SendingKeys(nil)
+func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth, chainID *big.Int) []ethkey.State {
+	keys, err := ethKeyStore.EnabledKeysForChain(chainID)
 	require.NoError(t, err)
 	states, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)

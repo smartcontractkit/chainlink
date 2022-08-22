@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet/db"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )

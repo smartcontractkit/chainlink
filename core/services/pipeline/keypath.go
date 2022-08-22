@@ -14,9 +14,7 @@ const KeypathSeparator = "."
 
 // Keypath contains keypath parsed by NewKeypathFromString.
 type Keypath struct {
-	NumParts int    // can be 0, 1 or 2
-	Part0    string // can be empty string if NumParts is 0
-	Part1    string // can be empty string if NumParts is 0 or 1
+	Parts []string
 }
 
 // NewKeypathFromString creates a new Keypath from the given string.
@@ -27,19 +25,14 @@ func NewKeypathFromString(keypathStr string) (Keypath, error) {
 	}
 
 	parts := strings.Split(keypathStr, KeypathSeparator)
-
-	switch len(parts) {
-	case 0:
+	if len(parts) == 0 {
 		return Keypath{}, errors.Wrapf(ErrWrongKeypath, "empty keypath")
-	case 1:
-		if len(parts[0]) > 0 {
-			return Keypath{1, parts[0], ""}, nil
-		}
-	case 2:
-		if len(parts[0]) > 0 && len(parts[1]) > 0 {
-			return Keypath{2, parts[0], parts[1]}, nil
+	}
+	for i, part := range parts {
+		if len(part) == 0 {
+			return Keypath{}, errors.Wrapf(ErrWrongKeypath, "empty keypath segment at index %d", i)
 		}
 	}
 
-	return Keypath{}, errors.Wrapf(ErrWrongKeypath, "while parsing keypath '%v'", keypathStr)
+	return Keypath{parts}, nil
 }

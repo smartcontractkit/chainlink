@@ -100,6 +100,22 @@ var besu = ClientErrors{
 	Fatal:                             besuFatal,
 }
 
+// Erigon
+// See: https://github.com/ledgerwatch/erigon/blob/devel/core/tx_pool.go
+//      https://github.com/ledgerwatch/erigon/blob/devel/core/error.go
+//      https://github.com/ledgerwatch/erigon/blob/devel/core/vm/errors.go
+// Note: some error definitions are unused, many errors are created inline.
+var erigonFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+var erigon = ClientErrors{
+	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
+	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
+	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(block already known|already known)`),
+	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
+	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
+	Fatal:                             erigonFatal,
+}
+
 // Arbitrum
 // https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
 // nitro: https://github.com/OffchainLabs/go-ethereum/blob/master/core/state_transition.go
@@ -161,7 +177,7 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {

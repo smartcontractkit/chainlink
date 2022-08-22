@@ -1,20 +1,21 @@
 package synchronization_test
 
 import (
-	"context"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization/mocks"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
 	telemPayload := synchronization.TelemPayload{
-		Ctx:        context.Background(),
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telemetry"),
 		ContractID: "0xa",
 	}

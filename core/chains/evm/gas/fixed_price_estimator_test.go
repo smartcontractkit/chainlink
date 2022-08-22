@@ -17,7 +17,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 	maxGasPrice := big.NewInt(1000000)
 
 	t.Run("GetLegacyGas returns EvmGasPriceDefault from config, with multiplier applied", func(t *testing.T) {
-		config := new(mocks.Config)
+		config := mocks.NewConfig(t)
 		f := gas.NewFixedPriceEstimator(config, logger.TestLogger(t))
 
 		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
@@ -28,12 +28,10 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, big.NewInt(42), gasPrice)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("GetLegacyGas returns user specified maximum gas price", func(t *testing.T) {
-		config := new(mocks.Config)
+		config := mocks.NewConfig(t)
 		f := gas.NewFixedPriceEstimator(config, logger.TestLogger(t))
 
 		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
@@ -44,12 +42,10 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, big.NewInt(30), gasPrice)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("GetLegacyGas returns global maximum gas price", func(t *testing.T) {
-		config := new(mocks.Config)
+		config := mocks.NewConfig(t)
 		f := gas.NewFixedPriceEstimator(config, logger.TestLogger(t))
 
 		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
@@ -60,12 +56,10 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 		assert.Equal(t, big.NewInt(20), gasPrice)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly", func(t *testing.T) {
-		config := new(mocks.Config)
+		config := mocks.NewConfig(t)
 		lggr := logger.TestLogger(t)
 		f := gas.NewFixedPriceEstimator(config, lggr)
 
@@ -83,12 +77,10 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
 		assert.Equal(t, expectedGasPrice, gasPrice)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("GetDynamicFee returns defaults from config, with multiplier applied", func(t *testing.T) {
-		config := new(mocks.Config)
+		config := mocks.NewConfig(t)
 		lggr := logger.TestLogger(t)
 		f := gas.NewFixedPriceEstimator(config, lggr)
 
@@ -117,8 +109,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		assert.Equal(t, big.NewInt(52), fee.TipCap)
 		assert.Equal(t, maxGasPrice, fee.FeeCap)
 
-		config.AssertExpectations(t)
-
 		// override max gas price
 		fee, gasLimit, err = f.GetDynamicFee(100000, big.NewInt(10))
 		require.NoError(t, err)
@@ -126,12 +116,10 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 		assert.Equal(t, big.NewInt(52), fee.TipCap)
 		assert.Equal(t, big.NewInt(10), fee.FeeCap)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("BumpDynamicFee calls BumpDynamicFeeOnly", func(t *testing.T) {
-		config := new(mocks.Config)
+		config := mocks.NewConfig(t)
 		lggr := logger.TestLogger(t)
 		f := gas.NewFixedPriceEstimator(config, lggr)
 
@@ -150,7 +138,5 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
 		assert.Equal(t, expectedFee, fee)
-
-		config.AssertExpectations(t)
 	})
 }

@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
