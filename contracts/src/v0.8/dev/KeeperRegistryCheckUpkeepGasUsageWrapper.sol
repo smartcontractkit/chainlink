@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface.sol";
+import {KeeperRegistryExecutableInterface} from "../interfaces/KeeperRegistryInterface1_2.sol";
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 
 /**
