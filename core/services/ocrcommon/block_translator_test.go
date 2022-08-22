@@ -1,21 +1,22 @@
 package ocrcommon_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_BlockTranslator(t *testing.T) {
-	ethClient := cltest.NewEthClientMock(t)
-	ctx := context.Background()
+	t.Parallel()
+
+	ethClient := evmtest.NewEthClientMock(t)
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {
@@ -46,6 +47,4 @@ func Test_BlockTranslator(t *testing.T) {
 		bt = ocrcommon.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(t), ethClient, lggr)
 		assert.IsType(t, &ocrcommon.ArbitrumBlockTranslator{}, bt)
 	})
-
-	ethClient.AssertExpectations(t)
 }

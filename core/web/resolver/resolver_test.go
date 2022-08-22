@@ -16,6 +16,7 @@ import (
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
@@ -81,7 +82,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			schema.MustGetRootSchema(),
 			&Resolver{App: app},
 		)
-		ctx = loader.InjectDataloader(context.Background(), app)
+		ctx = loader.InjectDataloader(testutils.Context(t), app)
 	)
 
 	// Setup mocks

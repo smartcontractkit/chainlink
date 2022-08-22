@@ -9,11 +9,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
 )
 
 func Test_JuelsPerFeeCoin(t *testing.T) {
+	t.Parallel()
+
 	mockAggregator := mocks.NewAggregatorV3Interface(t)
 
 	t.Run("returns juels per fee coin", func(t *testing.T) {
@@ -24,7 +26,6 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, int64(10000), price.Int64())
-		mockAggregator.AssertExpectations(t)
 	})
 
 	t.Run("returns error when contract call fails", func(t *testing.T) {
@@ -36,6 +37,5 @@ func Test_JuelsPerFeeCoin(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, price)
 		assert.Equal(t, "get aggregator latest answer: network failure", err.Error())
-		mockAggregator.AssertExpectations(t)
 	})
 }

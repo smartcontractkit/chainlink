@@ -1,6 +1,6 @@
 type EthKey {
     address: String!
-    isFunding: Boolean!
+    isDisabled: Boolean!
     createdAt: Time!
     updatedAt: Time!
     chain: Chain!

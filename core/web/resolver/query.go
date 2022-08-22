@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
@@ -385,13 +384,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	ks := r.App.GetKeyStore().Eth()
 
-	var keys []ethkey.KeyV2
-	var err error
-	if r.App.GetConfig().Dev() {
-		keys, err = ks.GetAll()
-	} else {
-		keys, err = ks.SendingKeys(nil)
-	}
+	keys, err := ks.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
 	}
@@ -412,7 +405,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
-				addr:  k.Address,
+				addr:  k.EIP55Address,
 				state: state,
 			})
 
@@ -423,14 +416,14 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		}
 
 		ethKeys = append(ethKeys, ETHKey{
-			addr:  k.Address,
+			addr:  k.EIP55Address,
 			state: state,
 			chain: chain,
 		})
 	}
-	// Put funding keys to the end
+	// Put disabled keys to the end
 	sort.SliceStable(ethKeys, func(i, j int) bool {
-		return !states[i].IsFunding && states[j].IsFunding
+		return !states[i].Disabled && states[j].Disabled
 	})
 	return NewETHKeysPayload(ethKeys), nil
 }

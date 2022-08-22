@@ -2,7 +2,11 @@ package cron_test
 
 import (
 	"testing"
-	"time"
+
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -14,11 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCronV2Pipeline(t *testing.T) {
@@ -27,7 +26,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: evmtest.NewEthClientMockWithDefaultChain(t)})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg)
 	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
@@ -62,10 +61,12 @@ func TestCronV2Schedule(t *testing.T) {
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:  &pipeline.Spec{},
 	}
-	runner := new(pipelinemocks.Runner)
-
+	runner := pipelinemocks.NewRunner(t)
+	awaiter := cltest.NewAwaiter()
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
-		Return(false, nil).Once()
+		Run(func(args mock.Arguments) { awaiter.ItHappened() }).
+		Return(false, nil).
+		Once()
 
 	service, err := cron.NewCronFromJobSpec(spec, runner, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -73,5 +74,5 @@ func TestCronV2Schedule(t *testing.T) {
 	require.NoError(t, err)
 	defer service.Close()
 
-	cltest.EventuallyExpectationsMet(t, runner, 10*time.Second, 1*time.Second)
+	awaiter.AwaitOrFail(t)
 }

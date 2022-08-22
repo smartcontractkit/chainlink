@@ -14,11 +14,11 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	vrfltoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_ownerless_consumer"
-	vrfoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_ownerless_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
+	linktoken "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	vrfltoc "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_load_test_ownerless_consumer"
+	vrfoc "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_ownerless_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -209,6 +209,15 @@ func main() {
 		tx, err := link.TransferAndCall(e.Owner, common.HexToAddress(*consumerAddr), payment, data)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "load-test-read":
+		cmd := flag.NewFlagSet("load-test-read", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "load test consumer address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		consumer, err := vrfltoc.NewVRFLoadTestOwnerlessConsumer(common.HexToAddress(*consumerAddress), e.Ec)
+		helpers.PanicErr(err)
+		count, err := consumer.SResponseCount(nil)
+		helpers.PanicErr(err)
+		fmt.Println("response count:", count.String(), "consumer:", *consumerAddress)
 	case "ownerless-consumer-read":
 		cmd := flag.NewFlagSet("ownerless-consumer-read", flag.ExitOnError)
 		consumerAddr := cmd.String("consumer-address", "", "address of the deployed ownerless consumer")

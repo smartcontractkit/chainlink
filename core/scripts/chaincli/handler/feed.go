@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	feed "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/derived_price_feed_wrapper"
+	feed "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/derived_price_feed_wrapper"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 )
 
