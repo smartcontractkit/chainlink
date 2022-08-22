@@ -36,7 +36,7 @@ contract KeeperRegistryOcr is
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
    *                       : add minUpkeepSpend requirement
-                           : upgrade to solidity v0.8
+   *                       : upgrade to solidity v0.8
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
