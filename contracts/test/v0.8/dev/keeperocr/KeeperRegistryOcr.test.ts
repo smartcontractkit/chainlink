@@ -15,7 +15,7 @@ import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../../ty
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { KeeperRegistryOcrLogic__factory as KeeperRegistryLogicFactory } from '../../../../typechain/factories/KeeperRegistryOcrLogic__factory'
 import { KeeperRegistryOcr as KeeperRegistry } from '../../../../typechain/KeeperRegistryOcr'
-import { KeeperRegistryOcrLogic as KeeperRegistryLogic} from '../../../../typechain/KeeperRegistryOcrLogic'
+import { KeeperRegistryOcrLogic as KeeperRegistryLogic } from '../../../../typechain/KeeperRegistryOcrLogic'
 import { MockV3Aggregator } from '../../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../../typechain/UpkeepMock'
