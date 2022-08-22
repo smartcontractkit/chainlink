@@ -425,7 +425,7 @@ type SolanaNodeCreate struct {
 	Data SolanaNode `json:"data"`
 }
 
-type StarknetChainConfig struct {
+type StarkNetChainConfig struct {
 	OCR2CachePollPeriod null.String
 	OCR2CacheTTL        null.String
 	RequestTimeout      null.String
@@ -434,38 +434,38 @@ type StarknetChainConfig struct {
 	TxMaxBatchSize      null.String
 }
 
-// StarknetChainAttributes is the model that represents the starknet chain
-type StarknetChainAttributes struct {
+// StarkNetChainAttributes is the model that represents the starknet chain
+type StarkNetChainAttributes struct {
 	Type    string              `json:"type"`
 	ChainID string              `json:"chainID"`
-	Config  StarknetChainConfig `json:"config"`
+	Config  StarkNetChainConfig `json:"config"`
 }
 
-// StarknetChain is the model that represents the starknet chain when read
-type StarknetChain struct {
-	Attributes StarknetChainAttributes `json:"attributes"`
+// StarkNetChain is the model that represents the starknet chain when read
+type StarkNetChain struct {
+	Attributes StarkNetChainAttributes `json:"attributes"`
 }
 
-// StarknetChainCreate is the model that represents the starknet chain when created
-type StarknetChainCreate struct {
-	Data StarknetChain `json:"data"`
+// StarkNetChainCreate is the model that represents the starknet chain when created
+type StarkNetChainCreate struct {
+	Data StarkNetChain `json:"data"`
 }
 
-// StarknetNodeAttributes is the model that represents the starknet node
-type StarknetNodeAttributes struct {
+// StarkNetNodeAttributes is the model that represents the starknet node
+type StarkNetNodeAttributes struct {
 	Name    string `json:"name"`
 	ChainID string `json:"chainId"`
 	Url     string `json:"url"`
 }
 
-// StarknetNode is the model that represents the starknet node when read
-type StarknetNode struct {
-	Attributes StarknetNodeAttributes `json:"attributes"`
+// StarkNetNode is the model that represents the starknet node when read
+type StarkNetNode struct {
+	Attributes StarkNetNodeAttributes `json:"attributes"`
 }
 
-// StarknetNodeCreate is the model that represents the starknet node when created
-type StarknetNodeCreate struct {
-	Data StarknetNode `json:"data"`
+// StarkNetNodeCreate is the model that represents the starknet node when created
+type StarkNetNodeCreate struct {
+	Data StarkNetNode `json:"data"`
 }
 
 // SpecForm is the form used when creating a v2 job spec, containing the TOML of the v2 job
