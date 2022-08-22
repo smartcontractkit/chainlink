@@ -101,7 +101,7 @@ func (n *node) State() NodeState {
 	return n.state
 }
 
-// State allows reading the current state of the node with the latest received block number.
+// StateAndLatestBlockNumber returns the current state of the node with the latest received block number.
 func (n *node) StateAndLatestBlockNumber() (NodeState, int64) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()

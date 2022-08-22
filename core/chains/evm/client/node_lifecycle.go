@@ -240,10 +240,10 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "stuckAtBlockNumber", stuckAtBlockNumber, "nodeState", n.State())
 
 	ch := make(chan *evmtypes.Head)
-	subCtx, cancel2 := n.makeQueryCtx(n.nodeCtx)
+	subCtx, cancel := n.makeQueryCtx(n.nodeCtx)
 	// raw call here to bypass node state checking
 	sub, err := n.ws.rpc.EthSubscribe(subCtx, ch, "newHeads")
-	cancel2()
+	cancel()
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
 		n.declareUnreachable()

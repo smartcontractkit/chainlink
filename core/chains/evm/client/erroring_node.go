@@ -25,8 +25,6 @@ func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.er
 
 func (e *erroringNode) Close() {}
 
-func (e *erroringNode) LatestReceivedBlockNumber() int64 { return -1 }
-
 func (e *erroringNode) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
 	return errors.New(e.errMsg)
 }
