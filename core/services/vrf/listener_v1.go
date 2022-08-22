@@ -353,11 +353,11 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 	currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
 	m := bigmath.Max(req.confirmedAtBlock, currBlock)
 	ctx, cancel := context.WithTimeout(context.Background(), callbacksTimeout)
+	defer cancel()
 	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
 		BlockNumber: m,
 		Context:     ctx,
 	}, req.req.RequestID)
-	cancel()
 	if err != nil {
 		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
