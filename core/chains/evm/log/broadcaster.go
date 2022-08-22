@@ -175,7 +175,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		evmChainID:             *ethClient.ChainID(),
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
 		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
-		logPool:                newLogPool(),
+		logPool:                newLogPool(lggr),
 		changeSubscriberStatus: utils.NewMailbox[changeSubscriberStatus](100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
 		newHeads:               utils.NewMailbox[*evmtypes.Head](1),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
@@ -496,7 +496,7 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 
 func (b *broadcaster) invalidatePool() int64 {
 	if min := b.logPool.heap.FindMin(); min != nil {
-		b.logPool = newLogPool()
+		b.logPool = newLogPool(b.logger)
 		// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
 		blockNum := int64(min.(Uint64))
 		b.backfillBlockNumber.SetValid(blockNum)
@@ -510,9 +510,11 @@ func (b *broadcaster) onNewLog(log types.Log) {
 
 	if log.Removed {
 		// Remove the whole block that contained this log.
+		b.logger.Infow("found reverted log", "log", log)
 		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
+		b.logger.Infow("found unregistered address", "Address", log.Address)
 		return
 	}
 	if b.logPool.addLog(log) {
@@ -563,6 +565,7 @@ func (b *broadcaster) onNewHeads() {
 		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
 		// without comparing their block numbers to the current head's block number.
 		if b.registrations.highestNumConfirmations == 0 {
+			b.logger.Infow("all registrations had 0 confirmations configured", "keptDepth", keptDepth, "latestBlockNum", latestBlockNum)
 			logs, lowest, highest := b.logPool.getAndDeleteAll()
 			if len(logs) > 0 {
 				broadcasts, err := b.orm.FindBroadcasts(lowest, highest)
@@ -577,6 +580,7 @@ func (b *broadcaster) onNewHeads() {
 			}
 		} else {
 			logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
+			b.logger.Infow("Found logs to send", "logs", logs, "minBlockNum", minBlockNum, "keptDepth", keptDepth, "latestBlockNum", latestBlockNum)
 
 			if len(logs) > 0 {
 				broadcasts, err := b.orm.FindBroadcasts(minBlockNum, latestBlockNum)
@@ -588,6 +592,7 @@ func (b *broadcaster) onNewHeads() {
 				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
 			}
 			newMin := b.logPool.deleteOlderLogs(keptDepth)
+			b.logger.Infof("newMin after deleting old logs %d", newMin)
 			if err := b.orm.SetPendingMinBlock(newMin); err != nil {
 				b.logger.Errorw("Failed to set pending broadcasts number", "blockNumber", keptDepth, "err", err)
 			}
