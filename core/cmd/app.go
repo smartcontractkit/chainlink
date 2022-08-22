@@ -10,7 +10,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/config"
+	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
@@ -37,8 +40,7 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringFlag{
 			Name:  "admin-credentials-file",
-			Usage: "optional, applies only in client mode when making remote API calls. If provided, `FILE` containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored",
-			Value: filepath.Join(client.Config.RootDir(), "apicredentials"),
+			Usage: fmt.Sprintf("optional, applies only in client mode when making remote API calls. If provided, `FILE` containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to %s", filepath.Join("<RootDir>", "apicredentials")),
 		},
 		cli.StringFlag{
 			Name:  "remote-node-url",
@@ -49,8 +51,34 @@ func NewApp(client *Client) *cli.App {
 			Name:  "insecure-skip-verify",
 			Usage: "optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate",
 		},
+		cli.StringFlag{
+			Name:   "config, c",
+			Usage:  "EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.",
+			EnvVar: "CL_CONFIG",
+		},
 	}
 	app.Before = func(c *cli.Context) error {
+		if c.IsSet("config") {
+			// TOML
+			configTOML := os.Getenv("CL_CONFIG")
+			if configTOML == "" {
+				fileName := c.String("config")
+				b, err := os.ReadFile(fileName)
+				if err != nil {
+					return errors.Wrapf(err, "failed to read config file: %s", fileName)
+				}
+				configTOML = string(b)
+			}
+			var err error
+			client.Config, err = chainlink.NewGeneralConfig(configTOML)
+			if err != nil {
+				return err
+			}
+			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
+		} else {
+			// Legacy ENV
+			client.Config = config.NewGeneralConfig(client.Logger)
+		}
 		logDeprecatedClientEnvWarnings(client.Logger)
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
@@ -142,9 +170,9 @@ func NewApp(client *Client) *cli.App {
 							},
 						},
 						{
-							Name:   "update",
-							Usage:  "Updates an API user. email, password, and role can be updated",
-							Action: client.EditUser,
+							Name:   "chrole",
+							Usage:  "Changes an API user's role",
+							Action: client.ChangeRole,
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:     "email",
@@ -152,18 +180,8 @@ func NewApp(client *Client) *cli.App {
 									Required: true,
 								},
 								cli.StringFlag{
-									Name:     "newemail",
-									Usage:    "optional new email to set for user",
-									Required: false,
-								},
-								cli.StringFlag{
 									Name:     "newrole",
 									Usage:    "optional new permission level role to set for user. Options: 'admin', 'edit', 'run', 'view'.",
-									Required: false,
-								},
-								cli.BoolFlag{
-									Name:     "promptnewpassword",
-									Usage:    "optional flag to prompt and set new password for a user",
 									Required: false,
 								},
 							},
@@ -439,6 +457,31 @@ func NewApp(client *Client) *cli.App {
 								},
 							},
 							Action: client.ExportETHKey,
+						},
+						{
+							Name:   "chain",
+							Usage:  "Update an EVM key for the given chain",
+							Action: client.UpdateChainEVMKey,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:     "address",
+									Usage:    "address of the key",
+									Required: true,
+								},
+								cli.StringFlag{
+									Name:     "evmChainID",
+									Usage:    "chain ID of the key",
+									Required: true,
+								},
+								cli.Uint64Flag{
+									Name:  "setNextNonce",
+									Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
+								},
+								cli.BoolFlag{
+									Name:  "setEnabled",
+									Usage: "enable/disable the key for the given chain",
+								},
+							},
 						},
 					},
 				},
@@ -733,21 +776,6 @@ func NewApp(client *Client) *cli.App {
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
 			Subcommands: []cli.Command{
 				{
-					Name:   "setnextnonce",
-					Usage:  "Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.",
-					Action: client.SetNextNonce,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "address",
-							Usage: "address of the key for which to set the nonce",
-						},
-						cli.Uint64Flag{
-							Name:  "nextNonce",
-							Usage: "the next nonce in the sequence",
-						},
-					},
-				},
-				{
 					Name:    "start",
 					Aliases: []string{"node", "n"},
 					Flags: []cli.Flag{
@@ -837,7 +865,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "reset",
 							Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
-							Hidden: !client.Config.Dev(),
+							Hidden: !v2.CLDev,
 							Action: client.ResetDatabase,
 							Flags: []cli.Flag{
 								cli.BoolFlag{
@@ -849,7 +877,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "preparetest",
 							Usage:  "Reset database and load fixtures.",
-							Hidden: !client.Config.Dev(),
+							Hidden: !v2.CLDev,
 							Action: client.PrepareTestDatabase,
 							Flags: []cli.Flag{
 								cli.BoolFlag{
@@ -885,7 +913,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create-migration",
 							Usage:  "Create a new migration.",
-							Hidden: !client.Config.Dev(),
+							Hidden: !v2.CLDev,
 							Action: client.CreateMigration,
 							Flags: []cli.Flag{
 								cli.StringFlag{
@@ -901,7 +929,7 @@ func NewApp(client *Client) *cli.App {
 		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
-			Hidden: !client.Config.Dev() && !client.Config.FeatureExternalInitiators(),
+			Hidden: !v2.CLDev,
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",

@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -121,6 +121,7 @@ func (uni *DirectRequestUniverse) Cleanup() {
 }
 
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
+	testutils.SkipShortDB(t)
 	t.Parallel()
 
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
@@ -160,7 +161,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		require.NotNil(t, uni.listener, "listener was nil; expected broadcaster.Register to have been called")
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(testutils.Context(t), uni.listener.JobID())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -378,7 +379,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(testutils.Context(t), uni.listener.JobID())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
@@ -472,7 +473,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(testutils.Context(t), uni.listener.JobID())
 		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)

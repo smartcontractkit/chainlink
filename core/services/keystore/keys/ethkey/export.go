@@ -22,7 +22,7 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 	}
 	dKey := &keystore.Key{
 		Id:         id,
-		Address:    key.Address.Address(),
+		Address:    key.Address,
 		PrivateKey: key.privateKey,
 	}
 	return keystore.EncryptKey(dKey, password, scryptParams.N, scryptParams.P)

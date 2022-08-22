@@ -39,6 +39,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -160,7 +161,7 @@ func init() {
 	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
-func NewRandomInt64() int64 {
+func NewRandomPositiveInt64() int64 {
 	id := rand.Int63()
 	return id
 }
@@ -243,7 +244,7 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
 		Dialect:             dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		AdvisoryLockID:      null.IntFrom(NewRandomPositiveInt64()),
 		P2PEnabled:          null.BoolFrom(false),
 		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
@@ -296,7 +297,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 			chainID = v.ID
 		}
 	}
-	if app.Key.Address.IsZero() {
+	if app.Key.Address == utils.ZeroAddress {
 		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
 	} else {
 		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
@@ -885,10 +886,6 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitTimeout is just preserved for compatibility. Use testutils.WaitTimeout directly instead.
-// Deprecated
-var WaitTimeout = testutils.WaitTimeout
-
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
 func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job.SpecError {
@@ -900,7 +897,7 @@ func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job
 		err := db.Select(&jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
-	}, WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
 }
 
@@ -1304,7 +1301,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done c
 
 	// Build the full chain of heads
 	heads := args.Blocks.Heads
-	ctx, cancel := context.WithTimeout(context.Background(), WaitTimeout(t))
+	ctx, cancel := context.WithTimeout(context.Background(), testutils.WaitTimeout(t))
 	t.Cleanup(cancel)
 	done = make(chan struct{})
 	go func(t *testing.T) {
@@ -1495,11 +1492,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 }
 
 func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
-	t.Helper()
-	var count int64
-	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
-	require.NoError(t, err)
-	require.Equal(t, expected, count)
+	testutils.AssertCount(t, db, tableName, expected)
 }
 
 func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
@@ -1511,7 +1504,7 @@ func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
 		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
 		return count
-	}, WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
@@ -1533,11 +1526,11 @@ func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt s
 		err := db.Get(model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
-	}, WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
-	keys, err := ethKeyStore.SendingKeys(nil)
+func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth, chainID *big.Int) []ethkey.State {
+	keys, err := ethKeyStore.EnabledKeysForChain(chainID)
 	require.NoError(t, err)
 	states, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)
