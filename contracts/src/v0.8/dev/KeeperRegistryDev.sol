@@ -67,14 +67,14 @@ contract KeeperRegistryDev is
 
   /**
    * @notice adds a new upkeep
-   * @param target address to perform upkeep on
+   * @param t address to perform upkeep on
    * @param gasLimit amount of gas to provide the target contract when
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    */
   function registerUpkeep(
-    address target,
+    address t,
     uint32 gasLimit,
     address admin,
     bytes calldata checkData
