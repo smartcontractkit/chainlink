@@ -3,7 +3,7 @@ package coordinator
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	vrf_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 )
 
 type topics struct {

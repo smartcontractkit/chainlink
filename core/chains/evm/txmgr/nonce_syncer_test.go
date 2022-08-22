@@ -3,8 +3,6 @@ package txmgr_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -34,9 +33,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 			return from == addr
 		})).Return(uint64(0), errors.New("something exploded"))
 
-		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
+		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient, ethKeyStore)
 
-		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		err := ns.SyncAll(testutils.Context(t), sendingKeys)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -59,9 +58,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 			return from == addr
 		})).Return(uint64(0), nil)
 
-		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
+		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient, ethKeyStore)
 
-		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 
 		cltest.AssertCount(t, db, "eth_txes", 0)
@@ -80,18 +79,18 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
-			return k1.Address.Address() == addr
+			return k1.Address == addr
 		})).Return(uint64(31), nil)
 
-		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
+		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient, ethKeyStore)
 
-		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 
 		cltest.AssertCount(t, db, "eth_txes", 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
 
-		assertDatabaseNonce(t, db, k1.Address.Address(), 32)
+		assertDatabaseNonce(t, db, k1.Address, 32)
 	})
 
 	t.Run("fast forwards if chain nonce is ahead of local nonce", func(t *testing.T) {
@@ -113,9 +112,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 			return key1 == addr
 		})).Return(uint64(5), nil)
 
-		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
+		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient, ethKeyStore)
 
-		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 
 		assertDatabaseNonce(t, db, key1, 5)
@@ -137,9 +136,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 			// by 1, but does not need to change when taking into account the in_progress tx
 			return key1 == addr
 		})).Return(uint64(1), nil)
-		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
+		ns := txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient, ethKeyStore)
 
-		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 		assertDatabaseNonce(t, db, key1, 0)
 
@@ -149,7 +148,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 			// by 2, but only ahead by 1 if we count the in_progress tx as +1
 			return key1 == addr
 		})).Return(uint64(2), nil)
-		ns = txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient)
+		ns = txmgr.NewNonceSyncer(db, logger.TestLogger(t), cfg, ethClient, ethKeyStore)
 
 		require.NoError(t, ns.SyncAll(testutils.Context(t), sendingKeys))
 		assertDatabaseNonce(t, db, key1, 1)
@@ -160,7 +159,7 @@ func assertDatabaseNonce(t *testing.T, db *sqlx.DB, address common.Address, nonc
 	t.Helper()
 
 	var nextNonce int64
-	err := db.Get(&nextNonce, `SELECT next_nonce FROM eth_key_states WHERE address = $1`, address)
+	err := db.Get(&nextNonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, address)
 	require.NoError(t, err)
 	assert.Equal(t, nonce, nextNonce)
 }

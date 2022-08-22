@@ -164,7 +164,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.Error(errors.Wrap(err, "Unable to fetch upkeep ID from performed log"))
 		return
 	}
-	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, utils.NewBig(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
+	rowsAffected, err := rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, utils.NewBig(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
 
 	if err != nil {
 		rs.logger.Error(errors.Wrap(err, "failed to set last run to 0"))
@@ -174,7 +174,8 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		"jobID", rs.job.ID,
 		"upkeepID", log.UpkeepID.String(),
 		"blockNumber", int64(broadcast.RawLog().BlockNumber),
-		"fromAddr", ethkey.EIP55AddressFromAddress(log.FromKeeper))
+		"fromAddr", ethkey.EIP55AddressFromAddress(log.FromKeeper),
+		"rowsAffected", rowsAffected)
 
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.Error(errors.Wrap(err, "unable to mark KeeperRegistryUpkeepPerformed log as consumed"))

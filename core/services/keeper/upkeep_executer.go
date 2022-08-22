@@ -175,6 +175,15 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		}
 	}
 
+	if head.Number%10 == 0 {
+		// Log this once every 10 blocks
+		fetchedUpkeepIDs := make([]string, len(activeUpkeeps))
+		for i, activeUpkeep := range activeUpkeeps {
+			fetchedUpkeepIDs[i] = NewUpkeepIdentifier(activeUpkeep.UpkeepID).String()
+		}
+		ex.logger.Debugw("Fetched list of active upkeeps", "blockNum", head.Number, "active upkeeps list", fetchedUpkeepIDs)
+	}
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
 	done := func() {
@@ -187,6 +196,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	wg.Wait()
+	ex.logger.Debugw("Finished checking upkeeps", "blockNum", head.Number)
 }
 
 // execute triggers the pipeline run
@@ -238,11 +248,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
+		rowsAffected, err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
 		if err != nil {
 			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
-		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
+		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress, "rowsAffected", rowsAffected)
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.

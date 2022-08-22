@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
 )
 
 // linkEthPriceProvider provides conversation rate between Link and native token using price feeds

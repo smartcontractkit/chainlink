@@ -26,25 +26,24 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_reverting_example"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_wrapper_consumer_example"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_malicious_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -273,7 +272,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 // Send eth from prefunded account.
 // Amount is number of ETH not wei.
 func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to common.Address, eth int) {
-	nonce, err := ec.PendingNonceAt(testutils.Context(t), key.Address.Address())
+	nonce, err := ec.PendingNonceAt(testutils.Context(t), key.Address)
 	require.NoError(t, err)
 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 		ChainID:   big.NewInt(1337),
@@ -611,7 +610,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -674,7 +673,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -745,8 +744,8 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	key2, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
-	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -796,11 +795,11 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	assertNumRandomWords(t, consumerContract, numWords)
 
 	// Assert that both send addresses were used to fulfill the requests
-	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address.Address())
+	n, err := uni.backend.PendingNonceAt(testutils.Context(t), key1.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
-	n, err = uni.backend.PendingNonceAt(testutils.Context(t), key2.Address.Address())
+	n, err = uni.backend.PendingNonceAt(testutils.Context(t), key2.Address)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 
@@ -830,7 +829,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -880,7 +879,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -946,7 +945,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -1015,7 +1014,7 @@ func TestVRFV2Integration_Wrapper_High_Gas_Revert(t *testing.T) {
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -1084,13 +1083,13 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	// Create gas lane.
 	vrfKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, vrfKey.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create BHS key
 	bhsKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, bhsKey.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 
 	// Configure VRF and BHS keys
 	configureSimChain(t, app, map[string]types.ChainCfg{
@@ -1183,7 +1182,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	// Create expensive gas lane.
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(1000)),
@@ -1247,7 +1246,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	// Create gas lane.
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key1.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(100)),
@@ -1340,11 +1339,11 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	// Create cheap gas lane.
 	cheapKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, cheapKey.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, cheapKey.Address, 10)
 	// Create expensive gas lane.
 	expensiveKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, expensiveKey.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, expensiveKey.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		cheapKey.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -1432,7 +1431,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	// Create gas lane.
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key.Address, 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(assets.GWei(10)),
@@ -1610,7 +1609,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
-	keys, err := app.KeyStore.Eth().SendingKeys(nil)
+	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	require.NoError(t, err)
 
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
 	// max gas limit of 2M and a key specific max 10 gwei price.
@@ -2062,7 +2062,7 @@ func TestStartingCountsV1(t *testing.T) {
 	confirmedTxes := []txmgr.EthTx{
 		{
 			Nonce:              &n1,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2074,7 +2074,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n2,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2086,7 +2086,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n3,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2098,7 +2098,7 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 		{
 			Nonce:              &n4,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			BroadcastAt:        &b,
 			InitialBroadcastAt: &b,
@@ -2121,7 +2121,7 @@ func TestStartingCountsV1(t *testing.T) {
 		newNonce := i + 1
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.EthTx{
 			Nonce:              &newNonce,
-			FromAddress:        k.Address.Address(),
+			FromAddress:        k.Address,
 			Error:              null.String{},
 			CreatedAt:          b,
 			State:              txmgr.EthTxUnconfirmed,

@@ -128,24 +128,14 @@ func (cli *Client) CreateUser(c *cli.Context) (err error) {
 	return cli.renderAPIResponse(response, &AdminUsersPresenter{}, "Successfully created new API user")
 }
 
-// EditUser can change a user's email, password, and role
-func (cli *Client) EditUser(c *cli.Context) (err error) {
-	// Prompt for new password to set on specified user if flag is set
-	pwd := ""
-	if c.IsSet("promptnewpassword") {
-		pwd = cli.PasswordPrompter.Prompt()
-	}
-
+// ChangeRole can change a user's role
+func (cli *Client) ChangeRole(c *cli.Context) (err error) {
 	request := struct {
-		Email       string `json:"email"`
-		NewEmail    string `json:"newEmail"`
-		NewRole     string `json:"newRole"`
-		NewPassword string `json:"newPassword"`
+		Email   string `json:"email"`
+		NewRole string `json:"newRole"`
 	}{
-		Email:       c.String("email"),
-		NewEmail:    c.String("newemail"),
-		NewRole:     c.String("newrole"),
-		NewPassword: pwd,
+		Email:   c.String("email"),
+		NewRole: c.String("newrole"),
 	}
 
 	requestData, err := json.Marshal(request)

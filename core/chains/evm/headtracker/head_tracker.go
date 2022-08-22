@@ -201,7 +201,7 @@ func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) e
 		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Errorf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
 	return nil
