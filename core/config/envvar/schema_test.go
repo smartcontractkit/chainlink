@@ -192,7 +192,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCR2DatabaseTimeout":                    "OCR2_DATABASE_TIMEOUT",
 		"OCR2ContractConfirmations":              "OCR2_CONTRACT_CONFIRMATIONS",
 		"OCR2KeyBundleID":                        "OCR2_KEY_BUNDLE_ID",
-		"OCR2MonitoringEndpoint":                 "OCR2_MONITORING_ENDPOINT",
 		"OCR2TraceLogging":                       "OCR2_TRACE_LOGGING",
 
 		// OCR v1
@@ -203,7 +202,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCRDatabaseTimeout":                    "OCR_DATABASE_TIMEOUT",
 		"OCRContractConfirmations":              "OCR_CONTRACT_CONFIRMATIONS",
 		"OCRKeyBundleID":                        "OCR_KEY_BUNDLE_ID",
-		"OCRMonitoringEndpoint":                 "OCR_MONITORING_ENDPOINT",
 		"OCRDefaultTransactionQueueDepth":       "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"OCRTraceLogging":                       "OCR_TRACE_LOGGING",
 		"OCRObservationGracePeriod":             "OCR_OBSERVATION_GRACE_PERIOD",

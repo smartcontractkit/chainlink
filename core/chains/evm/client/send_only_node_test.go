@@ -1,7 +1,6 @@
 package client_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -151,6 +150,6 @@ func TestBatchCallContext(t *testing.T) {
 
 	s.SetEthClient(mockBatchSender, nil)
 
-	err := s.BatchCallContext(context.Background(), req)
+	err := s.BatchCallContext(testutils.Context(t), req)
 	assert.NoError(t, err)
 }

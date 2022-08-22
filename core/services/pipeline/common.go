@@ -314,7 +314,9 @@ const (
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeConditional      TaskType = "conditional"
 	TaskTypeHexDecode        TaskType = "hexdecode"
+	TaskTypeHexEncode        TaskType = "hexencode"
 	TaskTypeBase64Decode     TaskType = "base64decode"
+	TaskTypeBase64Encode     TaskType = "base64encode"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -399,8 +401,12 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &ConditionalTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeHexDecode:
 		task = &HexDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeHexEncode:
+		task = &HexEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBase64Decode:
 		task = &Base64DecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeBase64Encode:
+		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

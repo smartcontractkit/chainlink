@@ -1,7 +1,6 @@
 package terratxm
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -20,6 +19,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
@@ -308,7 +308,7 @@ func TestTxm(t *testing.T) {
 		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		// Should be marked errored
 		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
@@ -320,7 +320,7 @@ func TestTxm(t *testing.T) {
 		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
 		assert.Equal(t, Errored, ms[0].State)
@@ -358,7 +358,7 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&terraclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
 		assert.Equal(t, Confirmed, m[0].State)
@@ -382,7 +382,7 @@ func TestTxm(t *testing.T) {
 		tc.On("BatchSimulateUnsigned", msgs, mock.Anything).
 			Return(&terraclient.BatchSimResults{Failed: nil, Succeeded: msgs}, nil).Once()
 		time.Sleep(1 * time.Millisecond)
-		txm.sendMsgBatch(context.Background())
+		txm.sendMsgBatch(testutils.Context(t))
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
 		assert.Equal(t, Confirmed, ms[0].State)

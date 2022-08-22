@@ -114,7 +114,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("missing SendingKeys", func(t *testing.T) {
+	t.Run("missing EnabledKeysForChain", func(t *testing.T) {
 		testData.ethKeyStore.Delete(testData.sendingKey.ID())
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{

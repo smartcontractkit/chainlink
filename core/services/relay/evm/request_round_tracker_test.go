@@ -1,7 +1,6 @@
 package evm_test
 
 import (
-	"context"
 	"testing"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -113,7 +112,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 		require.Equal(t, 0, int(round))
@@ -121,7 +120,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.requestRoundTracker.HandleLog(logBroadcast)
 
-		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 		require.Equal(t, 0, int(round))
@@ -135,7 +134,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(true, nil)
 
-		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 		require.Equal(t, 0, int(round))
@@ -143,7 +142,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.requestRoundTracker.HandleLog(logBroadcast)
 
-		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 		require.Equal(t, 0, int(round))
@@ -153,7 +152,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	t.Run("for new round requested log", func(t *testing.T) {
 		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
 
-		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 		require.Equal(t, 0, int(round))
@@ -174,7 +173,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.requestRoundTracker.HandleLog(logBroadcast)
 
-		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", configDigest.Hex())
 		assert.Equal(t, 1, int(epoch))
@@ -194,7 +193,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.requestRoundTracker.HandleLog(logBroadcast2)
 
-		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		assert.Equal(t, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", configDigest.Hex())
 		assert.Equal(t, 1, int(epoch))
@@ -203,7 +202,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		// Same round with lower epoch is ignored
 		uni.requestRoundTracker.HandleLog(logBroadcast)
 
-		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		assert.Equal(t, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", configDigest.Hex())
 		assert.Equal(t, 1, int(epoch))
@@ -224,7 +223,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.requestRoundTracker.HandleLog(logBroadcast3)
 
-		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		assert.Equal(t, "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", configDigest.Hex())
 		assert.Equal(t, 2, int(epoch))
@@ -245,7 +244,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.requestRoundTracker.HandleLog(logBroadcast)
 
-		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 		require.Equal(t, 0, int(round))
@@ -272,7 +271,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		require.NoError(t, uni.requestRoundTracker.Start())
 
-		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(context.Background(), 0)
+		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
 		assert.Equal(t, (ocrtypes.ConfigDigest)(rr.ConfigDigest).Hex(), configDigest.Hex())
 		assert.Equal(t, rr.Epoch, epoch)

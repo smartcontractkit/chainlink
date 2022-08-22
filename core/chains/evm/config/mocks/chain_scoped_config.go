@@ -2966,6 +2966,11 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 	return r0
 }
 
+// LogConfiguration provides a mock function with given fields: log
+func (_m *ChainScopedConfig) LogConfiguration(log coreconfig.LogFn) {
+	_m.Called(log)
+}
+
 // LogFileDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogFileDir() string {
 	ret := _m.Called()
@@ -3255,20 +3260,6 @@ func (_m *ChainScopedConfig) OCR2KeyBundleID() (string, error) {
 	return r0, r1
 }
 
-// OCR2MonitoringEndpoint provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCR2MonitoringEndpoint() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // OCR2TraceLogging provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCR2TraceLogging() bool {
 	ret := _m.Called()
@@ -3442,20 +3433,6 @@ func (_m *ChainScopedConfig) OCRKeyBundleID() (string, error) {
 	}
 
 	return r0, r1
-}
-
-// OCRMonitoringEndpoint provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRMonitoringEndpoint() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
 }
 
 // OCRNewStreamTimeout provides a mock function with given fields:

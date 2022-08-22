@@ -132,7 +132,7 @@ export const ChainConfigurationForm = withStyles(styles)(
       >
         {({ values }) => {
           const chainAccounts = accounts.filter(
-            (acc) => acc.chain.id == values.chainID && !acc.isFunding,
+            (acc) => acc.chain.id == values.chainID && !acc.isDisabled,
           )
 
           return (

@@ -48,8 +48,8 @@ func (r *ETHKeyResolver) Address() string {
 	return r.key.addr.Hex()
 }
 
-func (r *ETHKeyResolver) IsFunding() bool {
-	return r.key.state.IsFunding
+func (r *ETHKeyResolver) IsDisabled() bool {
+	return r.key.state.Disabled
 }
 
 // ETHBalance returns the ETH balance available
