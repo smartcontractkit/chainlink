@@ -118,11 +118,13 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * - ArbitrumValidator 1.0.0: change target of L2 sequencer status update
    *   - now calls `updateStatus` on an L2 ArbitrumSequencerUptimeFeed contract instead of
    *     directly calling the Flags contract
-   *
+   * - ArbitrumValidator 2.0.0: change how maxSubmissionCost is calculated when sending cross chain messages
+   *   - now calls `calculateRetryableSubmissionFee` instead of inlining equation to estimate
+   *     the maxSubmissionCost required to send the message to L2
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumValidator 1.0.0";
+    return "ArbitrumValidator 2.0.0";
   }
 
   /// @return stored PaymentStrategy
