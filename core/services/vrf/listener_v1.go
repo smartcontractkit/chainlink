@@ -347,7 +347,7 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 	lggr := lsn.l.With(
 		"log", req.lb.String(),
 		"requestID", hex.EncodeToString(req.req.RequestID[:]),
-		"txHah", req.req.Raw.TxHash,
+		"txHash", req.req.Raw.TxHash,
 		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
 		"jobID", hex.EncodeToString(req.req.JobID[:]),
 		"sender", req.req.Sender.Hex(),
