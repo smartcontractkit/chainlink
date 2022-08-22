@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
 func Test_NodeWrapError(t *testing.T) {
@@ -18,7 +19,7 @@ func Test_NodeWrapError(t *testing.T) {
 	})
 
 	t.Run("adds extra info to context deadline exceeded errors", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 0)
+		ctx, cancel := context.WithTimeout(testutils.Context(t), 0)
 		defer cancel()
 
 		err := ctx.Err()

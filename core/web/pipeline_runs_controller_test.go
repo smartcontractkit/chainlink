@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -56,7 +55,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		err = app.AddJobV2(context.Background(), &jb)
+		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		uuid = jb.ExternalJobID
@@ -118,7 +117,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		err = app.AddJobV2(context.Background(), &jb)
+		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		uuid = jb.ExternalJobID
@@ -295,12 +294,12 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	jb.OCROracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
-	firstRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
+	firstRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
 	require.NoError(t, err)
-	secondRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
+	secondRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
 	require.NoError(t, err)
 
 	return client, jb.ID, []int64{firstRunID, secondRunID}

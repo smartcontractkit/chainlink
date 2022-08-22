@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/zap/zapcore"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -29,8 +28,6 @@ type HeadSaver interface {
 // Reconstitutes the last block number from the data store on reboot.
 type HeadTracker interface {
 	services.ServiceCtx
-	// SetLogLevel changes log level for HeadTracker logger
-	SetLogLevel(lvl zapcore.Level)
 	// Backfill given a head will fill in any missing heads up to the given depth
 	// (used for testing)
 	Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error)

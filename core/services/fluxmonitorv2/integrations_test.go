@@ -30,11 +30,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flags_wrapper"
+	faw "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
-	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -417,11 +417,11 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, p
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
 		orm := log.NewORM(db, lggr, cfg, fa.evmChainID)
-		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, 0, pipelineSpecID)
+		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -499,6 +499,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	contractAddress   = "%s"
 	threshold = 2.0
 	absoluteThreshold = 0.0
+	evmChainID        = 1337
 
 	idleTimerPeriod = "10s"
 	idleTimerDisabled = false
@@ -532,7 +533,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			g.Eventually(func() uint32 {
 				lb := evmtest.MustGetDefaultChain(t, app.GetChains().EVM).LogBroadcaster()
 				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-			}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+			}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
@@ -679,7 +680,7 @@ ds1 -> ds1_parse
 	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChains().EVM).LogBroadcaster()
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -810,7 +811,7 @@ ds1 -> ds1_parse
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
 		return len(logs)
-	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
 	reportPrice.Store(8)

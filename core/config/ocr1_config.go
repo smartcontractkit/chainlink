@@ -21,7 +21,6 @@ type OCR1Config interface {
 	OCRBlockchainTimeout() time.Duration
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
-	OCRMonitoringEndpoint() string
 	OCRKeyBundleID() (string, error)
 	OCRObservationTimeout() time.Duration
 	OCRSimulateTransactions() bool
@@ -61,10 +60,6 @@ func (c *generalConfig) OCRContractSubscribeInterval() time.Duration {
 
 func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
 	return c.getDuration("OCRBlockchainTimeout")
-}
-
-func (c *generalConfig) OCRMonitoringEndpoint() string {
-	return c.viper.GetString(envvar.Name("OCRMonitoringEndpoint"))
 }
 
 func (c *generalConfig) OCRKeyBundleID() (string, error) {
