@@ -7,7 +7,7 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { abi as registryAbi } from '../../../artifacts/src/v0.8/KeeperRegistry.sol/KeeperRegistry.json'
+import { abi as registryAbi } from '../../../artifacts/src/v0.8/KeeperRegistry1_2.sol/KeeperRegistry1_2.json'
 
 let personas: Personas
 let owner: Signer

@@ -9,13 +9,13 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factor
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry12__factory'
+import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
 
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
-import { UpkeepTranscoder } from '../../typechain'
+import { UpkeepTranscoder } from '../../typechain/UpkeepTranscoder'
 import { toWei } from '../test-helpers/helpers'
 
 async function getUpkeepID(tx: any) {

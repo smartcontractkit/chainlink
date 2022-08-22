@@ -3,7 +3,7 @@ import { BigNumber, Signer } from 'ethers'
 import moment from 'moment'
 import { assert } from 'chai'
 import { CanaryUpkeep } from '../../typechain/CanaryUpkeep'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
 import { fastForward, reset } from '../test-helpers/helpers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { evmRevert } from '../test-helpers/matchers'
@@ -61,7 +61,7 @@ describe('CanaryUpkeep', () => {
 
   beforeEach(async () => {
     const keeperRegistryFactory = await ethers.getContractFactory(
-      'KeeperRegistry',
+      'KeeperRegistry1_2',
     )
     keeperRegistry = await keeperRegistryFactory
       .connect(owner)
