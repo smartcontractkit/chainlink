@@ -305,10 +305,11 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			p.wg.Add(1)
 			go func(n SendOnlyNode, txCp types.Transaction) {
 				defer p.wg.Done()
-				timeoutCtx, cancel := DefaultQueryCtx()
+
+				chCtx, cancel := utils.ContextFromChan(p.chStop)
+				sendCtx, _ := WithDefaultTimeout(chCtx)
 				defer cancel()
-				sendCtx, cancel2 := utils.WithCloseChan(timeoutCtx, p.chStop)
-				defer cancel2()
+
 				err := NewSendError(n.SendTransaction(sendCtx, &txCp))
 				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
