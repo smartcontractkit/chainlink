@@ -21,7 +21,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Build Image
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@010068ddc7dd55cd4439159a485390aa651fdd39 # v2.0.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@e3bf7a2d54543beb94ad4151ca2a3837d62c2592 # v2.0.3
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d405e28e1419c0a48198793e6647005c409f4cf # v2.0.4
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e3bf7a2d54543beb94ad4151ca2a3837d62c2592 # v2.0.4
         env:
           CHAINLINK_COMMIT_SHA: ${{ github.sha }}
           CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -106,7 +106,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d405e28e1419c0a48198793e6647005c409f4cf # v2.0.4
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e3bf7a2d54543beb94ad4151ca2a3837d62c2592 # v2.0.4
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
