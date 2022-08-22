@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /**
- * @notice config of the registry
+ * @notice OnChainConfig of the registry
  * @dev only used in params and return values
  * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
@@ -23,7 +23,8 @@ pragma solidity ^0.8.0;
  * @member transcoder address of the transcoder contract
  * @member registrar address of the registrar contract
  */
-struct Config {
+struct OnChainConfig {
+  // TODO (sc-49442): Optimise config storage
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
   uint24 blockCountPerTurn;
@@ -65,14 +66,15 @@ struct State {
  * @member paused if this upkeep has been paused
  */
 struct Upkeep {
+  // TODO (sc-49442): Optimise upkeep storage
   uint96 balance;
-  address lastKeeper; // 1 full evm word
   uint96 amountSpent;
-  address admin; // 2 full evm words
+  address admin;
   uint32 executeGas;
   uint32 maxValidBlocknumber;
+  uint32 lastPerformBlockNumber;
   address target;
-  bool paused; // 24 bits to 3 full evm words
+  bool paused;
 }
 
 interface KeeperRegistryBaseInterface {
@@ -132,7 +134,7 @@ interface KeeperRegistryBaseInterface {
     view
     returns (
       State memory,
-      Config memory,
+      OnChainConfig memory,
       address[] memory
     );
 }

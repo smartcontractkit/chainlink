@@ -6,18 +6,19 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceOcr.sol";
+import {OnChainConfig, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceOcr.sol";
 import "../interfaces/UpkeepTranscoderInterfaceDev.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/KeeperCompatibleInterface.sol";
+import "./interfaces/OCR2Keeper.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
  * KeeperRegistry and KeeperRegistryLogic
  */
-abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable {
+abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable, OCR2Keeper {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
@@ -38,21 +39,37 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
   bytes public MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  address[] internal s_keeperList;
+  // TODO (sc-49442): Optimise upkeep storage
+  // Upkeep storage
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep;
-  mapping(address => KeeperInfo) internal s_keeperInfo;
-  mapping(address => address) internal s_proposedPayee;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
+
+  // TODO (sc-49442): Optimise config + state storage
+  // Registry config
+  // TODO: move this to OCRConfig struct
+  mapping(address => Transmitter) internal s_transmitters;
+  mapping(address => Signer) internal s_signers;
+  address[] internal s_signersList; // s_signersList contains the signing address of each oracle
+  address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
+  uint8 internal s_f; // Number of faulty oracles allowed
+  // TODO: add config for num instances
+  uint64 s_offchainConfigVersion;
+  bytes s_offchainConfig;
+  mapping(address => address) internal s_proposedPayee;
+  OnChainConfig internal s_onChainConfig;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
-  Storage internal s_storage;
-  uint256 internal s_fallbackGasPrice; // not in config object for gas savings
-  uint256 internal s_fallbackLinkPrice; // not in config object for gas savings
+
+  // Registry state
+  uint32 internal s_configCount; // incremented each time a new config is posted, The count
+  // is incorporated into the config digest to prevent replay attacks.
+  bytes32 internal s_latestRootConfigDigest;
+  // makes it easier for offchain systems to extract config from logs
+  uint32 internal s_latestConfigBlockNumber;
+  uint32 internal s_nonce; // Nonce for each upkeep created
   uint96 internal s_ownerLinkBalance;
   uint256 internal s_expectedLinkBalance;
-  address internal s_transcoder;
-  address internal s_registrar;
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
@@ -93,6 +110,17 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
+  error ConfigDisgestMismatch();
+  error IncorrectNumberOfSignatures();
+  error OnlyActiveSigners();
+  error DuplicateSigners();
+  error StaleReport();
+  error TooManyOracles();
+  error IncorrectNumberOfSigners();
+  error IncorrectNumberOfFaultyOracles();
+  error OnchainConfigNonEmpty();
+  error RepeatedSigner();
+  error RepeatedTransmitter();
 
   enum MigrationPermission {
     NONE,
@@ -101,44 +129,43 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
     BIDIRECTIONAL
   }
 
+  enum UpkeepFailureReason {
+    NONE,
+    TARGET_CHECK_REVERTED,
+    UPKEEP_NOT_NEEDED,
+    UPKEEP_PAUSED,
+    INSUFFICIENT_BALANCE
+  }
+
   enum PaymentModel {
     DEFAULT,
     ARBITRUM,
     OPTIMISM
   }
 
-  /**
-   * @notice storage of the registry, contains a mix of config and state data
-   */
-  struct Storage {
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink;
-    uint24 blockCountPerTurn;
-    uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend; // 1 full evm word
-    uint32 maxPerformGas;
-    uint32 nonce;
-  }
-
-  struct KeeperInfo {
-    address payee;
-    uint96 balance;
-    bool active;
-  }
-
   struct PerformParams {
-    address from;
     uint256 id;
     bytes performData;
-    uint256 maxLinkPayment;
-    uint256 gasLimit;
     uint256 fastGasWei;
     uint256 linkEth;
+    uint256 maxLinkPayment;
   }
 
-  event ConfigSet(Config config);
+  struct Transmitter {
+    bool active;
+    // Index of oracle in s_signersList/s_transmittersList
+    uint8 index;
+    uint96 balance;
+    address payee;
+  }
+
+  struct Signer {
+    bool active;
+    // Index of oracle in s_signersList/s_transmittersList
+    uint8 index;
+  }
+
+  event OnChainConfigSet(OnChainConfig config);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event KeepersUpdated(address[] keepers, address[] payees);
@@ -156,9 +183,9 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
   event UpkeepPerformed(
     uint256 indexed id,
     bool indexed success,
-    address indexed from,
-    uint96 payment,
-    bytes performData
+    uint256 gasUsed,
+    uint32 checkBlockNumber,
+    uint96 payment
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
@@ -168,7 +195,7 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkEthFeed address of the LINK/NATIVE price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
@@ -192,19 +219,19 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
    * price in order to reduce costs for the upkeep clients.
    */
   function _getFeedData() internal view returns (uint256 gasWei, uint256 linkEth) {
-    uint32 stalenessSeconds = s_storage.stalenessSeconds;
+    uint32 stalenessSeconds = s_onChainConfig.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      gasWei = s_fallbackGasPrice;
+      gasWei = s_onChainConfig.fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
     (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      linkEth = s_fallbackLinkPrice;
+      linkEth = s_onChainConfig.fallbackLinkPrice;
     } else {
       linkEth = uint256(feedValue);
     }
@@ -215,7 +242,7 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param fastGasWei the fast gas price
-   * @param linkEth the exchange ratio between LINK and ETH
+   * @param linkEth the exchange ratio between LINK and Native token
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
@@ -223,16 +250,15 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
     uint256 fastGasWei,
     uint256 linkEth,
     bool isExecution
-  ) internal view returns (uint96 payment) {
-    Storage memory store = s_storage;
-    uint256 gasWei = fastGasWei * store.gasCeilingMultiplier;
+  ) internal view returns (uint96 gasPayment, uint96 premium) {
+    OnChainConfig memory config = s_onChainConfig;
+    uint256 gasWei = fastGasWei * config.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
 
     uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
-    uint256 premium = PPB_BASE + store.paymentPremiumPPB;
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
@@ -247,26 +273,14 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = store.gasCeilingMultiplier * l1CostWei;
+      l1CostWei = config.gasCeilingMultiplier * l1CostWei;
     }
 
-    uint256 total = ((weiForGas + l1CostWei) * 1e9 * premium) / linkEth + uint256(store.flatFeeMicroLink) * 1e12;
-    if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
-  }
-
-  /**
-   * @dev ensures all required checks are passed before an upkeep is performed
-   */
-  function _prePerformUpkeep(
-    Upkeep memory upkeep,
-    address from,
-    uint256 maxLinkPayment
-  ) internal view {
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (!s_keeperInfo[from].active) revert OnlyActiveKeepers();
-    if (upkeep.balance < maxLinkPayment) revert InsufficientFunds();
-    if (upkeep.lastKeeper == from) revert KeepersMustTakeTurns();
+    uint256 gasPayment256 = ((weiForGas + l1CostWei) * 1e18) / linkEth;
+    uint256 premium256 = (gasPayment * config.paymentPremiumPPB) / 1e9 + uint256(config.flatFeeMicroLink) * 1e12;
+    // LINK_TOTAL_SUPPLY < UINT96_MAX
+    if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
+    return (uint96(gasPayment256), uint96(premium256));
   }
 
   /**
@@ -281,24 +295,63 @@ abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, 
    * @dev generates a PerformParams struct for use in _performUpkeepWithParams()
    */
   function _generatePerformParams(
-    address from,
     uint256 id,
     bytes memory performData,
-    bool isExecution
+    bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformParams memory) {
-    uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
-    uint96 maxLinkPayment = _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, isExecution);
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      s_upkeep[id].executeGas,
+      fastGasWei,
+      linkEth,
+      isExecution
+    );
 
     return
       PerformParams({
-        from: from,
         id: id,
         performData: performData,
-        maxLinkPayment: maxLinkPayment,
-        gasLimit: gasLimit,
         fastGasWei: fastGasWei,
-        linkEth: linkEth
+        linkEth: linkEth,
+        maxLinkPayment: gasPayment + premium
       });
+  }
+
+  // TODO (sc-50805): add documentation
+  function _computeAndStoreConfigDigest(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) internal {
+    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
+    s_latestConfigBlockNumber = uint32(block.number);
+    s_configCount += 1;
+
+    s_latestRootConfigDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(this),
+      s_configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    emit ConfigSet(
+      previousConfigBlockNumber,
+      s_latestRootConfigDigest,
+      s_configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
   }
 }
