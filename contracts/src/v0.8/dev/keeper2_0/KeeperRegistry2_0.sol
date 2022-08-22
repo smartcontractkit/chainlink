@@ -4,8 +4,8 @@ pragma solidity 0.8.6;
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "./KeeperRegistryOcrBase.sol";
-import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceOcr.sol";
+import "./KeeperRegistryBase2_0.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterfaceDev.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
@@ -14,8 +14,8 @@ import "../../interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistryOcr is
-  KeeperRegistryOcrBase,
+contract KeeperRegistry2_0 is
+  KeeperRegistryBase2_0,
   Proxy,
   TypeAndVersionInterface,
   KeeperRegistryExecutableInterface,
@@ -58,7 +58,7 @@ contract KeeperRegistryOcr is
     address fastGasFeed,
     address keeperRegistryLogic,
     Config memory config
-  ) KeeperRegistryOcrBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
+  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setConfig(config);
   }
