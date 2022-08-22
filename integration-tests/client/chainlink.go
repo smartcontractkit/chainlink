@@ -763,6 +763,34 @@ func (c *Chainlink) CreateSolanaNode(node *SolanaNodeAttributes) (*SolanaNodeCre
 	return &response, resp.RawResponse, err
 }
 
+// CreateStarkNetChain creates a starknet chain
+func (c *Chainlink) CreateStarkNetChain(chain *StarkNetChainAttributes) (*StarkNetChainCreate, *http.Response, error) {
+	response := StarkNetChainCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating StarkNet Chain")
+	resp, err := c.APIClient.R().
+		SetBody(chain).
+		SetResult(&response).
+		Post("/v2/chains/starknet")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
+// CreateStarkNetNode creates a starknet node
+func (c *Chainlink) CreateStarkNetNode(node *StarkNetNodeAttributes) (*StarkNetNodeCreate, *http.Response, error) {
+	response := StarkNetNodeCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating StarkNet Node")
+	resp, err := c.APIClient.R().
+		SetBody(node).
+		SetResult(&response).
+		Post("/v2/nodes/starknet")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
 // RemoteIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications
 func (c *Chainlink) RemoteIP() string {
 	return c.Config.RemoteIP
