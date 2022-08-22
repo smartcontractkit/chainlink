@@ -3,7 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"math"
-	"math/big"
 	"net"
 	"strings"
 	"testing"
@@ -12,8 +11,10 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -23,6 +24,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -66,13 +68,13 @@ var (
 				CPUProfileRate: ptr[int64](7),
 			},
 		},
-		EVM: []EVMConfig{
+		EVM: []*EVMConfig{
 			{
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth: ptr[uint32](26),
 				},
-				Nodes: []evmcfg.Node{
+				Nodes: []*evmcfg.Node{
 					{
 						Name:  ptr("primary"),
 						WSURL: mustURL("wss://web.socket/mainnet"),
@@ -90,7 +92,7 @@ var (
 						PriceDefault: utils.NewBigI(math.MaxInt64).Wei(),
 					},
 				},
-				Nodes: []evmcfg.Node{
+				Nodes: []*evmcfg.Node{
 					{
 						Name:  ptr("primary"),
 						WSURL: mustURL("wss://web.socket/test"),
@@ -103,49 +105,49 @@ var (
 						Mode: ptr("FixedPrice"),
 					},
 				},
-				Nodes: []evmcfg.Node{
+				Nodes: []*evmcfg.Node{
 					{
 						Name:  ptr("primary"),
 						WSURL: mustURL("wss://web.socket/test"),
 					},
 				}},
 		},
-		Solana: []SolanaConfig{
+		Solana: []*SolanaConfig{
 			{
-				ChainID: "mainnet",
+				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
 					MaxRetries: ptr[int64](12),
 				},
-				Nodes: []solcfg.Node{
-					{Name: "primary", URL: relayutils.MustParseURL("http://mainnet.solana.com")},
+				Nodes: []*solcfg.Node{
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://mainnet.solana.com")},
 				},
 			},
 			{
-				ChainID: "testnet",
+				ChainID: ptr("testnet"),
 				Chain: solcfg.Chain{
 					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
-				Nodes: []solcfg.Node{
-					{Name: "primary", URL: relayutils.MustParseURL("http://testnet.solana.com")},
+				Nodes: []*solcfg.Node{
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
-		Terra: []TerraConfig{
+		Terra: []*TerraConfig{
 			{
-				ChainID: "Columbus-5",
+				ChainID: ptr("Columbus-5"),
 				Chain: tercfg.Chain{
 					MaxMsgsPerBatch: ptr[int64](13),
 				},
-				Nodes: []tercfg.Node{
-					{Name: "primary", TendermintURL: relayutils.MustParseURL("http://columbus.terra.com")},
+				Nodes: []*tercfg.Node{
+					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://columbus.terra.com")},
 				}},
 			{
-				ChainID: "Bombay-12",
+				ChainID: ptr("Bombay-12"),
 				Chain: tercfg.Chain{
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
-				Nodes: []tercfg.Node{
-					{Name: "primary", TendermintURL: relayutils.MustParseURL("http://bombay.terra.com")},
+				Nodes: []*tercfg.Node{
+					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://bombay.terra.com")},
 				}},
 		},
 	}
@@ -173,10 +175,8 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: config.Core{
-			Dev:                 ptr(true),
 			ExplorerURL:         mustURL("http://explorer.url"),
 			InsecureFastScrypt:  ptr(true),
-			ReaperExpiration:    models.MustNewDuration(7 * 24 * time.Hour),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
 		},
@@ -184,10 +184,9 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 	full.Feature = &config.Feature{
-		FeedsManager:       ptr(true),
-		LogPoller:          ptr(true),
-		OffchainReporting2: ptr(true),
-		OffchainReporting:  ptr(true),
+		FeedsManager: ptr(true),
+		LogPoller:    ptr(true),
+		UICSAKeys:    ptr(true),
 	}
 	full.Database = &config.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
@@ -203,11 +202,8 @@ func TestConfig_Marshal(t *testing.T) {
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
 		Lock: &config.DatabaseLock{
-			Mode:                  ptr("advisory"),
-			AdvisoryCheckInterval: models.MustNewDuration(5 * time.Minute),
-			AdvisoryID:            ptr[int64](345982730592843),
-			LeaseDuration:         &minute,
-			LeaseRefreshInterval:  &second,
+			LeaseDuration:        &minute,
+			LeaseRefreshInterval: &second,
 		},
 		Backup: &config.DatabaseBackup{
 			Dir:              ptr("test/backup/dir"),
@@ -238,12 +234,13 @@ func TestConfig_Marshal(t *testing.T) {
 		UnixTS:          ptr(true),
 	}
 	full.WebServer = &config.WebServer{
-		AllowOrigins:      ptr("*"),
-		BridgeResponseURL: mustURL("https://bridge.response"),
-		HTTPWriteTimeout:  models.MustNewDuration(time.Minute),
-		HTTPPort:          ptr[uint16](56),
-		SecureCookies:     ptr(true),
-		SessionTimeout:    models.MustNewDuration(time.Hour),
+		AllowOrigins:            ptr("*"),
+		BridgeResponseURL:       mustURL("https://bridge.response"),
+		HTTPWriteTimeout:        models.MustNewDuration(time.Minute),
+		HTTPPort:                ptr[uint16](56),
+		SecureCookies:           ptr(true),
+		SessionTimeout:          models.MustNewDuration(time.Hour),
+		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
 		MFA: &config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -276,6 +273,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SimulateTransactions:         ptr(true),
 	}
 	full.OCR2 = &config.OCR2{
+		Enabled:                            ptr(true),
 		ContractConfirmations:              ptr[uint32](11),
 		BlockchainTimeout:                  models.MustNewDuration(3 * time.Second),
 		ContractPollInterval:               models.MustNewDuration(time.Hour),
@@ -285,6 +283,7 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 	}
 	full.OCR = &config.OCR{
+		Enabled:                      ptr(true),
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
 		BlockchainTimeout:            models.MustNewDuration(3 * time.Second),
 		ContractPollInterval:         models.MustNewDuration(time.Hour),
@@ -312,11 +311,14 @@ func TestConfig_Marshal(t *testing.T) {
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
 		V2: &config.P2PV2{
-			AnnounceAddresses:    &[]string{"a", "b", "c"},
-			DefaultBootstrappers: &[]string{"1", "2", "3"},
-			DeltaDial:            models.MustNewDuration(time.Minute),
-			DeltaReconcile:       models.MustNewDuration(time.Second),
-			ListenAddresses:      &[]string{"foo", "bar"},
+			AnnounceAddresses: &[]string{"a", "b", "c"},
+			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
+				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
+				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
+			},
+			DeltaDial:       models.MustNewDuration(time.Minute),
+			DeltaReconcile:  models.MustNewDuration(time.Second),
+			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
 	full.Keeper = &config.Keeper{
@@ -325,8 +327,8 @@ func TestConfig_Marshal(t *testing.T) {
 		GasTipCapBufferPercent:       ptr[uint32](43),
 		BaseFeeBufferPercent:         ptr[uint32](89),
 		MaximumGracePeriod:           ptr[int64](31),
-		RegistryCheckGasOverhead:     utils.NewBigI(90),
-		RegistryPerformGasOverhead:   utils.NewBig(new(big.Int).SetUint64(math.MaxUint64)),
+		RegistryCheckGasOverhead:     ptr[uint32](90),
+		RegistryPerformGasOverhead:   ptr[uint32](math.MaxUint32),
 		RegistrySyncInterval:         models.MustNewDuration(time.Hour),
 		RegistrySyncUpkeepQueueSize:  ptr[uint32](31),
 		TurnLookBack:                 ptr[int64](91),
@@ -353,7 +355,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
-	full.EVM = []EVMConfig{
+	full.EVM = []*EVMConfig{
 		{
 			ChainID: utils.NewBigI(1),
 			Enabled: ptr(false),
@@ -447,7 +449,7 @@ func TestConfig_Marshal(t *testing.T) {
 					ObservationGracePeriod:             &second,
 				},
 			},
-			Nodes: []evmcfg.Node{
+			Nodes: []*evmcfg.Node{
 				{
 					Name:    ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
@@ -465,9 +467,9 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []SolanaConfig{
+	full.Solana = []*SolanaConfig{
 		{
-			ChainID: "mainnet",
+			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
 				BalancePollPeriod:   relayutils.MustNewDuration(time.Minute),
@@ -481,16 +483,16 @@ func TestConfig_Marshal(t *testing.T) {
 				Commitment:          ptr("banana"),
 				MaxRetries:          ptr[int64](7),
 			},
-			Nodes: []solcfg.Node{
-				{Name: "primary", URL: relayutils.MustParseURL("http://solana.web")},
-				{Name: "foo", URL: relayutils.MustParseURL("http://solana.foo")},
-				{Name: "bar", URL: relayutils.MustParseURL("http://solana.bar")},
+			Nodes: []*solcfg.Node{
+				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://solana.web")},
+				{Name: ptr("foo"), URL: relayutils.MustParseURL("http://solana.foo")},
+				{Name: ptr("bar"), URL: relayutils.MustParseURL("http://solana.bar")},
 			},
 		},
 	}
-	full.Terra = []TerraConfig{
+	full.Terra = []*TerraConfig{
 		{
-			ChainID: "Bombay-12",
+			ChainID: ptr("Bombay-12"),
 			Enabled: ptr(true),
 			Chain: tercfg.Chain{
 				BlockRate:             relayutils.MustNewDuration(time.Minute),
@@ -504,10 +506,10 @@ func TestConfig_Marshal(t *testing.T) {
 				OCR2CacheTTL:          relayutils.MustNewDuration(time.Hour),
 				TxMsgTimeout:          relayutils.MustNewDuration(time.Second),
 			},
-			Nodes: []tercfg.Node{
-				{Name: "primary", TendermintURL: relayutils.MustParseURL("http://tender.mint")},
-				{Name: "foo", TendermintURL: relayutils.MustParseURL("http://foo.url")},
-				{Name: "bar", TendermintURL: relayutils.MustParseURL("http://bar.web")},
+			Nodes: []*tercfg.Node{
+				{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://tender.mint")},
+				{Name: ptr("foo"), TendermintURL: relayutils.MustParseURL("http://foo.url")},
+				{Name: ptr("bar"), TendermintURL: relayutils.MustParseURL("http://bar.web")},
 			},
 		},
 	}
@@ -518,10 +520,8 @@ func TestConfig_Marshal(t *testing.T) {
 		exp    string
 	}{
 		{"empty", Config{}, ``},
-		{"global", global, `Dev = true
-ExplorerURL = 'http://explorer.url'
+		{"global", global, `ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
-ReaperExpiration = '168h0m0s'
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 `},
@@ -529,8 +529,7 @@ ShutdownGracePeriod = '10s'
 [Feature]
 FeedsManager = true
 LogPoller = true
-OffchainReporting2 = true
-OffchainReporting = true
+UICSAKeys = true
 `},
 		{"Database", Config{Core: config.Core{Database: full.Database}}, `
 [Database]
@@ -554,9 +553,6 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
-Mode = 'advisory'
-AdvisoryCheckInterval = '5m0s'
-AdvisoryID = 345982730592843
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
@@ -590,6 +586,7 @@ HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
+SessionReaperExpiration = '168h0m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -625,6 +622,7 @@ ResultWriteQueueDepth = 10
 `},
 		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `
 [OCR]
+Enabled = true
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
@@ -636,6 +634,7 @@ TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 `},
 		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `
 [OCR2]
+Enabled = true
 ContractConfirmations = 11
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
@@ -665,7 +664,7 @@ PeerstoreWriteInterval = '1m0s'
 
 [P2P.V2]
 AnnounceAddresses = ['a', 'b', 'c']
-DefaultBootstrappers = ['1', '2', '3']
+DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
@@ -677,8 +676,8 @@ GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
 MaximumGracePeriod = 31
-RegistryCheckGasOverhead = '90'
-RegistryPerformGasOverhead = '18446744073709551615'
+RegistryCheckGasOverhead = 90
+RegistryPerformGasOverhead = 4294967295
 RegistrySyncInterval = '1h0m0s'
 RegistrySyncUpkeepQueueSize = 31
 TurnLookBack = 91
@@ -893,6 +892,41 @@ func TestConfig_full(t *testing.T) {
 	cfgtest.AssertFieldsNotNil(t, got)
 }
 
+//go:embed testdata/config-invalid.toml
+var invalidTOML string
+
+func TestConfig_Validate(t *testing.T) {
+	var invalid Config
+	d := toml.NewDecoder(strings.NewReader(invalidTOML)).DisallowUnknownFields()
+	require.NoError(t, d.Decode(&invalid))
+	if err := invalid.Validate(); assert.Error(t, err) {
+		got := err.Error()
+		exp := `3 errors:
+	1) EVM: 3 errors:
+		1) ChainID: invalid value 1: duplicate - must be unique
+		2) 0: Nodes: 3 errors:
+				1) Name: invalid value foo: duplicate - must be unique
+				2) 0: HTTPURL: missing: required for all nodes
+				3) 1: 2 errors:
+					1) WSURL: missing: required for SendOnly nodes
+					2) HTTPURL: missing: required for all nodes
+		3) 1: Chain: KeySpecific: duplicate address: 0xde709f2102306220921060314715629080e2fb77
+	2) Solana: 2 errors:
+		1) ChainID: invalid value mainnet: duplicate - must be unique
+		2) 1: Nodes: 3 errors:
+				1) Name: invalid value bar: duplicate - must be unique
+				2) 0: URL: missing: required for all nodes
+				3) 1: URL: missing: required for all nodes
+	3) Terra: 2 errors:
+		1) ChainID: invalid value Bombay-12: duplicate - must be unique
+		2) 0: Nodes: 3 errors:
+				1) Name: invalid value test: duplicate - must be unique
+				2) 0: TendermintURL: missing: required for all nodes
+				3) 1: TendermintURL: missing: required for all nodes`
+		assert.Equal(t, exp, got, diff.Diff(exp, got))
+	}
+}
+
 func mustURL(s string) *models.URL {
 	var u models.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
@@ -911,4 +945,45 @@ func mustIP(s string) *net.IP {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+var (
+	//go:embed testdata/config-multi-chain-effective.toml
+	multiChainEffectiveTOML string
+)
+
+func TestNewGeneralConfig_Logger(t *testing.T) {
+	const (
+		input     = "Input Configuration:\n"
+		effective = "Effective Configuration, with defaults applied:\n"
+	)
+	tests := []struct {
+		name          string
+		inputConfig   string
+		wantConfig    string
+		wantEffective string
+	}{
+		{name: "empty"},
+		{name: "full", inputConfig: fullTOML, wantConfig: fullTOML, wantEffective: fullTOML},
+		{name: "multi-chain", inputConfig: multiChainTOML, wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML},
+		// TODO: more test cases
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+			c, err := NewGeneralConfig(tt.inputConfig)
+			require.NoError(t, err)
+			c.LogConfiguration(lggr.Info)
+			inputLogs := observed.FilterMessageSnippet(input).All()
+			if assert.Len(t, inputLogs, 1) {
+				got := strings.TrimPrefix(inputLogs[0].Message, input)
+				assert.Equal(t, tt.wantConfig, got)
+			}
+			inputLogs = observed.FilterMessageSnippet(effective).All()
+			if assert.Len(t, inputLogs, 1) {
+				got := strings.TrimPrefix(inputLogs[0].Message, effective)
+				assert.Equal(t, tt.wantEffective, got)
+			}
+		})
+	}
 }

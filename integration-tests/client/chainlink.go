@@ -14,9 +14,10 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	chainlinkChart "github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"golang.org/x/sync/errgroup"
 )
 
 // OneLINK representation of a single LINK token
@@ -756,6 +757,34 @@ func (c *Chainlink) CreateSolanaNode(node *SolanaNodeAttributes) (*SolanaNodeCre
 		SetBody(node).
 		SetResult(&response).
 		Post("/v2/nodes/solana")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
+// CreateStarkNetChain creates a starknet chain
+func (c *Chainlink) CreateStarkNetChain(chain *StarkNetChainAttributes) (*StarkNetChainCreate, *http.Response, error) {
+	response := StarkNetChainCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating StarkNet Chain")
+	resp, err := c.APIClient.R().
+		SetBody(chain).
+		SetResult(&response).
+		Post("/v2/chains/starknet")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
+// CreateStarkNetNode creates a starknet node
+func (c *Chainlink) CreateStarkNetNode(node *StarkNetNodeAttributes) (*StarkNetNodeCreate, *http.Response, error) {
+	response := StarkNetNodeCreate{}
+	log.Info().Str("Node URL", c.Config.URL).Str("Name", node.Name).Msg("Creating StarkNet Node")
+	resp, err := c.APIClient.R().
+		SetBody(node).
+		SetResult(&response).
+		Post("/v2/nodes/starknet")
 	if err != nil {
 		return nil, nil, err
 	}

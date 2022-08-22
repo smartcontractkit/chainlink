@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"

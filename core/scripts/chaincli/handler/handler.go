@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	link "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	link "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 )
 

@@ -176,7 +176,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
-		gasLimit = uint64(21000)
+		gasLimit = uint32(21000)
 	)
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
