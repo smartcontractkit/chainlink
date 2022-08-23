@@ -71,6 +71,17 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		// node1 is alive again, node2 must be returned as the last best node
 		assert.Equal(t, node2, selector.Select())
 	})
+
+	t.Run("nodes never update latest block number", func(t *testing.T) {
+		node1 := evmmocks.NewNode(t)
+		node1.On("StateAndLatestBlockNumber").Return(evmclient.NodeStateAlive, int64(-1))
+		node2 := evmmocks.NewNode(t)
+		node2.On("StateAndLatestBlockNumber").Return(evmclient.NodeStateAlive, int64(-1))
+		nodes := []evmclient.Node{node1, node2}
+
+		selector := evmclient.NewHighestHeadNodeSelector(nodes)
+		assert.Equal(t, node1, selector.Select())
+	})
 }
 
 func TestHighestHeadNodeSelector_None(t *testing.T) {
