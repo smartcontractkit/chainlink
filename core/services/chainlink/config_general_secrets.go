@@ -3,21 +3,25 @@ package chainlink
 import "net/url"
 
 func (g *generalConfig) DatabaseURL() url.URL {
-	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
-	panic("implement me")
+	return *(*url.URL)(g.secrets.DatabaseURL)
+}
+
+func (g *generalConfig) DatabaseBackupURL() *url.URL {
+	return (*url.URL)(g.secrets.DatabaseBackupURL)
 }
 
 func (g *generalConfig) ExplorerAccessKey() string {
-	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
-	panic("implement me")
+	return *g.secrets.ExplorerAccessKey
 }
 
 func (g *generalConfig) ExplorerSecret() string {
-	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
-	panic("implement me")
+	return *g.secrets.ExplorerSecret
 }
 
-func (g *generalConfig) SessionSecret() ([]byte, error) {
-	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
-	panic("implement me")
+func (g *generalConfig) KeystorePassword() string {
+	return *g.secrets.KeystorePassword
+}
+
+func (g *generalConfig) VRFPassword() string {
+	return *g.secrets.VRFPassword
 }
