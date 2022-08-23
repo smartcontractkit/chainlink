@@ -233,6 +233,7 @@ type GlobalConfig interface {
 	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
+	GlobalNodeSelectionMode() (string, bool)
 
 	OCR1Config
 	OCR2Config
@@ -1362,6 +1363,10 @@ func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
 
 func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("NodePollInterval"), time.ParseDuration)
+}
+
+func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
+	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
