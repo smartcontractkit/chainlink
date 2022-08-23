@@ -1225,6 +1225,16 @@ func (c *chainScopedConfig) NodePollInterval() time.Duration {
 	return c.defaultSet.nodePollInterval
 }
 
+// NodeSelectionMode controls how pool node selection mode.
+func (c *chainScopedConfig) NodeSelectionMode() string {
+	val, ok := c.GeneralConfig.GlobalNodeSelectionMode()
+	if ok {
+		c.logEnvOverrideOnce("NodeSelectionMode", val)
+		return val
+	}
+	return c.defaultSet.nodeSelectionMode
+}
+
 func lookupEnv[T any](c *chainScopedConfig, k string, parse func(string) (T, error)) (t T, ok bool) {
 	s, ok := os.LookupEnv(k)
 	if !ok {
