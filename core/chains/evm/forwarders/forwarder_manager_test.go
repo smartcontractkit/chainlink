@@ -65,7 +65,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
-	require.NoError(t, fwdMgr.Start())
+	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
 	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.NoError(t, err)
 	require.Equal(t, addr, forwarderAddr)
@@ -105,7 +105,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
-	err = fwdMgr.Start()
+	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
 	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.ErrorContains(t, err, "Skipping forwarding transaction")
