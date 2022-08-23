@@ -1,6 +1,9 @@
 package client
 
-import "sync"
+import (
+	"math"
+	"sync"
+)
 
 type highestHeadNodeSelector struct {
 	nodes          []Node
@@ -21,7 +24,8 @@ func (s *highestHeadNodeSelector) Select() Node {
 	defer s.lastBestNodeMu.Unlock()
 
 	var node Node
-	highestHeadNumber := int64(-1)
+	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have latestReceivedBlockNumber == -1
+	var highestHeadNumber int64 = math.MinInt64
 	if s.lastBestNode != nil {
 		state, latestReceivedBlockNumber := s.lastBestNode.StateAndLatestBlockNumber()
 		if state == NodeStateAlive {
