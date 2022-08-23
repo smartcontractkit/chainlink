@@ -57,14 +57,14 @@ contract KeeperRegistry2_0 is
     address linkEthFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
-    Config memory onChainConfig
+    OnChainConfig memory onChainConfig
   ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setOnChainConfig(onChainConfig);
   }
 
   /**
-   * @inheritdoc OCR2Abstract
+   * @inheritdoc OCR2Keeper
    */
   function setConfig(
     address[] memory signers,
@@ -79,7 +79,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @inheritdoc OCR2Abstract
+   * @inheritdoc OCR2Keeper
    */
   function latestRootConfigDetails()
     external
@@ -95,7 +95,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @inheritdoc OCR2Abstract
+   * @inheritdoc OCR2Keeper
    */
   function latestConfigDigestAndEpoch()
     external
@@ -111,7 +111,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @inheritdoc OCR2Abstract
+   * @inheritdoc OCR2Keeper
    */
   function transmit(
     bytes32[3] calldata reportContext,
@@ -122,7 +122,7 @@ contract KeeperRegistry2_0 is
   ) external override whenNotPaused {
     if (!s_transmitters[msg.sender].active) revert OnlyActiveKeepers();
     // TODO: change to support multiple config digests
-    if (s_latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+    if (s_latestRootConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
 
     if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
@@ -158,12 +158,7 @@ contract KeeperRegistry2_0 is
     (bool success, uint256 gasUsed) = _performUpkeepWithParams(params);
 
     // Calculate actual payment amount
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
-      gasUsed,
-      params.fastGasWei,
-      params.linkNativePrice,
-      true
-    );
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkEth, true);
     uint96 premiumPerSigner = premium / uint96(rs.length);
     uint96 totalPayment = gasPayment + premiumPerSigner * uint96(rs.length);
 
@@ -249,7 +244,6 @@ contract KeeperRegistry2_0 is
    */
   function simulatePerformUpkeep(uint256 id, bytes calldata performData)
     external
-    override
     cannotExecute
     whenNotPaused
     returns (bool success, uint256 gasUsed)
@@ -460,7 +454,7 @@ contract KeeperRegistry2_0 is
       s_offchainConfigVersion,
       s_offchainConfig
     );
-    emit OnChainConfigSet(config);
+    emit OnChainConfigSet(onChainConfig);
   }
 
   // GETTERS
@@ -490,7 +484,6 @@ contract KeeperRegistry2_0 is
       reg.executeGas,
       s_checkData[id],
       reg.balance,
-      reg.lastKeeper,
       reg.admin,
       reg.maxValidBlocknumber,
       reg.lastPerformBlockNumber,
@@ -546,7 +539,7 @@ contract KeeperRegistry2_0 is
     override
     returns (
       State memory state,
-      OnChainConfigSet memory config,
+      OnChainConfig memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f,

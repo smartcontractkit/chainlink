@@ -44,7 +44,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_config.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_onChainConfig.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
     if (!success) return (false, performData, UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed);
@@ -52,7 +52,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     if (!upkeepNeeded) return (false, performData, UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
 
-    PerformParams memory params = _generatePerformParams(id, performData, false, 0);
+    PerformParams memory params = _generatePerformParams(id, performData, false);
     if (upkeep.balance < params.maxLinkPayment)
       return (false, performData, UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
 
@@ -117,7 +117,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
    */
-  function latestConfigDetails()
+  function latestRootConfigDetails()
     external
     view
     override
@@ -204,7 +204,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address admin,
     bytes calldata checkData
   ) external returns (uint256 id) {
-    if (msg.sender != owner() && msg.sender != s_registrar) revert OnlyCallableByOwnerOrRegistrar();
+    if (msg.sender != owner() && msg.sender != s_onChainConfig.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
     id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
@@ -455,7 +455,6 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       admin: admin,
       maxValidBlocknumber: UINT32_MAX,
       lastPerformBlockNumber: 0,
-      lastKeeper: ZERO_ADDRESS,
       amountSpent: 0,
       paused: paused
     });
