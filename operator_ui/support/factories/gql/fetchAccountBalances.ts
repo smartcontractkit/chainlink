@@ -10,7 +10,7 @@ export function buildETHKey(
       id: '42',
     },
     ethBalance: '0.100000000000000000',
-    isFunding: false,
+    isDisabled: false,
     linkBalance: '1000000000000000000',
     ...overrides,
   }

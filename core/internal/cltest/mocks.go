@@ -324,7 +324,7 @@ func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
 // MustRandomUser inserts a new admin user with a random email into the test DB
 func MustRandomUser(t testing.TB) sessions.User {
-	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
+	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomPositiveInt64())
 	r, err := sessions.NewUser(email, Password, sessions.UserRoleAdmin)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)

@@ -117,6 +117,10 @@ func (e *erroringNode) State() NodeState {
 	return NodeStateUnreachable
 }
 
+func (e *erroringNode) StateAndLatestBlockNumber() (NodeState, int64) {
+	return NodeStateUnreachable, -1
+}
+
 func (e *erroringNode) DeclareOutOfSync()            {}
 func (e *erroringNode) DeclareInSync()               {}
 func (e *erroringNode) DeclareUnreachable()          {}

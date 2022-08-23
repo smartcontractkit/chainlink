@@ -1,7 +1,6 @@
 package auth_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/sessions/mocks"
@@ -72,7 +72,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 func Test_GetAndSetGQLAuthenticatedSession(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	user := clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}
 
 	ctx = auth.SetGQLAuthenticatedSession(ctx, user, "sessionID")

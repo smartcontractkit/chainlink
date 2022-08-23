@@ -399,7 +399,7 @@ type JobResource struct {
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
 	GasLimit               clnull.Uint32           `json:"gasLimit"`
-	AllowForwarding        null.Bool               `json:"allowForwarding"`
+	ForwardingAllowed      null.Bool               `json:"forwardingAllowed"`
 	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
 	ExternalJobID          uuid.UUID               `json:"externalJobID"`
 	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
@@ -419,15 +419,15 @@ type JobResource struct {
 // NewJobResource initializes a new JSONAPI job resource
 func NewJobResource(j job.Job) *JobResource {
 	resource := &JobResource{
-		JAID:            NewJAIDInt32(j.ID),
-		Name:            j.Name.ValueOrZero(),
-		Type:            JobSpecType(j.Type),
-		SchemaVersion:   j.SchemaVersion,
-		GasLimit:        j.GasLimit,
-		AllowForwarding: j.AllowForwarding,
-		MaxTaskDuration: j.MaxTaskDuration,
-		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
-		ExternalJobID:   j.ExternalJobID,
+		JAID:              NewJAIDInt32(j.ID),
+		Name:              j.Name.ValueOrZero(),
+		Type:              JobSpecType(j.Type),
+		SchemaVersion:     j.SchemaVersion,
+		GasLimit:          j.GasLimit,
+		ForwardingAllowed: j.ForwardingAllowed,
+		MaxTaskDuration:   j.MaxTaskDuration,
+		PipelineSpec:      NewPipelineSpec(j.PipelineSpec),
+		ExternalJobID:     j.ExternalJobID,
 	}
 
 	switch j.Type {

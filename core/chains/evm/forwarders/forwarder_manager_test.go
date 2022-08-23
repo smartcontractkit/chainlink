@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_receiver"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -65,7 +65,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
-	require.NoError(t, fwdMgr.Start())
+	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
 	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.NoError(t, err)
 	require.Equal(t, addr, forwarderAddr)
@@ -105,7 +105,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
-	err = fwdMgr.Start()
+	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
 	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.ErrorContains(t, err, "Skipping forwarding transaction")

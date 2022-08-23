@@ -26,9 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -143,7 +143,7 @@ type vrfPipelineResult struct {
 	juelsNeeded   *big.Int
 	run           pipeline.Run
 	payload       string
-	gasLimit      uint64
+	gasLimit      uint32
 	req           pendingRequest
 	proof         vrf_coordinator_v2.VRFProof
 	reqCommitment vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
@@ -523,7 +523,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}
 
 	// Add very conservative upper bound estimate on verification costs.
-	batchMaxGas := uint64(config.MaxGasLimit + 400_000)
+	batchMaxGas := uint32(config.MaxGasLimit + 400_000)
 
 	l := lsn.l.With(
 		"subID", reqs[0].req.SubId,
@@ -1041,7 +1041,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeEstimateGasLimit {
-			res.gasLimit = trr.Result.Value.(uint64)
+			res.gasLimit = trr.Result.Value.(uint32)
 		}
 	}
 	return res

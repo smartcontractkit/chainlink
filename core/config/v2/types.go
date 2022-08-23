@@ -2,8 +2,11 @@ package v2
 
 import (
 	"net"
+	"net/url"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -15,10 +18,8 @@ import (
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
-	Dev                 *bool
 	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
-	ReaperExpiration    *models.Duration
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
@@ -51,16 +52,45 @@ type Core struct {
 
 type Secrets struct {
 	DatabaseURL       *models.URL
-	ExplorerAccessKey string `toml:",omitempty"`
-	ExplorerSecret    string `toml:",omitempty"`
-	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
+	DatabaseBackupURL *models.URL
+
+	ExplorerAccessKey *string
+	ExplorerSecret    *string
+
+	KeystorePassword *string
+	VRFPassword      *string
+}
+
+func (s *Secrets) ValidateConfig() (err error) {
+	if s.DatabaseURL == nil || (*url.URL)(s.DatabaseURL).String() == "" {
+		err = multierr.Append(err, ErrEmpty{Name: "Database URL", Msg: "must be provided and non-empty"})
+	}
+	if s.KeystorePassword == nil || *s.KeystorePassword == "" {
+		err = multierr.Append(err, ErrEmpty{Name: "Keystore Password", Msg: "must be provided and non-empty"})
+	}
+	return err
+}
+
+func (s *Secrets) String() string {
+	return "<hidden>"
+}
+
+func (s *Secrets) GoString() string {
+	return "<hidden>"
+}
+
+func (s *Secrets) MarshalJSON() ([]byte, error) {
+	return []byte("{}"), nil
+}
+
+func (s *Secrets) MarshalText() ([]byte, error) {
+	return []byte("<hidden>"), nil
 }
 
 type Feature struct {
-	FeedsManager       *bool
-	LogPoller          *bool
-	OffchainReporting2 *bool
-	OffchainReporting  *bool
+	FeedsManager *bool
+	LogPoller    *bool
+	UICSAKeys    *bool
 }
 
 type Database struct {
@@ -85,11 +115,8 @@ type DatabaseListener struct {
 }
 
 type DatabaseLock struct {
-	Mode                  *string
-	AdvisoryCheckInterval *models.Duration
-	AdvisoryID            *int64
-	LeaseDuration         *models.Duration
-	LeaseRefreshInterval  *models.Duration
+	LeaseDuration        *models.Duration
+	LeaseRefreshInterval *models.Duration
 }
 
 type DatabaseBackup struct {
@@ -97,7 +124,7 @@ type DatabaseBackup struct {
 	Frequency        *models.Duration
 	Mode             *config.DatabaseBackupMode
 	OnVersionUpgrade *bool
-	URL              *models.URL
+	// DatabaseBackupURL stored in Secrets
 }
 
 type TelemetryIngress struct {
@@ -123,12 +150,13 @@ type Log struct {
 }
 
 type WebServer struct {
-	AllowOrigins      *string
-	BridgeResponseURL *models.URL
-	HTTPWriteTimeout  *models.Duration
-	HTTPPort          *uint16
-	SecureCookies     *bool
-	SessionTimeout    *models.Duration
+	AllowOrigins            *string
+	BridgeResponseURL       *models.URL
+	HTTPWriteTimeout        *models.Duration
+	HTTPPort                *uint16
+	SecureCookies           *bool
+	SessionTimeout          *models.Duration
+	SessionReaperExpiration *models.Duration
 
 	MFA *WebServerMFA
 
@@ -173,6 +201,7 @@ type FluxMonitor struct {
 }
 
 type OCR2 struct {
+	Enabled                            *bool //TODO disabled https://app.shortcut.com/chainlinklabs/story/33615/
 	ContractConfirmations              *uint32
 	BlockchainTimeout                  *models.Duration
 	ContractPollInterval               *models.Duration
@@ -183,6 +212,7 @@ type OCR2 struct {
 }
 
 type OCR struct {
+	Enabled                      *bool //TODO disabled https://app.shortcut.com/chainlinklabs/story/33615/
 	ObservationTimeout           *models.Duration
 	BlockchainTimeout            *models.Duration
 	ContractPollInterval         *models.Duration
@@ -233,7 +263,7 @@ type P2PV1 struct {
 
 type P2PV2 struct {
 	AnnounceAddresses    *[]string
-	DefaultBootstrappers *[]string
+	DefaultBootstrappers *[]ocrcommontypes.BootstrapperLocator
 	DeltaDial            *models.Duration
 	DeltaReconcile       *models.Duration
 	ListenAddresses      *[]string
@@ -245,8 +275,8 @@ type Keeper struct {
 	GasTipCapBufferPercent       *uint32
 	BaseFeeBufferPercent         *uint32
 	MaximumGracePeriod           *int64
-	RegistryCheckGasOverhead     *utils.Big
-	RegistryPerformGasOverhead   *utils.Big
+	RegistryCheckGasOverhead     *uint32
+	RegistryPerformGasOverhead   *uint32
 	RegistrySyncInterval         *models.Duration
 	RegistrySyncUpkeepQueueSize  *uint32
 	TurnLookBack                 *int64
@@ -255,7 +285,7 @@ type Keeper struct {
 }
 
 type AutoPprof struct {
-	Enabled              *bool
+	Enabled              *bool //TODO Disabled https://app.shortcut.com/chainlinklabs/story/33615/
 	ProfileRoot          *string
 	PollInterval         *models.Duration
 	GatherDuration       *models.Duration
