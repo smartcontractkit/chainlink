@@ -261,7 +261,7 @@ func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain t
 			primaries = append(primaries, primary)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
+	return evmclient.NewClientWithNodes(lggr, cfg, primaries, sendonlys, &chainID)
 }
 
 func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n types.Node) (evmclient.Node, error) {

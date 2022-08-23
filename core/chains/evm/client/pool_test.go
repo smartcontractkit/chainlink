@@ -23,6 +23,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+type poolConfig struct {
+	selectionMode string
+}
+
+func (c poolConfig) NodeSelectionMode() string {
+	return c.selectionMode
+}
+
+var defaultConfig evmclient.PoolConfig = &poolConfig{
+	selectionMode: evmclient.NodeSelectionMode_RoundRobin,
+}
+
 func TestPool_Dial(t *testing.T) {
 	t.Parallel()
 
@@ -144,7 +156,7 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), nodes, sendNodes, test.poolChainID)
+			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendNodes, test.poolChainID)
 			err := p.Dial(ctx)
 			if test.errStr != "" {
 				require.Error(t, err)
@@ -223,7 +235,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	nodes := []evmclient.Node{n1, n2, n3}
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-	p := evmclient.NewPool(lggr, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
+	p := evmclient.NewPool(lggr, defaultConfig, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -287,7 +299,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 
 	for i := 0; i < nodeCount; i++ {
 		node := evmmocks.NewNode(t)
-		node.On("State").Return(evmclient.NodeStateAlive)
+		node.On("State").Return(evmclient.NodeStateAlive).Maybe()
 		node.On("BatchCallContext", ctx, b).Return(nil).Once()
 		nodes = append(nodes, node)
 	}
@@ -297,7 +309,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), nodes, sendonlys, &cltest.FixtureChainID)
+	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig, nodes, sendonlys, &cltest.FixtureChainID)
 
 	p.BatchCallContextAll(ctx, b)
 }

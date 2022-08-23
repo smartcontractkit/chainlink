@@ -107,8 +107,8 @@ var _ Client = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
-	pool := NewPool(logger, primaryNodes, sendOnlyNodes, chainID)
+func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
+	pool := NewPool(logger, cfg, primaryNodes, sendOnlyNodes, chainID)
 	return &client{
 		logger: logger,
 		pool:   pool,
