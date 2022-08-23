@@ -62,7 +62,6 @@ describe('VRFV2Wrapper', () => {
   ): BigNumber => {
     const totalGas = BigNumber.from(0)
       .add(gasLimit)
-      .add(BigNumber.from(gasLimit).div(64))
       .add(_wrapperGasOverhead)
       .add(_coordinatorGasOverhead)
     const baseFee = BigNumber.from('1000000000000000000')
@@ -182,7 +181,7 @@ describe('VRFV2Wrapper', () => {
         wrapperPremiumPercentage,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('4015303333333333332'), result)
+      bigNumEquals(BigNumber.from('3986666666666666666'), result)
     })
 
     it('can calculate price at 50 gwei, 200k limit', async () => {
@@ -195,7 +194,7 @@ describe('VRFV2Wrapper', () => {
         wrapperPremiumPercentage,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('5877291666666666666'), result)
+      bigNumEquals(BigNumber.from('5820000000000000000'), result)
     })
 
     it('can calculate price at 200 gwei, 100k limit', async () => {
@@ -208,7 +207,7 @@ describe('VRFV2Wrapper', () => {
         wrapperPremiumPercentage,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('11654583333333333332'), result)
+      bigNumEquals(BigNumber.from('11540000000000000000'), result)
     })
 
     it('can calculate price at 200 gwei, 100k limit, 25% premium', async () => {
@@ -221,7 +220,7 @@ describe('VRFV2Wrapper', () => {
         25,
         flatFee,
       )
-      bigNumEquals(BigNumber.from('13230208333333333332'), result)
+      bigNumEquals(BigNumber.from('13100000000000000000'), result)
     })
   })
 
