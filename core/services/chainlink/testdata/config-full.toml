@@ -243,6 +243,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
+SelectionMode = 'HighestHead'
 
 [EVM.OCR]
 ContractConfirmations = 11
