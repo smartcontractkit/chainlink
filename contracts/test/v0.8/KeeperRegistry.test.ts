@@ -966,7 +966,7 @@ describe('KeeperRegistry', () => {
       it('uses the fallback gas price if the feed price is non-sensical [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
         const roundId = 99
-        
+
         const currentBlockNum = await ethers.provider.getBlockNumber()
         const currentBlock = await ethers.provider.getBlock(currentBlockNum)
         const currentTimestamp = currentBlock.timestamp
@@ -1001,7 +1001,7 @@ describe('KeeperRegistry', () => {
       it('uses the fallback link price if the feed price is non-sensical [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
         const roundId = 99
-        
+
         const currentBlockNum = await ethers.provider.getBlockNumber()
         const currentBlock = await ethers.provider.getBlock(currentBlockNum)
         const currentTimestamp = currentBlock.timestamp
