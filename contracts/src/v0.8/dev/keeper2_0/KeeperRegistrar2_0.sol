@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "../../interfaces/LinkTokenInterface.sol";
-import "./interfaces/KeeperRegistryInterfaceOcr.sol";
+import "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
@@ -17,7 +17,7 @@ import "../../interfaces/ERC677ReceiverInterface.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract KeeperRegistrarOcr is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
+contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.

@@ -10,12 +10,12 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../../typechain/
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoderDev__factory as UpkeepTranscoderDevFactory } from '../../../../typechain/factories/UpkeepTranscoderDev__factory'
-import { KeeperRegistryOcr__factory as KeeperRegistryFactory } from '../../../../typechain/factories/KeeperRegistryOcr__factory'
+import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../../typechain/factories/KeeperRegistry20__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryOcrLogic__factory as KeeperRegistryLogicFactory } from '../../../../typechain/factories/KeeperRegistryOcrLogic__factory'
-import { KeeperRegistryOcr as KeeperRegistry } from '../../../../typechain/KeeperRegistryOcr'
-import { KeeperRegistryOcrLogic as KeeperRegistryLogic } from '../../../../typechain/KeeperRegistryOcrLogic'
+import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { KeeperRegistry20 as KeeperRegistry } from '../../../../typechain/KeeperRegistry20'
+import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../../typechain/KeeperRegistryLogic20'
 import { MockV3Aggregator } from '../../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../../typechain/UpkeepMock'
@@ -59,9 +59,11 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryOcr')
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_0')
+  // @ts-ignore bug in autogen file
   keeperRegistryLogicFactory = await ethers.getContractFactory(
-    'KeeperRegistryOcrLogic',
+    'KeeperRegistryLogic2_0',
   )
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
@@ -75,7 +77,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistryOcr', () => {
+describe('KeeperRegistry2_0', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
