@@ -94,12 +94,12 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 // MergeFilter adds the provided eventSigs and addresses to the log poller's log filter query.
 // If an event matching any of the given event signatures is emitted from any of the provided addresses,
 // the log poller will pick those up and save them. For topic specific queries see content based querying.
-// Clients may choose to MergeFilter and then replayStart in order to ensure desired logs are present.
+// Clients may choose to MergeFilter and then Replay in order to ensure desired logs are present.
 // NOTE: due to constraints of the eth filter, there is "leakage" between successive MergeFilter calls, for example
 // MergeFilter(event1, addr1)
 // MergeFilter(event2, addr2)
 // will result in the poller saving (event1, addr2) or (event2, addr1) as well, should it exist.
-// Generally speaking this is harmless. We enforce that the filter contains an address and eventID,
+// Generally speaking this is harmless. We enforce that eventSigs and addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
 func (lp *logPoller) MergeFilter(eventSigs []common.Hash, addresses []common.Address) error {
 	lp.filterMu.Lock()
@@ -294,7 +294,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) int64 {
 		// Retry forever to save logs,
 		// unblocked by resolving db connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
-			err := lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+			err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 				return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs), pg.WithQueryer(tx))
 			})
 			if err != nil {

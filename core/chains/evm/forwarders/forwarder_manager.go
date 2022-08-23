@@ -76,8 +76,8 @@ func (f *FwdMgr) Start() error {
 		f.ctx, f.cancel = context.WithCancel(context.Background())
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(f.ctx, fwdrs)
-			if err2 := f.subscribeForwardersLogs(fwdrs); err2 != nil {
-				return err2
+			if err = f.subscribeForwardersLogs(fwdrs); err != nil {
+				return err
 			}
 		}
 
@@ -146,7 +146,7 @@ func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, erro
 		return nil, errors.Wrapf(err, "Failed to call getAuthorizedSenders on %s", addr)
 	}
 	f.setCachedSenders(addr, senders)
-	if err := f.subscribeSendersChangedLogs(addr); err != nil {
+	if err = f.subscribeSendersChangedLogs(addr); err != nil {
 		return nil, err
 	}
 	return senders, nil
