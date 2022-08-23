@@ -461,7 +461,7 @@ func (lsn *listenerV1) Close() error {
 
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
-		lsn.l.Debugw("skipping duplicate log broadcast", "log", lb.RawLog())
+		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
 		return
 	}
 
