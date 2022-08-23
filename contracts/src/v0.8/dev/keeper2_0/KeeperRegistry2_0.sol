@@ -29,6 +29,7 @@ contract KeeperRegistry2_0 is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.0.0: implement OCR interface
    * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
    *                       : account for Arbitrum and Optimism L1 gas fee
    *                       : allow users to configure upkeeps
@@ -40,7 +41,7 @@ contract KeeperRegistry2_0 is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 1.3.0";
+  string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism
