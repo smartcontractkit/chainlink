@@ -148,6 +148,7 @@ func TestConfigSchema(t *testing.T) {
 		"NodeNoNewHeadsThreshold":                        "NODE_NO_NEW_HEADS_THRESHOLD",
 		"NodePollFailureThreshold":                       "NODE_POLL_FAILURE_THRESHOLD",
 		"NodePollInterval":                               "NODE_POLL_INTERVAL",
+		"NodeSelectionMode":                              "NODE_SELECTION_MODE",
 		"ORMMaxIdleConns":                                "ORM_MAX_IDLE_CONNS",
 		"ORMMaxOpenConns":                                "ORM_MAX_OPEN_CONNS",
 		"OptimismGasFees":                                "OPTIMISM_GAS_FEES",

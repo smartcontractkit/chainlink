@@ -276,6 +276,9 @@ func (c *Chain) SetFrom(f *Chain) {
 		if v := n.PollInterval; v != nil {
 			c.NodePool.PollInterval = v
 		}
+		if v := n.SelectionMode; v != nil {
+			c.NodePool.SelectionMode = v
+		}
 	}
 	if o := f.OCR; o != nil {
 		if c.OCR == nil {

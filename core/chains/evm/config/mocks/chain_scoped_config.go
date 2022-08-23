@@ -2523,6 +2523,27 @@ func (_m *ChainScopedConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return r0, r1
 }
 
+// GlobalNodeSelectionMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalNodeSelectionMode() (string, bool) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -3150,6 +3171,20 @@ func (_m *ChainScopedConfig) NodePollInterval() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// NodeSelectionMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) NodeSelectionMode() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
