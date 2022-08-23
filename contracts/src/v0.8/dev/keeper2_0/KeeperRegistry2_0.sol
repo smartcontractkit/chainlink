@@ -93,8 +93,13 @@ contract KeeperRegistry2_0 is
       bytes32[] memory configDigests
     )
   {
-    // TODO: Compute and return configDigests
-    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest, configDigests);
+    uint16 numOcrInstances = s_numOcrInstances;
+    rootConfigDigest = s_latestRootConfigDigest;
+    configDigests = new bytes32[](numOcrInstances);
+    for (uint256 i = 0; i < configDigests.length; i++) {
+      configDigests[i] = rootConfigDigest ^ bytes32(i);
+    }
+    return (s_configCount, s_latestConfigBlockNumber, rootConfigDigest, configDigests);
   }
 
   /**
@@ -117,15 +122,15 @@ contract KeeperRegistry2_0 is
    * @inheritdoc OCR2Keeper
    */
   function transmit(
-    bytes32[3] calldata reportContext,
+    bytes32[4] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
     if (!s_transmitters[msg.sender].active) revert OnlyActiveKeepers();
-    // TODO: change to support multiple config digests
-    if (s_latestRootConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+    // reportContext[0] contains the ocr instance index, reportContext[1] contains the config digest the instance used
+    if (s_latestRootConfigDigest ^ reportContext[0] != reportContext[1]) revert ConfigDisgestMismatch();
     if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
     uint8[] memory signerIndices = new uint8[](rs.length);
