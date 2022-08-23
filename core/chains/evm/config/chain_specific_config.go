@@ -284,6 +284,8 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumRinkeby.maxGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
 	arbitrumRinkeby.minGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
 	arbitrumRinkeby.gasFeeCapDefault = *assets.Wei(1e8) // 0.1 gwei
+	arbitrumGoerli := arbitrumRinkeby
+	arbitrumGoerli.linkContractAddress = "" //TODO
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -400,6 +402,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[420] = optimismGoerli
 	chainSpecificConfigDefaultSets[42161] = arbitrumMainnet
 	chainSpecificConfigDefaultSets[421611] = arbitrumRinkeby
+	chainSpecificConfigDefaultSets[421613] = arbitrumGoerli
 	chainSpecificConfigDefaultSets[56] = bscMainnet
 	chainSpecificConfigDefaultSets[128] = hecoMainnet
 	chainSpecificConfigDefaultSets[250] = fantomMainnet
