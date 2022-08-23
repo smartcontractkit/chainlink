@@ -100,6 +100,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     s_signersList = signers;
     s_transmittersList = transmitters;
     s_f = f;
+    s_numOcrInstances = numOcrInstances;
     s_offchainConfigVersion = offchainConfigVersion;
     s_offchainConfig = offchainConfig;
 
