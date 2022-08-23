@@ -39,7 +39,6 @@ type EthResender struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	chStop chan struct{}
 	chDone chan struct{}
 }
 
@@ -59,7 +58,6 @@ func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client,
 		ctx,
 		cancel,
 		make(chan struct{}),
-		make(chan struct{}),
 	}
 }
 
@@ -72,7 +70,6 @@ func (er *EthResender) Start() {
 // Stop is a comment which satisfies the linter
 func (er *EthResender) Stop() {
 	er.cancel()
-	close(er.chStop)
 	<-er.chDone
 }
 
@@ -87,7 +84,7 @@ func (er *EthResender) runLoop() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-er.chStop:
+		case <-er.ctx.Done():
 			return
 		case <-ticker.C:
 			if err := er.resendUnconfirmed(); err != nil {
