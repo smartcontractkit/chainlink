@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `Arbitrum Rinkeby` configuration for Nitro
 - `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 - It is now possible to use the same key across multiple chains.
+- `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
+  - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
+  - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
+  This mode requires `NODE_NO_NEW_HEADS_THRESHOLD` to be configured, otherwise it will always use the first alive node.
 
 ### Changed
 

@@ -1274,6 +1274,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1339,6 +1340,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1404,6 +1406,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1469,6 +1472,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1535,6 +1539,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -1600,6 +1605,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1665,6 +1671,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1731,6 +1738,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1796,6 +1804,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1860,6 +1869,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1924,6 +1934,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1990,6 +2001,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2056,6 +2068,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2121,6 +2134,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2186,6 +2200,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2251,6 +2266,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2317,6 +2333,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2382,6 +2399,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2447,6 +2465,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2512,6 +2531,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2578,6 +2598,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2643,6 +2664,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2708,6 +2730,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2773,6 +2796,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2839,6 +2863,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2904,6 +2929,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2969,6 +2995,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -3034,6 +3061,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -3578,6 +3606,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 NoNewHeadsThreshold = '3m' # Default
 PollFailureThreshold = 3 # Default
 PollInterval = '10s' # Default
+SelectionMode = 'HighestHead' # Default
 ```
 
 
@@ -3604,6 +3633,12 @@ PollInterval = '10s' # Default
 PollInterval controls how often to poll the node to check for liveness.
 
 Set to zero to disable poll checking.
+
+### SelectionMode<a id='EVM-NodePool-SelectionMode'></a>
+```toml
+SelectionMode = 'HighestHead' # Default
+```
+SelectionMode controls node selection strategy: HighestHead or RoundRobin.
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml

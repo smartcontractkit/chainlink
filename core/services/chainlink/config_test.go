@@ -21,6 +21,7 @@ import (
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
 	legacy "github.com/smartcontractkit/chainlink/core/config"
 	config "github.com/smartcontractkit/chainlink/core/config/v2"
@@ -172,6 +173,7 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &a
 	}
+	selectionMode := client.NodeSelectionMode_HighestHead
 
 	global := Config{
 		Core: config.Core{
@@ -440,6 +442,7 @@ func TestConfig_Marshal(t *testing.T) {
 					NoNewHeadsThreshold:  &minute,
 					PollFailureThreshold: ptr[uint32](5),
 					PollInterval:         &minute,
+					SelectionMode:        &selectionMode,
 				},
 				OCR: &evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -779,6 +782,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 NoNewHeadsThreshold = '1m0s'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
+SelectionMode = 'HighestHead'
 
 [EVM.OCR]
 ContractConfirmations = 11
