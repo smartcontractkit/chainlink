@@ -117,9 +117,6 @@ func (rc *ReorgController) WaitReorgStarted() {
 func (rc *ReorgController) ReceiveBlock(blk blockchain.NodeBlock) error {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	if blk.Block == nil {
-		return nil
-	}
 	rc.appendBlockHeader(blk)
 	switch rc.networkStep.Load() {
 	case Wait:
