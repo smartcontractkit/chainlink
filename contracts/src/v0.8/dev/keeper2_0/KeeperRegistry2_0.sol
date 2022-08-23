@@ -71,7 +71,7 @@ contract KeeperRegistry2_0 is
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    bytes memory onchainConfig,
+    uint16 numOcrInstances,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override {
@@ -82,17 +82,19 @@ contract KeeperRegistry2_0 is
   /**
    * @inheritdoc OCR2Keeper
    */
-  function latestRootConfigDetails()
+  function latestConfigDetails()
     external
     view
     override
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 rootConfigDigest
+      bytes32 rootConfigDigest,
+      bytes32[] memory configDigests
     )
   {
-    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest);
+    // TODO: Compute and return configDigests
+    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest, configDigests);
   }
 
   /**
@@ -124,14 +126,12 @@ contract KeeperRegistry2_0 is
     if (!s_transmitters[msg.sender].active) revert OnlyActiveKeepers();
     // TODO: change to support multiple config digests
     if (s_latestRootConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
-
     if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
     uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {
       bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
-
       // i-th byte counts number of sigs made by i-th signer
       uint256 signedCount = 0;
 
@@ -451,6 +451,7 @@ contract KeeperRegistry2_0 is
       s_signersList,
       s_transmittersList,
       s_f,
+      s_numOcrInstances,
       abi.encode(s_onChainConfig),
       s_offchainConfigVersion,
       s_offchainConfig
@@ -544,6 +545,7 @@ contract KeeperRegistry2_0 is
       address[] memory signers,
       address[] memory transmitters,
       uint8 f,
+      uint16 numOcrInstances,
       uint64 offchainConfigVersion,
       bytes memory offchainConfig
     )
@@ -552,7 +554,16 @@ contract KeeperRegistry2_0 is
     state.ownerLinkBalance = s_ownerLinkBalance;
     state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
-    return (state, s_onChainConfig, s_signersList, s_transmittersList, s_f, s_offchainConfigVersion, s_offchainConfig);
+    return (
+      state,
+      s_onChainConfig,
+      s_signersList,
+      s_transmittersList,
+      s_f,
+      s_numOcrInstances,
+      s_offchainConfigVersion,
+      s_offchainConfig
+    );
   }
 
   /**

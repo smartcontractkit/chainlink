@@ -66,14 +66,13 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    bytes memory onchainConfig,
+    uint16 numOcrInstances,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override onlyOwner {
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
-    if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
@@ -108,6 +107,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       signers,
       transmitters,
       f,
+      numOcrInstances,
       abi.encode(s_onChainConfig),
       offchainConfigVersion,
       offchainConfig
@@ -117,14 +117,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
    */
-  function latestRootConfigDetails()
+  function latestConfigDetails()
     external
     view
     override
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 configDigest
+      bytes32 configDigest,
+      bytes32[] memory configDigests
     )
   {}
 
