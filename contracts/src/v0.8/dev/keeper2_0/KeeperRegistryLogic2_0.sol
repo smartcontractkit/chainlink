@@ -148,7 +148,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
    */
   function transmit(
-    bytes32[3] calldata reportContext,
+    bytes32[4] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,

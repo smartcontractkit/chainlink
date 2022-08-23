@@ -136,7 +136,7 @@ abstract contract OCR2Keeper {
   function transmit(
     // NOTE: If these parameters are changed, expectedMsgDataLength and/or
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
-    bytes32[3] calldata reportContext,
+    bytes32[4] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
