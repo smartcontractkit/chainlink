@@ -16,6 +16,29 @@ type KeyStoreInterface struct {
 	mock.Mock
 }
 
+// EnabledKeysForChain provides a mock function with given fields: chainID
+func (_m *KeyStoreInterface) EnabledKeysForChain(chainID *big.Int) ([]ethkey.KeyV2, error) {
+	ret := _m.Called(chainID)
+
+	var r0 []ethkey.KeyV2
+	if rf, ok := ret.Get(0).(func(*big.Int) []ethkey.KeyV2); ok {
+		r0 = rf(chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ethkey.KeyV2)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
+		r1 = rf(chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetRoundRobinAddress provides a mock function with given fields: chainID, addrs
 func (_m *KeyStoreInterface) GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error) {
 	_va := make([]interface{}, len(addrs))
@@ -39,29 +62,6 @@ func (_m *KeyStoreInterface) GetRoundRobinAddress(chainID *big.Int, addrs ...com
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*big.Int, ...common.Address) error); ok {
 		r1 = rf(chainID, addrs...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// SendingKeys provides a mock function with given fields: chainID
-func (_m *KeyStoreInterface) SendingKeys(chainID *big.Int) ([]ethkey.KeyV2, error) {
-	ret := _m.Called(chainID)
-
-	var r0 []ethkey.KeyV2
-	if rf, ok := ret.Get(0).(func(*big.Int) []ethkey.KeyV2); ok {
-		r0 = rf(chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ethkey.KeyV2)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(chainID)
 	} else {
 		r1 = ret.Error(1)
 	}

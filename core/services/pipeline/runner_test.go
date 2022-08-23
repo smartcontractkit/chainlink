@@ -839,6 +839,31 @@ a [type=hexdecode input="$(astring)"]
 	assert.Equal(t, []byte{0x12, 0x34, 0x56, 0x78}, result.Value)
 }
 
+func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+	inputBytes := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit")
+	input := map[string]interface{}{
+		"input_val": inputBytes,
+	}
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+		DotDagSource: `
+en [type=hexencode input="$(input_val)"]
+de [type=hexdecode]
+en->de
+`,
+	}, pipeline.NewVarsFrom(input), lggr)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+
+	result, err := trrs.FinalResult(lggr).SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, inputBytes, result.Value)
+}
+
 func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
@@ -859,4 +884,29 @@ a [type=base64decode input="$(astring)"]
 	result, err := trrs.FinalResult(lggr).SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, []byte("Hello, playground"), result.Value)
+}
+
+func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+	inputBytes := []byte("[{\"add\": \"weather\", \"during\": true}, 1478647067]")
+	input := map[string]interface{}{
+		"input_val": inputBytes,
+	}
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+		DotDagSource: `
+en [type=base64encode input="$(input_val)"]
+de [type=base64decode]
+en->de
+`,
+	}, pipeline.NewVarsFrom(input), lggr)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+
+	result, err := trrs.FinalResult(lggr).SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, inputBytes, result.Value)
 }

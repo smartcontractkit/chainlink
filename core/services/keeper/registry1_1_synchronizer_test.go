@@ -13,8 +13,8 @@ import (
 
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -153,13 +153,13 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Valid
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
 	g.Eventually(func() int64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Int64
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 
 	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
@@ -171,7 +171,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 	require.Equal(t, int32(0), registry.KeeperIndex)
 	require.Equal(t, int32(1), registry.NumKeepers)
 	require.Equal(t, upkeepConfig1_1.CheckData, upkeepRegistration.CheckData)
-	require.Equal(t, uint64(upkeepConfig1_1.ExecuteGas), upkeepRegistration.ExecuteGas)
+	require.Equal(t, upkeepConfig1_1.ExecuteGas, upkeepRegistration.ExecuteGas)
 
 	assertUpkeepIDs(t, db, []int64{0, 2})
 
@@ -416,12 +416,12 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(200)))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(200)))
 
 	g.Eventually(func() int64 {
 		var upkeep keeper.UpkeepRegistration
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastKeeperIndex.Int64
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 }

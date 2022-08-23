@@ -20,23 +20,23 @@ type Transmitter interface {
 }
 
 type transmitter struct {
-	txm             txManager
-	fromAddress     common.Address
-	gasLimit        uint64
-	allowForwarding bool
-	strategy        txmgr.TxStrategy
-	checker         txmgr.TransmitCheckerSpec
+	txm               txManager
+	fromAddress       common.Address
+	gasLimit          uint32
+	forwardingAllowed bool
+	strategy          txmgr.TxStrategy
+	checker           txmgr.TransmitCheckerSpec
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint64, allowForwarding bool, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
+func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint32, forwardingAllowed bool, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) Transmitter {
 	return &transmitter{
-		txm:             txm,
-		fromAddress:     fromAddress,
-		gasLimit:        gasLimit,
-		allowForwarding: allowForwarding,
-		strategy:        strategy,
-		checker:         checker,
+		txm:               txm,
+		fromAddress:       fromAddress,
+		gasLimit:          gasLimit,
+		forwardingAllowed: forwardingAllowed,
+		strategy:          strategy,
+		checker:           checker,
 	}
 }
 
@@ -46,7 +46,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
 		GasLimit:       t.gasLimit,
-		Forwardable:    t.allowForwarding,
+		Forwardable:    t.forwardingAllowed,
 		Strategy:       t.strategy,
 		Checker:        t.checker,
 	}, pg.WithParentCtx(ctx))
