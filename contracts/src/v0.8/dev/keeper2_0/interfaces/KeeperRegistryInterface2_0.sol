@@ -85,8 +85,6 @@ interface KeeperRegistryBaseInterface {
     bytes calldata checkData
   ) external returns (uint256 id);
 
-  function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
-
   function cancelUpkeep(uint256 id) external;
 
   function pauseUpkeep(uint256 id) external;
@@ -111,9 +109,9 @@ interface KeeperRegistryBaseInterface {
       uint32 executeGas,
       bytes memory checkData,
       uint96 balance,
-      address lastKeeper,
       address admin,
       uint64 maxValidBlocknumber,
+      uint32 lastPerformBlockNumber,
       uint96 amountSpent,
       bool paused
     );
@@ -124,18 +122,23 @@ interface KeeperRegistryBaseInterface {
     external
     view
     returns (
-      address payee,
       bool active,
-      uint96 balance
+      uint8 index,
+      uint96 balance,
+      address payee
     );
 
   function getState()
     external
     view
     returns (
-      State memory,
-      OnChainConfig memory,
-      address[] memory
+      State memory state,
+      OnChainConfig memory config,
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f,
+      uint64 offchainConfigVersion,
+      bytes memory offchainConfig
     );
 }
 
