@@ -14,11 +14,13 @@ type TestNodeConfig struct {
 	NoNewHeadsThreshold  time.Duration
 	PollFailureThreshold uint32
 	PollInterval         time.Duration
+	SelectionMode        string
 }
 
 func (tc TestNodeConfig) NodeNoNewHeadsThreshold() time.Duration { return tc.NoNewHeadsThreshold }
 func (tc TestNodeConfig) NodePollFailureThreshold() uint32       { return tc.PollFailureThreshold }
 func (tc TestNodeConfig) NodePollInterval() time.Duration        { return tc.PollInterval }
+func (tc TestNodeConfig) NodeSelectionMode() string              { return tc.SelectionMode }
 
 func NewClientWithTestNode(cfg NodeConfig, lggr logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
@@ -30,7 +32,9 @@ func NewClientWithTestNode(cfg NodeConfig, lggr logger.Logger, rpcUrl string, rp
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	primaries := []Node{NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID)}
+	n := NewNode(cfg, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID)
+	n.(*node).setLatestReceivedBlockNumber(0)
+	primaries := []Node{n}
 
 	var sendonlys []SendOnlyNode
 	for i, url := range sendonlyRPCURLs {
@@ -41,7 +45,7 @@ func NewClientWithTestNode(cfg NodeConfig, lggr logger.Logger, rpcUrl string, rp
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, primaries, sendonlys, chainID)
+	pool := NewPool(lggr, cfg, primaries, sendonlys, chainID)
 	return &client{logger: lggr, pool: pool}, nil
 }
 
