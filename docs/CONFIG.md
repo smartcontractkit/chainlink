@@ -2467,6 +2467,71 @@ ObservationGracePeriod = '1s'
 
 </p></details>
 
+<details><summary>Simulated (1337)<a id='EVM-1337'></a></summary><p>
+
+```toml
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 1
+MinimumContractPayment = '100'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '0s'
+TxResendAfterThreshold = '0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 8
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 10
+MaxBufferSize = 100
+SamplingInterval = '0s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
 <details><summary>Fantom Testnet (4002)<a id='EVM-4002'></a></summary><p>
 
 ```toml
