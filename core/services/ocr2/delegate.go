@@ -449,11 +449,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				OnchainKeyring:               kb,
 				ReportingPluginFactory: keeperreportingplugin.NewFactory(
 					lggr.Named("OCR2Keeper").With("instance", i),
+					jobSpec.ID,
+					spec.EVMChainID.String(),
 					chain.Config(),
 					orm,
 					chain.Client(),
 					chain.HeadBroadcaster(),
 					spec.ContractID,
+					d.pipelineRunner,
+					chain.TxManager().GetGasEstimator(),
 				),
 			}); err != nil {
 				return nil, errors.Wrap(err, "error calling NewOracle")

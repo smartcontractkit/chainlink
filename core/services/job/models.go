@@ -302,6 +302,7 @@ type OCR2OracleSpec struct {
 	ContractConfigConfirmations       uint16              `toml:"contractConfigConfirmations"`
 	PluginConfig                      JSONConfig          `toml:"pluginConfig"`
 	PluginType                        OCR2PluginType      `toml:"pluginType"`
+	EVMChainID                        *utils.Big          `toml:"evmChainID"`
 	CreatedAt                         time.Time           `toml:"-"`
 	UpdatedAt                         time.Time           `toml:"-"`
 }
