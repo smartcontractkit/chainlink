@@ -131,7 +131,7 @@ func (n *node) aliveLoop() {
 
 	for {
 		select {
-		case <-n.chStop:
+		case <-n.nodeCtx.Done():
 			return
 		case <-pollCh:
 			var version string
@@ -253,7 +253,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 
 	for {
 		select {
-		case <-n.chStop:
+		case <-n.nodeCtx.Done():
 			return
 		case head, open := <-ch:
 			if !open {
@@ -307,7 +307,7 @@ func (n *node) unreachableLoop() {
 
 	for {
 		select {
-		case <-n.chStop:
+		case <-n.nodeCtx.Done():
 			return
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
@@ -363,7 +363,7 @@ func (n *node) invalidChainIDLoop() {
 
 	for {
 		select {
-		case <-n.chStop:
+		case <-n.nodeCtx.Done():
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
 			err := n.verify(n.nodeCtx)

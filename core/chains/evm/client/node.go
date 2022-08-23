@@ -150,9 +150,7 @@ type node struct {
 	// this node. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as node Close.
 	chStopInFlight chan struct{}
-	// chStop signals the node to exit
-	chStop chan struct{}
-	// nodeCtx is context bound to chStop
+	// nodeCtx is the node lifetime's context
 	nodeCtx context.Context
 	// cancelNodeCtx cancels nodeCtx when stopping the node
 	cancelNodeCtx context.CancelFunc
@@ -187,8 +185,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 		n.http = &rawclient{uri: *httpuri}
 	}
 	n.chStopInFlight = make(chan struct{})
-	n.chStop = make(chan struct{})
-	n.nodeCtx, n.cancelNodeCtx = utils.ContextFromChan(n.chStop)
+	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
 	lggr = lggr.Named("Node").With(
 		"nodeTier", "primary",
 		"nodeName", name,
@@ -352,7 +349,6 @@ func (n *node) Close() {
 		defer n.stateMu.Unlock()
 
 		n.cancelNodeCtx()
-		close(n.chStop)
 		n.cancelInflightRequests()
 		n.state = NodeStateClosed
 		if n.ws.rpc != nil {
