@@ -7,12 +7,12 @@ import { LinkToken__factory as LinkTokenFactory } from '../../../../typechain/fa
 
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistryOcr as KeeperRegistry } from '../../../../typechain/KeeperRegistryOcr'
-import { KeeperRegistryOcrLogic as KeeperRegistryLogic } from '../../../../typechain/KeeperRegistryOcrLogic'
-import { KeeperRegistrarOcr as KeeperRegistrar } from '../../../../typechain/KeeperRegistrarOcr'
-import { KeeperRegistryOcr__factory as KeeperRegistryFactory } from '../../../../typechain/factories/KeeperRegistryOcr__factory'
-import { KeeperRegistryOcrLogic__factory as KeeperRegistryLogicFactory } from '../../../../typechain/factories/KeeperRegistryOcrLogic__factory'
-import { KeeperRegistrarOcr__factory as KeeperRegistrarFactory } from '../../../../typechain/factories/KeeperRegistrarOcr__factory'
+import { KeeperRegistry20 as KeeperRegistry } from '../../../../typechain/KeeperRegistry20'
+import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../../typechain/KeeperRegistryLogic20'
+import { KeeperRegistrar20 as KeeperRegistrar } from '../../../../typechain/KeeperRegistrar20'
+import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../../typechain/factories/KeeperRegistry20__factory'
+import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../../typechain/factories/KeeperRegistryLogic20__factory'
+import { KeeperRegistrar20__factory as KeeperRegistrarFactory } from '../../../../typechain/factories/KeeperRegistrar20__factory'
 
 import { MockV3Aggregator } from '../../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../../typechain/LinkToken'
@@ -35,11 +35,14 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryOcr')
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_0')
+  // @ts-ignore bug in autogen file
   keeperRegistryLogicFactory = await ethers.getContractFactory(
-    'KeeperRegistryOcrLogic',
+    'KeeperRegistryLogic2_0',
   )
-  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrarOcr')
+  // @ts-ignore bug in autogen file
+  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrar2_0')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 
@@ -50,7 +53,7 @@ const errorMsgs = {
   requestNotFound: 'RequestNotFound()',
 }
 
-describe('KeeperRegistrarOcr', () => {
+describe('KeeperRegistrar2_0', () => {
   const upkeepName = 'SampleUpkeep'
 
   const linkEth = BigNumber.from(300000000)

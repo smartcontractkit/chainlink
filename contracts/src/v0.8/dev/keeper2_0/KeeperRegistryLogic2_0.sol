@@ -3,14 +3,14 @@ pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "./KeeperRegistryOcrBase.sol";
+import "./KeeperRegistryBase2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterfaceDev.sol";
 import "../interfaces/UpkeepTranscoderInterfaceDev.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryOcrLogic is KeeperRegistryOcrBase {
+contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
@@ -27,7 +27,7 @@ contract KeeperRegistryOcrLogic is KeeperRegistryOcrBase {
     address link,
     address linkEthFeed,
     address fastGasFeed
-  ) KeeperRegistryOcrBase(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
+  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id)
     external

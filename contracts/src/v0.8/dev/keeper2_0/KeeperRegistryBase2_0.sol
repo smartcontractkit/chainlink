@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {OnChainConfig, State, Upkeep} from "./interfaces/KeeperRegistryInterfaceOcr.sol";
+import {OnChainConfig, State, Upkeep} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../interfaces/UpkeepTranscoderInterfaceDev.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
@@ -18,7 +18,7 @@ import "./interfaces/OCR2Keeper.sol";
  * @notice Base Keeper Registry contract, contains shared logic between
  * KeeperRegistry and KeeperRegistryLogic
  */
-abstract contract KeeperRegistryOcrBase is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable, OCR2Keeper {
+abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable, OCR2Keeper {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
