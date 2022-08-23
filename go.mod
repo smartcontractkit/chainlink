@@ -50,6 +50,7 @@ require (
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
+	github.com/pyroscope-io/client v0.3.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
@@ -89,8 +90,6 @@ require (
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
-
-require github.com/pyroscope-io/client v0.3.0
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
