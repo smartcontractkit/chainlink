@@ -39,6 +39,12 @@ Enable a key for a particular chain:
 Disable a key for a particular chain:
 `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
 
+## 1.7.1 - 2022-08-22
+
+### Added
+
+- `Arbitrum Nitro` client error support
+
 ## 1.7.0 - 2022-08-08
 
 ### Added
