@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/config"
 )
 
@@ -69,6 +70,7 @@ type (
 		nodeDeadAfterNoNewHeadersThreshold             time.Duration
 		nodePollFailureThreshold                       uint32
 		nodePollInterval                               time.Duration
+		nodeSelectionMode                              string
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -146,6 +148,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
+		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
 		nonceAutoSync:                         true,
 		useForwarders:                         false,
 		ocrContractConfirmations:              4,
