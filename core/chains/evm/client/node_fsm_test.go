@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
@@ -59,7 +58,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	})
 
 	// must dial to set rpc client for use in state transitions
-	err := n.dial(context.Background())
+	err := n.dial(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Run("transitionToAlive", func(t *testing.T) {
@@ -168,6 +167,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		err := n.StartOnce("test node", func() error { return nil })
 		assert.NoError(t, err)
 		n.Close()
+
 		assert.Equal(t, NodeStateClosed, n.State())
 		// second attempt panics due to node being stopped twice
 		assert.Panics(t, n.Close)

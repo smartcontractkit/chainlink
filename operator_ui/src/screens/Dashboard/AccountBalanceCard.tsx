@@ -23,7 +23,7 @@ export const ACCOUNT_BALANCES_PAYLOAD__RESULTS_FIELDS = gql`
       id
     }
     ethBalance
-    isFunding
+    isDisabled
     linkBalance
   }
 `

@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
-import "../interfaces/MigratableKeeperRegistryInterface.sol";
+import "./interfaces/MigratableKeeperRegistryInterfaceDev.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 
 /**
@@ -19,7 +19,7 @@ contract KeeperRegistryDev is
   Proxy,
   TypeAndVersionInterface,
   KeeperRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface,
+  MigratableKeeperRegistryInterfaceDev,
   ERC677ReceiverInterface
 {
   using Address for address;
@@ -29,7 +29,9 @@ contract KeeperRegistryDev is
 
   /**
    * @notice versions:
-   * - KeeperRegistry 2.0.0: Split contract into Proxy and Logic
+   * - KeeperRegistry 1.3.0: split contract into Proxy and Logic
+   *                       : account for Arbitrum and Optimism L1 gas fee
+   *                       : allow users to configure upkeeps
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
@@ -38,7 +40,7 @@ contract KeeperRegistryDev is
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
+  string public constant override typeAndVersion = "KeeperRegistry 1.3.0";
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism
@@ -156,6 +158,18 @@ contract KeeperRegistryDev is
   }
 
   /**
+   * @notice update the check data of an upkeep
+   * @param id the id of the upkeep whose check data needs to be updated
+   * @param newCheckData the new check data
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(upkeep);
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataUpdated(id, newCheckData);
+  }
+
+  /**
    * @notice adds LINK funding for an upkeep by transferring from the sender's
    * LINK balance
    * @param id upkeep to fund
@@ -180,7 +194,7 @@ contract KeeperRegistryDev is
     if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
-    if (s_upkeep[id].maxValidBlocknumber != UINT64_MAX) revert UpkeepCancelled();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
@@ -252,6 +266,25 @@ contract KeeperRegistryDev is
    * @param keeper address to accept the payee role for
    */
   function acceptPayeeship(address keeper) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice proposes the safe transfer of an upkeep's admin role to another address
+   * @param id the upkeep id to transfer admin
+   * @param proposed address to nominate for the new upkeep admin
+   */
+  function transferUpkeepAdmin(uint256 id, address proposed) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice accepts the safe transfer of admin role for an upkeep
+   * @param id the upkeep id
+   */
+  function acceptUpkeepAdmin(uint256 id) external override {
     // Executed through logic contract
     _fallback();
   }
@@ -449,7 +482,7 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @inheritdoc MigratableKeeperRegistryInterfaceDev
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
     // Executed through logic contract
@@ -457,12 +490,12 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @inheritdoc MigratableKeeperRegistryInterfaceDev
    */
-  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VESION_BASE;
+  UpkeepFormatDev public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterface
+   * @inheritdoc MigratableKeeperRegistryInterfaceDev
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     // Executed through logic contract
@@ -511,13 +544,9 @@ contract KeeperRegistryDev is
    * @dev calls the Upkeep target with the performData param passed in by the
    * keeper and the exact gas required by the Upkeep
    */
-  function _performUpkeepWithParams(PerformParams memory params)
-    private
-    nonReentrant
-    validUpkeep(params.id)
-    returns (bool success)
-  {
+  function _performUpkeepWithParams(PerformParams memory params) private nonReentrant returns (bool success) {
     Upkeep memory upkeep = s_upkeep[params.id];
+    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     _prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
     uint256 gasUsed = gasleft();

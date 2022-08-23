@@ -30,49 +30,41 @@ func NewVarsFrom(m map[string]interface{}) Vars {
 }
 
 // Get returns the value for the given keypath or error.
-// The keypath can consist of one or two parts, e.g. "foo" or "foo.bar".
-// The second part of the keypath can be an index of a slice.
+// The keypath can consist of one or more parts, e.g. "foo" or "foo.6.a.b".
+// Every part except for the first one can be an index of a slice.
 func (vars Vars) Get(keypathStr string) (interface{}, error) {
 	keypathStr = strings.TrimSpace(keypathStr)
 	keypath, err := NewKeypathFromString(keypathStr)
 	if err != nil {
 		return nil, err
 	}
-	if keypath.NumParts == 0 {
+	if len(keypath.Parts) == 0 {
 		return nil, ErrVarsRoot
 	}
 
-	var val interface{}
 	var exists bool
-
-	if keypath.NumParts >= 1 {
-		val, exists = vars.vars[keypath.Part0]
-		if !exists {
-			return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", keypath.Part0, keypathStr)
-		}
-	}
-
-	if keypath.NumParts == 2 {
-		switch v := val.(type) {
+	var currVal interface{} = vars.vars
+	for i, part := range keypath.Parts {
+		switch v := currVal.(type) {
 		case map[string]interface{}:
-			val, exists = v[keypath.Part1]
+			currVal, exists = v[part]
 			if !exists {
-				return nil, errors.Wrapf(ErrKeypathNotFound, "key %v / keypath %v", keypath.Part1, keypathStr)
+				return nil, errors.Wrapf(ErrKeypathNotFound, "key %v (segment %v in keypath %v)", part, i, keypathStr)
 			}
 		case []interface{}:
-			idx, err := strconv.ParseInt(keypath.Part1, 10, 64)
+			idx, err := strconv.ParseInt(part, 10, 64)
 			if err != nil {
 				return nil, errors.Wrapf(ErrKeypathNotFound, "could not parse key as integer: %v", err)
 			} else if idx < 0 || idx > int64(len(v)-1) {
-				return nil, errors.Wrapf(ErrIndexOutOfRange, "index %v out of range (length %v / keypath %v)", idx, len(v), keypathStr)
+				return nil, errors.Wrapf(ErrIndexOutOfRange, "index %v out of range (segment %v of length %v in keypath %v)", idx, i, len(v), keypathStr)
 			}
-			val = v[idx]
+			currVal = v[idx]
 		default:
-			return nil, errors.Wrapf(ErrKeypathNotFound, "value at key '%v' is a %T, not a map or slice", keypath.Part0, val)
+			return nil, errors.Wrapf(ErrKeypathNotFound, "value at key '%v' is a %T, not a map or slice", part, currVal)
 		}
 	}
 
-	return val, nil
+	return currVal, nil
 }
 
 // Set sets a top-level variable specified by dotID.

@@ -49,6 +49,7 @@ func TestWei(t *testing.T) {
 			b, err := w.MarshalText()
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, string(b))
+			assert.Equal(t, tt.exp, w.String())
 		})
 	}
 }

@@ -33,7 +33,7 @@ func TestNullClient(t *testing.T) {
 	t.Run("CL client methods", func(t *testing.T) {
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.TestCtx(t)
+		ctx := testutils.Context(t)
 
 		err := nc.Dial(ctx)
 		require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestNullClient(t *testing.T) {
 	t.Run("Geth client methods", func(t *testing.T) {
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
-		ctx := testutils.TestCtx(t)
+		ctx := testutils.Context(t)
 
 		h, err := nc.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)

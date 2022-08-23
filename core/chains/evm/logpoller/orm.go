@@ -99,10 +99,24 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 		}
 	}
 	q := o.q.WithOpts(qopts...)
-	_, err := q.NamedExec(`INSERT INTO logs 
+
+	batchInsertSize := 4000
+	for i := 0; i < len(logs); i += batchInsertSize {
+		start, end := i, i+batchInsertSize
+		if end > len(logs) {
+			end = len(logs)
+		}
+
+		_, err := q.NamedExec(`INSERT INTO logs 
 (evm_chain_id, log_index, block_hash, block_number, address, event_sig, topics, tx_hash, data, created_at) VALUES 
-(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs)
-	return err
+(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {

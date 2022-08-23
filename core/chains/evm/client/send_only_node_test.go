@@ -1,7 +1,6 @@
 package client_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -113,7 +112,7 @@ func TestSendTransaction(t *testing.T) {
 	)).Once().Return(nil)
 	s.SetEthClient(nil, mockTxSender)
 
-	err := s.SendTransaction(testutils.TestCtx(t), signedTx)
+	err := s.SendTransaction(testutils.Context(t), signedTx)
 	assert.NoError(t, err)
 	testutils.WaitForLogMessage(t, observedLogs, "SendOnly RPC call")
 }
@@ -151,6 +150,6 @@ func TestBatchCallContext(t *testing.T) {
 
 	s.SetEthClient(mockBatchSender, nil)
 
-	err := s.BatchCallContext(context.Background(), req)
+	err := s.BatchCallContext(testutils.Context(t), req)
 	assert.NoError(t, err)
 }

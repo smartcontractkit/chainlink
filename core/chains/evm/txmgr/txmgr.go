@@ -41,7 +41,7 @@ type Config interface {
 	EthTxResendAfterThreshold() time.Duration
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
-	EvmGasLimitDefault() uint64
+	EvmGasLimitDefault() uint32
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
 	EvmNonceAutoSync() bool
@@ -57,6 +57,9 @@ type KeyStore interface {
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
+	GetNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (int64, error)
+	IncrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error
+	CheckEnabled(address common.Address, chainID *big.Int) error
 }
 
 // For more information about the Txm architecture, see the design doc:
@@ -75,7 +78,7 @@ type TxManager interface {
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
-	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error)
+	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error)
 }
 
 type Txm struct {
@@ -196,7 +199,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		if b.fwdMgr != nil {
-			if err = b.fwdMgr.Start(); err != nil {
+			if err = b.fwdMgr.Start(ctx); err != nil {
 				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
@@ -303,7 +306,7 @@ type NewTx struct {
 	FromAddress    common.Address
 	ToAddress      common.Address
 	EncodedPayload []byte
-	GasLimit       uint64
+	GasLimit       uint32
 	Meta           *EthTxMeta
 	Forwardable    bool
 
@@ -320,6 +323,10 @@ type NewTx struct {
 
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+	if err = b.checkEnabled(newTx.FromAddress); err != nil {
+		return etx, err
+	}
+
 	q := b.q.WithOpts(qs...)
 
 	if b.config.EvmUseForwarders() && newTx.Forwardable {
@@ -358,9 +365,6 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 				return nil
 			}
 		}
-		if err = b.checkStateExists(tx, newTx.FromAddress); err != nil {
-			return err
-		}
 		err := tx.Get(&etx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
 VALUES (
@@ -384,18 +388,9 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *Txm) checkStateExists(q pg.Queryer, addr common.Address) error {
-	var state ethkey.State
-	err := q.Get(&state, `SELECT * FROM eth_key_states WHERE address = $1`, addr)
-	if errors.Is(err, sql.ErrNoRows) {
-		return errors.Errorf("no eth key exists with address %s", addr.Hex())
-	} else if err != nil {
-		return errors.Wrap(err, "failed to query state")
-	}
-	if state.EVMChainID.Cmp(utils.NewBig(&b.chainID)) != 0 {
-		return errors.Errorf("cannot send transaction on chain ID %s; eth key with address %s is pegged to chain ID %s", b.chainID.String(), addr.Hex(), state.EVMChainID.String())
-	}
-	return nil
+func (b *Txm) checkEnabled(addr common.Address) error {
+	err := b.keyStore.CheckEnabled(addr, &b.chainID)
+	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr.Hex(), b.chainID.String())
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
@@ -404,7 +399,7 @@ func (b *Txm) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -473,7 +468,7 @@ func sendEmptyTransaction(
 	ethClient evmclient.Client,
 	keyStore KeyStore,
 	nonce uint64,
-	gasLimit uint64,
+	gasLimit uint32,
 	gasPriceWei *big.Int,
 	fromAddress common.Address,
 	chainID *big.Int,
@@ -489,10 +484,10 @@ func sendEmptyTransaction(
 }
 
 // makes a transaction that sends 0 eth to self
-func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
+func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint32, gasPriceWei *big.Int, fromAddress common.Address, chainID *big.Int) (*gethTypes.Transaction, error) {
 	value := big.NewInt(0)
 	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, fromAddress, value, gasLimit, gasPriceWei, payload)
+	tx := gethTypes.NewTransaction(nonce, fromAddress, value, uint64(gasLimit), gasPriceWei, payload)
 	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
@@ -577,7 +572,7 @@ func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err 
 }
 
 // SendEther does nothing, null functionality
-func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint32) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                           { return nil }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -31,7 +32,7 @@ func Test_LeaseLock(t *testing.T) {
 	t.Run("on migrated database", func(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(context.Background())
+		err := leaseLock1.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 
 		var clientID uuid.UUID
@@ -43,7 +44,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
 			defer leaseLock2.Release()
-			err := leaseLock2.TakeAndHold(context.Background())
+			err := leaseLock2.TakeAndHold(testutils.Context(t))
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -55,7 +56,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		select {
 		case <-started2:
-		case <-time.After(cltest.WaitTimeout(t)):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("timed out waiting for leaseLock2 to start")
 		}
 
@@ -76,7 +77,7 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 1, rowsAffected)
 
-		conn, err := db.Connx(context.Background())
+		conn, err := db.Connx(testutils.Context(t))
 		require.NoError(t, err)
 
 		pg.SetConn(leaseLock, conn)
@@ -86,7 +87,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			errInternal := leaseLock.TakeAndHold(context.Background())
+			errInternal := leaseLock.TakeAndHold(testutils.Context(t))
 			require.NoError(t, errInternal)
 			close(gotLease)
 		}()
@@ -100,7 +101,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		select {
 		case <-gotLease:
-		case <-time.After(cltest.WaitTimeout(t)):
+		case <-time.After(testutils.WaitTimeout(t)):
 			t.Fatal("timed out waiting for lease lock to start")
 		}
 
@@ -117,7 +118,7 @@ func Test_LeaseLock(t *testing.T) {
 	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(context.Background())
+		err := leaseLock.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 		defer leaseLock.Release()
 
@@ -145,13 +146,13 @@ func Test_LeaseLock(t *testing.T) {
 	t.Run("release lock with Release() func", func(t *testing.T) {
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(context.Background())
+		err := leaseLock.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 
 		leaseLock.Release()
 
 		leaseLock2 := newLeaseLock(t, db, cfg)
-		err = leaseLock2.TakeAndHold(context.Background())
+		err = leaseLock2.TakeAndHold(testutils.Context(t))
 		defer leaseLock2.Release()
 		require.NoError(t, err)
 	})
@@ -160,12 +161,12 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db, cfg)
 		leaseLock2 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(context.Background())
+		err := leaseLock1.TakeAndHold(testutils.Context(t))
 		require.NoError(t, err)
 
 		awaiter := cltest.NewAwaiter()
 		go func() {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(testutils.Context(t))
 			go func() {
 				<-time.After(3 * time.Second)
 				cancel()
@@ -186,7 +187,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(context.Background())
+		err := leaseLock1.TakeAndHold(testutils.Context(t))
 		defer leaseLock1.Release()
 		require.NoError(t, err)
 	})

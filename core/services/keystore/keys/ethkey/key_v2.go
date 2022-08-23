@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -20,10 +21,12 @@ func (raw Raw) Key() KeyV2 {
 	privateKey.PublicKey.Curve = curve
 	privateKey.D = d
 	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
-	address := EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKey.PublicKey))
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
+	eip55 := EIP55AddressFromAddress(address)
 	return KeyV2{
-		Address:    address,
-		privateKey: &privateKey,
+		Address:      address,
+		EIP55Address: eip55,
+		privateKey:   &privateKey,
 	}
 }
 
@@ -38,8 +41,9 @@ func (raw Raw) GoString() string {
 var _ fmt.GoStringer = &KeyV2{}
 
 type KeyV2 struct {
-	Address    EIP55Address
-	privateKey *ecdsa.PrivateKey
+	Address      common.Address
+	EIP55Address EIP55Address
+	privateKey   *ecdsa.PrivateKey
 }
 
 func NewV2() (KeyV2, error) {
@@ -51,10 +55,12 @@ func NewV2() (KeyV2, error) {
 }
 
 func FromPrivateKey(privKey *ecdsa.PrivateKey) (key KeyV2) {
-	address := EIP55AddressFromAddress(crypto.PubkeyToAddress(privKey.PublicKey))
+	address := crypto.PubkeyToAddress(privKey.PublicKey)
+	eip55 := EIP55AddressFromAddress(address)
 	return KeyV2{
-		Address:    address,
-		privateKey: privKey,
+		Address:      address,
+		EIP55Address: eip55,
+		privateKey:   privKey,
 	}
 }
 

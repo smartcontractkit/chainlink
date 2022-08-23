@@ -45,13 +45,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/consumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -290,7 +290,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	genesisData := core.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000)},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b)
 	require.NoError(t, err)
@@ -354,21 +354,21 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b := operatorContracts.sim
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 
-			sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 			require.NoError(t, err)
-			authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
+			authorizedSenders := []common.Address{sendingKeys[0].Address}
 			tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
 			require.NoError(t, err)
 			b.Commit()
 			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
 			// Fund node account with ETH.
-			n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+			n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+			tx = types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
-			err = b.SendTransaction(context.Background(), signedTx)
+			err = b.SendTransaction(testutils.Context(t), signedTx)
 			require.NoError(t, err)
 			b.Commit()
 
@@ -455,16 +455,16 @@ func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorC
 	app = cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	// Fund node account with ETH.
-	n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -474,7 +474,7 @@ func setupAppForEthTx(t *testing.T, cfg *configtest.TestGeneralConfig, operatorC
 	testutils.WaitForLogMessage(t, o, "Subscribing to new heads on chain 1337")
 	testutils.WaitForLogMessage(t, o, "Subscribed to heads on chain 1337")
 
-	return app, sendingKeys[0].Address.Address(), o
+	return app, sendingKeys[0].Address, o
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
@@ -618,7 +618,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
@@ -693,18 +693,18 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 		config.Overrides.P2PV2ListenAddresses = []string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 	}
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
-	transmitter := sendingKeys[0].Address.Address()
+	transmitter := sendingKeys[0].Address
 
 	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(context.Background(), owner.From, nil)
+	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
+	err = b.SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -814,7 +814,7 @@ isBootstrapPeer    = true
 `, ocrContractAddress))
 			require.NoError(t, err)
 			jb.Name = null.NewString("boot", true)
-			err = appBootstrap.AddJobV2(context.Background(), &jb)
+			err = appBootstrap.AddJobV2(testutils.Context(t), &jb)
 			require.NoError(t, err)
 
 			// Raising flags to initiate hibernation
@@ -904,7 +904,7 @@ observationSource = """
 `, ocrContractAddress, bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				jb.Name = null.NewString("testocr", true)
-				err = apps[i].AddJobV2(context.Background(), &jb)
+				err = apps[i].AddJobV2(testutils.Context(t), &jb)
 				require.NoError(t, err)
 				jids = append(jids, jb.ID)
 			}
@@ -925,7 +925,7 @@ observationSource = """
 				answer, err := ocrContract.LatestAnswer(nil)
 				require.NoError(t, err)
 				return answer.String()
-			}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
+			}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
 			for _, app := range apps {
 				jobs, _, err := app.JobORM().FindJobs(0, 1000)
@@ -1034,7 +1034,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	estimator := chain.TxManager().GetGasEstimator()
 	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(500000), gasLimit)
+	assert.Equal(t, uint32(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
 
@@ -1057,16 +1057,15 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000, maxGasPrice)
 		require.NoError(t, err)
 		return gasPrice.String()
-	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	keys, err := app.KeyStore.Eth().SendingKeys(nil)
-	require.NoError(t, err)
-	// FIXME: This is a hack. Remove after https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
 	for _, chain := range app.GetChains().EVM.Chains() {
+		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
+		require.NoError(t, err)
 		for _, k := range keys {
-			chain.TxManager().Trigger(k.Address.Address())
+			chain.TxManager().Trigger(k.Address)
 		}
 	}
 }

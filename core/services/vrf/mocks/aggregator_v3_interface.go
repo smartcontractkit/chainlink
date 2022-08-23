@@ -5,7 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	aggregator_v3_interface "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	aggregator_v3_interface "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 
