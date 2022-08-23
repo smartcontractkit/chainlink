@@ -2,9 +2,11 @@ package v2
 
 import (
 	"net"
+	"net/url"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -52,9 +54,39 @@ type Core struct {
 
 type Secrets struct {
 	DatabaseURL       *models.URL
+	DatabaseBackupURL *models.URL
+
 	ExplorerAccessKey *string
 	ExplorerSecret    *string
-	//TODO https://app.shortcut.com/chainlinklabs/story/33624/add-secrets-toml
+
+	KeystorePassword *string
+	VRFPassword      *string
+}
+
+func (s *Secrets) ValidateConfig() (err error) {
+	if s.DatabaseURL == nil || (*url.URL)(s.DatabaseURL).String() == "" {
+		err = multierr.Append(err, ErrEmpty{Name: "Database URL", Msg: "must be provided and non-empty"})
+	}
+	if s.KeystorePassword == nil || *s.KeystorePassword == "" {
+		err = multierr.Append(err, ErrEmpty{Name: "Keystore Password", Msg: "must be provided and non-empty"})
+	}
+	return err
+}
+
+func (s *Secrets) String() string {
+	return "<hidden>"
+}
+
+func (s *Secrets) GoString() string {
+	return "<hidden>"
+}
+
+func (s *Secrets) MarshalJSON() ([]byte, error) {
+	return []byte("{}"), nil
+}
+
+func (s *Secrets) MarshalText() ([]byte, error) {
+	return []byte("<hidden>"), nil
 }
 
 type Feature struct {
@@ -94,7 +126,7 @@ type DatabaseBackup struct {
 	Frequency        *models.Duration
 	Mode             *config.DatabaseBackupMode
 	OnVersionUpgrade *bool
-	URL              *models.URL
+	// DatabaseBackupURL stored in Secrets
 }
 
 type TelemetryIngress struct {

@@ -136,6 +136,7 @@ type GeneralOnlyConfig interface {
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
 	KeyFile() string
+	KeystorePassword() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 	LogFileDir() string
@@ -180,6 +181,7 @@ type GeneralOnlyConfig interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
+	VRFPassword() string
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -236,6 +238,7 @@ type GlobalConfig interface {
 	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
+	GlobalNodeSelectionMode() (string, bool)
 
 	OCR1Config
 	OCR2Config
@@ -1382,6 +1385,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("NodePollInterval"), time.ParseDuration)
 }
 
+func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
+	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
@@ -1420,4 +1427,16 @@ func (c *generalConfig) LogFileDir() string {
 		return c.RootDir()
 	}
 	return s
+}
+
+// Implemented only in config V2. V1 uses a --password flag.
+func (c *generalConfig) KeystorePassword() string {
+	c.lggr.Warn("Config V1 should us --password flag instead of calling KeystorePassword()")
+	return ""
+}
+
+// Implemented only in config V2. V1 uses a --vrfpassword flag.
+func (c *generalConfig) VRFPassword() string {
+	c.lggr.Warn("Config V1 should us --vrfpassword flag instead of calling VRFPassword()")
+	return ""
 }

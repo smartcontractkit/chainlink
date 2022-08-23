@@ -158,7 +158,6 @@ Postgres has connection limits, so you must use cation when increasing this valu
 Mode = 'none' # Default
 Dir = 'test/backup/dir' # Example
 OnVersionUpgrade = true # Default
-URL = 'http://test.back.up/fake' # Example
 Frequency = '1h' # Default
 ```
 As a best practice, take regular database backups in case of accidental data loss. This best practice is especially important when you upgrade your Chainlink node to a new version. Chainlink nodes support automated database backups to make this process easier.
@@ -188,14 +187,6 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 OnVersionUpgrade = true # Default
 ```
 OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
-
-### URL<a id='Database-Backup-URL'></a>
-```toml
-URL = 'http://test.back.up/fake' # Example
-```
-URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
-
-It is recommended to set this value to a _read replica_ if you have one to avoid excessive load on the main database.
 
 ### Frequency<a id='Database-Backup-Frequency'></a>
 ```toml
@@ -1302,6 +1293,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1367,6 +1359,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1432,6 +1425,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1497,6 +1491,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1563,6 +1558,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -1628,6 +1624,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1693,6 +1690,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1759,6 +1757,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1824,6 +1823,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1888,6 +1888,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1952,6 +1953,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2018,6 +2020,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2084,6 +2087,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2149,6 +2153,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2214,6 +2219,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2279,6 +2285,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2345,6 +2352,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2410,6 +2418,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2475,6 +2484,72 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Simulated (1337)<a id='EVM-1337'></a></summary><p>
+
+```toml
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 1
+MinimumContractPayment = '100'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '0s'
+TxResendAfterThreshold = '0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 8
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 10
+MaxBufferSize = 100
+SamplingInterval = '0s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2540,6 +2615,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2606,6 +2682,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2671,6 +2748,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2736,6 +2814,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2801,6 +2880,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2867,6 +2947,73 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Arbitrum Goerli (421613)<a id='EVM-421613'></a></summary><p>
+
+```toml
+ChainType = 'arbitrum'
+FinalityDepth = 50
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '100 mwei'
+PriceMax = '100 mwei'
+PriceMin = '100 mwei'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 mwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 0
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2932,6 +3079,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2997,6 +3145,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -3062,6 +3211,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -3606,6 +3756,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 NoNewHeadsThreshold = '3m' # Default
 PollFailureThreshold = 3 # Default
 PollInterval = '10s' # Default
+SelectionMode = 'HighestHead' # Default
 ```
 
 
@@ -3632,6 +3783,12 @@ PollInterval = '10s' # Default
 PollInterval controls how often to poll the node to check for liveness.
 
 Set to zero to disable poll checking.
+
+### SelectionMode<a id='EVM-NodePool-SelectionMode'></a>
+```toml
+SelectionMode = 'HighestHead' # Default
+```
+SelectionMode controls node selection strategy: HighestHead or RoundRobin.
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml

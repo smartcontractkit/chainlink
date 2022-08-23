@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -50,19 +49,10 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
-	zero := models.MustMakeDuration(0 * time.Millisecond)
-	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	simulatedBackendChain := evmtypes.DBChain{
 		ID: *utils.NewBig(testutils.SimulatedChainID),
 		Cfg: &evmtypes.ChainCfg{
-			GasEstimatorMode:               null.StringFrom("FixedPrice"),
-			EvmHeadTrackerMaxBufferSize:    null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval: &zero, // Head sampling disabled
-			EthTxResendAfterThreshold:      &zero,
-			EvmFinalityDepth:               null.IntFrom(15),
-			EthTxReaperThreshold:           &reaperThreshold,
-			MinIncomingConfirmations:       null.IntFrom(1),
-			MinimumContractPayment:         assets.NewLinkFromJuels(100),
+			MinimumContractPayment: assets.NewLinkFromJuels(100),
 		},
 		Enabled: true,
 	}

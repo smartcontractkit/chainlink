@@ -199,7 +199,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 		}
 
 		if b.fwdMgr != nil {
-			if err = b.fwdMgr.Start(); err != nil {
+			if err = b.fwdMgr.Start(ctx); err != nil {
 				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}

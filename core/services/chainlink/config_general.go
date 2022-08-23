@@ -12,6 +12,8 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/pelletier/go-toml/v2"
 	uuid "github.com/satori/go.uuid"
+	"github.com/urfave/cli"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -31,6 +33,7 @@ type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
 	c             *Config
+	secrets       *Secrets
 
 	// state
 	appID     uuid.UUID
@@ -42,10 +45,9 @@ type generalConfig struct {
 	logMu           sync.RWMutex
 }
 
-// NewGeneralConfig returns a coreconfig.GeneralConfig derived from the tomlString.
-func NewGeneralConfig(tomlString string) (coreconfig.GeneralConfig, error) {
+func NewGeneralConfig(configToml string, secretsToml string, context *cli.Context) (coreconfig.GeneralConfig, error) {
 	var c Config
-	err := toml.Unmarshal([]byte(tomlString), &c)
+	err := toml.Unmarshal([]byte(configToml), &c)
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +62,22 @@ func NewGeneralConfig(tomlString string) (coreconfig.GeneralConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &generalConfig{c: &c, inputTOML: input, effectiveTOML: effective}, nil
+
+	var s Secrets
+	err = toml.Unmarshal([]byte(secretsToml), &s)
+	if err != nil {
+		return nil, err
+	}
+	err = s.SetOverrides(context)
+	if err != nil {
+		return nil, err
+	}
+
+	return &generalConfig{c: &c, inputTOML: input, effectiveTOML: effective, secrets: &s}, nil
 }
 
 func (g *generalConfig) Validate() error {
-	return g.c.Validate()
+	return multierr.Combine(g.c.Validate(), g.secrets.Validate())
 }
 
 func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
@@ -245,10 +258,6 @@ func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
 
 func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
 	return *g.c.Database.Backup.OnVersionUpgrade
-}
-
-func (g *generalConfig) DatabaseBackupURL() *url.URL {
-	return (*url.URL)(g.c.Database.Backup.URL)
 }
 
 func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {

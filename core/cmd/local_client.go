@@ -135,7 +135,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
-	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
+	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
@@ -144,18 +144,15 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	var fileErr error
 	vrfPasswordFile := c.String("vrfpassword")
 	if len(vrfPasswordFile) != 0 {
-		vrfpwd, fileErr = passwordFromFile(vrfPasswordFile)
+		// TODO: In config V2 this is handled while building the config struct
+		vrfpwd, fileErr = utils.PasswordFromFile(vrfPasswordFile)
 		if fileErr != nil {
 			return errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
 				vrfPasswordFile)
 		}
-		if strings.TrimSpace(vrfpwd) != vrfpwd {
-			return ErrPasswordWhitespace
-		}
-		if len(vrfpwd) == 0 {
-			return ErrEmptyPasswordInFile
-		}
+	} else {
+		vrfpwd = cli.Config.VRFPassword()
 	}
 
 	evmChainSet := app.GetChains().EVM
@@ -337,15 +334,6 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	return nil
 }
 
-func passwordFromFile(pwdFile string) (string, error) {
-	if len(pwdFile) == 0 {
-		return "", nil
-	}
-	dat, err := ioutil.ReadFile(pwdFile)
-	// handle POSIX case, when text files may have a trailing \n
-	return strings.TrimSuffix(string(dat), "\n"), err
-}
-
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
@@ -387,7 +375,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, serr)
 		}
 	}()
-	pwd, err := passwordFromFile(c.String("password"))
+	pwd, err := utils.PasswordFromFile(c.String("password"))
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
