@@ -1175,21 +1175,21 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 ## Pyroscope<a id='Pyroscope'></a>
 ```toml
 [Pyroscope]
-ServerAddress = '' # Default
-AuthToken = '' # Default
+ServerAddress = 'http://localhost:4040' # Example
+AuthToken = 'randomly-oauth-generated-token' # Example
 Environment = 'mainnet' # Default
 ```
 
 
 ### ServerAddress<a id='Pyroscope-ServerAddress'></a>
 ```toml
-ServerAddress = '' # Default
+ServerAddress = 'http://localhost:4040' # Example
 ```
 ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
 
 ### AuthToken<a id='Pyroscope-AuthToken'></a>
 ```toml
-AuthToken = '' # Default
+AuthToken = 'randomly-oauth-generated-token' # Example
 ```
 AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
 

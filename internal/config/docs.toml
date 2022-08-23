@@ -432,9 +432,9 @@ GoroutineThreshold = 5000 # Default
 
 [Pyroscope]
 # ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
-ServerAddress = '' # Default
+ServerAddress = 'http://localhost:4040' # Example
 # AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
-AuthToken = '' # Default
+AuthToken = 'randomly-oauth-generated-token' # Example
 # Environment sets the target environment tag in which profiles will be added to.
 Environment = 'mainnet' # Default
 
