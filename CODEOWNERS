@@ -19,7 +19,13 @@
 /core/services/pipeline @spooktheducks @connorwstein @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
-/core/services/vrf @connorwstein @makramkd
+
+# VRF-related services
+/core/services/vrf @smartcontractkit/vrf-team
+/core/services/blockhashstore @smartcontractkit/vrf-team
+/core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
+/core/services/ocr2/plugins/ocr2vrf @smartcontractkit/vrf-team
+
 /core/services/webhook @spooktheducks
 
 # API
