@@ -4,19 +4,34 @@ on:
   pull_request:
     # keep these paths identical to the integration-tests.yml
     paths-ignore:
-      - '**/*.go'
-      - '**/*go.sum'
-      - '**/*go.mod'
-      - '.github/workflows/integration-tests.yml'
+      - "**/*.go"
+      - "**/*go.sum"
+      - "**/*go.mod"
+      - ".github/workflows/integration-tests.yml"
 
 jobs:
-  # Dummy required checks that will pass
+  # Dummy required checks and verification of test enviornment
   eth-smoke-tests:
     environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
     steps:
-      - run: echo "No smoke tests required"
+      - run: echo "No smoke tests required but we will still check the env setup"
+      - name: Checkout the repo
+        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+      - name: Testing the test environment setup
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e3bf7a2d54543beb94ad4151ca2a3837d62c2592 # v2.0.9
+        with:
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
   solana-smoke-tests:
     environment: integration
     name: Solana Smoke Tests
