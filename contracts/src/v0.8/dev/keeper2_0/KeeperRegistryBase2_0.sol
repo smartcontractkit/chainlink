@@ -48,13 +48,12 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   // TODO (sc-49442): Optimise config + state storage
   // Registry config
-  // TODO: move this to OCRConfig struct
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   uint8 internal s_f; // Number of faulty oracles allowed
-  // TODO: add config for num instances
+  uint16 internal s_numOcrInstances; // Number of OCR instances
   uint64 s_offchainConfigVersion;
   bytes s_offchainConfig;
   mapping(address => address) internal s_proposedPayee;
@@ -118,7 +117,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error TooManyOracles();
   error IncorrectNumberOfSigners();
   error IncorrectNumberOfFaultyOracles();
-  error OnchainConfigNonEmpty();
   error RepeatedSigner();
   error RepeatedTransmitter();
 
@@ -326,6 +324,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
+    uint16 numOcrInstances,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
@@ -341,6 +340,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       signers,
       transmitters,
       f,
+      numOcrInstances,
       onchainConfig,
       offchainConfigVersion,
       offchainConfig
@@ -353,6 +353,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       signers,
       transmitters,
       f,
+      numOcrInstances,
       onchainConfig,
       offchainConfigVersion,
       offchainConfig

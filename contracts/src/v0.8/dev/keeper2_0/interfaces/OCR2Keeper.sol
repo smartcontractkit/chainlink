@@ -24,6 +24,7 @@ abstract contract OCR2Keeper {
     address[] signers,
     address[] transmitters,
     uint8 f,
+    uint16 numOcrInstances,
     bytes onchainConfig,
     uint64 offchainConfigVersion,
     bytes offchainConfig
@@ -34,7 +35,7 @@ abstract contract OCR2Keeper {
    * @param signers addresses with which oracles sign the reports
    * @param transmitters addresses oracles use to transmit the reports
    * @param f number of faulty oracles the system can tolerate
-   * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
+   * @param numOcrInstances number of OCR instances that serve this contract
    * @param offchainConfigVersion version number for offchainEncoding schema
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    */
@@ -42,7 +43,7 @@ abstract contract OCR2Keeper {
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    bytes memory onchainConfig,
+    uint16 numOcrInstances,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external virtual;
@@ -52,15 +53,17 @@ abstract contract OCR2Keeper {
    * @return configCount ordinal number of current config, out of all configs applied to this contract so far
    * @return blockNumber block at which this config was set
    * @return rootConfigDigest domain-separation tag for current config (see _configDigestFromConfigData)
+   * @return configDigests array of config digests, one for each OCR instance
    */
-  function latestRootConfigDetails()
+  function latestConfigDetails()
     external
     view
     virtual
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 rootConfigDigest
+      bytes32 rootConfigDigest,
+      bytes32[] memory configDigests
     );
 
   function _configDigestFromConfigData(
@@ -70,6 +73,7 @@ abstract contract OCR2Keeper {
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
+    uint16 numOcrInstances,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
@@ -83,6 +87,7 @@ abstract contract OCR2Keeper {
           signers,
           transmitters,
           f,
+          numOcrInstances,
           onchainConfig,
           offchainConfigVersion,
           offchainConfig

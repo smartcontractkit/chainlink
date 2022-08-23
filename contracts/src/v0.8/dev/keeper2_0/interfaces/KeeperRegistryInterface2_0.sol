@@ -137,6 +137,7 @@ interface KeeperRegistryBaseInterface {
       address[] memory signers,
       address[] memory transmitters,
       uint8 f,
+      uint16 numOcrInstances,
       uint64 offchainConfigVersion,
       bytes memory offchainConfig
     );
