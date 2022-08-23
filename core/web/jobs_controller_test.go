@@ -72,7 +72,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			var address ethkey.EIP55Address
 			if tc.taExists {
 				key, _ := cltest.MustInsertRandomKey(t, ta.KeyStore.Eth())
-				address = key.Address
+				address = key.EIP55Address
 			} else {
 				address = cltest.NewEIP55Address()
 			}
@@ -540,7 +540,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
 	require.NoError(t, err)
 	jb.OCROracleSpec = &ocrSpec
-	jb.OCROracleSpec.TransmitterAddress = &app.Key.Address
+	jb.OCROracleSpec.TransmitterAddress = &app.Key.EIP55Address
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 

@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
 )
 
 //go:generate mockery --name VRFBeaconCoordinator --output ./mocks/ --case=underscore

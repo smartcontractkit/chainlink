@@ -30,12 +30,13 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -115,10 +116,10 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 
 	config.Overrides.P2PPeerID = peerID
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
-	transmitter := sendingKeys[0].Address.Address()
+	transmitter := sendingKeys[0].Address
 
 	// Fund the transmitter address with some ETH
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
@@ -378,7 +379,11 @@ juelsPerFeeCoinSource = """
 			require.Len(t, j.JobSpecErrors, ignore)
 		}
 	}
-	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+	em := map[string]struct{}{}
+	metaLock.Lock()
+	maps.Copy(em, expectedMeta)
+	metaLock.Unlock()
+	assert.Len(t, em, 0, "expected metadata %v", em)
 
 	// Assert we can read the latest config digest and epoch after a report has been submitted.
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))

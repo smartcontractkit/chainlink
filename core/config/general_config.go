@@ -32,7 +32,7 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-//nolint
+// nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -60,8 +60,11 @@ type FeatureFlags interface {
 	StarkNetEnabled() bool
 }
 
+type LogFn func(...any)
+
 type GeneralOnlyConfig interface {
 	Validate() error
+	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 
@@ -230,6 +233,7 @@ type GlobalConfig interface {
 	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
+	GlobalNodeSelectionMode() (string, bool)
 
 	OCR1Config
 	OCR2Config
@@ -312,6 +316,10 @@ func newGeneralConfigWithViper(v *viper.Viper, lggr logger.Logger) (config *gene
 	return
 }
 
+func (c *generalConfig) LogConfiguration(log LogFn) {
+	log("Environment variables\n", NewConfigPrinter(c))
+}
+
 // Validate performs basic sanity checks on config and returns error if any
 // misconfiguration would be fatal to the application
 func (c *generalConfig) Validate() error {
@@ -352,11 +360,6 @@ EVM_ENABLED=false
 			if _, err := multiaddr.NewMultiaddr(peers[i]); err != nil {
 				return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
 			}
-		}
-	}
-	if me := c.OCRMonitoringEndpoint(); me != "" {
-		if _, err := url.Parse(me); err != nil {
-			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
 	}
 	if ct, set := c.GlobalChainType(); set && !ChainType(ct).IsValid() {
@@ -1360,6 +1363,10 @@ func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
 
 func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("NodePollInterval"), time.ParseDuration)
+}
+
+func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
+	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

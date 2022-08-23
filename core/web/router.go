@@ -234,7 +234,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		uc := UserController{app}
 		authv2.GET("/users", auth.RequiresAdminRole(uc.Index))
 		authv2.POST("/users", auth.RequiresAdminRole(uc.Create))
-		authv2.PATCH("/users", auth.RequiresAdminRole(uc.Update))
+		authv2.PATCH("/users", auth.RequiresAdminRole(uc.UpdateRole))
 		authv2.DELETE("/users/:email", auth.RequiresAdminRole(uc.Delete))
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.POST("/user/token", uc.NewAPIToken)
@@ -295,6 +295,15 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/keys/eth/:keyID", auth.RequiresAdminRole(ekc.Delete))
 		authv2.POST("/keys/eth/import", auth.RequiresAdminRole(ekc.Import))
 		authv2.POST("/keys/eth/export/:address", auth.RequiresAdminRole(ekc.Export))
+		// duplicated from above, with `evm` instead of `eth`
+		// legacy ones remain for backwards compatibility
+		authv2.GET("/keys/evm", ekc.Index)
+		authv2.POST("/keys/evm", auth.RequiresEditRole(ekc.Create))
+		authv2.PUT("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Update))
+		authv2.DELETE("/keys/evm/:keyID", auth.RequiresAdminRole(ekc.Delete))
+		authv2.POST("/keys/evm/import", auth.RequiresAdminRole(ekc.Import))
+		authv2.POST("/keys/evm/export/:address", auth.RequiresAdminRole(ekc.Export))
+		authv2.POST("/keys/evm/chain", auth.RequiresAdminRole(ekc.Chain))
 
 		ocrkc := OCRKeysController{app}
 		authv2.GET("/keys/ocr", ocrkc.Index)

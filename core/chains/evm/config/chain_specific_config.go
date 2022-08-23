@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/config"
 )
 
@@ -69,6 +70,7 @@ type (
 		nodeDeadAfterNoNewHeadersThreshold             time.Duration
 		nodePollFailureThreshold                       uint32
 		nodePollInterval                               time.Duration
+		nodeSelectionMode                              string
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -146,6 +148,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
+		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
 		nonceAutoSync:                         true,
 		useForwarders:                         false,
 		ocrContractConfirmations:              4,
@@ -302,6 +305,8 @@ func setChainSpecificConfigDefaultSets() {
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
+	optimismGoerli := optimismKovan
+	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -392,6 +397,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[42] = kovan
 	chainSpecificConfigDefaultSets[10] = optimismMainnet
 	chainSpecificConfigDefaultSets[69] = optimismKovan
+	chainSpecificConfigDefaultSets[420] = optimismGoerli
 	chainSpecificConfigDefaultSets[42161] = arbitrumMainnet
 	chainSpecificConfigDefaultSets[421611] = arbitrumRinkeby
 	chainSpecificConfigDefaultSets[56] = bscMainnet

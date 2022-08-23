@@ -16,7 +16,7 @@ type ETHKeyResource struct {
 	Address        string       `json:"address"`
 	EthBalance     *assets.Eth  `json:"ethBalance"`
 	LinkBalance    *assets.Link `json:"linkBalance"`
-	IsFunding      bool         `json:"isFunding"`
+	Disabled       bool         `json:"disabled"`
 	CreatedAt      time.Time    `json:"createdAt"`
 	UpdatedAt      time.Time    `json:"updatedAt"`
 	MaxGasPriceWei utils.Big    `json:"maxGasPriceWei"`
@@ -44,7 +44,7 @@ func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOpti
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,
-		IsFunding:   state.IsFunding,
+		Disabled:    state.Disabled,
 		CreatedAt:   state.CreatedAt,
 		UpdatedAt:   state.UpdatedAt,
 	}
