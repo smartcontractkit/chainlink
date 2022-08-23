@@ -7,7 +7,7 @@ import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 /**
  * @notice This contract serves as a wrapper around a keeper registry's checkUpkeep function.
  */
-contract KeeperRegistryCheckUpkeepGasUsageWrapper is ConfirmedOwner {
+contract KeeperRegistryCheckUpkeepGasUsageWrapper1_2 is ConfirmedOwner {
   KeeperRegistryExecutableInterface private immutable i_keeperRegistry;
 
   /**

@@ -12,7 +12,7 @@ error InsufficientInterval();
  * @notice A canary upkeep which requires a different keeper to service its upkeep at an interval. This makes sure that
  * all keepers are in a healthy state.
  */
-contract CanaryUpkeep is KeeperCompatibleInterface, ConfirmedOwner {
+contract CanaryUpkeep1_2 is KeeperCompatibleInterface, ConfirmedOwner {
   uint256 private s_keeperIndex;
   uint256 private s_interval;
   uint256 private s_timestamp;
