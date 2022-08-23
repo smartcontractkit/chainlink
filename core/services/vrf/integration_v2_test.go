@@ -412,7 +412,7 @@ func requestRandomnessForWrapper(
 	}
 
 	event := events[len(events)-1]
-	wrapperConsumerEvent := events[len(events)-1]
+	wrapperConsumerEvent := wrapperConsumerEvents[len(wrapperConsumerEvents)-1]
 	require.Equal(t, event.RequestId, wrapperConsumerEvent.RequestId, "request ID in consumer log does not match request ID in coordinator log")
 	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
 	require.Equal(t, cbGasLimit+cbGasLimit/64+wrapperOverhead, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
