@@ -195,7 +195,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/NATIVE price feed
+   * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
@@ -219,6 +219,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * price in order to reduce costs for the upkeep clients.
    */
   function _getFeedData() internal view returns (uint256 gasWei, uint256 linkEth) {
+    // TODO (sc-48706): Gas optimise this
     uint32 stalenessSeconds = s_onChainConfig.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -242,7 +243,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param fastGasWei the fast gas price
-   * @param linkEth the exchange ratio between LINK and Native token
+   * @param linkEth the exchange ratio between LINK and ETH
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
@@ -317,7 +318,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       });
   }
 
-  // TODO (sc-50805): add documentation
+  /**
+   * @dev Should be called on every config change, either OCR or onChainConfig
+   * Recomputed the config digest and stores it
+   */
   function _computeAndStoreConfigDigest(
     address[] memory signers,
     address[] memory transmitters,
