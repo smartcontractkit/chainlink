@@ -77,8 +77,7 @@ describe('OptimismValidator', () => {
 
       const currentBlockNum = await ethers.provider.getBlockNumber()
       const currentBlock = await ethers.provider.getBlock(currentBlockNum)
-      const currentTimestamp = currentBlock.timestamp
-      const futureTimestamp = currentTimestamp + 5000
+      const futureTimestamp = currentBlock.timestamp + 5000
 
       await ethers.provider.send('evm_setNextBlockTimestamp', [futureTimestamp])
       const sequencerStatusRecorderCallData =

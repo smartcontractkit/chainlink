@@ -969,8 +969,7 @@ describe('KeeperRegistry', () => {
 
         const currentBlockNum = await ethers.provider.getBlockNumber()
         const currentBlock = await ethers.provider.getBlock(currentBlockNum)
-        const currentTimestamp = currentBlock.timestamp
-        const updatedAt = currentTimestamp
+        const updatedAt = currentBlock.timestamp
 
         const startedAt = 946684799
         await gasPriceFeed
@@ -1004,8 +1003,7 @@ describe('KeeperRegistry', () => {
 
         const currentBlockNum = await ethers.provider.getBlockNumber()
         const currentBlock = await ethers.provider.getBlock(currentBlockNum)
-        const currentTimestamp = currentBlock.timestamp
-        const updatedAt = currentTimestamp
+        const updatedAt = currentBlock.timestamp
 
         const startedAt = 946684799
         await linkEthFeed
