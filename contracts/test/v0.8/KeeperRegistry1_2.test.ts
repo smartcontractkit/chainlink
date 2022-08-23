@@ -11,7 +11,6 @@ import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../type
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
 import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry12__factory'
 import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
-
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
@@ -51,6 +50,7 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
+  // @ts-ignore bug in autogen file
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_2')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')

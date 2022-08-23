@@ -3,7 +3,8 @@ import { BigNumber, Signer } from 'ethers'
 import moment from 'moment'
 import { assert } from 'chai'
 import { CanaryUpkeep } from '../../typechain/CanaryUpkeep'
-import { KeeperRegistry12 } from '../../typechain/KeeperRegistry12'
+import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
+import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry12__factory'
 import { fastForward, reset } from '../test-helpers/helpers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { evmRevert } from '../test-helpers/matchers'
@@ -15,7 +16,8 @@ let nelly: Signer
 let nancy: Signer
 let ned: Signer
 let keeperAddresses: string[]
-let keeperRegistry: KeeperRegistry12
+let keeperRegistry: KeeperRegistry
+let keeperRegistryFactory: KeeperRegistryFactory
 
 const defaultInterval = 300
 const paymentPremiumPPB = BigNumber.from(250000000)
@@ -59,9 +61,8 @@ describe('CanaryUpkeep', () => {
     ]
   })
   beforeEach(async () => {
-    const keeperRegistryFactory = await ethers.getContractFactory(
-      'KeeperRegistry1_2',
-    )
+    // @ts-ignore bug in autogen file
+    keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_2')
     keeperRegistry = await keeperRegistryFactory
       .connect(owner)
       .deploy(

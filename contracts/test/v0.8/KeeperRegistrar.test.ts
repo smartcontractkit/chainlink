@@ -8,8 +8,8 @@ import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factorie
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
-import { KeeperRegistrar } from '../../typechain/KeeperRegistrar'
 import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry12__factory'
+import { KeeperRegistrar } from '../../typechain/KeeperRegistrar'
 import { KeeperRegistrar__factory as KeeperRegistrarFactory } from '../../typechain/factories/KeeperRegistrar__factory'
 
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
@@ -32,6 +32,7 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
+  // @ts-ignore bug in autogen file
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_2')
   keeperRegistrar = await ethers.getContractFactory('KeeperRegistrar')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
