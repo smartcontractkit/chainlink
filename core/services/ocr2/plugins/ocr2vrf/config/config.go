@@ -23,8 +23,9 @@ type PluginConfig struct {
 	DKGContractAddress     string `json:"dkgContractAddress"`
 
 	// VRF configuration fields
-	LinkEthFeedAddress string `json:"linkEthFeedAddress"`
-	LookbackBlocks     int64  `json:"lookbackBlocks"`
+	LinkEthFeedAddress string   `json:"linkEthFeedAddress"`
+	ConfirmationDelays []uint32 `json:"confirmationDelays"`
+	LookbackBlocks     int64    `json:"lookbackBlocks"`
 }
 
 // ValidatePluginConfig validates that the given OCR2VRF plugin configuration is correct.

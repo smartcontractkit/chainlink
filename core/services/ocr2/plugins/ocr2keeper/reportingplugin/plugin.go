@@ -34,25 +34,21 @@ type ORM interface {
 	RegistryByContractAddress(registryAddress ethkey.EIP55Address) (keeper.Registry, error)
 	NewEligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []keeper.UpkeepRegistration, err error)
 	EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber, gracePeriod int64) (upkeeps []keeper.UpkeepRegistration, err error)
-	SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *utils.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) error
+	SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *utils.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) (int64, error)
 }
 
 type Config interface {
 	EvmEIP1559DynamicFees() bool
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
-	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
 	KeeperBaseFeeBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
-	KeeperRegistryCheckGasOverhead() uint64
-	KeeperRegistryPerformGasOverhead() uint64
-	KeeperRegistrySyncInterval() time.Duration
-	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperRegistryCheckGasOverhead() uint32
+	KeeperRegistryPerformGasOverhead() uint32
 	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
-	LogSQL() bool
 }
 
 type queryData struct {
@@ -192,7 +188,7 @@ func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, err
 			"fromAddress":     upkeep.Registry.FromAddress.String(),
 			"contractAddress": upkeep.Registry.ContractAddress.String(),
 			"upkeepID":        upkeep.UpkeepID,
-			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
+			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
 				p.cfg.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
 			"gasPrice":   gasPrice,
 			"gasTipCap":  gasTipCap,
@@ -215,7 +211,7 @@ func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, err
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err = p.orm.SetLastRunInfoForUpkeepOnJob(p.jobID, upkeep.UpkeepID, currentHead.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
+		_, err = p.orm.SetLastRunInfoForUpkeepOnJob(p.jobID, upkeep.UpkeepID, currentHead.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
 		if err != nil {
 			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
