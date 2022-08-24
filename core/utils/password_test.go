@@ -1,6 +1,8 @@
 package utils_test
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -46,6 +48,41 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 				for _, subErr := range test.errors {
 					assert.ErrorContains(t, err, subErr.Error())
 				}
+			}
+		})
+	}
+}
+
+func TestPasswordFromFile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		password string
+		err      error
+	}{
+		{"", utils.ErrEmptyPasswordInFile},
+		{" has whitespace  ", utils.ErrPasswordWhitespace},
+		{"reasonable_password", nil},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.password, func(t *testing.T) {
+			t.Parallel()
+
+			pwdFile, err := ioutil.TempFile("", "")
+			assert.NoError(t, err)
+			defer os.Remove(pwdFile.Name())
+			_, err = pwdFile.WriteString(test.password)
+			assert.NoError(t, err)
+
+			pwd, err := utils.PasswordFromFile(pwdFile.Name())
+			if test.err != nil {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, test.err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, pwd, test.password)
 			}
 		})
 	}
