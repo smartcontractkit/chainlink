@@ -13,7 +13,9 @@ type State struct {
 	Disabled   bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
-	lastUsed   time.Time
+	// TODO: Make the nonce show in the list/UI
+	Nonce    int64
+	lastUsed time.Time
 }
 
 func (s State) KeyID() string {

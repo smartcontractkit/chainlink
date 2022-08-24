@@ -29,9 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Manually (re)set a nonce:
       - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
     - Enable a key for a particular chain:
-      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
     - Disable a key for a particular chain:
-      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
 
 ### Changed
 
