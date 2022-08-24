@@ -254,7 +254,7 @@ func (sub *subscription) Send(event Event) {
 const broadcastTimeout = 10 * time.Second
 
 func (sub *subscription) processQueue() {
-	ctx, cancel := context.WithTimeout(context.Background(), broadcastTimeout)
+	ctx, cancel := utils.ContextFromChanWithDeadline(sub.chDone, broadcastTimeout)
 	defer cancel()
 
 	for !sub.queue.Empty() {
@@ -262,8 +262,6 @@ func (sub *subscription) processQueue() {
 		select {
 		case sub.chEvents <- event:
 		case <-ctx.Done():
-			return
-		case <-sub.chDone:
 			return
 		}
 	}

@@ -91,10 +91,7 @@ func WithDefaultTimeout(parent context.Context) (ctx context.Context, cancel con
 }
 
 func ContextWithDefaultTimeoutFromChan(chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
-	parent, cancel := utils.ContextFromChan(chStop)
-	ctx, _ = WithDefaultTimeout(parent)
-
-	return ctx, cancel
+	return utils.ContextFromChanWithDeadline(chStop, queryTimeout)
 }
 
 // client represents an abstract client that manages connections to

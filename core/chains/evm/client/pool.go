@@ -306,8 +306,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			go func(n SendOnlyNode, txCp types.Transaction) {
 				defer p.wg.Done()
 
-				chCtx, cancel := utils.ContextFromChan(p.chStop)
-				sendCtx, _ := WithDefaultTimeout(chCtx)
+				sendCtx, cancel := ContextWithDefaultTimeoutFromChan(p.chStop)
 				defer cancel()
 
 				err := NewSendError(n.SendTransaction(sendCtx, &txCp))
