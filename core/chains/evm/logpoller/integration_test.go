@@ -1,6 +1,7 @@
 package logpoller_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -141,13 +143,10 @@ func TestLogPoller_Integration(t *testing.T) {
 	// replay to ensure we get all the logs.
 	require.NoError(t, lp.Replay(testutils.Context(t), 1))
 
-	// We should eventually receive all those Log1 logs.
-	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log1"].ID, emitterAddress1)
-		require.NoError(t, err)
-		t.Logf("Received %d/%d logs\n", len(logs), 5)
-		return len(logs) == 5
-	})
+	// We should immediately have all those Log1 logs.
+	logs, err := lp.Logs(2, 7, EmitterABI.Events["Log1"].ID, emitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 5, len(logs))
 	// Now let's update the filter and replay to get Log2 logs.
 	require.NoError(t, lp.MergeFilter([]common.Hash{EmitterABI.Events["Log2"].ID}, []common.Address{emitterAddress1}))
 	// Replay an invalid block should error
@@ -156,13 +155,14 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
 	require.NoError(t, lp.Replay(testutils.Context(t), 4))
 
-	// We should eventually see 4 logs2 logs.
-	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(2, 7, EmitterABI.Events["Log2"].ID, emitterAddress1)
-		require.NoError(t, err)
-		t.Logf("Received %d/%d logs\n", len(logs), 4)
-		return len(logs) == 4
-	})
+	// We should immediately see 4 logs2 logs.
+	logs, err = lp.Logs(2, 7, EmitterABI.Events["Log2"].ID, emitterAddress1)
+	require.NoError(t, err)
+	assert.Equal(t, 4, len(logs))
 
+	// Cancelling a replay should return an error.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	assert.True(t, errors.Is(lp.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
 	require.NoError(t, lp.Close())
 }

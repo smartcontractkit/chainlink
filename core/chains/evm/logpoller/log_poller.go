@@ -45,7 +45,11 @@ type LogPoller interface {
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
 
-var _ LogPoller = &logPoller{}
+var (
+	_                          LogPoller = &logPoller{}
+	ErrReplayAbortedByClient             = errors.New("replay aborted by client")
+	ErrReplayAbortedOnShutdown           = errors.New("replay aborted, log poller shutdown")
+)
 
 type logPoller struct {
 	utils.StartStopOnce
@@ -161,8 +165,22 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	if fromBlock < 1 || fromBlock > latest.Number.Int64() {
 		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest)
 	}
-	lp.replayStart <- fromBlock
-	<-lp.replayComplete
+	// Block until replay notification accepted or cancelled.
+	select {
+	case lp.replayStart <- fromBlock:
+	case <-lp.ctx.Done():
+		return ErrReplayAbortedOnShutdown
+	case <-ctx.Done():
+		return ErrReplayAbortedByClient
+	}
+	// Block until replay complete or cancelled.
+	select {
+	case <-lp.replayComplete:
+	case <-lp.ctx.Done():
+		return ErrReplayAbortedOnShutdown
+	case <-ctx.Done():
+		return ErrReplayAbortedByClient
+	}
 	return nil
 }
 
