@@ -30,7 +30,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/CronUpkeep.abi - CronUpkeep cron_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistry1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistry1_2.bin KeeperRegistry keeper_registry_wrapper1_2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/TypeAndVersionInterface.abi ../../contracts/solc/v0.8.6/TypeAndVersionInterface.bin TypeAndVersionInterface type_and_version_interface_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.abi ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper.bin KeeperRegistryCheckUpkeepGasUsageWrapper gas_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.bin KeeperRegistryCheckUpkeepGasUsageWrapper gas_wrapper
 
 // v0.8.6 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
