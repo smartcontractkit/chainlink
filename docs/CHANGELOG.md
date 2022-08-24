@@ -14,27 +14,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keypath now supports paths with any depth, instead of limiting it to 2
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
 - Updated `Arbitrum Rinkeby` configuration for Nitro
+- Add `Arbitrum Goerli` configuration
 - `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 - It is now possible to use the same key across multiple chains.
+- `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
+  - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
+  - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
+  This mode requires `NODE_NO_NEW_HEADS_THRESHOLD` to be configured, otherwise it will always use the first alive node.
+- New `evm keys chain` command
+  - This can also be accessed at `/v2/keys/evm/chain`.
+  - Usage examples:
+    - Manually (re)set a nonce:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+    - Enable a key for a particular chain:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
+    - Disable a key for a particular chain:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
 
 ### Changed
 
 - The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
 
-### NEW `evm keys chain` command
+## 1.7.1 - 2022-08-22
 
-This can also be accessed at `/v2/keys/evm/chain`.
+### Added
 
-Usage examples:
-
-Manually (re)set a nonce:
-`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
-
-Enable a key for a particular chain:
-`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
-
-Disable a key for a particular chain:
-`chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
+- `Arbitrum Nitro` client error support
 
 ## 1.7.0 - 2022-08-08
 
