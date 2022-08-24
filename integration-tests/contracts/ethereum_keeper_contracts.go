@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -149,7 +149,7 @@ type EthereumKeeperRegistry struct {
 	client      blockchain.EVMClient
 	version     ethereum.KeeperRegistryVersion
 	registry1_1 *ethereum.KeeperRegistry11
-	registry1_2 *ethereum.KeeperRegistry
+	registry1_2 *ethereum.KeeperRegistry12
 	address     *common.Address
 }
 
