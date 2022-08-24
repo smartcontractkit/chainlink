@@ -294,8 +294,12 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	if c.IsSet("setNextNonce") {
 		query.Set("nextNonce", c.String("setNextNonce"))
 	}
-	if c.IsSet("setEnabled") {
-		query.Set("enabled", c.String("setEnabled"))
+	if c.IsSet("enable") && c.IsSet("disable") {
+		return cli.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
+	} else if c.Bool("enable") {
+		query.Set("enabled", "true")
+	} else if c.Bool("disable") {
+		query.Set("enabled", "false")
 	}
 
 	chainURL.RawQuery = query.Encode()
@@ -317,5 +321,5 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
 	}
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Imported ETH key")
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
 }
