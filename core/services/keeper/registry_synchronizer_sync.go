@@ -93,26 +93,26 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpke
 		case <-rs.chStop:
 			return
 		case chSyncUpkeepQueue <- struct{}{}:
-			go rs.syncUpkeepWithCallback(reg, &newUpkeeps[i], done)
+			go rs.syncUpkeepWithCallback(&rs.registryWrapper, reg, &newUpkeeps[i], done)
 		}
 	}
 
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID *utils.Big, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, registry Registry, upkeepID *utils.Big, doneCallback func()) {
 	defer doneCallback()
 
-	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
-		rs.logger.With("error", err).With(
-			"upkeepID", upkeepID,
+	if err := rs.syncUpkeep(getter, registry, upkeepID); err != nil {
+		rs.logger.With("error", err.Error()).With(
+			"upkeepID", NewUpkeepIdentifier(upkeepID).String(),
 			"registryContract", registry.ContractAddress.Hex(),
 		).Error("unable to sync upkeep on registry")
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Big) error {
-	upkeep, err := rs.registryWrapper.GetUpkeep(nil, upkeepID.ToInt())
+func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registry, upkeepID *utils.Big) error {
+	upkeep, err := getter.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
@@ -122,7 +122,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Bi
 	}
 	newUpkeep := UpkeepRegistration{
 		CheckData:           upkeep.CheckData,
-		ExecuteGas:          uint64(upkeep.ExecuteGas),
+		ExecuteGas:          upkeep.ExecuteGas,
 		RegistryID:          registry.ID,
 		PositioningConstant: positioningConstant,
 		UpkeepID:            upkeepID,

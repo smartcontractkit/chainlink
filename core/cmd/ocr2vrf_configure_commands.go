@@ -152,7 +152,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	ethKeys, _ := app.GetKeyStore().Eth().GetAll()
 	transmitterID := ethKeys[0].Address.String()
 	peerID := p2p[0].PeerID().Raw()
-	if c.Bool("isBootstrapper") == false {
+	if !c.Bool("isBootstrapper") {
 		peerID = c.String("bootstrapperPeerID")
 	}
 
@@ -223,7 +223,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 }
 
 func setupKeystore(cli *Client, c *clipkg.Context, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore)
+	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}

@@ -27,7 +27,7 @@ export const EVMAccountRow: React.FC<Props> = ({ ethKey }) => {
       </TableCell>
       <TableCell>
         <Typography variant="body1">
-          {ethKey.isFunding ? 'Emergency funding' : 'Regular'}
+          {ethKey.isDisabled ? 'Disabled' : 'Enabled'}
         </Typography>
       </TableCell>
       <TableCell>

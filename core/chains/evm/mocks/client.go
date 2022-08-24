@@ -375,6 +375,29 @@ func (_m *Client) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head,
 	return r0, r1
 }
 
+// HeaderByHash provides a mock function with given fields: _a0, _a1
+func (_m *Client) HeaderByHash(_a0 context.Context, _a1 common.Hash) (*types.Header, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *types.Header
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *types.Header); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Header)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HeaderByNumber provides a mock function with given fields: _a0, _a1
 func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Header, error) {
 	ret := _m.Called(_a0, _a1)

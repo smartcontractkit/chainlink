@@ -19,6 +19,7 @@ import {
   evmWordToAddress,
 } from '../test-helpers/helpers'
 import { randomBytes } from '@ethersproject/random'
+import { fail } from 'assert'
 
 let personas: Personas
 let linkTokenFactory: ContractFactory
@@ -1240,7 +1241,7 @@ describe('FluxAggregator', () => {
           assert.isTrue(!!tx)
           if (tx) {
             const receipt = await tx.wait()
-            assert.isAbove(400_000, receipt.gasUsed.toNumber())
+            assert.isBelow(receipt.gasUsed.toNumber(), 600_000)
           }
         })
 
@@ -1857,11 +1858,23 @@ describe('FluxAggregator', () => {
       it('reverts', async () => {
         const most = deposit.div(oracles.length * reserveRounds)
 
-        await evmRevert(
-          updateFutureRounds(aggregator, {
-            payment: most.add(1),
-          }),
-          'insufficient funds for payment',
+        // Relaxed check for the revert message due to a bug in ethers where any error message
+        // that starts with insufficient funds will be incorrectly returned as 'insufficient funds for intrinsic transaction cost'
+        await updateFutureRounds(aggregator, {
+          payment: most.add(1),
+        }).then(
+          () => {
+            // onFulfillment callback
+            fail('expected to revert but did not')
+          },
+          (error: any) => {
+            // onRejected callback
+            const message =
+              error instanceof Object && 'message' in error
+                ? error.message
+                : JSON.stringify(error)
+            assert.isTrue(message.includes('insufficient funds'))
+          },
         )
 
         await updateFutureRounds(aggregator, {

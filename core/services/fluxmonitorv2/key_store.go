@@ -12,7 +12,7 @@ import (
 
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {
-	SendingKeys(chainID *big.Int) ([]ethkey.KeyV2, error)
+	EnabledKeysForChain(chainID *big.Int) ([]ethkey.KeyV2, error)
 	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 

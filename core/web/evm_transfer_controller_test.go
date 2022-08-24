@@ -29,8 +29,8 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -42,7 +42,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		Amount:             amount,
 	}
 
@@ -69,8 +69,8 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	balance, err := assets.NewEthValueS("2")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -81,7 +81,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		Amount:             amount,
 	}
 
@@ -108,8 +108,8 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
@@ -124,7 +124,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		Amount:             amount,
 	}
 
@@ -173,8 +173,8 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -185,7 +185,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
@@ -210,8 +210,8 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	balance, err := assets.NewEthValueS("0")
 	require.NoError(t, err)
 
-	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
-	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -222,7 +222,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
-		FromAddress:        key.Address.Address(),
+		FromAddress:        key.Address,
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,

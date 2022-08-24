@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/config"
 )
 
 var (
 	// DefaultGasFeeCap is the default value to use for Fee Cap in EIP-1559 transactions
 	DefaultGasFeeCap                     = assets.GWei(100)
-	DefaultGasLimit               uint64 = 500000
+	DefaultGasLimit               uint32 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
 	DefaultGasTip                        = big.NewInt(1)                               // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
@@ -42,9 +43,9 @@ type (
 		gasBumpWei                                     big.Int
 		gasEstimatorMode                               string
 		gasFeeCapDefault                               big.Int
-		gasLimitDefault                                uint64
+		gasLimitDefault                                uint32
 		gasLimitMultiplier                             float32
-		gasLimitTransfer                               uint64
+		gasLimitTransfer                               uint32
 		gasLimitOCRJobType                             *uint32
 		gasLimitDRJobType                              *uint32
 		gasLimitVRFJobType                             *uint32
@@ -69,6 +70,7 @@ type (
 		nodeDeadAfterNoNewHeadersThreshold             time.Duration
 		nodePollFailureThreshold                       uint32
 		nodePollInterval                               time.Duration
+		nodeSelectionMode                              string
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -146,6 +148,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
+		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
 		nonceAutoSync:                         true,
 		useForwarders:                         false,
 		ocrContractConfirmations:              4,
@@ -186,6 +189,27 @@ func setChainSpecificConfigDefaultSets() {
 	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
 	sepolia.operatorFactoryAddress = "" // doesn't exist yet
 	sepolia.eip1559DynamicFees = true
+
+	// simulated chain is actually a local client that "pretends" to be a blockchain
+	// see: https://goethereumbook.org/en/client-simulated/
+	// generally speaking, this is only used in tests
+	simulated := fallbackDefaultSet
+	simulated.balanceMonitorBlockDelay = 0
+	simulated.blockEmissionIdleWarningThreshold = 0
+	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
+	simulated.ethTxResendAfterThreshold = 0
+	simulated.finalityDepth = 1    // Simulated does not have re-orgs
+	simulated.gasBumpThreshold = 0 // Never bump gas
+	simulated.gasEstimatorMode = "FixedPrice"
+	simulated.headTrackerHistoryDepth = 10
+	simulated.headTrackerSamplingInterval = 1 * time.Second
+	simulated.minIncomingConfirmations = 1
+	simulated.minGasPriceWei = *big.NewInt(0)
+	simulated.ocrContractConfirmations = 1
+	simulated.headTrackerMaxBufferSize = 100
+	simulated.headTrackerSamplingInterval = 0
+	simulated.ethTxReaperThreshold = 0
+	simulated.minimumContractPayment = assets.NewLinkFromJuels(100)
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -273,6 +297,16 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
+	// nitro uses standard gas accounting, so restore default limits.
+	arbitrumRinkeby.gasLimitDefault = fallbackDefaultSet.gasLimitDefault
+	arbitrumRinkeby.gasLimitTransfer = fallbackDefaultSet.gasLimitTransfer
+	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
+	arbitrumRinkeby.gasPriceDefault = *assets.Wei(1e8)  // 0.1 gwei
+	arbitrumRinkeby.maxGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.minGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
+	arbitrumRinkeby.gasFeeCapDefault = *assets.Wei(1e8) // 0.1 gwei
+	arbitrumGoerli := arbitrumRinkeby
+	arbitrumGoerli.linkContractAddress = "" //TODO
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -294,6 +328,8 @@ func setChainSpecificConfigDefaultSets() {
 	optimismKovan := optimismMainnet
 	optimismKovan.blockEmissionIdleWarningThreshold = 30 * time.Minute
 	optimismKovan.linkContractAddress = "0x4911b761993b9c8c0d14Ba2d86902AF6B0074F5B"
+	optimismGoerli := optimismKovan
+	optimismGoerli.linkContractAddress = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
 
 	// Fantom
 	fantomMainnet := fallbackDefaultSet
@@ -308,6 +344,8 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.nodeDeadAfterNoNewHeadersThreshold = 30 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
+	fantomTestnet.blockEmissionIdleWarningThreshold = 0
+	fantomTestnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Fantom testnet only emits blocks when a new tx is received, so this method of liveness detection is not useful
 
 	// RSK
 	// RSK prices its txes in sats not wei
@@ -382,8 +420,10 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[42] = kovan
 	chainSpecificConfigDefaultSets[10] = optimismMainnet
 	chainSpecificConfigDefaultSets[69] = optimismKovan
+	chainSpecificConfigDefaultSets[420] = optimismGoerli
 	chainSpecificConfigDefaultSets[42161] = arbitrumMainnet
 	chainSpecificConfigDefaultSets[421611] = arbitrumRinkeby
+	chainSpecificConfigDefaultSets[421613] = arbitrumGoerli
 	chainSpecificConfigDefaultSets[56] = bscMainnet
 	chainSpecificConfigDefaultSets[128] = hecoMainnet
 	chainSpecificConfigDefaultSets[250] = fantomMainnet
@@ -401,6 +441,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
+
+	chainSpecificConfigDefaultSets[1337] = simulated
 
 	// sanity check
 	for id, c := range chainSpecificConfigDefaultSets {
