@@ -116,15 +116,19 @@ func AfterWaitTimeout(t *testing.T) <-chan time.Time {
 }
 
 // Context returns a context with the test's deadline, if available.
-func Context(t testing.TB) context.Context {
+func Context(tb testing.TB) context.Context {
 	ctx := context.Background()
 	var cancel func()
-	if tt, ok := t.(*testing.T); ok {
-		if d, ok := tt.Deadline(); ok {
+	switch t := tb.(type) {
+	case *testing.T:
+		if d, ok := t.Deadline(); ok {
 			ctx, cancel = context.WithDeadline(ctx, d)
-			t.Cleanup(cancel)
 		}
 	}
+	if cancel == nil {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	tb.Cleanup(cancel)
 	return ctx
 }
 

@@ -365,7 +365,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 	defer lggr.ErrorIfClosing(db, "db")
 
-	app, err := cli.AppFactory.NewApplication(context.Background(), cli.Config, db)
+	app, err := cli.AppFactory.NewApplication(context.TODO(), cli.Config, db)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
