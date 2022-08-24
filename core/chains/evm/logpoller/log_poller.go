@@ -64,11 +64,16 @@ type logPoller struct {
 	addresses map[common.Address]struct{}
 	eventSigs map[common.Hash]struct{}
 
-	replayStart    chan int64
+	replayStart    chan ReplayRequest
 	replayComplete chan struct{}
 	ctx            context.Context
 	cancel         context.CancelFunc
 	done           chan struct{}
+}
+
+type ReplayRequest struct {
+	fromBlock int64
+	ctx       context.Context
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -84,7 +89,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		ec:                ec,
 		orm:               orm,
 		lggr:              lggr,
-		replayStart:       make(chan int64),
+		replayStart:       make(chan ReplayRequest),
 		replayComplete:    make(chan struct{}),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
@@ -167,7 +172,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
-	case lp.replayStart <- fromBlock:
+	case lp.replayStart <- ReplayRequest{fromBlock, ctx}:
 	case <-lp.ctx.Done():
 		return ErrReplayAbortedOnShutdown
 	case <-ctx.Done():
@@ -205,16 +210,23 @@ func (lp *logPoller) Close() error {
 func (lp *logPoller) run() {
 	defer close(lp.done)
 	tick := time.After(0)
-	var replay int64
 	for {
 		select {
 		case <-lp.ctx.Done():
 			return
-		case fromBlock := <-lp.replayStart:
-			lp.lggr.Warnw("Replay requested", "from", fromBlock)
-			replay = fromBlock
-			// Immediate replay.
-			tick = time.After(0)
+		case replayReq := <-lp.replayStart:
+			lp.lggr.Warnw("Executing replay", "fromBlock", replayReq.fromBlock)
+			// Serially process replay requests.
+			lp.pollAndSaveLogs(replayReq.ctx, replayReq.fromBlock)
+			select {
+			case <-lp.ctx.Done():
+				// We're shutting down, lets return.
+				return
+			case <-replayReq.ctx.Done():
+				// Client gave up, lets continue.
+				continue
+			case lp.replayComplete <- struct{}{}:
+			}
 		case <-tick:
 			tick = time.After(utils.WithJitter(lp.pollPeriod))
 			// Always start from the latest block in the db.
@@ -246,16 +258,7 @@ func (lp *logPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-			// Note replay is already validated, can assume its in [1, lastBlockProcessed].
-			if replay > 0 {
-				start = replay
-				lp.lggr.Warnw("Executing replay", "replay", replay)
-			}
 			lp.pollAndSaveLogs(lp.ctx, start)
-			if replay > 0 {
-				replay = 0 // Clear replay
-				lp.replayComplete <- struct{}{}
-			}
 		}
 	}
 }

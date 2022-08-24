@@ -160,7 +160,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 4, len(logs))
 
-	// Cancelling a replay should return an error.
+	// Cancelling a replay should return an error synchronously.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	assert.True(t, errors.Is(lp.Replay(ctx, 4), logpoller.ErrReplayAbortedByClient))
