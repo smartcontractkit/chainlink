@@ -23,15 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
   - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
   This mode requires `NODE_NO_NEW_HEADS_THRESHOLD` to be configured, otherwise it will always use the first alive node.
-- New `evm keys chain` command
+- New `keys eth chain` command
   - This can also be accessed at `/v2/keys/evm/chain`.
   - Usage examples:
     - Manually (re)set a nonce:
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
     - Enable a key for a particular chain:
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
     - Disable a key for a particular chain:
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
 
 ### Changed
 
