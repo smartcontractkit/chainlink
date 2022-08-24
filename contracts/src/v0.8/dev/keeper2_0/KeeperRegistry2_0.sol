@@ -70,6 +70,7 @@ contract KeeperRegistry2_0 is
   function setConfig(
     address[] memory signers,
     address[] memory transmitters,
+    // TODO: Also incorporate payees here
     uint8 f,
     uint16 numOcrInstances,
     uint64 offchainConfigVersion,

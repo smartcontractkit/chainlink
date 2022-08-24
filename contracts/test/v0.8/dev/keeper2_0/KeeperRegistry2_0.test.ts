@@ -245,6 +245,7 @@ describe('KeeperRegistry2_0', () => {
       .connect(owner)
       .transfer(await keeper3.getAddress(), toWei('1000'))
 
+    // TODO: Setup transmitters, signers here
     await registry.connect(owner).setKeepers(keepers, payees)
     const tx = await registry
       .connect(owner)
