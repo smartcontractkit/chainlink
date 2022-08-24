@@ -57,4 +57,5 @@ type MedianProvider interface {
 	Plugin
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
+	OnchainConfigCodec() median.OnchainConfigCodec
 }
