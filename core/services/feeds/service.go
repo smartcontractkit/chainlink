@@ -444,9 +444,8 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 	}
 
-	// TODO - Use parent context
 	var id int64
-	q := s.q.WithOpts(pg.WithParentCtx(context.Background()))
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var txerr error
 		// Upsert job proposal
