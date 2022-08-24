@@ -374,11 +374,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	var chains chainlink.Chains
-	ctx := context.Background()
-	if tt, ok := t.(*testing.T); ok {
-		ctx = testutils.Context(tt)
-	}
-	chains.EVM, err = evm.LoadChainSet(ctx, evm.ChainSetOpts{
+	chains.EVM, err = evm.LoadChainSet(testutils.Context(t), evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,

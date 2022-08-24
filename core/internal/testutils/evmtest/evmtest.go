@@ -1,7 +1,6 @@
 package evmtest
 
 import (
-	"context"
 	"database/sql"
 	"math/big"
 	"math/rand"
@@ -100,11 +99,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}},
 	}
 
-	ctx := context.Background()
-	if tt, ok := t.(*testing.T); ok {
-		ctx = testutils.Context(tt)
-	}
-	cc, err := evm.NewChainSet(ctx, opts, chains, nodes)
+	cc, err := evm.NewChainSet(testutils.Context(t), opts, chains, nodes)
 	require.NoError(t, err)
 	return cc
 }
