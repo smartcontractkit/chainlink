@@ -181,6 +181,7 @@ contract KeeperRegistry2_0 is
     emit UpkeepPerformed(parsedReport.upkeepId, success, gasUsed, parsedReport.checkBlockNumber, totalPayment);
   }
 
+  // TODO(sc-50641): Evaluate if we need link/eth in the report and finalize the fields
   struct Report {
     uint256 upkeepId; // Id of upkeep
     bytes performData; // Perform Data for the upkeep
