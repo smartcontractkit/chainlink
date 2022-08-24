@@ -1,0 +1,20 @@
+ChainID = '421613'
+ChainType = 'arbitrum'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+BumpThreshold = 0
+Mode = 'FixedPrice'
+PriceDefault = '0.1 gwei'
+PriceMax = '0.1 gwei'
+PriceMin = '0.1 gwei'
+FeeCapDefault = '0.1 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0'
+
+[NodePool]
+NoNewHeadsThreshold = '0'

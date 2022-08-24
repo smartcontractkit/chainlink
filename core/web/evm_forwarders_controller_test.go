@@ -37,7 +37,7 @@ func setupEVMForwardersControllerTest(t *testing.T) *TestEVMForwardersController
 	}
 }
 
-func Test_EVMForwardersController_Create(t *testing.T) {
+func Test_EVMForwardersController_Track(t *testing.T) {
 	t.Parallel()
 
 	controller := setupEVMForwardersControllerTest(t)
@@ -50,14 +50,14 @@ func Test_EVMForwardersController_Create(t *testing.T) {
 
 	// Build EVMForwarderRequest
 	address := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
-	body, err := json.Marshal(web.CreateEVMForwarderRequest{
+	body, err := json.Marshal(web.TrackEVMForwarderRequest{
 		EVMChainID: &dbChain.ID,
 		Address:    address,
 	},
 	)
 	require.NoError(t, err)
 
-	resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders", bytes.NewReader(body))
+	resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(body))
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -80,7 +80,7 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	require.NoError(t, err)
 
 	// Build EVMForwarderRequest
-	fwdrs := []web.CreateEVMForwarderRequest{
+	fwdrs := []web.TrackEVMForwarderRequest{
 		{
 			EVMChainID: &dbChain.ID,
 			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
@@ -92,14 +92,14 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	}
 	for _, fwdr := range fwdrs {
 
-		body, err := json.Marshal(web.CreateEVMForwarderRequest{
+		body, err := json.Marshal(web.TrackEVMForwarderRequest{
 			EVMChainID: &dbChain.ID,
 			Address:    fwdr.Address,
 		},
 		)
 		require.NoError(t, err)
 
-		resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders", bytes.NewReader(body))
+		resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(body))
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	}

@@ -5,14 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
 func TestErroringNode(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.TestCtx(t)
+	ctx := testutils.Context(t)
 	n := &erroringNode{
 		"boo",
 	}
@@ -85,6 +86,10 @@ func TestErroringNode(t *testing.T) {
 
 	require.Equal(t, "<erroring node>", n.String())
 	require.Equal(t, NodeStateUnreachable, n.State())
+
+	state, num := n.StateAndLatestBlockNumber()
+	require.Equal(t, NodeStateUnreachable, state)
+	require.Equal(t, int64(-1), num)
 
 	n.DeclareInSync()
 	n.DeclareOutOfSync()

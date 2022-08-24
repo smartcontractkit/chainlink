@@ -47,16 +47,16 @@ func TestEVMKeyring_Marshalling(t *testing.T) {
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 
-	m, err := kr1.marshal()
+	m, err := kr1.Marshal()
 	require.NoError(t, err)
 
 	kr2 := evmKeyring{}
-	err = kr2.unmarshal(m)
+	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
 
 	assert.True(t, bytes.Equal(kr1.PublicKey(), kr2.PublicKey()))
 	assert.True(t, bytes.Equal(kr1.privateKey.D.Bytes(), kr2.privateKey.D.Bytes()))
 
 	// Invalid seed size should error
-	assert.Error(t, kr2.unmarshal([]byte{0x01}))
+	assert.Error(t, kr2.Unmarshal([]byte{0x01}))
 }

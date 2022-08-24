@@ -94,8 +94,6 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 		return r.Method == "POST" && r.URL.String() == eiWithURL.URL.String() && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
 	})).Once().Return(&http.Response{Body: io.NopCloser(strings.NewReader(""))}, nil)
 	eim.Notify(webhookSpecTwoEIs.ID)
-
-	client.AssertExpectations(t)
 }
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
@@ -127,6 +125,4 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 		return r.Method == "DELETE" && r.URL.String() == expectedURL && r.Header["Content-Type"][0] == "application/json" && r.Header["X-Chainlink-Ea-Accesskey"][0] == "token" && r.Header["X-Chainlink-Ea-Secret"][0] == "secret"
 	})).Once().Return(&http.Response{Body: io.NopCloser(strings.NewReader(""))}, nil)
 	eim.DeleteJob(webhookSpecTwoEIs.ID)
-
-	client.AssertExpectations(t)
 }

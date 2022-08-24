@@ -63,11 +63,11 @@ func (ok *evmKeyring) signingAddress() common.Address {
 	return crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
 }
 
-func (ok *evmKeyring) marshal() ([]byte, error) {
+func (ok *evmKeyring) Marshal() ([]byte, error) {
 	return crypto.FromECDSA(&ok.privateKey), nil
 }
 
-func (ok *evmKeyring) unmarshal(in []byte) error {
+func (ok *evmKeyring) Unmarshal(in []byte) error {
 	privateKey, err := crypto.ToECDSA(in)
 	if err != nil {
 		return err

@@ -72,7 +72,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 }
 
 func mustRandomUser(t testing.TB) User {
-	email := fmt.Sprintf("user-%v@chainlink.test", testutils.NewRandomInt64())
+	email := fmt.Sprintf("user-%v@chainlink.test", testutils.NewRandomPositiveInt64())
 	r, err := NewUser(email, testutils.Password, UserRoleAdmin)
 	if err != nil {
 		t.Fatal(err)

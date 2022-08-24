@@ -9,9 +9,8 @@ import (
 type State struct {
 	ID         int32
 	Address    EIP55Address
-	NextNonce  int64
-	IsFunding  bool
 	EVMChainID utils.Big
+	Disabled   bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	lastUsed   time.Time

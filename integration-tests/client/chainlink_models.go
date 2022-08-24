@@ -295,6 +295,10 @@ type TxKeyData struct {
 // TxKeyAttributes is the model that represents the created keys when read
 type TxKeyAttributes struct {
 	PublicKey string `json:"publicKey"`
+
+	// starknet specific (uses contract model instead of EOA)
+	AccountAddr string `json:"accountAddr,omitempty"`
+	StarkKey    string `json:"starkPubKey,omitempty"`
 }
 
 type SingleTransactionDataWrapper struct {
@@ -419,6 +423,49 @@ type SolanaNode struct {
 // SolanaNodeCreate is the model that represents the solana node when created
 type SolanaNodeCreate struct {
 	Data SolanaNode `json:"data"`
+}
+
+type StarkNetChainConfig struct {
+	OCR2CachePollPeriod null.String
+	OCR2CacheTTL        null.String
+	RequestTimeout      null.String
+	TxTimeout           null.Bool
+	TxSendFrequency     null.String
+	TxMaxBatchSize      null.String
+}
+
+// StarkNetChainAttributes is the model that represents the starknet chain
+type StarkNetChainAttributes struct {
+	Type    string              `json:"type"`
+	ChainID string              `json:"chainID"`
+	Config  StarkNetChainConfig `json:"config"`
+}
+
+// StarkNetChain is the model that represents the starknet chain when read
+type StarkNetChain struct {
+	Attributes StarkNetChainAttributes `json:"attributes"`
+}
+
+// StarkNetChainCreate is the model that represents the starknet chain when created
+type StarkNetChainCreate struct {
+	Data StarkNetChain `json:"data"`
+}
+
+// StarkNetNodeAttributes is the model that represents the starknet node
+type StarkNetNodeAttributes struct {
+	Name    string `json:"name"`
+	ChainID string `json:"chainId"`
+	Url     string `json:"url"`
+}
+
+// StarkNetNode is the model that represents the starknet node when read
+type StarkNetNode struct {
+	Attributes StarkNetNodeAttributes `json:"attributes"`
+}
+
+// StarkNetNodeCreate is the model that represents the starknet node when created
+type StarkNetNodeCreate struct {
+	Data StarkNetNode `json:"data"`
 }
 
 // SpecForm is the form used when creating a v2 job spec, containing the TOML of the v2 job

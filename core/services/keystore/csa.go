@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 )
 
