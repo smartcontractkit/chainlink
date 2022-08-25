@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
 - Updated `Arbitrum Rinkeby` configuration for Nitro
 - Add `Arbitrum Goerli` configuration
-- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 - It is now possible to use the same key across multiple chains.
 - `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
   - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
@@ -36,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 
 ## 1.7.1 - 2022-08-22
 
