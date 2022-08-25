@@ -10,12 +10,13 @@ type State struct {
 	ID         int32
 	Address    EIP55Address
 	EVMChainID utils.Big
-	Disabled   bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	// TODO: Make the nonce show in the list/UI
-	Nonce    int64
-	lastUsed time.Time
+	// NextNonce is used for convenience and rendering in UI but the source of
+	// truth is always the DB
+	NextNonce int64
+	Disabled  bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	lastUsed  time.Time
 }
 
 func (s State) KeyID() string {
