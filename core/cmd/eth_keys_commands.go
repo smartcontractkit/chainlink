@@ -24,6 +24,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
+		fmt.Sprintf("%d", p.NextNonce),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
 		fmt.Sprintf("%v", p.Disabled),
@@ -33,7 +34,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "Next Nonce", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
