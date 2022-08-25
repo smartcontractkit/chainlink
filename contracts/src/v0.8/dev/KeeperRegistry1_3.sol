@@ -14,7 +14,7 @@ import "../interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistryDev is
+contract KeeperRegistry1_3 is
   KeeperRegistryBase,
   Proxy,
   TypeAndVersionInterface,

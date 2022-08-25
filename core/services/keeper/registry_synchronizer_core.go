@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -20,13 +21,16 @@ var (
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
 type MailRoom struct {
-	mbUpkeepCanceled    *utils.Mailbox[log.Broadcast]
-	mbSyncRegistry      *utils.Mailbox[log.Broadcast]
-	mbUpkeepPerformed   *utils.Mailbox[log.Broadcast]
-	mbUpkeepRegistered  *utils.Mailbox[log.Broadcast]
-	mbUpkeepReceived    *utils.Mailbox[log.Broadcast]
-	mbUpkeepMigrated    *utils.Mailbox[log.Broadcast]
-	mbUpkeepGasLimitSet *utils.Mailbox[log.Broadcast]
+	mbUpkeepCanceled         *utils.Mailbox[log.Broadcast]
+	mbSyncRegistry           *utils.Mailbox[log.Broadcast]
+	mbUpkeepPerformed        *utils.Mailbox[log.Broadcast]
+	mbUpkeepRegistered       *utils.Mailbox[log.Broadcast]
+	mbUpkeepReceived         *utils.Mailbox[log.Broadcast]
+	mbUpkeepMigrated         *utils.Mailbox[log.Broadcast]
+	mbUpkeepGasLimitSet      *utils.Mailbox[log.Broadcast]
+	mbUpkeepPaused           *utils.Mailbox[log.Broadcast]
+	mbUpkeepUnpaused         *utils.Mailbox[log.Broadcast]
+	mbUpkeepCheckDataUpdated *utils.Mailbox[log.Broadcast]
 }
 
 type RegistrySynchronizerOptions struct {
@@ -62,13 +66,16 @@ type RegistrySynchronizer struct {
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
 func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
 	mailRoom := MailRoom{
-		mbUpkeepCanceled:    utils.NewMailbox[log.Broadcast](500),
-		mbSyncRegistry:      utils.NewMailbox[log.Broadcast](1),
-		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](3000),
-		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](500),
-		mbUpkeepReceived:    utils.NewMailbox[log.Broadcast](500),
-		mbUpkeepMigrated:    utils.NewMailbox[log.Broadcast](500),
-		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepCanceled:         utils.NewMailbox[log.Broadcast](500),
+		mbSyncRegistry:           utils.NewMailbox[log.Broadcast](1),
+		mbUpkeepPerformed:        utils.NewMailbox[log.Broadcast](3000),
+		mbUpkeepRegistered:       utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepReceived:         utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepMigrated:         utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepGasLimitSet:      utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepPaused:           utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepUnpaused:         utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepCheckDataUpdated: utils.NewMailbox[log.Broadcast](500),
 	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),

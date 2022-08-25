@@ -13,7 +13,7 @@ import (
 
 func (rs *RegistrySynchronizer) processLogs() {
 	wg := sync.WaitGroup{}
-	wg.Add(7)
+	wg.Add(10)
 	go rs.handleSyncRegistryLog(wg.Done)
 	go rs.handleUpkeepCanceledLogs(wg.Done)
 	go rs.handleUpkeepRegisteredLogs(wg.Done)
@@ -21,6 +21,9 @@ func (rs *RegistrySynchronizer) processLogs() {
 	go rs.handleUpkeepMigratedLogs(wg.Done)
 	go rs.handleUpkeepPerformedLogs(wg.Done)
 	go rs.handleUpkeepGasLimitSetLogs(wg.Done)
+	go rs.handleUpkeepPausedLogs(wg.Done)
+	go rs.handleUpkeepUnpausedLogs(wg.Done)
+	go rs.handleUpkeepCheckDataUpdatedLogs(wg.Done)
 	wg.Wait()
 }
 
@@ -308,5 +311,139 @@ func (rs *RegistrySynchronizer) handleUpkeepMigrated(broadcast log.Broadcast) {
 
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.Error(errors.Wrapf(err, "unable to mark KeeperRegistryUpkeepMigrated log as consumed,  log: %v", broadcast.String()))
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepPausedLogs(done func()) {
+	defer done()
+	for {
+		broadcast, exists := rs.mailRoom.mbUpkeepPaused.Retrieve()
+		if !exists {
+			return
+		}
+		rs.handleUpkeepPaused(broadcast)
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepPaused(broadcast log.Broadcast) {
+	txHash := broadcast.RawLog().TxHash.Hex()
+	rs.logger.Debugw("processing UpkeepPaused log", "txHash", txHash)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to check if log was consumed"))
+		return
+	}
+	if was {
+		return
+	}
+
+	pausedUpkeepId, err := rs.registryWrapper.GetUpkeepIdFromUpkeepPausedLog(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "Unable to fetch upkeep ID from upkeep paused log"))
+		return
+	}
+
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(pausedUpkeepId)})
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to batch delete upkeeps"))
+		return
+	}
+	rs.logger.Debugw(fmt.Sprintf("paused upkeep %s", pausedUpkeepId.String()), "txHash", txHash)
+
+	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
+		rs.logger.Error(errors.Wrapf(err, "unable to mark KeeperRegistryUpkeepPaused log as consumed,  log: %v", broadcast.String()))
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepUnpausedLogs(done func()) {
+	defer done()
+	registry, err := rs.orm.RegistryForJob(rs.job.ID)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to find registry for job"))
+		return
+	}
+	for {
+		broadcast, exists := rs.mailRoom.mbUpkeepUnpaused.Retrieve()
+		if !exists {
+			return
+		}
+		rs.handleUpkeepUnpaused(broadcast, registry)
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepUnpaused(broadcast log.Broadcast, registry Registry) {
+	txHash := broadcast.RawLog().TxHash.Hex()
+	rs.logger.Debugw("processing UpkeepUnpaused log", "txHash", txHash)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to check if log was consumed"))
+		return
+	}
+	if was {
+		return
+	}
+
+	unpausedUpkeepId, err := rs.registryWrapper.GetUpkeepIdFromUpkeepUnpausedLog(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "Unable to fetch upkeep ID from upkeep unpaused log"))
+		return
+	}
+
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(unpausedUpkeepId))
+	if err != nil {
+		rs.logger.Error(errors.Wrapf(err, "failed to sync upkeep, log: %s", broadcast.String()))
+		return
+	}
+	rs.logger.Debugw(fmt.Sprintf("unpaused upkeep %s", unpausedUpkeepId.String()), "txHash", txHash)
+
+	if err = rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
+		rs.logger.Error(errors.Wrapf(err, "unable to mark KeeperRegistryUpkeepUnpaused log as consumed,  log: %v", broadcast.String()))
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepCheckDataUpdatedLogs(done func()) {
+	defer done()
+	registry, err := rs.orm.RegistryForJob(rs.job.ID)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to find registry for job"))
+		return
+	}
+	for {
+		broadcast, exists := rs.mailRoom.mbUpkeepCheckDataUpdated.Retrieve()
+		if !exists {
+			return
+		}
+		rs.handleUpkeepCheckDataUpdated(broadcast, registry)
+	}
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepCheckDataUpdated(broadcast log.Broadcast, registry Registry) {
+	txHash := broadcast.RawLog().TxHash.Hex()
+	rs.logger.Debugw("processing Upkeep check data updated log", "txHash", txHash)
+	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "unable to check if log was consumed"))
+		return
+	}
+	if was {
+		return
+	}
+
+	updateLog, err := rs.registryWrapper.ParseUpkeepCheckDataUpdatedLog(broadcast)
+	if err != nil {
+		rs.logger.Error(errors.Wrap(err, "Unable to parse update log from upkeep check data updated log"))
+		return
+	}
+
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(updateLog.UpkeepID))
+	if err != nil {
+		rs.logger.Error(errors.Wrapf(err, "unable to update check data for upkeep %s", updateLog.UpkeepID.String()))
+		return
+	}
+
+	rs.logger.Debugw(fmt.Sprintf("updated check data for upkeep %s", updateLog.UpkeepID.String()), "txHash", txHash)
+
+	if err = rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
+		rs.logger.Error(errors.Wrapf(err, "unable to mark UpkeepCheckDataUpdated log as consumed for upkeep ID: %s", updateLog.UpkeepID.String()))
 	}
 }
