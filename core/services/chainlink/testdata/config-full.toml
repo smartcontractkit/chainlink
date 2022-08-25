@@ -21,7 +21,6 @@ Dir = 'test/backup/dir'
 Frequency = '1h0m0s'
 Mode = 'full'
 OnVersionUpgrade = true
-URL = 'http://test.back.up/fake'
 
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
