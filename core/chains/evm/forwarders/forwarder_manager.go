@@ -74,7 +74,9 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
-			f.subscribeForwardersLogs(fwdrs)
+			if err = f.subscribeForwardersLogs(fwdrs); err != nil {
+				return err
+			}
 		}
 
 		f.authRcvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
@@ -142,7 +144,9 @@ func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, erro
 		return nil, errors.Wrapf(err, "Failed to call getAuthorizedSenders on %s", addr)
 	}
 	f.setCachedSenders(addr, senders)
-	f.subscribeSendersChangedLogs(addr)
+	if err = f.subscribeSendersChangedLogs(addr); err != nil {
+		return nil, err
+	}
 	return senders, nil
 }
 
@@ -171,14 +175,17 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 	}
 }
 
-func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) {
+func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
 	for _, fwdr := range fwdrs {
-		f.subscribeSendersChangedLogs(fwdr.Address)
+		if err := f.subscribeSendersChangedLogs(fwdr.Address); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) {
-	f.logpoller.MergeFilter(
+func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
+	return f.logpoller.MergeFilter(
 		[]common.Hash{authChangedTopic},
 		[]common.Address{addr})
 }
