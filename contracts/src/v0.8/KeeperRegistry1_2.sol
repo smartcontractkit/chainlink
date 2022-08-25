@@ -11,7 +11,7 @@ import "./interfaces/TypeAndVersionInterface.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/KeeperCompatibleInterface.sol";
-import "./interfaces/KeeperRegistryInterface.sol";
+import "./interfaces/KeeperRegistryInterface1_2.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
 import "./interfaces/ERC677ReceiverInterface.sol";
@@ -20,7 +20,7 @@ import "./interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry is
+contract KeeperRegistry1_2 is
   TypeAndVersionInterface,
   ConfirmedOwner,
   KeeperBase,
