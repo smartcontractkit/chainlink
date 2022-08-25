@@ -254,14 +254,16 @@ func (sub *subscription) Send(event Event) {
 const broadcastTimeout = 10 * time.Second
 
 func (sub *subscription) processQueue() {
-	ctx, cancel := utils.ContextFromChanWithDeadline(sub.chDone, broadcastTimeout)
-	defer cancel()
-
+	deadline := time.Now().Add(broadcastTimeout)
 	for !sub.queue.Empty() {
 		event := sub.queue.Take()
 		select {
 		case sub.chEvents <- event:
-		case <-ctx.Done():
+		case <-time.After(time.Until(deadline)):
+			sub.lggr.Warnf("Postgres event broadcaster: SLOW processQueue(), timed out after %s", broadcastTimeout)
+			return
+		case <-sub.chDone:
+			sub.lggr.Debugw("Postgres event broadcaster: request cancelled during processQueue()")
 			return
 		}
 	}
