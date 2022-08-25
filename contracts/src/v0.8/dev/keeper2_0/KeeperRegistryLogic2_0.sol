@@ -126,8 +126,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 configDigest,
-      bytes32[] memory configDigests
+      bytes32 rootConfigDigest
     )
   {}
 

@@ -90,17 +90,10 @@ contract KeeperRegistry2_0 is
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 rootConfigDigest,
-      bytes32[] memory configDigests
+      bytes32 rootConfigDigest
     )
   {
-    uint16 numOcrInstances = s_numOcrInstances;
-    rootConfigDigest = s_latestRootConfigDigest;
-    configDigests = new bytes32[](numOcrInstances);
-    for (uint256 i = 0; i < configDigests.length; i++) {
-      configDigests[i] = rootConfigDigest ^ bytes32(i);
-    }
-    return (s_configCount, s_latestConfigBlockNumber, rootConfigDigest, configDigests);
+    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest);
   }
 
   /**
