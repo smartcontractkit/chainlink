@@ -50,10 +50,6 @@ Mode = 'none' # Default
 Dir = 'test/backup/dir' # Example
 # OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
 OnVersionUpgrade = true # Default
-# URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
-#
-# It is recommended to set this value to a _read replica_ if you have one to avoid excessive load on the main database.
-URL = 'http://test.back.up/fake' # Example
 # Frequency sets the interval for database dumps, if set to a positive duration and `Mode` is not _none_.
 #
 # Set to `0` to disable periodic backups.

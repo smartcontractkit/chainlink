@@ -19,7 +19,6 @@ Dir = 'db/backup'
 Frequency = '10m0s'
 Mode = 'lite'
 OnVersionUpgrade = false
-URL = 'db/backup'
 
 [Database.Listener]
 MaxReconnectDuration = '1m0s'

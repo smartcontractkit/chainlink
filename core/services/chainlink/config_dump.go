@@ -660,7 +660,6 @@ func (c *Config) loadLegacyCoreEnv() {
 			Frequency:        envDuration("DatabaseBackupFrequency"),
 			Mode:             legacy.DatabaseBackupModeEnvVar.ParsePtr(),
 			OnVersionUpgrade: envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
-			URL:              envURL("DatabaseBackupDir"),
 		},
 	}
 	if isZeroPtr(c.Database.Listener) {

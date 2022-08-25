@@ -196,9 +196,12 @@ func (lsn *listenerV1) pruneConfirmedRequestCounts() {
 
 // Listen for new heads
 func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
+	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	defer cancel()
+
 	for {
 		select {
-		case <-lsn.chStop:
+		case <-ctx.Done():
 			unsubscribe()
 			lsn.waitOnStop <- struct{}{}
 			return
@@ -207,7 +210,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 				toProcess := lsn.extractConfirmedLogs()
 				var toRetry []request
 				for _, r := range toProcess {
-					if success := lsn.ProcessRequest(r); !success {
+					if success := lsn.ProcessRequest(ctx, r); !success {
 						toRetry = append(toRetry, r)
 					}
 				}
@@ -342,7 +345,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 }
 
 // ProcessRequest attempts to process the VRF request. Returns true if successful, false otherwise.
-func (lsn *listenerV1) ProcessRequest(req request) bool {
+func (lsn *listenerV1) ProcessRequest(ctx context.Context, req request) bool {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
 	if !lsn.shouldProcessLog(req.lb) {
@@ -376,7 +379,7 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 	// found" errors.
 	currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
 	m := bigmath.Max(req.confirmedAtBlock, currBlock)
-	ctx, cancel := context.WithTimeout(context.Background(), callbacksTimeout)
+	ctx, cancel := context.WithTimeout(ctx, callbacksTimeout)
 	defer cancel()
 	callback, err := lsn.coordinator.Callbacks(&bind.CallOpts{
 		BlockNumber: m,
@@ -420,7 +423,7 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lggr, true, func(tx pg.Queryer) error {
+	if _, err = lsn.pipelineRunner.Run(ctx, &run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)

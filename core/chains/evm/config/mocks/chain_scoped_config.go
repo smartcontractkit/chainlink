@@ -2945,6 +2945,20 @@ func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *big
 	return r0
 }
 
+// KeystorePassword provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeystorePassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // LeaseLockDuration provides a mock function with given fields:
 func (_m *ChainScopedConfig) LeaseLockDuration() time.Duration {
 	ret := _m.Called()
@@ -4480,6 +4494,20 @@ func (_m *ChainScopedConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// VRFPassword provides a mock function with given fields:
+func (_m *ChainScopedConfig) VRFPassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
