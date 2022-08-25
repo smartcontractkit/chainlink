@@ -1413,12 +1413,12 @@ func (c *generalConfig) LogFileDir() string {
 
 // Implemented only in config V2. V1 uses a --password flag.
 func (c *generalConfig) KeystorePassword() string {
-	c.lggr.Warn("Config V1 should us --password flag instead of calling KeystorePassword()")
+	c.lggr.Warn("Config V1 should use --password flag instead of calling KeystorePassword()")
 	return ""
 }
 
 // Implemented only in config V2. V1 uses a --vrfpassword flag.
 func (c *generalConfig) VRFPassword() string {
-	c.lggr.Warn("Config V1 should us --vrfpassword flag instead of calling VRFPassword()")
+	c.lggr.Warn("Config V1 should use --vrfpassword flag instead of calling VRFPassword()")
 	return ""
 }

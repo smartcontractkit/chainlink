@@ -135,7 +135,7 @@ func (ks *eth) EnsureKeys(chainIDs ...*big.Int) (err error) {
 		if err != nil {
 			return err
 		}
-		ks.logger.Infow("New key created", "address", newKey.Address.Hex(), "evmChainID", chainID)
+		ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", newKey.Address.Hex()), "address", newKey.Address.Hex(), "evmChainID", chainID)
 	}
 
 	return nil
