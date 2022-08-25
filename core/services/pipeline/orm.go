@@ -416,7 +416,9 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 	deleteTS := time.Now()
 
 	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "duration", deleteTS.Sub(start))
-	defer o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(deleteTS))
+	defer func(start time.Time) {
+		o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(start))
+	}(deleteTS)
 
 	err = q.ExecQ("VACUUM ANALYZE pipeline_runs")
 	if err != nil {

@@ -74,7 +74,7 @@ func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
 		q.ParentCtx = ctx
 		deadline, ok := q.ParentCtx.Deadline()
 		if ok {
-			q.QueryTimeout = time.Until(deadline) + 1*time.Second
+			q.QueryTimeout = time.Until(deadline)
 		}
 	}
 }
