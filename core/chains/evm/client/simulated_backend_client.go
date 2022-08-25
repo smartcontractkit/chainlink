@@ -164,13 +164,13 @@ func init() {
 
 // GetERC20Balance returns the balance of the given address for the token
 // contract address.
-func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
+func (c *SimulatedBackendClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "while seeking the ERC20 balance of %s on %s",
 			address, contractAddress)
 	}
-	b, err := c.b.CallContract(context.Background(), ethereum.CallMsg{
+	b, err := c.b.CallContract(ctx, ethereum.CallMsg{
 		To: &contractAddress, Data: callData},
 		c.currentBlockNumber())
 	if err != nil {
@@ -185,7 +185,7 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 }
 
 // GetLINKBalance get link balance.
-func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (c *SimulatedBackendClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	panic("not implemented")
 }
 
@@ -359,11 +359,6 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 
 	err = c.b.SendTransaction(ctx, tx)
 	return err
-}
-
-// Call makes a call.
-func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
-	return c.CallContext(context.Background(), result, method, args)
 }
 
 // CallContract calls a contract.
