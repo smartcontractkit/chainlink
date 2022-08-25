@@ -2626,9 +2626,9 @@ Mode = 'FixedPrice'
 PriceDefault = '1 micro'
 PriceMax = '1 micro'
 PriceMin = '1 micro'
-LimitDefault = 7000000
+LimitDefault = 500000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2888,9 +2888,9 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '100 mwei'
-PriceMax = '100 mwei'
-PriceMin = '100 mwei'
+PriceDefault = '1 micro'
+PriceMax = '1 micro'
+PriceMin = '1 micro'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -2899,7 +2899,7 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
+FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
@@ -2954,9 +2954,9 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '100 mwei'
-PriceMax = '100 mwei'
-PriceMin = '100 mwei'
+PriceDefault = '1 micro'
+PriceMax = '1 micro'
+PriceMin = '1 micro'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -2965,7 +2965,7 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
+FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
