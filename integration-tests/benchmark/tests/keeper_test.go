@@ -55,7 +55,7 @@ var _ = Describe("Keeper benchmark suite @benchmark-keeper", func() {
 				testsetups.KeeperBenchmarkTestInputs{
 					BlockchainClient:  chainClient,
 					NumberOfContracts: 500,
-					RegistryVersion:   eth_contracts.RegistryVersion_1_2,
+					RegistryVersions:  []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_2},
 					KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 						PaymentPremiumPPB:    uint32(0),
 						BlockCountPerTurn:    big.NewInt(100),

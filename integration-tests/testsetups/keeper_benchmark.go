@@ -30,9 +30,9 @@ type KeeperBenchmarkTest struct {
 	Inputs       KeeperBenchmarkTestInputs
 	TestReporter testreporters.KeeperBenchmarkTestReporter
 
-	keeperRegistry          contracts.KeeperRegistry
-	keeperConsumerContracts []contracts.KeeperConsumerBenchmark
-	upkeepIDs               []*big.Int
+	keeperRegistries        []contracts.KeeperRegistry
+	keeperConsumerContracts [][]contracts.KeeperConsumerBenchmark
+	upkeepIDs               [][]*big.Int
 
 	env            *environment.Environment
 	chainlinkNodes []*client.Chainlink
@@ -53,7 +53,7 @@ type KeeperBenchmarkTestInputs struct {
 	UpkeepGasLimit         int64                             // Maximum gas that can be consumed by the upkeeps
 	UpkeepSLA              int64                             // SLA in number of blocks for an upkeep to be performed once it becomes eligible
 	FirstEligibleBuffer    int64                             // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
-	RegistryVersion        ethereum.KeeperRegistryVersion    // Registry version to use
+	RegistryVersions       []ethereum.KeeperRegistryVersion  // Registry version to use
 }
 
 // NewKeeperBenchmarkTest prepares a new keeper benchmark test to be run
@@ -69,40 +69,46 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	k.ensureInputValues()
 	k.env = env
 	inputs := k.Inputs
-	var err error
 
-	// Connect to networks and prepare for contract deployment
-	contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
-	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
-	k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
-	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-	k.chainClient.ParallelTransactions(true)
+	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
+	k.keeperConsumerContracts = make([][]contracts.KeeperConsumerBenchmark, len(inputs.RegistryVersions))
+	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 
-	// Fund chainlink nodes
-	err = actions.FundChainlinkNodes(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding)
-	Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
-	linkToken, err := contractDeployer.DeployLinkTokenContract()
-	Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-	err = k.chainClient.WaitForEvents()
-	Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
+	for index := range inputs.RegistryVersions {
+		log.Info().Int("Index", index).Msg("Starting Test Setup")
+		var err error
+		// Connect to networks and prepare for contract deployment
+		contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
+		Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
+		k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
+		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+		k.chainClient.ParallelTransactions(true)
 
-	k.keeperRegistry, k.keeperConsumerContracts, k.upkeepIDs = actions.DeployBenchmarkKeeperContracts(
-		inputs.RegistryVersion,
-		inputs.NumberOfContracts,
-		uint32(inputs.UpkeepGasLimit), //upkeepGasLimit
-		linkToken,
-		contractDeployer,
-		k.chainClient,
-		k.Inputs.KeeperRegistrySettings,
-		inputs.BlockRange,
-		inputs.BlockInterval,
-		inputs.CheckGasToBurn,
-		inputs.PerformGasToBurn,
-		inputs.FirstEligibleBuffer,
-	)
+		// Fund chainlink nodes
+		err = actions.FundChainlinkNodes(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding)
+		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
+		linkToken, err := contractDeployer.DeployLinkTokenContract()
+		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
+		err = k.chainClient.WaitForEvents()
+		Expect(err).ShouldNot(HaveOccurred(), "Failed waiting for LINK Contract deployment")
 
-	// Send keeper jobs to registry and chainlink nodes
-	actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistry)
+		k.keeperRegistries[index], k.keeperConsumerContracts[index], k.upkeepIDs[index] = actions.DeployBenchmarkKeeperContracts(
+			inputs.RegistryVersions[index],
+			inputs.NumberOfContracts,
+			uint32(inputs.UpkeepGasLimit), //upkeepGasLimit
+			linkToken,
+			contractDeployer,
+			k.chainClient,
+			k.Inputs.KeeperRegistrySettings,
+			inputs.BlockRange,
+			inputs.BlockInterval,
+			inputs.CheckGasToBurn,
+			inputs.PerformGasToBurn,
+			inputs.FirstEligibleBuffer,
+		)
+		// Send keeper jobs to registry and chainlink nodes
+		actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistries[index])
+	}
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
 }
@@ -111,24 +117,31 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 func (k *KeeperBenchmarkTest) Run() {
 	startTime := time.Now()
 
-	for index, keeperConsumer := range k.keeperConsumerContracts {
-		k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d", index),
-			contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
-				keeperConsumer,
-				k.upkeepIDs[index],
-				k.Inputs.BlockRange+k.Inputs.FirstEligibleBuffer+k.Inputs.BlockInterval,
-				k.Inputs.UpkeepSLA,
-				&k.TestReporter,
-			),
-		)
+	for rIndex := range k.keeperRegistries {
+		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
+			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d", index),
+				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
+					keeperConsumer,
+					k.upkeepIDs[rIndex][index],
+					k.Inputs.BlockRange+k.Inputs.FirstEligibleBuffer+k.Inputs.BlockInterval,
+					k.Inputs.UpkeepSLA,
+					&k.TestReporter,
+				),
+			)
+		}
 	}
 	defer func() { // Cleanup the subscriptions
-		for index := range k.keeperConsumerContracts {
-			k.chainClient.DeleteHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d", index))
+		for rIndex := range k.keeperRegistries {
+			for index := range k.keeperConsumerContracts[rIndex] {
+				k.chainClient.DeleteHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d", index))
+			}
 		}
+
 	}()
 	logSubscriptionStop := make(chan bool)
-	k.subscribeToUpkeepPerformedEvent(logSubscriptionStop, &k.TestReporter)
+	for rIndex := range k.keeperRegistries {
+		k.subscribeToUpkeepPerformedEvent(logSubscriptionStop, &k.TestReporter, rIndex)
+	}
 	err := k.chainClient.WaitForEvents()
 	Expect(err).ShouldNot(HaveOccurred(), "Error waiting for keeper subscriptions")
 	close(logSubscriptionStop)
@@ -176,11 +189,11 @@ func (k *KeeperBenchmarkTest) Run() {
 
 // subscribeToUpkeepPerformedEvent subscribes to the event log for UpkeepPerformed event and
 // counts the number of times it was unsuccessful
-func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool, metricsReporter *testreporters.KeeperBenchmarkTestReporter) {
+func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool, metricsReporter *testreporters.KeeperBenchmarkTestReporter, rIndex int) {
 	contractABI, err := ethereum.KeeperRegistryMetaData.GetAbi()
 	Expect(err).ShouldNot(HaveOccurred(), "Getting contract abi for registry shouldn't fail")
 	query := goeath.FilterQuery{
-		Addresses: []common.Address{common.HexToAddress(k.keeperRegistry.Address())},
+		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())},
 	}
 	eventLogs := make(chan types.Log)
 	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
@@ -203,7 +216,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 					// Skip non upkeepPerformed Logs
 					continue
 				}
-				parsedLog, err := k.keeperRegistry.ParseUpkeepPerformedLog(&vLog)
+				parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
 				Expect(err).ShouldNot(HaveOccurred(), "Parsing upkeep performed log shouldn't fail")
 
 				if parsedLog.Success {
@@ -255,5 +268,5 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	Expect(inputs.PerformGasToBurn).Should(BeNumerically(">", 0), "You need to set an expected amount of gas to burn on performUpkeep()")
 	Expect(inputs.UpkeepSLA).ShouldNot(BeNil(), "You need to set UpkeepSLA")
 	Expect(inputs.FirstEligibleBuffer).ShouldNot(BeNil(), "You need to set FirstEligibleBuffer")
-	Expect(inputs.RegistryVersion).ShouldNot(BeNil(), "You need to set RegistryVersion")
+	Expect(inputs.RegistryVersions[0]).ShouldNot(BeNil(), "You need to set RegistryVersion")
 }
