@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"crypto/subtle"
-	"database/sql"
 	"encoding/json"
 	"strings"
 	"time"
@@ -111,7 +110,7 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 			return err
 		}
 		if rowsAffected == 0 {
-			return sql.ErrNoRows
+			return errors.New("session missing or expired, please login again")
 		}
 		return nil
 	})
