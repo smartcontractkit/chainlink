@@ -1,6 +1,5 @@
 name: Integration Tests
 on:
-  push:
   pull_request:
     # keep these paths identical to the integration-tests-ignored.yml
     paths:
@@ -8,8 +7,6 @@ on:
       - "**/*go.sum"
       - "**/*go.mod"
       - ".github/workflows/integration-tests.yml"
-env:
-  solana_sha: develop # Note: this may not make sense to be develop and may need to be a more stable branch
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -28,11 +25,10 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Build Image
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@e3bf7a2d54543beb94ad4151ca2a3837d62c2592 # v2.0.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
-          dep_solana_sha: ${{ env.solana_sha }}
           push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -56,7 +52,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@82df7912af13080344382ab01d0b672e0c1edc66 # v2.0.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
         with:
           test_command_to_run: make test_smoke_simulated args="-nodes=30"
           test_download_vendor_packages_command: make gomod
@@ -71,7 +67,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@82df7912af13080344382ab01d0b672e0c1edc66 # v2.0.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
@@ -124,7 +120,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@82df7912af13080344382ab01d0b672e0c1edc66 # v2.0.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -138,7 +134,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@82df7912af13080344382ab01d0b672e0c1edc66 # v2.0.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
