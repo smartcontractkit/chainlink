@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
 import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
-import "./interfaces/MigratableKeeperRegistryInterfaceDev.sol";
+import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 
@@ -19,7 +19,7 @@ contract KeeperRegistryDev is
   Proxy,
   TypeAndVersionInterface,
   KeeperRegistryExecutableInterface,
-  MigratableKeeperRegistryInterfaceDev,
+  MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
 {
   using Address for address;
@@ -482,7 +482,7 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterfaceDev
+   * @inheritdoc MigratableKeeperRegistryInterface
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
     // Executed through logic contract
@@ -490,12 +490,12 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterfaceDev
+   * @inheritdoc MigratableKeeperRegistryInterface
    */
-  UpkeepFormatDev public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
+  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
-   * @inheritdoc MigratableKeeperRegistryInterfaceDev
+   * @inheritdoc MigratableKeeperRegistryInterface
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     // Executed through logic contract
