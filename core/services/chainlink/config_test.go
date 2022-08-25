@@ -2,8 +2,11 @@ package chainlink
 
 import (
 	_ "embed"
+	"flag"
+	"io/ioutil"
 	"math"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +17,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
@@ -38,7 +42,10 @@ var (
 	fullTOML string
 	//go:embed testdata/config-multi-chain.toml
 	multiChainTOML string
-	multiChain     = Config{
+	//go:embed testdata/secrets-full.toml
+	secretsTOML string
+
+	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
 
@@ -212,7 +219,6 @@ func TestConfig_Marshal(t *testing.T) {
 			Frequency:        &hour,
 			Mode:             &legacy.DatabaseBackupModeFull,
 			OnVersionUpgrade: ptr(true),
-			URL:              mustURL("http://test.back.up/fake"),
 		},
 	}
 	full.TelemetryIngress = &config.TelemetryIngress{
@@ -548,7 +554,6 @@ Dir = 'test/backup/dir'
 Frequency = '1h0m0s'
 Mode = 'full'
 OnVersionUpgrade = true
-URL = 'http://test.back.up/fake'
 
 [Database.Listener]
 MaxReconnectDuration = '1m0s'
@@ -975,7 +980,7 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-			c, err := NewGeneralConfig(tt.inputConfig)
+			c, err := NewGeneralConfig(tt.inputConfig, secretsTOML, nil)
 			require.NoError(t, err)
 			c.LogConfiguration(lggr.Info)
 			inputLogs := observed.FilterMessageSnippet(input).All()
@@ -989,5 +994,48 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 				assert.Equal(t, tt.wantEffective, got)
 			}
 		})
+	}
+}
+
+func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
+	// Provide a keystore password file and an env var with DB URL
+	const PWD_OVERRIDE = "great_password"
+	const DBURL_OVERRIDE = "http://user@db"
+
+	pwdFile, err := ioutil.TempFile("", "")
+	assert.NoError(t, err)
+	defer os.Remove(pwdFile.Name())
+	_, err = pwdFile.WriteString(PWD_OVERRIDE)
+	assert.NoError(t, err)
+
+	flagSet := flag.NewFlagSet("", 0)
+	flagSet.String("password", "", "")
+	err = flagSet.Set("password", pwdFile.Name())
+	assert.NoError(t, err)
+	context := cli.NewContext(nil, flagSet, nil)
+
+	t.Setenv("DATABASE_URL", DBURL_OVERRIDE)
+
+	// Check for two overrides
+	c, err := NewGeneralConfig(fullTOML, secretsTOML, context)
+	assert.NoError(t, err)
+	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
+	dbURL := c.DatabaseURL()
+	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
+}
+
+//go:embed testdata/secrets-partial.toml
+var invalidSecretsTOML string
+
+func TestSecrets_Validate(t *testing.T) {
+	var invalid Secrets
+	d := toml.NewDecoder(strings.NewReader(invalidSecretsTOML)).DisallowUnknownFields()
+	require.NoError(t, d.Decode(&invalid))
+	if err := invalid.Validate(); assert.Error(t, err) {
+		got := err.Error()
+		exp := `2 errors:
+	1) Database URL: empty: must be provided and non-empty
+	2) Keystore Password: empty: must be provided and non-empty`
+		assert.Equal(t, exp, got, diff.Diff(exp, got))
 	}
 }

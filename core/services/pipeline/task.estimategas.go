@@ -47,7 +47,7 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
 }
 
-func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		fromAddr   AddressParam
 		toAddr     AddressParam
@@ -71,7 +71,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	}
 	maximumGasLimit := SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
-	gasLimit, err := chain.Client().EstimateGas(context.Background(), ethereum.CallMsg{
+	gasLimit, err := chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: common.Address(fromAddr),
 		To:   &to,
 		Data: data,

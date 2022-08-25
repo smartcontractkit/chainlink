@@ -1,24 +1,26 @@
 import { ethers } from 'hardhat'
 import { BigNumber, Signer } from 'ethers'
 import { assert } from 'chai'
-import { KeeperRegistryCheckUpkeepGasUsageWrapper } from '../../../typechain/KeeperRegistryCheckUpkeepGasUsageWrapper'
+import { KeeperRegistryCheckUpkeepGasUsageWrapper12 as GasWrapper } from '../../../typechain/KeeperRegistryCheckUpkeepGasUsageWrapper12'
+import { KeeperRegistryCheckUpkeepGasUsageWrapper12__factory as GasWrapperFactory } from '../../../typechain/factories/KeeperRegistryCheckUpkeepGasUsageWrapper12__factory'
 import { getUsers, Personas } from '../../test-helpers/setup'
 import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { abi as registryAbi } from '../../../artifacts/src/v0.8/KeeperRegistry.sol/KeeperRegistry.json'
+import { abi as registryAbi } from '../../../artifacts/src/v0.8/KeeperRegistry1_2.sol/KeeperRegistry1_2.json'
 
 let personas: Personas
 let owner: Signer
 let caller: Signer
 let nelly: Signer
 let registryMockContract: MockContract
-let gasUsageWrapper: KeeperRegistryCheckUpkeepGasUsageWrapper
+let gasWrapper: GasWrapper
+let gasWrapperFactory: GasWrapperFactory
 
 const upkeepId = 123
 
-describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
+describe('KeeperRegistryCheckUpkeepGasUsageWrapper1_2', () => {
   before(async () => {
     personas = (await getUsers()).personas
     owner = personas.Default
@@ -26,13 +28,14 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
     nelly = personas.Nelly
 
     registryMockContract = await deployMockContract(owner as any, registryAbi)
-    const gasUsageWrapperFactory = await ethers.getContractFactory(
-      'KeeperRegistryCheckUpkeepGasUsageWrapper',
+    // @ts-ignore bug in autogen file
+    gasWrapperFactory = await ethers.getContractFactory(
+      'KeeperRegistryCheckUpkeepGasUsageWrapper1_2',
     )
-    gasUsageWrapper = await gasUsageWrapperFactory
+    gasWrapper = await gasWrapperFactory
       .connect(owner)
       .deploy(registryMockContract.address)
-    await gasUsageWrapper.deployed()
+    await gasWrapper.deployed()
   })
 
   describe('measureCheckGas()', () => {
@@ -47,7 +50,7 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
           BigNumber.from(4000) /* linkEth */,
         )
 
-      const response = await gasUsageWrapper
+      const response = await gasWrapper
         .connect(caller)
         .callStatic.measureCheckGas(
           BigNumber.from(upkeepId),
@@ -71,7 +74,7 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
         .withArgs(upkeepId, await nelly.getAddress())
         .revertsWithReason('Error')
 
-      const response = await gasUsageWrapper
+      const response = await gasWrapper
         .connect(caller)
         .callStatic.measureCheckGas(
           BigNumber.from(upkeepId),
@@ -93,7 +96,7 @@ describe('KeeperRegistryCheckUpkeepGasUsageWrapper', () => {
 
   describe('getKeeperRegistry()', () => {
     it('returns the underlying keeper registry', async () => {
-      const registry = await gasUsageWrapper.connect(caller).getKeeperRegistry()
+      const registry = await gasWrapper.connect(caller).getKeeperRegistry()
       assert.equal(
         registry,
         registryMockContract.address,
