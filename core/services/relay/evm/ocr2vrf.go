@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
@@ -123,10 +124,13 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, contractID st
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
 	}
-	configPoller := NewConfigPoller(
+	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", contractID),
 		chain.LogPoller(),
 		contractAddress)
+	if err != nil {
+		return nil, err
+	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
