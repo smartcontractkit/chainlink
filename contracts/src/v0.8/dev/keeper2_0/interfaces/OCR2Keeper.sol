@@ -53,7 +53,6 @@ abstract contract OCR2Keeper {
    * @return configCount ordinal number of current config, out of all configs applied to this contract so far
    * @return blockNumber block at which this config was set
    * @return rootConfigDigest domain-separation tag for current config (see _configDigestFromConfigData)
-   * @return configDigests array of config digests, one for each OCR instance
    */
   function latestConfigDetails()
     external
@@ -62,8 +61,7 @@ abstract contract OCR2Keeper {
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 rootConfigDigest,
-      bytes32[] memory configDigests
+      bytes32 rootConfigDigest
     );
 
   function _configDigestFromConfigData(
