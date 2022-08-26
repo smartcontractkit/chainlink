@@ -123,7 +123,11 @@ contract KeeperRegistry2_0 is
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
     if (!s_transmitters[msg.sender].active) revert OnlyActiveKeepers();
-    // reportContext[0] contains the ocr instance index, reportContext[1] contains the config digest the instance used
+    // reportContext consists of:
+    // reportContext[0]: OCR instance index
+    // reportContext[1]: ConfigDigest
+    // reportContext[2]: 27 byte padding, 4-byte epoch and 1-byte round
+    // reportContext[3]: ExtraHash
     if (s_latestRootConfigDigest ^ reportContext[0] != reportContext[1]) revert ConfigDisgestMismatch();
     if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
