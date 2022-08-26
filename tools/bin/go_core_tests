@@ -23,8 +23,6 @@ echo ""
 grep --after-context=2 --group-separator=$'---' "panic: " $OUTPUT_FILE
 grep --group-separator=$'---' "driver: bad connection" $OUTPUT_FILE
 
-cat "$OUTPUT_FILE"
-
 # Assert no known sensitive strings present in test logger output
 printf "\n----------------------------------------------\n\n"
 echo "Beginning check of output logs for sensitive strings"
