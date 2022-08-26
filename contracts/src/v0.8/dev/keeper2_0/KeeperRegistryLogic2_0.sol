@@ -40,6 +40,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     )
   {
     Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber <= block.number)
+      return (false, performData, UpkeepFailureReason.UPKEEP_CANCELLED, gasUsed);
     if (upkeep.paused) return (false, performData, UpkeepFailureReason.UPKEEP_PAUSED, gasUsed);
 
     gasUsed = gasleft();
@@ -52,8 +54,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     if (!upkeepNeeded) return (false, performData, UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
 
-    PerformParams memory params = _generatePerformParams(id, performData, false);
-    if (upkeep.balance < params.maxLinkPayment)
+    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, false);
+    if (upkeep.balance < paymentParams.maxLinkPayment)
       return (false, performData, UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
 
     return (true, performData, UpkeepFailureReason.NONE, gasUsed);
