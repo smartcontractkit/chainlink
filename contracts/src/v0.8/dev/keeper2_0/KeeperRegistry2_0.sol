@@ -324,8 +324,8 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @notice withdraws a keeper's payment, callable only by the keeper's payee
-   * @param from keeper address
+   * @notice withdraws a transmitter's payment, callable only by the transmitter's payee
+   * @param from transmitter address
    * @param to address to send the payment to
    */
   function withdrawPayment(address from, address to) external {
@@ -334,20 +334,20 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @notice proposes the safe transfer of a keeper's payee to another address
-   * @param keeper address of the keeper to transfer payee role
+   * @notice proposes the safe transfer of a transmitter's payee to another address
+   * @param transmitter address of the transmitter to transfer payee role
    * @param proposed address to nominate for next payeeship
    */
-  function transferPayeeship(address keeper, address proposed) external {
+  function transferPayeeship(address transmitter, address proposed) external {
     // Executed through logic contract
     _fallback();
   }
 
   /**
-   * @notice accepts the safe transfer of payee role for a keeper
-   * @param keeper address to accept the payee role for
+   * @notice accepts the safe transfer of payee role for a transmitter
+   * @param transmitter address to accept the payee role for
    */
-  function acceptPayeeship(address keeper) external {
+  function acceptPayeeship(address transmitter) external {
     // Executed through logic contract
     _fallback();
   }
@@ -572,9 +572,9 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @notice read the current info about any keeper address
+   * @notice read the current info about any transmitter address
    */
-  function getKeeperInfo(address query)
+  function getTransmitterInfo(address query)
     external
     view
     override
@@ -585,8 +585,8 @@ contract KeeperRegistry2_0 is
       address payee
     )
   {
-    Transmitter memory keeper = s_transmitters[query];
-    return (keeper.active, keeper.index, keeper.balance, keeper.payee);
+    Transmitter memory transmitter = s_transmitters[query];
+    return (transmitter.active, transmitter.index, transmitter.balance, s_transmitterPayees[query]);
   }
 
   /**

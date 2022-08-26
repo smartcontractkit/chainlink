@@ -101,7 +101,7 @@ interface KeeperRegistryBaseInterface {
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
-  function getKeeperInfo(address query)
+  function getTransmitterInfo(address query)
     external
     view
     returns (

@@ -88,13 +88,13 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     for (uint256 i = 0; i < s_transmittersList.length; i++) {
       address transmitter = s_transmittersList[i];
       Transmitter storage s_transmitter = s_transmitters[transmitter];
-      address oldPayee = s_transmitter.payee;
+      address oldPayee = s_transmitterPayees[transmitter];
       address newPayee = payees[i];
       if (
         (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
       ) revert InvalidPayee();
       if (newPayee != IGNORE_ADDRESS) {
-        s_transmitter.payee = newPayee;
+        s_transmitterPayees[transmitter] = newPayee;
       }
     }
     emit PayeesUpdated(s_transmittersList, payees);
@@ -222,39 +222,39 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    Transmitter memory keeper = s_transmitters[from];
-    if (keeper.payee != msg.sender) revert OnlyCallableByPayee();
+    Transmitter memory transmitter = s_transmitters[from];
+    if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
 
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - keeper.balance;
-    emit PaymentWithdrawn(from, keeper.balance, to, msg.sender);
+    s_expectedLinkBalance = s_expectedLinkBalance - transmitter.balance;
+    emit PaymentWithdrawn(from, transmitter.balance, to, msg.sender);
 
-    LINK.transfer(to, keeper.balance);
+    LINK.transfer(to, transmitter.balance);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function transferPayeeship(address keeper, address proposed) external {
-    if (s_transmitters[keeper].payee != msg.sender) revert OnlyCallableByPayee();
+  function transferPayeeship(address transmitter, address proposed) external {
+    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
     if (proposed == msg.sender) revert ValueNotChanged();
 
-    if (s_proposedPayee[keeper] != proposed) {
-      s_proposedPayee[keeper] = proposed;
-      emit PayeeshipTransferRequested(keeper, msg.sender, proposed);
+    if (s_proposedPayee[transmitter] != proposed) {
+      s_proposedPayee[transmitter] = proposed;
+      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
     }
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function acceptPayeeship(address keeper) external {
-    if (s_proposedPayee[keeper] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_transmitters[keeper].payee;
-    s_transmitters[keeper].payee = msg.sender;
-    s_proposedPayee[keeper] = ZERO_ADDRESS;
+  function acceptPayeeship(address transmitter) external {
+    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
+    address past = s_transmitterPayees[transmitter];
+    s_transmitterPayees[transmitter] = msg.sender;
+    s_proposedPayee[transmitter] = ZERO_ADDRESS;
 
-    emit PayeeshipTransferred(keeper, past, msg.sender);
+    emit PayeeshipTransferred(transmitter, past, msg.sender);
   }
 
   /**

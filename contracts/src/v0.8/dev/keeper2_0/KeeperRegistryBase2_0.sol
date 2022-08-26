@@ -51,10 +51,13 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
+  mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
+  // It is not stored in Transmitter struct to optimise gas as it's not needed in transmit codepath
+  mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
+
   uint8 internal s_f; // Number of faulty oracles allowed
   uint64 s_offchainConfigVersion;
   bytes s_offchainConfig;
-  mapping(address => address) internal s_proposedPayee;
   OnChainConfig internal s_onChainConfig;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
 
@@ -86,7 +89,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error InvalidDataLength();
   error InvalidPayee();
   error InvalidRecipient();
-  error KeepersMustTakeTurns();
   error MigrationNotPermitted();
   error NotAContract();
   error OnlyActiveTransmitters();
@@ -144,7 +146,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
     uint96 balance;
-    address payee;
   }
 
   struct Signer {
@@ -156,9 +157,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   /**
    * @notice relevant state of an upkeep
    * @member balance the balance of this upkeep
-   * @member lastKeeper the keeper which last performs the upkeep
    * @member executeGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
+   * @member lastPerformBlockNumber the last block number when this upkeep was performed
    * @member target the contract which needs to be serviced
    * @member amountSpent the amount this upkeep has spent
    * @member admin the upkeep admin
@@ -180,10 +181,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
-  event PayeesUpdated(address[] keepers, address[] payees);
-  event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
-  event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
-  event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
+  event PayeesUpdated(address[] transmitters, address[] payees);
+  event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
+  event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
+  event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
