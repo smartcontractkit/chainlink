@@ -62,102 +62,6 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
-  function setConfig(
-    address[] memory signers,
-    address[] memory transmitters,
-    // TODO: Also incorporate payees here
-    uint8 f,
-    uint16 numOcrInstances,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) external override onlyOwner {
-    if (signers.length > maxNumOracles) revert TooManyOracles();
-    if (f == 0) revert IncorrectNumberOfFaultyOracles();
-    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
-
-    // remove any old signer/transmitter addresses
-    uint256 oldLength = s_signersList.length;
-    address signer;
-    address transmitter;
-    for (uint256 i = 0; i < oldLength; i++) {
-      signer = s_signersList[i];
-      transmitter = s_transmittersList[i];
-      delete s_signers[signer];
-      // Do not delete the whole transmitter struct as it has balance information stored
-      s_transmitters[transmitter].active = false;
-    }
-    delete s_signersList;
-    delete s_transmittersList;
-
-    // add new signer/transmitter addresses
-    for (uint256 i = 0; i < signers.length; i++) {
-      if (s_signers[signers[i]].active) revert RepeatedSigner();
-      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
-
-      if (s_transmitters[transmitters[i]].active) revert RepeatedTransmitter();
-      s_transmitters[transmitters[i]].active = true;
-      s_transmitters[transmitters[i]].index = uint8(i);
-    }
-    s_signersList = signers;
-    s_transmittersList = transmitters;
-    s_f = f;
-    s_numOcrInstances = numOcrInstances;
-    s_offchainConfigVersion = offchainConfigVersion;
-    s_offchainConfig = offchainConfig;
-
-    _computeAndStoreConfigDigest(
-      signers,
-      transmitters,
-      f,
-      numOcrInstances,
-      abi.encode(s_onChainConfig),
-      offchainConfigVersion,
-      offchainConfig
-    );
-  }
-
-  /**
-   * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
-   */
-  function latestConfigDetails()
-    external
-    view
-    override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 rootConfigDigest
-    )
-  {}
-
-  /**
-   * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
-   */
-  function latestConfigDigestAndEpoch()
-    external
-    view
-    override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
-  {}
-
-  /**
-   * @dev Unimplemented on logic contract, implementation lives on KeeperRegistry main contract
-   */
-  function transmit(
-    bytes32[4] calldata reportContext,
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss,
-    bytes32 rawVs
-  ) external override {}
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
   function withdrawOwnerFunds() external onlyOwner {
     uint96 amount = s_ownerLinkBalance;
 
@@ -174,6 +78,26 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   function recoverFunds() external onlyOwner {
     uint256 total = LINK.balanceOf(address(this));
     LINK.transfer(msg.sender, total - s_expectedLinkBalance);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function setPayees(address[] calldata payees) external onlyOwner {
+    if (s_transmittersList.length != payees.length) revert ParameterLengthError();
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      address transmitter = s_transmittersList[i];
+      Transmitter storage s_transmitter = s_transmitters[transmitter];
+      address oldPayee = s_transmitter.payee;
+      address newPayee = payees[i];
+      if (
+        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
+      ) revert InvalidPayee();
+      if (newPayee != IGNORE_ADDRESS) {
+        s_transmitter.payee = newPayee;
+      }
+    }
+    emit PayeesUpdated(s_transmittersList, payees);
   }
 
   /**

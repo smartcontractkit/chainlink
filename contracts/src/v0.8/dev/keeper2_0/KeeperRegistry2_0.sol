@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
 import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../interfaces/MigratableKeeperRegistryInterface.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
+import "./interfaces/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -17,7 +17,7 @@ import "../../interfaces/ERC677ReceiverInterface.sol";
 contract KeeperRegistry2_0 is
   KeeperRegistryBase2_0,
   Proxy,
-  TypeAndVersionInterface,
+  OCR2Abstract,
   KeeperRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   ERC677ReceiverInterface
@@ -64,53 +64,7 @@ contract KeeperRegistry2_0 is
     setOnChainConfig(onChainConfig);
   }
 
-  /**
-   * @inheritdoc OCR2Keeper
-   */
-  function setConfig(
-    address[] memory signers,
-    address[] memory transmitters,
-    // TODO: Also incorporate payees here
-    uint8 f,
-    uint16 numOcrInstances,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc OCR2Keeper
-   */
-  function latestConfigDetails()
-    external
-    view
-    override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 rootConfigDigest
-    )
-  {
-    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest);
-  }
-
-  /**
-   * @inheritdoc OCR2Keeper
-   */
-  function latestConfigDigestAndEpoch()
-    external
-    view
-    override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
-  {
-    return (true, configDigest, epoch);
-  }
+  // ACTIONS
 
   /**
    * @inheritdoc OCR2Keeper
@@ -196,8 +150,6 @@ contract KeeperRegistry2_0 is
 
     return Report({upkeepId: upkeepId, performData: performData, checkBlockNumber: checkBlockNumber});
   }
-
-  // ACTIONS
 
   /**
    * @notice adds a new upkeep
@@ -444,6 +396,63 @@ contract KeeperRegistry2_0 is
   // SETTERS
 
   /**
+   * @inheritdoc OCR2Keeper
+   */
+  function setConfig(
+    address[] memory signers,
+    address[] memory transmitters,
+    // TODO: Also incorporate payees here
+    uint8 f,
+    uint16 numOcrInstances,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) external override onlyOwner {
+    if (signers.length > maxNumOracles) revert TooManyOracles();
+    if (f == 0) revert IncorrectNumberOfFaultyOracles();
+    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
+
+    // remove any old signer/transmitter addresses
+    uint256 oldLength = s_signersList.length;
+    address signer;
+    address transmitter;
+    for (uint256 i = 0; i < oldLength; i++) {
+      signer = s_signersList[i];
+      transmitter = s_transmittersList[i];
+      delete s_signers[signer];
+      // Do not delete the whole transmitter struct as it has balance information stored
+      s_transmitters[transmitter].active = false;
+    }
+    delete s_signersList;
+    delete s_transmittersList;
+
+    // add new signer/transmitter addresses
+    for (uint256 i = 0; i < signers.length; i++) {
+      if (s_signers[signers[i]].active) revert RepeatedSigner();
+      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
+
+      if (s_transmitters[transmitters[i]].active) revert RepeatedTransmitter();
+      s_transmitters[transmitters[i]].active = true;
+      s_transmitters[transmitters[i]].index = uint8(i);
+    }
+    s_signersList = signers;
+    s_transmittersList = transmitters;
+    s_f = f;
+    s_numOcrInstances = numOcrInstances;
+    s_offchainConfigVersion = offchainConfigVersion;
+    s_offchainConfig = offchainConfig;
+
+    _computeAndStoreConfigDigest(
+      signers,
+      transmitters,
+      f,
+      numOcrInstances,
+      abi.encode(s_onChainConfig),
+      offchainConfigVersion,
+      offchainConfig
+    );
+  }
+
+  /**
    * @notice updates the configuration of the registry
    * @param onChainConfig registry config fields
    */
@@ -461,6 +470,16 @@ contract KeeperRegistry2_0 is
       s_offchainConfig
     );
     emit OnChainConfigSet(onChainConfig);
+  }
+
+  /**
+   * @notice update the list of payees corresponding to the transmitters
+   * @param payees addresses corresponding to transmitters who are allowed to
+   * move payments which have been accrued
+   */
+  function setPayees(address[] calldata payees) external {
+    // Executed through logic contract
+    _fallback();
   }
 
   // GETTERS
@@ -594,6 +613,40 @@ contract KeeperRegistry2_0 is
   function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
     return s_peerRegistryMigrationPermission[peer];
   }
+
+  /**
+   * @inheritdoc OCR2Keeper
+   */
+  function latestConfigDetails()
+    external
+    view
+    override
+    returns (
+      uint32 configCount,
+      uint32 blockNumber,
+      bytes32 rootConfigDigest
+    )
+  {
+    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest);
+  }
+
+  /**
+   * @inheritdoc OCR2Keeper
+   */
+  function latestConfigDigestAndEpoch()
+    external
+    view
+    override
+    returns (
+      bool scanLogs,
+      bytes32 configDigest,
+      uint32 epoch
+    )
+  {
+    return (true, configDigest, epoch);
+  }
+
+  // MIGRATION
 
   /**
    * @notice sets the peer registry migration permission

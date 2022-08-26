@@ -11,14 +11,13 @@ import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/KeeperCompatibleInterface.sol";
-import "./interfaces/OCR2Keeper.sol";
 import "../../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
  * KeeperRegistry and KeeperRegistryLogic
  */
-abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable, OCR2Keeper {
+abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
@@ -166,8 +165,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event OnChainConfigSet(OnChainConfig config);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
-  event KeepersUpdated(address[] keepers, address[] payees);
   event OwnerFundsWithdrawn(uint96 amount);
+  event PayeesUpdated(address[] keepers, address[] payees);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);

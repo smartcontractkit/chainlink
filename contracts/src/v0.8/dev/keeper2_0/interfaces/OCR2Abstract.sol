@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-abstract contract OCR2Keeper {
+import "../../../interfaces/TypeAndVersionInterface.sol";
+
+abstract contract OCR2Abstract is TypeAndVersionInterface {
   // Maximum number of oracles the offchain reporting protocol is designed for
   uint256 internal constant maxNumOracles = 31;
 
@@ -24,7 +26,6 @@ abstract contract OCR2Keeper {
     address[] signers,
     address[] transmitters,
     uint8 f,
-    uint16 numOcrInstances,
     bytes onchainConfig,
     uint64 offchainConfigVersion,
     bytes offchainConfig
@@ -35,7 +36,7 @@ abstract contract OCR2Keeper {
    * @param signers addresses with which oracles sign the reports
    * @param transmitters addresses oracles use to transmit the reports
    * @param f number of faulty oracles the system can tolerate
-   * @param numOcrInstances number of OCR instances that serve this contract
+   * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
    * @param offchainConfigVersion version number for offchainEncoding schema
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    */
@@ -43,7 +44,7 @@ abstract contract OCR2Keeper {
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    uint16 numOcrInstances,
+    bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external virtual;
@@ -52,7 +53,7 @@ abstract contract OCR2Keeper {
    * @notice information about current offchain reporting protocol configuration
    * @return configCount ordinal number of current config, out of all configs applied to this contract so far
    * @return blockNumber block at which this config was set
-   * @return rootConfigDigest domain-separation tag for current config (see _configDigestFromConfigData)
+   * @return configDigest domain-separation tag for current config (see _configDigestFromConfigData)
    */
   function latestConfigDetails()
     external
@@ -61,7 +62,7 @@ abstract contract OCR2Keeper {
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 rootConfigDigest
+      bytes32 configDigest
     );
 
   function _configDigestFromConfigData(
@@ -71,7 +72,6 @@ abstract contract OCR2Keeper {
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    uint16 numOcrInstances,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
@@ -85,7 +85,6 @@ abstract contract OCR2Keeper {
           signers,
           transmitters,
           f,
-          numOcrInstances,
           onchainConfig,
           offchainConfigVersion,
           offchainConfig
@@ -132,8 +131,7 @@ abstract contract OCR2Keeper {
    * @param rawVs ith element is the the V component of the ith signature
    */
   function transmit(
-    // NOTE: If these parameters are changed, expectedMsgDataLength and/or
-    // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
+    // @dev: additional element to reportContext is added for keepers to include OCR instance ID
     bytes32[4] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
