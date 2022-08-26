@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {OnChainConfig, State, Upkeep} from "./interfaces/KeeperRegistryInterface2_0.sol";
+import {OnChainConfig, State} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";
@@ -52,7 +52,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   uint8 internal s_f; // Number of faulty oracles allowed
-  uint16 internal s_numOcrInstances; // Number of OCR instances
   uint64 s_offchainConfigVersion;
   bytes s_offchainConfig;
   mapping(address => address) internal s_proposedPayee;
@@ -118,6 +117,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error IncorrectNumberOfFaultyOracles();
   error RepeatedSigner();
   error RepeatedTransmitter();
+  error OnchainConfigNonEmpty();
 
   enum MigrationPermission {
     NONE,
@@ -152,6 +152,29 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     bool active;
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
+  }
+
+  /**
+   * @notice relevant state of an upkeep
+   * @member balance the balance of this upkeep
+   * @member lastKeeper the keeper which last performs the upkeep
+   * @member executeGas the gas limit of upkeep execution
+   * @member maxValidBlocknumber until which block this upkeep is valid
+   * @member target the contract which needs to be serviced
+   * @member amountSpent the amount this upkeep has spent
+   * @member admin the upkeep admin
+   * @member paused if this upkeep has been paused
+   */
+  struct Upkeep {
+    // TODO (sc-49442): Optimise upkeep storage
+    uint96 balance;
+    uint96 amountSpent;
+    address admin;
+    uint32 executeGas;
+    uint32 maxValidBlocknumber;
+    uint32 lastPerformBlockNumber;
+    address target;
+    bool paused;
   }
 
   event OnChainConfigSet(OnChainConfig config);
@@ -305,49 +328,5 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
         linkEth: linkEth,
         maxLinkPayment: gasPayment + premium
       });
-  }
-
-  /**
-   * @dev Should be called on every config change, either OCR or onChainConfig
-   * Recomputed the config digest and stores it
-   */
-  function _computeAndStoreConfigDigest(
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f,
-    uint16 numOcrInstances,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) internal {
-    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
-    s_latestConfigBlockNumber = uint32(block.number);
-    s_configCount += 1;
-
-    s_latestRootConfigDigest = _configDigestFromConfigData(
-      block.chainid,
-      address(this),
-      s_configCount,
-      signers,
-      transmitters,
-      f,
-      numOcrInstances,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    emit ConfigSet(
-      previousConfigBlockNumber,
-      s_latestRootConfigDigest,
-      s_configCount,
-      signers,
-      transmitters,
-      f,
-      numOcrInstances,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
   }
 }

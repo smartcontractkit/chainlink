@@ -67,7 +67,7 @@ contract KeeperRegistry2_0 is
   // ACTIONS
 
   /**
-   * @inheritdoc OCR2Keeper
+   * @inheritdoc OCR2Abstract
    */
   function transmit(
     bytes32[4] calldata reportContext,
@@ -396,20 +396,20 @@ contract KeeperRegistry2_0 is
   // SETTERS
 
   /**
-   * @inheritdoc OCR2Keeper
+   * @inheritdoc OCR2Abstract
    */
   function setConfig(
     address[] memory signers,
     address[] memory transmitters,
-    // TODO: Also incorporate payees here
     uint8 f,
-    uint16 numOcrInstances,
+    bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override onlyOwner {
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
-    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
+    if (signers.length != transmitters.length || signers.length <= 3 * f)
+      if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
@@ -437,7 +437,6 @@ contract KeeperRegistry2_0 is
     s_signersList = signers;
     s_transmittersList = transmitters;
     s_f = f;
-    s_numOcrInstances = numOcrInstances;
     s_offchainConfigVersion = offchainConfigVersion;
     s_offchainConfig = offchainConfig;
 
@@ -445,7 +444,6 @@ contract KeeperRegistry2_0 is
       signers,
       transmitters,
       f,
-      numOcrInstances,
       abi.encode(s_onChainConfig),
       offchainConfigVersion,
       offchainConfig
@@ -464,12 +462,52 @@ contract KeeperRegistry2_0 is
       s_signersList,
       s_transmittersList,
       s_f,
-      s_numOcrInstances,
       abi.encode(s_onChainConfig),
       s_offchainConfigVersion,
       s_offchainConfig
     );
     emit OnChainConfigSet(onChainConfig);
+  }
+
+  /**
+   * @dev Should be called on every config change, either OCR or onChainConfig
+   * Recomputed the config digest and stores it
+   */
+  function _computeAndStoreConfigDigest(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) internal {
+    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
+    s_latestConfigBlockNumber = uint32(block.number);
+    s_configCount += 1;
+
+    s_latestRootConfigDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(this),
+      s_configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    emit ConfigSet(
+      previousConfigBlockNumber,
+      s_latestRootConfigDigest,
+      s_configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
   }
 
   /**
@@ -568,7 +606,6 @@ contract KeeperRegistry2_0 is
       address[] memory signers,
       address[] memory transmitters,
       uint8 f,
-      uint16 numOcrInstances,
       uint64 offchainConfigVersion,
       bytes memory offchainConfig
     )
@@ -577,16 +614,7 @@ contract KeeperRegistry2_0 is
     state.ownerLinkBalance = s_ownerLinkBalance;
     state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
-    return (
-      state,
-      s_onChainConfig,
-      s_signersList,
-      s_transmittersList,
-      s_f,
-      s_numOcrInstances,
-      s_offchainConfigVersion,
-      s_offchainConfig
-    );
+    return (state, s_onChainConfig, s_signersList, s_transmittersList, s_f, s_offchainConfigVersion, s_offchainConfig);
   }
 
   /**
@@ -615,7 +643,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @inheritdoc OCR2Keeper
+   * @inheritdoc OCR2Abstract
    */
   function latestConfigDetails()
     external
@@ -631,7 +659,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @inheritdoc OCR2Keeper
+   * @inheritdoc OCR2Abstract
    */
   function latestConfigDigestAndEpoch()
     external
