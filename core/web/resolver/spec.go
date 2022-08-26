@@ -505,7 +505,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() *string {
 
 // ContractID resolves the spec's contract address.
 func (r *OCR2SpecResolver) ContractID() string {
-	return r.spec.ContractID.String()
+	return r.spec.ContractID
 }
 
 // ContractConfigConfirmations resolves the spec's confirmations config.
@@ -796,7 +796,7 @@ func (r *BootstrapSpecResolver) ID() graphql.ID {
 
 // ContractID resolves the spec's contract address
 func (r *BootstrapSpecResolver) ContractID() string {
-	return r.spec.ContractID.String()
+	return r.spec.ContractID
 }
 
 // Relay resolves the spec's relay

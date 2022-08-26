@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/configtracker"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -19,20 +21,30 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/config"
 )
 
+var (
+	_ OCR2KeeperRelayer  = (*ocr2keeperRelayer)(nil)
+	_ OCR2KeeperProvider = (*ocr2keeperProvider)(nil)
+)
+
+// OCR2KeeperProviderOpts is the custom options to create a keeper provider
+type OCR2KeeperProviderOpts struct {
+	RArgs      relaytypes.RelayArgs
+	PArgs      relaytypes.PluginArgs
+	InstanceID int
+}
+
 // OCR2KeeperProvider provides all components needed for a OCR2Keeper plugin.
 type OCR2KeeperProvider interface {
-	relaytypes.Plugin
+	relaytypes.Service
+	OffchainConfigDigester() types.OffchainConfigDigester
+	ContractTransmitter() types.ContractTransmitter
+	ContractConfigTracker(instance uint8) types.ContractConfigTracker
 }
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
 type OCR2KeeperRelayer interface {
 	NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2KeeperProvider, error)
 }
-
-var (
-	_ OCR2KeeperRelayer  = (*ocr2keeperRelayer)(nil)
-	_ OCR2KeeperProvider = (*ocr2keeperProvider)(nil)
-)
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
 type ocr2keeperRelayer struct {
@@ -80,6 +92,12 @@ type ocr2keeperProvider struct {
 
 func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {
 	return c.contractTransmitter
+}
+
+func (p *ocr2keeperProvider) ContractConfigTracker(instance uint8) types.ContractConfigTracker {
+	// TODO: Pass arguments
+	configTracker := configtracker.New(instance)
+	return configTracker
 }
 
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID string) (*configWatcher, error) {

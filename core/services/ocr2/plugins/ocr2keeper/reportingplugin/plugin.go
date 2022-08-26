@@ -78,7 +78,7 @@ type plugin struct {
 	orm             ORM
 	ethClient       evmclient.Client
 	headsMngr       *headsMngr
-	contractAddress ethkey.EIP55Address
+	contractAddress string
 	pr              pipeline.Runner
 	gasEstimator    gas.Estimator
 	chStop          chan struct{}
@@ -94,7 +94,7 @@ func NewPlugin(
 	orm ORM,
 	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
-	contractAddress ethkey.EIP55Address,
+	contractAddress string,
 	pr pipeline.Runner,
 	gasEstimator gas.Estimator,
 ) types.ReportingPlugin {
@@ -119,7 +119,7 @@ func NewPlugin(
 func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
 	currentHead := p.headsMngr.getCurrentHead()
 
-	registry, err := p.orm.RegistryByContractAddress(p.contractAddress)
+	registry, err := p.orm.RegistryByContractAddress(ethkey.MustEIP55Address(p.contractAddress))
 	if err != nil {
 		p.logger.Error(errors.Wrap(err, "unable to load registry"))
 		return nil, nil
@@ -133,7 +133,7 @@ func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, err
 		}
 
 		activeUpkeeps, err = p.orm.NewEligibleUpkeepsForRegistry(
-			p.contractAddress,
+			ethkey.MustEIP55Address(p.contractAddress),
 			currentHead.Number,
 			p.cfg.KeeperMaximumGracePeriod(),
 			turnBinary)
@@ -142,7 +142,7 @@ func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, err
 		}
 	} else {
 		activeUpkeeps, err = p.orm.EligibleUpkeepsForRegistry(
-			p.contractAddress,
+			ethkey.MustEIP55Address(p.contractAddress),
 			currentHead.Number,
 			p.cfg.KeeperMaximumGracePeriod(),
 		)

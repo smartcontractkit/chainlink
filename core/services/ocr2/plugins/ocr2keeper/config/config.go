@@ -13,7 +13,7 @@ const (
 
 // PluginConfig contains custom arguments for the OCR2Keeper plugin.
 type PluginConfig struct {
-	OCRInstances int64 `json:"ocrInstances"`
+	OCRInstances uint8 `json:"ocrInstances"`
 
 	// TODO
 	LinkEthFeedAddress string   `json:"linkEthFeedAddress"`

@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -20,7 +19,7 @@ type factory struct {
 	orm             ORM
 	ethClient       evmclient.Client
 	hb              httypes.HeadBroadcaster
-	contractAddress ethkey.EIP55Address
+	contractAddress string
 	pr              pipeline.Runner
 	gasEstimator    gas.Estimator
 }
@@ -34,7 +33,7 @@ func NewFactory(
 	orm ORM,
 	ethClient evmclient.Client,
 	hb httypes.HeadBroadcaster,
-	contractAddress ethkey.EIP55Address,
+	contractAddress string,
 	pr pipeline.Runner,
 	gasEstimator gas.Estimator,
 ) types.ReportingPluginFactory {

@@ -91,6 +91,9 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 }
 
 func getRegistryVersion(contract *type_and_version.TypeAndVersionInterface) (*RegistryVersion, error) {
+	version := RegistryVersion_1_2
+	return &version, nil
+
 	typeAndVersion, err := contract.TypeAndVersion(nil)
 	if err != nil {
 		jsonErr := evmclient.ExtractRPCError(err)

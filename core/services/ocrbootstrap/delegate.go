@@ -68,7 +68,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, e
 	configProvider, err := relayer.NewConfigProvider(types.RelayArgs{
 		ExternalJobID: jobSpec.ExternalJobID,
 		JobID:         spec.ID,
-		ContractID:    spec.ContractID.String(),
+		ContractID:    spec.ContractID,
 		RelayConfig:   spec.RelayConfig.Bytes(),
 	})
 	if err != nil {

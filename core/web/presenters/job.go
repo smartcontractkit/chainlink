@@ -179,7 +179,7 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractID                        ethkey.EIP55Address    `json:"contractID"`
+	ContractID                        string                 `json:"contractID"`
 	Relay                             relay.Network          `json:"relay"`
 	RelayConfig                       map[string]interface{} `json:"relayConfig"`
 	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
@@ -348,7 +348,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
-	ContractID                             ethkey.EIP55Address    `json:"contractID"`
+	ContractID                             string                 `json:"contractID"`
 	Relay                                  relay.Network          `json:"relay"`
 	RelayConfig                            map[string]interface{} `json:"relayConfig"`
 	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
