@@ -241,7 +241,7 @@ contract KeeperRegistry2_0 is
    */
   function pauseUpkeep(uint256 id) external override {
     Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
+    requireAdminAndNotCancelled(id);
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     s_upkeep[id].paused = true;
     s_upkeepIDs.remove(id);
@@ -254,7 +254,7 @@ contract KeeperRegistry2_0 is
    */
   function unpauseUpkeep(uint256 id) external override {
     Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
+    requireAdminAndNotCancelled(id);
     if (!upkeep.paused) revert OnlyPausedUpkeep();
     s_upkeep[id].paused = false;
     s_upkeepIDs.add(id);
@@ -268,7 +268,7 @@ contract KeeperRegistry2_0 is
    */
   function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
     Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
+    requireAdminAndNotCancelled(id);
     s_checkData[id] = newCheckData;
     emit UpkeepCheckDataUpdated(id, newCheckData);
   }
@@ -560,12 +560,13 @@ contract KeeperRegistry2_0 is
     )
   {
     Upkeep memory reg = s_upkeep[id];
+    address admin = s_upkeepAdmin[id];
     return (
       reg.target,
       reg.executeGas,
       s_checkData[id],
       reg.balance,
-      reg.admin,
+      admin,
       reg.maxValidBlocknumber,
       reg.lastPerformBlockNumber,
       reg.amountSpent,
