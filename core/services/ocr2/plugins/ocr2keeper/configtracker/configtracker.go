@@ -12,9 +12,10 @@ type configTracker struct {
 }
 
 // New is the constructor of configTracker
-func New(instance uint8) types.ContractConfigTracker {
+func New(base types.ContractConfigTracker, instance uint8) types.ContractConfigTracker {
 	return &configTracker{
-		instance: instance,
+		ContractConfigTracker: base,
+		instance:              instance,
 	}
 }
 

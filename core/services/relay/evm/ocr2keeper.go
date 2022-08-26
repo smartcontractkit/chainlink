@@ -95,9 +95,7 @@ func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {
 }
 
 func (p *ocr2keeperProvider) ContractConfigTracker(instance uint8) types.ContractConfigTracker {
-	// TODO: Pass arguments
-	configTracker := configtracker.New(instance)
-	return configTracker
+	return configtracker.New(p.configPoller, instance)
 }
 
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID string) (*configWatcher, error) {
