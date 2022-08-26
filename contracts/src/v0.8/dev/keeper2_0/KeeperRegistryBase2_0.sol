@@ -133,9 +133,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     ARBITRUM,
     OPTIMISM
   }
-  struct PerformParams {
-    uint256 id;
-    bytes performData;
+  struct PerformPaymentParams {
     uint256 fastGasWei;
     uint256 linkEth;
     uint256 maxLinkPayment;
@@ -305,28 +303,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   }
 
   /**
-   * @dev generates a PerformParams struct for use in _performUpkeepWithParams()
+   * @dev generates a PerformPaymentParams struct for an upkeep
    */
-  function _generatePerformParams(
-    uint256 id,
-    bytes memory performData,
+  function _generatePerformPaymentParams(
+    Upkeep memory upkeep,
     bool isExecution // Whether this is an actual perform execution or just a simulation
-  ) internal view returns (PerformParams memory) {
+  ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
-      s_upkeep[id].executeGas,
-      fastGasWei,
-      linkEth,
-      isExecution
-    );
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(upkeep.executeGas, fastGasWei, linkEth, isExecution);
 
-    return
-      PerformParams({
-        id: id,
-        performData: performData,
-        fastGasWei: fastGasWei,
-        linkEth: linkEth,
-        maxLinkPayment: gasPayment + premium
-      });
+    return PerformPaymentParams({fastGasWei: fastGasWei, linkEth: linkEth, maxLinkPayment: gasPayment + premium});
   }
 }

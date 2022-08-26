@@ -85,6 +85,17 @@ contract KeeperRegistry2_0 is
     if (s_latestRootConfigDigest ^ reportContext[0] != reportContext[1]) revert ConfigDisgestMismatch();
     if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
+    // Deocde the report and do some early sanity checks. These are done before signature verification to optimise gas
+    Report memory parsedReport = _decodeReport(report);
+    Upkeep memory upkeep = s_upkeep[parsedReport.upkeepId];
+    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, true);
+
+    if (parsedReport.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
+    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
+    if (upkeep.balance < paymentParams.maxLinkPayment) revert InsufficientFunds();
+
+    // Verify report signature
     uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {
@@ -107,21 +118,21 @@ contract KeeperRegistry2_0 is
         revert DuplicateSigners();
     }
 
-    // Deocde the report and performUpkeep
-    Report memory parsedReport = _decodeReport(report);
-    if (parsedReport.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
-
-    // Perform target upkeep
-    PerformParams memory params = _generatePerformParams(parsedReport.upkeepId, parsedReport.performData, true);
-    (bool success, uint256 gasUsed) = _performUpkeepWithParams(params);
+    // Actually perform the target upkeep
+    (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.performData);
 
     // Calculate actual payment amount
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(gasUsed, params.fastGasWei, params.linkEth, true);
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      gasUsed,
+      paymentParams.fastGasWei,
+      paymentParams.linkEth,
+      true
+    );
     uint96 premiumPerSigner = premium / uint96(rs.length);
     uint96 totalPayment = gasPayment + premiumPerSigner * uint96(rs.length);
 
-    s_upkeep[parsedReport.upkeepId].balance = s_upkeep[params.id].balance - totalPayment;
-    s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[params.id].amountSpent + totalPayment;
+    s_upkeep[parsedReport.upkeepId].balance = s_upkeep[parsedReport.upkeepId].balance - totalPayment;
+    s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[parsedReport.upkeepId].amountSpent + totalPayment;
     s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
 
     s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
@@ -201,7 +212,8 @@ contract KeeperRegistry2_0 is
     whenNotPaused
     returns (bool success, uint256 gasUsed)
   {
-    return _performUpkeepWithParams(_generatePerformParams(id, performData, false));
+    Upkeep memory upkeep = s_upkeep[id];
+    return _performUpkeep(upkeep, performData);
   }
 
   /**
@@ -743,19 +755,13 @@ contract KeeperRegistry2_0 is
    * @dev calls the Upkeep target with the performData param passed in by the
    * keeper and the exact gas required by the Upkeep
    */
-  function _performUpkeepWithParams(PerformParams memory params)
+  function _performUpkeep(Upkeep memory upkeep, bytes memory performData)
     private
     nonReentrant
     returns (bool success, uint256 gasUsed)
   {
-    Upkeep memory upkeep = s_upkeep[params.id];
-    // TODO (sc-50783) Move these reverts to transmit before sig verification to optimise gas
-    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (upkeep.balance < params.maxLinkPayment) revert InsufficientFunds();
-
-    uint256 gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
+    gasUsed = gasleft();
+    bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     success = _callWithExactGas(upkeep.executeGas, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
