@@ -426,8 +426,8 @@ contract KeeperRegistry2_0 is
   ) external override onlyOwner {
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
-    if (signers.length != transmitters.length || signers.length <= 3 * f)
-      if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
+    if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
+    if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
