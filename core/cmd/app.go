@@ -354,6 +354,11 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:   "validate",
+					Usage:  "Validate provided TOML config file",
+					Action: client.ConfigFileValidate,
+				},
 			},
 		},
 

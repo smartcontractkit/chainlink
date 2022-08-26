@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,16 +29,31 @@ func TestUppercaseTask(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.want, result.Value.(string))
+		}
 		t.Run(test.name, func(t *testing.T) {
-			t.Run("without vars", func(t *testing.T) {
+			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
-				task := pipeline.UppercaseTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Input: test.input.(string)}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-				require.NoError(t, result.Error)
-				require.Equal(t, test.want, result.Value.(string))
+				task := pipeline.UppercaseTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
+			})
+			t.Run("without vars through input param", func(t *testing.T) {
+				inputStr := fmt.Sprintf("%v", test.input)
+				if inputStr == "" {
+					// empty input parameter is indistinguishable from not providing it at all
+					// in that case the task will use an input defined by the job DAG
+					return
+				}
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.UppercaseTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    inputStr,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -47,11 +63,7 @@ func TestUppercaseTask(t *testing.T) {
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    "$(foo.bar)",
 				}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-				require.NoError(t, result.Error)
-				require.Equal(t, test.want, result.Value.(string))
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}
