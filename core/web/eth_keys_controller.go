@@ -54,7 +54,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 		}
 		r, err := presenters.NewETHKeyResource(key, state,
 			ekc.setEthBalance(c.Request.Context(), state),
-			ekc.setLinkBalance(state),
+			ekc.setLinkBalance(c.Request.Context(), state),
 			ekc.setKeyMaxGasPriceWei(state, key.Address),
 		)
 		if err != nil {
@@ -120,7 +120,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	}
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 		ekc.setKeyMaxGasPriceWei(state, key.Address),
 	)
 	if err != nil {
@@ -179,7 +179,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 		ekc.setKeyMaxGasPriceWei(state, key.Address),
 	)
 	if err != nil {
@@ -241,7 +241,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -288,7 +288,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -385,7 +385,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(state),
+		ekc.setLinkBalance(c.Request.Context(), state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -423,13 +423,13 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 // setLinkBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
-func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewETHKeyOption {
+func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
 	var bal *assets.Link
 	chain, err := ekc.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 	if err == nil {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().LinkContractAddress())
-		bal, err = ethClient.GetLINKBalance(addr, state.Address.Address())
+		bal, err = ethClient.GetLINKBalance(ctx, addr, state.Address.Address())
 	}
 
 	return func(r *presenters.ETHKeyResource) error {

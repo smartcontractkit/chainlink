@@ -9,7 +9,7 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../t
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { UpkeepTranscoderDev__factory as UpkeepTranscoderDevFactory } from '../../../typechain/factories/UpkeepTranscoderDev__factory'
+import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
@@ -21,7 +21,7 @@ import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
-import { UpkeepTranscoderDev } from '../../../typechain/UpkeepTranscoderDev'
+import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
@@ -46,7 +46,7 @@ let keeperRegistryLogicFactory: KeeperRegistryLogicFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let upkeepTranscoderDevFactory: UpkeepTranscoderDevFactory
+let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
 let personas: Personas
@@ -66,9 +66,7 @@ before(async () => {
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
-  upkeepTranscoderDevFactory = await ethers.getContractFactory(
-    'UpkeepTranscoderDev',
-  )
+  upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
   mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
   mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
     'MockOVMGasPriceOracle',
@@ -118,7 +116,7 @@ describe('KeeperRegistryDev', () => {
   let registry2: KeeperRegistry
   let registryLogic2: KeeperRegistryLogic
   let mock: UpkeepMock
-  let transcoder: UpkeepTranscoderDev
+  let transcoder: UpkeepTranscoder
   let mockArbGasInfo: MockArbGasInfo
   let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 
@@ -155,7 +153,7 @@ describe('KeeperRegistryDev', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    transcoder = await upkeepTranscoderDevFactory.connect(owner).deploy()
+    transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
       .connect(owner)

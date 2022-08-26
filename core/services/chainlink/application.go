@@ -500,7 +500,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	}
 
 	if app.FeedsService != nil {
-		if err := app.FeedsService.Start(); err != nil {
+		if err := app.FeedsService.Start(ctx); err != nil {
 			app.logger.Infof("[Feeds Service] %v", err)
 		}
 	}
