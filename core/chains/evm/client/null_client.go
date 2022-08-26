@@ -41,12 +41,12 @@ func (nc *NullClient) Close() {
 	nc.lggr.Debug("Close")
 }
 
-func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
+func (nc *NullClient) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	nc.lggr.Debug("GetERC20Balance")
 	return big.NewInt(0), nil
 }
 
-func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+func (nc *NullClient) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	nc.lggr.Debug("GetLINKBalance")
 	return assets.NewLinkFromJuels(0), nil
 }
@@ -54,11 +54,6 @@ func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.
 func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
 	nc.lggr.Debug("GetEthBalance")
 	return assets.NewEth(0), nil
-}
-
-func (nc *NullClient) Call(result interface{}, method string, args ...interface{}) error {
-	nc.lggr.Debug("Call")
-	return nil
 }
 
 func (nc *NullClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
