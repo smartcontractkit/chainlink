@@ -349,7 +349,7 @@ contract KeeperRegistry2_0 is
    * @notice recovers LINK funds improperly transferred to the registry
    * @dev In principle this function’s execution cost could exceed block
    * gas limit. However, in our anticipated deployment, the number of upkeeps and
-   * keepers will be low enough to avoid this problem.
+   * transmitters will be low enough to avoid this problem.
    */
   function recoverFunds() external {
     // Executed through logic contract
@@ -405,7 +405,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @notice signals to keepers that they should not perform upkeeps until the
+   * @notice signals to transmitters that they should not perform upkeeps until the
    * contract has been unpaused
    */
   function pause() external {
@@ -414,7 +414,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @notice signals to keepers that they can perform upkeeps once again after
+   * @notice signals to transmitters that they can perform upkeeps once again after
    * having been paused
    */
   function unpause() external {
@@ -832,7 +832,7 @@ contract KeeperRegistry2_0 is
 
   /**
    * @dev calls the Upkeep target with the performData param passed in by the
-   * keeper and the exact gas required by the Upkeep
+   * transmitter and the exact gas required by the Upkeep
    */
   function _performUpkeep(Upkeep memory upkeep, bytes memory performData)
     private
