@@ -118,11 +118,13 @@ func NewPlugin(
 
 func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
 	currentHead := p.headsMngr.getCurrentHead()
+	if currentHead == nil {
+		return nil, errors.New("current head is nil")
+	}
 
 	registry, err := p.orm.RegistryByContractAddress(ethkey.MustEIP55Address(p.contractAddress))
 	if err != nil {
-		p.logger.Error(errors.Wrap(err, "unable to load registry"))
-		return nil, nil
+		return nil, errors.Wrap(err, "unable to load registry")
 	}
 
 	var activeUpkeeps []keeper.UpkeepRegistration
@@ -152,7 +154,7 @@ func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, err
 	}
 
 	if len(activeUpkeeps) == 0 {
-		return nil, nil
+		return nil, errors.New("there are no active upkeeps")
 	}
 
 	// TODO: Implement a correct turn taking logic
