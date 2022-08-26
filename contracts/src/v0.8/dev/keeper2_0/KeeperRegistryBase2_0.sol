@@ -89,7 +89,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error KeepersMustTakeTurns();
   error MigrationNotPermitted();
   error NotAContract();
-  error OnlyActiveKeepers();
+  error OnlyActiveTransmitters();
   error OnlyCallableByAdmin();
   error OnlyCallableByLINKToken();
   error OnlyCallableByOwnerOrAdmin();
