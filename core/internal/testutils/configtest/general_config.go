@@ -81,6 +81,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
 	GlobalEvmRPCDefaultBatchSize            null.Int
+	GlobalEvmUseForwarders                  null.Bool
 	GlobalFlagsContractAddress              null.String
 	GlobalGasEstimatorMode                  null.String
 	GlobalMinIncomingConfirmations          null.Int
@@ -815,4 +816,11 @@ func (c *TestGeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool
 		return *c.Overrides.NodeNoNewHeadsThreshold, true
 	}
 	return c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
+}
+
+func (c *TestGeneralConfig) GlobalEvmUseForwarders() (bool, bool) {
+	if c.Overrides.GlobalEvmUseForwarders.Valid {
+		return c.Overrides.GlobalEvmUseForwarders.Bool, true
+	}
+	return c.GeneralConfig.GlobalEvmUseForwarders()
 }
