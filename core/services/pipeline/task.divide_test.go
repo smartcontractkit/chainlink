@@ -83,19 +83,31 @@ func TestDivideTask_Happy(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
+		}
 		t.Run(test.name, func(t *testing.T) {
-			t.Run("without vars", func(t *testing.T) {
+			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.DivideTask{
 					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Divisor:   test.divisor,
 					Precision: test.precision,
 				}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-				require.NoError(t, result.Error)
-				require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
+			})
+			t.Run("without vars through input param", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.DivideTask{
+					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:     fmt.Sprintf("%v", test.input),
+					Divisor:   test.divisor,
+					Precision: test.precision,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -109,11 +121,7 @@ func TestDivideTask_Happy(t *testing.T) {
 					Divisor:   "$(chain.link)",
 					Precision: "$(sergey.steve)",
 				}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-				require.NoError(t, result.Error)
-				require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}
