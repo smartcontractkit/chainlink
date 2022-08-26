@@ -44,12 +44,18 @@ struct OnChainConfig {
  * @member ownerLinkBalance withdrawable balance of LINK by contract owner
  * @member expectedLinkBalance the expected balance of LINK of the registry
  * @member numUpkeeps total number of upkeeps on the registry
+ * @member configCount ordinal number of current config, out of all configs applied to this contract so far
+ * @member latestConfigBlockNumber last block at which this config was set
+ * @member latestRootConfigDigest domain-separation tag for current config
  */
 struct State {
   uint32 nonce;
   uint96 ownerLinkBalance;
   uint256 expectedLinkBalance;
   uint256 numUpkeeps;
+  uint32 configCount;
+  uint32 latestConfigBlockNumber;
+  bytes32 latestRootConfigDigest;
 }
 
 enum UpkeepFailureReason {

@@ -40,6 +40,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
+
   // Upkeep storage
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep; // accessed during transmit
@@ -47,31 +48,19 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
 
-  // TODO (sc-49442): Optimise config + state storage
-  // Registry config
+  // Registry config and state
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
-  // It is not stored in Transmitter struct to optimise gas as it's not needed in transmit codepath
+  // It is not stored in Transmitter struct to optimise gas as it's not needed in transmit
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
-
-  uint8 internal s_f; // Number of faulty oracles allowed
+  HotVars internal s_hotVars; // Mixture of config and state
+  Storage internal s_storage;
   uint64 s_offchainConfigVersion;
   bytes s_offchainConfig;
-  OnChainConfig internal s_onChainConfig;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
-
-  // Registry state
-  uint32 internal s_configCount; // incremented each time a new config is posted, The count
-  // is incorporated into the config digest to prevent replay attacks.
-  bytes32 internal s_latestRootConfigDigest;
-  // makes it easier for offchain systems to extract config from logs
-  uint32 internal s_latestConfigBlockNumber;
-  uint32 internal s_nonce; // Nonce for each upkeep created
-  uint96 internal s_ownerLinkBalance;
-  uint256 internal s_expectedLinkBalance;
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
@@ -139,6 +128,35 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint256 fastGasWei;
     uint256 linkEth;
     uint256 maxLinkPayment;
+  }
+
+  // Config + State storage struct which is on hot transmit path
+  struct HotVars {
+    uint8 f; // maximum number of faulty oracles
+    bytes32 latestRootConfigDigest; // latest config digest which is checked against every report
+    uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
+    uint32 flatFeeMicroLink; // flat fee charged to user for every perform
+    uint24 stalenessSeconds; // Staleness tolerance for feeds
+    uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
+    uint256 fallbackGasPrice; // Used in case feed is stale
+    uint256 fallbackLinkPrice; // Used in case feed is stale
+  }
+
+  // Config + State storage struct which is not on hot transmit path
+  struct Storage {
+    uint16 numOcrInstances;
+    uint32 checkGasLimit;
+    uint96 minUpkeepSpend;
+    uint32 maxPerformGas;
+    address transcoder;
+    address registrar;
+    // State of registry
+    uint32 nonce; // Nonce for each upkeep created
+    uint32 configCount; // incremented each time a new config is posted, The count
+    // is incorporated into the config digest to prevent replay attacks.
+    uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
+    uint96 ownerLinkBalance;
+    uint256 expectedLinkBalance;
   }
 
   struct Transmitter {
@@ -227,21 +245,21 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * for gas it takes the min of gas price in the transaction or the fast gas
    * price in order to reduce costs for the upkeep clients.
    */
-  function _getFeedData() internal view returns (uint256 gasWei, uint256 linkEth) {
+  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkEth) {
     // TODO (sc-48706): Gas optimise this
-    uint32 stalenessSeconds = s_onChainConfig.stalenessSeconds;
+    uint32 stalenessSeconds = hotVars.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      gasWei = s_onChainConfig.fallbackGasPrice;
+      gasWei = hotVars.fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
     (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
     if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
-      linkEth = s_onChainConfig.fallbackLinkPrice;
+      linkEth = hotVars.fallbackLinkPrice;
     } else {
       linkEth = uint256(feedValue);
     }
@@ -256,13 +274,13 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
+    HotVars memory hotVars,
     uint256 gasLimit,
     uint256 fastGasWei,
     uint256 linkEth,
     bool isExecution
   ) internal view returns (uint96 gasPayment, uint96 premium) {
-    OnChainConfig memory config = s_onChainConfig;
-    uint256 gasWei = fastGasWei * config.gasCeilingMultiplier;
+    uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
@@ -283,11 +301,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
-      l1CostWei = config.gasCeilingMultiplier * l1CostWei;
+      l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
     }
 
     uint256 gasPayment256 = ((weiForGas + l1CostWei) * 1e18) / linkEth;
-    uint256 premium256 = (gasPayment * config.paymentPremiumPPB) / 1e9 + uint256(config.flatFeeMicroLink) * 1e12;
+    uint256 premium256 = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return (uint96(gasPayment256), uint96(premium256));
@@ -306,10 +324,17 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    */
   function _generatePerformPaymentParams(
     Upkeep memory upkeep,
+    HotVars memory hotVars,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
-    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(upkeep.executeGas, fastGasWei, linkEth, isExecution);
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData(hotVars);
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      hotVars,
+      upkeep.executeGas,
+      fastGasWei,
+      linkEth,
+      isExecution
+    );
 
     return PerformPaymentParams({fastGasWei: fastGasWei, linkEth: linkEth, maxLinkPayment: gasPayment + premium});
   }

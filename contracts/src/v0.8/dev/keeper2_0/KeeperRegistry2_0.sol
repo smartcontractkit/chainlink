@@ -76,19 +76,21 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
+    HotVars memory hotVars = s_hotVars;
+
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
     // reportContext consists of:
     // reportContext[0]: OCR instance index
     // reportContext[1]: ConfigDigest
     // reportContext[2]: 27 byte padding, 4-byte epoch and 1-byte round
     // reportContext[3]: ExtraHash
-    if (s_latestRootConfigDigest ^ reportContext[0] != reportContext[1]) revert ConfigDisgestMismatch();
-    if (rs.length != s_f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+    if (hotVars.latestRootConfigDigest ^ reportContext[0] != reportContext[1]) revert ConfigDisgestMismatch();
+    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
     // Deocde the report and do some early sanity checks. These are done before signature verification to optimise gas
     Report memory parsedReport = _decodeReport(report);
     Upkeep memory upkeep = s_upkeep[parsedReport.upkeepId];
-    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, true);
+    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
 
     if (parsedReport.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
     if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
@@ -103,23 +105,13 @@ contract KeeperRegistry2_0 is
 
     // Calculate actual payment amount
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      hotVars,
       gasUsed,
       paymentParams.fastGasWei,
       paymentParams.linkEth,
       true
     );
-    uint96 premiumPerSigner = premium / uint96(rs.length);
-    uint96 totalPayment = gasPayment + premiumPerSigner * uint96(rs.length);
-
-    s_upkeep[parsedReport.upkeepId].balance = s_upkeep[parsedReport.upkeepId].balance - totalPayment;
-    s_upkeep[parsedReport.upkeepId].amountSpent = s_upkeep[parsedReport.upkeepId].amountSpent + totalPayment;
-    s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
-
-    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
-    for (uint256 i = 0; i < rs.length; i++) {
-      address transmitterToPay = s_transmittersList[signerIndices[i]];
-      s_transmitters[transmitterToPay].balance += premiumPerSigner;
-    }
+    uint96 totalPayment = _distributePayment(parsedReport.upkeepId, gasPayment, premium, signerIndices);
 
     emit UpkeepPerformed(parsedReport.upkeepId, success, gasUsed, parsedReport.checkBlockNumber, totalPayment);
   }
@@ -147,7 +139,7 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
-  ) internal returns (uint8[] memory signerIndices) {
+  ) internal returns (uint8[] memory) {
     uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {
@@ -170,6 +162,27 @@ contract KeeperRegistry2_0 is
         revert DuplicateSigners();
     }
     return signerIndices;
+  }
+
+  function _distributePayment(
+    uint256 upkeepId,
+    uint96 gasPayment,
+    uint96 premium,
+    uint8[] memory signerIndices
+  ) internal returns (uint96) {
+    uint96 premiumPerSigner = premium / uint96(signerIndices.length);
+    uint96 totalPayment = gasPayment + premiumPerSigner * uint96(signerIndices.length);
+
+    s_upkeep[upkeepId].balance = s_upkeep[upkeepId].balance - totalPayment;
+    s_upkeep[upkeepId].amountSpent = s_upkeep[upkeepId].amountSpent + totalPayment;
+    s_upkeep[upkeepId].lastPerformBlockNumber = uint32(block.number);
+
+    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
+    for (uint256 i = 0; i < signerIndices.length; i++) {
+      address transmitterToPay = s_transmittersList[signerIndices[i]];
+      s_transmitters[transmitterToPay].balance += premiumPerSigner;
+    }
+    return totalPayment;
   }
 
   /**
@@ -301,7 +314,7 @@ contract KeeperRegistry2_0 is
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + uint96(amount);
 
     emit FundsAdded(id, sender, uint96(amount));
   }
@@ -454,7 +467,7 @@ contract KeeperRegistry2_0 is
     }
     s_signersList = signers;
     s_transmittersList = transmitters;
-    s_f = f;
+    s_hotVars.f = f;
     s_offchainConfigVersion = offchainConfigVersion;
     s_offchainConfig = offchainConfig;
 
@@ -462,7 +475,22 @@ contract KeeperRegistry2_0 is
       signers,
       transmitters,
       f,
-      abi.encode(s_onChainConfig),
+      abi.encode(
+        OnChainConfig({
+          paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
+          flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
+          numOcrInstances: s_storage.numOcrInstances,
+          checkGasLimit: s_storage.checkGasLimit,
+          stalenessSeconds: s_hotVars.stalenessSeconds,
+          gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
+          minUpkeepSpend: s_storage.minUpkeepSpend,
+          maxPerformGas: s_storage.maxPerformGas,
+          fallbackGasPrice: s_hotVars.fallbackGasPrice,
+          fallbackLinkPrice: s_hotVars.fallbackLinkPrice,
+          transcoder: s_storage.transcoder,
+          registrar: s_storage.registrar
+        })
+      ),
       offchainConfigVersion,
       offchainConfig
     );
@@ -473,14 +501,53 @@ contract KeeperRegistry2_0 is
    * @param onChainConfig registry config fields
    */
   function setOnChainConfig(OnChainConfig memory onChainConfig) public onlyOwner {
-    if (onChainConfig.maxPerformGas < s_onChainConfig.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    s_onChainConfig = onChainConfig;
+    if (onChainConfig.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
+
+    s_hotVars = HotVars({
+      f: s_hotVars.f,
+      latestRootConfigDigest: s_hotVars.latestRootConfigDigest,
+      paymentPremiumPPB: onChainConfig.paymentPremiumPPB,
+      flatFeeMicroLink: onChainConfig.flatFeeMicroLink,
+      stalenessSeconds: onChainConfig.stalenessSeconds,
+      gasCeilingMultiplier: onChainConfig.gasCeilingMultiplier,
+      fallbackGasPrice: onChainConfig.fallbackGasPrice,
+      fallbackLinkPrice: onChainConfig.fallbackLinkPrice
+    });
+
+    s_storage = Storage({
+      numOcrInstances: onChainConfig.numOcrInstances,
+      checkGasLimit: onChainConfig.checkGasLimit,
+      minUpkeepSpend: onChainConfig.minUpkeepSpend,
+      maxPerformGas: onChainConfig.maxPerformGas,
+      transcoder: onChainConfig.transcoder,
+      registrar: onChainConfig.registrar,
+      nonce: s_storage.nonce,
+      configCount: s_storage.configCount,
+      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
+      ownerLinkBalance: s_storage.ownerLinkBalance,
+      expectedLinkBalance: s_storage.expectedLinkBalance
+    });
 
     _computeAndStoreConfigDigest(
       s_signersList,
       s_transmittersList,
-      s_f,
-      abi.encode(s_onChainConfig),
+      s_hotVars.f,
+      abi.encode(
+        OnChainConfig({
+          paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
+          flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
+          numOcrInstances: s_storage.numOcrInstances,
+          checkGasLimit: s_storage.checkGasLimit,
+          stalenessSeconds: s_hotVars.stalenessSeconds,
+          gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
+          minUpkeepSpend: s_storage.minUpkeepSpend,
+          maxPerformGas: s_storage.maxPerformGas,
+          fallbackGasPrice: s_hotVars.fallbackGasPrice,
+          fallbackLinkPrice: s_hotVars.fallbackLinkPrice,
+          transcoder: s_storage.transcoder,
+          registrar: s_storage.registrar
+        })
+      ),
       s_offchainConfigVersion,
       s_offchainConfig
     );
@@ -499,14 +566,14 @@ contract KeeperRegistry2_0 is
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) internal {
-    uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
-    s_latestConfigBlockNumber = uint32(block.number);
-    s_configCount += 1;
+    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    s_storage.latestConfigBlockNumber = uint32(block.number);
+    s_storage.configCount += 1;
 
-    s_latestRootConfigDigest = _configDigestFromConfigData(
+    s_hotVars.latestRootConfigDigest = _configDigestFromConfigData(
       block.chainid,
       address(this),
-      s_configCount,
+      s_storage.configCount,
       signers,
       transmitters,
       f,
@@ -517,8 +584,8 @@ contract KeeperRegistry2_0 is
 
     emit ConfigSet(
       previousConfigBlockNumber,
-      s_latestRootConfigDigest,
-      s_configCount,
+      s_hotVars.latestRootConfigDigest,
+      s_storage.configCount,
       signers,
       transmitters,
       f,
@@ -560,7 +627,7 @@ contract KeeperRegistry2_0 is
     )
   {
     Upkeep memory reg = s_upkeep[id];
-    address admin = s_upkeepAdmin[id];
+    admin = s_upkeepAdmin[id];
     return (
       reg.target,
       reg.executeGas,
@@ -629,11 +696,28 @@ contract KeeperRegistry2_0 is
       bytes memory offchainConfig
     )
   {
-    state.nonce = s_nonce;
-    state.ownerLinkBalance = s_ownerLinkBalance;
-    state.expectedLinkBalance = s_expectedLinkBalance;
+    state.nonce = s_storage.nonce;
+    state.ownerLinkBalance = s_storage.ownerLinkBalance;
+    state.expectedLinkBalance = s_storage.expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
-    return (state, s_onChainConfig, s_signersList, s_transmittersList, s_f, s_offchainConfigVersion, s_offchainConfig);
+    state.configCount = s_storage.configCount;
+    state.latestConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    state.latestRootConfigDigest = s_hotVars.latestRootConfigDigest;
+
+    config.paymentPremiumPPB = s_hotVars.paymentPremiumPPB;
+    config.flatFeeMicroLink = s_hotVars.flatFeeMicroLink;
+    config.numOcrInstances = s_storage.numOcrInstances;
+    config.checkGasLimit = s_storage.checkGasLimit;
+    config.stalenessSeconds = s_hotVars.stalenessSeconds;
+    config.gasCeilingMultiplier = s_hotVars.gasCeilingMultiplier;
+    config.minUpkeepSpend = s_storage.minUpkeepSpend;
+    config.maxPerformGas = s_storage.maxPerformGas;
+    config.fallbackGasPrice = s_hotVars.fallbackGasPrice;
+    config.fallbackLinkPrice = s_hotVars.fallbackLinkPrice;
+    config.transcoder = s_storage.transcoder;
+    config.registrar = s_storage.registrar;
+
+    return (state, config, s_signersList, s_transmittersList, s_hotVars.f, s_offchainConfigVersion, s_offchainConfig);
   }
 
   /**
@@ -649,8 +733,9 @@ contract KeeperRegistry2_0 is
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
-    (uint256 fastGasWei, uint256 linkEth) = _getFeedData();
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(gasLimit, fastGasWei, linkEth, false);
+    HotVars memory hotVars = s_hotVars;
+    (uint256 fastGasWei, uint256 linkEth) = _getFeedData(hotVars);
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(hotVars, gasLimit, fastGasWei, linkEth, false);
     return gasPayment + premium;
   }
 
@@ -674,7 +759,7 @@ contract KeeperRegistry2_0 is
       bytes32 rootConfigDigest
     )
   {
-    return (s_configCount, s_latestConfigBlockNumber, s_latestRootConfigDigest);
+    return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_hotVars.latestRootConfigDigest);
   }
 
   /**
