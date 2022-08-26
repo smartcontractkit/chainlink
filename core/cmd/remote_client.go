@@ -463,6 +463,15 @@ func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
 	return nil
 }
 
+func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
+	err := cli.Config.Validate()
+	if err != nil {
+		return err
+	}
+	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
+	return err
+}
+
 func normalizePassword(password string) string {
 	return url.QueryEscape(strings.TrimSpace(password))
 }
