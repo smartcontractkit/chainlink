@@ -55,7 +55,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
-  // It is not stored in Transmitter struct to optimise gas as it's not needed in transmit
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   HotVars internal s_hotVars; // Mixture of config and state, used in transmit
   Storage internal s_storage; // Mixture of config and state, not used in transmit
@@ -125,6 +124,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     ARBITRUM,
     OPTIMISM
   }
+
   struct PerformPaymentParams {
     uint256 fastGasWei;
     uint256 linkEth;
@@ -182,11 +182,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   /**
    * @notice relevant state of an upkeep which is used in transmit function
    * @member balance the balance of this upkeep
+   * @member target the contract which needs to be serviced
+   * @member amountSpent the amount this upkeep has spent
    * @member executeGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member lastPerformBlockNumber the last block number when this upkeep was performed
-   * @member target the contract which needs to be serviced
-   * @member amountSpent the amount this upkeep has spent
    * @member paused if this upkeep has been paused
    */
   struct Upkeep {
@@ -328,7 +328,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   }
 
   /**
-   * @dev generates a PerformPaymentParams struct for an upkeep
+   * @dev generates a PerformPaymentParams struct containing payment information for an upkeep
    */
   function _generatePerformPaymentParams(
     Upkeep memory upkeep,
