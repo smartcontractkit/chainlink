@@ -96,27 +96,7 @@ contract KeeperRegistry2_0 is
     if (upkeep.balance < paymentParams.maxLinkPayment) revert InsufficientFunds();
 
     // Verify report signature
-    uint8[] memory signerIndices = new uint8[](rs.length);
-    // Verify signatures attached to report
-    {
-      bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
-      // i-th byte counts number of sigs made by i-th signer
-      uint256 signedCount = 0;
-
-      Signer memory signer;
-      for (uint256 i = 0; i < rs.length; i++) {
-        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-        signer = s_signers[signerAddress];
-        if (!signer.active) revert OnlyActiveSigners();
-        unchecked {
-          signedCount += 1 << (8 * signer.index);
-        }
-        signerIndices[i] = signer.index;
-      }
-      // The first byte of the mask can be 0, because we only ever have 31 oracles
-      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount)
-        revert DuplicateSigners();
-    }
+    uint8[] memory signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
 
     // Actually perform the target upkeep
     (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.performData);
@@ -154,12 +134,42 @@ contract KeeperRegistry2_0 is
   // _decodeReport decodes a serialized report into a Report struct
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
     uint256 upkeepId;
-
     bytes memory performData;
     uint32 checkBlockNumber;
     (upkeepId, performData, checkBlockNumber) = abi.decode(rawReport, (uint256, bytes, uint32));
 
     return Report({upkeepId: upkeepId, performData: performData, checkBlockNumber: checkBlockNumber});
+  }
+
+  function _verifyReportSignature(
+    bytes32[4] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs
+  ) internal returns (uint8[] memory signerIndices) {
+    uint8[] memory signerIndices = new uint8[](rs.length);
+    // Verify signatures attached to report
+    {
+      bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
+      // i-th byte counts number of sigs made by i-th signer
+      uint256 signedCount = 0;
+
+      Signer memory signer;
+      for (uint256 i = 0; i < rs.length; i++) {
+        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+        signer = s_signers[signerAddress];
+        if (!signer.active) revert OnlyActiveSigners();
+        unchecked {
+          signedCount += 1 << (8 * signer.index);
+        }
+        signerIndices[i] = signer.index;
+      }
+      // The first byte of the mask can be 0, because we only ever have 31 oracles
+      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount)
+        revert DuplicateSigners();
+    }
+    return signerIndices;
   }
 
   /**
