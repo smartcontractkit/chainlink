@@ -313,7 +313,7 @@ contract KeeperRegistry2_0 is
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + uint96(amount);
+    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + amount;
 
     emit FundsAdded(id, sender, uint96(amount));
   }
