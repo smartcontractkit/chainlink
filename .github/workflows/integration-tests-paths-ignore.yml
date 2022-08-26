@@ -27,7 +27,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Testing the test environment setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@553ea8ec5d4b4aea7d8146bff0b5a7687998679e # v2.0.11
         with:
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo

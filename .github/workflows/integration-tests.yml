@@ -27,7 +27,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Build Image
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@553ea8ec5d4b4aea7d8146bff0b5a7687998679e # v2.0.11
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -56,7 +56,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@553ea8ec5d4b4aea7d8146bff0b5a7687998679e # v2.0.11
         with:
           test_command_to_run: make test_smoke_simulated args="-nodes=30"
           test_download_vendor_packages_command: make gomod
@@ -71,7 +71,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@553ea8ec5d4b4aea7d8146bff0b5a7687998679e # v2.0.11
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
@@ -124,7 +124,7 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ env.solana_sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@553ea8ec5d4b4aea7d8146bff0b5a7687998679e # v2.0.11
         with:
           test_command_to_run: make test_smoke
           cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -138,7 +138,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: cleanup
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@553ea8ec5d4b4aea7d8146bff0b5a7687998679e # v2.0.11
         with:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
