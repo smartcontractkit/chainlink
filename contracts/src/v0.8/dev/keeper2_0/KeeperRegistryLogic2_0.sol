@@ -150,7 +150,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     bool isOwner = msg.sender == owner();
 
     if (canceled && !(isOwner && upkeep.maxValidBlocknumber > block.number)) revert CannotCancel();
-    if (!isOwner && msg.sender != upkeep.admin) revert OnlyCallableByOwnerOrAdmin();
+    if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
     uint256 height = block.number;
     if (!isOwner) {
@@ -194,7 +194,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   function withdrawFunds(uint256 id, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
+    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > block.number) revert UpkeepNotCanceled();
 
     uint96 amountToWithdraw = s_upkeep[id].balance;
@@ -212,7 +212,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_onChainConfig.maxPerformGas) revert GasLimitOutsideRange();
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (upkeep.admin != msg.sender) revert OnlyCallableByAdmin();
+    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
 
     s_upkeep[id].executeGas = gasLimit;
 
@@ -264,7 +264,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(upkeep);
+    requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
     if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
@@ -281,8 +281,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
-    address past = upkeep.admin;
-    s_upkeep[id].admin = msg.sender;
+    address past = s_upkeepAdmin[id];
+    s_upkeepAdmin[id] = msg.sender;
     s_proposedAdmin[id] = ZERO_ADDRESS;
 
     emit UpkeepAdminTransferred(id, past, msg.sender);
@@ -307,7 +307,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      requireAdminAndNotCancelled(upkeep);
+      requireAdminAndNotCancelled(id);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
@@ -338,16 +338,14 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
-      encodedUpkeeps,
-      (uint256[], Upkeep[], bytes[])
-    );
+    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas, address[] memory upkeepAdmins) = abi
+      .decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       _createUpkeep(
         ids[idx],
         upkeeps[idx].target,
         upkeeps[idx].executeGas,
-        upkeeps[idx].admin,
+        upkeepAdmins[idx],
         upkeeps[idx].balance,
         checkDatas[idx],
         upkeeps[idx].paused
@@ -380,12 +378,12 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       target: target,
       executeGas: gasLimit,
       balance: balance,
-      admin: admin,
       maxValidBlocknumber: UINT32_MAX,
       lastPerformBlockNumber: 0,
       amountSpent: 0,
       paused: paused
     });
+    s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);

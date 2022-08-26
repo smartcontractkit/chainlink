@@ -38,10 +38,12 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   bytes public MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  // TODO (sc-49442): Optimise upkeep storage
+  // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
+  // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
   // Upkeep storage
   EnumerableSet.UintSet internal s_upkeepIDs;
-  mapping(uint256 => Upkeep) internal s_upkeep;
+  mapping(uint256 => Upkeep) internal s_upkeep; // accessed during transmit
+  mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
 
@@ -153,26 +155,23 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   }
 
   /**
-   * @notice relevant state of an upkeep
+   * @notice relevant state of an upkeep which is used in transmit function
    * @member balance the balance of this upkeep
    * @member executeGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member lastPerformBlockNumber the last block number when this upkeep was performed
    * @member target the contract which needs to be serviced
    * @member amountSpent the amount this upkeep has spent
-   * @member admin the upkeep admin
    * @member paused if this upkeep has been paused
    */
   struct Upkeep {
-    // TODO (sc-49442): Optimise upkeep storage
     uint96 balance;
+    address target; // 1 full EVM word
     uint96 amountSpent;
-    address admin;
     uint32 executeGas;
     uint32 maxValidBlocknumber;
     uint32 lastPerformBlockNumber;
-    address target;
-    bool paused;
+    bool paused; // 7 bytes left in 2nd EVM word
   }
 
   event OnChainConfigSet(OnChainConfig config);
@@ -297,9 +296,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   /**
    * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
    */
-  function requireAdminAndNotCancelled(Upkeep memory upkeep) internal view {
-    if (msg.sender != upkeep.admin) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+  function requireAdminAndNotCancelled(uint256 upkeepId) internal view {
+    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
+    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 
   /**
