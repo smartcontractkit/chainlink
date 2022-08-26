@@ -263,7 +263,6 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
-    Upkeep memory upkeep = s_upkeep[id];
     requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
     if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
