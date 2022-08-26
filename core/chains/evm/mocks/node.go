@@ -430,6 +430,27 @@ func (_m *Node) State() client.NodeState {
 	return r0
 }
 
+// StateAndLatestBlockNumber provides a mock function with given fields:
+func (_m *Node) StateAndLatestBlockNumber() (client.NodeState, int64) {
+	ret := _m.Called()
+
+	var r0 client.NodeState
+	if rf, ok := ret.Get(0).(func() client.NodeState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(client.NodeState)
+	}
+
+	var r1 int64
+	if rf, ok := ret.Get(1).(func() int64); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(int64)
+	}
+
+	return r0, r1
+}
+
 // String provides a mock function with given fields:
 func (_m *Node) String() string {
 	ret := _m.Called()

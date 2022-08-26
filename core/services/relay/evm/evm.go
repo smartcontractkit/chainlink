@@ -111,10 +111,13 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	configPoller := NewConfigPoller(lggr,
+	configPoller, err := NewConfigPoller(lggr,
 		chain.LogPoller(),
 		contractAddress,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
@@ -194,4 +197,8 @@ func (p *medianProvider) ReportCodec() median.ReportCodec {
 
 func (p *medianProvider) MedianContract() median.MedianContract {
 	return p.medianContract
+}
+
+func (p *medianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
+	return median.StandardOnchainConfigCodec{}
 }

@@ -158,7 +158,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
-	actual, err := svc.RegisterManager(params)
+	actual, err := svc.RegisterManager(testutils.Context(t), params)
 	// We need to stop the service because the manager will attempt to make a
 	// connection
 	defer svc.Close()
@@ -305,7 +305,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.CreateChainConfig(cfg)
+	actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
 }
@@ -326,7 +326,7 @@ func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 
 		svc = setupTestService(t)
 	)
-	_, err := svc.CreateChainConfig(cfg)
+	_, err := svc.CreateChainConfig(testutils.Context(t), cfg)
 	require.Error(t, err)
 	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
@@ -355,7 +355,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 		ChainConfigs: []*proto.ChainConfig{},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.DeleteChainConfig(cfg.ID)
+	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
 }
@@ -420,7 +420,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.UpdateChainConfig(cfg)
+	actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
 }
@@ -441,7 +441,7 @@ func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 
 		svc = setupTestService(t)
 	)
-	_, err := svc.UpdateChainConfig(cfg)
+	_, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
 	require.Error(t, err)
 	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
@@ -680,7 +680,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	err = svc.SyncNodeInfo(mgr.ID)
+	err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
 	require.NoError(t, err)
 }
 
@@ -1603,7 +1603,7 @@ func Test_Service_StartStop(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 	svc.connMgr.On("Close")
 
-	err = svc.Start()
+	err = svc.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	svc.Close()

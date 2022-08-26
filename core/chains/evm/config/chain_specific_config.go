@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/config"
 )
 
@@ -69,6 +70,7 @@ type (
 		nodeDeadAfterNoNewHeadersThreshold             time.Duration
 		nodePollFailureThreshold                       uint32
 		nodePollInterval                               time.Duration
+		nodeSelectionMode                              string
 
 		nonceAutoSync       bool
 		useForwarders       bool
@@ -146,6 +148,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
+		nodeSelectionMode:                     client.NodeSelectionMode_HighestHead,
 		nonceAutoSync:                         true,
 		useForwarders:                         false,
 		ocrContractConfirmations:              4,
@@ -186,6 +189,27 @@ func setChainSpecificConfigDefaultSets() {
 	sepolia.linkContractAddress = "0xb227f007804c16546Bd054dfED2E7A1fD5437678"
 	sepolia.operatorFactoryAddress = "" // doesn't exist yet
 	sepolia.eip1559DynamicFees = true
+
+	// simulated chain is actually a local client that "pretends" to be a blockchain
+	// see: https://goethereumbook.org/en/client-simulated/
+	// generally speaking, this is only used in tests
+	simulated := fallbackDefaultSet
+	simulated.balanceMonitorBlockDelay = 0
+	simulated.blockEmissionIdleWarningThreshold = 0
+	simulated.nodeDeadAfterNoNewHeadersThreshold = 0 // Assume simulated chain can never die
+	simulated.ethTxResendAfterThreshold = 0
+	simulated.finalityDepth = 1    // Simulated does not have re-orgs
+	simulated.gasBumpThreshold = 0 // Never bump gas
+	simulated.gasEstimatorMode = "FixedPrice"
+	simulated.headTrackerHistoryDepth = 10
+	simulated.headTrackerSamplingInterval = 1 * time.Second
+	simulated.minIncomingConfirmations = 1
+	simulated.minGasPriceWei = *big.NewInt(0)
+	simulated.ocrContractConfirmations = 1
+	simulated.headTrackerMaxBufferSize = 100
+	simulated.headTrackerSamplingInterval = 0
+	simulated.ethTxReaperThreshold = 0
+	simulated.minimumContractPayment = assets.NewLinkFromJuels(100)
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
@@ -261,9 +285,7 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.blockEmissionIdleWarningThreshold = 0
 	arbitrumMainnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	arbitrumMainnet.chainType = config.ChainArbitrum
-	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
-	arbitrumMainnet.gasLimitDefault = 7000000
-	arbitrumMainnet.gasLimitTransfer = 800000            // estimating gas returns 695,344 so 800,000 should be safe with some buffer
+	arbitrumMainnet.gasBumpThreshold = 0                 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasPriceDefault = *assets.GWei(1000) // Arbitrum uses something like a Vickrey auction model where gas price represents a "max bid". In practice we usually pay much less
 	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.minGasPriceWei = *assets.GWei(1000)  // Fix the gas price
@@ -273,14 +295,9 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
-	// nitro uses standard gas accounting, so restore default limits.
-	arbitrumRinkeby.gasLimitDefault = fallbackDefaultSet.gasLimitDefault
-	arbitrumRinkeby.gasLimitTransfer = fallbackDefaultSet.gasLimitTransfer
 	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
-	arbitrumRinkeby.gasPriceDefault = *assets.Wei(1e8)  // 0.1 gwei
-	arbitrumRinkeby.maxGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
-	arbitrumRinkeby.minGasPriceWei = *assets.Wei(1e8)   // 0.1 gwei
-	arbitrumRinkeby.gasFeeCapDefault = *assets.Wei(1e8) // 0.1 gwei
+	arbitrumGoerli := arbitrumRinkeby
+	arbitrumGoerli.linkContractAddress = "" //TODO
 
 	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	optimismMainnet := fallbackDefaultSet
@@ -397,6 +414,7 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[420] = optimismGoerli
 	chainSpecificConfigDefaultSets[42161] = arbitrumMainnet
 	chainSpecificConfigDefaultSets[421611] = arbitrumRinkeby
+	chainSpecificConfigDefaultSets[421613] = arbitrumGoerli
 	chainSpecificConfigDefaultSets[56] = bscMainnet
 	chainSpecificConfigDefaultSets[128] = hecoMainnet
 	chainSpecificConfigDefaultSets[250] = fantomMainnet
@@ -414,6 +432,8 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[66] = okxMainnet
 	chainSpecificConfigDefaultSets[588] = metisRinkeby
 	chainSpecificConfigDefaultSets[1088] = metisMainnet
+
+	chainSpecificConfigDefaultSets[1337] = simulated
 
 	// sanity check
 	for id, c := range chainSpecificConfigDefaultSets {

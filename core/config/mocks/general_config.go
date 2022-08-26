@@ -1872,6 +1872,27 @@ func (_m *GeneralConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return r0, r1
 }
 
+// GlobalNodeSelectionMode provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodeSelectionMode() (string, bool) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -2245,6 +2266,20 @@ func (_m *GeneralConfig) KeeperTurnLookBack() int64 {
 
 // KeyFile provides a mock function with given fields:
 func (_m *GeneralConfig) KeyFile() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// KeystorePassword provides a mock function with given fields:
+func (_m *GeneralConfig) KeystorePassword() string {
 	ret := _m.Called()
 
 	var r0 string
@@ -3594,6 +3629,20 @@ func (_m *GeneralConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// VRFPassword provides a mock function with given fields:
+func (_m *GeneralConfig) VRFPassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

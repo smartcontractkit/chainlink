@@ -3,6 +3,7 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http/httptest"
 	"net/url"
@@ -34,7 +35,9 @@ func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.C
 }
 
 func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
-	cfg := evmclient.TestNodeConfig{}
+	cfg := evmclient.TestNodeConfig{
+		SelectionMode: evmclient.NodeSelectionMode_RoundRobin,
+	}
 	c, err := evmclient.NewClientWithTestNode(cfg, logger.TestLogger(t), wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
@@ -157,6 +160,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	expectedBig, _ := big.NewInt(0).SetString("100000000000000000000000000000000000000", 10)
 
@@ -193,7 +197,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
 
-			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)
+			result, err := ethClient.GetERC20Balance(ctx, userAddress, contractAddress)
 			require.NoError(t, err)
 			assert.Equal(t, test.balance, result)
 		})
@@ -235,7 +239,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			`{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`},
 		{"happy parity", expectedBlockNum, expectedBlockNum.Int64(), nil,
 			`{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`},
-		{"missing header", expectedBlockNum, 0, ethereum.NotFound,
+		{"missing header", expectedBlockNum, 0, fmt.Errorf("no live nodes available for chain %s", cltest.FixtureChainID.String()),
 			`null`},
 	}
 
@@ -265,7 +269,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			defer cancel()
 			result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
 			if test.error != nil {
-				require.Equal(t, test.error, errors.Cause(err))
+				require.Error(t, err, test.error)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, expectedBlockHash, result.Hash.Hex())

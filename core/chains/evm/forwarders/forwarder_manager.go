@@ -44,7 +44,6 @@ type FwdMgr struct {
 	cancel context.CancelFunc
 
 	cacheMu sync.RWMutex
-	chStop  chan struct{}
 	wg      sync.WaitGroup
 }
 
@@ -56,16 +55,16 @@ func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogP
 		ORM:          NewORM(db, lggr, cfg),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
-		chStop:       make(chan struct{}),
 		cacheMu:      sync.RWMutex{},
 		wg:           sync.WaitGroup{},
 		latestBlock:  0,
 	}
+	fwdMgr.ctx, fwdMgr.cancel = context.WithCancel(context.Background())
 	return &fwdMgr
 }
 
 // Start starts Forwarder Manager.
-func (f *FwdMgr) Start() error {
+func (f *FwdMgr) Start(ctx context.Context) error {
 	return f.StartOnce("EVMForwarderManager", func() error {
 		f.logger.Debug("Initializing EVM forwarder manager")
 
@@ -73,10 +72,11 @@ func (f *FwdMgr) Start() error {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to retrieve forwarders for chain %d", f.evmClient.ChainID())
 		}
-		f.ctx, f.cancel = context.WithCancel(context.Background())
 		if len(fwdrs) != 0 {
-			f.initForwardersCache(f.ctx, fwdrs)
-			f.subscribeForwardersLogs(fwdrs)
+			f.initForwardersCache(ctx, fwdrs)
+			if err = f.subscribeForwardersLogs(fwdrs); err != nil {
+				return err
+			}
 		}
 
 		f.authRcvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
@@ -139,21 +139,23 @@ func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, erro
 	if senders, ok := f.getCachedSenders(addr); ok {
 		return senders, nil
 	}
-	senders, err := f.getAuthorizedSenders(addr)
+	senders, err := f.getAuthorizedSenders(f.ctx, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to call getAuthorizedSenders on %s", addr)
 	}
 	f.setCachedSenders(addr, senders)
-	f.subscribeSendersChangedLogs(addr)
+	if err = f.subscribeSendersChangedLogs(addr); err != nil {
+		return nil, err
+	}
 	return senders, nil
 }
 
-func (f *FwdMgr) getAuthorizedSenders(addr common.Address) ([]common.Address, error) {
+func (f *FwdMgr) getAuthorizedSenders(ctx context.Context, addr common.Address) ([]common.Address, error) {
 	c, err := authorized_receiver.NewAuthorizedReceiverCaller(addr, f.evmClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to init forwarder caller")
 	}
-	opts := bind.CallOpts{Context: f.ctx, Pending: false}
+	opts := bind.CallOpts{Context: ctx, Pending: false}
 	senders, err := c.GetAuthorizedSenders(&opts)
 	if err != nil {
 		return nil, err
@@ -163,7 +165,7 @@ func (f *FwdMgr) getAuthorizedSenders(addr common.Address) ([]common.Address, er
 
 func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 	for _, fwdr := range fwdrs {
-		senders, err := f.getAuthorizedSenders(fwdr.Address)
+		senders, err := f.getAuthorizedSenders(ctx, fwdr.Address)
 		if err != nil {
 			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", fwdr, "err", err)
 			continue
@@ -172,14 +174,18 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 
 	}
 }
-func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) {
+
+func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
 	for _, fwdr := range fwdrs {
-		f.subscribeSendersChangedLogs(fwdr.Address)
+		if err := f.subscribeSendersChangedLogs(fwdr.Address); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) {
-	f.logpoller.MergeFilter(
+func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
+	return f.logpoller.MergeFilter(
 		[]common.Hash{authChangedTopic},
 		[]common.Address{addr})
 }
@@ -225,7 +231,7 @@ func (f *FwdMgr) runLoop() {
 				}
 			}
 
-		case <-f.chStop:
+		case <-f.ctx.Done():
 			return
 		}
 	}
@@ -270,7 +276,6 @@ func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
 func (f *FwdMgr) Stop() error {
 	return f.StopOnce("EVMForwarderManager", func() (err error) {
 		f.cancel()
-		close(f.chStop)
 		f.wg.Wait()
 		return nil
 	})
