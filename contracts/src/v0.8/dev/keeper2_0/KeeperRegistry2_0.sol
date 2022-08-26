@@ -279,7 +279,6 @@ contract KeeperRegistry2_0 is
    * @param newCheckData the new check data
    */
   function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
-    Upkeep memory upkeep = s_upkeep[id];
     requireAdminAndNotCancelled(id);
     s_checkData[id] = newCheckData;
     emit UpkeepCheckDataUpdated(id, newCheckData);
