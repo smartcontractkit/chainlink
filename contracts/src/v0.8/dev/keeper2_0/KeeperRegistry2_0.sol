@@ -531,22 +531,7 @@ contract KeeperRegistry2_0 is
       s_signersList,
       s_transmittersList,
       s_hotVars.f,
-      abi.encode(
-        OnChainConfig({
-          paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
-          flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
-          numOcrInstances: s_storage.numOcrInstances,
-          checkGasLimit: s_storage.checkGasLimit,
-          stalenessSeconds: s_hotVars.stalenessSeconds,
-          gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
-          minUpkeepSpend: s_storage.minUpkeepSpend,
-          maxPerformGas: s_storage.maxPerformGas,
-          fallbackGasPrice: s_hotVars.fallbackGasPrice,
-          fallbackLinkPrice: s_hotVars.fallbackLinkPrice,
-          transcoder: s_storage.transcoder,
-          registrar: s_storage.registrar
-        })
-      ),
+      abi.encode(onChainConfig),
       s_offchainConfigVersion,
       s_offchainConfig
     );
