@@ -260,13 +260,17 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
-    if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
+    if (
+      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
+    ) {
       gasWei = hotVars.fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
     (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
-    if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
+    if (
+      feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
+    ) {
       linkEth = hotVars.fallbackLinkPrice;
     } else {
       linkEth = uint256(feedValue);
