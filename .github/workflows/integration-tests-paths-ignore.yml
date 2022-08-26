@@ -23,9 +23,11 @@ jobs:
     steps:
       - run: echo "No smoke tests required but we will still check the env setup"
       - name: Checkout the repo
-        uses: actions/checkout@f25a3a9f25bd5f4c5d77189cab02ff357b5aedeb # v2.4.1
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Testing the test environment setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e3bf7a2d54543beb94ad4151ca2a3837d62c2592 # v2.0.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
         with:
           test_download_vendor_packages_command: make gomod
           test_download_ginkgo_command: make test_install_ginkgo
