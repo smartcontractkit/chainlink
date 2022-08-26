@@ -92,7 +92,7 @@ contract KeeperRegistry2_0 is
     Upkeep memory upkeep = s_upkeep[parsedReport.upkeepId];
     PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
 
-    if (parsedReport.checkBlockNumber <= s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber) revert StaleReport();
+    if (parsedReport.checkBlockNumber <= upkeep.lastPerformBlockNumber) revert StaleReport();
     if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (upkeep.balance < paymentParams.maxLinkPayment) revert InsufficientFunds();
