@@ -52,6 +52,14 @@ struct State {
   uint256 numUpkeeps;
 }
 
+enum UpkeepFailureReason {
+  NONE,
+  TARGET_CHECK_REVERTED,
+  UPKEEP_NOT_NEEDED,
+  UPKEEP_PAUSED,
+  INSUFFICIENT_BALANCE
+}
+
 interface KeeperRegistryBaseInterface {
   function registerUpkeep(
     address target,
@@ -123,26 +131,24 @@ interface KeeperRegistryBaseInterface {
  * if we actually inherit from this interface, so we document it here.
  */
 interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId, address from)
+  function checkUpkeep(uint256 upkeepId)
     external
     view
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      int256 gasWei,
-      int256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed
     );
 }
 
 interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
-  function checkUpkeep(uint256 upkeepId, address from)
+  function checkUpkeep(uint256 upkeepId)
     external
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      uint256 adjustedGasWei,
-      uint256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed
     );
 }
