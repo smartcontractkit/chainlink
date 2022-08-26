@@ -126,14 +126,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     BIDIRECTIONAL
   }
 
-  enum UpkeepFailureReason {
-    NONE,
-    TARGET_CHECK_REVERTED,
-    UPKEEP_NOT_NEEDED,
-    UPKEEP_PAUSED,
-    INSUFFICIENT_BALANCE
-  }
-
   enum PaymentModel {
     DEFAULT,
     ARBITRUM,
