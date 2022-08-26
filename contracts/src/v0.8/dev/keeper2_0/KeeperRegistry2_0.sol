@@ -539,7 +539,7 @@ contract KeeperRegistry2_0 is
 
   /**
    * @dev Should be called on every config change, either OCR or onChainConfig
-   * Recomputed the config digest and stores it
+   * Recomputes the config digest and stores it
    */
   function _computeAndStoreConfigDigest(
     address[] memory signers,
