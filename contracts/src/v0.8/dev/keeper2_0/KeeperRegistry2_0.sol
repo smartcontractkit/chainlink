@@ -171,22 +171,18 @@ contract KeeperRegistry2_0 is
 
   /**
    * @notice simulated by keepers via eth_call to see if the upkeep needs to be
-   * performed. If upkeep is needed, the call then simulates performUpkeep
-   * to make sure it succeeds. Finally, it returns the success status along with
-   * payment information and the perform data payload.
+   * performed. It returns the success status / failure reason along with the perform data payload.
    * @param id identifier of the upkeep to check
-   * @param from the address to simulate performing the upkeep from
    */
-  function checkUpkeep(uint256 id, address from)
+  function checkUpkeep(uint256 id)
     external
     override
     cannotExecute
     returns (
+      bool upkeepNeeded,
       bytes memory performData,
-      uint256 maxLinkPayment,
-      uint256 gasLimit,
-      uint256 adjustedGasWei,
-      uint256 linkEth
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed
     )
   {
     // Executed through logic contract
