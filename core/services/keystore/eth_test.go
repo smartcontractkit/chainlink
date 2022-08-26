@@ -591,6 +591,21 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 		state, err := ks.GetState(k1.Address.Hex(), testutils.FixtureChainID)
 		require.NoError(t, err)
 		assert.Equal(t, nonce, state.NextNonce)
+
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		require.Len(t, keys, 3)
+		states, err := ks.GetStatesForKeys(keys)
+		require.NoError(t, err)
+		require.Len(t, states, 3)
+		for _, state = range states {
+			if state.Address.Address() == k1.Address {
+				assert.Equal(t, nonce, state.NextNonce)
+			} else {
+				// the other states didn't get updated
+				assert.Equal(t, int64(0), state.NextNonce)
+			}
+		}
 	})
 }
 
