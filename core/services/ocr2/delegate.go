@@ -449,7 +449,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 
 		services := []job.ServiceCtx{runResultSaver, keeperProvider, registrySynchronizer}
 
-		for i := uint8(0); i < cfg.OCRInstances; i++ {
+		// for i := uint8(0); i < cfg.OCRInstances; i++ {
+		for i := uint8(0); i < 4; i++ {
 			var oracle *libocr2.Oracle
 			if oracle, err = libocr2.NewOracle(libocr2.OracleArgs{
 				BinaryNetworkEndpointFactory: peerWrapper.Peer2,
@@ -460,7 +461,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				LocalConfig:                  lc,
 				Logger:                       ocrLogger,
 				MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-				OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+				OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(i),
 				OffchainKeyring:              kb,
 				OnchainKeyring:               kb,
 				ReportingPluginFactory: keeperreportingplugin.NewFactory(

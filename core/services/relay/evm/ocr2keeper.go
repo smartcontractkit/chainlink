@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/configdigester"
+
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/ocr2keeper/configtracker"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -36,7 +38,7 @@ type OCR2KeeperProviderOpts struct {
 // OCR2KeeperProvider provides all components needed for a OCR2Keeper plugin.
 type OCR2KeeperProvider interface {
 	relaytypes.Service
-	OffchainConfigDigester() types.OffchainConfigDigester
+	OffchainConfigDigester(instance uint8) types.OffchainConfigDigester
 	ContractTransmitter() types.ContractTransmitter
 	ContractConfigTracker(instance uint8) types.ContractConfigTracker
 }
@@ -96,6 +98,10 @@ func (c *ocr2keeperProvider) ContractTransmitter() types.ContractTransmitter {
 
 func (p *ocr2keeperProvider) ContractConfigTracker(instance uint8) types.ContractConfigTracker {
 	return configtracker.New(p.configPoller, instance)
+}
+
+func (p *ocr2keeperProvider) OffchainConfigDigester(instance uint8) types.OffchainConfigDigester {
+	return configdigester.New(p.offchainDigester, instance)
 }
 
 func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID string) (*configWatcher, error) {

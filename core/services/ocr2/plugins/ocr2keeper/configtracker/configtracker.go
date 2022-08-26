@@ -59,7 +59,10 @@ func (c *configTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint
 
 func (c *configTracker) thresholdDigitalDigest(root types.ConfigDigest) types.ConfigDigest {
 	var thresholdBytes types.ConfigDigest
-	for i, b := range root {
+	for i, b := range root[:2] {
+		thresholdBytes[i] = b
+	}
+	for i, b := range root[2:] {
 		thresholdBytes[i] = b ^ c.instance
 	}
 	return thresholdBytes
