@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"github.com/smartcontractkit/chainlink/core/static"
 	"runtime"
 
 	"github.com/pyroscope-io/client/pyroscope"
@@ -21,6 +22,18 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 	runtime.SetBlockProfileRate(cfg.AutoPprofBlockProfileRate())
 	runtime.SetMutexProfileFraction(cfg.AutoPprofMutexProfileFraction())
 
+	sha := static.Sha
+	ver := static.Version
+
+	if sha == "" {
+		sha = "unset"
+	} else if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	if ver == "" {
+		ver = "unset"
+	}
+
 	return pyroscope.Start(pyroscope.Config{
 		// Maybe configurable to identify the specific NOP - TBD
 		ApplicationName: "chainlink-node",
@@ -32,6 +45,8 @@ func StartPyroscope(cfg PyroscopeConfig) (*pyroscope.Profiler, error) {
 		Logger: nil,
 
 		Tags: map[string]string{
+			"SHA":         sha,
+			"Version":     ver,
 			"Environment": cfg.PyroscopeEnvironment(),
 		},
 
