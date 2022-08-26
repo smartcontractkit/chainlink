@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -108,15 +109,26 @@ func TestMultiplyTask_Happy(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
+		}
 		t.Run(test.name, func(t *testing.T) {
-			t.Run("without vars", func(t *testing.T) {
+			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-				require.NoError(t, result.Error)
-				require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
+			})
+			t.Run("without vars through input param", func(t *testing.T) {
+				vars := pipeline.NewVarsFrom(nil)
+				task := pipeline.MultiplyTask{
+					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Input:    fmt.Sprintf("%v", test.input),
+					Times:    test.times,
+				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -128,11 +140,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 					Input:    "$(foo.bar)",
 					Times:    "$(chain.link)",
 				}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-				require.NoError(t, result.Error)
-				require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}
