@@ -28,7 +28,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V2;
+  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V3;
 
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
@@ -56,8 +56,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
   // It is not stored in Transmitter struct to optimise gas as it's not needed in transmit
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
-  HotVars internal s_hotVars; // Mixture of config and state
-  Storage internal s_storage;
+  HotVars internal s_hotVars; // Mixture of config and state, used in transmit
+  Storage internal s_storage; // Mixture of config and state, not used in transmit
   uint64 s_offchainConfigVersion;
   bytes s_offchainConfig;
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
@@ -132,31 +132,37 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
+    uint256 fallbackGasPrice; // Used in case feed is stale
+    // 1 EVM word full
+    uint256 fallbackLinkPrice; // Used in case feed is stale
+    // 2 EVM word full
     uint8 f; // maximum number of faulty oracles
     bytes32 latestRootConfigDigest; // latest config digest which is checked against every report
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
-    uint256 fallbackGasPrice; // Used in case feed is stale
-    uint256 fallbackLinkPrice; // Used in case feed is stale
+    // 14 bytes to 3rd EVM word
   }
 
   // Config + State storage struct which is not on hot transmit path
   struct Storage {
-    uint16 numOcrInstances;
-    uint32 checkGasLimit;
-    uint96 minUpkeepSpend;
-    uint32 maxPerformGas;
-    address transcoder;
-    address registrar;
-    // State of registry
+    uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
+    address transcoder; // Address of transcoder contract used in migrations
+    // 1 EVM word full
+    uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
+    address registrar; // Address of registrar used to register upkeeps
+    // 2 EVM word full
+    uint256 expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
+    // 3 EVM word full
+    uint16 numOcrInstances; // Number of OCR instances that power this contract
+    uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
+    uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
     uint32 configCount; // incremented each time a new config is posted, The count
     // is incorporated into the config digest to prevent replay attacks.
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
-    uint96 ownerLinkBalance;
-    uint256 expectedLinkBalance;
+    // 10 bytes to 4th EVM word
   }
 
   struct Transmitter {
@@ -184,12 +190,14 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    */
   struct Upkeep {
     uint96 balance;
-    address target; // 1 full EVM word
+    address target;
+    // 1 full EVM word
     uint96 amountSpent;
     uint32 executeGas;
     uint32 maxValidBlocknumber;
     uint32 lastPerformBlockNumber;
-    bool paused; // 7 bytes left in 2nd EVM word
+    bool paused;
+    // 7 bytes left in 2nd EVM word
   }
 
   event OnChainConfigSet(OnChainConfig config);
@@ -246,7 +254,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * price in order to reduce costs for the upkeep clients.
    */
   function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkEth) {
-    // TODO (sc-48706): Gas optimise this
     uint32 stalenessSeconds = hotVars.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;

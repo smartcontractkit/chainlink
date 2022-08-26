@@ -292,7 +292,6 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
-    // TODO (sc-49440): update upkeep format and handle migration from non OCR to OCR
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
