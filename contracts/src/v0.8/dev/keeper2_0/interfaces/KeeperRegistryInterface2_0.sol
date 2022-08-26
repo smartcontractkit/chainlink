@@ -9,8 +9,7 @@ pragma solidity ^0.8.0;
  * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
  * priced in MicroLink; can be used in conjunction with or independently of
  * paymentPremiumPPB
- * @member blockCountPerTurn number of blocks each oracle has during their turn to
- * perform upkeep before it will be the next keeper's turn to submit
+ * @member numOcrInstances Number of OCR instances which serve this registry
  * @member checkGasLimit gas limit when checking for upkeep
  * @member stalenessSeconds number of seconds that is allowed for feed data to
  * be stale before switching to the fallback pricing
@@ -24,10 +23,9 @@ pragma solidity ^0.8.0;
  * @member registrar address of the registrar contract
  */
 struct OnChainConfig {
-  // TODO (sc-49442): Optimise config storage
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
-  uint24 blockCountPerTurn;
+  uint16 numOcrInstances;
   uint32 checkGasLimit;
   uint24 stalenessSeconds;
   uint16 gasCeilingMultiplier;
@@ -52,29 +50,6 @@ struct State {
   uint96 ownerLinkBalance;
   uint256 expectedLinkBalance;
   uint256 numUpkeeps;
-}
-
-/**
- * @notice relevant state of an upkeep
- * @member balance the balance of this upkeep
- * @member lastKeeper the keeper which last performs the upkeep
- * @member executeGas the gas limit of upkeep execution
- * @member maxValidBlocknumber until which block this upkeep is valid
- * @member target the contract which needs to be serviced
- * @member amountSpent the amount this upkeep has spent
- * @member admin the upkeep admin
- * @member paused if this upkeep has been paused
- */
-struct Upkeep {
-  // TODO (sc-49442): Optimise upkeep storage
-  uint96 balance;
-  uint96 amountSpent;
-  address admin;
-  uint32 executeGas;
-  uint32 maxValidBlocknumber;
-  uint32 lastPerformBlockNumber;
-  address target;
-  bool paused;
 }
 
 interface KeeperRegistryBaseInterface {
@@ -137,7 +112,6 @@ interface KeeperRegistryBaseInterface {
       address[] memory signers,
       address[] memory transmitters,
       uint8 f,
-      uint16 numOcrInstances,
       uint64 offchainConfigVersion,
       bytes memory offchainConfig
     );
