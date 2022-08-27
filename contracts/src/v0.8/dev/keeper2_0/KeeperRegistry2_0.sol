@@ -76,14 +76,14 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
-    HotVars memory hotVars = s_hotVars;
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
-    // Deocde the report and do some early sanity checks. These are done before signature verification to optimise gas
+    HotVars memory hotVars = s_hotVars;
     Report memory parsedReport = _decodeReport(report);
     Upkeep memory upkeep = s_upkeep[parsedReport.upkeepId];
     PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
 
+    // Do some early sanity checks. These are done before signature verification to optimise gas
     if (parsedReport.checkBlockNumber <= upkeep.lastPerformBlockNumber) revert StaleReport();
     if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
