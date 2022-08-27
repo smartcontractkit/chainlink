@@ -63,7 +63,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
 
   LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
+  AggregatorV3Interface public immutable LINK_NATIVE_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
   OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
@@ -127,7 +127,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   struct PerformPaymentParams {
     uint256 fastGasWei;
-    uint256 linkEth;
+    uint256 linkNative;
     uint256 maxLinkPayment;
   }
 
@@ -230,30 +230,30 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
     PAYMENT_MODEL = paymentModel;
     REGISTRY_GAS_OVERHEAD = registryGasOverhead;
     LINK = LinkTokenInterface(link);
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
+    LINK_NATIVE_FEED = AggregatorV3Interface(linkNativeFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
   }
 
   /**
-   * @dev retrieves feed data for fast gas/eth and link/eth prices. if the feed
+   * @dev retrieves feed data for fast gas/native and link/native prices. if the feed
    * data is stale it uses the configured fallback price. Once a price is picked
    * for gas it takes the min of gas price in the transaction or the fast gas
    * price in order to reduce costs for the upkeep clients.
    */
-  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkEth) {
+  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkNative) {
     uint32 stalenessSeconds = hotVars.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -266,29 +266,29 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     } else {
       gasWei = uint256(feedValue);
     }
-    (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, feedValue, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      linkEth = hotVars.fallbackLinkPrice;
+      linkNative = hotVars.fallbackLinkPrice;
     } else {
-      linkEth = uint256(feedValue);
+      linkNative = uint256(feedValue);
     }
-    return (gasWei, linkEth);
+    return (gasWei, linkNative);
   }
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param fastGasWei the fast gas price
-   * @param linkEth the exchange ratio between LINK and ETH
+   * @param linkNative the exchange ratio between LINK and Native token
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
     uint256 gasLimit,
     uint256 fastGasWei,
-    uint256 linkEth,
+    uint256 linkNative,
     bool isExecution
   ) internal view returns (uint96 gasPayment, uint96 premium) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
@@ -315,7 +315,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
     }
 
-    uint256 gasPayment256 = ((weiForGas + l1CostWei) * 1e18) / linkEth;
+    uint256 gasPayment256 = ((weiForGas + l1CostWei) * 1e18) / linkNative;
     uint256 premium256 = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
@@ -338,15 +338,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     HotVars memory hotVars,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
-    (uint256 fastGasWei, uint256 linkEth) = _getFeedData(hotVars);
+    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
       fastGasWei,
-      linkEth,
+      linkNative,
       isExecution
     );
 
-    return PerformPaymentParams({fastGasWei: fastGasWei, linkEth: linkEth, maxLinkPayment: gasPayment + premium});
+    return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: gasPayment + premium});
   }
 }
