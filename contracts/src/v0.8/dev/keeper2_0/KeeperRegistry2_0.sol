@@ -93,7 +93,9 @@ contract KeeperRegistry2_0 is
     (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.performData);
 
     // Verify report signature
-    uint8[] memory signerIndices = _verifyReportSignature(hotVars, reportContext, report, rs, ss, rawVs);
+    if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+    uint8[] memory signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
 
     // Calculate actual payment amount
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
@@ -125,20 +127,12 @@ contract KeeperRegistry2_0 is
   }
 
   function _verifyReportSignature(
-    HotVars memory hotVars,
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
   ) internal returns (uint8[] memory) {
-    // reportContext consists of:
-    // reportContext[0]: ConfigDigest
-    // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
-    // reportContext[2]: ExtraHash
-    if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
-    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-
     uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {
