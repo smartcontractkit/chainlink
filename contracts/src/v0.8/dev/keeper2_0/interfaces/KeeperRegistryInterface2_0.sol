@@ -45,7 +45,7 @@ struct OnChainConfig {
  * @member numUpkeeps total number of upkeeps on the registry
  * @member configCount ordinal number of current config, out of all configs applied to this contract so far
  * @member latestConfigBlockNumber last block at which this config was set
- * @member latestRootConfigDigest domain-separation tag for current config
+ * @member latestConfigDigest domain-separation tag for current config
  */
 struct State {
   uint32 nonce;
@@ -54,7 +54,7 @@ struct State {
   uint256 numUpkeeps;
   uint32 configCount;
   uint32 latestConfigBlockNumber;
-  bytes32 latestRootConfigDigest;
+  bytes32 latestConfigDigest;
 }
 
 enum UpkeepFailureReason {
