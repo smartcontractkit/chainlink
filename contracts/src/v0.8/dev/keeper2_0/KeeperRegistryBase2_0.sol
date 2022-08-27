@@ -156,7 +156,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     // 2 EVM word full
     uint256 expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
     // 3 EVM word full
-    uint16 numOcrInstances; // Number of OCR instances that power this contract
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created

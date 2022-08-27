@@ -131,8 +131,9 @@ abstract contract OCR2Abstract is TypeAndVersionInterface {
    * @param rawVs ith element is the the V component of the ith signature
    */
   function transmit(
-    // @dev: additional element to reportContext is added for keepers to include OCR instance ID
-    bytes32[4] calldata reportContext,
+    // NOTE: If these parameters are changed, expectedMsgDataLength and/or
+    // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
+    bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,

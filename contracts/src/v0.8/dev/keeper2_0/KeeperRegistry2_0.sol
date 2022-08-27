@@ -70,22 +70,14 @@ contract KeeperRegistry2_0 is
    * @inheritdoc OCR2Abstract
    */
   function transmit(
-    bytes32[4] calldata reportContext,
+    bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
     HotVars memory hotVars = s_hotVars;
-
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
-    // reportContext consists of:
-    // reportContext[0]: OCR instance index
-    // reportContext[1]: ConfigDigest
-    // reportContext[2]: 27 byte padding, 4-byte epoch and 1-byte round
-    // reportContext[3]: ExtraHash
-    if (hotVars.latestRootConfigDigest ^ reportContext[0] != reportContext[1]) revert ConfigDisgestMismatch();
-    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
     // Deocde the report and do some early sanity checks. These are done before signature verification to optimise gas
     Report memory parsedReport = _decodeReport(report);
@@ -98,7 +90,7 @@ contract KeeperRegistry2_0 is
     if (upkeep.balance < paymentParams.maxLinkPayment) revert InsufficientFunds();
 
     // Verify report signature
-    uint8[] memory signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
+    uint8[] memory signerIndices = _verifyReportSignature(hotVars, reportContext, report, rs, ss, rawVs);
 
     // Actually perform the target upkeep
     (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.performData);
@@ -133,12 +125,20 @@ contract KeeperRegistry2_0 is
   }
 
   function _verifyReportSignature(
-    bytes32[4] calldata reportContext,
+    HotVars memory hotVars,
+    bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
   ) internal returns (uint8[] memory) {
+    // reportContext consists of:
+    // reportContext[0]: ConfigDigest
+    // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
+    // reportContext[2]: ExtraHash
+    if (hotVars.latestRootConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+
     uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {
@@ -477,7 +477,6 @@ contract KeeperRegistry2_0 is
         OnChainConfig({
           paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
           flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
-          numOcrInstances: s_storage.numOcrInstances,
           checkGasLimit: s_storage.checkGasLimit,
           stalenessSeconds: s_hotVars.stalenessSeconds,
           gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
@@ -513,7 +512,6 @@ contract KeeperRegistry2_0 is
     });
 
     s_storage = Storage({
-      numOcrInstances: onChainConfig.numOcrInstances,
       checkGasLimit: onChainConfig.checkGasLimit,
       minUpkeepSpend: onChainConfig.minUpkeepSpend,
       maxPerformGas: onChainConfig.maxPerformGas,
@@ -689,7 +687,6 @@ contract KeeperRegistry2_0 is
 
     config.paymentPremiumPPB = s_hotVars.paymentPremiumPPB;
     config.flatFeeMicroLink = s_hotVars.flatFeeMicroLink;
-    config.numOcrInstances = s_storage.numOcrInstances;
     config.checkGasLimit = s_storage.checkGasLimit;
     config.stalenessSeconds = s_hotVars.stalenessSeconds;
     config.gasCeilingMultiplier = s_hotVars.gasCeilingMultiplier;

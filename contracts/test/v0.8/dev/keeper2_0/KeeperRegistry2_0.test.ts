@@ -84,7 +84,6 @@ describe('KeeperRegistry2_0', () => {
   const paymentPremiumPPB = BigNumber.from('250000000')
   //const premiumMultiplier = BigNumber.from('1000000000')
   const flatFeeMicroLink = BigNumber.from(0)
-  const numOcrInstances = BigNumber.from(3)
   const emptyBytes = '0x00'
   const randomBytes = '0x1234abcd'
   const zeroAddress = ethers.constants.AddressZero
@@ -196,7 +195,6 @@ describe('KeeperRegistry2_0', () => {
     const config = {
       paymentPremiumPPB,
       flatFeeMicroLink,
-      numOcrInstances,
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
@@ -295,7 +293,6 @@ describe('KeeperRegistry2_0', () => {
     const config = {
       paymentPremiumPPB,
       flatFeeMicroLink,
-      numOcrInstances,
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
@@ -328,7 +325,6 @@ describe('KeeperRegistry2_0', () => {
           await registry.connect(owner).setOnChainConfig({
             paymentPremiumPPB: premium,
             flatFeeMicroLink: flatFee,
-            numOcrInstances,
             checkGasLimit,
             stalenessSeconds,
             gasCeilingMultiplier,
@@ -1466,7 +1462,6 @@ describe('KeeperRegistry2_0', () => {
       await registry.connect(owner).setOnChainConfig({
         paymentPremiumPPB,
         flatFeeMicroLink,
-        numOcrInstances,
         checkGasLimit,
         stalenessSeconds,
         gasCeilingMultiplier,
