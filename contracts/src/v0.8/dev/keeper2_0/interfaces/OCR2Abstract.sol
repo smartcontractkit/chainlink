@@ -125,6 +125,7 @@ abstract contract OCR2Abstract is TypeAndVersionInterface {
 
   /**
    * @notice transmit is called to post a new report to the contract
+   * @param reportContext [0]: ConfigDigest, [1]: 27 byte padding, 4-byte epoch and 1-byte round, [2]: ExtraHash
    * @param report serialized report, which the signatures are signing.
    * @param rs ith element is the R components of the ith signature on report. Must have at most maxNumOracles entries
    * @param ss ith element is the S components of the ith signature on report. Must have at most maxNumOracles entries
