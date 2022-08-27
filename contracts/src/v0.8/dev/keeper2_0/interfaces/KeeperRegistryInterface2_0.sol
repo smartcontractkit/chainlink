@@ -25,7 +25,6 @@ pragma solidity ^0.8.0;
 struct OnChainConfig {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
-  uint16 numOcrInstances;
   uint32 checkGasLimit;
   uint24 stalenessSeconds;
   uint16 gasCeilingMultiplier;

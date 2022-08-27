@@ -64,7 +64,6 @@ describe('KeeperRegistrar2_0', () => {
   const flatFeeMicroLink = BigNumber.from(0)
   const maxAllowedAutoApprove = 5
 
-  const numOcrInstances = BigNumber.from(3)
   const registryGasOverhead = BigNumber.from('80000')
   const emptyBytes = '0x00'
   const stalenessSeconds = BigNumber.from(43820)
@@ -109,7 +108,6 @@ describe('KeeperRegistrar2_0', () => {
     const config = {
       paymentPremiumPPB,
       flatFeeMicroLink,
-      numOcrInstances,
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
