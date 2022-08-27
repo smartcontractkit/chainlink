@@ -89,11 +89,11 @@ contract KeeperRegistry2_0 is
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     if (upkeep.balance < paymentParams.maxLinkPayment) revert InsufficientFunds();
 
-    // Verify report signature
-    uint8[] memory signerIndices = _verifyReportSignature(hotVars, reportContext, report, rs, ss, rawVs);
-
     // Actually perform the target upkeep
     (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.performData);
+
+    // Verify report signature
+    uint8[] memory signerIndices = _verifyReportSignature(hotVars, reportContext, report, rs, ss, rawVs);
 
     // Calculate actual payment amount
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
