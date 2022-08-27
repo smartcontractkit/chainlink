@@ -47,7 +47,7 @@ contract KeeperRegistry2_0 is
    * @param paymentModel one of Default, Arbitrum, and Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param onChainConfig registry on chain config settings
    */
@@ -55,11 +55,11 @@ contract KeeperRegistry2_0 is
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
     OnChainConfig memory onChainConfig
-  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {
+  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setOnChainConfig(onChainConfig);
   }
@@ -102,7 +102,7 @@ contract KeeperRegistry2_0 is
       hotVars,
       gasUsed,
       paymentParams.fastGasWei,
-      paymentParams.linkEth,
+      paymentParams.linkNative,
       true
     );
     uint96 totalPayment = _distributePayment(parsedReport.upkeepId, gasPayment, premium, signerIndices);
@@ -711,8 +711,8 @@ contract KeeperRegistry2_0 is
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkEth) = _getFeedData(hotVars);
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(hotVars, gasLimit, fastGasWei, linkEth, false);
+    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(hotVars, gasLimit, fastGasWei, linkNative, false);
     return gasPayment + premium;
   }
 

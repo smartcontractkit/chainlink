@@ -18,16 +18,16 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @param paymentModel one of Default, Arbitrum, Optimism
    * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
-   * @param linkEthFeed address of the LINK/ETH price feed
+   * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
     PaymentModel paymentModel,
     uint256 registryGasOverhead,
     address link,
-    address linkEthFeed,
+    address linkNativeFeed,
     address fastGasFeed
-  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkEthFeed, fastGasFeed) {}
+  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {}
 
   function checkUpkeep(uint256 id)
     external
