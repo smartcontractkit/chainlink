@@ -136,7 +136,7 @@ contract KeeperRegistry2_0 is
     // reportContext[0]: ConfigDigest
     // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
     // reportContext[2]: ExtraHash
-    if (hotVars.latestRootConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+    if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
     if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
 
     uint8[] memory signerIndices = new uint8[](rs.length);
@@ -505,7 +505,7 @@ contract KeeperRegistry2_0 is
 
     s_hotVars = HotVars({
       f: s_hotVars.f,
-      latestRootConfigDigest: s_hotVars.latestRootConfigDigest,
+      latestConfigDigest: s_hotVars.latestConfigDigest,
       paymentPremiumPPB: onChainConfig.paymentPremiumPPB,
       flatFeeMicroLink: onChainConfig.flatFeeMicroLink,
       stalenessSeconds: onChainConfig.stalenessSeconds,
@@ -554,7 +554,7 @@ contract KeeperRegistry2_0 is
     s_storage.latestConfigBlockNumber = uint32(block.number);
     s_storage.configCount += 1;
 
-    s_hotVars.latestRootConfigDigest = _configDigestFromConfigData(
+    s_hotVars.latestConfigDigest = _configDigestFromConfigData(
       block.chainid,
       address(this),
       s_storage.configCount,
@@ -568,7 +568,7 @@ contract KeeperRegistry2_0 is
 
     emit ConfigSet(
       previousConfigBlockNumber,
-      s_hotVars.latestRootConfigDigest,
+      s_hotVars.latestConfigDigest,
       s_storage.configCount,
       signers,
       transmitters,
@@ -686,7 +686,7 @@ contract KeeperRegistry2_0 is
     state.numUpkeeps = s_upkeepIDs.length();
     state.configCount = s_storage.configCount;
     state.latestConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    state.latestRootConfigDigest = s_hotVars.latestRootConfigDigest;
+    state.latestConfigDigest = s_hotVars.latestConfigDigest;
 
     config.paymentPremiumPPB = s_hotVars.paymentPremiumPPB;
     config.flatFeeMicroLink = s_hotVars.flatFeeMicroLink;
@@ -742,7 +742,7 @@ contract KeeperRegistry2_0 is
       bytes32 rootConfigDigest
     )
   {
-    return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_hotVars.latestRootConfigDigest);
+    return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_hotVars.latestConfigDigest);
   }
 
   /**

@@ -138,7 +138,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint256 fallbackLinkPrice; // Used in case feed is stale
     // 2 EVM word full
     uint8 f; // maximum number of faulty oracles
-    bytes32 latestRootConfigDigest; // latest config digest which is checked against every report
+    bytes32 latestConfigDigest; // latest config digest which is checked against every report
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
