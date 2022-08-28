@@ -35,7 +35,7 @@ type LogPoller interface {
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
-	LatestLogEventSigsAddrs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, qopts ...pg.QOpt) ([]Log, error)
+	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
 
 	// Content based querying
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
@@ -601,11 +601,11 @@ func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address 
 	return lp.orm.SelectLatestLogEventSigWithConfs(eventSig, address, confs, qopts...)
 }
 
-func (lp *logPoller) LatestLogEventSigsAddrs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, qopts ...pg.QOpt) ([]Log, error) {
+func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	if err := lp.assertInFilter(eventSigs, addresses); err != nil {
 		return nil, err
 	}
-	return lp.orm.LatestLogEventSigsAddrs(fromBlock, addresses, eventSigs, qopts...)
+	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
 func (lp *logPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
