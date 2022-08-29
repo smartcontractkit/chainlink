@@ -105,6 +105,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error OnlyActiveSigners();
   error DuplicateSigners();
   error StaleReport();
+    error ReorgedReport();
   error TooManyOracles();
   error IncorrectNumberOfSigners();
   error IncorrectNumberOfFaultyOracles();
@@ -176,6 +177,14 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     bool active;
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
+  }
+
+  // This struct is used to pack information about the user's check function
+  struct PerformDataWrapper {
+    uint32 checkBlockNumber; // Block number on which check was called
+    bytes32 checkBlockhash; // blockhash of checkBlockNumber-1. Used for reorg protection
+    bytes checkData; // checkData with which the checkUpkeep was called
+    bytes performData; // actual performData that user's check returned
   }
 
   /**
