@@ -80,7 +80,7 @@ func (pool *logPool) addLog(log types.Log) bool {
 	pool.logsByBlockHash[log.BlockHash][log.TxIndex][log.Index] = log
 	min := pool.heap.FindMin()
 	pool.heap.Insert(Uint64(log.BlockNumber))
-	pool.logger.Infow("inserted block to log pool", "blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "index", log.Index, "prevMinBlockNumber", min)
+	pool.logger.Debugw("inserted block to log pool", "blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "index", log.Index, "prevMinBlockNumber", min)
 	// first or new min
 	return min == nil || log.BlockNumber < uint64(min.(Uint64))
 }

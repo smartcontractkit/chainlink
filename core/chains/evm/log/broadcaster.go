@@ -510,11 +510,11 @@ func (b *broadcaster) onNewLog(log types.Log) {
 
 	if log.Removed {
 		// Remove the whole block that contained this log.
-		b.logger.Infow("found reverted log", "log", log)
+		b.logger.Debugw("found reverted log", "log", log)
 		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
-		b.logger.Infow("found unregistered address", "Address", log.Address)
+		b.logger.Debugw("found unregistered address", "Address", log.Address)
 		return
 	}
 	if b.logPool.addLog(log) {
