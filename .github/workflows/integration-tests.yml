@@ -10,11 +10,6 @@ concurrency:
 jobs:
   changes:
     environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     steps:
