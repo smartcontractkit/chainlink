@@ -1006,7 +1006,7 @@ func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return data.Answer, nil
+	return data.Ans, nil
 }
 
 // EthereumMockGASFeed represents mocked Gas feed contract
