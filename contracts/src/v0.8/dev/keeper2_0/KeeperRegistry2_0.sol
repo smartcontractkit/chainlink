@@ -81,6 +81,8 @@ contract KeeperRegistry2_0 is
     Upkeep memory upkeep = s_upkeep[parsedReport.upkeepId];
     PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
 
+    // TODO: Batch upkeeps
+
     // Do some early sanity checks. These are done before signature verification to optimise gas
     if (parsedReport.performDataWrapper.checkBlockNumber <= upkeep.lastPerformBlockNumber) revert StaleReport();
     if (
@@ -102,6 +104,7 @@ contract KeeperRegistry2_0 is
     s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
 
     // Calculate actual payment amount
+    // TODO: Account for sig verification setting
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       gasUsed,
@@ -618,7 +621,8 @@ contract KeeperRegistry2_0 is
       uint64 maxValidBlocknumber,
       uint32 lastPerformBlockNumber,
       uint96 amountSpent,
-      bool paused
+      bool paused,
+      bool skipSigVerification
     )
   {
     Upkeep memory reg = s_upkeep[id];
@@ -632,7 +636,8 @@ contract KeeperRegistry2_0 is
       reg.maxValidBlocknumber,
       reg.lastPerformBlockNumber,
       reg.amountSpent,
-      reg.paused
+      reg.paused,
+      reg.skipSigVerification
     );
   }
 

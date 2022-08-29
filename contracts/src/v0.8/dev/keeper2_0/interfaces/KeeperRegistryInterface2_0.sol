@@ -105,7 +105,8 @@ interface KeeperRegistryBaseInterface {
       uint64 maxValidBlocknumber,
       uint32 lastPerformBlockNumber,
       uint96 amountSpent,
-      bool paused
+      bool paused,
+      bool skipSigVerification
     );
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
