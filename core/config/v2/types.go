@@ -52,6 +52,12 @@ type Core struct {
 	Sentry *Sentry
 }
 
+func (core Core) ValidateConfig() (err error) {
+	// TODO: Add Core-specific validations
+	// https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
+	return
+}
+
 type Secrets struct {
 	DatabaseURL       *models.URL
 	DatabaseBackupURL *models.URL

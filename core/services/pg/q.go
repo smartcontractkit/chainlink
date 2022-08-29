@@ -68,6 +68,17 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
+// If the parent has a timeout, just use that instead of DefaultTimeout
+func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
+	return func(q *Q) {
+		q.ParentCtx = ctx
+		deadline, ok := q.ParentCtx.Deadline()
+		if ok {
+			q.QueryTimeout = time.Until(deadline)
+		}
+	}
+}
+
 // WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
 func WithLongQueryTimeout() func(q *Q) {

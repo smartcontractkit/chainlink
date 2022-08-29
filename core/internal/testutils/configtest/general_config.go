@@ -106,6 +106,7 @@ type GeneralConfigOverrides struct {
 	LinkContractAddress                     null.String
 	OperatorFactoryAddress                  null.String
 	NodeNoNewHeadsThreshold                 *time.Duration
+	JobPipelineReaperInterval               *time.Duration
 
 	// Feature Flags
 	FeatureExternalInitiators null.Bool
@@ -815,4 +816,11 @@ func (c *TestGeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool
 		return *c.Overrides.NodeNoNewHeadsThreshold, true
 	}
 	return c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
+}
+
+func (c *TestGeneralConfig) JobPipelineReaperInterval() time.Duration {
+	if c.Overrides.JobPipelineReaperInterval != nil {
+		return *c.Overrides.JobPipelineReaperInterval
+	}
+	return c.GeneralConfig.JobPipelineReaperInterval()
 }

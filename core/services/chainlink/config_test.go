@@ -1008,6 +1008,19 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 	}
 }
 
+func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
+	invalidTOML := "{ bad syntax {"
+	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	assert.EqualError(t, err, "toml: invalid character at start of key: {")
+}
+
+func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
+	invalidTOML := `Dev = false
+Dev = true`
+	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	assert.EqualError(t, err, "toml: key Dev is already defined")
+}
+
 func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	// Provide a keystore password file and an env var with DB URL
 	const PWD_OVERRIDE = "great_password"
