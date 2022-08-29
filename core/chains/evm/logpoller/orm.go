@@ -216,8 +216,8 @@ WHERE evm_chain_id = :chainid
 	return blocks, err
 }
 
-// LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events
-func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+// SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of addresses and list of events
+func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 
 	sigs := [][]byte{}
@@ -236,11 +236,12 @@ func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Addres
 				WHERE evm_chain_id = $1 AND
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
-		   			block_number > $4
+		   			block_number > $4 AND
+					(block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
 			GROUP BY event_sig, address
 		)
 		ORDER BY block_number ASC
-	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock)
+	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock, confs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
 	}

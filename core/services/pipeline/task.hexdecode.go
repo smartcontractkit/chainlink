@@ -11,10 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//
 // Return types:
-//     bytes
 //
+//	bytes
 type HexDecodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	Input    string `json:"input"`
@@ -35,7 +34,7 @@ func (t *HexDecodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	var input StringParam
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
