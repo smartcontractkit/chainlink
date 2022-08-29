@@ -31,6 +31,7 @@ func (c *configDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
 }
 
 func (c *configDigester) thresholdDigitalDigest(root types.ConfigDigest) types.ConfigDigest {
+	return root
 	var thresholdBytes types.ConfigDigest
 	for i, b := range root[:2] {
 		thresholdBytes[i] = b

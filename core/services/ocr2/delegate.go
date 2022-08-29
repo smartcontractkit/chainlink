@@ -431,7 +431,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		//}
 
 		jobSpec.KeeperSpec = &job.KeeperSpec{
+			ID:              spec.ID,
 			ContractAddress: ethkey.MustEIP55Address(spec.ContractID),
+			FromAddress:     ethkey.MustEIP55Address(spec.TransmitterID.String),
 		}
 
 		registrySynchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
@@ -450,7 +452,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		services := []job.ServiceCtx{runResultSaver, keeperProvider, registrySynchronizer}
 
 		// for i := uint8(0); i < cfg.OCRInstances; i++ {
-		for i := uint8(0); i < 4; i++ {
+		for i := uint8(0); i < 1; i++ {
 			var oracle *libocr2.Oracle
 			if oracle, err = libocr2.NewOracle(libocr2.OracleArgs{
 				BinaryNetworkEndpointFactory: peerWrapper.Peer2,
