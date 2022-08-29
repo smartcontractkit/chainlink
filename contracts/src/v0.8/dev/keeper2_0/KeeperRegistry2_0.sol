@@ -108,6 +108,7 @@ contract KeeperRegistry2_0 is
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       gasUsed,
+      0, // TODO: calculate actual overhead
       paymentParams.fastGasWei,
       paymentParams.linkNative,
       true
@@ -736,7 +737,15 @@ contract KeeperRegistry2_0 is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(hotVars, gasLimit, fastGasWei, linkNative, false);
+    uint256 gasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      hotVars,
+      gasLimit,
+      gasOverhead,
+      fastGasWei,
+      linkNative,
+      false
+    );
     return gasPayment + premium;
   }
 
