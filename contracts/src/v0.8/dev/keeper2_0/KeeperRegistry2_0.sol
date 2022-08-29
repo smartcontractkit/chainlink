@@ -45,7 +45,6 @@ contract KeeperRegistry2_0 is
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism
-   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
@@ -53,13 +52,12 @@ contract KeeperRegistry2_0 is
    */
   constructor(
     PaymentModel paymentModel,
-    uint256 registryGasOverhead,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
     address keeperRegistryLogic,
     OnChainConfig memory onChainConfig
-  ) KeeperRegistryBase2_0(paymentModel, registryGasOverhead, link, linkNativeFeed, fastGasFeed) {
+  ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {
     KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
     setOnChainConfig(onChainConfig);
   }

@@ -33,11 +33,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
-  // function, which includes 4 bytes for function selector, 32 bytes for upkeep id, 35 bytes for data padding, and
-  // 64 bytes for estimated perform data
-  bytes internal constant MAX_INPUT_DATA =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // Needs to be updated after benchmarking
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000;
+  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000;
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
@@ -68,7 +66,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
   PaymentModel public immutable PAYMENT_MODEL;
-  uint256 public immutable REGISTRY_GAS_OVERHEAD;
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -243,20 +240,17 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   /**
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
-   * @param registryGasOverhead the gas overhead used by registry in performUpkeep
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(
     PaymentModel paymentModel,
-    uint256 registryGasOverhead,
     address link,
     address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
     PAYMENT_MODEL = paymentModel;
-    REGISTRY_GAS_OVERHEAD = registryGasOverhead;
     LINK = LinkTokenInterface(link);
     LINK_NATIVE_FEED = AggregatorV3Interface(linkNativeFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -312,14 +306,18 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       gasWei = tx.gasprice;
     }
 
-    uint256 weiForGas = gasWei * (gasLimit + REGISTRY_GAS_OVERHEAD);
+    uint256 netOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
+    uint256 weiForGas = gasWei * (gasLimit + netOverhead);
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        txCallData = MAX_INPUT_DATA;
+        // @dev: fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
+        // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
+        // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
+        txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
