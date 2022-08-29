@@ -150,14 +150,11 @@ func (p *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 		return nil, err
 	}
 
-	// TODO: Find more effective format
-	queryRaw, err := (&queryData{
+	return (&queryData{
 		Head:        currentHead,
 		UpkeepID:    upkeep.UpkeepID.String(),
 		PerformData: performUpkeepData,
 	}).raw()
-
-	return queryRaw, nil
 }
 
 // check upkeepID in query and confirm eligibility and performData match on given block hash
@@ -172,6 +169,8 @@ func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q typ
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("Query:", string(q))
 
 	upkeep, err := p.getEligibleUpkeep(qd.Head)
 	if err != nil {
@@ -339,16 +338,17 @@ func (p *plugin) getEligibleUpkeep(head *evmtypes.Head) (*keeper.UpkeepRegistrat
 		}
 
 		activeUpkeeps, err = p.orm.NewEligibleUpkeepsForRegistry(
-			ethkey.MustEIP55Address(p.contractAddress),
+			registry.ContractAddress,
 			head.Number,
 			p.cfg.KeeperMaximumGracePeriod(),
-			turnBinary)
+			turnBinary,
+		)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to load active registrations")
 		}
 	} else {
 		activeUpkeeps, err = p.orm.EligibleUpkeepsForRegistry(
-			ethkey.MustEIP55Address(p.contractAddress),
+			registry.ContractAddress,
 			head.Number,
 			p.cfg.KeeperMaximumGracePeriod(),
 		)
