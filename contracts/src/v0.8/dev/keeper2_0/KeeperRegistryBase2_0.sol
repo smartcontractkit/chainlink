@@ -298,6 +298,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   function _calculatePaymentAmount(
     HotVars memory hotVars,
     uint256 gasLimit,
+    uint256 gasOverhead,
     uint256 fastGasWei,
     uint256 linkNative,
     bool isExecution
@@ -308,9 +309,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       gasWei = tx.gasprice;
     }
 
-    // TODO: Account for upkeep sig verification setting
-    uint256 netOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
-    uint256 weiForGas = gasWei * (gasLimit + netOverhead);
+    uint256 weiForGas = gasWei * (gasLimit + gasOverhead);
     uint256 l1CostWei = 0;
     if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
@@ -355,9 +354,14 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
+    uint256 gasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
+    if (upkeep.skipSigVerification) {
+      gasOverhead = REGISTRY_GAS_OVERHEAD;
+    }
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
+      gasOverhead,
       fastGasWei,
       linkNative,
       isExecution
