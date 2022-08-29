@@ -167,6 +167,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		err := n.StartOnce("test node", func() error { return nil })
 		assert.NoError(t, err)
 		n.Close()
+
 		assert.Equal(t, NodeStateClosed, n.State())
 		// second attempt panics due to node being stopped twice
 		assert.Panics(t, n.Close)

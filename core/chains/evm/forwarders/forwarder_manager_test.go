@@ -1,4 +1,4 @@
-package forwarders
+package forwarders_test
 
 import (
 	"math/big"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -31,6 +33,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
 
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
@@ -55,8 +58,8 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
 		evmClient, lggr, 100*time.Millisecond, 2, 3)
-	fwdMgr := NewFwdMgr(db, evmClient, lp, lggr, pgtest.NewPGCfg(true))
-	fwdMgr.ORM = NewORM(db, logger.TestLogger(t), cfg)
+	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
+	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
 	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
@@ -65,7 +68,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
-	require.NoError(t, fwdMgr.Start())
+	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
 	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.NoError(t, err)
 	require.Equal(t, addr, forwarderAddr)
@@ -77,6 +80,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
@@ -95,8 +99,8 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
 		evmClient, lggr, 100*time.Millisecond, 2, 3)
-	fwdMgr := NewFwdMgr(db, evmClient, lp, lggr, pgtest.NewPGCfg(true))
-	fwdMgr.ORM = NewORM(db, logger.TestLogger(t), cfg)
+	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
+	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
 	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
@@ -105,7 +109,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
-	err = fwdMgr.Start()
+	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
 	addr, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.ErrorContains(t, err, "Skipping forwarding transaction")

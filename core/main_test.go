@@ -4,7 +4,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"gopkg.in/guregu/null.v4"
@@ -27,7 +27,7 @@ func runEx(args ...string) {
 	tc.Overrides.Dev = null.BoolFrom(false)
 	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
-		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
+		Renderer:               cmd.RendererTable{Writer: io.Discard},
 		Config:                 tc,
 		Logger:                 lggr,
 		CloseLogger:            lggr.Sync,
@@ -74,7 +74,6 @@ func ExampleRun() {
 	//    --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to <RootDir>/apicredentials
 	//    --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
 	//    --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
-	//    --config value, -c value       EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set. [$CL_CONFIG]
 	//    --help, -h                     show help
 	//    --version, -v                  print the version
 	// core.test version 0.0.0@exampleSHA
@@ -165,6 +164,7 @@ func ExampleRun_config() {
 	//    setgasprice  Set the default gas price to use for outgoing transactions
 	//    loglevel     Set log level
 	//    logsql       Enable/disable sql statement logging
+	//    validate     Validate provided TOML config file
 	//
 	// OPTIONS:
 	//    --help, -h  show help

@@ -302,6 +302,14 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].NodePool.PollInterval = d
 		}
 	}
+	if e := envvar.NewString("NodeSelectionMode").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].NodePool == nil {
+				c.EVM[i].NodePool = &evmcfg.NodePool{}
+			}
+			c.EVM[i].NodePool.SelectionMode = e
+		}
+	}
 	for i := range c.EVM {
 		if isZeroPtr(c.EVM[i].NodePool) {
 			c.EVM[i].NodePool = nil
@@ -652,7 +660,6 @@ func (c *Config) loadLegacyCoreEnv() {
 			Frequency:        envDuration("DatabaseBackupFrequency"),
 			Mode:             legacy.DatabaseBackupModeEnvVar.ParsePtr(),
 			OnVersionUpgrade: envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
-			URL:              envURL("DatabaseBackupDir"),
 		},
 	}
 	if isZeroPtr(c.Database.Listener) {

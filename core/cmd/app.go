@@ -53,12 +53,20 @@ func NewApp(client *Client) *cli.App {
 		},
 		cli.StringFlag{
 			Name:   "config, c",
+			Hidden: !v2.CLDev,
 			Usage:  "EXPERIMENTAL: TOML configuration file via flag, or raw TOML via env var. If used, legacy env vars must not be set.",
 			EnvVar: "CL_CONFIG",
+		},
+		cli.StringFlag{
+			Name:   "secrets, s",
+			Hidden: !v2.CLDev,
+			Usage:  "EXPERIMENTAL: TOML configuration file for secrets. Must be set if and only if config is set.",
 		},
 	}
 	app.Before = func(c *cli.Context) error {
 		if c.IsSet("config") {
+			var err error
+
 			// TOML
 			configTOML := os.Getenv("CL_CONFIG")
 			if configTOML == "" {
@@ -69,14 +77,26 @@ func NewApp(client *Client) *cli.App {
 				}
 				configTOML = string(b)
 			}
-			var err error
-			client.Config, err = chainlink.NewGeneralConfig(configTOML)
+
+			secretsTOML := ""
+			if c.IsSet(("secrets")) {
+				secretsFileName := c.String("secrets")
+				b, err := os.ReadFile(secretsFileName)
+				if err != nil {
+					return errors.Wrapf(err, "failed to read secrets file: %s", secretsFileName)
+				}
+				secretsTOML = string(b)
+			}
+			client.Config, err = chainlink.NewGeneralConfig(configTOML, secretsTOML, c)
 			if err != nil {
 				return err
 			}
 			//TODO error if any legacy env vars set https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
 		} else {
 			// Legacy ENV
+			if c.IsSet("secrets") {
+				panic("secrets file must not be used without a core config file")
+			}
 			client.Config = config.NewGeneralConfig(client.Logger)
 		}
 		logDeprecatedClientEnvWarnings(client.Logger)
@@ -333,6 +353,11 @@ func NewApp(client *Client) *cli.App {
 							Usage: "disable sql logging",
 						},
 					},
+				},
+				{
+					Name:   "validate",
+					Usage:  "Validate provided TOML config file",
+					Action: client.ConfigFileValidate,
 				},
 			},
 		},

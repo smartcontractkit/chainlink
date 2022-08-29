@@ -129,7 +129,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 	}
 	defer lggr.ErrorIfClosing(ldb, "db")
 
-	app, err := cli.AppFactory.NewApplication(cli.Config, ldb.DB())
+	app, err := cli.AppFactory.NewApplication(rootCtx, cli.Config, ldb.DB())
 	if err != nil {
 		return nil, cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -223,7 +223,7 @@ func (cli *Client) ConfigureOCR2VRFNode(c *clipkg.Context) (*SetupOCR2VRFNodePay
 }
 
 func setupKeystore(cli *Client, c *clipkg.Context, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore)
+	err := cli.KeyStoreAuthenticator.authenticate(c, keyStore, cli.Config)
 	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}

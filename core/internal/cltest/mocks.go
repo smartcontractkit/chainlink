@@ -103,7 +103,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(context.Context, config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -111,7 +111,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(context.Context, config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 

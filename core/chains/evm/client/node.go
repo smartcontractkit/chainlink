@@ -85,7 +85,10 @@ type Node interface {
 	Start(ctx context.Context) error
 	Close()
 
+	// State() returns NodeState
 	State() NodeState
+	// StateAndLatestBlockNumber() returns NodeState and the latest received block number
+	StateAndLatestBlockNumber() (NodeState, int64)
 	// Unique identifier for node
 	ID() int32
 	ChainID() *big.Int
@@ -136,6 +139,9 @@ type node struct {
 	state   NodeState
 	stateMu sync.RWMutex
 
+	// Each node is tracking the last received head number
+	latestReceivedBlockNumber int64
+
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
 	subs []ethereum.Subscription
@@ -144,8 +150,10 @@ type node struct {
 	// this node. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as node Close.
 	chStopInFlight chan struct{}
-	// chStop signals the node to exit
-	chStop chan struct{}
+	// nodeCtx is the node lifetime's context
+	nodeCtx context.Context
+	// cancelNodeCtx cancels nodeCtx when stopping the node
+	cancelNodeCtx context.CancelFunc
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -162,6 +170,7 @@ type NodeConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	NodePollFailureThreshold() uint32
 	NodePollInterval() time.Duration
+	NodeSelectionMode() string
 }
 
 // NewNode returns a new *node as Node
@@ -176,7 +185,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 		n.http = &rawclient{uri: *httpuri}
 	}
 	n.chStopInFlight = make(chan struct{})
-	n.chStop = make(chan struct{})
+	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
 	lggr = lggr.Named("Node").With(
 		"nodeTier", "primary",
 		"nodeName", name,
@@ -185,6 +194,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
+	n.latestReceivedBlockNumber = -1
 	return n
 }
 
@@ -209,8 +219,8 @@ func (n *node) start(startCtx context.Context) {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
 
-	dialCtx, cancel := n.makeQueryCtx(startCtx)
-	defer cancel()
+	dialCtx, dialCancel := n.makeQueryCtx(startCtx)
+	defer dialCancel()
 	if err := n.dial(dialCtx); err != nil {
 		n.lfcLog.Errorw("Dial failed: EVM Node is unreachable", "err", err)
 		n.declareUnreachable()
@@ -218,8 +228,8 @@ func (n *node) start(startCtx context.Context) {
 	}
 	n.setState(NodeStateDialed)
 
-	verifyCtx, cancel := n.makeQueryCtx(startCtx)
-	defer cancel()
+	verifyCtx, verifyCancel := n.makeQueryCtx(startCtx)
+	defer verifyCancel()
 	if err := n.verify(verifyCtx); errors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
 		n.declareInvalidChainID()
@@ -338,7 +348,7 @@ func (n *node) Close() {
 		n.stateMu.Lock()
 		defer n.stateMu.Unlock()
 
-		close(n.chStop)
+		n.cancelNodeCtx()
 		n.cancelInflightRequests()
 		n.state = NodeStateClosed
 		if n.ws.rpc != nil {
