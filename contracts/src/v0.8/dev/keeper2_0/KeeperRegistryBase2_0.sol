@@ -197,6 +197,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member lastPerformBlockNumber the last block number when this upkeep was performed
    * @member paused if this upkeep has been paused
+   * @member skipSigVerification skip signature verification in transmit for a low security low cost model
    */
   struct Upkeep {
     uint96 balance;
@@ -207,7 +208,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint32 maxValidBlocknumber;
     uint32 lastPerformBlockNumber;
     bool paused;
-    // 7 bytes left in 2nd EVM word
+    bool skipSigVerification;
+    // 6 bytes left in 2nd EVM word
   }
 
   event OnChainConfigSet(OnChainConfig config);
@@ -306,6 +308,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       gasWei = tx.gasprice;
     }
 
+    // TODO: Account for upkeep sig verification setting
     uint256 netOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
     uint256 weiForGas = gasWei * (gasLimit + netOverhead);
     uint256 l1CostWei = 0;
