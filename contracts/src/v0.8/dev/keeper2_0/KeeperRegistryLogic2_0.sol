@@ -301,6 +301,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     Upkeep memory upkeep;
     uint256 totalBalanceRemaining;
     bytes[] memory checkDatas = new bytes[](ids.length);
+    address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
@@ -308,6 +309,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       requireAdminAndNotCancelled(id);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
+      admins[idx] = s_upkeepAdmin[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
@@ -317,7 +319,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       UpkeepTranscoderInterface(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_TRANSCODER_VERSION_BASE,
