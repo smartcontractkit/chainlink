@@ -116,8 +116,10 @@ contract KeeperRegistry2_0 is
     emit UpkeepPerformed(
       parsedReport.upkeepId,
       success,
-      gasUsed,
       parsedReport.performDataWrapper.checkBlockNumber,
+      gasUsed,
+      paymentParams.linkNative,
+      gasPayment,
       totalPayment
     );
   }
