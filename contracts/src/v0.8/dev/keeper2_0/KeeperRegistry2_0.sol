@@ -104,7 +104,7 @@ contract KeeperRegistry2_0 is
     s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
 
     // Calculate actual payment amount
-    // TODO: Account for sig verification setting
+    // TODO: calculate actual gas used and account for sig verification setting
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       gasUsed,
