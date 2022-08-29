@@ -17,7 +17,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v2.4.0
 
       - name: Build, sign and publish chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
