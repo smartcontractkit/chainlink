@@ -726,6 +726,18 @@ func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
 	return b.logPool.testOnly_getNumLogsForBlock(bh)
 }
 
+func topicsToHex(topics [][]Topic) [][]common.Hash {
+	var topicsInHex [][]common.Hash
+	for i := range topics {
+		var hexes []common.Hash
+		for j := range topics[i] {
+			hexes = append(hexes, common.Hash(topics[i][j]))
+		}
+		topicsInHex = append(topicsInHex, hexes)
+	}
+	return topicsInHex
+}
+
 var _ BroadcasterInTest = &NullBroadcaster{}
 
 type NullBroadcaster struct{ ErrMsg string }

@@ -413,7 +413,7 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 				logger.Debugw("filters did not contain expected topic",
 					"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
 					"address", log.Address, "latestBlockNumber", latestBlockNumber,
-					"topicValues", topicValues, "filters", filters)
+					"topicValues", topicValues, "filters", topicsToHex(filters))
 				continue
 			}
 		}
