@@ -137,29 +137,29 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
-    uint256 fallbackGasPrice; // Used in case feed is stale
-    // 1 EVM word full
-    uint256 fallbackLinkPrice; // Used in case feed is stale
-    // 2 EVM word full
     uint8 f; // maximum number of faulty oracles
     bytes32 latestConfigDigest; // latest config digest which is checked against every report
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
-    // 14 bytes to 3rd EVM word
+    // 14 bytes to 1 EVM word
   }
 
   // Config + State storage struct which is not on hot transmit path
   struct Storage {
+    uint256 fallbackGasPrice; // Used in case feed is stale
+    // 1 EVM word full
+    uint256 fallbackLinkPrice; // Used in case feed is stale
+    // 2 EVM word full
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
-    // 1 EVM word full
+    // 3 EVM word full
     uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     address registrar; // Address of registrar used to register upkeeps
-    // 2 EVM word full
+    // 4 EVM word full
     uint256 expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
-    // 3 EVM word full
+    // 5 EVM word full
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
@@ -168,7 +168,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
     uint32 maxCheckDataSize; // max length of checkData bytes
     uint32 maxPerformDataSize; // max length of performData bytes
-    // 2 bytes to 4th EVM word
+    // 4 bytes to 6th EVM word
   }
 
   struct Transmitter {
@@ -277,7 +277,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      gasWei = hotVars.fallbackGasPrice;
+      gasWei = s_storage.fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
@@ -285,7 +285,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      linkNative = hotVars.fallbackLinkPrice;
+      linkNative = s_storage.fallbackLinkPrice;
     } else {
       linkNative = uint256(feedValue);
     }
