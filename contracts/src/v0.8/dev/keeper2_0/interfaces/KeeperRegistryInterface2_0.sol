@@ -30,6 +30,8 @@ struct OnChainConfig {
   uint16 gasCeilingMultiplier;
   uint96 minUpkeepSpend;
   uint32 maxPerformGas;
+  uint32 maxCheckDataSize;
+  uint32 maxPerformDataSize;
   uint256 fallbackGasPrice;
   uint256 fallbackLinkPrice;
   address transcoder;
@@ -63,6 +65,7 @@ enum UpkeepFailureReason {
   UPKEEP_PAUSED,
   TARGET_CHECK_REVERTED,
   UPKEEP_NOT_NEEDED,
+  PERFORM_DATA_EXCEEDS_LIMIT,
   INSUFFICIENT_BALANCE
 }
 

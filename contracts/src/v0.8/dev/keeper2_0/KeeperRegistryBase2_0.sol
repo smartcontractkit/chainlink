@@ -112,6 +112,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error RepeatedSigner();
   error RepeatedTransmitter();
   error OnchainConfigNonEmpty();
+  error CheckDataExceedsLimit();
+  error MaxCheckDataSizeCanOnlyIncrease();
+  error MaxPerformDataSizeCanOnlyIncrease();
 
   enum MigrationPermission {
     NONE,
@@ -163,7 +166,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint32 configCount; // incremented each time a new config is posted, The count
     // is incorporated into the config digest to prevent replay attacks.
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
-    // 10 bytes to 4th EVM word
+    uint32 maxCheckDataSize; // max length of checkData bytes
+    uint32 maxPerformDataSize; // max length of performData bytes
+    // 2 bytes to 4th EVM word
   }
 
   struct Transmitter {

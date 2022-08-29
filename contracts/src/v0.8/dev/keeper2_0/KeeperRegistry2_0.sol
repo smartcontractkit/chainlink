@@ -285,6 +285,7 @@ contract KeeperRegistry2_0 is
    * @param newCheckData the new check data
    */
   function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
+    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     requireAdminAndNotCancelled(id);
     s_checkData[id] = newCheckData;
     emit UpkeepCheckDataUpdated(id, newCheckData);
@@ -491,6 +492,8 @@ contract KeeperRegistry2_0 is
           gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
           minUpkeepSpend: s_storage.minUpkeepSpend,
           maxPerformGas: s_storage.maxPerformGas,
+          maxCheckDataSize: s_storage.maxCheckDataSize,
+          maxPerformDataSize: s_storage.maxPerformDataSize,
           fallbackGasPrice: s_hotVars.fallbackGasPrice,
           fallbackLinkPrice: s_hotVars.fallbackLinkPrice,
           transcoder: s_storage.transcoder,
@@ -508,6 +511,8 @@ contract KeeperRegistry2_0 is
    */
   function setOnChainConfig(OnChainConfig memory onChainConfig) public onlyOwner {
     if (onChainConfig.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
+    if (onChainConfig.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
+    if (onChainConfig.maxPerformDataSize < s_storage.maxPerformDataSize) revert MaxPerformDataSizeCanOnlyIncrease();
 
     s_hotVars = HotVars({
       f: s_hotVars.f,
@@ -526,6 +531,8 @@ contract KeeperRegistry2_0 is
       maxPerformGas: onChainConfig.maxPerformGas,
       transcoder: onChainConfig.transcoder,
       registrar: onChainConfig.registrar,
+      maxCheckDataSize: onChainConfig.maxCheckDataSize,
+      maxPerformDataSize: onChainConfig.maxPerformDataSize,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
@@ -701,6 +708,8 @@ contract KeeperRegistry2_0 is
     config.gasCeilingMultiplier = s_hotVars.gasCeilingMultiplier;
     config.minUpkeepSpend = s_storage.minUpkeepSpend;
     config.maxPerformGas = s_storage.maxPerformGas;
+    config.maxCheckDataSize = s_storage.maxCheckDataSize;
+    config.maxPerformDataSize = s_storage.maxPerformDataSize;
     config.fallbackGasPrice = s_hotVars.fallbackGasPrice;
     config.fallbackLinkPrice = s_hotVars.fallbackLinkPrice;
     config.transcoder = s_storage.transcoder;
