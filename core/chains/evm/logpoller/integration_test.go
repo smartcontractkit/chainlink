@@ -77,7 +77,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}()
 	func() {
 		defer logRuntime(t)()
-		_, err = o.LatestLogEventSigsAddrs(0, []common.Address{address1}, []common.Hash{event1})
+		_, err = o.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{address1}, []common.Hash{event1}, 0)
 		require.NoError(t, err)
 	}()
 
