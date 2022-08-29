@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -989,7 +990,7 @@ func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
 // EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
 type EthereumMockETHLINKFeed struct {
 	client  blockchain.EVMClient
-	feed    *ethereum.MockV3AggregatorContract
+	feed    *ethereum.MockETHLINKAggregator
 	address *common.Address
 }
 
@@ -1005,7 +1006,7 @@ func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return data.Answer, nil
+	return data.Ans, nil
 }
 
 // EthereumMockGASFeed represents mocked Gas feed contract
