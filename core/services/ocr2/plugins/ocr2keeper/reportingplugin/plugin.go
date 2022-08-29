@@ -1,6 +1,7 @@
 package reportingplugin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -52,9 +53,9 @@ type Config interface {
 }
 
 type queryData struct {
-	BlockNumber int64  `json:"blockNumber"`
-	UpkeepID    string `json:"upkeepID"`
-	PerformData []byte `json:"performData"`
+	Head        *evmtypes.Head `json:"head"`
+	UpkeepID    string         `json:"upkeepID"`
+	PerformData []byte         `json:"performData"`
 }
 
 func newQueryDataFromRaw(data []byte) (*queryData, error) {
@@ -66,6 +67,23 @@ func newQueryDataFromRaw(data []byte) (*queryData, error) {
 }
 
 func (qd *queryData) raw() ([]byte, error) {
+	return json.Marshal(*qd)
+}
+
+type observationData struct {
+	Eligible        bool   `json:"eligible"`
+	LinkNativePrice string `json:"linkNativePrice"`
+}
+
+func newObservationDataFromRaw(data []byte) (*observationData, error) {
+	var od observationData
+	if err := json.Unmarshal(data, &od); err != nil {
+		return nil, err
+	}
+	return &od, nil
+}
+
+func (qd *observationData) raw() ([]byte, error) {
 	return json.Marshal(*qd)
 }
 
@@ -116,123 +134,28 @@ func NewPlugin(
 	}
 }
 
-func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
+func (p *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
 	currentHead := p.headsMngr.getCurrentHead()
 	if currentHead == nil {
 		return nil, errors.New("current head is nil")
 	}
 
-	registry, err := p.orm.RegistryByContractAddress(ethkey.MustEIP55Address(p.contractAddress))
+	upkeep, err := p.getEligibleUpkeep(currentHead)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to load registry")
+		return nil, errors.Wrap(err, "failed to get eligible upkeep")
 	}
 
-	var activeUpkeeps []keeper.UpkeepRegistration
-	if p.cfg.KeeperTurnFlagEnabled() {
-		var turnBinary string
-		if turnBinary, err = p.turnBlockHashBinary(registry, currentHead, p.cfg.KeeperTurnLookBack()); err != nil {
-			return nil, errors.Wrap(err, "unable to get turn block number hash")
-		}
-
-		activeUpkeeps, err = p.orm.NewEligibleUpkeepsForRegistry(
-			ethkey.MustEIP55Address(p.contractAddress),
-			currentHead.Number,
-			p.cfg.KeeperMaximumGracePeriod(),
-			turnBinary)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to load active registrations")
-		}
-	} else {
-		activeUpkeeps, err = p.orm.EligibleUpkeepsForRegistry(
-			ethkey.MustEIP55Address(p.contractAddress),
-			currentHead.Number,
-			p.cfg.KeeperMaximumGracePeriod(),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to load active registrations")
-		}
-	}
-
-	if len(activeUpkeeps) == 0 {
-		return nil, errors.New("there are no active upkeeps")
-	}
-
-	// TODO: Implement a correct turn taking logic
-	upkeep := activeUpkeeps[0]
-
-	svcLogger := p.logger.With("jobID", p.jobID, "blockNum", currentHead.Number, "upkeepID", upkeep.UpkeepID)
-	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
-
-	ctxService, cancel := utils.ContextFromChanWithDeadline(p.chStop, time.Minute)
-	defer cancel()
-
-	var gasPrice, gasTipCap, gasFeeCap *big.Int
-	if p.cfg.KeeperCheckUpkeepGasPriceFeatureEnabled() {
-		price, fee, err := p.estimateGasPrice(upkeep)
-		if err != nil {
-			return nil, errors.Wrap(err, "estimating gas price")
-		}
-		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
-
-		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
-		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
-		// Note: gasPrice will be nil if EvmEIP1559DynamicFees is enabled.
-		if currentHead.BaseFeePerGas != nil && currentHead.BaseFeePerGas.ToInt().BitLen() > 0 {
-			baseFee := addBuffer(currentHead.BaseFeePerGas.ToInt(), p.cfg.KeeperBaseFeeBufferPercent())
-			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
-				gasPrice = baseFee
-			}
-		}
-	}
-
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"fromAddress":     upkeep.Registry.FromAddress.String(),
-			"contractAddress": upkeep.Registry.ContractAddress.String(),
-			"upkeepID":        upkeep.UpkeepID,
-			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-				p.cfg.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": p.chainID,
-		},
-	})
-
-	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
-	run := pipeline.NewRun(pipeline.Spec{
-		ID:              p.jobID,
-		DotDagSource:    queryObservationSource,
-		CreatedAt:       time.Now(),
-		MaxTaskDuration: *models.NewInterval(time.Minute),
-	}, vars)
-
-	if _, err = p.pr.Run(ctxService, &run, svcLogger, false, nil); err != nil {
-		return nil, errors.Wrap(err, "failed executing run")
-	}
-
-	// Only after task runs where a tx was broadcast
-	if run.State == pipeline.RunStatusCompleted {
-		_, err = p.orm.SetLastRunInfoForUpkeepOnJob(p.jobID, upkeep.UpkeepID, currentHead.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
-		if err != nil {
-			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
-		}
-		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
-	}
-
-	runRaw, err := run.Outputs.MarshalJSON()
+	performUpkeepData, err := p.checkUpkeep(ctx, currentHead, upkeep)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal run output")
+		return nil, err
 	}
 
 	// TODO: Find more effective format
 	queryRaw, err := (&queryData{
-		BlockNumber: currentHead.Number,
+		Head:        currentHead,
 		UpkeepID:    upkeep.UpkeepID.String(),
-		PerformData: runRaw,
+		PerformData: performUpkeepData,
 	}).raw()
-
-	p.logger.Info("Query(): ", queryRaw)
 
 	return queryRaw, nil
 }
@@ -244,19 +167,39 @@ func (p *plugin) Query(context.Context, types.ReportTimestamp) (types.Query, err
 //   * observed perform data matches that in query
 // followers only need to return true/false if they agree with the assessment of the leader
 // also return the price of LINK/NATIVE to use for compensation. Fetch from feed at block hash.
-func (p *plugin) Observation(_ context.Context, _ types.ReportTimestamp, q types.Query) (types.Observation, error) {
+func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q types.Query) (types.Observation, error) {
 	qd, err := newQueryDataFromRaw(q)
 	if err != nil {
 		return nil, err
 	}
 
-	p.logger.Info("Observation()", qd)
+	upkeep, err := p.getEligibleUpkeep(qd.Head)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get eligible upkeep")
+	}
 
-	return []byte("Observation()"), nil
+	performUpkeepData, err := p.checkUpkeep(ctx, qd.Head, upkeep)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to check upkeep")
+	}
+
+	if !bytes.Equal(qd.PerformData, performUpkeepData) {
+		return nil, errors.New("observed performa data does not match with the given data")
+	}
+
+	return (&observationData{
+		Eligible:        true,
+		LinkNativePrice: "100000000", // TODO: Fetch a real price
+	}).raw()
 }
 
-func (p *plugin) Report(_ context.Context, _ types.ReportTimestamp, q types.Query, _ []types.AttributedObservation) (bool, types.Report, error) {
-	p.logger.Info("Report()", string(q))
+func (p *plugin) Report(_ context.Context, _ types.ReportTimestamp, q types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
+	p.logger.Info("Query:", string(q))
+
+	for _, ob := range obs {
+		p.logger.Info("Observation:", ob.Observer, string(ob.Observation))
+	}
+
 	return true, []byte("Report()"), nil
 }
 
@@ -287,7 +230,7 @@ func (p *plugin) turnBlockHashBinary(registry keeper.Registry, head *evmtypes.He
 	return binaryString, nil
 }
 
-func (p *plugin) estimateGasPrice(upkeep keeper.UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
+func (p *plugin) estimateGasPrice(upkeep *keeper.UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
 	var performTxData []byte
 	performTxData, err = keeper.Registry1_1ABI.Pack(
 		"performUpkeep", // performUpkeep is same across registry ABI versions
@@ -311,6 +254,117 @@ func (p *plugin) estimateGasPrice(upkeep keeper.UpkeepRegistration) (gasPrice *b
 	}
 
 	return gasPrice, fee, nil
+}
+
+func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *keeper.UpkeepRegistration) ([]byte, error) {
+	svcLogger := p.logger.With("jobID", p.jobID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
+	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
+
+	var gasPrice, gasTipCap, gasFeeCap *big.Int
+	if p.cfg.KeeperCheckUpkeepGasPriceFeatureEnabled() {
+		price, fee, err := p.estimateGasPrice(upkeep)
+		if err != nil {
+			return nil, errors.Wrap(err, "estimating gas price")
+		}
+		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
+
+		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
+		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
+		// Note: gasPrice will be nil if EvmEIP1559DynamicFees is enabled.
+		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
+			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), p.cfg.KeeperBaseFeeBufferPercent())
+			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
+				gasPrice = baseFee
+			}
+		}
+	}
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"fromAddress":     upkeep.Registry.FromAddress.String(),
+			"contractAddress": upkeep.Registry.ContractAddress.String(),
+			"upkeepID":        upkeep.UpkeepID,
+			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
+				p.cfg.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
+			"gasPrice":   gasPrice,
+			"gasTipCap":  gasTipCap,
+			"gasFeeCap":  gasFeeCap,
+			"evmChainID": p.chainID,
+		},
+	})
+
+	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
+	run := pipeline.NewRun(pipeline.Spec{
+		ID:              p.jobID,
+		DotDagSource:    queryObservationSource,
+		CreatedAt:       time.Now(),
+		MaxTaskDuration: *models.NewInterval(time.Minute),
+	}, vars)
+
+	ctxService, cancel := utils.WithCloseChan(ctx, p.chStop)
+	defer cancel()
+
+	if _, err := p.pr.Run(ctxService, &run, svcLogger, false, nil); err != nil {
+		return nil, errors.Wrap(err, "failed executing run")
+	}
+
+	// Only after task runs where a tx was broadcast
+	if run.State == pipeline.RunStatusCompleted {
+		_, err := p.orm.SetLastRunInfoForUpkeepOnJob(p.jobID, upkeep.UpkeepID, head.Number, upkeep.Registry.FromAddress, pg.WithParentCtx(ctxService))
+		if err != nil {
+			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
+		}
+		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
+	}
+
+	runRaw, err := run.Outputs.MarshalJSON()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal run output")
+	}
+
+	return runRaw, nil
+}
+
+func (p *plugin) getEligibleUpkeep(head *evmtypes.Head) (*keeper.UpkeepRegistration, error) {
+	registry, err := p.orm.RegistryByContractAddress(ethkey.MustEIP55Address(p.contractAddress))
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to load registry")
+	}
+
+	var activeUpkeeps []keeper.UpkeepRegistration
+	if p.cfg.KeeperTurnFlagEnabled() {
+		var turnBinary string
+		if turnBinary, err = p.turnBlockHashBinary(registry, head, p.cfg.KeeperTurnLookBack()); err != nil {
+			return nil, errors.Wrap(err, "unable to get turn block number hash")
+		}
+
+		activeUpkeeps, err = p.orm.NewEligibleUpkeepsForRegistry(
+			ethkey.MustEIP55Address(p.contractAddress),
+			head.Number,
+			p.cfg.KeeperMaximumGracePeriod(),
+			turnBinary)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to load active registrations")
+		}
+	} else {
+		activeUpkeeps, err = p.orm.EligibleUpkeepsForRegistry(
+			ethkey.MustEIP55Address(p.contractAddress),
+			head.Number,
+			p.cfg.KeeperMaximumGracePeriod(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to load active registrations")
+		}
+	}
+
+	if len(activeUpkeeps) == 0 {
+		return nil, errors.New("there are no active upkeeps")
+	}
+
+	// TODO: Implement a correct turn taking logic
+	upkeep := activeUpkeeps[0]
+
+	return &upkeep, nil
 }
 
 func addBuffer(val *big.Int, prct uint32) *big.Int {
