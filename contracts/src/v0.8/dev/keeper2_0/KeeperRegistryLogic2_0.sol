@@ -64,7 +64,6 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       PerformDataWrapper({
         checkBlockNumber: uint32(block.number),
         checkBlockhash: blockhash(block.number - 1),
-        checkData: s_checkData[id],
         performData: performData
       })
     );

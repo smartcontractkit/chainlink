@@ -105,7 +105,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error OnlyActiveSigners();
   error DuplicateSigners();
   error StaleReport();
-    error ReorgedReport();
+  error ReorgedReport();
   error TooManyOracles();
   error IncorrectNumberOfSigners();
   error IncorrectNumberOfFaultyOracles();
@@ -183,7 +183,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   struct PerformDataWrapper {
     uint32 checkBlockNumber; // Block number on which check was called
     bytes32 checkBlockhash; // blockhash of checkBlockNumber-1. Used for reorg protection
-    bytes checkData; // checkData with which the checkUpkeep was called
     bytes performData; // actual performData that user's check returned
   }
 
@@ -227,9 +226,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event UpkeepPerformed(
     uint256 indexed id,
     bool indexed success,
-    uint256 gasUsed,
     uint32 checkBlockNumber,
-    uint96 payment
+    uint256 gasUsed,
+    uint256 linkNative,
+    uint96 gasPayment,
+    uint96 totalPayment
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
