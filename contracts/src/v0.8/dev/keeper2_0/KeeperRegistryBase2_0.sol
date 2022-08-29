@@ -30,13 +30,13 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   uint32 internal constant UINT32_MAX = type(uint32).max;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V3;
-
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
-  bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  bytes internal constant L1_FEE_DATA_PADDING =
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // MAX_INPUT_DATA represents the estimated max size of the sum of L1 data padding and msg.data in performUpkeep
   // function, which includes 4 bytes for function selector, 32 bytes for upkeep id, 35 bytes for data padding, and
   // 64 bytes for estimated perform data
-  bytes public MAX_INPUT_DATA =
+  bytes internal constant MAX_INPUT_DATA =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
