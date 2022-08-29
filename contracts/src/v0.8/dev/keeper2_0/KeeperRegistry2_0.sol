@@ -494,8 +494,8 @@ contract KeeperRegistry2_0 is
           maxPerformGas: s_storage.maxPerformGas,
           maxCheckDataSize: s_storage.maxCheckDataSize,
           maxPerformDataSize: s_storage.maxPerformDataSize,
-          fallbackGasPrice: s_hotVars.fallbackGasPrice,
-          fallbackLinkPrice: s_hotVars.fallbackLinkPrice,
+          fallbackGasPrice: s_storage.fallbackGasPrice,
+          fallbackLinkPrice: s_storage.fallbackLinkPrice,
           transcoder: s_storage.transcoder,
           registrar: s_storage.registrar
         })
@@ -520,9 +520,7 @@ contract KeeperRegistry2_0 is
       paymentPremiumPPB: onChainConfig.paymentPremiumPPB,
       flatFeeMicroLink: onChainConfig.flatFeeMicroLink,
       stalenessSeconds: onChainConfig.stalenessSeconds,
-      gasCeilingMultiplier: onChainConfig.gasCeilingMultiplier,
-      fallbackGasPrice: onChainConfig.fallbackGasPrice,
-      fallbackLinkPrice: onChainConfig.fallbackLinkPrice
+      gasCeilingMultiplier: onChainConfig.gasCeilingMultiplier
     });
 
     s_storage = Storage({
@@ -537,7 +535,9 @@ contract KeeperRegistry2_0 is
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_storage.expectedLinkBalance
+      expectedLinkBalance: s_storage.expectedLinkBalance,
+      fallbackGasPrice: onChainConfig.fallbackGasPrice,
+      fallbackLinkPrice: onChainConfig.fallbackLinkPrice
     });
 
     _computeAndStoreConfigDigest(
@@ -710,8 +710,8 @@ contract KeeperRegistry2_0 is
     config.maxPerformGas = s_storage.maxPerformGas;
     config.maxCheckDataSize = s_storage.maxCheckDataSize;
     config.maxPerformDataSize = s_storage.maxPerformDataSize;
-    config.fallbackGasPrice = s_hotVars.fallbackGasPrice;
-    config.fallbackLinkPrice = s_hotVars.fallbackLinkPrice;
+    config.fallbackGasPrice = s_storage.fallbackGasPrice;
+    config.fallbackLinkPrice = s_storage.fallbackLinkPrice;
     config.transcoder = s_storage.transcoder;
     config.registrar = s_storage.registrar;
 
