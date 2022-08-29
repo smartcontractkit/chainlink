@@ -17,5 +17,4 @@
 // - After calling Replay(fromBlock), all blocks including that one to the latest chain tip will be polled
 // with the current filter. This can be used on first time job add to specify a start block from which you wish to capture
 // existing logs.
-
 package logpoller
