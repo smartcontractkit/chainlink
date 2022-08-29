@@ -28,6 +28,7 @@ type Chainlink struct {
 	Config            *ChainlinkConfig
 	pageSize          int
 	primaryEthAddress string
+	ethAddresses      []string
 }
 
 // NewChainlink creates a new Chainlink model using a provided config
@@ -461,6 +462,18 @@ func (c *Chainlink) ReadPrimaryETHKey() (*ETHKeyData, error) {
 	return &ethKeys.Data[0], nil
 }
 
+// ReadETHKeyAtIndex reads updated information about the Chainlink's ETH key at given index
+func (c *Chainlink) ReadETHKeyAtIndex(keyIndex int) (*ETHKeyData, error) {
+	ethKeys, err := c.MustReadETHKeys()
+	if err != nil {
+		return nil, err
+	}
+	if len(ethKeys.Data) == 0 {
+		return nil, fmt.Errorf("Error retrieving primary eth key on node %s: No ETH keys present", c.URL())
+	}
+	return &ethKeys.Data[keyIndex], nil
+}
+
 // PrimaryEthAddress returns the primary ETH address for the Chainlink node
 func (c *Chainlink) PrimaryEthAddress() (string, error) {
 	if c.primaryEthAddress == "" {
@@ -473,16 +486,31 @@ func (c *Chainlink) PrimaryEthAddress() (string, error) {
 	return c.primaryEthAddress, nil
 }
 
+// EthAddresses returns the ETH addresses for the Chainlink node
+func (c *Chainlink) EthAddresses() ([]string, error) {
+	if len(c.ethAddresses) == 0 {
+		ethKeys, err := c.MustReadETHKeys()
+		c.ethAddresses = make([]string, len(ethKeys.Data))
+		if err != nil {
+			return make([]string, 0), err
+		}
+		for index, data := range ethKeys.Data {
+			c.ethAddresses[index] = data.Attributes.Address
+		}
+	}
+	return c.ethAddresses, nil
+}
+
 // CreateTxKey creates a tx key on the Chainlink node
 func (c *Chainlink) CreateTxKey(chain string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
-			"chain": chain,
+			"evmChainID": chain,
 		}).
 		SetResult(txKey).
-		Post("/v2/keys/{chain}")
+		Post("/v2/keys/evm")
 	if err != nil {
 		return nil, nil, err
 	}
