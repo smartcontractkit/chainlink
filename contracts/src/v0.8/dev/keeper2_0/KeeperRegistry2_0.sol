@@ -115,7 +115,7 @@ contract KeeperRegistry2_0 is
       }
 
       upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(upkeepTransmitInfo[i].upkeep, hotVars, true);
-      upkeepTransmitInfo[i].earlyChecksPassed = _perPerformChecks(
+      upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
         parsedReport.upkeepIds[i],
         parsedReport.wrappedPerformDatas[i],
         upkeepTransmitInfo[i].upkeep,
@@ -678,7 +678,7 @@ contract KeeperRegistry2_0 is
   /**
    * @dev Does some early sanity checks before actually performing and upkeep
    */
-  function _perPerformChecks(
+  function _prePerformChecks(
     uint256 upkeepId,
     PerformDataWrapper memory wrappedPerformData,
     Upkeep memory upkeep,
