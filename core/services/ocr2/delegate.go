@@ -464,7 +464,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			ReportingPluginFactory: keeperreportingplugin.NewFactory(
 				lggr.Named("OCR2Keeper"),
 				jobSpec.ID,
-				spec.EVMChainID.String(),
+				chainID,
 				chain.Config(),
 				orm,
 				chain.Client(),

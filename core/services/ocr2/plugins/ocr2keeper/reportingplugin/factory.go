@@ -14,7 +14,7 @@ import (
 type factory struct {
 	logger          logger.Logger
 	jobID           int32
-	chainID         string
+	chainID         int64
 	cfg             Config
 	orm             ORM
 	ethClient       evmclient.Client
@@ -28,7 +28,7 @@ type factory struct {
 func NewFactory(
 	logger logger.Logger,
 	jobID int32,
-	chainID string,
+	chainID int64,
 	cfg Config,
 	orm ORM,
 	ethClient evmclient.Client,
@@ -57,9 +57,9 @@ func (f *factory) NewReportingPlugin(rpc types.ReportingPluginConfig) (types.Rep
 		Name:          "OCR2Keeper",
 		UniqueReports: false,
 		Limits: types.ReportingPluginLimits{
-			MaxQueryLength:       1000, // TODO: Configure
-			MaxObservationLength: 1000, // TODO: Configure
-			MaxReportLength:      1000, // TODO: Configure
+			MaxQueryLength:       2000, // TODO: Configure
+			MaxObservationLength: 2000, // TODO: Configure
+			MaxReportLength:      2000, // TODO: Configure
 		},
 	}
 	return p, pi, nil

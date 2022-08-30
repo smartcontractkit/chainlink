@@ -75,7 +75,7 @@ func (qd *observationData) raw() ([]byte, error) {
 type plugin struct {
 	logger          logger.Logger
 	jobID           int32
-	chainID         string
+	chainID         int64
 	cfg             Config
 	orm             ORM
 	ethClient       evmclient.Client
@@ -91,7 +91,7 @@ type plugin struct {
 func NewPlugin(
 	logger logger.Logger,
 	jobID int32,
-	chainID string,
+	chainID int64,
 	cfg Config,
 	orm ORM,
 	ethClient evmclient.Client,
@@ -285,7 +285,7 @@ func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *k
 			"gasPrice":   gasPrice,
 			"gasTipCap":  gasTipCap,
 			"gasFeeCap":  gasFeeCap,
-			"evmChainID": p.chainID,
+			"evmChainID": fmt.Sprintf("%d", p.chainID),
 		},
 	})
 
