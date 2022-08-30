@@ -104,44 +104,18 @@ contract KeeperRegistry2_0 is
     HotVars memory hotVars = s_hotVars;
     Report memory parsedReport = _decodeReport(report);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
+
     bool anyUpkeepPassedChecks;
     bool anyUpkeepRequiresSigVerification;
-
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
       upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(upkeepTransmitInfo[i].upkeep, hotVars, true);
-      upkeepTransmitInfo[i].earlyChecksPassed = true;
-      // Do some early sanity checks. These are done before signature verification to optimise gas
-
-      if (parsedReport.wrappedPerformDatas[i].checkBlockNumber <= upkeepTransmitInfo[i].upkeep.lastPerformBlockNumber) {
-        // @dev: Can happen when another report performed this upkeep after this report was generated
-        upkeepTransmitInfo[i].earlyChecksPassed = false;
-        emit StaleUpkeepReport(parsedReport.upkeepIds[i]);
-      }
-
-      if (
-        blockhash(parsedReport.wrappedPerformDatas[i].checkBlockNumber - 1) !=
-        parsedReport.wrappedPerformDatas[i].checkBlockhash
-      ) {
-        // @dev: Can happen when the block on which report was generated got reorged
-        // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-        // with the latest checkBlockNumber
-        upkeepTransmitInfo[i].earlyChecksPassed = false;
-        emit ReorgedUpkeepReport(parsedReport.upkeepIds[i]);
-      }
-
-      if (upkeepTransmitInfo[i].upkeep.maxValidBlocknumber <= block.number) {
-        // @dev: Can happen when an upkeep got cancelled after report was generated.
-        // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-        upkeepTransmitInfo[i].earlyChecksPassed = false;
-        emit CancelledUpkeepReport(parsedReport.upkeepIds[i]);
-      }
-
-      if (upkeepTransmitInfo[i].upkeep.balance < upkeepTransmitInfo[i].paymentParams.maxLinkPayment) {
-        // @dev: Can happen due to flucutations in gas / link prices
-        upkeepTransmitInfo[i].earlyChecksPassed = false;
-        emit InsufficientFundsUpkeepReport(parsedReport.upkeepIds[i]);
-      }
+      upkeepTransmitInfo[i].earlyChecksPassed = _perPerformChecks(
+        parsedReport.upkeepIds[i],
+        parsedReport.wrappedPerformDatas[i],
+        upkeepTransmitInfo[i].upkeep,
+        upkeepTransmitInfo[i].paymentParams
+      );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         anyUpkeepPassedChecks = true;
@@ -150,6 +124,7 @@ contract KeeperRegistry2_0 is
     }
 
     if (!anyUpkeepPassedChecks) {
+      // No upkeeps to be performed in this report
       revert StaleReport();
     }
 
@@ -642,6 +617,45 @@ contract KeeperRegistry2_0 is
     }
 
     return Report({upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
+  }
+
+  /**
+   * @dev Does some early sanity checks before actually performing and upkeep
+   */
+  function _perPerformChecks(
+    uint256 upkeepId,
+    PerformDataWrapper memory wrappedPerformData,
+    Upkeep memory upkeep,
+    PerformPaymentParams memory paymentParams
+  ) internal returns (bool) {
+    if (wrappedPerformData.checkBlockNumber <= upkeep.lastPerformBlockNumber) {
+      // @dev: Can happen when another report performed this upkeep after this report was generated
+      emit StaleUpkeepReport(upkeepId);
+      return false;
+    }
+
+    if (blockhash(wrappedPerformData.checkBlockNumber - 1) != wrappedPerformData.checkBlockhash) {
+      // @dev: Can happen when the block on which report was generated got reorged
+      // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
+      // with the latest checkBlockNumber
+      emit ReorgedUpkeepReport(upkeepId);
+      return false;
+    }
+
+    if (upkeep.maxValidBlocknumber <= block.number) {
+      // @dev: Can happen when an upkeep got cancelled after report was generated.
+      // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
+      emit CancelledUpkeepReport(upkeepId);
+      return false;
+    }
+
+    if (upkeep.balance < paymentParams.maxLinkPayment) {
+      // @dev: Can happen due to flucutations in gas / link prices
+      emit InsufficientFundsUpkeepReport(upkeepId);
+      return false;
+    }
+
+    return true;
   }
 
   function _verifyReportSignature(
