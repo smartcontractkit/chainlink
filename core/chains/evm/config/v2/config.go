@@ -53,9 +53,9 @@ type Chain struct {
 	OCR *OCR
 }
 
-func (c *Chain) ValidateConfig() (err error) {
+func (c Chain) ValidateConfig() (err error) {
 	if c.ChainType != nil && !config.ChainType(*c.ChainType).IsValid() {
-		err = multierr.Append(err, fmt.Errorf("ChainType: invalid: %s", *c.ChainType))
+		err = multierr.Append(err, v2.ErrInvalid{Name: "ChainType", Value: *c.ChainType, Msg: config.ErrInvalidChainType.Error()})
 	}
 	return
 }
