@@ -67,6 +67,17 @@ func TestORM_GetBlocks(t *testing.T) {
 	lpBlocks, err := o1.GetBlocks(blockNumbers)
 	require.NoError(t, err)
 	assert.Len(t, lpBlocks, len(blocks))
+
+	// Ignores non-existent block
+	blockNumbers = append(blockNumbers, 15)
+	lpBlocks2, err := o1.GetBlocks(blockNumbers)
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks2, len(blocks))
+
+	// Only non-existent blocks
+	lpBlocks3, err := o1.GetBlocks([]uint64{15})
+	require.NoError(t, err)
+	assert.Len(t, lpBlocks3, 0)
 }
 
 func TestORM(t *testing.T) {
