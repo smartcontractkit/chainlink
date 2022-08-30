@@ -9,7 +9,6 @@ pragma solidity ^0.8.0;
  * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
  * priced in MicroLink; can be used in conjunction with or independently of
  * paymentPremiumPPB
- * @member numOcrInstances Number of OCR instances which serve this registry
  * @member checkGasLimit gas limit when checking for upkeep
  * @member stalenessSeconds number of seconds that is allowed for feed data to
  * be stale before switching to the fallback pricing
