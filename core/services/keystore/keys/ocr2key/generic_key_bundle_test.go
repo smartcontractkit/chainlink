@@ -109,7 +109,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 		// test unmarshalling again to ensure ID has not changed
 		// the underlying bytes have changed, but ID should be preserved
-		newBundle := newKeyBundle(&evmKeyring{})
+		newBundle := newKeyBundle(&solanaKeyring{})
 		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
 		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})
@@ -145,7 +145,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 
 		// test unmarshalling again to ensure ID has not changed
 		// the underlying bytes have changed, but ID should be preserved
-		newBundle := newKeyBundle(&evmKeyring{})
+		newBundle := newKeyBundle(&terraKeyring{})
 		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
 		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})

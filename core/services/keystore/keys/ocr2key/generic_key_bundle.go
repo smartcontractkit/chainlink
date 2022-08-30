@@ -167,7 +167,7 @@ func (kbraw *keyBundleRawData) Migrate(b []byte) error {
 
 	// if key does not have an ID associated with it (old formats),
 	// derive the key ID and preserve it
-	if bytes.Equal(kbraw.ID[:], new(models.Sha256Hash)[:]) {
+	if bytes.Equal(kbraw.ID[:], models.EmptySha256Hash[:]) {
 		kbraw.ID = sha256.Sum256(b)
 	}
 
