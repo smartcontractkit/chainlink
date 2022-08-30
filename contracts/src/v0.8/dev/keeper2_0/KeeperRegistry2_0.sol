@@ -134,38 +134,6 @@ contract KeeperRegistry2_0 is
     );
   }
 
-  // TODO: move to OCR abstract
-  function _verifyReportSignature(
-    bytes32[3] calldata reportContext,
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss,
-    bytes32 rawVs
-  ) internal view returns (uint8[] memory) {
-    uint8[] memory signerIndices = new uint8[](rs.length);
-    // Verify signatures attached to report
-    {
-      bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
-      // i-th byte counts number of sigs made by i-th signer
-      uint256 signedCount = 0;
-
-      Signer memory signer;
-      for (uint256 i = 0; i < rs.length; i++) {
-        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-        signer = s_signers[signerAddress];
-        if (!signer.active) revert OnlyActiveSigners();
-        unchecked {
-          signedCount += 1 << (8 * signer.index);
-        }
-        signerIndices[i] = signer.index;
-      }
-      // The first byte of the mask can be 0, because we only ever have 31 oracles
-      if (signedCount & 0x0001010101010101010101010101010101010101010101010101010101010101 != signedCount)
-        revert DuplicateSigners();
-    }
-    return signerIndices;
-  }
-
   /**
    * @notice simulates the upkeep with the perform data returned from
    * checkUpkeep
@@ -602,6 +570,36 @@ contract KeeperRegistry2_0 is
     (upkeepId, rawBytes) = abi.decode(rawReport, (uint256, bytes));
     performDataWrapper = abi.decode(rawBytes, (PerformDataWrapper));
     return Report({upkeepId: upkeepId, performDataWrapper: performDataWrapper});
+  }
+
+  function _verifyReportSignature(
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs
+  ) internal view returns (uint8[] memory) {
+    uint8[] memory signerIndices = new uint8[](rs.length);
+    // Verify signatures attached to report
+    {
+      bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
+      // i-th byte counts number of sigs made by i-th signer
+      uint256 signedCount = 0;
+
+      Signer memory signer;
+      for (uint256 i = 0; i < rs.length; i++) {
+        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+        signer = s_signers[signerAddress];
+        if (!signer.active) revert OnlyActiveSigners();
+        unchecked {
+          signedCount += 1 << (8 * signer.index);
+        }
+        signerIndices[i] = signer.index;
+      }
+
+      if (signedCount & ORACLE_MASK != signedCount) revert DuplicateSigners();
+    }
+    return signerIndices;
   }
 
   /**
