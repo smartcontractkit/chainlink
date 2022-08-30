@@ -86,31 +86,76 @@ contract KeeperRegistry2_0 is
 
     HotVars memory hotVars = s_hotVars;
     Report memory parsedReport = _decodeReport(report);
+    Upkeep[] memory upkeeps = new Upkeep[](parsedReport.upkeepIds.length);
+    PerformPaymentParams[] memory paymentParams = new PerformPaymentParams[](parsedReport.upkeepIds.length);
+    bool[] memory earlyChecksPassed = new bool[](parsedReport.upkeepIds.length);
+    bool anyUpkeepPassedChecks;
+    bool anyUpkeepRequiresSigVerification;
 
-    // TODO: Batch upkeeps
-    Upkeep memory upkeep = s_upkeep[parsedReport.upkeepIds[0]];
-    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
+    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+      upkeeps[i] = s_upkeep[parsedReport.upkeepIds[i]];
+      paymentParams[i] = _generatePerformPaymentParams(upkeeps[i], hotVars, true);
+      earlyChecksPassed[i] = true;
+      // Do some early sanity checks. These are done before signature verification to optimise gas
 
-    // Do some early sanity checks. These are done before signature verification to optimise gas
-    if (parsedReport.wrappedPerformDatas[0].checkBlockNumber <= upkeep.lastPerformBlockNumber) revert StaleReport();
-    if (
-      blockhash(parsedReport.wrappedPerformDatas[0].checkBlockNumber - 1) !=
-      parsedReport.wrappedPerformDatas[0].checkBlockhash
-      //@dev: We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-      // with the latest checkBlockNumber
-    ) revert ReorgedReport();
-    if (upkeep.maxValidBlocknumber <= block.number) revert UpkeepCancelled();
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    if (upkeep.balance < paymentParams.maxLinkPayment) revert InsufficientFunds();
+      if (parsedReport.wrappedPerformDatas[i].checkBlockNumber <= upkeeps[i].lastPerformBlockNumber) {
+        earlyChecksPassed[i] = false;
+        // TODO: emit event here
+        //revert StaleReport();
+      }
 
-    // Verify report signature
-    if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
-    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-    uint8[] memory signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
+      if (
+        blockhash(parsedReport.wrappedPerformDatas[i].checkBlockNumber - 1) !=
+        parsedReport.wrappedPerformDatas[i].checkBlockhash
+        // @dev: We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
+        // with the latest checkBlockNumber
+      ) {
+        earlyChecksPassed[i] = false;
+        // TODO:  emit event here
+        //revert ReorgedReport();
+      }
 
-    // Actually perform the target upkeep
-    (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.wrappedPerformDatas[0].performData);
-    s_upkeep[parsedReport.upkeepIds[0]].lastPerformBlockNumber = uint32(block.number);
+      if (upkeeps[i].maxValidBlocknumber <= block.number) {
+        earlyChecksPassed[i] = false;
+        // TODO:  emit event here
+        //revert UpkeepCancelled();
+      }
+
+      if (upkeeps[i].balance < paymentParams[i].maxLinkPayment) {
+        earlyChecksPassed[i] = false;
+        // TODO:  emit event here
+        //revert InsufficientFunds();
+      }
+
+      if (earlyChecksPassed[i]) {
+        anyUpkeepPassedChecks = true;
+        if (!upkeeps[i].skipSigVerification) anyUpkeepRequiresSigVerification = true;
+      }
+    }
+
+    if (!anyUpkeepPassedChecks) {
+      revert StaleReport();
+    }
+
+    uint8[] memory signerIndices;
+    if (anyUpkeepRequiresSigVerification) {
+      // Verify report signature
+      if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+      if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+      // TODO: fix stack too deep error
+      //signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
+    }
+
+    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+      if (earlyChecksPassed[i]) {
+        // Actually perform the target upkeep
+        (bool success, uint256 gasUsed) = _performUpkeep(upkeeps[i], parsedReport.wrappedPerformDatas[i].performData);
+        s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+      }
+    }
+
+    /*
+    TODO: payment calculation
 
     // Calculate actual payment amount
     // TODO: calculate actual gas used and account for sig verification setting
@@ -133,6 +178,7 @@ contract KeeperRegistry2_0 is
       gasPayment,
       totalPayment
     );
+    */
   }
 
   /**
