@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/pyroscope-io/client/pyroscope"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -135,6 +136,7 @@ type ChainlinkApplication struct {
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
+	profiler                 *pyroscope.Profiler
 
 	started     bool
 	startStopMu sync.Mutex
@@ -195,6 +197,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+
+	var profiler *pyroscope.Profiler
+	if cfg.PyroscopeServerAddress() != "" {
+		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
+		var err error
+		profiler, err = logger.StartPyroscope(cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
+		}
+	} else {
+		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
+	}
 
 	var nurse *services.Nurse
 	if cfg.AutoPprofEnabled() {
@@ -449,6 +463,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		logger:                   globalLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
+		profiler:                 profiler,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -560,6 +575,10 @@ func (app *ChainlinkApplication) stop() (err error) {
 
 		if app.Nurse != nil {
 			err = multierr.Append(err, app.Nurse.Close())
+		}
+
+		if app.profiler != nil {
+			err = multierr.Append(err, app.profiler.Stop())
 		}
 
 		app.logger.Info("Exited all services")
