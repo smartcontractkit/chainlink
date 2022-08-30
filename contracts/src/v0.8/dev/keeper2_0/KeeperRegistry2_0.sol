@@ -99,32 +99,33 @@ contract KeeperRegistry2_0 is
       // Do some early sanity checks. These are done before signature verification to optimise gas
 
       if (parsedReport.wrappedPerformDatas[i].checkBlockNumber <= upkeeps[i].lastPerformBlockNumber) {
+        // @dev: Can happen when another report performed this upkeep after this report was generated
         earlyChecksPassed[i] = false;
-        // TODO: emit event here
-        //revert StaleReport();
+        emit StaleUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
       if (
         blockhash(parsedReport.wrappedPerformDatas[i].checkBlockNumber - 1) !=
         parsedReport.wrappedPerformDatas[i].checkBlockhash
-        // @dev: We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-        // with the latest checkBlockNumber
       ) {
+        // @dev: Can happen when the block on which report was generated got reorged
+        // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
+        // with the latest checkBlockNumber
         earlyChecksPassed[i] = false;
-        // TODO:  emit event here
-        //revert ReorgedReport();
+        emit ReorgedUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
       if (upkeeps[i].maxValidBlocknumber <= block.number) {
+        // @dev: Can happen when an upkeep got cancelled after report was generated.
+        // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
         earlyChecksPassed[i] = false;
-        // TODO:  emit event here
-        //revert UpkeepCancelled();
+        emit CancelledUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
       if (upkeeps[i].balance < paymentParams[i].maxLinkPayment) {
+        // @dev: Can happen due to flucutations in gas / link prices
         earlyChecksPassed[i] = false;
-        // TODO:  emit event here
-        //revert InsufficientFunds();
+        emit InsufficientFundsUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
       if (earlyChecksPassed[i]) {

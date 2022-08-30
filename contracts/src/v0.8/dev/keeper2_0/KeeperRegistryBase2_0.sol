@@ -105,7 +105,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error OnlyActiveSigners();
   error DuplicateSigners();
   error StaleReport();
-  error ReorgedReport();
   error TooManyOracles();
   error IncorrectNumberOfSigners();
   error IncorrectNumberOfFaultyOracles();
@@ -249,6 +248,12 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
+  event StaleUpkeepReport(uint256 indexed id);
+    event ReorgedUpkeepReport(uint256 indexed id);
+    event InsufficientFundsUpkeepReport(uint256 indexed id);
+    event CancelledUpkeepReport(uint256 indexed id);
+  
+
 
   /**
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
