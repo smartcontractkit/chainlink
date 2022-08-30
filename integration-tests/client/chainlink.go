@@ -502,15 +502,15 @@ func (c *Chainlink) EthAddresses() ([]string, error) {
 }
 
 // CreateTxKey creates a tx key on the Chainlink node
-func (c *Chainlink) CreateTxKey(chain string) (*TxKey, *http.Response, error) {
+func (c *Chainlink) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
 	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
-			"evmChainID": chain,
+			"evmChainID": chainId,
 		}).
 		SetResult(txKey).
-		Post("/v2/keys/evm")
+		Post("/v2/keys/{chain}")
 	if err != nil {
 		return nil, nil, err
 	}
