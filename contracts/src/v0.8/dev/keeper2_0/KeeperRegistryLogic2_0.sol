@@ -209,9 +209,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
-    emit FundsWithdrawn(id, amountToWithdraw, to);
-
     LINK.transfer(to, amountToWithdraw);
+    emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
   /**

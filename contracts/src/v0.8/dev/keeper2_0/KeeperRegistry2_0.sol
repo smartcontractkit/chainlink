@@ -592,7 +592,9 @@ contract KeeperRegistry2_0 is
     );
   }
 
-  // _decodeReport decodes a serialized report into a Report struct
+  /**
+   * @dev _decodeReport decodes a serialized report into a Report struct
+   */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
     uint256 upkeepId;
     bytes memory rawBytes;
