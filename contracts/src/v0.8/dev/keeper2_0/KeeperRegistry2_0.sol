@@ -129,7 +129,6 @@ contract KeeperRegistry2_0 is
     }
 
     uint8[] memory signerIndices; // TODO: figure out signers in case of no verification
-    // TODO: Calculate sig verification gas
     if (anyUpkeepRequiresSigVerification) {
       // Verify report signature
       if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
@@ -148,7 +147,9 @@ contract KeeperRegistry2_0 is
       }
     }
     // This is the non sig verification gas overhead that will be split across performed upkeeps
-    gasOverhead = gasOverhead - gasleft() + ACCOUNTING_GAS_OVERHEAD;
+    // Take upper bound of 16 gas per callData byte
+    // TODO: assert msg.data.length
+    gasOverhead = gasOverhead - gasleft() + 16 * msg.data.length + ACCOUNTING_GAS_OVERHEAD;
 
     // TODO: Account for batch
     // TODO: calculate actual gas used and account for sig verification setting
