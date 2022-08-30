@@ -109,8 +109,8 @@ contract KeeperRegistry2_0 is
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
 
     // TODO: change to counts as you'll need it later
-    bool anyUpkeepPassedChecks;
-    bool anyUpkeepRequiresSigVerification;
+    uint8 numUpkeepsPassedChecks;
+    uint8 numUpkeepsRequiresSigVerification;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
       upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(upkeepTransmitInfo[i].upkeep, hotVars, true);
@@ -122,18 +122,16 @@ contract KeeperRegistry2_0 is
       );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
-        anyUpkeepPassedChecks = true;
-        if (!upkeepTransmitInfo[i].upkeep.skipSigVerification) anyUpkeepRequiresSigVerification = true;
+        numUpkeepsPassedChecks += 1;
+        if (!upkeepTransmitInfo[i].upkeep.skipSigVerification) numUpkeepsRequiresSigVerification += 1;
       }
     }
 
-    if (!anyUpkeepPassedChecks) {
-      // No upkeeps to be performed in this report
-      revert StaleReport();
-    }
+    // No upkeeps to be performed in this report
+    if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
     uint8[] memory signerIndices; // TODO: figure out signers in case of no verification
-    if (anyUpkeepRequiresSigVerification) {
+    if (numUpkeepsRequiresSigVerification > 0) {
       // Verify report signature
       signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
