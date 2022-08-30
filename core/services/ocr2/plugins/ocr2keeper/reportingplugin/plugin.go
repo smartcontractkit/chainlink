@@ -6,29 +6,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/NethermindEth/juno/pkg/common"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
-
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+)
+
+var (
+	errNoEligibleUpkeepFound = errors.New("no eligible upkeep found")
 )
 
 type ORM interface {
@@ -155,12 +156,18 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, q types.Qu
 		observations[i] = od
 	}
 
-	// TODO: Sort
+	sort.SliceStable(observations, func(i, j int) bool {
+		return observations[i].Head.GreaterThan(observations[j].Head)
+	})
 
 	var observation *observationData
 	for _, od := range observations {
 		upkeep, err := p.getEligibleUpkeep(od.Head)
 		if err != nil {
+			if err == errNoEligibleUpkeepFound {
+				continue
+			}
+
 			return false, nil, errors.Wrapf(err, "failed to get eligible upkeep for head %d", od.Head.Number)
 		}
 
@@ -341,7 +348,7 @@ func (p *plugin) getEligibleUpkeep(head *evmtypes.Head) (*keeper.UpkeepRegistrat
 	}
 
 	if len(activeUpkeeps) == 0 {
-		return nil, errors.New("there are no active upkeeps")
+		return nil, errNoEligibleUpkeepFound
 	}
 
 	// TODO: Implement a correct turn taking logic
