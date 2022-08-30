@@ -63,13 +63,11 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   event RegistrationRequested(
     bytes32 indexed hash,
     string name,
-    bytes encryptedEmail,
     address indexed upkeepContract,
     uint32 gasLimit,
     address adminAddress,
     bytes checkData,
-    uint96 amount,
-    uint8 indexed source
+    uint96 amount
   );
 
   event RegistrationApproved(bytes32 indexed hash, string displayName, uint256 indexed upkeepId);
@@ -121,24 +119,20 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @notice register can only be called through transferAndCall on LINK contract
    * @param name string of the upkeep to be registered
-   * @param encryptedEmail email address of upkeep contact
    * @param upkeepContract address to perform upkeep on
    * @param gasLimit amount of gas to provide the target contract when performing upkeep
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @param source application sending this request
    * @param sender address of the sender making the request
    */
   function register(
     string memory name,
-    bytes calldata encryptedEmail,
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
     bytes calldata checkData,
     uint96 amount,
-    uint8 source,
     address sender
   ) external onlyLINK {
     if (adminAddress == address(0)) {
@@ -146,17 +140,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     }
     bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
 
-    emit RegistrationRequested(
-      hash,
-      name,
-      encryptedEmail,
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      checkData,
-      amount,
-      source
-    );
+    emit RegistrationRequested(hash, name, upkeepContract, gasLimit, adminAddress, checkData, amount);
 
     Config memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
