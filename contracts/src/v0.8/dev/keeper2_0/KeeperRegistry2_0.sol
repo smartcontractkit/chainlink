@@ -108,7 +108,6 @@ contract KeeperRegistry2_0 is
     Report memory parsedReport = _decodeReport(report);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
 
-    // TODO: change to counts as you'll need it later
     uint8 numUpkeepsPassedChecks;
     uint8 numUpkeepsRequiresSigVerification;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
