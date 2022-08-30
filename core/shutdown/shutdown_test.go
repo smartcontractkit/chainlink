@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
 
 func TestHandleShutdown(t *testing.T) {
@@ -21,7 +23,7 @@ func TestHandleShutdown(t *testing.T) {
 
 	for name, sig := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(testutils.Context(t))
 			go HandleShutdown(func(string) {
 				cancel()
 			})

@@ -32,7 +32,7 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-//nolint
+// nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -60,8 +60,11 @@ type FeatureFlags interface {
 	StarkNetEnabled() bool
 }
 
+type LogFn func(...any)
+
 type GeneralOnlyConfig interface {
 	Validate() error
+	LogConfiguration(log LogFn)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 
@@ -133,6 +136,7 @@ type GeneralOnlyConfig interface {
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
 	KeyFile() string
+	KeystorePassword() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 	LogFileDir() string
@@ -174,6 +178,7 @@ type GeneralOnlyConfig interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
+	VRFPassword() string
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -230,6 +235,7 @@ type GlobalConfig interface {
 	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
 	GlobalNodePollFailureThreshold() (uint32, bool)
 	GlobalNodePollInterval() (time.Duration, bool)
+	GlobalNodeSelectionMode() (string, bool)
 
 	OCR1Config
 	OCR2Config
@@ -312,6 +318,10 @@ func newGeneralConfigWithViper(v *viper.Viper, lggr logger.Logger) (config *gene
 	return
 }
 
+func (c *generalConfig) LogConfiguration(log LogFn) {
+	log("Environment variables\n", NewConfigPrinter(c))
+}
+
 // Validate performs basic sanity checks on config and returns error if any
 // misconfiguration would be fatal to the application
 func (c *generalConfig) Validate() error {
@@ -352,11 +362,6 @@ EVM_ENABLED=false
 			if _, err := multiaddr.NewMultiaddr(peers[i]); err != nil {
 				return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
 			}
-		}
-	}
-	if me := c.OCRMonitoringEndpoint(); me != "" {
-		if _, err := url.Parse(me); err != nil {
-			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
 	}
 	if ct, set := c.GlobalChainType(); set && !ChainType(ct).IsValid() {
@@ -1362,6 +1367,10 @@ func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return lookupEnv(c, envvar.Name("NodePollInterval"), time.ParseDuration)
 }
 
+func (c *generalConfig) GlobalNodeSelectionMode() (string, bool) {
+	return lookupEnv(c, envvar.Name("NodeSelectionMode"), parse.String)
+}
+
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
@@ -1400,4 +1409,16 @@ func (c *generalConfig) LogFileDir() string {
 		return c.RootDir()
 	}
 	return s
+}
+
+// Implemented only in config V2. V1 uses a --password flag.
+func (c *generalConfig) KeystorePassword() string {
+	c.lggr.Warn("Config V1 should us --password flag instead of calling KeystorePassword()")
+	return ""
+}
+
+// Implemented only in config V2. V1 uses a --vrfpassword flag.
+func (c *generalConfig) VRFPassword() string {
+	c.lggr.Warn("Config V1 should us --vrfpassword flag instead of calling VRFPassword()")
+	return ""
 }

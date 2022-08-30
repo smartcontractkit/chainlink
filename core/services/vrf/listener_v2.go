@@ -26,9 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -942,11 +942,12 @@ func (lsn *listenerV2) runPipelines(
 }
 
 func (lsn *listenerV2) estimateFeeJuels(
+	ctx context.Context,
 	req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
 	maxGasPriceWei *big.Int,
 ) (*big.Int, error) {
 	// Don't use up too much time to get this info, it's not critical for operating vrf.
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -977,7 +978,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		err error
 	)
 	// estimate how much juels are needed so that we can log it if the simulation fails.
-	res.juelsNeeded, err = lsn.estimateFeeJuels(req.req, maxGasPriceWei)
+	res.juelsNeeded, err = lsn.estimateFeeJuels(ctx, req.req, maxGasPriceWei)
 	if err != nil {
 		// not critical, just log and continue
 		lg.Warnw("unable to estimate juels needed for request, continuing anyway",

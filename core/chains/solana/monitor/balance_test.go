@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -61,7 +60,7 @@ func TestBalanceMonitor(t *testing.T) {
 	}
 	b.reader = client
 
-	require.NoError(t, b.Start(context.Background()))
+	require.NoError(t, b.Start(testutils.Context(t)))
 	t.Cleanup(func() {
 		assert.NoError(t, b.Close())
 		client.AssertExpectations(t)

@@ -1872,6 +1872,27 @@ func (_m *GeneralConfig) GlobalNodePollInterval() (time.Duration, bool) {
 	return r0, r1
 }
 
+// GlobalNodeSelectionMode provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodeSelectionMode() (string, bool) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -2257,6 +2278,20 @@ func (_m *GeneralConfig) KeyFile() string {
 	return r0
 }
 
+// KeystorePassword provides a mock function with given fields:
+func (_m *GeneralConfig) KeystorePassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // LeaseLockDuration provides a mock function with given fields:
 func (_m *GeneralConfig) LeaseLockDuration() time.Duration {
 	ret := _m.Called()
@@ -2283,6 +2318,11 @@ func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
 	}
 
 	return r0
+}
+
+// LogConfiguration provides a mock function with given fields: log
+func (_m *GeneralConfig) LogConfiguration(log config.LogFn) {
+	_m.Called(log)
 }
 
 // LogFileDir provides a mock function with given fields:
@@ -2502,20 +2542,6 @@ func (_m *GeneralConfig) OCR2KeyBundleID() (string, error) {
 	return r0, r1
 }
 
-// OCR2MonitoringEndpoint provides a mock function with given fields:
-func (_m *GeneralConfig) OCR2MonitoringEndpoint() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // OCR2TraceLogging provides a mock function with given fields:
 func (_m *GeneralConfig) OCR2TraceLogging() bool {
 	ret := _m.Called()
@@ -2647,20 +2673,6 @@ func (_m *GeneralConfig) OCRKeyBundleID() (string, error) {
 	}
 
 	return r0, r1
-}
-
-// OCRMonitoringEndpoint provides a mock function with given fields:
-func (_m *GeneralConfig) OCRMonitoringEndpoint() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
 }
 
 // OCRNewStreamTimeout provides a mock function with given fields:
@@ -3617,6 +3629,20 @@ func (_m *GeneralConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// VRFPassword provides a mock function with given fields:
+func (_m *GeneralConfig) VRFPassword() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

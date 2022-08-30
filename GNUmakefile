@@ -62,12 +62,12 @@ abigen: ## Build & install abigen.
 .PHONY: go-solidity-wrappers
 go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all
-	go generate ./core/internal/gethwrappers
+	go generate ./core/gethwrappers
 
 .PHONY: go-solidity-wrappers-ocr2vrf
 go-solidity-wrappers-ocr2vrf: abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_ocr2vrf
-	go generate ./core/internal/gethwrappers/ocr2vrf
+	go generate ./core/gethwrappers/ocr2vrf
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
@@ -102,16 +102,22 @@ test_install_ginkgo: ## Install ginkgo executable to run tests
 	go install github.com/onsi/ginkgo/v2/ginkgo@v$(shell cat ./.tool-versions | grep ginkgo | sed -En "s/ginkgo.(.*)/\1/p")
 
 .PHONY: test_smoke
-test_smoke: ## Run all integration smoke tests, including on live testnets
-	ginkgo -v -r --junit-report=tests-smoke-report.xml \
-	--keep-going --trace --randomize-all --randomize-suites \
-	--progress $(args) ./integration-tests/smoke
-
-.PHONY: test_smoke_simulated
-test_smoke_simulated: ## Run integration smoke tests, only using simulated networks
+test_smoke: ## Run all integration smoke tests, using only simulated networks, default behavior
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
 	--progress --focus @simulated $(args) ./integration-tests/smoke
+
+.PHONY: test_smoke_simulated
+test_smoke_simulated: ## Run all integration smoke tests, using only simulated networks, default behavior (you can use `make test_smoke`)
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress --focus @simulated $(args) ./integration-tests/smoke
+
+.PHONY: test_smoke_raw
+test_smoke_raw: ## Run ALL integration smoke tests, only used for when focusing a specific suite or test
+	ginkgo -v -r --junit-report=tests-smoke-report.xml \
+	--keep-going --trace --randomize-all --randomize-suites \
+	--progress $(args) ./integration-tests/smoke
 
 .PHONY: test_soak_ocr
 test_soak_ocr: ## Run the OCR soak test

@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
@@ -373,7 +374,7 @@ func NewFluxAggregatorRoundConfirmer(
 
 // ReceiveBlock will query the latest FluxAggregator round and check to see whether the round has confirmed
 func (f *FluxAggregatorRoundConfirmer) ReceiveBlock(block blockchain.NodeBlock) error {
-	if block.Block == nil {
+	if block.Block.Number() == nil {
 		return nil
 	}
 	if f.complete {
@@ -989,7 +990,7 @@ func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
 // EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
 type EthereumMockETHLINKFeed struct {
 	client  blockchain.EVMClient
-	feed    *ethereum.MockV3AggregatorContract
+	feed    *ethereum.MockETHLINKAggregator
 	address *common.Address
 }
 
@@ -1005,7 +1006,7 @@ func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return data.Answer, nil
+	return data.Ans, nil
 }
 
 // EthereumMockGASFeed represents mocked Gas feed contract

@@ -43,9 +43,6 @@ type logKey struct {
 	// blockNumber of the block the log was included in. This is necessary to prune old logs.
 	blockNumber uint64
 
-	// transaction id of the transaction which generated this log
-	txIndex uint
-
 	// logIndex of the log in the block.
 	logIndex uint
 }
@@ -58,7 +55,6 @@ func (l *logDeduper) shouldDeliver(log types.Log) bool {
 	key := logKey{
 		blockHash:   log.BlockHash,
 		blockNumber: log.BlockNumber,
-		txIndex:     log.TxIndex,
 		logIndex:    log.Index,
 	}
 

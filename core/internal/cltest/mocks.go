@@ -103,7 +103,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(context.Context, config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -111,7 +111,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(context.Context, config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -324,7 +324,7 @@ func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
 // MustRandomUser inserts a new admin user with a random email into the test DB
 func MustRandomUser(t testing.TB) sessions.User {
-	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
+	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomPositiveInt64())
 	r, err := sessions.NewUser(email, Password, sessions.UserRoleAdmin)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)

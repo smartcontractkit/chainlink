@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -56,7 +55,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		err = app.AddJobV2(context.Background(), &jb)
+		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		uuid = jb.ExternalJobID
@@ -118,7 +117,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		err = app.AddJobV2(context.Background(), &jb)
+		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		uuid = jb.ExternalJobID
@@ -162,7 +161,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
-	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
+	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[1])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
@@ -184,7 +183,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
-	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
+	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[1])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
@@ -295,12 +294,12 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	jb.OCROracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
-	firstRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
+	firstRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
 	require.NoError(t, err)
-	secondRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
+	secondRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
 	require.NoError(t, err)
 
 	return client, jb.ID, []int64{firstRunID, secondRunID}
