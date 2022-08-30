@@ -145,6 +145,7 @@ contract KeeperRegistry2_0 is
           parsedReport.wrappedPerformDatas[i].performData
         );
         s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+        gasOverhead -= upkeepTransmitInfo[i].gasUsed;
       }
     }
     // This is the overall gas overhead that will be split across performed upkeeps
@@ -184,10 +185,15 @@ contract KeeperRegistry2_0 is
     }
 
     // Reimburse totalGasPayment to transmitter and premium among signers
-    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + totalGasPayment;
-    for (uint256 i = 0; i < signerIndices.length; i++) {
-      address transmitterToPay = s_transmittersList[signerIndices[i]];
-      s_transmitters[transmitterToPay].balance += totalPremiumPerSigner;
+    s_transmitters[msg.sender].balance += totalGasPayment;
+    if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
+      // Pay all the premium to transmitter as there are no signers
+      s_transmitters[msg.sender].balance += totalPremiumPerSigner * uint96(signerIndices.length);
+    } else {
+      for (uint256 i = 0; i < signerIndices.length; i++) {
+        address transmitterToPay = s_transmittersList[signerIndices[i]];
+        s_transmitters[transmitterToPay].balance += totalPremiumPerSigner;
+      }
     }
   }
 
