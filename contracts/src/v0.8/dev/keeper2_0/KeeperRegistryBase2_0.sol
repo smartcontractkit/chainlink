@@ -188,6 +188,12 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     bytes performData; // actual performData that user's check returned
   }
 
+  // Report transmitted by OCR to transmit function
+  struct Report {
+    uint256 upkeepId; // Id of upkeep
+    PerformDataWrapper performDataWrapper; // Contains checkInfo and performData for the upkeep
+  }
+
   /**
    * @notice relevant state of an upkeep which is used in transmit function
    * @member balance the balance of this upkeep
