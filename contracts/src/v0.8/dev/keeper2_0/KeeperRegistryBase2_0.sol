@@ -34,8 +34,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // Needs to be updated after benchmarking
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000;
-  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000;
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant PAYMENT_GAS_OVERHEAD = 20_000; // Used in actual payment
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
