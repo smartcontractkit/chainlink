@@ -233,7 +233,9 @@ contract KeeperRegistry2_0 is
     emit FundsAdded(id, sender, uint96(amount));
   }
 
+  ////////
   // SETTERS
+  ////////
 
   /**
    * @inheritdoc OCR2Abstract
