@@ -96,12 +96,15 @@ contract KeeperRegistry2_0 is
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
-    bytes32 rawVs // signatures
+    bytes32 rawVs
   ) external override whenNotPaused {
     uint256 gasOverhead = gasleft();
-    if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
-
     HotVars memory hotVars = s_hotVars;
+    if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
+    if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+    _requireExpectedMsgDataLength(report, rs, ss);
+
     Report memory parsedReport = _decodeReport(report);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
 
@@ -131,8 +134,6 @@ contract KeeperRegistry2_0 is
     uint8[] memory signerIndices; // TODO: figure out signers in case of no verification
     if (anyUpkeepRequiresSigVerification) {
       // Verify report signature
-      if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
-      if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
       signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
 
@@ -599,6 +600,42 @@ contract KeeperRegistry2_0 is
       offchainConfigVersion,
       offchainConfig
     );
+  }
+
+  // The constant-length components of the msg.data sent to transmit.
+  // See the "If we wanted to call sam" example on for example reasoning
+  // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
+  uint256 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT =
+    4 + // function selector
+      32 *
+      3 + // 3 words containing reportContext
+      32 + // word containing start location of abiencoded report value
+      32 + // word containing location start of abiencoded rs value
+      32 + // word containing start location of abiencoded ss value
+      32 + // rawVs value
+      32 + // word containing length of report
+      32 + // word containing length rs
+      32 + // word containing length of ss
+      0; // placeholder
+
+  // Make sure the calldata length matches the inputs. Otherwise, the
+  // transmitter could append an arbitrarily long (up to gas-block limit)
+  // string of 0 bytes, which we would reimburse at a rate of 16 gas/byte, but
+  // which would only cost the transmitter 4 gas/byte.
+  function _requireExpectedMsgDataLength(
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss
+  ) private pure {
+    // calldata will never be big enough to make this overflow
+    uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT +
+      report.length + // one byte pure entry in report
+      rs.length *
+      32 + // 32 bytes per entry in rs
+      ss.length *
+      32 + // 32 bytes per entry in ss
+      0; // placeholder
+    if (msg.data.length != expected) revert InvalidReport();
   }
 
   /**
