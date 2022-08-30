@@ -39,17 +39,22 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
   uint256 internal constant ACCOUNTING_GAS_OVERHEAD = 20_000; // Used in actual payment. Value scales with f.
+  OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
+  ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
+
+  LinkTokenInterface internal immutable i_link;
+  AggregatorV3Interface internal immutable i_linkNativeFeed;
+  AggregatorV3Interface internal immutable i_fastGasFeed;
+  PaymentModel internal immutable i_paymentModel;
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
-
   // Upkeep storage
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep; // accessed during transmit
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
-
   // Registry config and state
   mapping(address => Transmitter) internal s_transmitters;
   mapping(address => Signer) internal s_signers;
@@ -62,13 +67,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   uint64 internal s_offchainConfigVersion; // Offchain config, stored on chain to enable easy distribution to all nodes
   bytes internal s_offchainConfig; // Offchain config, stored on chain to enable easy distribution to all nodes
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
-
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_NATIVE_FEED;
-  AggregatorV3Interface public immutable FAST_GAS_FEED;
-  OVM_GasPriceOracle public immutable OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
-  ArbGasInfo public immutable ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
-  PaymentModel public immutable PAYMENT_MODEL;
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -266,10 +264,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     address linkNativeFeed,
     address fastGasFeed
   ) ConfirmedOwner(msg.sender) {
-    PAYMENT_MODEL = paymentModel;
-    LINK = LinkTokenInterface(link);
-    LINK_NATIVE_FEED = AggregatorV3Interface(linkNativeFeed);
-    FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
+    i_paymentModel = paymentModel;
+    i_link = LinkTokenInterface(link);
+    i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
+    i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
   }
 
   /**
@@ -283,7 +281,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
-    (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
+    (, feedValue, , timestamp, ) = i_fastGasFeed.latestRoundData();
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
@@ -291,7 +289,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     } else {
       gasWei = uint256(feedValue);
     }
-    (, feedValue, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
+    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
@@ -325,7 +323,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
     uint256 weiForGas = gasWei * (gasLimit + gasOverhead);
     uint256 l1CostWei = 0;
-    if (PAYMENT_MODEL == PaymentModel.OPTIMISM) {
+    if (i_paymentModel == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
@@ -336,7 +334,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
-    } else if (PAYMENT_MODEL == PaymentModel.ARBITRUM) {
+    } else if (i_paymentModel == PaymentModel.ARBITRUM) {
       l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound

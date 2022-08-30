@@ -80,15 +80,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     s_storage.ownerLinkBalance = 0;
 
     emit OwnerFundsWithdrawn(amount);
-    LINK.transfer(msg.sender, amount);
+    i_link.transfer(msg.sender, amount);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function recoverFunds() external onlyOwner {
-    uint256 total = LINK.balanceOf(address(this));
-    LINK.transfer(msg.sender, total - s_storage.expectedLinkBalance);
+    uint256 total = i_link.balanceOf(address(this));
+    i_link.transfer(msg.sender, total - s_storage.expectedLinkBalance);
   }
 
   /**
@@ -193,7 +193,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
     s_upkeep[id].balance = upkeep.balance + amount;
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + amount;
-    LINK.transferFrom(msg.sender, address(this), amount);
+    i_link.transferFrom(msg.sender, address(this), amount);
     emit FundsAdded(id, msg.sender, amount);
   }
 
@@ -209,7 +209,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
-    LINK.transfer(to, amountToWithdraw);
+    i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
@@ -236,7 +236,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - transmitter.balance;
     emit PaymentWithdrawn(from, transmitter.balance, to, msg.sender);
 
-    LINK.transfer(to, transmitter.balance);
+    i_link.transfer(to, transmitter.balance);
   }
 
   /**
@@ -366,7 +366,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
         encodedUpkeeps
       )
     );
-    LINK.transfer(destination, totalBalanceRemaining);
+    i_link.transfer(destination, totalBalanceRemaining);
   }
 
   /**

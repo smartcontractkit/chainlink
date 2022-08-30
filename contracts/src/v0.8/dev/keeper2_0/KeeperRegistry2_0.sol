@@ -218,7 +218,7 @@ contract KeeperRegistry2_0 is
     uint256 amount,
     bytes calldata data
   ) external override {
-    if (msg.sender != address(LINK)) revert OnlyCallableByLINKToken();
+    if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
