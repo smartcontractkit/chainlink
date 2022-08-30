@@ -136,7 +136,7 @@ type ChainlinkApplication struct {
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
-	prflr                    *pyroscope.Profiler
+	profiler                 *pyroscope.Profiler
 
 	started     bool
 	startStopMu sync.Mutex
@@ -198,11 +198,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	var prflr *pyroscope.Profiler
+	var profiler *pyroscope.Profiler
 	if cfg.PyroscopeServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		prflr, err = logger.StartPyroscope(cfg)
+		profiler, err = logger.StartPyroscope(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -463,7 +463,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		logger:                   globalLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
-		prflr:                    prflr,
+		profiler:                 profiler,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -577,8 +577,8 @@ func (app *ChainlinkApplication) stop() (err error) {
 			err = multierr.Append(err, app.Nurse.Close())
 		}
 
-		if app.prflr != nil {
-			err = multierr.Append(err, app.prflr.Stop())
+		if app.profiler != nil {
+			err = multierr.Append(err, app.profiler.Stop())
 		}
 
 		app.logger.Info("Exited all services")
