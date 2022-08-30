@@ -132,7 +132,7 @@ contract KeeperRegistry2_0 is
 
     uint8[] memory signerIndices;
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+      if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
       if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
       signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }

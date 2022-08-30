@@ -100,7 +100,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
-  error ConfigDisgestMismatch();
+  error ConfigDigestMismatch();
   error IncorrectNumberOfSignatures();
   error OnlyActiveSigners();
   error DuplicateSigners();
