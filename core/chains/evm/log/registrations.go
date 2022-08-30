@@ -410,6 +410,10 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 		if len(filters) > 0 && len(log.Topics) > 1 {
 			topicValues := log.Topics[1:]
 			if !filtersContainValues(topicValues, filters) {
+				logger.Debugw("Filters did not contain expected topic",
+					"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
+					"address", log.Address, "latestBlockNumber", latestBlockNumber,
+					"topicValues", topicValues, "filters", topicsToHex(filters))
 				continue
 			}
 		}
