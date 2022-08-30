@@ -52,27 +52,10 @@ type Config interface {
 	KeeperTurnFlagEnabled() bool
 }
 
-type queryData struct {
+type observationData struct {
 	Head        *evmtypes.Head `json:"head"`
 	UpkeepID    string         `json:"upkeepID"`
 	PerformData []byte         `json:"performData"`
-}
-
-func newQueryDataFromRaw(data []byte) (*queryData, error) {
-	var qd queryData
-	if err := json.Unmarshal(data, &qd); err != nil {
-		return nil, err
-	}
-	return &qd, nil
-}
-
-func (qd *queryData) raw() ([]byte, error) {
-	return json.Marshal(*qd)
-}
-
-type observationData struct {
-	Eligible        bool   `json:"eligible"`
-	LinkNativePrice string `json:"linkNativePrice"`
 }
 
 func newObservationDataFromRaw(data []byte) (*observationData, error) {
@@ -135,6 +118,10 @@ func NewPlugin(
 }
 
 func (p *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
+	return nil, nil
+}
+
+func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q types.Query) (types.Observation, error) {
 	currentHead := p.headsMngr.getCurrentHead()
 	if currentHead == nil {
 		return nil, errors.New("current head is nil")
@@ -150,56 +137,52 @@ func (p *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 		return nil, err
 	}
 
-	return (&queryData{
+	return (&observationData{
 		Head:        currentHead,
 		UpkeepID:    upkeep.UpkeepID.String(),
 		PerformData: performUpkeepData,
 	}).raw()
 }
 
-// check upkeepID in query and confirm eligibility and performData match on given block hash
-// an upkeep only makes it into the observation if 4 criteria are met
-//   * upkeepID is in the query
-//   * upkeep is eligible at provided block hash
-//   * observed perform data matches that in query
-// followers only need to return true/false if they agree with the assessment of the leader
-// also return the price of LINK/NATIVE to use for compensation. Fetch from feed at block hash.
-func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q types.Query) (types.Observation, error) {
-	qd, err := newQueryDataFromRaw(q)
-	if err != nil {
-		return nil, err
+func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, q types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
+	observations := make([]*observationData, len(obs))
+	for i, ob := range obs {
+		od, err := newObservationDataFromRaw(ob.Observation)
+		if err != nil {
+			return false, nil, err
+		}
+
+		observations[i] = od
 	}
 
-	fmt.Println("Query:", string(q))
+	// TODO: Sort
 
-	upkeep, err := p.getEligibleUpkeep(qd.Head)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get eligible upkeep")
+	var observation *observationData
+	for _, od := range observations {
+		upkeep, err := p.getEligibleUpkeep(od.Head)
+		if err != nil {
+			return false, nil, errors.Wrapf(err, "failed to get eligible upkeep for head %d", od.Head.Number)
+		}
+
+		performUpkeepData, err := p.checkUpkeep(ctx, od.Head, upkeep)
+		if err != nil {
+			return false, nil, errors.Wrapf(err, "failed to check upkeep %s for head %d", upkeep.UpkeepID, od.Head.Number)
+		}
+
+		if bytes.Equal(od.PerformData, performUpkeepData) {
+			observation = od
+			break
+		} else {
+			p.logger.Warn("observed performa data does not match with the given data")
+		}
 	}
 
-	performUpkeepData, err := p.checkUpkeep(ctx, qd.Head, upkeep)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to check upkeep")
+	if observation == nil {
+		p.logger.Info("No observation data found")
+		return false, nil, nil
 	}
 
-	if !bytes.Equal(qd.PerformData, performUpkeepData) {
-		return nil, errors.New("observed performa data does not match with the given data")
-	}
-
-	return (&observationData{
-		Eligible:        true,
-		LinkNativePrice: "100000000", // TODO: Fetch a real price
-	}).raw()
-}
-
-func (p *plugin) Report(_ context.Context, _ types.ReportTimestamp, q types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
-	p.logger.Info("Query:", string(q))
-
-	for _, ob := range obs {
-		p.logger.Info("Observation:", ob.Observer, string(ob.Observation))
-	}
-
-	return true, []byte("Report()"), nil
+	return true, observation.PerformData, nil
 }
 
 func (p *plugin) ShouldAcceptFinalizedReport(_ context.Context, _ types.ReportTimestamp, r types.Report) (bool, error) {
