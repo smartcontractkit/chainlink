@@ -726,8 +726,9 @@ contract KeeperRegistry2_0 is
       uint256 signedCount = 0;
 
       Signer memory signer;
+      address signerAddress;
       for (uint256 i = 0; i < rs.length; i++) {
-        address signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+        signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         signer = s_signers[signerAddress];
         if (!signer.active) revert OnlyActiveSigners();
         unchecked {
