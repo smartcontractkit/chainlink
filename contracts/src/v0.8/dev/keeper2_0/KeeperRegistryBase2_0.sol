@@ -37,8 +37,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // Needs to be updated after benchmarking
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 80_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant ACCOUNTING_GAS_OVERHEAD = 20_000; // Used in actual payment
+  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
+  uint256 internal constant ACCOUNTING_GAS_OVERHEAD = 20_000; // Used in actual payment. Value scales with f.
 
   // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
   // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
@@ -221,6 +221,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     // 6 bytes left in 2nd EVM word
   }
 
+  struct UpkeepPerformedLogFields {
+    uint32 checkBlockNumber;
+    uint256 gasUsed;
+    uint256 gasOverhead;
+    uint256 linkNative;
+    uint96 premiumPayment;
+    uint96 totalPayment;
+  }
+
   event OnChainConfigSet(OnChainConfig config);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
@@ -236,15 +245,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepPaused(uint256 indexed id);
-  event UpkeepPerformed(
-    uint256 indexed id,
-    bool indexed success,
-    uint32 checkBlockNumber,
-    uint256 gasUsed,
-    uint256 linkNative,
-    uint96 gasPayment,
-    uint96 totalPayment
-  );
+  event UpkeepPerformed(uint256 indexed id, bool indexed success, UpkeepPerformedLogFields upkeepPerformedLogFields);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);

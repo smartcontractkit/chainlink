@@ -147,32 +147,48 @@ contract KeeperRegistry2_0 is
         s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
       }
     }
-    // This is the non sig verification gas overhead that will be split across performed upkeeps
+    // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData byte
-    gasOverhead = gasOverhead - gasleft() + 16 * msg.data.length + ACCOUNTING_GAS_OVERHEAD;
+    gasOverhead =
+      (gasOverhead - gasleft() + 16 * msg.data.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
+      numUpkeepsPassedChecks;
 
-    // TODO: Account for batch
-    // TODO: calculate actual gas used and account for sig verification setting
-    // Calculate actual payment amount
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
-      hotVars,
-      upkeepTransmitInfo[0].gasUsed,
-      0, // TODO: calculate actual overheadgd
-      upkeepTransmitInfo[0].paymentParams.fastGasWei,
-      upkeepTransmitInfo[0].paymentParams.linkNative,
-      true
-    );
-    uint96 totalPayment = _distributePayment(parsedReport.upkeepIds[0], gasPayment, premium, signerIndices);
+    uint96 totalGasPayment;
+    uint96 totalPremiumPerSigner;
+    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+      (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+        hotVars,
+        upkeepTransmitInfo[i].gasUsed,
+        gasOverhead,
+        upkeepTransmitInfo[i].paymentParams.fastGasWei,
+        upkeepTransmitInfo[i].paymentParams.linkNative,
+        true
+      );
+      uint96 premiumPerSigner = premium / uint96(signerIndices.length);
+      uint96 total = gasPayment + premiumPerSigner * uint96(signerIndices.length);
+      s_upkeep[parsedReport.upkeepIds[i]].balance = s_upkeep[parsedReport.upkeepIds[i]].balance - total;
+      s_upkeep[parsedReport.upkeepIds[i]].amountSpent = s_upkeep[parsedReport.upkeepIds[i]].amountSpent + total;
 
-    emit UpkeepPerformed(
-      parsedReport.upkeepIds[0],
-      upkeepTransmitInfo[0].performSuccess,
-      parsedReport.wrappedPerformDatas[0].checkBlockNumber,
-      upkeepTransmitInfo[0].gasUsed,
-      upkeepTransmitInfo[0].paymentParams.linkNative,
-      gasPayment,
-      totalPayment
-    );
+      totalGasPayment += gasPayment;
+      totalPremiumPerSigner += premiumPerSigner;
+
+      UpkeepPerformedLogFields memory upkeepPerformedLogFields = UpkeepPerformedLogFields({
+        checkBlockNumber: parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+        gasUsed: upkeepTransmitInfo[i].gasUsed,
+        gasOverhead: gasOverhead,
+        linkNative: upkeepTransmitInfo[i].paymentParams.linkNative,
+        premiumPayment: premiumPerSigner * uint96(signerIndices.length),
+        totalPayment: total
+      });
+      emit UpkeepPerformed(parsedReport.upkeepIds[i], upkeepTransmitInfo[i].performSuccess, upkeepPerformedLogFields);
+    }
+
+    // Reimburse totalGasPayment to transmitter and premium among signers
+    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + totalGasPayment;
+    for (uint256 i = 0; i < signerIndices.length; i++) {
+      address transmitterToPay = s_transmittersList[signerIndices[i]];
+      s_transmitters[transmitterToPay].balance += totalPremiumPerSigner;
+    }
   }
 
   /**
