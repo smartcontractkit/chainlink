@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 
@@ -53,6 +54,7 @@ type Core struct {
 }
 
 func (core Core) ValidateConfig() (err error) {
+
 	// TODO: Add Core-specific validations
 	// https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
 	return
@@ -71,10 +73,19 @@ type Secrets struct {
 
 func (s *Secrets) ValidateConfig() (err error) {
 	if s.DatabaseURL == nil || (*url.URL)(s.DatabaseURL).String() == "" {
-		err = multierr.Append(err, ErrEmpty{Name: "Database URL", Msg: "must be provided and non-empty"})
+		err = multierr.Append(err, ErrEmpty{Name: "DatabaseURL", Msg: "must be provided and non-empty"})
+	} else {
+		if verr := config.ValidateDBURL((url.URL)(*s.DatabaseURL)); verr != nil {
+			err = multierr.Append(err, ErrInvalid{Name: "DatabaseURL", Value: "*****", Msg: "missing or insufficiently complex password. Database should be secured by a password matching the following complexity requirements: " + utils.PasswordComplexityRequirements})
+		}
+	}
+	if s.DatabaseBackupURL != nil {
+		if verr := config.ValidateDBURL((url.URL)(*s.DatabaseBackupURL)); verr != nil {
+			err = multierr.Append(err, ErrInvalid{Name: "DatabaseBackupURL", Value: "*****", Msg: "missing or insufficiently complex password. Database should be secured by a password matching the following complexity requirements: " + utils.PasswordComplexityRequirements})
+		}
 	}
 	if s.KeystorePassword == nil || *s.KeystorePassword == "" {
-		err = multierr.Append(err, ErrEmpty{Name: "Keystore Password", Msg: "must be provided and non-empty"})
+		err = multierr.Append(err, ErrEmpty{Name: "KeystorePassword", Msg: "must be provided and non-empty"})
 	}
 	return err
 }
@@ -125,6 +136,13 @@ type DatabaseListener struct {
 type DatabaseLock struct {
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
+}
+
+func (l *DatabaseLock) ValidateConfig() (err error) {
+	if l.LeaseRefreshInterval.Duration() > l.LeaseDuration.Duration()/2 {
+		err = multierr.Append(err, fmt.Errorf("LeaseRefreshInterval: %s must be less than or equal to half of LeaseDuration: %s", l.LeaseRefreshInterval.String(), l.LeaseDuration.String()))
+	}
+	return
 }
 
 type DatabaseBackup struct {
@@ -267,6 +285,13 @@ type P2PV1 struct {
 	NewStreamTimeout                 *models.Duration
 	PeerID                           *p2pkey.PeerID
 	PeerstoreWriteInterval           *models.Duration
+}
+
+func (p *P2PV1) ValidateConfig() (err error) {
+	if p.AnnouncePort != nil && p.AnnounceIP == nil {
+		err = multierr.Append(err, ErrMissing{Name: "AnnounceIP", Msg: fmt.Sprintf("required when AnnouncePort is set: %d", *p.AnnouncePort)})
+	}
+	return
 }
 
 type P2PV2 struct {

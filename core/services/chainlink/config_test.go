@@ -918,12 +918,12 @@ func TestConfig_full(t *testing.T) {
 var invalidTOML string
 
 func TestConfig_Validate(t *testing.T) {
-	var invalid Config
-	d := toml.NewDecoder(strings.NewReader(invalidTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&invalid))
-	if err := invalid.Validate(); assert.Error(t, err) {
-		got := err.Error()
-		exp := `3 errors:
+	for _, tt := range []struct {
+		name string
+		toml string
+		exp  string
+	}{
+		{name: "invalid", toml: invalidTOML, exp: `3 errors:
 	1) EVM: 3 errors:
 		1) ChainID: invalid value 1: duplicate - must be unique
 		2) 0: Nodes: 3 errors:
@@ -944,8 +944,14 @@ func TestConfig_Validate(t *testing.T) {
 		2) 0: Nodes: 3 errors:
 				1) Name: invalid value test: duplicate - must be unique
 				2) 0: TendermintURL: missing: required for all nodes
-				3) 1: TendermintURL: missing: required for all nodes`
-		assert.Equal(t, exp, got, diff.Diff(exp, got))
+				3) 1: TendermintURL: missing: required for all nodes`},
+		//TODO more
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var c Config
+			require.NoError(t, decodeTOMLStrict(tt.toml, &c))
+			assertValidationError(t, &c, tt.exp)
+		})
 	}
 }
 
@@ -1051,17 +1057,35 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 }
 
 //go:embed testdata/secrets-partial.toml
-var invalidSecretsTOML string
+var secretsPartialTOML string
 
 func TestSecrets_Validate(t *testing.T) {
-	var invalid Secrets
-	d := toml.NewDecoder(strings.NewReader(invalidSecretsTOML)).DisallowUnknownFields()
-	require.NoError(t, d.Decode(&invalid))
+	for _, tt := range []struct {
+		name string
+		toml string
+		exp  string
+	}{
+		{name: "partial", toml: secretsPartialTOML, exp: `2 errors:
+	1) DatabaseURL: empty: must be provided and non-empty
+	2) KeystorePassword: empty: must be provided and non-empty`},
+		//TODO more
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var s Secrets
+			require.NoError(t, decodeTOMLStrict(tt.toml, &s))
+			assertValidationError(t, &s, tt.exp)
+		})
+	}
+}
+
+func decodeTOMLStrict(s string, v interface{}) error {
+	return toml.NewDecoder(strings.NewReader(s)).DisallowUnknownFields().Decode(v)
+}
+
+func assertValidationError(t *testing.T, invalid interface{ Validate() error }, expMsg string) {
+	t.Helper()
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
-		exp := `2 errors:
-	1) Database URL: empty: must be provided and non-empty
-	2) Keystore Password: empty: must be provided and non-empty`
-		assert.Equal(t, exp, got, diff.Diff(exp, got))
+		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
 	}
 }

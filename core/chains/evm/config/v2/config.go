@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -50,6 +51,13 @@ type Chain struct {
 	NodePool *NodePool
 
 	OCR *OCR
+}
+
+func (c *Chain) ValidateConfig() (err error) {
+	if c.ChainType != nil && !config.ChainType(*c.ChainType).IsValid() {
+		err = multierr.Append(err, fmt.Errorf("ChainType: invalid: %s", *c.ChainType))
+	}
+	return
 }
 
 type BalanceMonitor struct {
