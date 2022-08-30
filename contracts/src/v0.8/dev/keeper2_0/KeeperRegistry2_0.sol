@@ -126,7 +126,6 @@ contract KeeperRegistry2_0 is
         numUpkeepsPassedChecks += 1;
       }
     }
-
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
