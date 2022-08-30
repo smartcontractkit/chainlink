@@ -749,30 +749,6 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @dev Distributes the payment for an upkeep to transmitters and signers
-   * transmitter is paid for the gas cost and premium is divided among all signers
-   */
-  function _distributePayment(
-    uint256 upkeepId,
-    uint96 gasPayment,
-    uint96 premium,
-    uint8[] memory signerIndices
-  ) internal returns (uint96) {
-    uint96 premiumPerSigner = premium / uint96(signerIndices.length);
-    uint96 totalPayment = gasPayment + premiumPerSigner * uint96(signerIndices.length);
-
-    s_upkeep[upkeepId].balance = s_upkeep[upkeepId].balance - totalPayment;
-    s_upkeep[upkeepId].amountSpent = s_upkeep[upkeepId].amountSpent + totalPayment;
-
-    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
-    for (uint256 i = 0; i < signerIndices.length; i++) {
-      address transmitterToPay = s_transmittersList[signerIndices[i]];
-      s_transmitters[transmitterToPay].balance += premiumPerSigner;
-    }
-    return totalPayment;
-  }
-
-  /**
    * @dev calls the Upkeep target with the performData param passed in by the
    * transmitter and the exact gas required by the Upkeep
    */
