@@ -145,6 +145,7 @@ contract KeeperRegistry2_0 is
           parsedReport.wrappedPerformDatas[i].performData
         );
         s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+        // Deduct that gasUsed by upkeep from our running overhead counter
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
       }
     }
@@ -154,42 +155,30 @@ contract KeeperRegistry2_0 is
       (gasOverhead - gasleft() + 16 * msg.data.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
       numUpkeepsPassedChecks;
 
+    uint96 gasPayment;
+    uint96 premiumPerSigner;
     uint96 totalGasPayment;
     uint96 totalPremiumPerSigner;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      (gasPayment, premiumPerSigner) = _postPerformUpkeep(
         hotVars,
-        upkeepTransmitInfo[i].gasUsed,
+        parsedReport.upkeepIds[i],
+        uint96(signerIndices.length),
+        parsedReport.wrappedPerformDatas[i].checkBlockNumber,
         gasOverhead,
-        upkeepTransmitInfo[i].paymentParams.fastGasWei,
-        upkeepTransmitInfo[i].paymentParams.linkNative,
-        true
+        upkeepTransmitInfo[i]
       );
-      uint96 premiumPerSigner = premium / uint96(signerIndices.length);
-      uint96 total = gasPayment + premiumPerSigner * uint96(signerIndices.length);
-      s_upkeep[parsedReport.upkeepIds[i]].balance = s_upkeep[parsedReport.upkeepIds[i]].balance - total;
-      s_upkeep[parsedReport.upkeepIds[i]].amountSpent = s_upkeep[parsedReport.upkeepIds[i]].amountSpent + total;
-
       totalGasPayment += gasPayment;
       totalPremiumPerSigner += premiumPerSigner;
-
-      UpkeepPerformedLogFields memory upkeepPerformedLogFields = UpkeepPerformedLogFields({
-        checkBlockNumber: parsedReport.wrappedPerformDatas[i].checkBlockNumber,
-        gasUsed: upkeepTransmitInfo[i].gasUsed,
-        gasOverhead: gasOverhead,
-        linkNative: upkeepTransmitInfo[i].paymentParams.linkNative,
-        premiumPayment: premiumPerSigner * uint96(signerIndices.length),
-        totalPayment: total
-      });
-      emit UpkeepPerformed(parsedReport.upkeepIds[i], upkeepTransmitInfo[i].performSuccess, upkeepPerformedLogFields);
     }
 
-    // Reimburse totalGasPayment to transmitter and premium among signers
+    // Reimburse totalGasPayment to transmitter
     s_transmitters[msg.sender].balance += totalGasPayment;
     if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      // Pay all the premium to transmitter as there are no signers
+      // Pay all the premium to transmitter as there are no signers in case of skipSigVerification
       s_transmitters[msg.sender].balance += totalPremiumPerSigner * uint96(signerIndices.length);
     } else {
+      // Split premium among signers
       for (uint256 i = 0; i < signerIndices.length; i++) {
         address transmitterToPay = s_transmittersList[signerIndices[i]];
         s_transmitters[transmitterToPay].balance += totalPremiumPerSigner;
@@ -763,6 +752,45 @@ contract KeeperRegistry2_0 is
     gasUsed = gasUsed - gasleft();
 
     return (success, gasUsed);
+  }
+
+  /**
+   * @dev does postPerform payment processing for an upkeep. Calculates gasPayment and
+   * premiumPerSigner. Deducts upkeep's balance for the total payment
+   */
+  function _postPerformUpkeep(
+    HotVars memory hotVars,
+    uint256 upkeepId,
+    uint96 numSigners,
+    uint32 checkBlockNumber,
+    uint256 gasOverhead,
+    UpkeepTransmitInfo memory upkeepTransmitInfo
+  ) internal returns (uint96, uint96) {
+    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+      hotVars,
+      upkeepTransmitInfo.gasUsed,
+      gasOverhead,
+      upkeepTransmitInfo.paymentParams.fastGasWei,
+      upkeepTransmitInfo.paymentParams.linkNative,
+      true
+    );
+    uint96 premiumPerSigner = premium / numSigners;
+    uint96 total = gasPayment + premiumPerSigner * numSigners;
+
+    s_upkeep[upkeepId].balance -= total;
+    s_upkeep[upkeepId].amountSpent += total;
+
+    UpkeepPerformedLogFields memory upkeepPerformedLogFields = UpkeepPerformedLogFields({
+      checkBlockNumber: checkBlockNumber,
+      gasUsed: upkeepTransmitInfo.gasUsed,
+      gasOverhead: gasOverhead,
+      linkNative: upkeepTransmitInfo.paymentParams.linkNative,
+      premiumPayment: premiumPerSigner * numSigners,
+      totalPayment: total
+    });
+    emit UpkeepPerformed(upkeepId, upkeepTransmitInfo.performSuccess, upkeepPerformedLogFields);
+
+    return (gasPayment, premiumPerSigner);
   }
 
   ////////
