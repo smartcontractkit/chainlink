@@ -187,8 +187,9 @@ contract KeeperRegistry2_0 is
       s_transmitters[msg.sender].balance += totalPremiumPerSigner * uint96(signerIndices.length);
     } else {
       // Split premium among signers
+      address transmitterToPay;
       for (uint256 i = 0; i < signerIndices.length; i++) {
-        address transmitterToPay = s_transmittersList[signerIndices[i]];
+        transmitterToPay = s_transmittersList[signerIndices[i]];
         s_transmitters[transmitterToPay].balance += totalPremiumPerSigner;
       }
     }
