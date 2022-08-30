@@ -54,9 +54,9 @@ type Config interface {
 }
 
 type observationData struct {
-	Head        *evmtypes.Head `json:"head"`
-	UpkeepID    string         `json:"upkeepID"`
-	PerformData []byte         `json:"performData"`
+	Head        *evmtypes.Head             `json:"head"`
+	Upkeep      *keeper.UpkeepRegistration `json:"upkeepID"`
+	PerformData []byte                     `json:"performData"`
 }
 
 func newObservationDataFromRaw(data []byte) (*observationData, error) {
@@ -118,11 +118,11 @@ func NewPlugin(
 	}
 }
 
-func (p *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
+func (p *plugin) Query(_ context.Context, _ types.ReportTimestamp) (types.Query, error) {
 	return nil, nil
 }
 
-func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q types.Query) (types.Observation, error) {
+func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, _ types.Query) (types.Observation, error) {
 	currentHead := p.headsMngr.getCurrentHead()
 	if currentHead == nil {
 		return nil, errors.New("current head is nil")
@@ -130,6 +130,11 @@ func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q typ
 
 	upkeep, err := p.getEligibleUpkeep(currentHead)
 	if err != nil {
+		if err == errNoEligibleUpkeepFound {
+			p.logger.Debugf("no eligible upkeeps found for the head %d", currentHead.Number)
+			return nil, nil
+		}
+
 		return nil, errors.Wrap(err, "failed to get eligible upkeep")
 	}
 
@@ -140,20 +145,31 @@ func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, q typ
 
 	return (&observationData{
 		Head:        currentHead,
-		UpkeepID:    upkeep.UpkeepID.String(),
+		Upkeep:      upkeep,
 		PerformData: performUpkeepData,
 	}).raw()
 }
 
-func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, q types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
-	observations := make([]*observationData, len(obs))
-	for i, ob := range obs {
+func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Query, obs []types.AttributedObservation) (bool, types.Report, error) {
+	var observations []*observationData
+	for _, ob := range obs {
+		if len(ob.Observation) == 0 {
+			continue
+		}
+
+		p.logger.Info("Report:", string(ob.Observation))
+
 		od, err := newObservationDataFromRaw(ob.Observation)
 		if err != nil {
 			return false, nil, err
 		}
 
-		observations[i] = od
+		observations = append(observations, od)
+	}
+
+	if len(observations) == 0 {
+		p.logger.Info("no observations provided")
+		return false, nil, nil
 	}
 
 	sort.SliceStable(observations, func(i, j int) bool {
@@ -162,18 +178,9 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, q types.Qu
 
 	var observation *observationData
 	for _, od := range observations {
-		upkeep, err := p.getEligibleUpkeep(od.Head)
+		performUpkeepData, err := p.checkUpkeep(ctx, od.Head, od.Upkeep)
 		if err != nil {
-			if err == errNoEligibleUpkeepFound {
-				continue
-			}
-
-			return false, nil, errors.Wrapf(err, "failed to get eligible upkeep for head %d", od.Head.Number)
-		}
-
-		performUpkeepData, err := p.checkUpkeep(ctx, od.Head, upkeep)
-		if err != nil {
-			return false, nil, errors.Wrapf(err, "failed to check upkeep %s for head %d", upkeep.UpkeepID, od.Head.Number)
+			return false, nil, errors.Wrapf(err, "failed to check upkeep %s for head %d", od.Upkeep.UpkeepID, od.Head.Number)
 		}
 
 		if bytes.Equal(od.PerformData, performUpkeepData) {
@@ -272,7 +279,7 @@ func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *k
 		"jobSpec": map[string]interface{}{
 			"fromAddress":     upkeep.Registry.FromAddress.String(),
 			"contractAddress": upkeep.Registry.ContractAddress.String(),
-			"upkeepID":        upkeep.UpkeepID,
+			"upkeepID":        upkeep.UpkeepID.ToInt(),
 			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
 				p.cfg.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
 			"gasPrice":   gasPrice,

@@ -449,43 +449,41 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			NewTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 		})
 
-		services := []job.ServiceCtx{runResultSaver, keeperProvider, registrySynchronizer}
-
-		// for i := uint8(0); i < cfg.OCRInstances; i++ {
-		for i := uint8(0); i < 1; i++ {
-			var oracle *libocr2.Oracle
-			if oracle, err = libocr2.NewOracle(libocr2.OracleArgs{
-				BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-				V2Bootstrappers:              bootstrapPeers,
-				ContractTransmitter:          keeperProvider.ContractTransmitter(),
-				ContractConfigTracker:        keeperProvider.ContractConfigTracker(i),
-				Database:                     ocrDB,
-				LocalConfig:                  lc,
-				Logger:                       ocrLogger,
-				MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-				OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(i),
-				OffchainKeyring:              kb,
-				OnchainKeyring:               kb,
-				ReportingPluginFactory: keeperreportingplugin.NewFactory(
-					lggr.Named("OCR2Keeper").With("instance", i),
-					jobSpec.ID,
-					spec.EVMChainID.String(),
-					chain.Config(),
-					orm,
-					chain.Client(),
-					chain.HeadBroadcaster(),
-					spec.ContractID,
-					d.pipelineRunner,
-					chain.TxManager().GetGasEstimator(),
-				),
-			}); err != nil {
-				return nil, errors.Wrap(err, "error calling NewOracle")
-			}
-
-			services = append(services, job.NewServiceAdapter(oracle))
+		oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          keeperProvider.ContractTransmitter(),
+			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory: keeperreportingplugin.NewFactory(
+				lggr.Named("OCR2Keeper"),
+				jobSpec.ID,
+				spec.EVMChainID.String(),
+				chain.Config(),
+				orm,
+				chain.Client(),
+				chain.HeadBroadcaster(),
+				spec.ContractID,
+				d.pipelineRunner,
+				chain.TxManager().GetGasEstimator(),
+			),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
 
-		return services, nil
+		return []job.ServiceCtx{
+			runResultSaver,
+			keeperProvider,
+			registrySynchronizer,
+			job.NewServiceAdapter(oracle),
+		}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
