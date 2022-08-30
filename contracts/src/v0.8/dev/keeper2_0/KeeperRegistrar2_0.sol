@@ -63,6 +63,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   event RegistrationRequested(
     bytes32 indexed hash,
     string name,
+    bytes encryptedEmail,
     address indexed upkeepContract,
     uint32 gasLimit,
     address adminAddress,
@@ -119,6 +120,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @notice register can only be called through transferAndCall on LINK contract
    * @param name string of the upkeep to be registered
+   * @param encryptedEmail email address of upkeep contact
    * @param upkeepContract address to perform upkeep on
    * @param gasLimit amount of gas to provide the target contract when performing upkeep
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
@@ -128,6 +130,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   function register(
     string memory name,
+    bytes calldata encryptedEmail,
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
@@ -140,7 +143,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     }
     bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
 
-    emit RegistrationRequested(hash, name, upkeepContract, gasLimit, adminAddress, checkData, amount);
+    emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
 
     Config memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
