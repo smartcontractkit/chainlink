@@ -147,10 +147,12 @@ contract KeeperRegistry2_0 is
       //signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
 
+    bool[] memory performSuccess = new bool[](parsedReport.upkeepIds.length);
+    uint256[] memory gasUsed = new uint256[](parsedReport.upkeepIds.length);
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       if (earlyChecksPassed[i]) {
         // Actually perform the target upkeep
-        (bool success, uint256 gasUsed) = _performUpkeep(upkeeps[i], parsedReport.wrappedPerformDatas[i].performData);
+        (performSuccess[i], gasUsed[i]) = _performUpkeep(upkeeps[i], parsedReport.wrappedPerformDatas[i].performData);
         s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
       }
     }
