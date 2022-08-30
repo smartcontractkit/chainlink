@@ -45,8 +45,15 @@ const (
 
 // block is used to key into a set that tracks beacon blocks.
 type block struct {
+	hash        common.Hash
 	blockNumber uint64
 	confDelay   uint32
+}
+
+type callback struct {
+	hash        common.Hash
+	blockNumber uint64
+	requestID   uint64
 }
 
 type coordinator struct {
@@ -67,7 +74,7 @@ type coordinator struct {
 	// set of blocks that have been scheduled for transmission.
 	toBeTransmittedBlocks map[block]struct{}
 	// set of request id's that have been scheduled for transmission.
-	toBeTransmittedCallbacks map[uint64]struct{}
+	toBeTransmittedCallbacks map[callback]struct{}
 	// transmittedMu protects the toBeTransmittedBlocks and toBeTransmittedCallbacks
 	transmittedMu sync.Mutex
 }
@@ -109,7 +116,7 @@ func New(
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
 		toBeTransmittedBlocks:    make(map[block]struct{}),
-		toBeTransmittedCallbacks: make(map[uint64]struct{}),
+		toBeTransmittedCallbacks: make(map[callback]struct{}),
 		transmittedMu:            sync.Mutex{},
 	}, nil
 }
@@ -178,6 +185,13 @@ func (c *coordinator) ReportBlocks(
 	}
 	currentHeight := currentHead.Number
 
+	// Get mapping of block numbers to block hashes.
+	blockhashesMapping, err := c.getBlockhashesMapping(ctx, uint64(currentHeight-c.lookbackBlocks), uint64(currentHeight))
+	if err != nil {
+		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
+		return
+	}
+
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
@@ -212,14 +226,14 @@ func (c *coordinator) ReportBlocks(
 		randomnessRequestedLogs, randomWordsFulfilledLogs, newTransmissionLogs, randomnessFulfillmentRequestedLogs))
 
 	blocksRequested := make(map[block]struct{})
-	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
+	unfulfilled := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
 
 	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
-	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
+	callbacksRequested, unfulfilled := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
 	}
@@ -279,6 +293,7 @@ func (c *coordinator) getBlocks(
 		blockHeights = append(blockHeights, k.blockNumber)
 	}
 
+	blockHeights = removeDuplicates(blockHeights)
 	heads, err := c.lp.GetBlocks(blockHeights, pg.WithParentCtx(ctx))
 	if len(heads) != len(blockHeights) {
 		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockHeights), len(heads))
@@ -300,6 +315,43 @@ func (c *coordinator) getBlocks(
 		}
 	}
 	return
+}
+
+// getBlockhashesMapping returns the blockhashes within a range.
+func (c *coordinator) getBlockhashesMapping(
+	ctx context.Context,
+	startHeight uint64,
+	endHeight uint64,
+) (blockhashesMapping map[uint64]common.Hash, err error) {
+
+	blockHeights := make([]uint64, endHeight-startHeight+1)
+	for i := range blockHeights {
+		blockHeights[i] = uint64(i) + startHeight
+	}
+
+	heads, err := c.lp.GetBlocks(blockHeights, pg.WithParentCtx(ctx))
+	if len(heads) != len(blockHeights) {
+		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockHeights), len(heads))
+		return
+	}
+
+	blockhashesMapping = make(map[uint64]common.Hash)
+	for _, head := range heads {
+		blockhashesMapping[uint64(head.BlockNumber)] = head.BlockHash
+	}
+	return
+}
+
+func removeDuplicates(uintSlice []uint64) []uint64 {
+	allKeys := make(map[uint64]bool)
+	list := []uint64{}
+	for _, item := range uintSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
 }
 
 // getFulfilledRequestIDs returns the request IDs referenced by the given RandomWordsFulfilled logs slice.
@@ -366,6 +418,7 @@ func (c *coordinator) filterEligibleCallbacks(
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
+	blockhashesMapping map[uint64]common.Hash,
 ) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block) {
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
@@ -383,8 +436,12 @@ func (c *coordinator) filterEligibleCallbacks(
 
 		// check that the callback hasn't been scheduled for transmission
 		// so we don't fulfill the callback twice.
-		_, transmitted := c.toBeTransmittedCallbacks[r.Callback.RequestID.Uint64()]
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) && !transmitted {
+		_, transmitted := c.toBeTransmittedCallbacks[callback{
+			blockNumber: r.NextBeaconOutputHeight,
+			requestID:   r.Callback.RequestID.Uint64(),
+			hash:        blockhashesMapping[r.NextBeaconOutputHeight],
+		}]
+		if !transmitted && isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			callbacks = append(callbacks, r)
 
 			// We could have a callback request that was made in a different block than what we
@@ -404,6 +461,7 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
+	blockhashesMapping map[uint64]common.Hash,
 ) (unfulfilled []block) {
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
@@ -421,11 +479,12 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 
 		// check if the block has been scheduled for transmission so that we don't
 		// retransmit for the same block.
-		_, blockTransmitted := c.toBeTransmittedBlocks[block{
+		_, transmitted := c.toBeTransmittedBlocks[block{
 			blockNumber: r.NextBeaconOutputHeight,
 			confDelay:   uint32(r.ConfDelay.Uint64()),
+			hash:        blockhashesMapping[r.NextBeaconOutputHeight],
 		}]
-		if isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) && !blockTransmitted {
+		if !transmitted && isBlockEligible(r.NextBeaconOutputHeight, r.ConfDelay, currentHeight) {
 			unfulfilled = append(unfulfilled, block{
 				blockNumber: r.NextBeaconOutputHeight,
 				confDelay:   uint32(r.ConfDelay.Uint64()),
@@ -518,15 +577,50 @@ func (c *coordinator) unmarshalLogs(
 func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vrftypes.AbstractReport) error {
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
+
+	blocksRequested := make(map[block]struct{})
+	callbacksRequested := []callback{}
+
+	// Get all requested blocks and callbacks.
 	for _, output := range report.Outputs {
-		c.toBeTransmittedBlocks[block{
+		blocksRequested[block{
 			blockNumber: output.BlockHeight,
 			confDelay:   output.ConfirmationDelay,
 		}] = struct{}{}
 		for _, cb := range output.Callbacks {
-			c.toBeTransmittedCallbacks[cb.RequestID] = struct{}{}
+			callbacksRequested = append(callbacksRequested, callback{
+				blockNumber: cb.BeaconHeight,
+				requestID:   cb.RequestID,
+			})
 		}
 	}
+
+	// Get corresponding blocks from log poller.
+	blocks, err := c.getBlocks(ctx, blocksRequested)
+	if err != nil {
+		return err
+	}
+
+	// Mark blocks as transmitted and map them to their heights.
+	blockhashMapping := make(map[uint64]common.Hash)
+	for _, b := range blocks {
+		c.toBeTransmittedBlocks[block{
+			hash:        b.Hash,
+			blockNumber: b.Height,
+			confDelay:   b.ConfirmationDelay,
+		}] = struct{}{}
+		blockhashMapping[b.Height] = b.Hash
+	}
+
+	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
+	for _, cb := range callbacksRequested {
+		c.toBeTransmittedCallbacks[callback{
+			hash:        blockhashMapping[cb.blockNumber],
+			blockNumber: cb.blockNumber,
+			requestID:   cb.requestID,
+		}] = struct{}{}
+	}
+
 	return nil
 }
 
