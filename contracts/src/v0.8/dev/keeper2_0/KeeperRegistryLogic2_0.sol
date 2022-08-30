@@ -299,6 +299,40 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
+  function pauseUpkeep(uint256 id) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(id);
+    if (upkeep.paused) revert OnlyUnpausedUpkeep();
+    s_upkeep[id].paused = true;
+    s_upkeepIDs.remove(id);
+    emit UpkeepPaused(id);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function unpauseUpkeep(uint256 id) external {
+    Upkeep memory upkeep = s_upkeep[id];
+    requireAdminAndNotCancelled(id);
+    if (!upkeep.paused) revert OnlyPausedUpkeep();
+    s_upkeep[id].paused = false;
+    s_upkeepIDs.add(id);
+    emit UpkeepUnpaused(id);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
+    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
+    requireAdminAndNotCancelled(id);
+    s_checkData[id] = newCheckData;
+    emit UpkeepCheckDataUpdated(id, newCheckData);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&

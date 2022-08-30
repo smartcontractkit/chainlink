@@ -25,6 +25,7 @@ contract KeeperRegistry2_0 is
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
+  // Immutable address of logic contract where some functionality is delegated to
   address public immutable KEEPER_REGISTRY_LOGIC;
 
   /**
@@ -42,6 +43,11 @@ contract KeeperRegistry2_0 is
    * - KeeperRegistry 1.0.0: initial release
    */
   string public constant override typeAndVersion = "KeeperRegistry 2.0.0";
+
+  /**
+   * @inheritdoc MigratableKeeperRegistryInterface
+   */
+  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
    * @param paymentModel one of Default, Arbitrum, and Optimism
@@ -62,7 +68,9 @@ contract KeeperRegistry2_0 is
     setOnChainConfig(onChainConfig);
   }
 
+  ////////
   // ACTIONS
+  ////////
 
   /**
    * @inheritdoc OCR2Abstract
@@ -126,21 +134,7 @@ contract KeeperRegistry2_0 is
     );
   }
 
-  struct Report {
-    uint256 upkeepId; // Id of upkeep
-    PerformDataWrapper performDataWrapper; // Contains checkInfo and performData for the upkeep
-  }
-
-  // _decodeReport decodes a serialized report into a Report struct
-  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    uint256 upkeepId;
-    bytes memory rawBytes;
-    PerformDataWrapper memory performDataWrapper;
-    (upkeepId, rawBytes) = abi.decode(rawReport, (uint256, bytes));
-    performDataWrapper = abi.decode(rawBytes, (PerformDataWrapper));
-    return Report({upkeepId: upkeepId, performDataWrapper: performDataWrapper});
-  }
-
+  // TODO: move to OCR abstract
   function _verifyReportSignature(
     bytes32[3] calldata reportContext,
     bytes calldata report,
@@ -172,64 +166,6 @@ contract KeeperRegistry2_0 is
     return signerIndices;
   }
 
-  function _distributePayment(
-    uint256 upkeepId,
-    uint96 gasPayment,
-    uint96 premium,
-    uint8[] memory signerIndices
-  ) internal returns (uint96) {
-    uint96 premiumPerSigner = premium / uint96(signerIndices.length);
-    uint96 totalPayment = gasPayment + premiumPerSigner * uint96(signerIndices.length);
-
-    s_upkeep[upkeepId].balance = s_upkeep[upkeepId].balance - totalPayment;
-    s_upkeep[upkeepId].amountSpent = s_upkeep[upkeepId].amountSpent + totalPayment;
-
-    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
-    for (uint256 i = 0; i < signerIndices.length; i++) {
-      address transmitterToPay = s_transmittersList[signerIndices[i]];
-      s_transmitters[transmitterToPay].balance += premiumPerSigner;
-    }
-    return totalPayment;
-  }
-
-  /**
-   * @notice adds a new upkeep
-   * @param target address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when
-   * performing upkeep
-   * @param admin address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData
-  ) external override returns (uint256 id) {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice simulated by keepers via eth_call to see if the upkeep needs to be
-   * performed. It returns the success status / failure reason along with the perform data payload.
-   * @param id identifier of the upkeep to check
-   */
-  function checkUpkeep(uint256 id)
-    external
-    override
-    cannotExecute
-    returns (
-      bool upkeepNeeded,
-      bytes memory performData,
-      UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
-    )
-  {
-    // Executed through logic contract
-    _fallback();
-  }
-
   /**
    * @notice simulates the upkeep with the perform data returned from
    * checkUpkeep
@@ -244,64 +180,6 @@ contract KeeperRegistry2_0 is
   {
     Upkeep memory upkeep = s_upkeep[id];
     return _performUpkeep(upkeep, performData);
-  }
-
-  /**
-   * @notice prevent an upkeep from being performed in the future
-   * @param id upkeep to be canceled
-   */
-  function cancelUpkeep(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice pause an upkeep
-   * @param id upkeep to be paused
-   */
-  function pauseUpkeep(uint256 id) external override {
-    Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(id);
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    s_upkeep[id].paused = true;
-    s_upkeepIDs.remove(id);
-    emit UpkeepPaused(id);
-  }
-
-  /**
-   * @notice unpause an upkeep
-   * @param id upkeep to be resumed
-   */
-  function unpauseUpkeep(uint256 id) external override {
-    Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(id);
-    if (!upkeep.paused) revert OnlyPausedUpkeep();
-    s_upkeep[id].paused = false;
-    s_upkeepIDs.add(id);
-    emit UpkeepUnpaused(id);
-  }
-
-  /**
-   * @notice update the check data of an upkeep
-   * @param id the id of the upkeep whose check data needs to be updated
-   * @param newCheckData the new check data
-   */
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
-    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    requireAdminAndNotCancelled(id);
-    s_checkData[id] = newCheckData;
-    emit UpkeepCheckDataUpdated(id, newCheckData);
-  }
-
-  /**
-   * @notice adds LINK funding for an upkeep by transferring from the sender's
-   * LINK balance
-   * @param id upkeep to fund
-   * @param amount number of LINK to transfer
-   */
-  function addFunds(uint256 id, uint96 amount) external override {
-    // Executed through logic contract
-    _fallback();
   }
 
   /**
@@ -324,114 +202,6 @@ contract KeeperRegistry2_0 is
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + amount;
 
     emit FundsAdded(id, sender, uint96(amount));
-  }
-
-  /**
-   * @notice removes funding from a canceled upkeep
-   * @param id upkeep to withdraw funds from
-   * @param to destination address for sending remaining funds
-   */
-  /**
-   * @dev nonRentrant as this is not callable from a user's performUpkeep
-   */
-  function withdrawFunds(uint256 id, address to) external nonReentrant {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice withdraws LINK funds collected through cancellation fees
-   */
-  function withdrawOwnerFunds() external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice allows the admin of an upkeep to modify gas limit
-   * @param id upkeep to be change the gas limit for
-   * @param gasLimit new gas limit for the upkeep
-   */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice recovers LINK funds improperly transferred to the registry
-   * @dev In principle this function’s execution cost could exceed block
-   * gas limit. However, in our anticipated deployment, the number of upkeeps and
-   * transmitters will be low enough to avoid this problem.
-   */
-  function recoverFunds() external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice withdraws a transmitter's payment, callable only by the transmitter's payee
-   * @param from transmitter address
-   * @param to address to send the payment to
-   */
-  function withdrawPayment(address from, address to) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice proposes the safe transfer of a transmitter's payee to another address
-   * @param transmitter address of the transmitter to transfer payee role
-   * @param proposed address to nominate for next payeeship
-   */
-  function transferPayeeship(address transmitter, address proposed) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice accepts the safe transfer of payee role for a transmitter
-   * @param transmitter address to accept the payee role for
-   */
-  function acceptPayeeship(address transmitter) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice proposes the safe transfer of an upkeep's admin role to another address
-   * @param id the upkeep id to transfer admin
-   * @param proposed address to nominate for the new upkeep admin
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice accepts the safe transfer of admin role for an upkeep
-   * @param id the upkeep id
-   */
-  function acceptUpkeepAdmin(uint256 id) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice signals to transmitters that they should not perform upkeeps until the
-   * contract has been unpaused
-   */
-  function pause() external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @notice signals to transmitters that they can perform upkeeps once again after
-   * having been paused
-   */
-  function unpause() external {
-    // Executed through logic contract
-    _fallback();
   }
 
   // SETTERS
@@ -553,58 +323,9 @@ contract KeeperRegistry2_0 is
     emit OnChainConfigSet(onChainConfig);
   }
 
-  /**
-   * @dev Should be called on every config change, either OCR or onChainConfig
-   * Recomputes the config digest and stores it
-   */
-  function _computeAndStoreConfigDigest(
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) internal {
-    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(block.number);
-    s_storage.configCount += 1;
-
-    s_hotVars.latestConfigDigest = _configDigestFromConfigData(
-      block.chainid,
-      address(this),
-      s_storage.configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    emit ConfigSet(
-      previousConfigBlockNumber,
-      s_hotVars.latestConfigDigest,
-      s_storage.configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-  }
-
-  /**
-   * @notice update the list of payees corresponding to the transmitters
-   * @param payees addresses corresponding to transmitters who are allowed to
-   * move payments which have been accrued
-   */
-  function setPayees(address[] calldata payees) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
+  ////////
   // GETTERS
+  ////////
 
   /**
    * @notice read all of the details about an upkeep
@@ -788,36 +509,9 @@ contract KeeperRegistry2_0 is
     return (true, configDigest, epoch);
   }
 
-  // MIGRATION
-
-  /**
-   * @notice sets the peer registry migration permission
-   */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
-    // Executed through logic contract
-    _fallback();
-  }
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
-
-  /**
-   * @inheritdoc MigratableKeeperRegistryInterface
-   */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
-    // Executed through logic contract
-    _fallback();
-  }
+  ////////
+  // INTERNAL FUNCTIONS
+  ////////
 
   /**
    * @dev This is the address to which proxy functions are delegated to
@@ -858,6 +552,81 @@ contract KeeperRegistry2_0 is
   }
 
   /**
+   * @dev Should be called on every config change, either OCR or onChainConfig
+   * Recomputes the config digest and stores it
+   */
+  function _computeAndStoreConfigDigest(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) internal {
+    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    s_storage.latestConfigBlockNumber = uint32(block.number);
+    s_storage.configCount += 1;
+
+    s_hotVars.latestConfigDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(this),
+      s_storage.configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    emit ConfigSet(
+      previousConfigBlockNumber,
+      s_hotVars.latestConfigDigest,
+      s_storage.configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+  }
+
+  // _decodeReport decodes a serialized report into a Report struct
+  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
+    uint256 upkeepId;
+    bytes memory rawBytes;
+    PerformDataWrapper memory performDataWrapper;
+    (upkeepId, rawBytes) = abi.decode(rawReport, (uint256, bytes));
+    performDataWrapper = abi.decode(rawBytes, (PerformDataWrapper));
+    return Report({upkeepId: upkeepId, performDataWrapper: performDataWrapper});
+  }
+
+  /**
+   * @dev Distributes the payment for an upkeep to transmitters and signers
+   * transmitter is paid for the gas cost and premium is divided among all signers
+   */
+  function _distributePayment(
+    uint256 upkeepId,
+    uint96 gasPayment,
+    uint96 premium,
+    uint8[] memory signerIndices
+  ) internal returns (uint96) {
+    uint96 premiumPerSigner = premium / uint96(signerIndices.length);
+    uint96 totalPayment = gasPayment + premiumPerSigner * uint96(signerIndices.length);
+
+    s_upkeep[upkeepId].balance = s_upkeep[upkeepId].balance - totalPayment;
+    s_upkeep[upkeepId].amountSpent = s_upkeep[upkeepId].amountSpent + totalPayment;
+
+    s_transmitters[msg.sender].balance = s_transmitters[msg.sender].balance + gasPayment;
+    for (uint256 i = 0; i < signerIndices.length; i++) {
+      address transmitterToPay = s_transmittersList[signerIndices[i]];
+      s_transmitters[transmitterToPay].balance += premiumPerSigner;
+    }
+    return totalPayment;
+  }
+
+  /**
    * @dev calls the Upkeep target with the performData param passed in by the
    * transmitter and the exact gas required by the Upkeep
    */
@@ -872,5 +641,247 @@ contract KeeperRegistry2_0 is
     gasUsed = gasUsed - gasleft();
 
     return (success, gasUsed);
+  }
+
+  ////////
+  // PROXY FUNCTIONS - EXECUTED THROUGH FALLBACK
+  ////////
+
+  /**
+   * @notice adds a new upkeep
+   * @param target address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when
+   * performing upkeep
+   * @param admin address to cancel upkeep and withdraw remaining funds
+   * @param checkData data passed to the contract when checking for upkeep
+   */
+  function registerUpkeep(
+    address target,
+    uint32 gasLimit,
+    address admin,
+    bytes calldata checkData
+  ) external override returns (uint256 id) {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice simulated by keepers via eth_call to see if the upkeep needs to be
+   * performed. It returns the success status / failure reason along with the perform data payload.
+   * @param id identifier of the upkeep to check
+   */
+  function checkUpkeep(uint256 id)
+    external
+    override
+    cannotExecute
+    returns (
+      bool upkeepNeeded,
+      bytes memory performData,
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed
+    )
+  {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice prevent an upkeep from being performed in the future
+   * @param id upkeep to be canceled
+   */
+  function cancelUpkeep(uint256 id) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice pause an upkeep
+   * @param id upkeep to be paused
+   */
+  function pauseUpkeep(uint256 id) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice unpause an upkeep
+   * @param id upkeep to be resumed
+   */
+  function unpauseUpkeep(uint256 id) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice update the check data of an upkeep
+   * @param id the id of the upkeep whose check data needs to be updated
+   * @param newCheckData the new check data
+   */
+  function updateCheckData(uint256 id, bytes calldata newCheckData) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice adds LINK funding for an upkeep by transferring from the sender's
+   * LINK balance
+   * @param id upkeep to fund
+   * @param amount number of LINK to transfer
+   */
+  function addFunds(uint256 id, uint96 amount) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice removes funding from a canceled upkeep
+   * @param id upkeep to withdraw funds from
+   * @param to destination address for sending remaining funds
+   */
+  /**
+   * @dev nonRentrant as this is not callable from a user's performUpkeep
+   */
+  function withdrawFunds(uint256 id, address to) external nonReentrant {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice allows the admin of an upkeep to modify gas limit
+   * @param id upkeep to be change the gas limit for
+   * @param gasLimit new gas limit for the upkeep
+   */
+  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice withdraws a transmitter's payment, callable only by the transmitter's payee
+   * @param from transmitter address
+   * @param to address to send the payment to
+   */
+  function withdrawPayment(address from, address to) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice proposes the safe transfer of a transmitter's payee to another address
+   * @param transmitter address of the transmitter to transfer payee role
+   * @param proposed address to nominate for next payeeship
+   */
+  function transferPayeeship(address transmitter, address proposed) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice accepts the safe transfer of payee role for a transmitter
+   * @param transmitter address to accept the payee role for
+   */
+  function acceptPayeeship(address transmitter) external {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice proposes the safe transfer of an upkeep's admin role to another address
+   * @param id the upkeep id to transfer admin
+   * @param proposed address to nominate for the new upkeep admin
+   */
+  function transferUpkeepAdmin(uint256 id, address proposed) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice accepts the safe transfer of admin role for an upkeep
+   * @param id the upkeep id
+   */
+  function acceptUpkeepAdmin(uint256 id) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @inheritdoc MigratableKeeperRegistryInterface
+   */
+  function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @inheritdoc MigratableKeeperRegistryInterface
+   */
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  ////////
+  // OWNER RESTRICTED FUNCTIONS
+  ////////
+
+  /**
+   * @notice recovers LINK funds improperly transferred to the registry
+   * @dev In principle this function’s execution cost could exceed block
+   * gas limit. However, in our anticipated deployment, the number of upkeeps and
+   * transmitters will be low enough to avoid this problem.
+   */
+  function recoverFunds() external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice withdraws LINK funds collected through cancellation fees
+   */
+  function withdrawOwnerFunds() external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice update the list of payees corresponding to the transmitters
+   * @param payees addresses corresponding to transmitters who are allowed to
+   * move payments which have been accrued
+   */
+  function setPayees(address[] calldata payees) external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice signals to transmitters that they should not perform upkeeps until the
+   * contract has been unpaused
+   */
+  function pause() external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice signals to transmitters that they can perform upkeeps once again after
+   * having been paused
+   */
+  function unpause() external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice sets the peer registry migration permission
+   */
+  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external {
+    // Executed through logic contract
+    // Restricted to onlyOwner in logic contract
+    _fallback();
   }
 }
