@@ -101,8 +101,6 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead = gasleft();
     HotVars memory hotVars = s_hotVars;
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
-    if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
-    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
     _requireExpectedMsgDataLength(report, rs, ss);
 
     Report memory parsedReport = _decodeReport(report);
@@ -134,6 +132,8 @@ contract KeeperRegistry2_0 is
 
     uint8[] memory signerIndices;
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
+      if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
+      if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
       signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
 
@@ -157,7 +157,7 @@ contract KeeperRegistry2_0 is
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo[0].gasUsed,
-      0, // TODO: calculate actual overhead
+      0, // TODO: calculate actual overheadgd
       upkeepTransmitInfo[0].paymentParams.fastGasWei,
       upkeepTransmitInfo[0].paymentParams.linkNative,
       true
