@@ -73,6 +73,22 @@ contract KeeperRegistry2_0 is
   ////////
 
   /**
+   * @dev This struct is used to maintain run time information about an upkeep in transmit function
+   * @member upkeep the upkeep struct
+   * @member earlyChecksPassed whether the upkeep passed early checks before perform
+   * @member paymentParams the paymentParams for this upkeep
+   * @member performSuccess whether the perform was successful
+   * @member gasUsed gasUsed by this upkeep in perform
+   */
+  struct UpkeepTransmitInfo {
+    Upkeep upkeep;
+    bool earlyChecksPassed;
+    PerformPaymentParams paymentParams;
+    bool performSuccess;
+    uint256 gasUsed;
+  }
+
+  /**
    * @inheritdoc OCR2Abstract
    */
   function transmit(
@@ -86,21 +102,19 @@ contract KeeperRegistry2_0 is
 
     HotVars memory hotVars = s_hotVars;
     Report memory parsedReport = _decodeReport(report);
-    Upkeep[] memory upkeeps = new Upkeep[](parsedReport.upkeepIds.length);
-    PerformPaymentParams[] memory paymentParams = new PerformPaymentParams[](parsedReport.upkeepIds.length);
-    bool[] memory earlyChecksPassed = new bool[](parsedReport.upkeepIds.length);
+    UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
     bool anyUpkeepPassedChecks;
     bool anyUpkeepRequiresSigVerification;
 
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      upkeeps[i] = s_upkeep[parsedReport.upkeepIds[i]];
-      paymentParams[i] = _generatePerformPaymentParams(upkeeps[i], hotVars, true);
-      earlyChecksPassed[i] = true;
+      upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
+      upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(upkeepTransmitInfo[i].upkeep, hotVars, true);
+      upkeepTransmitInfo[i].earlyChecksPassed = true;
       // Do some early sanity checks. These are done before signature verification to optimise gas
 
-      if (parsedReport.wrappedPerformDatas[i].checkBlockNumber <= upkeeps[i].lastPerformBlockNumber) {
+      if (parsedReport.wrappedPerformDatas[i].checkBlockNumber <= upkeepTransmitInfo[i].upkeep.lastPerformBlockNumber) {
         // @dev: Can happen when another report performed this upkeep after this report was generated
-        earlyChecksPassed[i] = false;
+        upkeepTransmitInfo[i].earlyChecksPassed = false;
         emit StaleUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
@@ -111,26 +125,26 @@ contract KeeperRegistry2_0 is
         // @dev: Can happen when the block on which report was generated got reorged
         // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
         // with the latest checkBlockNumber
-        earlyChecksPassed[i] = false;
+        upkeepTransmitInfo[i].earlyChecksPassed = false;
         emit ReorgedUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
-      if (upkeeps[i].maxValidBlocknumber <= block.number) {
+      if (upkeepTransmitInfo[i].upkeep.maxValidBlocknumber <= block.number) {
         // @dev: Can happen when an upkeep got cancelled after report was generated.
         // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-        earlyChecksPassed[i] = false;
+        upkeepTransmitInfo[i].earlyChecksPassed = false;
         emit CancelledUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
-      if (upkeeps[i].balance < paymentParams[i].maxLinkPayment) {
+      if (upkeepTransmitInfo[i].upkeep.balance < upkeepTransmitInfo[i].paymentParams.maxLinkPayment) {
         // @dev: Can happen due to flucutations in gas / link prices
-        earlyChecksPassed[i] = false;
+        upkeepTransmitInfo[i].earlyChecksPassed = false;
         emit InsufficientFundsUpkeepReport(parsedReport.upkeepIds[i]);
       }
 
-      if (earlyChecksPassed[i]) {
+      if (upkeepTransmitInfo[i].earlyChecksPassed) {
         anyUpkeepPassedChecks = true;
-        if (!upkeeps[i].skipSigVerification) anyUpkeepRequiresSigVerification = true;
+        if (!upkeepTransmitInfo[i].upkeep.skipSigVerification) anyUpkeepRequiresSigVerification = true;
       }
     }
 
@@ -139,20 +153,21 @@ contract KeeperRegistry2_0 is
     }
 
     uint8[] memory signerIndices;
+    // TODO: figure out signers in case of no verification
     if (anyUpkeepRequiresSigVerification) {
       // Verify report signature
       if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
       if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-      // TODO: fix stack too deep error
-      //signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
+      signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
 
-    bool[] memory performSuccess = new bool[](parsedReport.upkeepIds.length);
-    uint256[] memory gasUsed = new uint256[](parsedReport.upkeepIds.length);
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      if (earlyChecksPassed[i]) {
+      if (upkeepTransmitInfo[i].earlyChecksPassed) {
         // Actually perform the target upkeep
-        (performSuccess[i], gasUsed[i]) = _performUpkeep(upkeeps[i], parsedReport.wrappedPerformDatas[i].performData);
+        (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
+          upkeepTransmitInfo[i].upkeep,
+          parsedReport.wrappedPerformDatas[i].performData
+        );
         s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
       }
     }
