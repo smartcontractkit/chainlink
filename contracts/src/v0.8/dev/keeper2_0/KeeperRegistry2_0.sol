@@ -108,10 +108,14 @@ contract KeeperRegistry2_0 is
     Report memory parsedReport = _decodeReport(report);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
 
-    uint8 numUpkeepsPassedChecks;
-    uint8 numUpkeepsRequiresSigVerification;
+    uint16 numUpkeepsPassedChecks;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
+      if (upkeepTransmitInfo[i].upkeep.skipSigVerification != upkeepTransmitInfo[0].upkeep.skipSigVerification) {
+        // We don't allow batches with a mix of sigVerification and skipSigVerification upkeeps
+        revert InvalidReport();
+      }
+
       upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(upkeepTransmitInfo[i].upkeep, hotVars, true);
       upkeepTransmitInfo[i].earlyChecksPassed = _perPerformChecks(
         parsedReport.upkeepIds[i],
@@ -122,17 +126,14 @@ contract KeeperRegistry2_0 is
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         numUpkeepsPassedChecks += 1;
-        if (!upkeepTransmitInfo[i].upkeep.skipSigVerification) numUpkeepsRequiresSigVerification += 1;
       }
     }
 
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
-    uint8[] memory signerIndices; // TODO: figure out signers in case of no verification
-    // TODO: calculate sig overhead
-    if (numUpkeepsRequiresSigVerification > 0) {
-      // Verify report signature
+    uint8[] memory signerIndices;
+    if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
 
