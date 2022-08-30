@@ -9,8 +9,9 @@ import (
 	"reflect"
 	"time"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
+
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
@@ -21,7 +22,7 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 //
-// A note on Feature Flags
+// # A note on Feature Flags
 //
 // Feature flags should be used during development of large features that might
 // span more than one release cycle. Most changes that are not considered "complete"
@@ -297,6 +298,11 @@ type ConfigSchema struct {
 	AutoPprofMutexProfileFraction int             `env:"AUTO_PPROF_MUTEX_PROFILE_FRACTION" default:"1"` //nodoc
 	AutoPprofMemThreshold         utils.FileSize  `env:"AUTO_PPROF_MEM_THRESHOLD" default:"4gb"`        //nodoc
 	AutoPprofGoroutineThreshold   int             `env:"AUTO_PPROF_GOROUTINE_THRESHOLD" default:"5000"` //nodoc
+
+	// Pyroscope (live profiling)
+	PyroscopeAuthToken     string `env:"PYROSCOPE_AUTH_TOKEN"`                    //nodoc
+	PyroscopeServerAddress string `env:"PYROSCOPE_SERVER_ADDRESS"`                //nodoc
+	PyroscopeEnvironment   string `env:"PYROSCOPE_ENVIRONMENT" default:"mainnet"` //nodoc
 }
 
 // Name gets the environment variable Name for a config schema field
