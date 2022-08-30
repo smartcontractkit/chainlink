@@ -143,7 +143,7 @@ contract KeeperRegistry2_0 is
           upkeepTransmitInfo[i].upkeep,
           parsedReport.wrappedPerformDatas[i].performData
         );
-        s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+
         // Deduct that gasUsed by upkeep from our running overhead counter
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
       }
@@ -763,8 +763,8 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @dev does postPerform payment processing for an upkeep. Calculates gasPayment and
-   * premiumPerSigner. Deducts upkeep's balance for the total payment
+   * @dev does postPerform payment processing for an upkeep. Stores lastPerformBlock Calculates
+   * gasPayment and premiumPerSigner. Deducts upkeep's balance for the total payment
    */
   function _postPerformUpkeep(
     HotVars memory hotVars,
@@ -774,6 +774,7 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead,
     UpkeepTransmitInfo memory upkeepTransmitInfo
   ) internal returns (uint96, uint96) {
+    s_upkeep[upkeepId].lastPerformBlockNumber = uint32(block.number);
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
