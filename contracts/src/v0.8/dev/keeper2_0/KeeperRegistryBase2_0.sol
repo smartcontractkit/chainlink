@@ -115,6 +115,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error CheckDataExceedsLimit();
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();
+  error InvalidReport();
 
   enum MigrationPermission {
     NONE,
@@ -193,8 +194,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
 
   // Report transmitted by OCR to transmit function
   struct Report {
-    uint256 upkeepId; // Id of upkeep
-    PerformDataWrapper performDataWrapper; // Contains checkInfo and performData for the upkeep
+    uint256[] upkeepIds; // Ids of upkeeps
+    PerformDataWrapper[] wrappedPerformDatas; // Contains checkInfo and performData for the corresponding upkeeps
   }
 
   /**
