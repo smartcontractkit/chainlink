@@ -60,7 +60,7 @@ type logPoller struct {
 	finalityDepth     int64         // finality depth is taken to mean that block (head - finality) is finalized
 	backfillBatchSize int64         // batch size to use when backfilling finalized logs
 
-	filterMu  sync.Mutex
+	filterMu  sync.RWMutex
 	addresses map[common.Address]struct{}
 	eventSigs map[common.Hash]struct{}
 
@@ -506,6 +506,8 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *types.Heade
 }
 
 func (lp *logPoller) assertInFilter(eventSigs []common.Hash, addresses []common.Address) error {
+	lp.filterMu.RLock()
+	defer lp.filterMu.RUnlock()
 	for _, eventSig := range eventSigs {
 		if _, ok := lp.eventSigs[eventSig]; !ok {
 			return errors.Errorf("eventSig %x not registered", eventSig)
@@ -608,6 +610,12 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
+// GetBlocks tries to get the specified block numbers from the log pollers
+// blocks table. Returns the blocks it was able to find, empty slice if none.
+// It is not guaranteed to find the blocks specified, since
+// the log poller does not save blocks when backfilling.
+// It can be used as a cache of recent blocks (falling back to an RPC on cache miss),
+// to speed up querying and avoid loading an EVM node.
 func (lp *logPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	return lp.orm.GetBlocks(numbers, qopts...)
 }
