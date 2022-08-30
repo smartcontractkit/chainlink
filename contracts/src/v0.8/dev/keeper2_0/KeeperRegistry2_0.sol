@@ -86,15 +86,16 @@ contract KeeperRegistry2_0 is
 
     HotVars memory hotVars = s_hotVars;
     Report memory parsedReport = _decodeReport(report);
-    Upkeep memory upkeep = s_upkeep[parsedReport.upkeepId];
-    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
 
     // TODO: Batch upkeeps
+    Upkeep memory upkeep = s_upkeep[parsedReport.upkeepIds[0]];
+    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(upkeep, hotVars, true);
 
     // Do some early sanity checks. These are done before signature verification to optimise gas
-    if (parsedReport.performDataWrapper.checkBlockNumber <= upkeep.lastPerformBlockNumber) revert StaleReport();
+    if (parsedReport.wrappedPerformDatas[0].checkBlockNumber <= upkeep.lastPerformBlockNumber) revert StaleReport();
     if (
-      blockhash(parsedReport.performDataWrapper.checkBlockNumber - 1) != parsedReport.performDataWrapper.checkBlockhash
+      blockhash(parsedReport.wrappedPerformDatas[0].checkBlockNumber - 1) !=
+      parsedReport.wrappedPerformDatas[0].checkBlockhash
       //@dev: We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber
     ) revert ReorgedReport();
@@ -108,8 +109,8 @@ contract KeeperRegistry2_0 is
     uint8[] memory signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
 
     // Actually perform the target upkeep
-    (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.performDataWrapper.performData);
-    s_upkeep[parsedReport.upkeepId].lastPerformBlockNumber = uint32(block.number);
+    (bool success, uint256 gasUsed) = _performUpkeep(upkeep, parsedReport.wrappedPerformDatas[0].performData);
+    s_upkeep[parsedReport.upkeepIds[0]].lastPerformBlockNumber = uint32(block.number);
 
     // Calculate actual payment amount
     // TODO: calculate actual gas used and account for sig verification setting
@@ -121,12 +122,12 @@ contract KeeperRegistry2_0 is
       paymentParams.linkNative,
       true
     );
-    uint96 totalPayment = _distributePayment(parsedReport.upkeepId, gasPayment, premium, signerIndices);
+    uint96 totalPayment = _distributePayment(parsedReport.upkeepIds[0], gasPayment, premium, signerIndices);
 
     emit UpkeepPerformed(
-      parsedReport.upkeepId,
+      parsedReport.upkeepIds[0],
       success,
-      parsedReport.performDataWrapper.checkBlockNumber,
+      parsedReport.wrappedPerformDatas[0].checkBlockNumber,
       gasUsed,
       paymentParams.linkNative,
       gasPayment,
@@ -564,12 +565,19 @@ contract KeeperRegistry2_0 is
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    uint256 upkeepId;
-    bytes memory rawBytes;
-    PerformDataWrapper memory performDataWrapper;
-    (upkeepId, rawBytes) = abi.decode(rawReport, (uint256, bytes));
-    performDataWrapper = abi.decode(rawBytes, (PerformDataWrapper));
-    return Report({upkeepId: upkeepId, performDataWrapper: performDataWrapper});
+    uint256[] memory upkeepIds;
+    bytes[] memory rawBytes;
+    PerformDataWrapper[] memory wrappedPerformDatas;
+
+    (upkeepIds, rawBytes) = abi.decode(rawReport, (uint256[], bytes[]));
+    if (upkeepIds.length != rawBytes.length) revert InvalidReport();
+
+    wrappedPerformDatas = new PerformDataWrapper[](upkeepIds.length);
+    for (uint256 i = 0; i < upkeepIds.length; i++) {
+      wrappedPerformDatas[i] = abi.decode(rawBytes[i], (PerformDataWrapper));
+    }
+
+    return Report({upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
   }
 
   function _verifyReportSignature(
