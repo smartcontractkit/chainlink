@@ -98,6 +98,7 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external override whenNotPaused {
+    uint256 gasOverhead = gasleft();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
     HotVars memory hotVars = s_hotVars;
@@ -152,8 +153,8 @@ contract KeeperRegistry2_0 is
       revert StaleReport();
     }
 
-    uint8[] memory signerIndices;
-    // TODO: figure out signers in case of no verification
+    uint8[] memory signerIndices; // TODO: figure out signers in case of no verification
+    // TODO: Calculate sig verification gas
     if (anyUpkeepRequiresSigVerification) {
       // Verify report signature
       if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDisgestMismatch();
@@ -171,6 +172,8 @@ contract KeeperRegistry2_0 is
         s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
       }
     }
+    // This is the non sig verification gas overhead that will be split across performed upkeeps
+    gasOverhead = gasOverhead - gasleft() + ACCOUNTING_GAS_OVERHEAD;
 
     // TODO: Account for batch
     // TODO: calculate actual gas used and account for sig verification setting
