@@ -610,6 +610,12 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
+// GetBlocks tries to get the specified block numbers from the log pollers
+// blocks table. Returns the blocks it was able to find, empty slice if none.
+// It is not guaranteed to find the blocks specified, since
+// the log poller does not save blocks when backfilling.
+// It can be used as a cache of recent blocks (falling back to an RPC on cache miss),
+// to speed up querying and avoid loading an EVM node.
 func (lp *logPoller) GetBlocks(numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	return lp.orm.GetBlocks(numbers, qopts...)
 }
