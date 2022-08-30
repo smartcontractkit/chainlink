@@ -148,11 +148,20 @@ contract KeeperRegistry2_0 is
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
       }
     }
+
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData byte
     gasOverhead =
       (gasOverhead - gasleft() + 16 * msg.data.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
       numUpkeepsPassedChecks;
+    // @dev We put cap on gasOverhead as we don't want it to increase it beyond which we did an
+    // initial payment check to prevent a revert in payment processing.
+    if (gasOverhead > REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1))) {
+      gasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
+    }
+    if (upkeepTransmitInfo[0].upkeep.skipSigVerification && gasOverhead > REGISTRY_GAS_OVERHEAD) {
+      gasOverhead = REGISTRY_GAS_OVERHEAD;
+    }
 
     uint96 gasPayment;
     uint96 premiumPerSigner;
