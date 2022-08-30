@@ -270,6 +270,31 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
   }
 
+  ////////
+  // GETTERS
+  ////////
+
+  // @dev We want to share these getters on both logic and proxy contract
+  function getPaymentModel() external view returns (PaymentModel) {
+    return i_paymentModel;
+  }
+
+  function getLinkAddress() external view returns (address) {
+    return address(i_link);
+  }
+
+  function getLinkNativeFeedAddress() external view returns (address) {
+    return address(i_linkNativeFeed);
+  }
+
+  function getFastGasFeedAddressl() external view returns (address) {
+    return address(i_fastGasFeed);
+  }
+
+  ////////
+  // INTERNAL
+  ////////
+
   /**
    * @dev retrieves feed data for fast gas/native and link/native prices. if the feed
    * data is stale it uses the configured fallback price. Once a price is picked
