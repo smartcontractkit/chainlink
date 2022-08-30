@@ -172,31 +172,28 @@ contract KeeperRegistry2_0 is
       }
     }
 
-    /*
-    TODO: payment calculation
-
-    // Calculate actual payment amount
+    // TODO: Account for batch
     // TODO: calculate actual gas used and account for sig verification setting
+    // Calculate actual payment amount
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      gasUsed,
+      upkeepTransmitInfo[0].gasUsed,
       0, // TODO: calculate actual overhead
-      paymentParams.fastGasWei,
-      paymentParams.linkNative,
+      upkeepTransmitInfo[0].paymentParams.fastGasWei,
+      upkeepTransmitInfo[0].paymentParams.linkNative,
       true
     );
     uint96 totalPayment = _distributePayment(parsedReport.upkeepIds[0], gasPayment, premium, signerIndices);
 
     emit UpkeepPerformed(
       parsedReport.upkeepIds[0],
-      success,
+      upkeepTransmitInfo[0].performSuccess,
       parsedReport.wrappedPerformDatas[0].checkBlockNumber,
-      gasUsed,
-      paymentParams.linkNative,
+      upkeepTransmitInfo[0].gasUsed,
+      upkeepTransmitInfo[0].paymentParams.linkNative,
       gasPayment,
       totalPayment
     );
-    */
   }
 
   /**
