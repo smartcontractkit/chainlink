@@ -172,7 +172,7 @@ describe('KeeperRegistrar2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistrar 1.1.0')
+      assert.equal(typeAndVersion, 'KeeperRegistrar 1.1.1')
     })
   })
 

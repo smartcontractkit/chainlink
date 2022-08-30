@@ -37,11 +37,12 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
 
   /**
    * @notice versions:
+   * - KeeperRegistrar 1.1.1: Remove source from register
    * - KeeperRegistrar 1.1.0: Add functionality for sender allowlist in auto approve
    *                        : Remove rate limit and add max allowed for auto approve
    * - KeeperRegistrar 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistrar 1.1.0";
+  string public constant override typeAndVersion = "KeeperRegistrar 1.1.1";
 
   struct Config {
     AutoApproveType autoApproveConfigType;
@@ -399,12 +400,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param expected address that should match the actual sender address
    * @param data bytes
    */
-  modifier isActualSender(address expected, bytes memory data) {
-    address actual;
-    assembly {
-      actual := mload(add(data, 292))
-    }
-    if (expected != actual) {
+  modifier isActualSender(address expected, bytes calldata data) {
+    // decode register function arguments to get actual sender
+    (, , , , , , , address sender) = abi.decode(
+      data[4:],
+      (string, bytes, address, uint32, address, bytes, uint96, address)
+    );
+    if (expected != sender) {
       revert SenderMismatch();
     }
     _;
