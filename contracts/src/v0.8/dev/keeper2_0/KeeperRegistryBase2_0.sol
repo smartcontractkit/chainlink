@@ -274,7 +274,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   // GETTERS
   ////////
 
-  // @dev We want to share these getters on both logic and proxy contract
   function getPaymentModel() external view returns (PaymentModel) {
     return i_paymentModel;
   }
@@ -353,7 +352,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        // @dev: fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
+        // @dev fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
         // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
         // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
