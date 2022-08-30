@@ -141,7 +141,7 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
-  ) internal returns (uint8[] memory) {
+  ) internal view returns (uint8[] memory) {
     uint8[] memory signerIndices = new uint8[](rs.length);
     // Verify signatures attached to report
     {

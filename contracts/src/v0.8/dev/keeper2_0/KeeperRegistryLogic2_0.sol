@@ -219,10 +219,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-
+    _requireAdminAndNotCancelled(id);
     s_upkeep[id].executeGas = gasLimit;
 
     emit UpkeepGasLimitSet(id, gasLimit);
@@ -272,7 +269,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
-    requireAdminAndNotCancelled(id);
+    _requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
     if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
@@ -300,8 +297,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function pauseUpkeep(uint256 id) external {
+    _requireAdminAndNotCancelled(id);
     Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(id);
     if (upkeep.paused) revert OnlyUnpausedUpkeep();
     s_upkeep[id].paused = true;
     s_upkeepIDs.remove(id);
@@ -312,8 +309,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function unpauseUpkeep(uint256 id) external {
+    _requireAdminAndNotCancelled(id);
     Upkeep memory upkeep = s_upkeep[id];
-    requireAdminAndNotCancelled(id);
     if (!upkeep.paused) revert OnlyPausedUpkeep();
     s_upkeep[id].paused = false;
     s_upkeepIDs.add(id);
@@ -324,8 +321,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function updateCheckData(uint256 id, bytes calldata newCheckData) external {
+    _requireAdminAndNotCancelled(id);
     if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    requireAdminAndNotCancelled(id);
     s_checkData[id] = newCheckData;
     emit UpkeepCheckDataUpdated(id, newCheckData);
   }
@@ -349,7 +346,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      requireAdminAndNotCancelled(id);
+      _requireAdminAndNotCancelled(id);
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];
@@ -434,5 +431,13 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);
+  }
+
+  /**
+   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
+   */
+  function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
+    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
+    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 }

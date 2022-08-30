@@ -56,9 +56,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   HotVars internal s_hotVars; // Mixture of config and state, used in transmit
   Storage internal s_storage; // Mixture of config and state, not used in transmit
-  uint64 s_offchainConfigVersion;
-  bytes s_offchainConfig;
-  mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission;
+  uint64 internal s_offchainConfigVersion; // Offchain config, stored on chain to enable easy distribution to all nodes
+  bytes internal s_offchainConfig; // Offchain config, stored on chain to enable easy distribution to all nodes
+  mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_NATIVE_FEED;
@@ -341,14 +341,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return (uint96(gasPayment256), uint96(premium256));
-  }
-
-  /**
-   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
-   */
-  function requireAdminAndNotCancelled(uint256 upkeepId) internal view {
-    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
-    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
   }
 
   /**
