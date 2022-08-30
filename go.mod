@@ -57,8 +57,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-relay v0.1.6-0.20220824173548-dab4ac0a6595
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220824175208-161686d7493e
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220825163921-30bc3f6d41dc
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220829192456-1cce38dd3129
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220829131014-01054c48dc0a
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220824174951-d1e2bcd51e46
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20220802183403-8cb2a10769b5
@@ -146,7 +146,7 @@ require (
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/gagliardetto/binary v0.6.1 // indirect
+	github.com/gagliardetto/binary v0.7.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
