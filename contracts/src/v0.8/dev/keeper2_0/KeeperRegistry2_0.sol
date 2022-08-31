@@ -417,6 +417,14 @@ contract KeeperRegistry2_0 is
   }
 
   /**
+   * @notice read the current info about any signer address
+   */
+  function getSignerInfo(address query) external view returns (bool active, uint8 index) {
+    Signer memory signer = s_signers[query];
+    return (signer.active, signer.index);
+  }
+
+  /**
    * @notice read the current state of the registry
    */
   function getState()

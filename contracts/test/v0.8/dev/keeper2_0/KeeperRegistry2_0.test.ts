@@ -324,11 +324,9 @@ describe('KeeperRegistry2_0', () => {
   */
 
   // TODO: transmit
-  // TODO: performUpkeepSimulate
-  // TODO: setConfig
-  // Done till setOnChainConfig
+  // TODO: simulatePerformUpkeep
+  // Done till geState
 
-  /*
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
@@ -388,7 +386,183 @@ describe('KeeperRegistry2_0', () => {
 
       assert.isTrue(before.add(amount).eq(after))
     })
-  })*/
+  })
+
+  describe('#setConfig', () => {
+    let newKeepers: string[]
+
+    beforeEach(async () => {
+      newKeepers = [
+        await personas.Eddy.getAddress(),
+        await personas.Nick.getAddress(),
+        await personas.Neil.getAddress(),
+        await personas.Carol.getAddress(),
+      ]
+    })
+
+    it('reverts when called by anyone but the owner', async () => {
+      await evmRevert(
+        registry
+          .connect(payee1)
+          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+        'Only callable by owner',
+      )
+    })
+
+    it('reverts if too many keepers set', async () => {
+      for (let i = 0; i < 40; i++) {
+        newKeepers.push(randomAddress())
+      }
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+        'TooManyOracles()',
+      )
+    })
+
+    it('reverts if f=0', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 0, '0x', 1, '0x'),
+        'IncorrectNumberOfFaultyOracles()',
+      )
+    })
+
+    it('reverts if signers != transmitters length', async () => {
+      let signers = [randomAddress()]
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(signers, newKeepers, 1, '0x', 1, '0x'),
+        'IncorrectNumberOfSigners()',
+      )
+    })
+
+    it('reverts if signers <= 3f', async () => {
+      newKeepers.pop()
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+        'IncorrectNumberOfSigners()',
+      )
+    })
+
+    it('reverts if onChainCOnfig is non empty', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 1, '0x12', 1, '0x'),
+        'OnchainConfigNonEmpty()',
+      )
+    })
+
+    it('reverts on repeated signers', async () => {
+      let newSigners = [
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+      ]
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newSigners, newKeepers, 1, '0x', 1, '0x'),
+        'RepeatedSigner()',
+      )
+    })
+
+    it('reverts on repeated transmitters', async () => {
+      let newTransmitters = [
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+      ]
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newTransmitters, 1, '0x', 1, '0x'),
+        'RepeatedTransmitter()',
+      )
+    })
+
+    it('stores new config and emits event', async () => {
+      let newOffChainVersion = BigNumber.from('2')
+      let newOffChainConfig = '0x1122'
+
+      const old = await registry.getState()
+      const oldState = old.state
+
+      const tx = await registry
+        .connect(owner)
+        .setConfig(
+          newKeepers,
+          newKeepers,
+          1,
+          '0x',
+          newOffChainVersion,
+          newOffChainConfig,
+        )
+
+      const updated = await registry.getState()
+
+      const updatedState = updated.state
+
+      // Old signer addresses which are not in new signers should be non active
+      for (var i = 0; i < keepers.length; i++) {
+        let signer = keepers[i]
+        if (!newKeepers.includes(signer)) {
+          assert((await registry.getSignerInfo(signer)).active == false)
+          assert((await registry.getSignerInfo(signer)).index == 0)
+        }
+      }
+      // New signer addresses should be active
+      for (var i = 0; i < newKeepers.length; i++) {
+        let signer = newKeepers[i]
+        assert((await registry.getSignerInfo(signer)).active == true)
+        assert((await registry.getSignerInfo(signer)).index == i)
+      }
+      // Old transmitter addresses which are not in new transmitter should be non active, but retain other info
+      for (var i = 0; i < keepers.length; i++) {
+        let transmitter = keepers[i]
+        if (!newKeepers.includes(transmitter)) {
+          assert(
+            (await registry.getTransmitterInfo(transmitter)).active == false,
+          )
+          assert((await registry.getTransmitterInfo(transmitter)).index == i)
+        }
+      }
+      // New transmitter addresses should be active
+      for (var i = 0; i < newKeepers.length; i++) {
+        let transmitter = newKeepers[i]
+        assert((await registry.getTransmitterInfo(transmitter)).active == true)
+        assert((await registry.getTransmitterInfo(transmitter)).index == i)
+      }
+
+      // config digest should be updated
+      assert(oldState.configCount + 1 == updatedState.configCount)
+      assert(
+        oldState.latestConfigBlockNumber !=
+          updatedState.latestConfigBlockNumber,
+      )
+      assert(oldState.latestConfigDigest != updatedState.latestConfigDigest)
+
+      //New config should be updated
+      assert.deepEqual(updated.signers, newKeepers)
+      assert.deepEqual(updated.transmitters, newKeepers)
+      assert(
+        updated.offchainConfigVersion.toString() ==
+          newOffChainVersion.toString(),
+      )
+      assert(updated.offchainConfig == newOffChainConfig)
+
+      // Event should have been emitted
+      await expect(tx).to.emit(registry, 'ConfigSet')
+    })
+  })
 
   describe('#setOnChainConfig', () => {
     const payment = BigNumber.from(1)
@@ -638,49 +812,6 @@ describe('KeeperRegistry2_0', () => {
       assert(
         upkeepIds[1].toString() == upkeepId2.toString(),
         'Correct upkeep ID should be returned',
-      )
-    })
-  })
-
-  describe('#setConfig', () => {
-    let newKeepers: string[]
-
-    beforeEach(async () => {
-      newKeepers = [
-        await personas.Eddy.getAddress(),
-        await personas.Nick.getAddress(),
-        await personas.Neil.getAddress(),
-        await personas.Carol.getAddress(),
-      ]
-    })
-
-    it('reverts when called by anyone but the owner', async () => {
-      await evmRevert(
-        registry
-          .connect(payee1)
-          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
-        'Only callable by owner',
-      )
-    })
-
-    it('reverts if too many keepers set', async () => {
-      for (let i = 0; i < 40; i++) {
-        newKeepers.push(randomAddress())
-      }
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
-        'TooManyOracles()',
-      )
-    })
-
-    it('reverts if f=0', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newKeepers, 0, '0x', 1, '0x'),
-        'IncorrectNumberOfFaultyOracles()',
       )
     })
   })
