@@ -94,6 +94,8 @@ describe('KeeperRegistry2_0', () => {
 
   const randomBytes = '0x1234abcd'
   const emptyBytes = '0x'
+  const emptyBytes32 =
+    '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   //const extraGas = BigNumber.from('250000')
   const stalenessSeconds = BigNumber.from(43820)
@@ -1579,6 +1581,76 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  describe('#pause', () => {
+    it('reverts if called by a non-owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).pause(),
+        'Only callable by owner',
+      )
+    })
+
+    it('marks the contract as paused', async () => {
+      assert.isFalse(await registry.paused())
+
+      await registry.connect(owner).pause()
+
+      assert.isTrue(await registry.paused())
+    })
+
+    it('Does not allow transmits when paused', async () => {
+      await registry.connect(owner).pause()
+
+      await evmRevert(
+        registry.transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          emptyBytes,
+          [],
+          [],
+          emptyBytes32,
+        ),
+        'Pausable: paused',
+      )
+    })
+
+    it('Does not allow creation of new upkeeps when paused', async () => {
+      await registry.connect(owner).pause()
+
+      await evmRevert(
+        registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            false,
+            emptyBytes,
+          ),
+        'Pausable: paused',
+      )
+    })
+  })
+
+  describe('#unpause', () => {
+    beforeEach(async () => {
+      await registry.connect(owner).pause()
+    })
+
+    it('reverts if called by a non-owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).unpause(),
+        'Only callable by owner',
+      )
+    })
+
+    it('marks the contract as not paused', async () => {
+      assert.isTrue(await registry.paused())
+
+      await registry.connect(owner).unpause()
+
+      assert.isFalse(await registry.paused())
+    })
+  })
+
   /*
   describe('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
@@ -2799,45 +2871,6 @@ describe('KeeperRegistry2_0', () => {
     })
   })
   */
-  /*
-  describe('#pause', () => {
-    it('reverts if called by a non-owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).pause(),
-        'Only callable by owner',
-      )
-    })
-
-    it('marks the contract as paused', async () => {
-      assert.isFalse(await registry.paused())
-
-      await registry.connect(owner).pause()
-
-      assert.isTrue(await registry.paused())
-    })
-  })
-
-  describe('#unpause', () => {
-    beforeEach(async () => {
-      await registry.connect(owner).pause()
-    })
-
-    it('reverts if called by a non-owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).unpause(),
-        'Only callable by owner',
-      )
-    })
-
-    it('marks the contract as not paused', async () => {
-      assert.isTrue(await registry.paused())
-
-      await registry.connect(owner).unpause()
-
-      assert.isFalse(await registry.paused())
-    })
-  })
-*/
 
   /*
   describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
