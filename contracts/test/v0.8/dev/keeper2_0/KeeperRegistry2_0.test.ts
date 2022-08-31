@@ -238,6 +238,8 @@ describe('KeeperRegistry2_0', () => {
     await linkToken
       .connect(owner)
       .transfer(await admin.getAddress(), toWei('1000'))
+    await linkToken.connect(admin).approve(registry.address, toWei('100'))
+
     const tx = await registry
       .connect(owner)
       .registerUpkeep(
@@ -340,6 +342,10 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#getActiveUpkeepIDs', () => {
+    beforeEach(async () => {
+      // Register another upkeep so that we have 2
+    })
+
     it('reverts if startIndex is out of bounds ', async () => {})
 
     it('reverts if startIndex + maxCount is out of bounds', async () => {})
@@ -684,10 +690,6 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#addFunds', () => {
     const amount = toWei('1')
-
-    beforeEach(async () => {
-      await linkToken.connect(admin).approve(registry.address, toWei('100'))
-    })
 
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
