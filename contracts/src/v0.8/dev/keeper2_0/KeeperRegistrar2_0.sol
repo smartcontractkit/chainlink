@@ -37,12 +37,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
 
   /**
    * @notice versions:
-   * - KeeperRegistrar 1.1.1: Remove source from register
+   * - KeeperRegistrar 2.0.0: Remove source from register
+   *                          Breaks our example of "Register an Upkeep using your own deployed contract"
    * - KeeperRegistrar 1.1.0: Add functionality for sender allowlist in auto approve
    *                        : Remove rate limit and add max allowed for auto approve
    * - KeeperRegistrar 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistrar 1.1.1";
+  string public constant override typeAndVersion = "KeeperRegistrar 2.0.0";
 
   struct Config {
     AutoApproveType autoApproveConfigType;
