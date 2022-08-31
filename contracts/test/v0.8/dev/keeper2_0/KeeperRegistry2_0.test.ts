@@ -32,10 +32,9 @@ async function getUpkeepID(tx: any) {
   return receipt.events[0].args.id
 }
 
-/*
 function randomAddress() {
   return ethers.Wallet.createRandom().address
-}*/
+}
 
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
@@ -639,6 +638,49 @@ describe('KeeperRegistry2_0', () => {
       assert(
         upkeepIds[1].toString() == upkeepId2.toString(),
         'Correct upkeep ID should be returned',
+      )
+    })
+  })
+
+  describe('#setConfig', () => {
+    let newKeepers: string[]
+
+    beforeEach(async () => {
+      newKeepers = [
+        await personas.Eddy.getAddress(),
+        await personas.Nick.getAddress(),
+        await personas.Neil.getAddress(),
+        await personas.Carol.getAddress(),
+      ]
+    })
+
+    it('reverts when called by anyone but the owner', async () => {
+      await evmRevert(
+        registry
+          .connect(payee1)
+          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+        'Only callable by owner',
+      )
+    })
+
+    it('reverts if too many keepers set', async () => {
+      for (let i = 0; i < 40; i++) {
+        newKeepers.push(randomAddress())
+      }
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+        'TooManyOracles()',
+      )
+    })
+
+    it('reverts if f=0', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 0, '0x', 1, '0x'),
+        'IncorrectNumberOfFaultyOracles()',
       )
     })
   })
