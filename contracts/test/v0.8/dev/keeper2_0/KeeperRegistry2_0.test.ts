@@ -134,7 +134,7 @@ describe('KeeperRegistry2_0', () => {
 
   beforeEach(async () => {
     // Deploys a registry, setups of initial configuration (onChain and offChain config)
-    // and registers an upkeep
+    // Registers an upkeep which is unfunded to start with
     owner = personas.Default
     keeper1 = personas.Carol
     keeper2 = personas.Eddy
@@ -218,29 +218,10 @@ describe('KeeperRegistry2_0', () => {
         registryLogic.address,
         config,
       )
-    /*
-    TODO: Move to migration function test
-    registryLogic2 = await keeperRegistryLogicFactory
-      .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-      )
-    registry2 = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic2.address,
-        config,
-      )*/
+
     mock = await upkeepMockFactory.deploy()
+
+    /*
     await linkToken
       .connect(owner)
       .transfer(await keeper1.getAddress(), toWei('1000'))
@@ -249,10 +230,14 @@ describe('KeeperRegistry2_0', () => {
       .transfer(await keeper2.getAddress(), toWei('1000'))
     await linkToken
       .connect(owner)
-      .transfer(await keeper3.getAddress(), toWei('1000'))
+      .transfer(await keeper3.getAddress(), toWei('1000'))*/
 
     await registry.connect(owner).setConfig(keepers, keepers, 1, '0x', 1, '0x')
     await registry.connect(owner).setPayees(payees)
+
+    await linkToken
+      .connect(owner)
+      .transfer(await admin.getAddress(), toWei('1000'))
     const tx = await registry
       .connect(owner)
       .registerUpkeep(
@@ -701,7 +686,7 @@ describe('KeeperRegistry2_0', () => {
     const amount = toWei('1')
 
     beforeEach(async () => {
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
+      await linkToken.connect(admin).approve(registry.address, toWei('100'))
     })
 
     it('reverts if the registration does not exist', async () => {
@@ -712,16 +697,16 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('adds to the balance of the registration', async () => {
-      await registry.connect(keeper1).addFunds(upkeepId, amount)
+      await registry.connect(admin).addFunds(upkeepId, amount)
       const registration = await registry.getUpkeep(upkeepId)
       assert.isTrue(amount.eq(registration.balance))
     })
 
     it('emits a log', async () => {
-      const tx = await registry.connect(keeper1).addFunds(upkeepId, amount)
+      const tx = await registry.connect(admin).addFunds(upkeepId, amount)
       await expect(tx)
         .to.emit(registry, 'FundsAdded')
-        .withArgs(upkeepId, await keeper1.getAddress(), amount)
+        .withArgs(upkeepId, await admin.getAddress(), amount)
     })
 
     it('reverts if the upkeep is canceled', async () => {
