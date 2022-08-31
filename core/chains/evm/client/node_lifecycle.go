@@ -108,10 +108,6 @@ func (n *node) aliveLoop() {
 		subErrC = sub.Err()
 	} else {
 		lggr.Debug("Head liveness checking disabled")
-
-		if n.cfg.NodeSelectionMode() == NodeSelectionMode_HighestHead {
-			lggr.Error("NODE_SELECTION_MODE=HighestHead requires NODE_NO_NEW_HEADS_THRESHOLD to be configured")
-		}
 	}
 
 	var pollCh <-chan time.Time
