@@ -1418,6 +1418,57 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  describe('#withdrawOwnerFunds', () => {
+    it('can only be called by owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).withdrawOwnerFunds(),
+        'Only callable by owner',
+      )
+    })
+
+    it('withdraws the collected fees to owner', async () => {
+      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      // Very high min spend, whole balance as cancellation fees
+      let minUpkeepSpend = toWei('1000')
+      await registry.connect(owner).setOnChainConfig({
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier,
+        minUpkeepSpend,
+        maxCheckDataSize,
+        maxPerformDataSize,
+        maxPerformGas,
+        fallbackGasPrice,
+        fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      })
+      let upkeepBalance = (await registry.getUpkeep(upkeepId)).balance
+      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
+
+      await registry.connect(owner).cancelUpkeep(upkeepId)
+
+      // Transfered to owner balance on registry
+      let ownerRegistryBalance = (await registry.getState()).state
+        .ownerLinkBalance
+      assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
+
+      // Now withdraw
+      await registry.connect(owner).withdrawOwnerFunds()
+
+      ownerRegistryBalance = (await registry.getState()).state.ownerLinkBalance
+      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
+
+      // Owner registry balance should be changed to 0
+      assert.isTrue(ownerRegistryBalance.eq(BigNumber.from('0')))
+
+      // Owner should be credited with the balance
+      assert.isTrue(ownerBefore.add(upkeepBalance).eq(ownerAfter))
+    })
+  })
+
   /*
   describe('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
@@ -1670,10 +1721,6 @@ describe('KeeperRegistry2_0', () => {
     })
     
   })*/
-
-  /*
-
- */
 
   /*
   describe('#performUpkeep', () => {
@@ -2149,6 +2196,7 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
+  requires performUpkeep
   describe('#withdrawFunds', () => {
     beforeEach(async () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
@@ -2211,59 +2259,7 @@ describe('KeeperRegistry2_0', () => {
       })
     })
   })
-
-  describe('#withdrawOwnerFunds', () => {
-    it('can only be called by owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).withdrawOwnerFunds(),
-        'Only callable by owner',
-      )
-    })
-
-    it('withdraws the collected fees to owner', async () => {
-      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
-      // Very high min spend, whole balance as cancellation fees
-      let minUpkeepSpend = toWei('1000')
-      await registry.connect(owner).setOnChainConfig({
-        paymentPremiumPPB,
-        flatFeeMicroLink,
-        checkGasLimit,
-        stalenessSeconds,
-        gasCeilingMultiplier,
-        minUpkeepSpend,
-        maxCheckDataSize,
-        maxPerformDataSize,
-        maxPerformGas,
-        fallbackGasPrice,
-        fallbackLinkPrice,
-        transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
-      })
-      let upkeepBalance = (await registry.getUpkeep(upkeepId)).balance
-      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
-
-      await registry.connect(owner).cancelUpkeep(upkeepId)
-      await registry
-        .connect(admin)
-        .withdrawFunds(upkeepId, await payee1.getAddress())
-      // Transfered to owner balance on registry
-      let ownerRegistryBalance = (await registry.getState()).state
-        .ownerLinkBalance
-      assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
-
-      // Now withdraw
-      await registry.connect(owner).withdrawOwnerFunds()
-
-      ownerRegistryBalance = (await registry.getState()).state.ownerLinkBalance
-      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
-
-      // Owner registry balance should be changed to 0
-      assert.isTrue(ownerRegistryBalance.eq(BigNumber.from('0')))
-
-      // Owner should be credited with the balance
-      assert.isTrue(ownerBefore.add(upkeepBalance).eq(ownerAfter))
-    })
-  })*/
+  */
 
   /*
   describe('#cancelUpkeep', () => {
