@@ -1,3 +1,7 @@
+/**
+ * NOTE: The unit tests only cover skipSigVerification path. sigVerification path
+ * is coverred by go integration tests
+ */
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { BigNumber, Signer } from 'ethers'
