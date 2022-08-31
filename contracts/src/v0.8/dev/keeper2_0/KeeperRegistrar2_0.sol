@@ -141,6 +141,58 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint8 source,
     address sender
   ) external onlyLINK {
+    _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source, sender);
+  }
+
+  /**
+   * @notice Allows external users to register upkeeps
+   * @notice registerUpkeep can only be called through transferAndCall on LINK contract
+   * @param name string of the upkeep to be registered
+   * @param encryptedEmail email address of upkeep contact
+   * @param upkeepContract address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when performing upkeep
+   * @param adminAddress address to cancel upkeep and withdraw remaining funds
+   * @param checkData data passed to the contract when checking for upkeep
+   * @param amount quantity of LINK upkeep is funded with (specified in Juels)
+   * @param source application sending this request
+   */
+  function registerUpkeep(
+    string memory name,
+    bytes calldata encryptedEmail,
+    address upkeepContract,
+    uint32 gasLimit,
+    address adminAddress,
+    bytes calldata checkData,
+    uint96 amount,
+    uint8 source
+  ) external returns (uint256) {
+    if (amount < s_config.minLINKJuels) {
+      revert InsufficientPayment();
+    }
+
+    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
+
+    bool success = LINK.transferFrom(msg.sender, owner(), amount);
+    if (!success) {
+      revert LinkTransferFailed(address(keeperRegistry));
+    }
+
+    uint256 upkeepId = _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source, msg.sender);
+
+    return upkeepId;
+  }
+
+  function _register(
+    string memory name,
+    bytes calldata encryptedEmail,
+    address upkeepContract,
+    uint32 gasLimit,
+    address adminAddress,
+    bytes calldata checkData,
+    uint96 amount,
+    uint8 source,
+    address sender
+  ) private returns (uint256) {
     if (adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
@@ -158,16 +210,20 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       source
     );
 
+    uint256 upkeepId;
     Config memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
       s_config.approvedCount = config.approvedCount + 1;
 
-      _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
+      upkeepId = _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
     } else {
       uint96 newBalance = s_pendingRequests[hash].balance + amount;
       s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
     }
+
+    return upkeepId;
   }
+
 
   /**
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
@@ -318,40 +374,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     }
   }
 
-  /**
-   * @notice Allows external users to register upkeeps
-   * @notice registerUpkeep can only be called through transferAndCall on LINK contract
-   * @param name string of the upkeep to be registered
-   * @param upkeepContract address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when performing upkeep
-   * @param adminAddress address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   */
-  function registerUpkeep(
-    string memory name,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    bytes calldata checkData,
-    uint96 amount
-  ) external returns (uint256) {
-    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
-
-    uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
-
-    bool success = LINK.transferFrom(msg.sender, owner(), amount);
-    if (!success) {
-      revert LinkTransferFailed(address(keeperRegistry));
-    }
-    
-    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
-
-    emit RegistrationApproved(hash, name, upkeepId);
-
-    return upkeepId;
-  }
-
   //PRIVATE
 
   /**
@@ -365,7 +387,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     bytes calldata checkData,
     uint96 amount,
     bytes32 hash
-  ) private {
+  ) private returns (uint256) {
     KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
@@ -377,6 +399,8 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     }
 
     emit RegistrationApproved(hash, name, upkeepId);
+
+    return upkeepId;
   }
 
   /**
