@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -286,7 +287,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 	ctx, cancel := utils.ContextFromChan(b.chStop)
 	defer cancel()
 
-	var stopped bool
+	var stopped atomic.Bool
 
 	execReset := func(r *reset) {
 		if err := eb.Close(); err != nil {
@@ -319,7 +320,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 					}
 					return
 				case <-b.chStop:
-					stopped = true
+					stopped.Store(true)
 					return
 				}
 			}
@@ -337,7 +338,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 					}
 					return
 				case <-b.chStop:
-					stopped = true
+					stopped.Store(true)
 					return
 				}
 			}
@@ -356,7 +357,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			// this check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
 			// previous reset exited early
-			if stopped {
+			if stopped.Load() {
 				reset.done <- errors.New("Txm was stopped")
 				continue
 			}
@@ -373,7 +374,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			// this check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
 			// previous reset exited early
-			if stopped {
+			if stopped.Load() {
 				continue
 			}
 			var err error
