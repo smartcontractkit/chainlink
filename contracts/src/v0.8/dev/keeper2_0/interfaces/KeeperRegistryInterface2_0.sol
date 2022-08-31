@@ -73,6 +73,7 @@ interface KeeperRegistryBaseInterface {
     address target,
     uint32 gasLimit,
     address admin,
+    bool skipSigVerification,
     bytes calldata checkData
   ) external returns (uint256 id);
 
