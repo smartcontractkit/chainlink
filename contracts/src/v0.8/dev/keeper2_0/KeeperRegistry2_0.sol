@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
-import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterface2_0.sol";
+import {KeeperRegistryExecutableInterface, UpkeepInfo} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "./interfaces/OCR2Abstract.sol";
@@ -361,37 +361,21 @@ contract KeeperRegistry2_0 is
   /**
    * @notice read all of the details about an upkeep
    */
-  function getUpkeep(uint256 id)
-    external
-    view
-    override
-    returns (
-      address target,
-      uint32 executeGas,
-      bytes memory checkData,
-      uint96 balance,
-      address admin,
-      uint64 maxValidBlocknumber,
-      uint32 lastPerformBlockNumber,
-      uint96 amountSpent,
-      bool paused,
-      bool skipSigVerification
-    )
-  {
+  function getUpkeep(uint256 id) external view override returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
-    admin = s_upkeepAdmin[id];
-    return (
-      reg.target,
-      reg.executeGas,
-      s_checkData[id],
-      reg.balance,
-      admin,
-      reg.maxValidBlocknumber,
-      reg.lastPerformBlockNumber,
-      reg.amountSpent,
-      reg.paused,
-      reg.skipSigVerification
-    );
+    upkeepInfo = UpkeepInfo({
+      target: reg.target,
+      executeGas: reg.executeGas,
+      checkData: s_checkData[id],
+      balance: reg.balance,
+      admin: s_upkeepAdmin[id],
+      maxValidBlocknumber: reg.maxValidBlocknumber,
+      lastPerformBlockNumber: reg.lastPerformBlockNumber,
+      amountSpent: reg.amountSpent,
+      paused: reg.paused,
+      skipSigVerification: reg.skipSigVerification
+    });
+    return upkeepInfo;
   }
 
   /**
