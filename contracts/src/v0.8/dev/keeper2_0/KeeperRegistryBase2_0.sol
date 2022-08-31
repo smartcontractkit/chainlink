@@ -338,7 +338,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint256 fastGasWei,
     uint256 linkNative,
     bool isExecution
-  ) internal view returns (uint96 gasPayment, uint96 premium) {
+  ) internal view returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
@@ -366,11 +366,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
       l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
     }
 
-    uint256 gasPayment256 = ((weiForGas + l1CostWei) * 1e18) / linkNative;
-    uint256 premium256 = (gasPayment256 * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
+    uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNative;
+    uint256 premium = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
-    if (gasPayment256 + premium256 > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return (uint96(gasPayment256), uint96(premium256));
+    if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
+    return (uint96(gasPayment), uint96(premium));
   }
 
   /**
