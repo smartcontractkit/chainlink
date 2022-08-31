@@ -246,7 +246,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event UpkeepPerformed(uint256 indexed id, bool indexed success, UpkeepPerformedLogFields upkeepPerformedLogFields);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
-  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
+  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin, bool skipSigVerification);
   event StaleUpkeepReport(uint256 indexed id);
   event ReorgedUpkeepReport(uint256 indexed id);
   event InsufficientFundsUpkeepReport(uint256 indexed id);
