@@ -1469,6 +1469,116 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  describe('#transferPayeeship', () => {
+    it('reverts when called by anyone but the current payee', async () => {
+      await evmRevert(
+        registry
+          .connect(payee2)
+          .transferPayeeship(
+            await keeper1.getAddress(),
+            await payee2.getAddress(),
+          ),
+        'OnlyCallableByPayee()',
+      )
+    })
+
+    it('reverts when transferring to self', async () => {
+      await evmRevert(
+        registry
+          .connect(payee1)
+          .transferPayeeship(
+            await keeper1.getAddress(),
+            await payee1.getAddress(),
+          ),
+        'ValueNotChanged()',
+      )
+    })
+
+    it('does not change the payee', async () => {
+      await registry
+        .connect(payee1)
+        .transferPayeeship(
+          await keeper1.getAddress(),
+          await payee2.getAddress(),
+        )
+
+      const info = await registry.getTransmitterInfo(await keeper1.getAddress())
+      assert.equal(await payee1.getAddress(), info.payee)
+    })
+
+    it('emits an event announcing the new payee', async () => {
+      const tx = await registry
+        .connect(payee1)
+        .transferPayeeship(
+          await keeper1.getAddress(),
+          await payee2.getAddress(),
+        )
+      await expect(tx)
+        .to.emit(registry, 'PayeeshipTransferRequested')
+        .withArgs(
+          await keeper1.getAddress(),
+          await payee1.getAddress(),
+          await payee2.getAddress(),
+        )
+    })
+
+    it('does not emit an event when called with the same proposal', async () => {
+      await registry
+        .connect(payee1)
+        .transferPayeeship(
+          await keeper1.getAddress(),
+          await payee2.getAddress(),
+        )
+
+      const tx = await registry
+        .connect(payee1)
+        .transferPayeeship(
+          await keeper1.getAddress(),
+          await payee2.getAddress(),
+        )
+      const receipt = await tx.wait()
+      assert.equal(0, receipt.logs.length)
+    })
+  })
+
+  describe('#acceptPayeeship', () => {
+    beforeEach(async () => {
+      await registry
+        .connect(payee1)
+        .transferPayeeship(
+          await keeper1.getAddress(),
+          await payee2.getAddress(),
+        )
+    })
+
+    it('reverts when called by anyone but the proposed payee', async () => {
+      await evmRevert(
+        registry.connect(payee1).acceptPayeeship(await keeper1.getAddress()),
+        'OnlyCallableByProposedPayee()',
+      )
+    })
+
+    it('emits an event announcing the new payee', async () => {
+      const tx = await registry
+        .connect(payee2)
+        .acceptPayeeship(await keeper1.getAddress())
+      await expect(tx)
+        .to.emit(registry, 'PayeeshipTransferred')
+        .withArgs(
+          await keeper1.getAddress(),
+          await payee1.getAddress(),
+          await payee2.getAddress(),
+        )
+    })
+
+    it('does change the payee', async () => {
+      await registry.connect(payee2).acceptPayeeship(await keeper1.getAddress())
+
+      const info = await registry.getTransmitterInfo(await keeper1.getAddress())
+      assert.equal(await payee2.getAddress(), info.payee)
+    })
+  })
+
   /*
   describe('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
@@ -2599,118 +2709,6 @@ describe('KeeperRegistry2_0', () => {
     })
   })
    */
-  /*
-  describe('#transferPayeeship', () => {
-    it('reverts when called by anyone but the current payee', async () => {
-      await evmRevert(
-        registry
-          .connect(payee2)
-          .transferPayeeship(
-            await keeper1.getAddress(),
-            await payee2.getAddress(),
-          ),
-        'OnlyCallableByPayee()',
-      )
-    })
-
-    it('reverts when transferring to self', async () => {
-      await evmRevert(
-        registry
-          .connect(payee1)
-          .transferPayeeship(
-            await keeper1.getAddress(),
-            await payee1.getAddress(),
-          ),
-        'ValueNotChanged()',
-      )
-    })
-
-    it('does not change the payee', async () => {
-      await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-
-      const info = await registry.getTransmitterInfo(await keeper1.getAddress())
-      assert.equal(await payee1.getAddress(), info.payee)
-    })
-
-    it('emits an event announcing the new payee', async () => {
-      const tx = await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-      await expect(tx)
-        .to.emit(registry, 'PayeeshipTransferRequested')
-        .withArgs(
-          await keeper1.getAddress(),
-          await payee1.getAddress(),
-          await payee2.getAddress(),
-        )
-    })
-
-    it('does not emit an event when called with the same proposal', async () => {
-      await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-
-      const tx = await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-      const receipt = await tx.wait()
-      assert.equal(0, receipt.logs.length)
-    })
-  })
-
-  describe('#acceptPayeeship', () => {
-    beforeEach(async () => {
-      await registry
-        .connect(payee1)
-        .transferPayeeship(
-          await keeper1.getAddress(),
-          await payee2.getAddress(),
-        )
-    })
-
-    it('reverts when called by anyone but the proposed payee', async () => {
-      await evmRevert(
-        registry.connect(payee1).acceptPayeeship(await keeper1.getAddress()),
-        'OnlyCallableByProposedPayee()',
-      )
-    })
-
-    it('emits an event announcing the new payee', async () => {
-      const tx = await registry
-        .connect(payee2)
-        .acceptPayeeship(await keeper1.getAddress())
-      await expect(tx)
-        .to.emit(registry, 'PayeeshipTransferred')
-        .withArgs(
-          await keeper1.getAddress(),
-          await payee1.getAddress(),
-          await payee2.getAddress(),
-        )
-    })
-
-    it('does change the payee', async () => {
-      await registry.connect(payee2).acceptPayeeship(await keeper1.getAddress())
-
-      const info = await registry.getTransmitterInfo(await keeper1.getAddress())
-      assert.equal(await payee2.getAddress(), info.payee)
-    })
-  })
-
-
 
   /*
   describe('#recoverFunds', () => {
