@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
     - Disable a key for a particular chain:
       - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
+    - Abandon all currently pending transactions (use with caution!):
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --nuke`
 
 ### Changed
 
