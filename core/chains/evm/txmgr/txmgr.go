@@ -183,7 +183,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 
 		if b.config.EvmNonceAutoSync() {
 			syncer := NewNonceSyncer(b.db, b.logger, b.config, b.ethClient, b.keyStore)
-			if err := syncer.SyncAll(ctx, keyStates); err != nil {
+			if err = syncer.SyncAll(ctx, keyStates); err != nil {
 				return errors.Wrap(err, "Txm: failed to sync with on-chain nonce")
 			}
 		}
