@@ -203,10 +203,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := lp_mocks.NewLogPoller(t)
-
-		lp.On("LatestBlock", mock.Anything).
-			Return(latestHeadNumber, nil)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -224,34 +221,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			newRandomnessRequestedLog(t, 3, 195, 192),
 			newRandomnessRequestedLog(t, 3, 195, 193),
 		}, nil)
-
-		lp.On("GetBlocks", []uint64{195, 196, 197, 198, 199, 200}, mock.Anything).
-			Return([]logpoller.LogPollerBlock{
-				{
-					BlockNumber: 195,
-					BlockHash:   common.HexToHash("0x001"),
-				},
-				{
-					BlockNumber: 196,
-					BlockHash:   common.HexToHash("0x002"),
-				},
-				{
-					BlockNumber: 197,
-					BlockHash:   common.HexToHash("0x003"),
-				},
-				{
-					BlockNumber: 198,
-					BlockHash:   common.HexToHash("0x004"),
-				},
-				{
-					BlockNumber: 199,
-					BlockHash:   common.HexToHash("0x005"),
-				},
-				{
-					BlockNumber: 200,
-					BlockHash:   common.HexToHash("0x006"),
-				},
-			}, nil)
 
 		c := &coordinator{
 			coordinatorContract: coordinatorContract,
@@ -291,7 +260,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -348,7 +317,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -411,7 +380,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -477,7 +446,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		tp := newTopics()
 
 		lookbackBlocks := int64(5)
-		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
+		lp := getLogPoller(t, []uint64{195}, latestHeadNumber, true)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -531,7 +500,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			},
 		}
 
-		c.ReportWillBeTransmitted(testutils.Context(t), report)
+		err = c.ReportWillBeTransmitted(testutils.Context(t), report)
+		require.NoError(t, err)
 
 		blocks, callbacks, err := c.ReportBlocks(
 			testutils.Context(t),
@@ -551,7 +521,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
 	lookbackBlocks := int64(0)
-	lp := getLogPoller(t, lookbackBlocks, 200)
+	lp := getLogPoller(t, []uint64{}, 200, false)
 	c := &coordinator{
 		lp:             lp,
 		lookbackBlocks: lookbackBlocks,
@@ -922,27 +892,25 @@ func newAddress(t *testing.T) common.Address {
 	return common.HexToAddress(hexutil.Encode(b))
 }
 
-func getLogPoller(t *testing.T, lookback int64, latestHeadNumber int64) *lp_mocks.LogPoller {
+func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64, needsLatestBlock bool) *lp_mocks.LogPoller {
 	lp := lp_mocks.NewLogPoller(t)
-	lp.On("LatestBlock", mock.Anything).
-		Return(latestHeadNumber, nil)
+	if needsLatestBlock {
+		lp.On("LatestBlock", mock.Anything).
+			Return(latestHeadNumber, nil)
+	}
 
-	blockHeights := make([]uint64, lookback+1)
 	logPollerBlocks := []logpoller.LogPollerBlock{}
 
-	// Fill range of blocks based on lookbacks + latestHeadNumber
-	// example: lookback 5, latestHeadNumber 200 -> [195, 196, 197, 198, 199, 200]
-	// -> [{BlockNumber: 195, BlockHash: 0x001}, ... {BlockNumber: 200, BlockHash: 0x006}]
-	for i := range blockHeights {
-		height := int64(i) + (latestHeadNumber - lookback)
-		blockHeights[i] = uint64(height)
+	// Fill range of blocks based on requestedBlocks
+	// example: requestedBlocks [195, 196] -> [{BlockNumber: 195, BlockHash: 0x001}, {BlockNumber: 196, BlockHash: 0x002}]
+	for i, bn := range requestedBlocks {
 		logPollerBlocks = append(logPollerBlocks, logpoller.LogPollerBlock{
-			BlockNumber: height,
+			BlockNumber: int64(bn),
 			BlockHash:   common.HexToHash(fmt.Sprintf("0x00%d", i+1)),
 		})
 	}
 
-	lp.On("GetBlocks", blockHeights, mock.Anything).
+	lp.On("GetBlocks", requestedBlocks, mock.Anything).
 		Return(logPollerBlocks, nil)
 
 	return lp
