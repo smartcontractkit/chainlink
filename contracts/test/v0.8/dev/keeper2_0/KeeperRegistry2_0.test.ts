@@ -32,9 +32,10 @@ async function getUpkeepID(tx: any) {
   return receipt.events[0].args.id
 }
 
+/*
 function randomAddress() {
   return ethers.Wallet.createRandom().address
-}
+}*/
 
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
@@ -88,9 +89,9 @@ describe('KeeperRegistry2_0', () => {
   const paymentPremiumPPB = BigNumber.from('250000000')
   //const premiumMultiplier = BigNumber.from('1000000000')
   const flatFeeMicroLink = BigNumber.from(0)
-  const emptyBytes = '0x00'
+  //const emptyBytes = '0x00'
   const randomBytes = '0x1234abcd'
-  const zeroAddress = ethers.constants.AddressZero
+  //const zeroAddress = ethers.constants.AddressZero
   //const extraGas = BigNumber.from('250000')
   const stalenessSeconds = BigNumber.from(43820)
   const gasCeilingMultiplier = BigNumber.from(1)
@@ -221,17 +222,6 @@ describe('KeeperRegistry2_0', () => {
 
     mock = await upkeepMockFactory.deploy()
 
-    /*
-    await linkToken
-      .connect(owner)
-      .transfer(await keeper1.getAddress(), toWei('1000'))
-    await linkToken
-      .connect(owner)
-      .transfer(await keeper2.getAddress(), toWei('1000'))
-    await linkToken
-      .connect(owner)
-      .transfer(await keeper3.getAddress(), toWei('1000'))*/
-
     await registry.connect(owner).setConfig(keepers, keepers, 1, '0x', 1, '0x')
     await registry.connect(owner).setPayees(payees)
 
@@ -334,12 +324,18 @@ describe('KeeperRegistry2_0', () => {
   }
   */
 
+  // TODO: transmit
+  // TODO: performUpkeepSimulate
+  // TODO: setConfig
+  // Done till setOnChainConfig
+
+  /*
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
       assert.equal(typeAndVersion, 'KeeperRegistry 2.0.0')
     })
-  })
+  })*/
 
   describe('#getActiveUpkeepIDs', () => {
     let upkeepId2: BigNumber
@@ -513,6 +509,7 @@ describe('KeeperRegistry2_0', () => {
     
   })*/
 
+  /*
   describe('#pauseUpkeep', () => {
     it('reverts if the upkeep is already canceled', async () => {
       await registry.connect(admin).cancelUpkeep(upkeepId)
@@ -765,7 +762,7 @@ describe('KeeperRegistry2_0', () => {
         'UpkeepCancelled()',
       )
     })
-  })
+  })*/
 
   /*
   describe('#setUpkeepGasLimit', () => {
@@ -1502,7 +1499,7 @@ describe('KeeperRegistry2_0', () => {
         assert.equal(0, registration.balance.toNumber())
       })
     })
-  })*/
+  })
 
   describe('#withdrawOwnerFunds', () => {
     it('can only be called by owner', async () => {
@@ -1555,7 +1552,7 @@ describe('KeeperRegistry2_0', () => {
       // Owner should be credited with the balance
       assert.isTrue(ownerBefore.add(upkeepBalance).eq(ownerAfter))
     })
-  })
+  })*/
 
   /*
   describe('#cancelUpkeep', () => {
@@ -1895,7 +1892,7 @@ describe('KeeperRegistry2_0', () => {
     })
   })
    */
-
+  /*
   describe('#transferPayeeship', () => {
     it('reverts when called by anyone but the current payee', async () => {
       await evmRevert(
@@ -2126,30 +2123,34 @@ describe('KeeperRegistry2_0', () => {
       const upkeep = await registry.getUpkeep(upkeepId)
       assert.equal(await payee1.getAddress(), upkeep.admin)
     })
-  })
+  })*/
 
   /*
-  describe('#setConfig', () => {
+  describe('#setOnChainConfig', () => {
     const payment = BigNumber.from(1)
     const flatFee = BigNumber.from(2)
-    const checks = BigNumber.from(3)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
     const maxGas = BigNumber.from(6)
     const fbGasEth = BigNumber.from(7)
     const fbLinkEth = BigNumber.from(8)
+    const newMinUpkeepSpend = BigNumber.from(9)
+    const newMaxCheckDataSize = BigNumber.from(10000)
+    const newMaxPerformDataSize = BigNumber.from(10000)
+    const newMaxPerformGas = BigNumber.from(10000000)
 
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
-        registry.connect(payee1).setConfig({
+        registry.connect(payee1).setOnChainConfig({
           paymentPremiumPPB: payment,
           flatFeeMicroLink: flatFee,
-          blockCountPerTurn: checks,
           checkGasLimit: maxGas,
           stalenessSeconds: staleness,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxPerformGas,
+          gasCeilingMultiplier: ceiling,
+          minUpkeepSpend: newMinUpkeepSpend,
+          maxCheckDataSize: newMaxCheckDataSize,
+          maxPerformDataSize: newMaxPerformDataSize,
+          maxPerformGas: newMaxPerformGas,
           fallbackGasPrice: fbGasEth,
           fallbackLinkPrice: fbLinkEth,
           transcoder: transcoder.address,
@@ -2159,72 +2160,164 @@ describe('KeeperRegistry2_0', () => {
       )
     })
 
-    it('updates the config', async () => {
-      const old = (await registry.getState()).config
-      assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB))
-      assert.isTrue(flatFeeMicroLink.eq(old.flatFeeMicroLink))
-      assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
-      assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds))
-      assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier))
+    it('updates the onChainConfig and configDigest', async () => {
+      const old = await registry.getState()
+      const oldConfig = old.config
+      const oldState = old.state
+      assert.isTrue(paymentPremiumPPB.eq(oldConfig.paymentPremiumPPB))
+      assert.isTrue(flatFeeMicroLink.eq(oldConfig.flatFeeMicroLink))
+      assert.isTrue(stalenessSeconds.eq(oldConfig.stalenessSeconds))
+      assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
-      await registry.connect(owner).setConfig({
+      await registry.connect(owner).setOnChainConfig({
         paymentPremiumPPB: payment,
         flatFeeMicroLink: flatFee,
-        blockCountPerTurn: checks,
         checkGasLimit: maxGas,
         stalenessSeconds: staleness,
         gasCeilingMultiplier: ceiling,
-        minUpkeepSpend,
-        maxPerformGas,
+        minUpkeepSpend: newMinUpkeepSpend,
+        maxCheckDataSize: newMaxCheckDataSize,
+        maxPerformDataSize: newMaxPerformDataSize,
+        maxPerformGas: newMaxPerformGas,
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
         transcoder: transcoder.address,
         registrar: ethers.constants.AddressZero,
       })
 
-      const updated = (await registry.getState()).config
-      assert.equal(updated.paymentPremiumPPB, payment.toNumber())
-      assert.equal(updated.flatFeeMicroLink, flatFee.toNumber())
-      assert.equal(updated.blockCountPerTurn, checks.toNumber())
-      assert.equal(updated.stalenessSeconds, staleness.toNumber())
-      assert.equal(updated.gasCeilingMultiplier, ceiling.toNumber())
-      assert.equal(updated.checkGasLimit, maxGas.toNumber())
-      assert.equal(updated.fallbackGasPrice.toNumber(), fbGasEth.toNumber())
-      assert.equal(updated.fallbackLinkPrice.toNumber(), fbLinkEth.toNumber())
+      const updated = await registry.getState()
+      const updatedConfig = updated.config
+      const updatedState = updated.state
+      assert.equal(updatedConfig.paymentPremiumPPB, payment.toNumber())
+      assert.equal(updatedConfig.flatFeeMicroLink, flatFee.toNumber())
+      assert.equal(updatedConfig.stalenessSeconds, staleness.toNumber())
+      assert.equal(updatedConfig.gasCeilingMultiplier, ceiling.toNumber())
+      assert.equal(
+        updatedConfig.minUpkeepSpend.toString(),
+        newMinUpkeepSpend.toString(),
+      )
+      assert.equal(
+        updatedConfig.maxCheckDataSize,
+        newMaxCheckDataSize.toNumber(),
+      )
+      assert.equal(
+        updatedConfig.maxPerformDataSize,
+        newMaxPerformDataSize.toNumber(),
+      )
+      assert.equal(updatedConfig.maxPerformGas, newMaxPerformGas.toNumber())
+      assert.equal(updatedConfig.checkGasLimit, maxGas.toNumber())
+      assert.equal(
+        updatedConfig.fallbackGasPrice.toNumber(),
+        fbGasEth.toNumber(),
+      )
+      assert.equal(
+        updatedConfig.fallbackLinkPrice.toNumber(),
+        fbLinkEth.toNumber(),
+      )
+
+      assert(oldState.configCount + 1 == updatedState.configCount)
+      assert(
+        oldState.latestConfigBlockNumber !=
+          updatedState.latestConfigBlockNumber,
+      )
+      assert(oldState.latestConfigDigest != updatedState.latestConfigDigest)
     })
 
     it('emits an event', async () => {
-      const tx = await registry.connect(owner).setConfig({
+      const tx = await registry.connect(owner).setOnChainConfig({
         paymentPremiumPPB: payment,
         flatFeeMicroLink: flatFee,
-        blockCountPerTurn: checks,
         checkGasLimit: maxGas,
         stalenessSeconds: staleness,
         gasCeilingMultiplier: ceiling,
-        minUpkeepSpend,
-        maxPerformGas,
+        minUpkeepSpend: newMinUpkeepSpend,
+        maxCheckDataSize: newMaxCheckDataSize,
+        maxPerformDataSize: newMaxPerformDataSize,
+        maxPerformGas: newMaxPerformGas,
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
         transcoder: transcoder.address,
         registrar: ethers.constants.AddressZero,
       })
       await expect(tx)
-        .to.emit(registry, 'ConfigSet')
+        .to.emit(registry, 'OnChainConfigSet')
         .withArgs([
           payment,
           flatFee,
-          checks,
           maxGas,
           staleness,
           ceiling,
-          minUpkeepSpend,
-          maxPerformGas,
+          newMinUpkeepSpend,
+          newMaxPerformGas,
+          newMaxCheckDataSize,
+          newMaxPerformDataSize,
           fbGasEth,
           fbLinkEth,
+          transcoder.address,
+          ethers.constants.AddressZero,
         ])
+      await expect(tx).to.emit(registry, 'ConfigSet')
+    })
+
+    it('reverts upon decreasing max limits', async () => {
+      await evmRevert(
+        registry.connect(owner).setOnChainConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier: ceiling,
+          minUpkeepSpend: newMinUpkeepSpend,
+          maxCheckDataSize: BigNumber.from(1),
+          maxPerformDataSize: newMaxPerformDataSize,
+          maxPerformGas: newMaxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        }),
+        'MaxCheckDataSizeCanOnlyIncrease()',
+      )
+      await evmRevert(
+        registry.connect(owner).setOnChainConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier: ceiling,
+          minUpkeepSpend: newMinUpkeepSpend,
+          maxCheckDataSize: newMaxCheckDataSize,
+          maxPerformDataSize: BigNumber.from(1),
+          maxPerformGas: newMaxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        }),
+        'MaxPerformDataSizeCanOnlyIncrease()',
+      )
+      await evmRevert(
+        registry.connect(owner).setOnChainConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier: ceiling,
+          minUpkeepSpend: newMinUpkeepSpend,
+          maxCheckDataSize: newMaxCheckDataSize,
+          maxPerformDataSize: newMaxPerformDataSize,
+          maxPerformGas: BigNumber.from(1),
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
+        }),
+        'GasLimitCanOnlyIncrease()',
+      )
     })
   })*/
 
+  /*
   describe('#onTokenTransfer', () => {
     const amount = toWei('1')
 
@@ -2277,7 +2370,7 @@ describe('KeeperRegistry2_0', () => {
 
       assert.isTrue(before.add(amount).eq(after))
     })
-  })
+  })*/
 
   /*
   describe('#recoverFunds', () => {
@@ -2368,7 +2461,7 @@ describe('KeeperRegistry2_0', () => {
     })
   })
   */
-
+  /*
   describe('#pause', () => {
     it('reverts if called by a non-owner', async () => {
       await evmRevert(
@@ -2406,7 +2499,7 @@ describe('KeeperRegistry2_0', () => {
       assert.isFalse(await registry.paused())
     })
   })
-
+*/
   /*
   describe('#getMaxPaymentForGas', () => {
     const gasAmounts = [100000, 10000000]
@@ -2426,6 +2519,7 @@ describe('KeeperRegistry2_0', () => {
   })
   */
 
+  /*
   describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
     const peer = randomAddress()
     it('allows the owner to set the peer registries', async () => {
@@ -2452,6 +2546,7 @@ describe('KeeperRegistry2_0', () => {
       ).to.be.revertedWith('Only callable by owner')
     })
   })
+  */
 
   /*
   describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
