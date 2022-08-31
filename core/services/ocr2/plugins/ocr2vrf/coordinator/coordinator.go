@@ -178,12 +178,11 @@ func (c *coordinator) ReportBlocks(
 	maxCallbacks int, // TODO: unused for now
 ) (blocks []ocr2vrftypes.Block, callbacks []ocr2vrftypes.AbstractCostedCallbackRequest, err error) {
 	// TODO: use head broadcaster instead?
-	currentHead, err := c.evmClient.HeadByNumber(ctx, nil)
+	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		err = errors.Wrap(err, "header by number")
 		return
 	}
-	currentHeight := currentHead.Number
 
 	// Get mapping of block numbers to block hashes.
 	blockhashesMapping, err := c.getBlockhashesMapping(ctx, uint64(currentHeight-c.lookbackBlocks), uint64(currentHeight))
@@ -249,12 +248,14 @@ func (c *coordinator) ReportBlocks(
 
 	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
-	// Construct the slice of blocks to return. At this point
-	// we only need to fetch the blockhashes of the blocks that
-	// need a VRF output.
-	blocks, err = c.getBlocks(ctx, blocksRequested)
-	if err != nil {
-		return
+	// Fill blocks slice with valid requested blocks.
+	blocks = make([]ocr2vrftypes.Block, len(blocksRequested))
+	for block := range blocksRequested {
+		blocks = append(blocks, ocr2vrftypes.Block{
+			Hash:              blockhashesMapping[block.blockNumber],
+			Height:            block.blockNumber,
+			ConfirmationDelay: block.confDelay,
+		})
 	}
 
 	c.lggr.Info(fmt.Sprintf("got blocks: %+v", blocks))
@@ -274,43 +275,6 @@ func (c *coordinator) getFulfilledBlocks(newTransmissionLogs []*vrf_wrapper.VRFB
 			fulfilled = append(fulfilled, block{
 				blockNumber: o.Height,
 				confDelay:   uint32(o.ConfirmationDelay.Uint64()),
-			})
-		}
-	}
-	return
-}
-
-// getBlocks returns the blocks that require a VRF output.
-func (c *coordinator) getBlocks(
-	ctx context.Context,
-	blocksRequested map[block]struct{},
-) (blocks []ocr2vrftypes.Block, err error) {
-	// Get all the block hashes for the blocks that we need to service from the log poller.
-	// Note that we do this to avoid making an RPC call for each block height separately.
-	// Alternatively, we could do a batch RPC call.
-	var blockHeights []uint64
-	for k := range blocksRequested {
-		blockHeights = append(blockHeights, k.blockNumber)
-	}
-
-	blockHeights = removeDuplicates(blockHeights)
-	heads, err := c.lp.GetBlocks(blockHeights, pg.WithParentCtx(ctx))
-	if len(heads) != len(blockHeights) {
-		err = fmt.Errorf("could not find all heads in db: want %d got %d", len(blockHeights), len(heads))
-		return
-	}
-
-	headSet := make(map[uint64]logpoller.LogPollerBlock)
-	for _, h := range heads {
-		headSet[uint64(h.BlockNumber)] = h
-	}
-
-	for k := range blocksRequested {
-		if head, ok := headSet[k.blockNumber]; ok {
-			blocks = append(blocks, ocr2vrftypes.Block{
-				Hash:              head.BlockHash,
-				Height:            k.blockNumber,
-				ConfirmationDelay: k.confDelay,
 			})
 		}
 	}
@@ -340,18 +304,6 @@ func (c *coordinator) getBlockhashesMapping(
 		blockhashesMapping[uint64(head.BlockNumber)] = head.BlockHash
 	}
 	return
-}
-
-func removeDuplicates(uintSlice []uint64) []uint64 {
-	allKeys := make(map[uint64]bool)
-	list := []uint64{}
-	for _, item := range uintSlice {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
-		}
-	}
-	return list
 }
 
 // getFulfilledRequestIDs returns the request IDs referenced by the given RandomWordsFulfilled logs slice.
@@ -595,30 +547,28 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 		}
 	}
 
-	// Get corresponding blocks from log poller.
-	blocks, err := c.getBlocks(ctx, blocksRequested)
+	// Get latest block from log poller.
+	currentHeight, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Getting latest block in ReportWillBeTransmitted")
 	}
 
-	// Mark blocks as transmitted and map them to their heights.
-	blockhashMapping := make(map[uint64]common.Hash)
-	for _, b := range blocks {
-		c.toBeTransmittedBlocks[block{
-			hash:        b.Hash,
-			blockNumber: b.Height,
-			confDelay:   b.ConfirmationDelay,
-		}] = struct{}{}
-		blockhashMapping[b.Height] = b.Hash
+	// Get latest blockhashes from log poller.
+	blockhashesMapping, err := c.getBlockhashesMapping(ctx, uint64(currentHeight-c.lookbackBlocks), uint64(currentHeight))
+	if err != nil {
+		return errors.Wrap(err, "Getting blockhashes in ReportWillBeTransmitted")
+	}
+
+	// Apply blockhashes to blocks and mark them as transmitted.
+	for b := range blocksRequested {
+		b.hash = blockhashesMapping[b.blockNumber]
+		c.toBeTransmittedBlocks[b] = struct{}{}
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
-		c.toBeTransmittedCallbacks[callback{
-			hash:        blockhashMapping[cb.blockNumber],
-			blockNumber: cb.blockNumber,
-			requestID:   cb.requestID,
-		}] = struct{}{}
+		cb.hash = blockhashesMapping[cb.blockNumber]
+		c.toBeTransmittedCallbacks[cb] = struct{}{}
 	}
 
 	return nil
