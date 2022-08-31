@@ -355,6 +355,47 @@ describe('KeeperRegistry2_0', () => {
     }
   }
 
+  describe('#addFunds', () => {
+    const amount = toWei('1')
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).addFunds(upkeepId.add(1), amount),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('adds to the balance of the registration', async () => {
+      await registry.connect(admin).addFunds(upkeepId, amount)
+      const registration = await registry.getUpkeep(upkeepId)
+      assert.isTrue(amount.eq(registration.balance))
+    })
+
+    it('lets anyone add funds to an upkeep not just admin', async () => {
+      await linkToken.connect(owner).transfer(await payee1.getAddress(), amount)
+      await linkToken.connect(payee1).approve(registry.address, amount)
+
+      await registry.connect(payee1).addFunds(upkeepId, amount)
+      const registration = await registry.getUpkeep(upkeepId)
+      assert.isTrue(amount.eq(registration.balance))
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry.connect(admin).addFunds(upkeepId, amount)
+      await expect(tx)
+        .to.emit(registry, 'FundsAdded')
+        .withArgs(upkeepId, await admin.getAddress(), amount)
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+      await evmRevert(
+        registry.connect(keeper1).addFunds(upkeepId, amount),
+        'UpkeepCancelled()',
+      )
+    })
+  })
+
   describe('#getActiveUpkeepIDs', () => {
     let upkeepId2: BigNumber
 
@@ -1632,37 +1673,7 @@ describe('KeeperRegistry2_0', () => {
 
   /*
 
-  describe('#addFunds', () => {
-    const amount = toWei('1')
-
-    it('reverts if the registration does not exist', async () => {
-      await evmRevert(
-        registry.connect(keeper1).addFunds(upkeepId.add(1), amount),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('adds to the balance of the registration', async () => {
-      await registry.connect(admin).addFunds(upkeepId, amount)
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.isTrue(amount.eq(registration.balance))
-    })
-
-    it('emits a log', async () => {
-      const tx = await registry.connect(admin).addFunds(upkeepId, amount)
-      await expect(tx)
-        .to.emit(registry, 'FundsAdded')
-        .withArgs(upkeepId, await admin.getAddress(), amount)
-    })
-
-    it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(upkeepId)
-      await evmRevert(
-        registry.connect(keeper1).addFunds(upkeepId, amount),
-        'UpkeepCancelled()',
-      )
-    })
-  })*/
+ */
 
   /*
   describe('#performUpkeep', () => {
