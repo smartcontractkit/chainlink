@@ -592,7 +592,7 @@ func NewKeeperConsumerRoundConfirmer(
 }
 
 // ReceiveBlock will query the latest Keeper round and check to see whether the round has confirmed
-func (o *KeeperConsumerRoundConfirmer) ReceiveBlock(_ blockchain.NodeHeader) error {
+func (o *KeeperConsumerRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	upkeeps, err := o.instance.Counter(context.Background())
 	if err != nil {
 		return err

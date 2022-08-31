@@ -441,7 +441,7 @@ func NewVRFConsumerRoundConfirmer(
 }
 
 // ReceiveBlock will query the latest VRFConsumer round and check to see whether the round has confirmed
-func (f *VRFConsumerRoundConfirmer) ReceiveBlock(header blockchain.NodeHeader) error {
+func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) error {
 	if f.done {
 		return nil
 	}
@@ -827,7 +827,7 @@ func NewRunlogRoundConfirmer(
 }
 
 // ReceiveBlock will query the latest Runlog round and check to see whether the round has confirmed
-func (o *RunlogRoundConfirmer) ReceiveBlock(_ blockchain.NodeHeader) error {
+func (o *RunlogRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	currentRoundID, err := o.consumer.RoundID(context.Background())
 	if err != nil {
 		return err
