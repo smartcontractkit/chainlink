@@ -13,6 +13,7 @@ const queryObservationSource = `
                               gasPrice="$(jobSpec.gasPrice)"
                               gasTipCap="$(jobSpec.gasTipCap)"
                               gasFeeCap="$(jobSpec.gasFeeCap)"
+                              blockNumber="$(jobSpec.blockNumber)"
                               data="$(encode_check_upkeep_tx)"]
     decode_check_upkeep_tx   [type=ethabidecode
                               abi="bool upkeepNeeded, bytes memory performData, uint8 upkeepFailureReason, uint256 gasUsed"]

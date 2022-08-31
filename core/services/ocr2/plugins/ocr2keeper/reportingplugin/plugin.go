@@ -1,13 +1,14 @@
 package reportingplugin
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/NethermindEth/juno/pkg/common"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -74,7 +75,7 @@ type Config interface {
 type observationData struct {
 	Head        *evmtypes.Head             `json:"head"`
 	Upkeep      *keeper.UpkeepRegistration `json:"upkeepID"`
-	PerformData []byte                     `json:"performData"`
+	PerformData string                     `json:"performData"`
 }
 
 func newObservationDataFromRaw(data []byte) (*observationData, error) {
@@ -91,7 +92,7 @@ func (qd *observationData) raw() ([]byte, error) {
 
 type checkUpkeepOutput struct {
 	GasUsed             *utils.Big          `json:"gasUsed"`
-	PerformData         []byte              `json:"performData"`
+	PerformData         string              `json:"performData"`
 	UpkeepFailureReason upkeepFailureReason `json:"upkeepFailureReason"`
 	UpkeepNeeded        bool                `json:"upkeepNeeded"`
 }
@@ -219,11 +220,11 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Qu
 			return false, nil, fmt.Errorf("received observation for non-elligible upkeep")
 		}
 
-		if bytes.Equal(od.PerformData, checkUpkeep.PerformData) {
+		if od.PerformData == checkUpkeep.PerformData {
 			observation = od
 			break
 		} else {
-			p.logger.Warn("observed performa data does not match with the given data")
+			p.logger.Warn("observed performa data does not match with the given data", "given", od.PerformData, "observed", checkUpkeep.PerformData)
 		}
 	}
 
@@ -232,7 +233,12 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Qu
 		return false, nil, nil
 	}
 
-	payload, err := observationArguments.Pack(observation.Upkeep.UpkeepID.ToInt(), observation.PerformData)
+	performDataRaw, err := hexutil.Decode(observation.PerformData)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "failed to hex decode perform data")
+	}
+
+	payload, err := observationArguments.Pack(observation.Upkeep.UpkeepID.ToInt(), performDataRaw)
 	if err != nil {
 		return false, nil, errors.Wrap(err, "failed to ABI encode observation results")
 	}
@@ -324,10 +330,11 @@ func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *k
 			"prettyID":        upkeep.PrettyID(),
 			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
 				p.cfg.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": fmt.Sprintf("%d", p.chainID),
+			"gasPrice":    gasPrice,
+			"gasTipCap":   gasTipCap,
+			"gasFeeCap":   gasFeeCap,
+			"blockNumber": head.ToInt(),
+			"evmChainID":  fmt.Sprintf("%d", p.chainID),
 		},
 	})
 
