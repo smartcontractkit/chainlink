@@ -146,7 +146,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, skipSigVerification);
     s_storage.nonce++;
-    emit UpkeepRegistered(id, gasLimit, admin);
+    emit UpkeepRegistered(id, gasLimit, admin, skipSigVerification);
     return id;
   }
 
