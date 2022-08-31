@@ -47,7 +47,15 @@ type Core struct {
 
 	AutoPprof *AutoPprof
 
+	Pyroscope *Pyroscope
+
 	Sentry *Sentry
+}
+
+func (core Core) ValidateConfig() (err error) {
+	// TODO: Add Core-specific validations
+	// https://app.shortcut.com/chainlinklabs/story/33618/add-config-validate-command
+	return
 }
 
 type Secrets struct {
@@ -297,6 +305,12 @@ type AutoPprof struct {
 	MutexProfileFraction *int64 // runtime.SetMutexProfileFraction
 	MemThreshold         *utils.FileSize
 	GoroutineThreshold   *int64
+}
+
+type Pyroscope struct {
+	AuthToken     *string
+	ServerAddress *string
+	Environment   *string
 }
 
 type Sentry struct {

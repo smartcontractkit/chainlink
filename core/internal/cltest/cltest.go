@@ -112,6 +112,8 @@ const (
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
 	DefaultOCR2KeyBundleID = "92be59c45d0d7b192ef88d391f444ea7c78644f8607f567aab11d53668c27a4d"
+	// Private key seed of test keys created with `big.NewInt(1)`, representations of value present in `scrub_logs` script
+	KeyBigIntSeed = 1
 )
 
 var (
@@ -119,16 +121,16 @@ var (
 	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
-	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
-	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
-	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(1))
-	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultOCRKey        = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultOCR2Key       = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
+	DefaultP2PKey        = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultSolanaKey     = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultTerraKey      = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultStarkNetKey   = starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultVRFKey        = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultDKGSignKey    = dkgsignkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
+	DefaultDKGEncryptKey = dkgencryptkey.MustNewXXXTestingOnly(big.NewInt(KeyBigIntSeed))
 )
 
 func init() {
@@ -242,11 +244,13 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandl
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	shutdownGracePeriod := testutils.DefaultWaitTimeout
+	reaperInterval := time.Duration(0) // disable reaper
 	overrides := configtest.GeneralConfigOverrides{
-		Dialect:             dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:      null.IntFrom(NewRandomPositiveInt64()),
-		P2PEnabled:          null.BoolFrom(false),
-		ShutdownGracePeriod: &shutdownGracePeriod,
+		Dialect:                   dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:            null.IntFrom(NewRandomPositiveInt64()),
+		P2PEnabled:                null.BoolFrom(false),
+		ShutdownGracePeriod:       &shutdownGracePeriod,
+		JobPipelineReaperInterval: &reaperInterval,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }

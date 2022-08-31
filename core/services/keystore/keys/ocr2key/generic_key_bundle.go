@@ -1,6 +1,7 @@
 package ocr2key
 
 import (
+	"bytes"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type (
@@ -29,6 +31,7 @@ type (
 		ChainType       chaintype.ChainType
 		OffchainKeyring []byte
 		Keyring         []byte
+		ID              models.Sha256Hash // tracked to preserve bundle ID in case of migrations
 
 		// old chain specific format for migrating
 		EVMKeyring    []byte `json:",omitempty"`
@@ -111,6 +114,7 @@ func (kb *keyBundle[K]) Marshal() ([]byte, error) {
 		ChainType:       kb.chainType,
 		OffchainKeyring: offchainKeyringBytes,
 		Keyring:         keyringBytes,
+		ID:              kb.id, // preserve bundle ID
 	}
 	return json.Marshal(&rawKeyData)
 }
@@ -121,7 +125,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = rawKeyData.Migrate(); err != nil {
+	if err = rawKeyData.Migrate(b); err != nil {
 		return err
 	}
 
@@ -135,7 +139,7 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 		return err
 	}
 	kb.chainType = rawKeyData.ChainType
-	kb.id = sha256.Sum256(b)
+	kb.id = rawKeyData.ID
 	return nil
 }
 
@@ -148,7 +152,7 @@ func (kb *keyBundle[K]) Raw() Raw {
 }
 
 // migration code
-func (kbraw *keyBundleRawData) Migrate() error {
+func (kbraw *keyBundleRawData) Migrate(b []byte) error {
 	// if key is not stored in Keyring param, use EVM, Solana, Terra as Keyring
 	// for migrating, key will only be marshalled into Keyring
 	if len(kbraw.Keyring) == 0 {
@@ -159,6 +163,12 @@ func (kbraw *keyBundleRawData) Migrate() error {
 		} else if len(kbraw.TerraKeyring) != 0 {
 			kbraw.Keyring = kbraw.TerraKeyring
 		}
+	}
+
+	// if key does not have an ID associated with it (old formats),
+	// derive the key ID and preserve it
+	if bytes.Equal(kbraw.ID[:], models.EmptySha256Hash[:]) {
+		kbraw.ID = sha256.Sum256(b)
 	}
 
 	return nil
