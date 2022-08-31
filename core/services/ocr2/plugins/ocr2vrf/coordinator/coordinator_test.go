@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	lp_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller/mocks"
 	evm_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	dkg_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
 	vrf_wrapper "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -196,15 +196,14 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
-			Return(&evmtypes.Head{
-				Number: latestHeadNumber,
-			}, nil)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(50)
+		lookbackBlocks := int64(5)
 		lp := lp_mocks.NewLogPoller(t)
+
+		lp.On("LatestBlock", mock.Anything).
+			Return(latestHeadNumber, nil)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -223,11 +222,31 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			newRandomnessRequestedLog(t, 3, 195, 193),
 		}, nil)
 
-		lp.On("GetBlocks", []uint64{195}, mock.Anything).
+		lp.On("GetBlocks", []uint64{195, 196, 197, 198, 199, 200}, mock.Anything).
 			Return([]logpoller.LogPollerBlock{
 				{
 					BlockNumber: 195,
+					BlockHash:   common.HexToHash("0x001"),
+				},
+				{
+					BlockNumber: 196,
 					BlockHash:   common.HexToHash("0x002"),
+				},
+				{
+					BlockNumber: 197,
+					BlockHash:   common.HexToHash("0x003"),
+				},
+				{
+					BlockNumber: 198,
+					BlockHash:   common.HexToHash("0x004"),
+				},
+				{
+					BlockNumber: 199,
+					BlockHash:   common.HexToHash("0x005"),
+				},
+				{
+					BlockNumber: 200,
+					BlockHash:   common.HexToHash("0x006"),
 				},
 			}, nil)
 
@@ -265,15 +284,11 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
-			Return(&evmtypes.Head{
-				Number: latestHeadNumber,
-			}, nil)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(50)
-		lp := lp_mocks.NewLogPoller(t)
+		lookbackBlocks := int64(5)
+		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -291,14 +306,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
 			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
 		}, nil)
-
-		lp.On("GetBlocks", []uint64{195}, mock.Anything).
-			Return([]logpoller.LogPollerBlock{
-				{
-					BlockNumber: 195,
-					BlockHash:   common.HexToHash("0x002"),
-				},
-			}, nil)
 
 		c := &coordinator{
 			coordinatorContract: coordinatorContract,
@@ -334,15 +341,11 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
-			Return(&evmtypes.Head{
-				Number: latestHeadNumber,
-			}, nil)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(50)
-		lp := lp_mocks.NewLogPoller(t)
+		lookbackBlocks := int64(5)
+		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -366,10 +369,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 				},
 			}),
 		}, nil)
-
-		var r []uint64
-		lp.On("GetBlocks", r, mock.Anything).
-			Return(nil, nil)
 
 		c := &coordinator{
 			coordinatorContract: coordinatorContract,
@@ -405,15 +404,11 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 		latestHeadNumber := int64(200)
 		evmClient := evm_mocks.NewClient(t)
-		evmClient.On("HeadByNumber", mock.Anything, mock.Anything).
-			Return(&evmtypes.Head{
-				Number: latestHeadNumber,
-			}, nil)
 
 		tp := newTopics()
 
-		lookbackBlocks := int64(50)
-		lp := lp_mocks.NewLogPoller(t)
+		lookbackBlocks := int64(5)
+		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
 		lp.On(
 			"LogsWithSigs",
 			latestHeadNumber-lookbackBlocks,
@@ -441,10 +436,6 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			}),
 		}, nil)
 
-		var r []uint64
-		lp.On("GetBlocks", r, mock.Anything).
-			Return(nil, nil)
-
 		c := &coordinator{
 			coordinatorContract: coordinatorContract,
 			coordinatorAddress:  coordinatorAddress,
@@ -467,10 +458,102 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
 	})
+
+	t.Run("happy path, callback requests & callback fulfillments in-flight", func(t *testing.T) {
+		coordinatorAddress := newAddress(t)
+
+		// we only need the contract for unmarshaling raw log data,
+		// so the backend can be safely set to nil.
+		// in actual operation, the backend will be an evm client.
+		coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, nil)
+		require.NoError(t, err)
+
+		latestHeadNumber := int64(200)
+		evmClient := evm_mocks.NewClient(t)
+
+		tp := newTopics()
+
+		lookbackBlocks := int64(5)
+		lp := getLogPoller(t, lookbackBlocks, latestHeadNumber)
+		lp.On(
+			"LogsWithSigs",
+			latestHeadNumber-lookbackBlocks,
+			latestHeadNumber,
+			[]common.Hash{
+				tp.randomnessRequestedTopic,
+				tp.randomnessFulfillmentRequestedTopic,
+				tp.randomWordsFulfilledTopic,
+				tp.newTransmissionTopic,
+			},
+			coordinatorAddress,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 191, 1),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 192, 2),
+			newRandomnessFulfillmentRequestedLog(t, 3, 195, 193, 3),
+		}, nil)
+
+		c := &coordinator{
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    make(map[block]struct{}),
+			toBeTransmittedCallbacks: make(map[callback]struct{}),
+		}
+
+		report := ocr2vrftypes.AbstractReport{
+			Outputs: []ocr2vrftypes.AbstractVRFOutput{
+				{
+					BlockHeight:       195,
+					ConfirmationDelay: 195,
+					Callbacks: []ocr2vrftypes.AbstractCostedCallbackRequest{
+						{
+							RequestID:    1,
+							BeaconHeight: 195,
+						},
+						{
+							RequestID:    2,
+							BeaconHeight: 195,
+						},
+						{
+							RequestID:    3,
+							BeaconHeight: 195,
+						},
+					},
+				},
+			},
+		}
+
+		c.ReportWillBeTransmitted(testutils.Context(t), report)
+
+		blocks, callbacks, err := c.ReportBlocks(
+			testutils.Context(t),
+			0, // slotInterval: unused
+			map[uint32]struct{}{3: {}},
+			time.Duration(0),
+			100, // maxBlocks: unused
+			100, // maxCallbacks: unused
+		)
+		assert.NoError(t, err)
+		assert.Len(t, blocks, 0)
+		assert.Len(t, callbacks, 0)
+	})
+
 }
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
-	c := &coordinator{}
+
+	lookbackBlocks := int64(0)
+	lp := getLogPoller(t, lookbackBlocks, 200)
+	c := &coordinator{
+		lp:             lp,
+		lookbackBlocks: lookbackBlocks,
+		lggr:           logger.TestLogger(t),
+	}
 	assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{}))
 }
 
@@ -834,4 +917,30 @@ func newAddress(t *testing.T) common.Address {
 	_, err := rand.Read(b)
 	require.NoError(t, err)
 	return common.HexToAddress(hexutil.Encode(b))
+}
+
+func getLogPoller(t *testing.T, lookback int64, latestHeadNumber int64) *lp_mocks.LogPoller {
+	lp := lp_mocks.NewLogPoller(t)
+	lp.On("LatestBlock", mock.Anything).
+		Return(latestHeadNumber, nil)
+
+	blockHeights := make([]uint64, lookback+1)
+	logPollerBlocks := []logpoller.LogPollerBlock{}
+
+	// Fill range of blocks based on lookbacks + latestHeadNumber
+	// example: lookback 5, latestHeadNumber 200 -> [195, 196, 197, 198, 199, 200]
+	// -> [{BlockNumber: 195, BlockHash: 0x001}, ... {BlockNumber: 200, BlockHash: 0x006}]
+	for i := range blockHeights {
+		height := int64(i) + (latestHeadNumber - lookback)
+		blockHeights[i] = uint64(height)
+		logPollerBlocks = append(logPollerBlocks, logpoller.LogPollerBlock{
+			BlockNumber: height,
+			BlockHash:   common.HexToHash(fmt.Sprintf("0x00%d", i+1)),
+		})
+	}
+
+	lp.On("GetBlocks", blockHeights, mock.Anything).
+		Return(logPollerBlocks, nil)
+
+	return lp
 }

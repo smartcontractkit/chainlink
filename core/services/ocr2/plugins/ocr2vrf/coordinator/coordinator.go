@@ -249,7 +249,7 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Info(fmt.Sprintf("got fulfilled blocks: %+v", fulfilledBlocks))
 
 	// Fill blocks slice with valid requested blocks.
-	blocks = make([]ocr2vrftypes.Block, len(blocksRequested))
+	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
 		blocks = append(blocks, ocr2vrftypes.Block{
 			Hash:              blockhashesMapping[block.blockNumber],
