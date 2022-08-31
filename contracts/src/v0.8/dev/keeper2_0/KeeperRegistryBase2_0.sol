@@ -367,9 +367,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     }
 
     uint256 gasPayment256 = ((weiForGas + l1CostWei) * 1e18) / linkNative;
-    uint256 premium256 = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
+    uint256 premium256 = (gasPayment256 * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
-    if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
+    if (gasPayment256 + premium256 > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return (uint96(gasPayment256), uint96(premium256));
   }
 

@@ -40,6 +40,10 @@ function randomAddress() {
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 //const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
 //const CHECK_GAS_OVERHEAD = BigNumber.from(362287)
+
+const registryGasOverhead = BigNumber.from(80000)
+const verifySigOverhead = BigNumber.from(20000)
+//const accountGasOverhead = BigNumber.from(20000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -80,13 +84,12 @@ before(async () => {
 })
 
 describe('KeeperRegistry2_0', () => {
-  const linkEth = BigNumber.from(300000000)
+  const linkEth = BigNumber.from(500000000)
   const gasWei = BigNumber.from(100)
-  //const linkDivisibility = BigNumber.from('1000000000000000000')
+  const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('100000')
-  //const paymentPremiumBase = BigNumber.from('1000000000')
+  const paymentPremiumBase = BigNumber.from('1000000000')
   const paymentPremiumPPB = BigNumber.from('250000000')
-  //const premiumMultiplier = BigNumber.from('1000000000')
   const flatFeeMicroLink = BigNumber.from(0)
   //const emptyBytes = '0x00'
   const randomBytes = '0x1234abcd'
@@ -101,8 +104,7 @@ describe('KeeperRegistry2_0', () => {
   const maxPerformDataSize = BigNumber.from(10000)
   const maxPerformGas = BigNumber.from(5000000)
   const minUpkeepSpend = BigNumber.from(0)
-  //const l1CostWeiArb = BigNumber.from(1000000)
-  //const l1CostWeiOpt = BigNumber.from(2000000)
+  const f = 1
 
   let owner: Signer
   let keeper1: Signer
@@ -221,7 +223,7 @@ describe('KeeperRegistry2_0', () => {
 
     mock = await upkeepMockFactory.deploy()
 
-    await registry.connect(owner).setConfig(keepers, keepers, 1, '0x', 1, '0x')
+    await registry.connect(owner).setConfig(keepers, keepers, f, '0x', 1, '0x')
     await registry.connect(owner).setPayees(payees)
 
     await linkToken
@@ -241,30 +243,38 @@ describe('KeeperRegistry2_0', () => {
     upkeepId = await getUpkeepID(tx)
   })
 
-  /*
+  // TODO: transmit
+  // TODO: simulatePerformUpkeep
+  // Done till getState
+
   const linkForGas = (
-    upkeepGasSpent: BigNumberish,
-    premiumPPB?: BigNumberish,
-    flatFee?: BigNumberish,
+    upkeepGasSpent: BigNumber,
+    gasOverhead: BigNumber,
+    gasMultiplier: BigNumber,
+    premiumPPB: BigNumber,
+    flatFee: BigNumber,
     l1CostWei?: BigNumber,
   ) => {
-    premiumPPB = premiumPPB === undefined ? paymentPremiumPPB : premiumPPB
-    flatFee = flatFee === undefined ? flatFeeMicroLink : flatFee
     l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
-    const gasSpent = registryGasOverhead.add(BigNumber.from(upkeepGasSpent))
-    const base = gasWei.mul(gasSpent).mul(linkDivisibility).div(linkEth)
-    const l1Fee = l1CostWei
-      .mul(premiumMultiplier)
-      .mul(paymentPremiumBase.add(premiumPPB))
+
+    const gasSpent = gasOverhead.add(BigNumber.from(upkeepGasSpent))
+    const base = gasWei
+      .mul(gasMultiplier)
+      .mul(gasSpent)
+      .mul(linkDivisibility)
       .div(linkEth)
-    const premium = base.mul(premiumPPB).div(paymentPremiumBase)
+    const l1Fee = l1CostWei
+      .mul(gasMultiplier)
+      .mul(linkDivisibility)
+      .div(linkEth)
+    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
     const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
     return base.add(premium).add(flatFeeJules).add(l1Fee)
-  }*/
+  }
 
-  /*
   const verifyMaxPayment = async (
     paymentModel: number,
+    multipliers: BigNumber[],
     gasAmounts: number[],
     premiums: number[],
     flatFees: number[],
@@ -277,6 +287,8 @@ describe('KeeperRegistry2_0', () => {
       stalenessSeconds,
       gasCeilingMultiplier,
       minUpkeepSpend,
+      maxCheckDataSize,
+      maxPerformDataSize,
       maxPerformGas,
       fallbackGasPrice,
       fallbackLinkPrice,
@@ -284,17 +296,23 @@ describe('KeeperRegistry2_0', () => {
       registrar: ethers.constants.AddressZero,
     }
 
+    // Deploy a new registry since we change payment model
     let registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
         paymentModel,
-        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
         registryLogic.address,
         config,
       )
+    await registry.connect(owner).setConfig(keepers, keepers, f, '0x', 1, '0x')
+
+    let fPlusOne = BigNumber.from(f + 1)
+    let totalGasOverhead = registryGasOverhead.add(
+      verifySigOverhead.mul(fPlusOne),
+    )
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
       const gas = gasAmounts[idx]
@@ -302,30 +320,77 @@ describe('KeeperRegistry2_0', () => {
         const premium = premiums[jdx]
         for (let kdx = 0; kdx < flatFees.length; kdx++) {
           const flatFee = flatFees[kdx]
-          await registry.connect(owner).setOnChainConfig({
-            paymentPremiumPPB: premium,
-            flatFeeMicroLink: flatFee,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          })
-          const price = await registry.getMaxPaymentForGas(gas)
-          expect(price).to.equal(linkForGas(gas, premium, flatFee, l1CostWei))
+          for (let ldx = 0; ldx < multipliers.length; ldx++) {
+            const multiplier = multipliers[ldx]
+
+            await registry.connect(owner).setOnChainConfig({
+              paymentPremiumPPB: premium,
+              flatFeeMicroLink: flatFee,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier: multiplier,
+              minUpkeepSpend,
+              maxCheckDataSize,
+              maxPerformDataSize,
+              maxPerformGas,
+              fallbackGasPrice,
+              fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
+            })
+            const price = await registry.getMaxPaymentForGas(gas)
+            expect(price).to.equal(
+              linkForGas(
+                BigNumber.from(gas),
+                totalGasOverhead,
+                multiplier,
+                BigNumber.from(premium),
+                BigNumber.from(flatFee),
+                l1CostWei,
+              ),
+            )
+          }
         }
       }
     }
   }
-  */
 
-  // TODO: transmit
-  // TODO: simulatePerformUpkeep
-  // Done till geState
+  describe('#getMaxPaymentForGas', () => {
+    const multipliers = [BigNumber.from(1), BigNumber.from(3)]
+    const gasAmounts = [100000, 10000000]
+    const premiums = [0, 250000000]
+    const flatFees = [0, 1000000]
+    // Same as MockArbGasInfo.sol
+    const l1CostWeiArb = BigNumber.from(1000000)
+    // Same as MockOVMGasPriceOracle.sol
+    const l1CostWeiOpt = BigNumber.from(2000000)
+
+    it('calculates the max fee appropriately', async () => {
+      await verifyMaxPayment(0, multipliers, gasAmounts, premiums, flatFees)
+    })
+
+    it('calculates the max fee appropriately for Arbitrum', async () => {
+      await verifyMaxPayment(
+        1,
+        multipliers,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiArb,
+      )
+    })
+
+    it('calculates the max fee appropriately for Optimism', async () => {
+      await verifyMaxPayment(
+        2,
+        multipliers,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiOpt,
+      )
+    })
+  })
 
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
@@ -404,7 +469,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(payee1)
-          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
         'Only callable by owner',
       )
     })
@@ -416,7 +481,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
         'TooManyOracles()',
       )
     })
@@ -435,7 +500,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(signers, newKeepers, 1, '0x', 1, '0x'),
+          .setConfig(signers, newKeepers, f, '0x', 1, '0x'),
         'IncorrectNumberOfSigners()',
       )
     })
@@ -445,7 +510,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(newKeepers, newKeepers, 1, '0x', 1, '0x'),
+          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
         'IncorrectNumberOfSigners()',
       )
     })
@@ -454,7 +519,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(newKeepers, newKeepers, 1, '0x12', 1, '0x'),
+          .setConfig(newKeepers, newKeepers, f, '0x12', 1, '0x'),
         'OnchainConfigNonEmpty()',
       )
     })
@@ -469,7 +534,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(newSigners, newKeepers, 1, '0x', 1, '0x'),
+          .setConfig(newSigners, newKeepers, f, '0x', 1, '0x'),
         'RepeatedSigner()',
       )
     })
@@ -484,7 +549,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(newKeepers, newTransmitters, 1, '0x', 1, '0x'),
+          .setConfig(newKeepers, newTransmitters, f, '0x', 1, '0x'),
         'RepeatedTransmitter()',
       )
     })
@@ -501,7 +566,7 @@ describe('KeeperRegistry2_0', () => {
         .setConfig(
           newKeepers,
           newKeepers,
-          1,
+          f,
           '0x',
           newOffChainVersion,
           newOffChainConfig,
@@ -2671,24 +2736,6 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 */
-  /*
-  describe('#getMaxPaymentForGas', () => {
-    const gasAmounts = [100000, 10000000]
-    const premiums = [0, 250000000]
-    const flatFees = [0, 1000000]
-    it('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(0, gasAmounts, premiums, flatFees)
-    })
-
-    it('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(1, gasAmounts, premiums, flatFees, l1CostWeiArb)
-    })
-
-    it('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(2, gasAmounts, premiums, flatFees, l1CostWeiOpt)
-    })
-  })
-  */
 
   /*
   describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
