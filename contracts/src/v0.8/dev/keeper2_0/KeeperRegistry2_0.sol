@@ -816,11 +816,13 @@ contract KeeperRegistry2_0 is
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
+   * @param skipSigVerification whether to skip signature verification for low security low cost
    */
   function registerUpkeep(
     address target,
     uint32 gasLimit,
     address admin,
+    bool skipSigVerification,
     bytes calldata checkData
   ) external override returns (uint256 id) {
     // Executed through logic contract
