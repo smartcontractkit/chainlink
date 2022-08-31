@@ -88,12 +88,13 @@ describe('KeeperRegistry2_0', () => {
   const randomBytes = '0x1234abcd'
   const zeroAddress = ethers.constants.AddressZero
   //const extraGas = BigNumber.from('250000')
-  const registryGasOverhead = BigNumber.from('80000')
   const stalenessSeconds = BigNumber.from(43820)
   const gasCeilingMultiplier = BigNumber.from(1)
   const checkGasLimit = BigNumber.from(10000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
+  const maxCheckDataSize = BigNumber.from(10000)
+  const maxPerformDataSize = BigNumber.from(10000)
   const maxPerformGas = BigNumber.from(5000000)
   const minUpkeepSpend = BigNumber.from(0)
   //const l1CostWeiArb = BigNumber.from(1000000)
@@ -186,7 +187,6 @@ describe('KeeperRegistry2_0', () => {
       .connect(owner)
       .deploy(
         0,
-        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -199,6 +199,8 @@ describe('KeeperRegistry2_0', () => {
       stalenessSeconds,
       gasCeilingMultiplier,
       minUpkeepSpend,
+      maxCheckDataSize,
+      maxPerformDataSize,
       maxPerformGas,
       fallbackGasPrice,
       fallbackLinkPrice,
@@ -209,7 +211,6 @@ describe('KeeperRegistry2_0', () => {
       .connect(owner)
       .deploy(
         0,
-        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -256,6 +257,7 @@ describe('KeeperRegistry2_0', () => {
         mock.address,
         executeGas,
         await admin.getAddress(),
+        false,
         randomBytes,
       )
     id = await getUpkeepID(tx)
