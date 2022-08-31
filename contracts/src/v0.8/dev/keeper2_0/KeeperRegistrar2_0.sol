@@ -307,6 +307,40 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     }
   }
 
+  /**
+   * @notice Allows external users to register upkeeps
+   * @notice registerUpkeep can only be called through transferAndCall on LINK contract
+   * @param name string of the upkeep to be registered
+   * @param upkeepContract address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when performing upkeep
+   * @param adminAddress address to cancel upkeep and withdraw remaining funds
+   * @param checkData data passed to the contract when checking for upkeep
+   * @param amount quantity of LINK upkeep is funded with (specified in Juels)
+   */
+  function registerUpkeep(
+    string memory name,
+    address upkeepContract,
+    uint32 gasLimit,
+    address adminAddress,
+    bytes calldata checkData,
+    uint96 amount
+  ) external returns (uint256) {
+    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
+
+    uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
+
+    bool success = LINK.transferFrom(msg.sender, owner(), amount);
+    if (!success) {
+      revert LinkTransferFailed(address(keeperRegistry));
+    }
+    
+    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
+
+    emit RegistrationApproved(hash, name, upkeepId);
+
+    return upkeepId;
+  }
+
   //PRIVATE
 
   /**
