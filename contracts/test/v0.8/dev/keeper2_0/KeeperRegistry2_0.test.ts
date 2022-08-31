@@ -245,389 +245,7 @@ describe('KeeperRegistry2_0', () => {
 
   // TODO: transmit
   // TODO: simulatePerformUpkeep
-  // Done till getState
-
-  const linkForGas = (
-    upkeepGasSpent: BigNumber,
-    gasOverhead: BigNumber,
-    gasMultiplier: BigNumber,
-    premiumPPB: BigNumber,
-    flatFee: BigNumber,
-    l1CostWei?: BigNumber,
-  ) => {
-    l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
-
-    const gasSpent = gasOverhead.add(BigNumber.from(upkeepGasSpent))
-    const base = gasWei
-      .mul(gasMultiplier)
-      .mul(gasSpent)
-      .mul(linkDivisibility)
-      .div(linkEth)
-    const l1Fee = l1CostWei
-      .mul(gasMultiplier)
-      .mul(linkDivisibility)
-      .div(linkEth)
-    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
-    const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
-    return base.add(premium).add(flatFeeJules).add(l1Fee)
-  }
-
-  const verifyMaxPayment = async (
-    paymentModel: number,
-    multipliers: BigNumber[],
-    gasAmounts: number[],
-    premiums: number[],
-    flatFees: number[],
-    l1CostWei?: BigNumber,
-  ) => {
-    const config = {
-      paymentPremiumPPB,
-      flatFeeMicroLink,
-      checkGasLimit,
-      stalenessSeconds,
-      gasCeilingMultiplier,
-      minUpkeepSpend,
-      maxCheckDataSize,
-      maxPerformDataSize,
-      maxPerformGas,
-      fallbackGasPrice,
-      fallbackLinkPrice,
-      transcoder: transcoder.address,
-      registrar: ethers.constants.AddressZero,
-    }
-
-    // Deploy a new registry since we change payment model
-    let registry = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(
-        paymentModel,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-        config,
-      )
-    await registry.connect(owner).setConfig(keepers, keepers, f, '0x', 1, '0x')
-
-    let fPlusOne = BigNumber.from(f + 1)
-    let totalGasOverhead = registryGasOverhead.add(
-      verifySigOverhead.mul(fPlusOne),
-    )
-
-    for (let idx = 0; idx < gasAmounts.length; idx++) {
-      const gas = gasAmounts[idx]
-      for (let jdx = 0; jdx < premiums.length; jdx++) {
-        const premium = premiums[jdx]
-        for (let kdx = 0; kdx < flatFees.length; kdx++) {
-          const flatFee = flatFees[kdx]
-          for (let ldx = 0; ldx < multipliers.length; ldx++) {
-            const multiplier = multipliers[ldx]
-
-            await registry.connect(owner).setOnChainConfig({
-              paymentPremiumPPB: premium,
-              flatFeeMicroLink: flatFee,
-              checkGasLimit,
-              stalenessSeconds,
-              gasCeilingMultiplier: multiplier,
-              minUpkeepSpend,
-              maxCheckDataSize,
-              maxPerformDataSize,
-              maxPerformGas,
-              fallbackGasPrice,
-              fallbackLinkPrice,
-              transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
-            })
-            const price = await registry.getMaxPaymentForGas(gas)
-            expect(price).to.equal(
-              linkForGas(
-                BigNumber.from(gas),
-                totalGasOverhead,
-                multiplier,
-                BigNumber.from(premium),
-                BigNumber.from(flatFee),
-                l1CostWei,
-              ),
-            )
-          }
-        }
-      }
-    }
-  }
-
-  describe('#getMaxPaymentForGas', () => {
-    const multipliers = [BigNumber.from(1), BigNumber.from(3)]
-    const gasAmounts = [100000, 10000000]
-    const premiums = [0, 250000000]
-    const flatFees = [0, 1000000]
-    // Same as MockArbGasInfo.sol
-    const l1CostWeiArb = BigNumber.from(1000000)
-    // Same as MockOVMGasPriceOracle.sol
-    const l1CostWeiOpt = BigNumber.from(2000000)
-
-    it('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(0, multipliers, gasAmounts, premiums, flatFees)
-    })
-
-    it('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(
-        1,
-        multipliers,
-        gasAmounts,
-        premiums,
-        flatFees,
-        l1CostWeiArb,
-      )
-    })
-
-    it('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(
-        2,
-        multipliers,
-        gasAmounts,
-        premiums,
-        flatFees,
-        l1CostWeiOpt,
-      )
-    })
-  })
-
-  describe('#typeAndVersion', () => {
-    it('uses the correct type and version', async () => {
-      const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.0')
-    })
-  })
-
-  describe('#onTokenTransfer', () => {
-    const amount = toWei('1')
-
-    it('reverts if not called by the LINK token', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
-
-      await evmRevert(
-        registry
-          .connect(keeper1)
-          .onTokenTransfer(await keeper1.getAddress(), amount, data),
-        'OnlyCallableByLINKToken()',
-      )
-    })
-
-    it('reverts if not called with more or less than 32 bytes', async () => {
-      const longData = ethers.utils.defaultAbiCoder.encode(
-        ['uint256', 'uint256'],
-        ['33', '34'],
-      )
-      const shortData = '0x12345678'
-
-      await evmRevert(
-        linkToken
-          .connect(owner)
-          .transferAndCall(registry.address, amount, longData),
-      )
-      await evmRevert(
-        linkToken
-          .connect(owner)
-          .transferAndCall(registry.address, amount, shortData),
-      )
-    })
-
-    it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(upkeepId)
-      await evmRevert(
-        registry.connect(keeper1).addFunds(upkeepId, amount),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('updates the funds of the job id passed', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
-
-      const before = (await registry.getUpkeep(upkeepId)).balance
-      await linkToken
-        .connect(owner)
-        .transferAndCall(registry.address, amount, data)
-      const after = (await registry.getUpkeep(upkeepId)).balance
-
-      assert.isTrue(before.add(amount).eq(after))
-    })
-  })
-
-  describe('#setConfig', () => {
-    let newKeepers: string[]
-
-    beforeEach(async () => {
-      newKeepers = [
-        await personas.Eddy.getAddress(),
-        await personas.Nick.getAddress(),
-        await personas.Neil.getAddress(),
-        await personas.Carol.getAddress(),
-      ]
-    })
-
-    it('reverts when called by anyone but the owner', async () => {
-      await evmRevert(
-        registry
-          .connect(payee1)
-          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
-        'Only callable by owner',
-      )
-    })
-
-    it('reverts if too many keepers set', async () => {
-      for (let i = 0; i < 40; i++) {
-        newKeepers.push(randomAddress())
-      }
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
-        'TooManyOracles()',
-      )
-    })
-
-    it('reverts if f=0', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newKeepers, 0, '0x', 1, '0x'),
-        'IncorrectNumberOfFaultyOracles()',
-      )
-    })
-
-    it('reverts if signers != transmitters length', async () => {
-      let signers = [randomAddress()]
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(signers, newKeepers, f, '0x', 1, '0x'),
-        'IncorrectNumberOfSigners()',
-      )
-    })
-
-    it('reverts if signers <= 3f', async () => {
-      newKeepers.pop()
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
-        'IncorrectNumberOfSigners()',
-      )
-    })
-
-    it('reverts if onChainCOnfig is non empty', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newKeepers, f, '0x12', 1, '0x'),
-        'OnchainConfigNonEmpty()',
-      )
-    })
-
-    it('reverts on repeated signers', async () => {
-      let newSigners = [
-        await personas.Eddy.getAddress(),
-        await personas.Eddy.getAddress(),
-        await personas.Eddy.getAddress(),
-        await personas.Eddy.getAddress(),
-      ]
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newSigners, newKeepers, f, '0x', 1, '0x'),
-        'RepeatedSigner()',
-      )
-    })
-
-    it('reverts on repeated transmitters', async () => {
-      let newTransmitters = [
-        await personas.Eddy.getAddress(),
-        await personas.Eddy.getAddress(),
-        await personas.Eddy.getAddress(),
-        await personas.Eddy.getAddress(),
-      ]
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setConfig(newKeepers, newTransmitters, f, '0x', 1, '0x'),
-        'RepeatedTransmitter()',
-      )
-    })
-
-    it('stores new config and emits event', async () => {
-      let newOffChainVersion = BigNumber.from('2')
-      let newOffChainConfig = '0x1122'
-
-      const old = await registry.getState()
-      const oldState = old.state
-
-      const tx = await registry
-        .connect(owner)
-        .setConfig(
-          newKeepers,
-          newKeepers,
-          f,
-          '0x',
-          newOffChainVersion,
-          newOffChainConfig,
-        )
-
-      const updated = await registry.getState()
-
-      const updatedState = updated.state
-
-      // Old signer addresses which are not in new signers should be non active
-      for (var i = 0; i < keepers.length; i++) {
-        let signer = keepers[i]
-        if (!newKeepers.includes(signer)) {
-          assert((await registry.getSignerInfo(signer)).active == false)
-          assert((await registry.getSignerInfo(signer)).index == 0)
-        }
-      }
-      // New signer addresses should be active
-      for (var i = 0; i < newKeepers.length; i++) {
-        let signer = newKeepers[i]
-        assert((await registry.getSignerInfo(signer)).active == true)
-        assert((await registry.getSignerInfo(signer)).index == i)
-      }
-      // Old transmitter addresses which are not in new transmitter should be non active, but retain other info
-      for (var i = 0; i < keepers.length; i++) {
-        let transmitter = keepers[i]
-        if (!newKeepers.includes(transmitter)) {
-          assert(
-            (await registry.getTransmitterInfo(transmitter)).active == false,
-          )
-          assert((await registry.getTransmitterInfo(transmitter)).index == i)
-        }
-      }
-      // New transmitter addresses should be active
-      for (var i = 0; i < newKeepers.length; i++) {
-        let transmitter = newKeepers[i]
-        assert((await registry.getTransmitterInfo(transmitter)).active == true)
-        assert((await registry.getTransmitterInfo(transmitter)).index == i)
-      }
-
-      // config digest should be updated
-      assert(oldState.configCount + 1 == updatedState.configCount)
-      assert(
-        oldState.latestConfigBlockNumber !=
-          updatedState.latestConfigBlockNumber,
-      )
-      assert(oldState.latestConfigDigest != updatedState.latestConfigDigest)
-
-      //New config should be updated
-      assert.deepEqual(updated.signers, newKeepers)
-      assert.deepEqual(updated.transmitters, newKeepers)
-      assert(
-        updated.offchainConfigVersion.toString() ==
-          newOffChainVersion.toString(),
-      )
-      assert(updated.offchainConfig == newOffChainConfig)
-
-      // Event should have been emitted
-      await expect(tx).to.emit(registry, 'ConfigSet')
-    })
-  })
+  // Done till getters
 
   describe('#setOnChainConfig', () => {
     const payment = BigNumber.from(1)
@@ -880,6 +498,417 @@ describe('KeeperRegistry2_0', () => {
       )
     })
   })
+
+  const linkForGas = (
+    upkeepGasSpent: BigNumber,
+    gasOverhead: BigNumber,
+    gasMultiplier: BigNumber,
+    premiumPPB: BigNumber,
+    flatFee: BigNumber,
+    l1CostWei?: BigNumber,
+  ) => {
+    l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
+
+    const gasSpent = gasOverhead.add(BigNumber.from(upkeepGasSpent))
+    const base = gasWei
+      .mul(gasMultiplier)
+      .mul(gasSpent)
+      .mul(linkDivisibility)
+      .div(linkEth)
+    const l1Fee = l1CostWei
+      .mul(gasMultiplier)
+      .mul(linkDivisibility)
+      .div(linkEth)
+    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
+    const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
+    return base.add(premium).add(flatFeeJules).add(l1Fee)
+  }
+
+  const verifyMaxPayment = async (
+    paymentModel: number,
+    multipliers: BigNumber[],
+    gasAmounts: number[],
+    premiums: number[],
+    flatFees: number[],
+    l1CostWei?: BigNumber,
+  ) => {
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxCheckDataSize,
+      maxPerformDataSize,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder: transcoder.address,
+      registrar: ethers.constants.AddressZero,
+    }
+
+    // Deploy a new registry since we change payment model
+    let registry = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(
+        paymentModel,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        registryLogic.address,
+        config,
+      )
+    await registry.connect(owner).setConfig(keepers, keepers, f, '0x', 1, '0x')
+
+    let fPlusOne = BigNumber.from(f + 1)
+    let totalGasOverhead = registryGasOverhead.add(
+      verifySigOverhead.mul(fPlusOne),
+    )
+
+    for (let idx = 0; idx < gasAmounts.length; idx++) {
+      const gas = gasAmounts[idx]
+      for (let jdx = 0; jdx < premiums.length; jdx++) {
+        const premium = premiums[jdx]
+        for (let kdx = 0; kdx < flatFees.length; kdx++) {
+          const flatFee = flatFees[kdx]
+          for (let ldx = 0; ldx < multipliers.length; ldx++) {
+            const multiplier = multipliers[ldx]
+
+            await registry.connect(owner).setOnChainConfig({
+              paymentPremiumPPB: premium,
+              flatFeeMicroLink: flatFee,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier: multiplier,
+              minUpkeepSpend,
+              maxCheckDataSize,
+              maxPerformDataSize,
+              maxPerformGas,
+              fallbackGasPrice,
+              fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
+            })
+            const price = await registry.getMaxPaymentForGas(gas)
+            expect(price).to.equal(
+              linkForGas(
+                BigNumber.from(gas),
+                totalGasOverhead,
+                multiplier,
+                BigNumber.from(premium),
+                BigNumber.from(flatFee),
+                l1CostWei,
+              ),
+            )
+          }
+        }
+      }
+    }
+  }
+
+  describe('#getMaxPaymentForGas', () => {
+    const multipliers = [BigNumber.from(1), BigNumber.from(3)]
+    const gasAmounts = [100000, 10000000]
+    const premiums = [0, 250000000]
+    const flatFees = [0, 1000000]
+    // Same as MockArbGasInfo.sol
+    const l1CostWeiArb = BigNumber.from(1000000)
+    // Same as MockOVMGasPriceOracle.sol
+    const l1CostWeiOpt = BigNumber.from(2000000)
+
+    it('calculates the max fee appropriately', async () => {
+      await verifyMaxPayment(0, multipliers, gasAmounts, premiums, flatFees)
+    })
+
+    it('calculates the max fee appropriately for Arbitrum', async () => {
+      await verifyMaxPayment(
+        1,
+        multipliers,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiArb,
+      )
+    })
+
+    it('calculates the max fee appropriately for Optimism', async () => {
+      await verifyMaxPayment(
+        2,
+        multipliers,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiOpt,
+      )
+    })
+  })
+
+  /*
+  describe('#typeAndVersion', () => {
+    it('uses the correct type and version', async () => {
+      const typeAndVersion = await registry.typeAndVersion()
+      assert.equal(typeAndVersion, 'KeeperRegistry 2.0.0')
+    })
+  })
+
+  describe('#onTokenTransfer', () => {
+    const amount = toWei('1')
+
+    it('reverts if not called by the LINK token', async () => {
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
+
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .onTokenTransfer(await keeper1.getAddress(), amount, data),
+        'OnlyCallableByLINKToken()',
+      )
+    })
+
+    it('reverts if not called with more or less than 32 bytes', async () => {
+      const longData = ethers.utils.defaultAbiCoder.encode(
+        ['uint256', 'uint256'],
+        ['33', '34'],
+      )
+      const shortData = '0x12345678'
+
+      await evmRevert(
+        linkToken
+          .connect(owner)
+          .transferAndCall(registry.address, amount, longData),
+      )
+      await evmRevert(
+        linkToken
+          .connect(owner)
+          .transferAndCall(registry.address, amount, shortData),
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+      await evmRevert(
+        registry.connect(keeper1).addFunds(upkeepId, amount),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('updates the funds of the job id passed', async () => {
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
+
+      const before = (await registry.getUpkeep(upkeepId)).balance
+      await linkToken
+        .connect(owner)
+        .transferAndCall(registry.address, amount, data)
+      const after = (await registry.getUpkeep(upkeepId)).balance
+
+      assert.isTrue(before.add(amount).eq(after))
+    })
+  })
+
+  describe('#setConfig', () => {
+    let newKeepers: string[]
+
+    beforeEach(async () => {
+      newKeepers = [
+        await personas.Eddy.getAddress(),
+        await personas.Nick.getAddress(),
+        await personas.Neil.getAddress(),
+        await personas.Carol.getAddress(),
+      ]
+    })
+
+    it('reverts when called by anyone but the owner', async () => {
+      await evmRevert(
+        registry
+          .connect(payee1)
+          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
+        'Only callable by owner',
+      )
+    })
+
+    it('reverts if too many keepers set', async () => {
+      for (let i = 0; i < 40; i++) {
+        newKeepers.push(randomAddress())
+      }
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
+        'TooManyOracles()',
+      )
+    })
+
+    it('reverts if f=0', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, 0, '0x', 1, '0x'),
+        'IncorrectNumberOfFaultyOracles()',
+      )
+    })
+
+    it('reverts if signers != transmitters length', async () => {
+      let signers = [randomAddress()]
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(signers, newKeepers, f, '0x', 1, '0x'),
+        'IncorrectNumberOfSigners()',
+      )
+    })
+
+    it('reverts if signers <= 3f', async () => {
+      newKeepers.pop()
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, f, '0x', 1, '0x'),
+        'IncorrectNumberOfSigners()',
+      )
+    })
+
+    it('reverts if onChainCOnfig is non empty', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newKeepers, f, '0x12', 1, '0x'),
+        'OnchainConfigNonEmpty()',
+      )
+    })
+
+    it('reverts on repeated signers', async () => {
+      let newSigners = [
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+      ]
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newSigners, newKeepers, f, '0x', 1, '0x'),
+        'RepeatedSigner()',
+      )
+    })
+
+    it('reverts on repeated transmitters', async () => {
+      let newTransmitters = [
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+        await personas.Eddy.getAddress(),
+      ]
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfig(newKeepers, newTransmitters, f, '0x', 1, '0x'),
+        'RepeatedTransmitter()',
+      )
+    })
+
+    it('stores new config and emits event', async () => {
+      let newOffChainVersion = BigNumber.from('2')
+      let newOffChainConfig = '0x1122'
+
+      const old = await registry.getState()
+      const oldState = old.state
+
+      const tx = await registry
+        .connect(owner)
+        .setConfig(
+          newKeepers,
+          newKeepers,
+          f,
+          '0x',
+          newOffChainVersion,
+          newOffChainConfig,
+        )
+
+      const updated = await registry.getState()
+
+      const updatedState = updated.state
+
+      // Old signer addresses which are not in new signers should be non active
+      for (var i = 0; i < keepers.length; i++) {
+        let signer = keepers[i]
+        if (!newKeepers.includes(signer)) {
+          assert((await registry.getSignerInfo(signer)).active == false)
+          assert((await registry.getSignerInfo(signer)).index == 0)
+        }
+      }
+      // New signer addresses should be active
+      for (var i = 0; i < newKeepers.length; i++) {
+        let signer = newKeepers[i]
+        assert((await registry.getSignerInfo(signer)).active == true)
+        assert((await registry.getSignerInfo(signer)).index == i)
+      }
+      // Old transmitter addresses which are not in new transmitter should be non active, but retain other info
+      for (var i = 0; i < keepers.length; i++) {
+        let transmitter = keepers[i]
+        if (!newKeepers.includes(transmitter)) {
+          assert(
+            (await registry.getTransmitterInfo(transmitter)).active == false,
+          )
+          assert((await registry.getTransmitterInfo(transmitter)).index == i)
+        }
+      }
+      // New transmitter addresses should be active
+      for (var i = 0; i < newKeepers.length; i++) {
+        let transmitter = newKeepers[i]
+        assert((await registry.getTransmitterInfo(transmitter)).active == true)
+        assert((await registry.getTransmitterInfo(transmitter)).index == i)
+      }
+
+      // config digest should be updated
+      assert(oldState.configCount + 1 == updatedState.configCount)
+      assert(
+        oldState.latestConfigBlockNumber !=
+          updatedState.latestConfigBlockNumber,
+      )
+      assert(oldState.latestConfigDigest != updatedState.latestConfigDigest)
+
+      //New config should be updated
+      assert.deepEqual(updated.signers, newKeepers)
+      assert.deepEqual(updated.transmitters, newKeepers)
+      assert(
+        updated.offchainConfigVersion.toString() ==
+          newOffChainVersion.toString(),
+      )
+      assert(updated.offchainConfig == newOffChainConfig)
+
+      // Event should have been emitted
+      await expect(tx).to.emit(registry, 'ConfigSet')
+    })
+  })
+
+  describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
+    const peer = randomAddress()
+    it('allows the owner to set the peer registries', async () => {
+      let permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+      await registry.setPeerRegistryMigrationPermission(peer, 1)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(1)
+      await registry.setPeerRegistryMigrationPermission(peer, 2)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(2)
+      await registry.setPeerRegistryMigrationPermission(peer, 0)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+    })
+    it('reverts if passed an unsupported permission', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 10),
+      ).to.be.reverted
+    })
+    it('reverts if not called by the owner', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 1),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+  })
+*/
 
   /*
   describe('#setPayees', () => {
@@ -2736,35 +2765,6 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 */
-
-  /*
-  describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
-    const peer = randomAddress()
-    it('allows the owner to set the peer registries', async () => {
-      let permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(0)
-      await registry.setPeerRegistryMigrationPermission(peer, 1)
-      permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(1)
-      await registry.setPeerRegistryMigrationPermission(peer, 2)
-      permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(2)
-      await registry.setPeerRegistryMigrationPermission(peer, 0)
-      permission = await registry.getPeerRegistryMigrationPermission(peer)
-      expect(permission).to.equal(0)
-    })
-    it('reverts if passed an unsupported permission', async () => {
-      await expect(
-        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 10),
-      ).to.be.reverted
-    })
-    it('reverts if not called by the owner', async () => {
-      await expect(
-        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 1),
-      ).to.be.revertedWith('Only callable by owner')
-    })
-  })
-  */
 
   /*
   describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
