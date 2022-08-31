@@ -518,7 +518,7 @@ contract KeeperRegistry2_0 is
     returns (
       uint32 configCount,
       uint32 blockNumber,
-      bytes32 rootConfigDigest
+      bytes32 configDigest
     )
   {
     return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_hotVars.latestConfigDigest);
