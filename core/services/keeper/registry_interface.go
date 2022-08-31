@@ -32,8 +32,10 @@ const (
 
 func (rv RegistryVersion) String() string {
 	switch rv {
-	case RegistryVersion_1_0, RegistryVersion_1_1, RegistryVersion_1_2, RegistryVersion_2_0:
+	case RegistryVersion_1_0, RegistryVersion_1_1, RegistryVersion_1_2:
 		return fmt.Sprintf("v1.%d", rv)
+	case RegistryVersion_2_0:
+		return "v2.0"
 	default:
 		return "unknown registry version"
 	}
@@ -66,6 +68,7 @@ func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBacken
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create type and interface wrapper")
 	}
+
 	version, err := getRegistryVersion(interface_wrapper)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
