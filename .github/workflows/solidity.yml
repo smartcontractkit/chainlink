@@ -49,7 +49,7 @@ jobs:
       - run: yarn install --frozen-lockfile
       - name: Run coverage
         env:
-          NODE_OPTIONS: "--max-old-space-size=6144"
+          NODE_OPTIONS: "--max-old-space-size=7168"
         run: ./tools/ci/solidity_coverage
 
   solidity:
