@@ -185,12 +185,7 @@ describe('KeeperRegistry2_0', () => {
 
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(
-        0,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-      )
+      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
 
     const config = {
       paymentPremiumPPB,
@@ -592,6 +587,7 @@ describe('KeeperRegistry2_0', () => {
               zeroAddress,
               executeGas,
               await admin.getAddress(),
+              false,
               emptyBytes,
             ),
           'Pausable: paused',
@@ -607,6 +603,7 @@ describe('KeeperRegistry2_0', () => {
             zeroAddress,
             executeGas,
             await admin.getAddress(),
+            false,
             emptyBytes,
           ),
         'NotAContract()',
@@ -621,6 +618,7 @@ describe('KeeperRegistry2_0', () => {
             mock.address,
             executeGas,
             await admin.getAddress(),
+            false,
             emptyBytes,
           ),
         'OnlyCallableByOwnerOrRegistrar()',
@@ -635,6 +633,7 @@ describe('KeeperRegistry2_0', () => {
             mock.address,
             2299,
             await admin.getAddress(),
+            false,
             emptyBytes,
           ),
         'GasLimitOutsideRange()',
@@ -649,6 +648,7 @@ describe('KeeperRegistry2_0', () => {
             mock.address,
             5000001,
             await admin.getAddress(),
+            false,
             emptyBytes,
           ),
         'GasLimitOutsideRange()',
@@ -662,6 +662,7 @@ describe('KeeperRegistry2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
         )
       id = await getUpkeepID(tx)
@@ -713,6 +714,7 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  /*
   describe('#setUpkeepGasLimit', () => {
     const newGasLimit = BigNumber.from('500000')
 
@@ -768,6 +770,7 @@ describe('KeeperRegistry2_0', () => {
         .withArgs(id, newGasLimit)
     })
   })
+  */
 
   /*
   describe('#checkUpkeep', () => {
@@ -1468,6 +1471,8 @@ describe('KeeperRegistry2_0', () => {
         stalenessSeconds,
         gasCeilingMultiplier,
         minUpkeepSpend,
+        maxCheckDataSize,
+        maxPerformDataSize,
         maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
@@ -1955,6 +1960,7 @@ describe('KeeperRegistry2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
         )
       id = await getUpkeepID(tx)
