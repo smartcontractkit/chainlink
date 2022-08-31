@@ -277,9 +277,10 @@ func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *k
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"fromAddress":     upkeep.Registry.FromAddress.String(),
+			"jobID":           p.jobID,
 			"contractAddress": upkeep.Registry.ContractAddress.String(),
 			"upkeepID":        upkeep.UpkeepID.ToInt(),
+			"prettyID":        upkeep.PrettyID(),
 			"checkUpkeepGasLimit": p.cfg.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
 				p.cfg.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
 			"gasPrice":   gasPrice,
@@ -311,6 +312,8 @@ func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *k
 			svcLogger.Error(errors.Wrap(err, "failed to set last run height for upkeep"))
 		}
 		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
+	} else if run.State == pipeline.RunStatusErrored {
+		return nil, fmt.Errorf("failed to check upkeep: %v", run.StringAllErrors())
 	}
 
 	runRaw, err := run.Outputs.MarshalJSON()
