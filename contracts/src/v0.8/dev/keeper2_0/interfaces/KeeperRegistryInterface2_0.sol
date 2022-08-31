@@ -58,6 +58,33 @@ struct State {
   bytes32 latestConfigDigest;
 }
 
+/**
+ * @notice all information about an upkeep
+ * @dev only used in return values
+ * @member target the contract which needs to be serviced
+ * @member executeGas the gas limit of upkeep execution
+ * @member checkData the checkData bytes for this upkeep
+ * @member balance the balance of this upkeep
+ * @member admin for this upkeep
+ * @member maxValidBlocknumber until which block this upkeep is valid
+ * @member lastPerformBlockNumber the last block number when this upkeep was performed
+ * @member amountSpent the amount this upkeep has spent
+ * @member paused if this upkeep has been paused
+ * @member skipSigVerification skip signature verification in transmit for a low security low cost model
+ */
+struct UpkeepInfo {
+  address target;
+  uint32 executeGas;
+  bytes checkData;
+  uint96 balance;
+  address admin;
+  uint64 maxValidBlocknumber;
+  uint32 lastPerformBlockNumber;
+  uint96 amountSpent;
+  bool paused;
+  bool skipSigVerification;
+}
+
 enum UpkeepFailureReason {
   NONE,
   UPKEEP_CANCELLED,
@@ -93,21 +120,7 @@ interface KeeperRegistryBaseInterface {
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
 
-  function getUpkeep(uint256 id)
-    external
-    view
-    returns (
-      address target,
-      uint32 executeGas,
-      bytes memory checkData,
-      uint96 balance,
-      address admin,
-      uint64 maxValidBlocknumber,
-      uint32 lastPerformBlockNumber,
-      uint96 amountSpent,
-      bool paused,
-      bool skipSigVerification
-    );
+  function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
 
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
