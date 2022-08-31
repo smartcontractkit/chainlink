@@ -126,8 +126,6 @@ describe('KeeperRegistry2_0', () => {
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
   let registryLogic: KeeperRegistryLogic
-  //let registry2: KeeperRegistry
-  //let registryLogic2: KeeperRegistryLogic
   let mock: UpkeepMock
   let transcoder: UpkeepTranscoder
   let mockArbGasInfo: MockArbGasInfo
@@ -224,11 +222,10 @@ describe('KeeperRegistry2_0', () => {
         config,
       )
 
-    mock = await upkeepMockFactory.deploy()
-
     await registry.connect(owner).setConfig(keepers, keepers, f, '0x', 1, '0x')
     await registry.connect(owner).setPayees(payees)
 
+    mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
       .transfer(await admin.getAddress(), toWei('1000'))
@@ -1651,6 +1648,180 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
+    let registry2: KeeperRegistry
+    let registryLogic2: KeeperRegistryLogic
+
+    beforeEach(async () => {
+      registryLogic2 = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
+
+      const config = {
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier,
+        minUpkeepSpend,
+        maxCheckDataSize,
+        maxPerformDataSize,
+        maxPerformGas,
+        fallbackGasPrice,
+        fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
+      }
+      registry2 = await keeperRegistryFactory
+        .connect(owner)
+        .deploy(
+          0,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+          registryLogic2.address,
+          config,
+        )
+      await registry2
+        .connect(owner)
+        .setConfig(keepers, keepers, f, '0x', 1, '0x')
+      await registry2.connect(owner).setPayees(payees)
+    })
+
+    context('when permissions are set', () => {
+      beforeEach(async () => {
+        await linkToken.connect(owner).approve(registry.address, toWei('100'))
+        await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
+      })
+
+      it('migrates an upkeep', async () => {
+        expect((await registry.getUpkeep(upkeepId)).balance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry.getUpkeep(upkeepId)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        // Set an upkeep admin transfer in progress too
+        await registry
+          .connect(admin)
+          .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
+
+        // migrate
+        await registry
+          .connect(admin)
+          .migrateUpkeeps([upkeepId], registry2.address)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
+        expect((await registry.getUpkeep(upkeepId)).balance).to.equal(0)
+        expect((await registry.getUpkeep(upkeepId)).checkData).to.equal('0x')
+        expect((await registry2.getUpkeep(upkeepId)).balance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry2.getUpkeep(upkeepId)).checkData).to.equal(
+          randomBytes,
+        )
+        // migration will delete the upkeep and nullify admin transfer
+        await expect(
+          registry.connect(payee1).acceptUpkeepAdmin(upkeepId),
+        ).to.be.revertedWith('UpkeepCancelled()')
+        await expect(
+          registry2.connect(payee1).acceptUpkeepAdmin(upkeepId),
+        ).to.be.revertedWith('OnlyCallableByProposedAdmin()')
+      })
+
+      it('migrates a paused upkeep', async () => {
+        expect((await registry.getUpkeep(upkeepId)).balance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry.getUpkeep(upkeepId)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        await registry.connect(admin).pauseUpkeep(upkeepId)
+        // verify the upkeep is paused
+        expect((await registry.getUpkeep(upkeepId)).paused).to.equal(true)
+        // migrate
+        await registry
+          .connect(admin)
+          .migrateUpkeeps([upkeepId], registry2.address)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
+        expect((await registry.getUpkeep(upkeepId)).balance).to.equal(0)
+        expect((await registry2.getUpkeep(upkeepId)).balance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry.getUpkeep(upkeepId)).checkData).to.equal('0x')
+        expect((await registry2.getUpkeep(upkeepId)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
+          toWei('100'),
+        )
+        // verify the upkeep is still paused after migration
+        expect((await registry2.getUpkeep(upkeepId)).paused).to.equal(true)
+      })
+
+      it('emits an event on both contracts', async () => {
+        expect((await registry.getUpkeep(upkeepId)).balance).to.equal(
+          toWei('100'),
+        )
+        expect((await registry.getUpkeep(upkeepId)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        const tx = registry
+          .connect(admin)
+          .migrateUpkeeps([upkeepId], registry2.address)
+        await expect(tx)
+          .to.emit(registry, 'UpkeepMigrated')
+          .withArgs(upkeepId, toWei('100'), registry2.address)
+        await expect(tx)
+          .to.emit(registry2, 'UpkeepReceived')
+          .withArgs(upkeepId, toWei('100'), registry.address)
+      })
+
+      it('is only migratable by the admin', async () => {
+        await expect(
+          registry.connect(owner).migrateUpkeeps([upkeepId], registry2.address),
+        ).to.be.revertedWith('OnlyCallableByAdmin()')
+        await registry
+          .connect(admin)
+          .migrateUpkeeps([upkeepId], registry2.address)
+      })
+    })
+
+    context('when permissions are not set', () => {
+      it('reverts', async () => {
+        // no permissions
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
+        await expect(registry.migrateUpkeeps([upkeepId], registry2.address)).to
+          .be.reverted
+        // only outgoing permissions
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
+        await expect(registry.migrateUpkeeps([upkeepId], registry2.address)).to
+          .be.reverted
+        // only incoming permissions
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
+        await expect(registry.migrateUpkeeps([upkeepId], registry2.address)).to
+          .be.reverted
+        // permissions opposite direction
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 2)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 1)
+        await expect(registry.migrateUpkeeps([upkeepId], registry2.address)).to
+          .be.reverted
+      })
+    })
+  })
+
   /*
   describe('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
@@ -2706,6 +2877,7 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
+  requires perform
   describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
@@ -2783,6 +2955,7 @@ describe('KeeperRegistry2_0', () => {
    */
 
   /*
+  requires perform
   describe('#recoverFunds', () => {
     const sent = toWei('7')
 
@@ -2868,115 +3041,6 @@ describe('KeeperRegistry2_0', () => {
       await registry.connect(owner).recoverFunds()
       const balanceAfter = await linkToken.balanceOf(registry.address)
       assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)))
-    })
-  })
-  */
-
-  /*
-  describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
-    context('when permissions are set', () => {
-      beforeEach(async () => {
-        await linkToken.connect(owner).approve(registry.address, toWei('100'))
-        await registry.connect(owner).addFunds(id, toWei('100'))
-        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
-        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
-      })
-
-      it('migrates an upkeep', async () => {
-        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
-        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
-        await registry
-          .connect(admin)
-          .transferUpkeepAdmin(id, await payee1.getAddress())
-
-        // migrate
-        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
-        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
-        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
-        expect((await registry.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
-        expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
-        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
-          toWei('100'),
-        )
-        expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
-        // migration will delete the upkeep and nullify admin transfer
-        await expect(
-          registry.connect(payee1).acceptUpkeepAdmin(id),
-        ).to.be.revertedWith('UpkeepCancelled()')
-        await expect(
-          registry2.connect(payee1).acceptUpkeepAdmin(id),
-        ).to.be.revertedWith('OnlyCallableByProposedAdmin()')
-      })
-
-      it('migrates a paused upkeep', async () => {
-        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
-        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
-        await registry.connect(admin).pauseUpkeep(id)
-        // verify the upkeep is paused
-        expect((await registry.getUpkeep(id)).paused).to.equal(true)
-        // migrate
-        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
-        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
-        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
-        expect((await registry.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
-        expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
-        expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
-          toWei('100'),
-        )
-        // verify the upkeep is still paused after migration
-        expect((await registry2.getUpkeep(id)).paused).to.equal(true)
-      })
-
-      it('emits an event on both contracts', async () => {
-        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
-        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
-        const tx = registry
-          .connect(admin)
-          .migrateUpkeeps([id], registry2.address)
-        await expect(tx)
-          .to.emit(registry, 'UpkeepMigrated')
-          .withArgs(id, toWei('100'), registry2.address)
-        await expect(tx)
-          .to.emit(registry2, 'UpkeepReceived')
-          .withArgs(id, toWei('100'), registry.address)
-      })
-      it('is only migratable by the admin', async () => {
-        await expect(
-          registry.connect(owner).migrateUpkeeps([id], registry2.address),
-        ).to.be.revertedWith('OnlyCallableByAdmin()')
-        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
-      })
-    })
-
-    context('when permissions are not set', () => {
-      it('reverts', async () => {
-        // no permissions
-        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
-        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
-        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
-          .reverted
-        // only outgoing permissions
-        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
-        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
-        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
-          .reverted
-        // only incoming permissions
-        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
-        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
-        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
-          .reverted
-        // permissions opposite direction
-        await registry.setPeerRegistryMigrationPermission(registry2.address, 2)
-        await registry2.setPeerRegistryMigrationPermission(registry.address, 1)
-        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
-          .reverted
-      })
     })
   })
   */
