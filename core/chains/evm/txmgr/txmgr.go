@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -84,7 +83,11 @@ type TxManager interface {
 }
 
 type reset struct {
-	f    func()
+	// f is the function to execute between stopping/starting the
+	// EthBroadcaster and EthConfirmer
+	f func()
+	// done is either closed after running f, or returns error if f could not
+	// be run for some reason
 	done chan error
 }
 
@@ -278,6 +281,8 @@ func (b *Txm) Close() (merr error) {
 }
 
 func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.State) {
+	// eb, ec and keyStates can all be modified by the runloop.
+	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
 	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
 	defer unsub()
@@ -287,9 +292,15 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 	ctx, cancel := utils.ContextFromChan(b.chStop)
 	defer cancel()
 
-	var stopped atomic.Bool
+	var stopped bool
+	var stopOnce sync.Once
 
+	// execReset is defined as an inline function here because it closes over
+	// eb, ec and stopped
 	execReset := func(r *reset) {
+		// These should always close successfully, since it should be logically
+		// impossible to enter this code path with ec/eb in a state other than
+		// "Started"
 		if err := eb.Close(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 		}
@@ -306,6 +317,15 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 		ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 		var wg sync.WaitGroup
+		// two goroutines to handle independent backoff retries starting:
+		// - EthBroadcaster
+		// - EthConfirmer
+		// If chStop is closed, we mark stopped=true so that the main runloop
+		// can check and exit early if necessary
+		//
+		// execReset will not return until either:
+		// 1. Both EthBroadcaster and EthConfirmer started successfully
+		// 2. chStop was closed (txmgr exit)
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
@@ -320,7 +340,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 					}
 					return
 				case <-b.chStop:
-					stopped.Store(true)
+					stopOnce.Do(func() { stopped = true })
 					return
 				}
 			}
@@ -338,7 +358,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 					}
 					return
 				case <-b.chStop:
-					stopped.Store(true)
+					stopOnce.Do(func() { stopped = true })
 					return
 				}
 			}
@@ -354,15 +374,24 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case reset := <-b.reset:
-			// this check prevents the weird edge-case where you can select
+			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
-			// previous reset exited early
-			if stopped.Load() {
+			// previous reset exited early.
+			// In this case we do not want to reset again, we would rather go
+			// around and hit the stop case.
+			if stopped {
 				reset.done <- errors.New("Txm was stopped")
 				continue
 			}
 			execReset(&reset)
 		case <-b.chStop:
+			// close and exit
+			//
+			// Note that in some cases EthBroadcaster and/or EthConfirmer may
+			// be in an Unstarted state here, if execReset exited early.
+			//
+			// In this case, we don't care about stopping them since they are
+			// already "stopped", hence the usage of utils.EnsureClosed.
 			if err := utils.EnsureClosed(eb); err != nil {
 				b.logger.Panicw(fmt.Sprintf("Failed to Close EthBroadcaster: %v", err), "err", err)
 			}
@@ -371,10 +400,12 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer, keyStates []ethkey.S
 			}
 			return
 		case <-keysChanged:
-			// this check prevents the weird edge-case where you can select
+			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
-			// previous reset exited early
-			if stopped.Load() {
+			// previous reset exited early.
+			// In this case we do not want to reset again, we would rather go
+			// around and hit the stop case.
+			if stopped {
 				continue
 			}
 			var err error
