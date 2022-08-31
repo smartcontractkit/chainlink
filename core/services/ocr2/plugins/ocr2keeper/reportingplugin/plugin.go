@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/pkg/common"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -30,6 +31,23 @@ import (
 
 var (
 	errNoEligibleUpkeepFound = errors.New("no eligible upkeep found")
+
+	observationArguments = abi.Arguments{
+		{Type: mustType(abi.NewType("uint256", "", nil))},
+		{Type: mustType(abi.NewType("bytes", "", nil))},
+	}
+)
+
+type upkeepFailureReason uint8
+
+const (
+	upkeepFailureReasonNone upkeepFailureReason = iota
+	upkeepFailureReasonUpkeepCanceled
+	upkeepFailureReasonUpkeepPaused
+	upkeepFailureReasonTargetCheckReverted
+	upkeepFailureReasonUpkeepNotNeeded
+	upkeepFailureReasonPerformDataExceedsLimit
+	upkeepFailureReasonInsufficientBalance
 )
 
 type ORM interface {
@@ -69,6 +87,13 @@ func newObservationDataFromRaw(data []byte) (*observationData, error) {
 
 func (qd *observationData) raw() ([]byte, error) {
 	return json.Marshal(*qd)
+}
+
+type checkUpkeepOutput struct {
+	GasUsed             *utils.Big          `json:"gasUsed"`
+	PerformData         []byte              `json:"performData"`
+	UpkeepFailureReason upkeepFailureReason `json:"upkeepFailureReason"`
+	UpkeepNeeded        bool                `json:"upkeepNeeded"`
 }
 
 // plugin implements types.ReportingPlugin interface with the keepers-specific logic.
@@ -138,15 +163,21 @@ func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, _ typ
 		return nil, errors.Wrap(err, "failed to get eligible upkeep")
 	}
 
-	performUpkeepData, err := p.checkUpkeep(ctx, currentHead, upkeep)
+	res, err := p.checkUpkeep(ctx, currentHead, upkeep)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.UpkeepFailureReason == upkeepFailureReasonUpkeepNotNeeded || !res.UpkeepNeeded {
+		return nil, nil
+	} else if res.UpkeepFailureReason > 0 {
+		return nil, fmt.Errorf("upkeep reverted with reason %d", res.UpkeepFailureReason)
 	}
 
 	return (&observationData{
 		Head:        currentHead,
 		Upkeep:      upkeep,
-		PerformData: performUpkeepData,
+		PerformData: res.PerformData,
 	}).raw()
 }
 
@@ -178,12 +209,16 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Qu
 
 	var observation *observationData
 	for _, od := range observations {
-		performUpkeepData, err := p.checkUpkeep(ctx, od.Head, od.Upkeep)
+		checkUpkeep, err := p.checkUpkeep(ctx, od.Head, od.Upkeep)
 		if err != nil {
 			return false, nil, errors.Wrapf(err, "failed to check upkeep %s for head %d", od.Upkeep.UpkeepID, od.Head.Number)
 		}
 
-		if bytes.Equal(od.PerformData, performUpkeepData) {
+		if !checkUpkeep.UpkeepNeeded {
+			return false, nil, fmt.Errorf("received observation for non-elligible upkeep")
+		}
+
+		if bytes.Equal(od.PerformData, checkUpkeep.PerformData) {
 			observation = od
 			break
 		} else {
@@ -196,7 +231,12 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Qu
 		return false, nil, nil
 	}
 
-	return true, observation.PerformData, nil
+	payload, err := observationArguments.Pack(observation.Upkeep.UpkeepID.ToInt(), observation.PerformData)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "failed to ABI encode observation results")
+	}
+
+	return true, payload, nil
 }
 
 func (p *plugin) ShouldAcceptFinalizedReport(_ context.Context, _ types.ReportTimestamp, r types.Report) (bool, error) {
@@ -252,7 +292,7 @@ func (p *plugin) estimateGasPrice(upkeep *keeper.UpkeepRegistration) (gasPrice *
 	return gasPrice, fee, nil
 }
 
-func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *keeper.UpkeepRegistration) ([]byte, error) {
+func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *keeper.UpkeepRegistration) (*checkUpkeepOutput, error) {
 	svcLogger := p.logger.With("jobID", p.jobID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
 	svcLogger.Debugw("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
@@ -321,7 +361,16 @@ func (p *plugin) checkUpkeep(ctx context.Context, head *evmtypes.Head, upkeep *k
 		return nil, errors.Wrap(err, "failed to marshal run output")
 	}
 
-	return runRaw, nil
+	var outputs []checkUpkeepOutput
+	if err = json.Unmarshal(runRaw, &outputs); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal output")
+	}
+
+	if len(outputs) == 0 {
+		return nil, fmt.Errorf("expected outputs: %s", string(runRaw))
+	}
+
+	return &outputs[0], nil
 }
 
 func (p *plugin) getEligibleUpkeep(head *evmtypes.Head) (*keeper.UpkeepRegistration, error) {
@@ -372,4 +421,11 @@ func addBuffer(val *big.Int, prct uint32) *big.Int {
 		bigmath.Mul(val, 100+prct),
 		100,
 	)
+}
+
+func mustType(tp abi.Type, err error) abi.Type {
+	if err != nil {
+		panic(err)
+	}
+	return tp
 }
