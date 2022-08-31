@@ -35,6 +35,12 @@ export default {
   },
   networks: {
     hardhat: {},
+    goerli: {
+      url: 'https://link-eth.getblock.io/goerli/archive/axej8woh-seej-6ash-4Yu7-eyib1495dhno/',
+      accounts: ["ce44819c415dcfa03ee6b124a65435eb774c109dc0b1a4386eb11a276a3e22f8"],
+      saveDeployments: true,
+      chainId: 5,
+    }
   },
   solidity: {
     compilers: [

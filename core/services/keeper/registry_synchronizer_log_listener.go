@@ -3,6 +3,8 @@ package keeper
 import (
 	"reflect"
 
+	registry2_0 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -29,33 +31,39 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	var mailboxName string
 	var wasOverCapacity bool
 	switch eventLog.(type) {
-
 	case *registry1_1.KeeperRegistryKeepersUpdated,
 		*registry1_1.KeeperRegistryConfigSet,
 		*registry1_2.KeeperRegistryKeepersUpdated,
-		*registry1_2.KeeperRegistryConfigSet:
+		*registry1_2.KeeperRegistryConfigSet,
+		*registry2_0.KeeperRegistryConfigSet:
 		// same mailbox because same action for config set and keepers updated
 		wasOverCapacity = rs.mailRoom.mbSyncRegistry.Deliver(broadcast)
 		mailboxName = "mbSyncRegistry"
 	case *registry1_1.KeeperRegistryUpkeepCanceled,
-		*registry1_2.KeeperRegistryUpkeepCanceled:
+		*registry1_2.KeeperRegistryUpkeepCanceled,
+		*registry2_0.KeeperRegistryUpkeepCanceled:
 		wasOverCapacity = rs.mailRoom.mbUpkeepCanceled.Deliver(broadcast)
 		mailboxName = "mbUpkeepCanceled"
 	case *registry1_1.KeeperRegistryUpkeepRegistered,
-		*registry1_2.KeeperRegistryUpkeepRegistered:
+		*registry1_2.KeeperRegistryUpkeepRegistered,
+		*registry2_0.KeeperRegistryUpkeepRegistered:
 		wasOverCapacity = rs.mailRoom.mbUpkeepRegistered.Deliver(broadcast)
 		mailboxName = "mbUpkeepRegistered"
 	case *registry1_1.KeeperRegistryUpkeepPerformed,
-		*registry1_2.KeeperRegistryUpkeepPerformed:
+		*registry1_2.KeeperRegistryUpkeepPerformed,
+		*registry2_0.KeeperRegistryUpkeepPerformed:
 		wasOverCapacity = rs.mailRoom.mbUpkeepPerformed.Deliver(broadcast)
 		mailboxName = "mbUpkeepPerformed"
-	case *registry1_2.KeeperRegistryUpkeepGasLimitSet:
+	case *registry1_2.KeeperRegistryUpkeepGasLimitSet,
+		*registry2_0.KeeperRegistryUpkeepGasLimitSet:
 		wasOverCapacity = rs.mailRoom.mbUpkeepGasLimitSet.Deliver(broadcast)
 		mailboxName = "mbUpkeepGasLimitSet"
-	case *registry1_2.KeeperRegistryUpkeepReceived:
+	case *registry1_2.KeeperRegistryUpkeepReceived,
+		*registry2_0.KeeperRegistryUpkeepReceived:
 		wasOverCapacity = rs.mailRoom.mbUpkeepReceived.Deliver(broadcast)
 		mailboxName = "mbUpkeepReceived"
-	case *registry1_2.KeeperRegistryUpkeepMigrated:
+	case *registry1_2.KeeperRegistryUpkeepMigrated,
+		*registry2_0.KeeperRegistryUpkeepMigrated:
 		wasOverCapacity = rs.mailRoom.mbUpkeepMigrated.Deliver(broadcast)
 		mailboxName = "mbUpkeepMigrated"
 	default:
