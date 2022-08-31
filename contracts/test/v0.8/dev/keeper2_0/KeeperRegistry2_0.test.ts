@@ -2067,6 +2067,29 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
+  describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
+    it('calculates the minimum balance appropriately', async () => {
+      const oneWei = BigNumber.from('1')
+      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
+      await mock.setCanCheck(true)
+      await mock.setCanPerform(true)
+      const minBalance = await registry.getMinBalanceForUpkeep(id)
+      const tooLow = minBalance.sub(oneWei)
+      await registry.connect(keeper1).addFunds(id, tooLow)
+      await evmRevert(
+        registry
+          .connect(zeroAddress)
+          .callStatic.checkUpkeep(id, await keeper1.getAddress()),
+        'InsufficientFunds()',
+      )
+      await registry.connect(keeper1).addFunds(id, oneWei)
+      await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(id, await keeper1.getAddress())
+    })
+  })*/
+
+  /*
   describe('#performUpkeep', () => {
     let _lastKeeper = keeper1
 
@@ -3112,29 +3135,6 @@ describe('KeeperRegistry2_0', () => {
       await registry
         .connect(keeper1)
         .performUpkeep(upkeepID2, performData, { gasLimit: extraGas })
-    })
-  })*/
-
-  /*
-  describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
-    it('calculates the minimum balance appropriately', async () => {
-      const oneWei = BigNumber.from('1')
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await mock.setCanCheck(true)
-      await mock.setCanPerform(true)
-      const minBalance = await registry.getMinBalanceForUpkeep(id)
-      const tooLow = minBalance.sub(oneWei)
-      await registry.connect(keeper1).addFunds(id, tooLow)
-      await evmRevert(
-        registry
-          .connect(zeroAddress)
-          .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'InsufficientFunds()',
-      )
-      await registry.connect(keeper1).addFunds(id, oneWei)
-      await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(id, await keeper1.getAddress())
     })
   })*/
 })
