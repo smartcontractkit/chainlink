@@ -385,12 +385,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param expected amount that should match the actual amount
    * @param data bytes
    */
-  modifier isActualAmount(uint256 expected, bytes memory data) {
-    uint256 actual;
-    assembly {
-      actual := mload(add(data, 228))
-    }
-    if (expected != actual) {
+  modifier isActualAmount(uint256 expected, bytes calldata data) {
+    // decode register function arguments to get actual amount
+    (, , , , , , uint96 amount, ) = abi.decode(
+      data[4:],
+      (string, bytes, address, uint32, address, bytes, uint96, address)
+    );
+    if (expected != amount) {
       revert AmountMismatch();
     }
     _;
