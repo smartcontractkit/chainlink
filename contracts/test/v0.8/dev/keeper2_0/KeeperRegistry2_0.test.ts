@@ -128,11 +128,13 @@ describe('KeeperRegistry2_0', () => {
   let mockArbGasInfo: MockArbGasInfo
   let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 
-  let id: BigNumber
+  let upkeepId: BigNumber
   let keepers: string[]
   let payees: string[]
 
   beforeEach(async () => {
+    // Deploys a registry, setups of initial configuration (onChain and offChain config)
+    // and registers an upkeep
     owner = personas.Default
     keeper1 = personas.Carol
     keeper2 = personas.Eddy
@@ -217,6 +219,7 @@ describe('KeeperRegistry2_0', () => {
         config,
       )
     /*
+    TODO: Move to migration function test
     registryLogic2 = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
@@ -259,7 +262,7 @@ describe('KeeperRegistry2_0', () => {
         false,
         randomBytes,
       )
-    id = await getUpkeepID(tx)
+    upkeepId = await getUpkeepID(tx)
   })
 
   /*
@@ -349,6 +352,16 @@ describe('KeeperRegistry2_0', () => {
       const typeAndVersion = await registry.typeAndVersion()
       assert.equal(typeAndVersion, 'KeeperRegistry 2.0.0')
     })
+  })
+
+  describe('#getActiveUpkeepIDs', () => {
+    it('reverts if startIndex is out of bounds ', async () => {})
+
+    it('reverts if startIndex + maxCount is out of bounds', async () => {})
+
+    it('returns upkeep IDs bounded by maxCount', async () => {})
+
+    it('returns all upkeep IDs if maxCount is 0', async () => {})
   })
 
   /*
@@ -464,77 +477,77 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#pauseUpkeep', () => {
     it('reverts if the upkeep is already canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
+      await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).pauseUpkeep(id),
+        registry.connect(admin).pauseUpkeep(upkeepId),
         'UpkeepCancelled()',
       )
     })
 
     it('reverts if the upkeep is already paused', async () => {
-      await registry.connect(admin).pauseUpkeep(id)
+      await registry.connect(admin).pauseUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).pauseUpkeep(id),
+        registry.connect(admin).pauseUpkeep(upkeepId),
         'OnlyUnpausedUpkeep()',
       )
     })
 
     it('reverts if the caller is not the upkeep admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).pauseUpkeep(id),
+        registry.connect(keeper1).pauseUpkeep(upkeepId),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('pauses the upkeep and emits an event', async () => {
-      const tx = await registry.connect(admin).pauseUpkeep(id)
-      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(id)
+      const tx = await registry.connect(admin).pauseUpkeep(upkeepId)
+      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(upkeepId)
 
-      const registration = await registry.getUpkeep(id)
+      const registration = await registry.getUpkeep(upkeepId)
       assert.equal(registration.paused, true)
     })
   })
 
   describe('#unpauseUpkeep', () => {
     it('reverts if the upkeep is already canceled', async () => {
-      await registry.connect(owner).cancelUpkeep(id)
+      await registry.connect(owner).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).unpauseUpkeep(id),
+        registry.connect(admin).unpauseUpkeep(upkeepId),
         'UpkeepCancelled()',
       )
     })
 
     it('reverts if the upkeep is not paused', async () => {
       await evmRevert(
-        registry.connect(admin).unpauseUpkeep(id),
+        registry.connect(admin).unpauseUpkeep(upkeepId),
         'OnlyPausedUpkeep()',
       )
     })
 
     it('reverts if the caller is not the upkeep admin', async () => {
-      await registry.connect(admin).pauseUpkeep(id)
+      await registry.connect(admin).pauseUpkeep(upkeepId)
 
-      const registration = await registry.getUpkeep(id)
+      const registration = await registry.getUpkeep(upkeepId)
 
       assert.equal(registration.paused, true)
 
       await evmRevert(
-        registry.connect(keeper1).unpauseUpkeep(id),
+        registry.connect(keeper1).unpauseUpkeep(upkeepId),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('unpauses the upkeep and emits an event', async () => {
-      await registry.connect(admin).pauseUpkeep(id)
+      await registry.connect(admin).pauseUpkeep(upkeepId)
 
-      const tx = await registry.connect(admin).unpauseUpkeep(id)
+      const tx = await registry.connect(admin).unpauseUpkeep(upkeepId)
 
-      await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(id)
+      await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(upkeepId)
 
-      const registration = await registry.getUpkeep(id)
+      const registration = await registry.getUpkeep(upkeepId)
       assert.equal(registration.paused, false)
 
       const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
@@ -545,35 +558,37 @@ describe('KeeperRegistry2_0', () => {
   describe('#updateCheckData', () => {
     it('reverts if the caller is not upkeep admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).updateCheckData(id, randomBytes),
+        registry.connect(keeper1).updateCheckData(upkeepId, randomBytes),
         'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if the upkeep is cancelled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
+      await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(admin).updateCheckData(id, randomBytes),
+        registry.connect(admin).updateCheckData(upkeepId, randomBytes),
         'UpkeepCancelled()',
       )
     })
 
     it('updates the paused upkeep check data', async () => {
-      await registry.connect(admin).pauseUpkeep(id)
-      await registry.connect(admin).updateCheckData(id, randomBytes)
+      await registry.connect(admin).pauseUpkeep(upkeepId)
+      await registry.connect(admin).updateCheckData(upkeepId, randomBytes)
 
-      const registration = await registry.getUpkeep(id)
+      const registration = await registry.getUpkeep(upkeepId)
       assert.equal(randomBytes, registration.checkData)
     })
 
     it('updates the upkeep check data and emits an event', async () => {
-      const tx = await registry.connect(admin).updateCheckData(id, randomBytes)
+      const tx = await registry
+        .connect(admin)
+        .updateCheckData(upkeepId, randomBytes)
       await expect(tx)
         .to.emit(registry, 'UpkeepCheckDataUpdated')
-        .withArgs(id, randomBytes)
+        .withArgs(upkeepId, randomBytes)
 
-      const registration = await registry.getUpkeep(id)
+      const registration = await registry.getUpkeep(upkeepId)
       assert.equal(randomBytes, registration.checkData)
     })
   })
@@ -669,11 +684,11 @@ describe('KeeperRegistry2_0', () => {
           false,
           emptyBytes,
         )
-      id = await getUpkeepID(tx)
+      upkeepId = await getUpkeepID(tx)
       await expect(tx)
         .to.emit(registry, 'UpkeepRegistered')
-        .withArgs(id, executeGas, await admin.getAddress())
-      const registration = await registry.getUpkeep(id)
+        .withArgs(upkeepId, executeGas, await admin.getAddress())
+      const registration = await registry.getUpkeep(upkeepId)
       assert.equal(mock.address, registration.target)
       assert.equal(0, registration.balance.toNumber())
       assert.equal(emptyBytes, registration.checkData)
@@ -691,28 +706,28 @@ describe('KeeperRegistry2_0', () => {
 
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
-        registry.connect(keeper1).addFunds(id.add(1), amount),
+        registry.connect(keeper1).addFunds(upkeepId.add(1), amount),
         'UpkeepCancelled()',
       )
     })
 
     it('adds to the balance of the registration', async () => {
-      await registry.connect(keeper1).addFunds(id, amount)
-      const registration = await registry.getUpkeep(id)
+      await registry.connect(keeper1).addFunds(upkeepId, amount)
+      const registration = await registry.getUpkeep(upkeepId)
       assert.isTrue(amount.eq(registration.balance))
     })
 
     it('emits a log', async () => {
-      const tx = await registry.connect(keeper1).addFunds(id, amount)
+      const tx = await registry.connect(keeper1).addFunds(upkeepId, amount)
       await expect(tx)
         .to.emit(registry, 'FundsAdded')
-        .withArgs(id, await keeper1.getAddress(), amount)
+        .withArgs(upkeepId, await keeper1.getAddress(), amount)
     })
 
     it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
+      await registry.connect(admin).cancelUpkeep(upkeepId)
       await evmRevert(
-        registry.connect(keeper1).addFunds(id, amount),
+        registry.connect(keeper1).addFunds(upkeepId, amount),
         'UpkeepCancelled()',
       )
     })
@@ -1465,7 +1480,7 @@ describe('KeeperRegistry2_0', () => {
 
     it('withdraws the collected fees to owner', async () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await registry.connect(keeper1).addFunds(id, toWei('100'))
+      await registry.connect(keeper1).addFunds(upkeepId, toWei('100'))
       // Very high min spend, whole balance as cancellation fees
       let minUpkeepSpend = toWei('1000')
       await registry.connect(owner).setOnChainConfig({
@@ -1483,11 +1498,13 @@ describe('KeeperRegistry2_0', () => {
         transcoder: transcoder.address,
         registrar: ethers.constants.AddressZero,
       })
-      let upkeepBalance = (await registry.getUpkeep(id)).balance
+      let upkeepBalance = (await registry.getUpkeep(upkeepId)).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
 
-      await registry.connect(owner).cancelUpkeep(id)
-      await registry.connect(admin).withdrawFunds(id, await payee1.getAddress())
+      await registry.connect(owner).cancelUpkeep(upkeepId)
+      await registry
+        .connect(admin)
+        .withdrawFunds(upkeepId, await payee1.getAddress())
       // Transfered to owner balance on registry
       let ownerRegistryBalance = (await registry.getState()).state
         .ownerLinkBalance
@@ -1967,14 +1984,14 @@ describe('KeeperRegistry2_0', () => {
           false,
           emptyBytes,
         )
-      id = await getUpkeepID(tx)
+      upkeepId = await getUpkeepID(tx)
     })
 
     it('reverts when called by anyone but the current upkeep admin', async () => {
       await evmRevert(
         registry
           .connect(payee1)
-          .transferUpkeepAdmin(id, await payee2.getAddress()),
+          .transferUpkeepAdmin(upkeepId, await payee2.getAddress()),
         'OnlyCallableByAdmin()',
       )
     })
@@ -1983,18 +2000,18 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(admin)
-          .transferUpkeepAdmin(id, await admin.getAddress()),
+          .transferUpkeepAdmin(upkeepId, await admin.getAddress()),
         'ValueNotChanged()',
       )
     })
 
     it('reverts when the upkeep is cancelled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
+      await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
         registry
           .connect(admin)
-          .transferUpkeepAdmin(id, await keeper1.getAddress()),
+          .transferUpkeepAdmin(upkeepId, await keeper1.getAddress()),
         'UpkeepCancelled()',
       )
     })
@@ -2003,7 +2020,7 @@ describe('KeeperRegistry2_0', () => {
       await evmRevert(
         registry
           .connect(admin)
-          .transferUpkeepAdmin(id, ethers.constants.AddressZero),
+          .transferUpkeepAdmin(upkeepId, ethers.constants.AddressZero),
         'InvalidRecipient()',
       )
     })
@@ -2011,30 +2028,30 @@ describe('KeeperRegistry2_0', () => {
     it('does not change the upkeep admin', async () => {
       await registry
         .connect(admin)
-        .transferUpkeepAdmin(id, await payee1.getAddress())
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
 
-      const upkeep = await registry.getUpkeep(id)
+      const upkeep = await registry.getUpkeep(upkeepId)
       assert.equal(await admin.getAddress(), upkeep.admin)
     })
 
     it('emits an event announcing the new upkeep admin', async () => {
       const tx = await registry
         .connect(admin)
-        .transferUpkeepAdmin(id, await payee1.getAddress())
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
 
       await expect(tx)
         .to.emit(registry, 'UpkeepAdminTransferRequested')
-        .withArgs(id, await admin.getAddress(), await payee1.getAddress())
+        .withArgs(upkeepId, await admin.getAddress(), await payee1.getAddress())
     })
 
     it('does not emit an event when called with the same proposed upkeep admin', async () => {
       await registry
         .connect(admin)
-        .transferUpkeepAdmin(id, await payee1.getAddress())
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
 
       const tx = await registry
         .connect(admin)
-        .transferUpkeepAdmin(id, await payee1.getAddress())
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
       const receipt = await tx.wait()
       assert.equal(0, receipt.logs.length)
     })
@@ -2044,36 +2061,36 @@ describe('KeeperRegistry2_0', () => {
     beforeEach(async () => {
       await registry
         .connect(admin)
-        .transferUpkeepAdmin(id, await payee1.getAddress())
+        .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
     })
 
     it('reverts when not called by the proposed upkeep admin', async () => {
       await evmRevert(
-        registry.connect(payee2).acceptUpkeepAdmin(id),
+        registry.connect(payee2).acceptUpkeepAdmin(upkeepId),
         'OnlyCallableByProposedAdmin()',
       )
     })
 
     it('reverts when the upkeep is cancelled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
+      await registry.connect(admin).cancelUpkeep(upkeepId)
 
       await evmRevert(
-        registry.connect(payee1).acceptUpkeepAdmin(id),
+        registry.connect(payee1).acceptUpkeepAdmin(upkeepId),
         'UpkeepCancelled()',
       )
     })
 
     it('emits an event announcing the new upkeep admin', async () => {
-      const tx = await registry.connect(payee1).acceptUpkeepAdmin(id)
+      const tx = await registry.connect(payee1).acceptUpkeepAdmin(upkeepId)
       await expect(tx)
         .to.emit(registry, 'UpkeepAdminTransferred')
-        .withArgs(id, await admin.getAddress(), await payee1.getAddress())
+        .withArgs(upkeepId, await admin.getAddress(), await payee1.getAddress())
     })
 
     it('does change the payee', async () => {
-      await registry.connect(payee1).acceptUpkeepAdmin(id)
+      await registry.connect(payee1).acceptUpkeepAdmin(upkeepId)
 
-      const upkeep = await registry.getUpkeep(id)
+      const upkeep = await registry.getUpkeep(upkeepId)
       assert.equal(await payee1.getAddress(), upkeep.admin)
     })
   })
@@ -2179,7 +2196,7 @@ describe('KeeperRegistry2_0', () => {
     const amount = toWei('1')
 
     it('reverts if not called by the LINK token', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
 
       await evmRevert(
         registry
@@ -2209,21 +2226,21 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
+      await registry.connect(admin).cancelUpkeep(upkeepId)
       await evmRevert(
-        registry.connect(keeper1).addFunds(id, amount),
+        registry.connect(keeper1).addFunds(upkeepId, amount),
         'UpkeepCancelled()',
       )
     })
 
     it('updates the funds of the job id passed', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
 
-      const before = (await registry.getUpkeep(id)).balance
+      const before = (await registry.getUpkeep(upkeepId)).balance
       await linkToken
         .connect(owner)
         .transferAndCall(registry.address, amount, data)
-      const after = (await registry.getUpkeep(id)).balance
+      const after = (await registry.getUpkeep(upkeepId)).balance
 
       assert.isTrue(before.add(amount).eq(after))
     })
