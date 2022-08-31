@@ -64,13 +64,14 @@ describe('KeeperRegistrar2_0', () => {
   const flatFeeMicroLink = BigNumber.from(0)
   const maxAllowedAutoApprove = 5
 
-  const registryGasOverhead = BigNumber.from('80000')
   const emptyBytes = '0x00'
   const stalenessSeconds = BigNumber.from(43820)
   const gasCeilingMultiplier = BigNumber.from(1)
   const checkGasLimit = BigNumber.from(20000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
+  const maxCheckDataSize = BigNumber.from(10000)
+  const maxPerformDataSize = BigNumber.from(10000)
   const maxPerformGas = BigNumber.from(5000000)
   const minUpkeepSpend = BigNumber.from('1000000000000000000')
   const amount = BigNumber.from('5000000000000000000')
@@ -112,6 +113,8 @@ describe('KeeperRegistrar2_0', () => {
       stalenessSeconds,
       gasCeilingMultiplier,
       minUpkeepSpend,
+      maxCheckDataSize,
+      maxPerformDataSize,
       maxPerformGas,
       fallbackGasPrice,
       fallbackLinkPrice,
@@ -128,19 +131,12 @@ describe('KeeperRegistrar2_0', () => {
       .deploy(9, linkEth)
     registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-      )
+      .deploy(0, linkToken.address, linkEthFeed.address, gasPriceFeed.address)
 
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
         0,
-        registryGasOverhead,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -171,7 +167,7 @@ describe('KeeperRegistrar2_0', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistrar 1.1.0')
+      assert.equal(typeAndVersion, 'KeeperRegistrar 2.0.0')
     })
   })
 
@@ -190,6 +186,7 @@ describe('KeeperRegistrar2_0', () => {
             amount,
             source,
             await requestSender.getAddress(),
+            false,
           ),
         'OnlyLink()',
       )
@@ -217,6 +214,7 @@ describe('KeeperRegistrar2_0', () => {
           amount1,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
 
@@ -241,6 +239,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await admin.getAddress(), // Should have been requestSender.getAddress()
+          false,
         ],
       )
       await evmRevert(
@@ -264,6 +263,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
 
@@ -299,6 +299,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
       const tx = await linkToken
@@ -346,6 +347,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
       const tx = await linkToken
@@ -390,6 +392,7 @@ describe('KeeperRegistrar2_0', () => {
         amount,
         source,
         await requestSender.getAddress(),
+        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -407,6 +410,7 @@ describe('KeeperRegistrar2_0', () => {
         amount,
         source,
         await requestSender.getAddress(),
+        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -430,6 +434,7 @@ describe('KeeperRegistrar2_0', () => {
         amount,
         source,
         await requestSender.getAddress(),
+        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -447,6 +452,7 @@ describe('KeeperRegistrar2_0', () => {
         amount,
         source,
         await requestSender.getAddress(),
+        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -485,6 +491,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
       const tx = await linkToken
@@ -537,6 +544,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
       const tx = await linkToken
@@ -622,6 +630,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
 
@@ -640,6 +649,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
@@ -654,6 +664,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
@@ -668,6 +679,7 @@ describe('KeeperRegistrar2_0', () => {
           ethers.Wallet.createRandom().address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
@@ -679,6 +691,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           10000,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
@@ -690,6 +703,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           ethers.Wallet.createRandom().address,
+          false,
           emptyBytes,
           hash,
         )
@@ -701,6 +715,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           '0x1234',
           hash,
         )
@@ -715,6 +730,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
@@ -729,6 +745,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
@@ -739,6 +756,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
@@ -772,6 +790,7 @@ describe('KeeperRegistrar2_0', () => {
           amount,
           source,
           await requestSender.getAddress(),
+          false,
         ],
       )
       const tx = await linkToken
@@ -818,6 +837,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          false,
           emptyBytes,
           hash,
         )
