@@ -449,27 +449,31 @@ contract KeeperRegistry2_0 is
       bytes memory offchainConfig
     )
   {
-    state.nonce = s_storage.nonce;
-    state.ownerLinkBalance = s_storage.ownerLinkBalance;
-    state.expectedLinkBalance = s_storage.expectedLinkBalance;
-    state.numUpkeeps = s_upkeepIDs.length();
-    state.configCount = s_storage.configCount;
-    state.latestConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    state.latestConfigDigest = s_hotVars.latestConfigDigest;
+    state = State({
+      nonce: s_storage.nonce,
+      ownerLinkBalance: s_storage.ownerLinkBalance,
+      expectedLinkBalance: s_storage.expectedLinkBalance,
+      numUpkeeps: s_upkeepIDs.length(),
+      configCount: s_storage.configCount,
+      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
+      latestConfigDigest: s_hotVars.latestConfigDigest
+    });
 
-    config.paymentPremiumPPB = s_hotVars.paymentPremiumPPB;
-    config.flatFeeMicroLink = s_hotVars.flatFeeMicroLink;
-    config.checkGasLimit = s_storage.checkGasLimit;
-    config.stalenessSeconds = s_hotVars.stalenessSeconds;
-    config.gasCeilingMultiplier = s_hotVars.gasCeilingMultiplier;
-    config.minUpkeepSpend = s_storage.minUpkeepSpend;
-    config.maxPerformGas = s_storage.maxPerformGas;
-    config.maxCheckDataSize = s_storage.maxCheckDataSize;
-    config.maxPerformDataSize = s_storage.maxPerformDataSize;
-    config.fallbackGasPrice = s_storage.fallbackGasPrice;
-    config.fallbackLinkPrice = s_storage.fallbackLinkPrice;
-    config.transcoder = s_storage.transcoder;
-    config.registrar = s_storage.registrar;
+    config = OnChainConfig({
+      paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
+      flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
+      checkGasLimit: s_storage.checkGasLimit,
+      stalenessSeconds: s_hotVars.stalenessSeconds,
+      gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
+      minUpkeepSpend: s_storage.minUpkeepSpend,
+      maxPerformGas: s_storage.maxPerformGas,
+      maxCheckDataSize: s_storage.maxCheckDataSize,
+      maxPerformDataSize: s_storage.maxPerformDataSize,
+      fallbackGasPrice: s_storage.fallbackGasPrice,
+      fallbackLinkPrice: s_storage.fallbackLinkPrice,
+      transcoder: s_storage.transcoder,
+      registrar: s_storage.registrar
+    });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f, s_offchainConfigVersion, s_offchainConfig);
   }
