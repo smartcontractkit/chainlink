@@ -385,7 +385,7 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeade
 		Str("Contract Address", f.fluxInstance.Address()).
 		Int64("Current Round", lr.Int64()).
 		Int64("Waiting for Round", f.roundID.Int64()).
-		Uint64("Block Number", header.Number.Uint64())
+		Uint64("Header Number", header.Number.Uint64())
 	if lr.Cmp(f.roundID) >= 0 {
 		fluxLog.Msg("FluxAggregator round completed")
 		f.complete = true
@@ -453,7 +453,7 @@ func (f *VRFConsumerRoundConfirmer) ReceiveHeader(header blockchain.NodeHeader) 
 		Str("Contract Address", f.consumer.Address()).
 		Int64("Waiting for Round", f.roundID.Int64()).
 		Int64("Current round ID", roundID.Int64()).
-		Uint64("Block Number", header.Number.Uint64())
+		Uint64("Header Number", header.Number.Uint64())
 	if roundID.Int64() == f.roundID.Int64() {
 		randomness, err := f.consumer.RandomnessOutput(context.Background())
 		if err != nil {
