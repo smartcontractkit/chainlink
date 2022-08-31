@@ -34,8 +34,8 @@ var (
 	errNoEligibleUpkeepFound = errors.New("no eligible upkeep found")
 
 	observationArguments = abi.Arguments{
-		{Type: mustType(abi.NewType("uint256", "", nil))},
-		{Type: mustType(abi.NewType("bytes", "", nil))},
+		{Type: mustType(abi.NewType("uint256[]", "", nil))},
+		{Type: mustType(abi.NewType("bytes[]", "", nil))},
 	}
 )
 
@@ -238,7 +238,7 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Qu
 		return false, nil, errors.Wrap(err, "failed to hex decode perform data")
 	}
 
-	payload, err := observationArguments.Pack(observation.Upkeep.UpkeepID.ToInt(), performDataRaw)
+	payload, err := observationArguments.Pack([]*big.Int{observation.Upkeep.UpkeepID.ToInt()}, [][]byte{performDataRaw})
 	if err != nil {
 		return false, nil, errors.Wrap(err, "failed to ABI encode observation results")
 	}
