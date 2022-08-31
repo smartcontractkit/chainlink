@@ -170,16 +170,8 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       revert InsufficientPayment();
     }
 
-    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
-
-    bool success = LINK.transferFrom(msg.sender, owner(), amount);
-    if (!success) {
-      revert LinkTransferFailed(address(keeperRegistry));
-    }
-
-    uint256 upkeepId = _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source, msg.sender);
-
-    return upkeepId;
+    LINK.transferFrom(msg.sender, address(this), amount);
+    return _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source, msg.sender);
   }
 
   function _register(
