@@ -150,7 +150,8 @@ func (p *plugin) Query(_ context.Context, _ types.ReportTimestamp) (types.Query,
 func (p *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, _ types.Query) (types.Observation, error) {
 	currentHead := p.headsMngr.getCurrentHead()
 	if currentHead == nil {
-		return nil, errors.New("current head is nil")
+		p.logger.Warn("current head is nil")
+		return nil, nil
 	}
 
 	upkeep, err := p.getEligibleUpkeep(currentHead)
