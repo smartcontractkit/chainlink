@@ -245,7 +245,6 @@ describe('KeeperRegistry2_0', () => {
 
   // TODO: transmit
   // TODO: simulatePerformUpkeep
-  // Done till getters
 
   const linkForGas = (
     upkeepGasSpent: BigNumber,
@@ -1059,6 +1058,215 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  describe('#pauseUpkeep', () => {
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).pauseUpkeep(upkeepId.add(1)),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is already canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+
+      await evmRevert(
+        registry.connect(admin).pauseUpkeep(upkeepId),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if the upkeep is already paused', async () => {
+      await registry.connect(admin).pauseUpkeep(upkeepId)
+
+      await evmRevert(
+        registry.connect(admin).pauseUpkeep(upkeepId),
+        'OnlyUnpausedUpkeep()',
+      )
+    })
+
+    it('reverts if the caller is not the upkeep admin', async () => {
+      await evmRevert(
+        registry.connect(keeper1).pauseUpkeep(upkeepId),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('pauses the upkeep and emits an event', async () => {
+      const tx = await registry.connect(admin).pauseUpkeep(upkeepId)
+      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(upkeepId)
+
+      const registration = await registry.getUpkeep(upkeepId)
+      assert.equal(registration.paused, true)
+    })
+  })
+
+  describe('#unpauseUpkeep', () => {
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).unpauseUpkeep(upkeepId.add(1)),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is already canceled', async () => {
+      await registry.connect(owner).cancelUpkeep(upkeepId)
+
+      await evmRevert(
+        registry.connect(admin).unpauseUpkeep(upkeepId),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if the upkeep is not paused', async () => {
+      await evmRevert(
+        registry.connect(admin).unpauseUpkeep(upkeepId),
+        'OnlyPausedUpkeep()',
+      )
+    })
+
+    it('reverts if the caller is not the upkeep admin', async () => {
+      await registry.connect(admin).pauseUpkeep(upkeepId)
+
+      const registration = await registry.getUpkeep(upkeepId)
+
+      assert.equal(registration.paused, true)
+
+      await evmRevert(
+        registry.connect(keeper1).unpauseUpkeep(upkeepId),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('unpauses the upkeep and emits an event', async () => {
+      await registry.connect(admin).pauseUpkeep(upkeepId)
+
+      const tx = await registry.connect(admin).unpauseUpkeep(upkeepId)
+
+      await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(upkeepId)
+
+      const registration = await registry.getUpkeep(upkeepId)
+      assert.equal(registration.paused, false)
+
+      const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
+      assert.equal(upkeepIds.length, 1)
+    })
+  })
+
+  describe('#updateCheckData', () => {
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).updateCheckData(upkeepId.add(1), randomBytes),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the caller is not upkeep admin', async () => {
+      await evmRevert(
+        registry.connect(keeper1).updateCheckData(upkeepId, randomBytes),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is cancelled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+
+      await evmRevert(
+        registry.connect(admin).updateCheckData(upkeepId, randomBytes),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('is allowed to update on paused upkeep', async () => {
+      await registry.connect(admin).pauseUpkeep(upkeepId)
+      await registry.connect(admin).updateCheckData(upkeepId, randomBytes)
+
+      const registration = await registry.getUpkeep(upkeepId)
+      assert.equal(randomBytes, registration.checkData)
+    })
+
+    it('reverts if newCheckData exceeds limit', async () => {
+      let longBytes = '0x'
+      for (let i = 0; i < 10000; i++) {
+        longBytes += '1'
+      }
+
+      await evmRevert(
+        registry.connect(admin).updateCheckData(upkeepId, longBytes),
+        'CheckDataExceedsLimit()',
+      )
+    })
+
+    it('updates the upkeep check data and emits an event', async () => {
+      const tx = await registry
+        .connect(admin)
+        .updateCheckData(upkeepId, randomBytes)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepCheckDataUpdated')
+        .withArgs(upkeepId, randomBytes)
+
+      const registration = await registry.getUpkeep(upkeepId)
+      assert.equal(randomBytes, registration.checkData)
+    })
+  })
+
+  describe('#setUpkeepGasLimit', () => {
+    const newGasLimit = BigNumber.from('300000')
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(admin).setUpkeepGasLimit(upkeepId.add(1), newGasLimit),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+      await evmRevert(
+        registry.connect(admin).setUpkeepGasLimit(upkeepId, newGasLimit),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry.connect(owner).setUpkeepGasLimit(upkeepId, newGasLimit),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if new gas limit is out of bounds', async () => {
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepGasLimit(upkeepId, BigNumber.from('100')),
+        'GasLimitOutsideRange()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepGasLimit(upkeepId, BigNumber.from('6000000')),
+        'GasLimitOutsideRange()',
+      )
+    })
+
+    it('updates the gas limit successfully', async () => {
+      const initialGasLimit = (await registry.getUpkeep(upkeepId)).executeGas
+      assert.equal(initialGasLimit, executeGas.toNumber())
+      await registry.connect(admin).setUpkeepGasLimit(upkeepId, newGasLimit)
+      const updatedGasLimit = (await registry.getUpkeep(upkeepId)).executeGas
+      assert.equal(updatedGasLimit, newGasLimit.toNumber())
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry
+        .connect(admin)
+        .setUpkeepGasLimit(upkeepId, newGasLimit)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepGasLimitSet')
+        .withArgs(upkeepId, newGasLimit)
+    })
+  })
+
   /*
   describe('#checkUpkeep', () => {
     it('reverts if the upkeep is not funded', async () => {
@@ -1313,123 +1521,6 @@ describe('KeeperRegistry2_0', () => {
   })*/
 
   /*
-  describe('#pauseUpkeep', () => {
-    it('reverts if the upkeep is already canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(upkeepId)
-
-      await evmRevert(
-        registry.connect(admin).pauseUpkeep(upkeepId),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('reverts if the upkeep is already paused', async () => {
-      await registry.connect(admin).pauseUpkeep(upkeepId)
-
-      await evmRevert(
-        registry.connect(admin).pauseUpkeep(upkeepId),
-        'OnlyUnpausedUpkeep()',
-      )
-    })
-
-    it('reverts if the caller is not the upkeep admin', async () => {
-      await evmRevert(
-        registry.connect(keeper1).pauseUpkeep(upkeepId),
-        'OnlyCallableByAdmin()',
-      )
-    })
-
-    it('pauses the upkeep and emits an event', async () => {
-      const tx = await registry.connect(admin).pauseUpkeep(upkeepId)
-      await expect(tx).to.emit(registry, 'UpkeepPaused').withArgs(upkeepId)
-
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.equal(registration.paused, true)
-    })
-  })
-
-  describe('#unpauseUpkeep', () => {
-    it('reverts if the upkeep is already canceled', async () => {
-      await registry.connect(owner).cancelUpkeep(upkeepId)
-
-      await evmRevert(
-        registry.connect(admin).unpauseUpkeep(upkeepId),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('reverts if the upkeep is not paused', async () => {
-      await evmRevert(
-        registry.connect(admin).unpauseUpkeep(upkeepId),
-        'OnlyPausedUpkeep()',
-      )
-    })
-
-    it('reverts if the caller is not the upkeep admin', async () => {
-      await registry.connect(admin).pauseUpkeep(upkeepId)
-
-      const registration = await registry.getUpkeep(upkeepId)
-
-      assert.equal(registration.paused, true)
-
-      await evmRevert(
-        registry.connect(keeper1).unpauseUpkeep(upkeepId),
-        'OnlyCallableByAdmin()',
-      )
-    })
-
-    it('unpauses the upkeep and emits an event', async () => {
-      await registry.connect(admin).pauseUpkeep(upkeepId)
-
-      const tx = await registry.connect(admin).unpauseUpkeep(upkeepId)
-
-      await expect(tx).to.emit(registry, 'UpkeepUnpaused').withArgs(upkeepId)
-
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.equal(registration.paused, false)
-
-      const upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
-      assert.equal(upkeepIds.length, 1)
-    })
-  })
-
-  describe('#updateCheckData', () => {
-    it('reverts if the caller is not upkeep admin', async () => {
-      await evmRevert(
-        registry.connect(keeper1).updateCheckData(upkeepId, randomBytes),
-        'OnlyCallableByAdmin()',
-      )
-    })
-
-    it('reverts if the upkeep is cancelled', async () => {
-      await registry.connect(admin).cancelUpkeep(upkeepId)
-
-      await evmRevert(
-        registry.connect(admin).updateCheckData(upkeepId, randomBytes),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('updates the paused upkeep check data', async () => {
-      await registry.connect(admin).pauseUpkeep(upkeepId)
-      await registry.connect(admin).updateCheckData(upkeepId, randomBytes)
-
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.equal(randomBytes, registration.checkData)
-    })
-
-    it('updates the upkeep check data and emits an event', async () => {
-      const tx = await registry
-        .connect(admin)
-        .updateCheckData(upkeepId, randomBytes)
-      await expect(tx)
-        .to.emit(registry, 'UpkeepCheckDataUpdated')
-        .withArgs(upkeepId, randomBytes)
-
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.equal(randomBytes, registration.checkData)
-    })
-  })
 
   describe('#addFunds', () => {
     const amount = toWei('1')
@@ -1462,64 +1553,6 @@ describe('KeeperRegistry2_0', () => {
       )
     })
   })*/
-
-  /*
-  describe('#setUpkeepGasLimit', () => {
-    const newGasLimit = BigNumber.from('500000')
-
-    it('reverts if the registration does not exist', async () => {
-      await evmRevert(
-        registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
-      await evmRevert(
-        registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('reverts if called by anyone but the admin', async () => {
-      await evmRevert(
-        registry.connect(owner).setUpkeepGasLimit(id, newGasLimit),
-        'OnlyCallableByAdmin()',
-      )
-    })
-
-    it('reverts if new gas limit is out of bounds', async () => {
-      await evmRevert(
-        registry.connect(admin).setUpkeepGasLimit(id, BigNumber.from('100')),
-        'GasLimitOutsideRange()',
-      )
-      await evmRevert(
-        registry
-          .connect(admin)
-          .setUpkeepGasLimit(id, BigNumber.from('6000000')),
-        'GasLimitOutsideRange()',
-      )
-    })
-
-    it('updates the gas limit successfully', async () => {
-      const initialGasLimit = (await registry.getUpkeep(id)).executeGas
-      assert.equal(initialGasLimit, executeGas.toNumber())
-      await registry.connect(admin).setUpkeepGasLimit(id, newGasLimit)
-      const updatedGasLimit = (await registry.getUpkeep(id)).executeGas
-      assert.equal(updatedGasLimit, newGasLimit.toNumber())
-    })
-
-    it('emits a log', async () => {
-      const tx = await registry
-        .connect(admin)
-        .setUpkeepGasLimit(id, newGasLimit)
-      await expect(tx)
-        .to.emit(registry, 'UpkeepGasLimitSet')
-        .withArgs(id, newGasLimit)
-    })
-  })
-  */
 
   /*
   describe('#performUpkeep', () => {
