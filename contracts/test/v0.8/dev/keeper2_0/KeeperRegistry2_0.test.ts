@@ -1466,8 +1466,7 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('withdraws the collected fees to owner', async () => {
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await registry.connect(keeper1).addFunds(upkeepId, toWei('100'))
+      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       // Very high min spend, whole balance as cancellation fees
       let minUpkeepSpend = toWei('1000')
       await registry.connect(owner).setOnChainConfig({
