@@ -342,17 +342,64 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#getActiveUpkeepIDs', () => {
+    let upkeepId2: BigNumber
+
     beforeEach(async () => {
       // Register another upkeep so that we have 2
+      const tx = await registry
+        .connect(owner)
+        .registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          false,
+          randomBytes,
+        )
+      upkeepId2 = await getUpkeepID(tx)
     })
 
-    it('reverts if startIndex is out of bounds ', async () => {})
+    it('reverts if startIndex is out of bounds ', async () => {
+      await evmRevert(registry.getActiveUpkeepIDs(4, 0), 'IndexOutOfRange()')
+    })
 
-    it('reverts if startIndex + maxCount is out of bounds', async () => {})
+    it('reverts if startIndex + maxCount is out of bounds', async () => {
+      await evmRevert(registry.getActiveUpkeepIDs(0, 4))
+    })
 
-    it('returns upkeep IDs bounded by maxCount', async () => {})
+    it('returns upkeep IDs bounded by maxCount', async () => {
+      let upkeepIds = await registry.getActiveUpkeepIDs(0, 1)
+      assert(
+        upkeepIds.length == 1,
+        'Only maxCount number of upkeeps should be returned',
+      )
+      assert(
+        upkeepIds[0].toString() == upkeepId.toString(),
+        'Correct upkeep ID should be returned',
+      )
 
-    it('returns all upkeep IDs if maxCount is 0', async () => {})
+      upkeepIds = await registry.getActiveUpkeepIDs(1, 1)
+      assert(
+        upkeepIds.length == 1,
+        'Only maxCount number of upkeeps should be returned',
+      )
+      assert(
+        upkeepIds[0].toString() == upkeepId2.toString(),
+        'Correct upkeep ID should be returned',
+      )
+    })
+
+    it('returns all upkeep IDs if maxCount is 0', async () => {
+      let upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
+      assert(upkeepIds.length == 2, 'All upkeeps should be returned')
+      assert(
+        upkeepIds[0].toString() == upkeepId.toString(),
+        'Correct upkeep ID should be returned',
+      )
+      assert(
+        upkeepIds[1].toString() == upkeepId2.toString(),
+        'Correct upkeep ID should be returned',
+      )
+    })
   })
 
   /*
