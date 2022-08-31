@@ -243,6 +243,108 @@ describe('KeeperRegistry2_0', () => {
     upkeepId = await getUpkeepID(tx)
   })
 
+  describe('#setPayees', () => {
+    const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
+    it('reverts when not called by the owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).setPayees([]),
+        'Only callable by owner',
+      )
+    })
+
+    it('reverts with different numbers of payees than transmitters', async () => {
+      await evmRevert(
+        registry.connect(owner).setPayees([await payee1.getAddress()]),
+        'ParameterLengthError()',
+      )
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setPayees([await payee1.getAddress(), await payee2.getAddress()]),
+        'ParameterLengthError()',
+      )
+    })
+
+    it('reverts if the payee is the zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setPayees([
+            await payee1.getAddress(),
+            '0x0000000000000000000000000000000000000000',
+            await payee3.getAddress(),
+            await payee4.getAddress(),
+          ]),
+        'InvalidPayee()',
+      )
+    })
+
+    it('emits events for every payee added and removed', async () => {
+      const oldKeepers = [
+        await keeper1.getAddress(),
+        await keeper2.getAddress(),
+      ]
+      const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
+      await registry.connect(owner).setPayees(oldPayees)
+      assert.deepEqual(oldKeepers, (await registry.getState()).transmitters)
+
+      // remove keepers
+      const newKeepers = [
+        await keeper2.getAddress(),
+        await keeper3.getAddress(),
+      ]
+      const newPayees = [await payee2.getAddress(), await payee3.getAddress()]
+      const tx = await registry.connect(owner).setPayees(newPayees)
+      assert.deepEqual(newKeepers, (await registry.getState()).transmitters)
+
+      await expect(tx)
+        .to.emit(registry, 'KeepersUpdated')
+        .withArgs(newKeepers, newPayees)
+    })
+
+    it('does not change the payee if IGNORE_ADDRESS is used as payee', async () => {
+      const oldKeepers = [
+        await keeper1.getAddress(),
+        await keeper2.getAddress(),
+      ]
+      const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
+      await registry.connect(owner).setPayees(oldPayees)
+      assert.deepEqual(oldKeepers, (await registry.getState()).transmitters)
+
+      const newKeepers = [
+        await keeper2.getAddress(),
+        await keeper3.getAddress(),
+      ]
+      const newPayees = [IGNORE_ADDRESS, await payee3.getAddress()]
+      const tx = await registry.connect(owner).setPayees(newPayees)
+      assert.deepEqual(newKeepers, (await registry.getState()).transmitters)
+
+      const ignored = await registry.getTransmitterInfo(
+        await keeper2.getAddress(),
+      )
+      assert.equal(await payee2.getAddress(), ignored.payee)
+      assert.equal(true, ignored.active)
+
+      await expect(tx)
+        .to.emit(registry, 'KeepersUpdated')
+        .withArgs(newKeepers, newPayees)
+    })
+
+    it('reverts if the owner changes the payee', async () => {
+      await registry.connect(owner).setPayees(payees)
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setPayees([
+            await payee1.getAddress(),
+            await payee2.getAddress(),
+            await owner.getAddress(),
+          ]),
+        'InvalidPayee()',
+      )
+    })
+  })
+
   // TODO: transmit
   // TODO: simulatePerformUpkeep
 
@@ -1965,117 +2067,6 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
-  describe('#setPayees', () => {
-    const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
-    it('reverts when not called by the owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).setPayees([]),
-        'Only callable by owner',
-      )
-    })
-
-    it('reverts with different numbers of payees than transmitters', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setPayees(
-            [await payee1.getAddress()],
-          ),
-        'ParameterLengthError()',
-      )
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setKeepers(
-            [await keeper1.getAddress()],
-            [await payee1.getAddress(), await payee2.getAddress()],
-          ),
-        'ParameterLengthError()',
-      )
-    })
-
-    it('reverts if the payee is the zero address', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setPayees(
-            [
-              await payee1.getAddress(),
-              '0x0000000000000000000000000000000000000000',
-              await payee3.getAddress(),
-              await payee4.getAddress(),
-            ],
-          ),
-        'InvalidPayee()',
-      )
-    })
-
-    it('emits events for every payee added and removed', async () => {
-      const oldKeepers = [
-        await keeper1.getAddress(),
-        await keeper2.getAddress(),
-      ]
-      const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
-      await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
-      assert.deepEqual(oldKeepers, (await registry.getState()).keepers)
-
-      // remove keepers
-      const newKeepers = [
-        await keeper2.getAddress(),
-        await keeper3.getAddress(),
-      ]
-      const newPayees = [await payee2.getAddress(), await payee3.getAddress()]
-      const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
-      assert.deepEqual(newKeepers, (await registry.getState()).keepers)
-
-      await expect(tx)
-        .to.emit(registry, 'KeepersUpdated')
-        .withArgs(newKeepers, newPayees)
-    })
-
-    it('does not change the payee if IGNORE_ADDRESS is used as payee', async () => {
-      const oldKeepers = [
-        await keeper1.getAddress(),
-        await keeper2.getAddress(),
-      ]
-      const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
-      await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
-      assert.deepEqual(oldKeepers, (await registry.getState()).keepers)
-
-      const newKeepers = [
-        await keeper2.getAddress(),
-        await keeper3.getAddress(),
-      ]
-      const newPayees = [IGNORE_ADDRESS, await payee3.getAddress()]
-      const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
-      assert.deepEqual(newKeepers, (await registry.getState()).keepers)
-
-      const ignored = await registry.getKeeperInfo(await keeper2.getAddress())
-      assert.equal(await payee2.getAddress(), ignored.payee)
-      assert.equal(true, ignored.active)
-
-      await expect(tx)
-        .to.emit(registry, 'KeepersUpdated')
-        .withArgs(newKeepers, newPayees)
-    })
-
-    it('reverts if the owner changes the payee', async () => {
-      await registry.connect(owner).setKeepers(keepers, payees)
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setKeepers(keepers, [
-            await payee1.getAddress(),
-            await payee2.getAddress(),
-            await owner.getAddress(),
-          ]),
-        'InvalidPayee()',
-      )
-    })
-    
-  })*/
-
-  /*
   describe('#performUpkeep', () => {
     let _lastKeeper = keeper1
 
@@ -2615,6 +2606,7 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
+  requires performUpkeep
   describe('#cancelUpkeep', () => {
     it('reverts if the ID is not valid', async () => {
       await evmRevert(
@@ -2877,7 +2869,7 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
-  requires perform
+  requires performUpkeep
   describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
@@ -2955,7 +2947,7 @@ describe('KeeperRegistry2_0', () => {
    */
 
   /*
-  requires perform
+  requires performUpkeep
   describe('#recoverFunds', () => {
     const sent = toWei('7')
 
@@ -3046,6 +3038,7 @@ describe('KeeperRegistry2_0', () => {
   */
 
   /*
+  requires performUpkeep
   describe('#checkUpkeep / #performUpkeep', () => {
     const performData = '0xc0ffeec0ffee'
     const multiplier = BigNumber.from(10)
