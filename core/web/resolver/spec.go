@@ -503,7 +503,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() *string {
 	return &timeout
 }
 
-// ContractAddress resolves the spec's contract address.
+// ContractID resolves the spec's contract address.
 func (r *OCR2SpecResolver) ContractID() string {
 	return r.spec.ContractID
 }

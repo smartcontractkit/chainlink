@@ -5,6 +5,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
@@ -379,7 +384,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "unmarshal ocr2keeper plugin config")
 		}
 
-		if err = ocr2keeperconfig.ValidatePluginConfig(cfg); err != nil {
+		if err = cfg.Validate(); err != nil {
 			return nil, errors.Wrap(err, "validate ocr2keeper plugin config")
 		}
 
@@ -391,32 +396,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 				JobID:         spec.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
-			}, types.PluginArgs{
+			},
+			types.PluginArgs{
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
-			})
+			},
+		)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "failed to create new ocr2keeper provider")
-		}
-
-		oracle, err2 := libocr2.NewOracle(libocr2.OracleArgs{
-			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          keeperProvider.ContractTransmitter(),
-			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
-			Database:                     ocrDB,
-			LocalConfig:                  lc,
-			Logger:                       ocrLogger,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-			ReportingPluginFactory: keeperreportingplugin.NewFactory(
-				lggr.Named("Keeper"),
-			),
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
 
 		// RunResultSaver needs to be started first, so it's available
@@ -429,9 +416,74 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			lggr,
 		)
 
-		oracleCtx := job.NewServiceAdapter(oracle)
+		// Create ORM layer
+		strategy := txmgr.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+		orm := keeper.NewORM(d.db, lggr, chain.Config(), strategy)
 
-		return []job.ServiceCtx{runResultSaver, keeperProvider, oracleCtx}, nil
+		registryWrapper, err := keeper.NewRegistryWrapper(ethkey.MustEIP55Address(spec.ContractID), chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create keeper registry wrapper")
+		}
+
+		minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
+		//if spec.KeeperSpec.MinIncomingConfirmations != nil {
+		//	minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
+		//}
+
+		jobSpec.KeeperSpec = &job.KeeperSpec{
+			ID:              spec.ID,
+			ContractAddress: ethkey.MustEIP55Address(spec.ContractID),
+			FromAddress:     ethkey.MustEIP55Address(spec.TransmitterID.String),
+		}
+
+		registrySynchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
+			Job:                      jobSpec,
+			RegistryWrapper:          *registryWrapper,
+			ORM:                      orm,
+			JRM:                      d.jobORM,
+			LogBroadcaster:           chain.LogBroadcaster(),
+			SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
+			MinIncomingConfirmations: minIncomingConfirmations,
+			Logger:                   lggr,
+			SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+			NewTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
+		})
+
+		oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
+			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractTransmitter:          keeperProvider.ContractTransmitter(),
+			ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
+			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ReportingPluginFactory: keeperreportingplugin.NewFactory(
+				lggr.Named("OCR2Keeper"),
+				jobSpec.ID,
+				chainID,
+				chain.Config(),
+				orm,
+				chain.Client(),
+				chain.HeadBroadcaster(),
+				spec.ContractID,
+				d.pipelineRunner,
+				chain.TxManager().GetGasEstimator(),
+			),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewOracle")
+		}
+
+		return []job.ServiceCtx{
+			runResultSaver,
+			keeperProvider,
+			registrySynchronizer,
+			job.NewServiceAdapter(oracle),
+		}, nil
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
