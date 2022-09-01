@@ -100,11 +100,14 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, contractID
 		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
 	}
 
-	configPoller := NewConfigPoller(
+	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", contractID),
 		chain.LogPoller(),
 		contractAddress,
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create config poller")
+	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
