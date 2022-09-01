@@ -217,15 +217,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     // 6 bytes left in 2nd EVM word
   }
 
-  struct UpkeepPerformedLogFields {
-    uint32 checkBlockNumber;
-    uint256 gasUsed;
-    uint256 gasOverhead;
-    uint256 linkNative;
-    uint96 premiumPayment;
-    uint96 totalPayment;
-  }
-
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
@@ -240,7 +231,14 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepPaused(uint256 indexed id);
-  event UpkeepPerformed(uint256 indexed id, bool indexed success, UpkeepPerformedLogFields upkeepPerformedLogFields);
+  event UpkeepPerformed(
+    uint256 indexed id,
+    bool indexed success,
+    uint32 checkBlockNumber,
+    uint256 gasUsed,
+    uint256 gasOverhead,
+    uint96 totalPayment
+  );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin, bool skipSigVerification);
