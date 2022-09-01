@@ -5,24 +5,22 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
