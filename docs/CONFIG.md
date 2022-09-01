@@ -2650,10 +2650,10 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
-PriceMax = '1 micro'
-PriceMin = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -2915,10 +2915,10 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
-PriceMax = '1 micro'
-PriceMin = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -2981,10 +2981,10 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
-PriceMax = '1 micro'
-PriceMin = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000

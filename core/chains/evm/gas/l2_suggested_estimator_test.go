@@ -23,7 +23,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 	client := new(mocks.RPCClient)
 	maxGasPrice := big.NewInt(100)
 	config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
-	o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
+	o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	var gasLimit uint32 = 80000
@@ -51,7 +51,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.RPCClient)
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
-		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
+		o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -71,7 +71,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.RPCClient)
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
-		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
+		o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -95,7 +95,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.RPCClient)
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
-		o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
+		o := gas.NewL2SuggestedPriceEstimator(logger.TestLogger(t), client)
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 

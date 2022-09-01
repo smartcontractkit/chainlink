@@ -285,11 +285,9 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.blockEmissionIdleWarningThreshold = 0
 	arbitrumMainnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	arbitrumMainnet.chainType = config.ChainArbitrum
-	arbitrumMainnet.gasBumpThreshold = 0                 // Disable gas bumping on arbitrum
-	arbitrumMainnet.gasPriceDefault = *assets.GWei(1000) // Arbitrum uses something like a Vickrey auction model where gas price represents a "max bid". In practice we usually pay much less
-	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
-	arbitrumMainnet.minGasPriceWei = *assets.GWei(1000)  // Fix the gas price
-	arbitrumMainnet.gasEstimatorMode = "FixedPrice"
+	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
+	arbitrumMainnet.gasEstimatorMode = "Arbitrum"
+	arbitrumMainnet.minGasPriceWei = *big.NewInt(0)           // Arbitrum uses the suggested gas price so we don't want to place any limits on the minimum
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.ocrContractConfirmations = 1
