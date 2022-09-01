@@ -255,9 +255,9 @@ describe('KeeperRegistry2_0', () => {
         'OnlySimulatedBackend()',
       )
     })
-    /*
-    it('returns false if the upkeep is cancelled', async () => {
-      await registry.connect(await owner.getAddress()).cancelUpkeep(upkeepId)
+
+    it('returns false and error code if the upkeep is cancelled by admin', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
 
       let checkUpkeepResult = await registry
         .connect(zeroAddress)
@@ -267,7 +267,19 @@ describe('KeeperRegistry2_0', () => {
       assert.equal(checkUpkeepResult.performData, '0x')
       assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
     })
-    
+
+    it('returns false and error code if the upkeep is cancelled by owner', async () => {
+      await registry.connect(owner).cancelUpkeep(upkeepId)
+
+      let checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+    })
+    /*
     context('when the registration is funded', () => {
       beforeEach(async () => {
         await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
