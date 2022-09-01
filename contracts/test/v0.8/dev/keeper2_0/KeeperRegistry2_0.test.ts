@@ -246,6 +246,156 @@ describe('KeeperRegistry2_0', () => {
   // TODO: transmit
   // TODO: simulatePerformUpkeep
 
+  describe('#checkUpkeep', () => {
+    it('reverts if called by non zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(await owner.getAddress())
+          .callStatic.checkUpkeep(upkeepId),
+        'OnlySimulatedBackend()',
+      )
+    })
+    /*
+    it('returns false if the upkeep is cancelled', async () => {
+      await registry.connect(await owner.getAddress()).cancelUpkeep(upkeepId)
+
+      let checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+    })
+    
+    context('when the registration is funded', () => {
+      beforeEach(async () => {
+        await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
+        await registry.connect(keeper1).addFunds(upkeepId, toWei('100'))
+      })
+
+      it('reverts if executed', async () => {
+        await mock.setCanPerform(true)
+        await mock.setCanCheck(true)
+        await evmRevert(
+          registry.checkUpkeep(upkeepId),
+          'OnlySimulatedBackend()',
+        )
+      })
+
+      it('reverts if the specified keeper is not valid', async () => {
+        await mock.setCanPerform(true)
+        await mock.setCanCheck(true)
+        await evmRevert(
+          registry.checkUpkeep(upkeepId),
+          'OnlySimulatedBackend()',
+        )
+      })
+
+      context('and upkeep is not needed', () => {
+        beforeEach(async () => {
+          await mock.setCanCheck(false)
+        })
+
+        it('reverts', async () => {
+          await evmRevert(
+            registry
+              .connect(zeroAddress)
+              .callStatic.checkUpkeep(upkeepId),
+            'UpkeepNotNeeded()',
+          )
+        })
+      })
+
+      context('and the upkeep check fails', () => {
+        beforeEach(async () => {
+          const reverter = await upkeepReverterFactory.deploy()
+          const tx = await registry
+            .connect(owner)
+            .registerUpkeep(
+              reverter.address,
+              2500000,
+              await admin.getAddress(),
+              emptyBytes,
+            )
+          id = await getUpkeepID(tx)
+          await linkToken
+            .connect(keeper1)
+            .approve(registry.address, toWei('100'))
+          await registry.connect(keeper1).addFunds(id, toWei('100'))
+        })
+
+        it('reverts', async () => {
+          await evmRevert(
+            registry
+              .connect(zeroAddress)
+              .callStatic.checkUpkeep(upkeepId),
+            'TargetCheckReverted',
+          )
+        })
+      })
+
+      context('and upkeep check simulations succeeds', () => {
+        beforeEach(async () => {
+          await mock.setCanCheck(true)
+          await mock.setCanPerform(true)
+        })
+
+        it('reverts if the upkeep is paused', async () => {
+          await registry.connect(admin).pauseUpkeep(upkeepId)
+
+          await evmRevert(
+            registry
+              .connect(zeroAddress)
+              .callStatic.checkUpkeep(upkeepId),
+            'OnlyUnpausedUpkeep()',
+          )
+        })
+
+        it('returns true with pricing info if the target can execute', async () => {
+          const newGasMultiplier = BigNumber.from(10)
+          await registry.connect(owner).setConfig({
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            blockCountPerTurn,
+            checkGasLimit,
+            stalenessSeconds,
+            gasCeilingMultiplier: newGasMultiplier,
+            minUpkeepSpend,
+            maxPerformGas,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+            transcoder: transcoder.address,
+            registrar: ethers.constants.AddressZero,
+          })
+          const response = await registry
+            .connect(zeroAddress)
+            .callStatic.checkUpkeep(upkeepId)
+          assert.isTrue(response.gasLimit.eq(executeGas))
+          assert.isTrue(response.linkEth.eq(linkEth))
+          assert.isTrue(
+            response.adjustedGasWei.eq(gasWei.mul(newGasMultiplier)),
+          )
+          assert.isTrue(
+            response.maxLinkPayment.eq(
+              linkForGas(executeGas.toNumber()).mul(newGasMultiplier),
+            ),
+          )
+        })
+
+        it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
+          await mock.setCheckGasToBurn(checkGasLimit)
+          const gas = checkGasLimit.add(CHECK_GAS_OVERHEAD)
+          await registry
+            .connect(zeroAddress)
+            .callStatic.checkUpkeep(upkeepId, {
+              gasLimit: gas,
+            })
+        })
+      })
+    })*/
+  })
+
   const linkForGas = (
     upkeepGasSpent: BigNumber,
     gasOverhead: BigNumber,
@@ -1928,148 +2078,6 @@ describe('KeeperRegistry2_0', () => {
         .withArgs(keepers, payees)
     })
   })
-
-  /*
-  describe('#checkUpkeep', () => {
-    it('reverts if the upkeep is not funded', async () => {
-      await mock.setCanPerform(true)
-      await mock.setCanCheck(true)
-      await evmRevert(
-        registry
-          .connect(zeroAddress)
-          .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'InsufficientFunds()',
-      )
-    })
-
-    context('when the registration is funded', () => {
-      beforeEach(async () => {
-        await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-        await registry.connect(keeper1).addFunds(id, toWei('100'))
-      })
-
-      it('reverts if executed', async () => {
-        await mock.setCanPerform(true)
-        await mock.setCanCheck(true)
-        await evmRevert(
-          registry.checkUpkeep(id, await keeper1.getAddress()),
-          'OnlySimulatedBackend()',
-        )
-      })
-
-      it('reverts if the specified keeper is not valid', async () => {
-        await mock.setCanPerform(true)
-        await mock.setCanCheck(true)
-        await evmRevert(
-          registry.checkUpkeep(id, await owner.getAddress()),
-          'OnlySimulatedBackend()',
-        )
-      })
-
-      context('and upkeep is not needed', () => {
-        beforeEach(async () => {
-          await mock.setCanCheck(false)
-        })
-
-        it('reverts', async () => {
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'UpkeepNotNeeded()',
-          )
-        })
-      })
-
-      context('and the upkeep check fails', () => {
-        beforeEach(async () => {
-          const reverter = await upkeepReverterFactory.deploy()
-          const tx = await registry
-            .connect(owner)
-            .registerUpkeep(
-              reverter.address,
-              2500000,
-              await admin.getAddress(),
-              emptyBytes,
-            )
-          id = await getUpkeepID(tx)
-          await linkToken
-            .connect(keeper1)
-            .approve(registry.address, toWei('100'))
-          await registry.connect(keeper1).addFunds(id, toWei('100'))
-        })
-
-        it('reverts', async () => {
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'TargetCheckReverted',
-          )
-        })
-      })
-
-      context('and upkeep check simulations succeeds', () => {
-        beforeEach(async () => {
-          await mock.setCanCheck(true)
-          await mock.setCanPerform(true)
-        })
-
-        it('reverts if the upkeep is paused', async () => {
-          await registry.connect(admin).pauseUpkeep(id)
-
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'OnlyUnpausedUpkeep()',
-          )
-        })
-
-        it('returns true with pricing info if the target can execute', async () => {
-          const newGasMultiplier = BigNumber.from(10)
-          await registry.connect(owner).setConfig({
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier: newGasMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          })
-          const response = await registry
-            .connect(zeroAddress)
-            .callStatic.checkUpkeep(id, await keeper1.getAddress())
-          assert.isTrue(response.gasLimit.eq(executeGas))
-          assert.isTrue(response.linkEth.eq(linkEth))
-          assert.isTrue(
-            response.adjustedGasWei.eq(gasWei.mul(newGasMultiplier)),
-          )
-          assert.isTrue(
-            response.maxLinkPayment.eq(
-              linkForGas(executeGas.toNumber()).mul(newGasMultiplier),
-            ),
-          )
-        })
-
-        it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
-          await mock.setCheckGasToBurn(checkGasLimit)
-          const gas = checkGasLimit.add(CHECK_GAS_OVERHEAD)
-          await registry
-            .connect(zeroAddress)
-            .callStatic.checkUpkeep(id, await keeper1.getAddress(), {
-              gasLimit: gas,
-            })
-        })
-      })
-    })
-  })
-  */
 
   /*
   describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {

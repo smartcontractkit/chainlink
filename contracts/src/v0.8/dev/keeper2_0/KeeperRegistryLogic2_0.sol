@@ -32,7 +32,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     cannotExecute
     returns (
       bool upkeepNeeded,
-      bytes memory performDataWrapped,
+      bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed
     )
@@ -50,8 +50,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
     if (!success) return (false, bytes("0x"), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed);
 
-    bytes memory performData;
-    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    bytes memory userPerformData;
+    (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
     if (!upkeepNeeded) return (false, bytes("0x"), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
     if (performData.length > s_storage.maxPerformDataSize)
       return (false, bytes("0x"), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
@@ -60,14 +60,14 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (upkeep.balance < paymentParams.maxLinkPayment)
       return (false, bytes("0x"), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
 
-    performDataWrapped = abi.encode(
+    performData = abi.encode(
       PerformDataWrapper({
         checkBlockNumber: uint32(block.number),
         checkBlockhash: blockhash(block.number - 1),
-        performData: performData
+        performData: userPerformData
       })
     );
-    return (true, performDataWrapped, UpkeepFailureReason.NONE, gasUsed);
+    return (true, performData, UpkeepFailureReason.NONE, gasUsed);
   }
 
   /**
