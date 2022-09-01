@@ -160,6 +160,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 
 func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	expectedBig, _ := big.NewInt(0).SetString("100000000000000000000000000000000000000", 10)
 
@@ -196,7 +197,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			err := ethClient.Dial(testutils.Context(t))
 			require.NoError(t, err)
 
-			result, err := ethClient.GetERC20Balance(userAddress, contractAddress)
+			result, err := ethClient.GetERC20Balance(ctx, userAddress, contractAddress)
 			require.NoError(t, err)
 			assert.Equal(t, test.balance, result)
 		})

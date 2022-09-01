@@ -35,6 +35,7 @@ func TestHexEncodeTask(t *testing.T) {
 		{"bigint 2", bigThree.Exp(bigThree, big.NewInt(100), nil), "0x5a4653ca673768565b41f775d6947d55cf3813d1", ""},
 		{"decimal type but integer value", 1.0, "0x1", ""},
 		{"decimal type but integer value zero", 0.0, "0x0", ""},
+		{"decimal.Decimal type but integer value", mustDecimal(t, "256"), "0x100", ""},
 
 		// success strings/bytes
 		{"string ascii bytes", "xyz", "0x78797a", ""},
@@ -56,6 +57,7 @@ func TestHexEncodeTask(t *testing.T) {
 		{"input of type bool", true, "", "bad input for task"},
 		{"input of type decimal", 1.44, "", "decimal input"},
 		{"input of type decimal and negative", -0.44, "", "decimal input"},
+		{"input of decimal.Decimal type but not integer", mustDecimal(t, "3.14"), "", "decimal input"},
 	}
 
 	for _, test := range tests {

@@ -34,7 +34,7 @@ contract UpkeepTranscoder is UpkeepTranscoderInterface, TypeAndVersionInterface 
     UpkeepFormat toVersion,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
-    if (fromVersion != UpkeepFormat.V1 || toVersion != UpkeepFormat.V1) {
+    if (fromVersion != toVersion) {
       revert InvalidTranscoding();
     }
 

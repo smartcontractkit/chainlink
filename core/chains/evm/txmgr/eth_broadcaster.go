@@ -152,13 +152,6 @@ func (eb *EthBroadcaster) Start(ctx context.Context) error {
 			return errors.Wrap(err, "EthBroadcaster could not start")
 		}
 
-		if eb.config.EvmNonceAutoSync() {
-			syncer := NewNonceSyncer(eb.db, eb.logger, eb.ChainKeyStore.config, eb.ethClient, eb.ChainKeyStore.keystore)
-			if err := syncer.SyncAll(ctx, eb.keyStates); err != nil {
-				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
-			}
-		}
-
 		eb.wg.Add(len(eb.keyStates))
 		for _, k := range eb.keyStates {
 			triggerCh := make(chan struct{}, 1)
