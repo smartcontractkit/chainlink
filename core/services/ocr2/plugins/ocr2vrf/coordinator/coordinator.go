@@ -294,11 +294,9 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	}
 
 	// Fill a unique list of request blocks.
-	requestedBlockNumbers := make([]uint64, len(rawBlocksRequested))
-	i := 0
+	requestedBlockNumbers := []uint64{}
 	for k := range rawBlocksRequested {
-		requestedBlockNumbers[i] = k
-		i++
+		requestedBlockNumbers = append(requestedBlockNumbers, k)
 	}
 
 	// Get a mapping of block numbers to block hashes.
