@@ -108,6 +108,7 @@ describe('KeeperRegistry2_0', () => {
   const maxPerformGas = BigNumber.from(5000000)
   const minUpkeepSpend = BigNumber.from(0)
   const f = 1
+  const zeroAddress = ethers.constants.AddressZero
 
   let owner: Signer
   let keeper1: Signer
@@ -223,7 +224,6 @@ describe('KeeperRegistry2_0', () => {
       )
 
     await registry.connect(owner).setConfig(keepers, keepers, f, '0x', 1, '0x')
-    await registry.connect(owner).setPayees(payees)
 
     mock = await upkeepMockFactory.deploy()
     await linkToken
@@ -241,108 +241,6 @@ describe('KeeperRegistry2_0', () => {
         randomBytes,
       )
     upkeepId = await getUpkeepID(tx)
-  })
-
-  describe('#setPayees', () => {
-    const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
-    it('reverts when not called by the owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).setPayees([]),
-        'Only callable by owner',
-      )
-    })
-
-    it('reverts with different numbers of payees than transmitters', async () => {
-      await evmRevert(
-        registry.connect(owner).setPayees([await payee1.getAddress()]),
-        'ParameterLengthError()',
-      )
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setPayees([await payee1.getAddress(), await payee2.getAddress()]),
-        'ParameterLengthError()',
-      )
-    })
-
-    it('reverts if the payee is the zero address', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setPayees([
-            await payee1.getAddress(),
-            '0x0000000000000000000000000000000000000000',
-            await payee3.getAddress(),
-            await payee4.getAddress(),
-          ]),
-        'InvalidPayee()',
-      )
-    })
-
-    it('emits events for every payee added and removed', async () => {
-      const oldKeepers = [
-        await keeper1.getAddress(),
-        await keeper2.getAddress(),
-      ]
-      const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
-      await registry.connect(owner).setPayees(oldPayees)
-      assert.deepEqual(oldKeepers, (await registry.getState()).transmitters)
-
-      // remove keepers
-      const newKeepers = [
-        await keeper2.getAddress(),
-        await keeper3.getAddress(),
-      ]
-      const newPayees = [await payee2.getAddress(), await payee3.getAddress()]
-      const tx = await registry.connect(owner).setPayees(newPayees)
-      assert.deepEqual(newKeepers, (await registry.getState()).transmitters)
-
-      await expect(tx)
-        .to.emit(registry, 'KeepersUpdated')
-        .withArgs(newKeepers, newPayees)
-    })
-
-    it('does not change the payee if IGNORE_ADDRESS is used as payee', async () => {
-      const oldKeepers = [
-        await keeper1.getAddress(),
-        await keeper2.getAddress(),
-      ]
-      const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
-      await registry.connect(owner).setPayees(oldPayees)
-      assert.deepEqual(oldKeepers, (await registry.getState()).transmitters)
-
-      const newKeepers = [
-        await keeper2.getAddress(),
-        await keeper3.getAddress(),
-      ]
-      const newPayees = [IGNORE_ADDRESS, await payee3.getAddress()]
-      const tx = await registry.connect(owner).setPayees(newPayees)
-      assert.deepEqual(newKeepers, (await registry.getState()).transmitters)
-
-      const ignored = await registry.getTransmitterInfo(
-        await keeper2.getAddress(),
-      )
-      assert.equal(await payee2.getAddress(), ignored.payee)
-      assert.equal(true, ignored.active)
-
-      await expect(tx)
-        .to.emit(registry, 'KeepersUpdated')
-        .withArgs(newKeepers, newPayees)
-    })
-
-    it('reverts if the owner changes the payee', async () => {
-      await registry.connect(owner).setPayees(payees)
-      await evmRevert(
-        registry
-          .connect(owner)
-          .setPayees([
-            await payee1.getAddress(),
-            await payee2.getAddress(),
-            await owner.getAddress(),
-          ]),
-        'InvalidPayee()',
-      )
-    })
   })
 
   // TODO: transmit
@@ -1051,8 +949,6 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#registerUpkeep', () => {
-    const zeroAddress = ethers.constants.AddressZero
-
     it('reverts when registry is paused', async () => {
       await registry.connect(owner).pause()
       await evmRevert(
@@ -1571,6 +1467,11 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#transferPayeeship', () => {
+    beforeEach(async () => {
+      // Set initial payees
+      await registry.connect(owner).setPayees(payees)
+    })
+
     it('reverts when called by anyone but the current payee', async () => {
       await evmRevert(
         registry
@@ -1644,6 +1545,9 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#acceptPayeeship', () => {
     beforeEach(async () => {
+      // Set initial payees
+      await registry.connect(owner).setPayees(payees)
+
       await registry
         .connect(payee1)
         .transferPayeeship(
@@ -1787,7 +1691,6 @@ describe('KeeperRegistry2_0', () => {
       await registry2
         .connect(owner)
         .setConfig(keepers, keepers, f, '0x', 1, '0x')
-      await registry2.connect(owner).setPayees(payees)
     })
 
     context('when permissions are set', () => {
@@ -1921,6 +1824,108 @@ describe('KeeperRegistry2_0', () => {
         await expect(registry.migrateUpkeeps([upkeepId], registry2.address)).to
           .be.reverted
       })
+    })
+  })
+
+  describe('#setPayees', () => {
+    const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
+
+    it('reverts when not called by the owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).setPayees([]),
+        'Only callable by owner',
+      )
+    })
+
+    it('reverts with different numbers of payees than transmitters', async () => {
+      // 4 transmitters are set, so exactly 4 payess should be added
+      await evmRevert(
+        registry.connect(owner).setPayees([await payee1.getAddress()]),
+        'ParameterLengthError()',
+      )
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setPayees([
+            await payee1.getAddress(),
+            await payee1.getAddress(),
+            await payee1.getAddress(),
+            await payee1.getAddress(),
+            await payee1.getAddress(),
+          ]),
+        'ParameterLengthError()',
+      )
+    })
+
+    it('reverts if the payee is the zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setPayees([
+            await payee1.getAddress(),
+            '0x0000000000000000000000000000000000000000',
+            await payee3.getAddress(),
+            await payee4.getAddress(),
+          ]),
+        'InvalidPayee()',
+      )
+    })
+
+    it('sets the payees when exisitng payees are zero address', async () => {
+      //Initial payees should be zero address
+      for (let i = 0; i < keepers.length; i++) {
+        let payee = (await registry.getTransmitterInfo(keepers[i])).payee
+        assert.equal(payee, zeroAddress)
+      }
+
+      await registry.connect(owner).setPayees(payees)
+
+      for (let i = 0; i < keepers.length; i++) {
+        let payee = (await registry.getTransmitterInfo(keepers[i])).payee
+        assert.equal(payee, payees[i])
+      }
+    })
+
+    it('does not change the payee if IGNORE_ADDRESS is used as payee', async () => {
+      // Set initial payees
+      await registry.connect(owner).setPayees(payees)
+
+      const newPayees = [
+        await payee1.getAddress(),
+        IGNORE_ADDRESS,
+        await payee3.getAddress(),
+        await payee4.getAddress(),
+      ]
+      await registry.connect(owner).setPayees(newPayees)
+
+      const ignored = await registry.getTransmitterInfo(
+        await keeper2.getAddress(),
+      )
+      assert.equal(await payee2.getAddress(), ignored.payee)
+      assert.equal(true, ignored.active)
+    })
+
+    it('reverts if payee is non zero and owner tries to change payee', async () => {
+      // Set initial payees
+      await registry.connect(owner).setPayees(payees)
+
+      const newPayees = [
+        await payee1.getAddress(),
+        await owner.getAddress(),
+        await payee3.getAddress(),
+        await payee4.getAddress(),
+      ]
+      await evmRevert(
+        registry.connect(owner).setPayees(newPayees),
+        'InvalidPayee()',
+      )
+    })
+
+    it('emits events for every payee added and removed', async () => {
+      const tx = await registry.connect(owner).setPayees(payees)
+      await expect(tx)
+        .to.emit(registry, 'PayeesUpdated')
+        .withArgs(keepers, payees)
     })
   })
 
