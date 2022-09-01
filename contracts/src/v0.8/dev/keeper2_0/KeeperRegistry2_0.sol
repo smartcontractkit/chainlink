@@ -26,7 +26,7 @@ contract KeeperRegistry2_0 is
   using EnumerableSet for EnumerableSet.UintSet;
 
   // Immutable address of logic contract where some functionality is delegated to
-  address public immutable KEEPER_REGISTRY_LOGIC;
+  address private immutable i_keeperRegistryLogic;
 
   /**
    * @notice versions:
@@ -64,7 +64,7 @@ contract KeeperRegistry2_0 is
     address keeperRegistryLogic,
     OnChainConfig memory onChainConfig
   ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {
-    KEEPER_REGISTRY_LOGIC = keeperRegistryLogic;
+    i_keeperRegistryLogic = keeperRegistryLogic;
     setOnChainConfig(onChainConfig);
   }
 
@@ -507,6 +507,13 @@ contract KeeperRegistry2_0 is
   }
 
   /**
+   * @notice retrieves the address of the logic address
+   */
+  function getKeeperRegistryLogicAddress() external view returns (address) {
+    return i_keeperRegistryLogic;
+  }
+
+  /**
    * @inheritdoc OCR2Abstract
    */
   function latestConfigDetails()
@@ -546,7 +553,7 @@ contract KeeperRegistry2_0 is
    * @dev This is the address to which proxy functions are delegated to
    */
   function _implementation() internal view override returns (address) {
-    return KEEPER_REGISTRY_LOGIC;
+    return i_keeperRegistryLogic;
   }
 
   /**
