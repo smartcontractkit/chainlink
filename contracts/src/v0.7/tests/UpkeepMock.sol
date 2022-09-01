@@ -7,6 +7,7 @@ contract UpkeepMock is KeeperCompatible {
   bool public shouldRevertCheck;
   bool public canCheck;
   bool public canPerform;
+  bytes public performData;
   uint256 public checkGasToBurn;
   uint256 public performGasToBurn;
 
@@ -16,6 +17,10 @@ contract UpkeepMock is KeeperCompatible {
 
   function setShouldRevertCheck(bool value) public {
     shouldRevertCheck = value;
+  }
+
+  function setPerformData(bytes calldata performData) public {
+    performData = performData;
   }
 
   function setCanCheck(bool value) public {
@@ -40,7 +45,7 @@ contract UpkeepMock is KeeperCompatible {
     external
     override
     cannotExecute
-    returns (bool callable, bytes calldata executedata)
+    returns (bool callable, bytes memory executedata)
   {
     require(!shouldRevertCheck, "shouldRevertCheck should be false");
     uint256 startGas = gasleft();
@@ -50,7 +55,7 @@ contract UpkeepMock is KeeperCompatible {
 
     while (startGas - gasleft() < checkGasToBurn) {} // burn gas
 
-    return (couldCheck, data);
+    return (couldCheck, performData);
   }
 
   function performUpkeep(bytes calldata data) external override {
