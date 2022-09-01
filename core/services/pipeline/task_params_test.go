@@ -293,6 +293,8 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 		return pipeline.NewMaybeBigIntParam(big.NewInt(n))
 	}
 
+	decimalVal := *mustDecimal(t, "123")
+
 	tests := []struct {
 		name     string
 		input    interface{}
@@ -316,6 +318,8 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 		{"uint64", uint64(123), fromInt(123), nil},
 		{"float64", float64(123), fromInt(123), nil},
 		{"float64", float64(-123), fromInt(-123), nil},
+		{"decimal.Decimal", decimalVal, fromInt(123), nil},
+		{"*decimal.Decimal", &decimalVal, fromInt(123), nil},
 		// negative
 		{"bool", true, pipeline.NewMaybeBigIntParam(nil), pipeline.ErrBadInput},
 		{"negative out of bound float64", -math.MaxFloat64, pipeline.NewMaybeBigIntParam(nil), pipeline.ErrBadInput},
