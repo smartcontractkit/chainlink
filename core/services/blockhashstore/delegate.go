@@ -126,7 +126,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
-		stop:       make(chan struct{}),
 		done:       make(chan struct{}),
 	}}, nil
 }
@@ -141,7 +140,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
-	stop, done chan struct{}
+	done       chan struct{}
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -162,7 +161,7 @@ func (s *service) Start(context.Context) error {
 				select {
 				case <-ticker.C:
 					s.runFeeder()
-				case <-s.stop:
+				case <-s.parentCtx.Done():
 					return
 				}
 			}
@@ -175,7 +174,6 @@ func (s *service) Start(context.Context) error {
 func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
-		close(s.stop)
 		s.cancel()
 		<-s.done
 		return nil

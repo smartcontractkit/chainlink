@@ -4016,6 +4016,48 @@ func (_m *ChainScopedConfig) Port() uint16 {
 	return r0
 }
 
+// PyroscopeAuthToken provides a mock function with given fields:
+func (_m *ChainScopedConfig) PyroscopeAuthToken() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// PyroscopeEnvironment provides a mock function with given fields:
+func (_m *ChainScopedConfig) PyroscopeEnvironment() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// PyroscopeServerAddress provides a mock function with given fields:
+func (_m *ChainScopedConfig) PyroscopeServerAddress() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // RPID provides a mock function with given fields:
 func (_m *ChainScopedConfig) RPID() string {
 	ret := _m.Called()

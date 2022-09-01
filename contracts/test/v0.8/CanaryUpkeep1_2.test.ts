@@ -2,20 +2,24 @@ import { ethers } from 'hardhat'
 import { BigNumber, Signer } from 'ethers'
 import moment from 'moment'
 import { assert } from 'chai'
-import { CanaryUpkeep } from '../../typechain/CanaryUpkeep'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { CanaryUpkeep12 as CanaryUpkeep } from '../../typechain/CanaryUpkeep12'
+import { CanaryUpkeep12__factory as CanaryUpkeepFactory } from '../../typechain/factories/CanaryUpkeep12__factory'
+import { KeeperRegistry12 as KeeperRegistry } from '../../typechain/KeeperRegistry12'
+import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry12__factory'
 import { fastForward, reset } from '../test-helpers/helpers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { evmRevert } from '../test-helpers/matchers'
 
 let personas: Personas
 let canaryUpkeep: CanaryUpkeep
+let canaryUpkeepFactory: CanaryUpkeepFactory
 let owner: Signer
 let nelly: Signer
 let nancy: Signer
 let ned: Signer
 let keeperAddresses: string[]
 let keeperRegistry: KeeperRegistry
+let keeperRegistryFactory: KeeperRegistryFactory
 
 const defaultInterval = 300
 const paymentPremiumPPB = BigNumber.from(250000000)
@@ -45,7 +49,7 @@ const config = {
   registrar,
 }
 
-describe('CanaryUpkeep', () => {
+describe('CanaryUpkeep1_2', () => {
   before(async () => {
     personas = (await getUsers()).personas
     owner = personas.Default
@@ -58,11 +62,9 @@ describe('CanaryUpkeep', () => {
       await ned.getAddress(),
     ]
   })
-
   beforeEach(async () => {
-    const keeperRegistryFactory = await ethers.getContractFactory(
-      'KeeperRegistry',
-    )
+    // @ts-ignore bug in autogen file
+    keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_2')
     keeperRegistry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
@@ -73,7 +75,8 @@ describe('CanaryUpkeep', () => {
       )
     await keeperRegistry.deployed()
 
-    const canaryUpkeepFactory = await ethers.getContractFactory('CanaryUpkeep')
+    // @ts-ignore bug in autogen file
+    canaryUpkeepFactory = await ethers.getContractFactory('CanaryUpkeep1_2')
     canaryUpkeep = await canaryUpkeepFactory
       .connect(owner)
       .deploy(keeperRegistry.address, defaultInterval)

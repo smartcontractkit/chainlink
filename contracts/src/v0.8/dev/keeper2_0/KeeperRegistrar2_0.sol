@@ -37,11 +37,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
 
   /**
    * @notice versions:
+   * - KeeperRegistrar 2.0.0: Remove source from register
+   *                          Breaks our example of "Register an Upkeep using your own deployed contract"
    * - KeeperRegistrar 1.1.0: Add functionality for sender allowlist in auto approve
    *                        : Remove rate limit and add max allowed for auto approve
    * - KeeperRegistrar 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistrar 1.1.0";
+  string public constant override typeAndVersion = "KeeperRegistrar 2.0.0";
 
   struct Config {
     AutoApproveType autoApproveConfigType;
@@ -68,8 +70,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint32 gasLimit,
     address adminAddress,
     bytes checkData,
-    uint96 amount,
-    uint8 indexed source
+    uint96 amount
   );
 
   event RegistrationApproved(bytes32 indexed hash, string displayName, uint256 indexed upkeepId);
@@ -127,7 +128,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @param source application sending this request
    * @param sender address of the sender making the request
    */
   function register(
@@ -138,7 +138,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address adminAddress,
     bytes calldata checkData,
     uint96 amount,
-    uint8 source,
     address sender
   ) external onlyLINK {
     if (adminAddress == address(0)) {
@@ -146,17 +145,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     }
     bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
 
-    emit RegistrationRequested(
-      hash,
-      name,
-      encryptedEmail,
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      checkData,
-      amount,
-      source
-    );
+    emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
 
     Config memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
@@ -396,12 +385,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param expected amount that should match the actual amount
    * @param data bytes
    */
-  modifier isActualAmount(uint256 expected, bytes memory data) {
-    uint256 actual;
-    assembly {
-      actual := mload(add(data, 228))
-    }
-    if (expected != actual) {
+  modifier isActualAmount(uint256 expected, bytes calldata data) {
+    // decode register function arguments to get actual amount
+    (, , , , , , uint96 amount, ) = abi.decode(
+      data[4:],
+      (string, bytes, address, uint32, address, bytes, uint96, address)
+    );
+    if (expected != amount) {
       revert AmountMismatch();
     }
     _;
@@ -412,12 +402,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param expected address that should match the actual sender address
    * @param data bytes
    */
-  modifier isActualSender(address expected, bytes memory data) {
-    address actual;
-    assembly {
-      actual := mload(add(data, 292))
-    }
-    if (expected != actual) {
+  modifier isActualSender(address expected, bytes calldata data) {
+    // decode register function arguments to get actual sender
+    (, , , , , , , address sender) = abi.decode(
+      data[4:],
+      (string, bytes, address, uint32, address, bytes, uint96, address)
+    );
+    if (expected != sender) {
       revert SenderMismatch();
     }
     _;
