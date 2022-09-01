@@ -106,22 +106,6 @@ describe('KeeperRegistrar2_0', () => {
     stranger = personas.Nancy
     requestSender = personas.Norbert
 
-    const config = {
-      paymentPremiumPPB,
-      flatFeeMicroLink,
-      checkGasLimit,
-      stalenessSeconds,
-      gasCeilingMultiplier,
-      minUpkeepSpend,
-      maxCheckDataSize,
-      maxPerformDataSize,
-      maxPerformGas,
-      fallbackGasPrice,
-      fallbackLinkPrice,
-      transcoder,
-      registrar: ethers.constants.AddressZero,
-    }
-
     linkToken = await linkTokenFactory.connect(owner).deploy()
     gasPriceFeed = await mockV3AggregatorFactory
       .connect(owner)
@@ -141,7 +125,6 @@ describe('KeeperRegistrar2_0', () => {
         linkEthFeed.address,
         gasPriceFeed.address,
         registryLogic.address,
-        config,
       )
 
     mock = await upkeepMockFactory.deploy()
@@ -160,8 +143,41 @@ describe('KeeperRegistrar2_0', () => {
       .connect(owner)
       .transfer(await requestSender.getAddress(), toWei('1000'))
 
-    config.registrar = registrar.address
-    await registry.setOnChainConfig(config)
+    const keepers = [
+      await personas.Carol.getAddress(),
+      await personas.Nancy.getAddress(),
+      await personas.Ned.getAddress(),
+      await personas.Neil.getAddress(),
+    ]
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxCheckDataSize,
+      maxPerformDataSize,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder,
+      registrar: registrar.address,
+    }
+    const onchainConfig = ethers.utils.defaultAbiCoder.encode(
+      [
+        'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
+          ,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,\
+          uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
+          address registrar)',
+      ],
+      [
+        config
+      ],
+    )
+    await registry
+      .connect(owner)
+      .setConfig(keepers, keepers, 1, onchainConfig, 1, '0x')
   })
 
   describe('#typeAndVersion', () => {
