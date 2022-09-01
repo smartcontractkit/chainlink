@@ -11,10 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     string
 //
+//	string
 type HexEncodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	Input    string `json:"input"`
@@ -41,7 +40,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	var stringInput StringParam
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&stringInput, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&stringInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
 		// string
@@ -50,7 +49,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	var bytesInput BytesParam
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&bytesInput, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&bytesInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
 		// bytes
@@ -59,7 +58,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	var decimalInput DecimalParam
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&decimalInput, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&decimalInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil && !decimalInput.Decimal().IsInteger() {
 		// decimal
@@ -68,7 +67,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	var bigIntInput MaybeBigIntParam
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&bigIntInput, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&bigIntInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
 		// one of integer types

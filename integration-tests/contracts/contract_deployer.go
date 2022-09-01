@@ -371,14 +371,14 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return ethereum.DeployMockV3AggregatorContract(auth, backend, 18, answer)
+		return ethereum.DeployMockETHLINKAggregator(auth, backend, answer)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumMockETHLINKFeed{
 		client:  e.client,
-		feed:    instance.(*ethereum.MockV3AggregatorContract),
+		feed:    instance.(*ethereum.MockETHLINKAggregator),
 		address: address,
 	}, err
 }
@@ -481,7 +481,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return ethereum.DeployKeeperRegistry(
+			return ethereum.DeployKeeperRegistry12(
 				auth,
 				backend,
 				common.HexToAddress(opts.LinkAddr),
@@ -510,7 +510,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			client:      e.client,
 			version:     ethereum.RegistryVersion_1_2,
 			registry1_1: nil,
-			registry1_2: instance.(*ethereum.KeeperRegistry),
+			registry1_2: instance.(*ethereum.KeeperRegistry12),
 			address:     address,
 		}, err
 

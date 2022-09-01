@@ -268,11 +268,11 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 		}
 		lsn.respCountMu.Lock()
 		lsn.respCount[v.RequestId]++
-		lsn.respCountMu.Unlock()
 		lsn.blockNumberToReqID.Insert(fulfilledReq{
 			blockNumber: v.Raw.BlockNumber,
 			reqID:       v.RequestId,
 		})
+		lsn.respCountMu.Unlock()
 		lsn.markLogAsConsumed(lb)
 		return
 	}

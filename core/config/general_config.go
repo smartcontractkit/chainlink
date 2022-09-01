@@ -150,6 +150,9 @@ type GeneralOnlyConfig interface {
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
 	Port() uint16
+	PyroscopeAuthToken() string
+	PyroscopeServerAddress() string
+	PyroscopeEnvironment() string
 	RPID() string
 	RPOrigin() string
 	ReaperExpiration() models.Duration
@@ -540,6 +543,21 @@ func (c *generalConfig) AutoPprofMemThreshold() utils.FileSize {
 
 func (c *generalConfig) AutoPprofGoroutineThreshold() int {
 	return c.viper.GetInt(envvar.Name("AutoPprofGoroutineThreshold"))
+}
+
+// PyroscopeAuthToken specifies the Auth Token used to send profiling info to Pyroscope
+func (c *generalConfig) PyroscopeAuthToken() string {
+	return c.viper.GetString(envvar.Name("PyroscopeAuthToken"))
+}
+
+// PyroscopeServerAddress specifies the Server Address where the Pyroscope instance lives
+func (c *generalConfig) PyroscopeServerAddress() string {
+	return c.viper.GetString(envvar.Name("PyroscopeServerAddress"))
+}
+
+// PyroscopeEnvironment specifies the Environment where the Pyroscope logs will be categorized
+func (c *generalConfig) PyroscopeEnvironment() string {
+	return c.viper.GetString(envvar.Name("PyroscopeEnvironment"))
 }
 
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the

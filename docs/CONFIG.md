@@ -23,6 +23,7 @@
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
 - [AutoPprof](#AutoPprof)
+- [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
 - [EVM](#EVM)
 	- [BalanceMonitor](#EVM-BalanceMonitor)
@@ -1170,6 +1171,33 @@ MemThreshold sets the maximum amount of memory the node can actively consume bef
 GoroutineThreshold = 5000 # Default
 ```
 GoroutineThreshold is the maximum number of actively-running goroutines the node can spawn before profiling begins.
+
+## Pyroscope<a id='Pyroscope'></a>
+```toml
+[Pyroscope]
+ServerAddress = 'http://localhost:4040' # Example
+AuthToken = 'randomly-oauth-generated-token' # Example
+Environment = 'mainnet' # Default
+```
+
+
+### ServerAddress<a id='Pyroscope-ServerAddress'></a>
+```toml
+ServerAddress = 'http://localhost:4040' # Example
+```
+ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
+
+### AuthToken<a id='Pyroscope-AuthToken'></a>
+```toml
+AuthToken = 'randomly-oauth-generated-token' # Example
+```
+AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
+
+### Environment<a id='Pyroscope-Environment'></a>
+```toml
+Environment = 'mainnet' # Default
+```
+Environment sets the target environment tag in which profiles will be added to.
 
 ## Sentry<a id='Sentry'></a>
 ```toml
@@ -2626,9 +2654,9 @@ Mode = 'FixedPrice'
 PriceDefault = '1 micro'
 PriceMax = '1 micro'
 PriceMin = '1 micro'
-LimitDefault = 7000000
+LimitDefault = 500000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2888,9 +2916,9 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '100 mwei'
-PriceMax = '100 mwei'
-PriceMin = '100 mwei'
+PriceDefault = '1 micro'
+PriceMax = '1 micro'
+PriceMin = '1 micro'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -2899,7 +2927,7 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
+FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
@@ -2954,9 +2982,9 @@ BlockDelay = 1
 
 [GasEstimator]
 Mode = 'FixedPrice'
-PriceDefault = '100 mwei'
-PriceMax = '100 mwei'
-PriceMin = '100 mwei'
+PriceDefault = '1 micro'
+PriceMax = '1 micro'
+PriceMin = '1 micro'
 LimitDefault = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -2965,7 +2993,7 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
+FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]

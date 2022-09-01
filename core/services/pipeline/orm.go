@@ -375,11 +375,14 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
+// Caller is expected to set timeout on calling context.
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	// Added 1 minute timeout to account for big databases
-	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+	start := time.Now()
 
-	queryThreshold := time.Now().Add(-threshold)
+	q := o.q.WithOpts(pg.WithParentCtxInheritTimeout(ctx))
+
+	queryThreshold := start.Add(-threshold)
+
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
 WITH batched_pipeline_runs AS (
@@ -408,6 +411,19 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 	})
 	if err != nil {
 		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	deleteTS := time.Now()
+
+	o.lggr.Debugw("pipeline_runs reaper DELETE query completed", "duration", deleteTS.Sub(start))
+	defer func(start time.Time) {
+		o.lggr.Debugw("pipeline_runs reaper VACUUM ANALYZE query completed", "duration", time.Since(start))
+	}(deleteTS)
+
+	err = q.ExecQ("VACUUM ANALYZE pipeline_runs")
+	if err != nil {
+		o.lggr.Warnw("DeleteRunsOlderThan successfully deleted old pipeline_runs rows, but failed to run VACUUM ANALYZE", "err", err)
+		return nil
 	}
 
 	return nil
