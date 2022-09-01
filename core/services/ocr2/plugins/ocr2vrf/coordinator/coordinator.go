@@ -55,6 +55,7 @@ type coordinator struct {
 	lp logpoller.LogPoller
 	topics
 	lookbackBlocks int64
+	finalityDepth  uint32
 
 	coordinatorContract VRFBeaconCoordinator
 	coordinatorAddress  common.Address
@@ -80,6 +81,7 @@ func New(
 	client evmclient.Client,
 	lookbackBlocks int64,
 	logPoller logpoller.LogPoller,
+	finalityDepth uint32,
 ) (ocr2vrftypes.CoordinatorInterface, error) {
 	coordinatorContract, err := vrf_wrapper.NewVRFBeaconCoordinator(coordinatorAddress, client)
 	if err != nil {
@@ -106,6 +108,7 @@ func New(
 		lp:                       logPoller,
 		topics:                   t,
 		lookbackBlocks:           lookbackBlocks,
+		finalityDepth:            finalityDepth,
 		evmClient:                client,
 		lggr:                     lggr.Named("OCR2VRFCoordinator"),
 		toBeTransmittedBlocks:    make(map[block]struct{}),
@@ -537,7 +540,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.coordinatorAddress,
-		1,
+		int(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -547,7 +550,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.dkgAddress,
-		1,
+		int(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")
