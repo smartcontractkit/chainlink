@@ -170,9 +170,7 @@ describe('KeeperRegistrar2_0', () => {
           uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,\
           address registrar)',
       ],
-      [
-        config
-      ],
+      [config],
     )
     await registry
       .connect(owner)
