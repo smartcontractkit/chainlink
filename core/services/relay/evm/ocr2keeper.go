@@ -63,6 +63,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
+	// TODO: Use gas limit per upkeep
 	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, cfgWatcher)
 	if err != nil {
 		return nil, err

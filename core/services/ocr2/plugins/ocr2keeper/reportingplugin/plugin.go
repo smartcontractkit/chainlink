@@ -247,12 +247,12 @@ func (p *plugin) Report(ctx context.Context, _ types.ReportTimestamp, _ types.Qu
 }
 
 func (p *plugin) ShouldAcceptFinalizedReport(_ context.Context, _ types.ReportTimestamp, r types.Report) (bool, error) {
-	p.logger.Info("ShouldAcceptFinalizedReport()", string(r))
+	p.logger.Info("ShouldAcceptFinalizedReport()")
 	return true, nil
 }
 
 func (p *plugin) ShouldTransmitAcceptedReport(_ context.Context, _ types.ReportTimestamp, r types.Report) (bool, error) {
-	p.logger.Info("ShouldTransmitAcceptedReport()", string(r))
+	p.logger.Info("ShouldTransmitAcceptedReport()")
 	return true, nil
 }
 
