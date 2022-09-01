@@ -112,7 +112,7 @@ func (rc *ReorgController) WaitReorgStarted() {
 	<-rc.reorgStarted
 }
 
-// ReceiveBlock receives block marked by node that mined it,
+// ReceiveHeader receives header marked by node that mined it,
 // forks the network and record all alternative block numbers on node 0
 func (rc *ReorgController) ReceiveHeader(header blockchain.NodeHeader) error {
 	rc.mutex.Lock()
