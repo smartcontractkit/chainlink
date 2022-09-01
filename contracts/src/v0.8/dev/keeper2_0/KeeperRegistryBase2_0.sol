@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
-import {OnChainConfig, State, UpkeepFailureReason} from "./interfaces/KeeperRegistryInterface2_0.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";
@@ -64,8 +64,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   HotVars internal s_hotVars; // Mixture of config and state, used in transmit
   Storage internal s_storage; // Mixture of config and state, not used in transmit
-  uint64 internal s_offchainConfigVersion; // Offchain config, stored on chain to enable easy distribution to all nodes
-  bytes internal s_offchainConfig; // Offchain config, stored on chain to enable easy distribution to all nodes
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
 
   error ArrayHasNoEntries();
@@ -228,7 +226,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint96 totalPayment;
   }
 
-  event OnChainConfigSet(OnChainConfig config);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
