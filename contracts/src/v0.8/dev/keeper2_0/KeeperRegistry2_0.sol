@@ -99,7 +99,6 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead = gasleft();
     HotVars memory hotVars = s_hotVars;
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
-    _requireExpectedMsgDataLength(report, rs, ss);
 
     Report memory parsedReport = _decodeReport(report);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
@@ -148,9 +147,9 @@ contract KeeperRegistry2_0 is
     }
 
     // This is the overall gas overhead that will be split across performed upkeeps
-    // Take upper bound of 16 gas per callData byte
+    // Take upper bound of 16 gas per callData bytes, which is approximated to be report.length
     gasOverhead =
-      (gasOverhead - gasleft() + 16 * msg.data.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
+      (gasOverhead - gasleft() + 16 * report.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
       numUpkeepsPassedChecks;
     // @dev We put cap on gasOverhead as we don't want it to increase it beyond which we did an
     // initial payment check to prevent a revert in payment processing.
@@ -567,42 +566,6 @@ contract KeeperRegistry2_0 is
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
     return success;
-  }
-
-  // The constant-length components of the msg.data sent to transmit.
-  // See the "If we wanted to call sam" example on for example reasoning
-  // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
-  uint256 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT =
-    4 + // function selector
-      32 *
-      3 + // 3 words containing reportContext
-      32 + // word containing start location of abiencoded report value
-      32 + // word containing location start of abiencoded rs value
-      32 + // word containing start location of abiencoded ss value
-      32 + // rawVs value
-      32 + // word containing length of report
-      32 + // word containing length rs
-      32 + // word containing length of ss
-      0; // placeholder
-
-  // Make sure the calldata length matches the inputs. Otherwise, the
-  // transmitter could append an arbitrarily long (up to gas-block limit)
-  // string of 0 bytes, which we would reimburse at a rate of 16 gas/byte, but
-  // which would only cost the transmitter 4 gas/byte.
-  function _requireExpectedMsgDataLength(
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss
-  ) private pure {
-    // calldata will never be big enough to make this overflow
-    uint256 expected = TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT +
-      report.length + // one byte pure entry in report
-      rs.length *
-      32 + // 32 bytes per entry in rs
-      ss.length *
-      32 + // 32 bytes per entry in ss
-      0; // placeholder
-    if (msg.data.length != expected) revert InvalidReport();
   }
 
   /**
