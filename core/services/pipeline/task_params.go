@@ -784,8 +784,14 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 			return errors.Wrapf(ErrBadInput, "unable to convert %s to big.Int", v)
 		}
 	case decimal.Decimal:
+		if !v.IsInteger() {
+			return errors.Wrapf(ErrBadInput, "cannot convert non-integer %v to big.Int", v)
+		}
 		n = v.BigInt()
 	case *decimal.Decimal:
+		if !v.IsInteger() {
+			return errors.Wrapf(ErrBadInput, "cannot convert non-integer %v to big.Int", v)
+		}
 		n = v.BigInt()
 	case *big.Int:
 		n = v

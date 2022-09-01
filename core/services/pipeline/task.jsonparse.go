@@ -112,15 +112,21 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	switch val := decoded.(type) {
 	case json.Number:
-		i64, err := val.Int64()
-		if err == nil {
-			decoded = i64
-		} else {
-			f64, err := val.Float64()
-			if err == nil {
-				decoded = f64
+		bn, ok := new(big.Int).SetString(val.String(), 10)
+		if ok {
+			if bn.IsInt64() {
+				decoded = bn.Int64()
+			} else if bn.IsUint64() {
+				decoded = bn.Uint64()
 			} else {
-				decoded = val.String()
+				decoded = bn
+			}
+		} else {
+			f, err := val.Float64()
+			if err == nil {
+				decoded = f
+			} else {
+				return Result{Error: errors.Wrapf(ErrBadInput, `failed to parse float value: %v`, err)}, runInfo
 			}
 		}
 	}
