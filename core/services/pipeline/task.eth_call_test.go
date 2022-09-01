@@ -31,7 +31,7 @@ func TestETHCallTask(t *testing.T) {
 	testutils.SkipShortDB(t)
 
 	var specGasLimit uint32 = 123
-	const gasLimit uint64 = 500_000
+	const gasLimit uint32 = 500_000
 	const drJobTypeGasLimit uint32 = 789
 
 	tests := []struct {
@@ -250,9 +250,7 @@ func TestETHCallTask(t *testing.T) {
 			cfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(int64(drJobTypeGasLimit))
 
 			keyStore := keystoremocks.NewEth(t)
-			keyStore.Test(t)
 			txManager := txmmocks.NewTxManager(t)
-			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 
 			var cc evm.ChainSet

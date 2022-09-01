@@ -1,7 +1,6 @@
 package ocrcommon_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -16,19 +15,22 @@ import (
 )
 
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
+	t.Parallel()
+
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	gasLimit := uint64(1000)
+	gasLimit := uint32(1000)
+	forwardingAllowed := false
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
-	txm := new(txmmocks.TxManager)
-	strategy := new(txmmocks.TxStrategy)
+	txm := txmmocks.NewTxManager(t)
+	strategy := txmmocks.NewTxStrategy(t)
 
-	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, strategy, txmgr.TransmitCheckerSpec{})
+	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, forwardingAllowed, strategy, txmgr.TransmitCheckerSpec{})
 
 	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    fromAddress,
@@ -38,7 +40,5 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 		Meta:           nil,
 		Strategy:       strategy,
 	}, mock.Anything).Return(txmgr.EthTx{}, nil).Once()
-	require.NoError(t, transmitter.CreateEthTransaction(context.Background(), toAddress, payload))
-
-	txm.AssertExpectations(t)
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload))
 }

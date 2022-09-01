@@ -42,8 +42,8 @@ var (
 		Simulated:                 false,
 		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   time.Minute,
-		MinimumConfirmations:      1,
+		Timeout:                   time.Minute * 5,
+		MinimumConfirmations:      5,
 		GasEstimationBuffer:       1000,
 	}
 
@@ -71,6 +71,32 @@ var (
 		Timeout:                   time.Minute,
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+	}
+
+	// ArbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
+	ArbitrumGoerli *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Arbitrum Goerli",
+		ChainID:                   421613,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
+	}
+
+	// ArbitrumRinkeby https://developer.offchainlabs.com/docs/public_chains - soon to be deprecated
+	ArbitrumRinkeby *blockchain.EVMNetwork = &blockchain.EVMNetwork{
+		Name:                      "Arbitrum Rinkeby",
+		ChainID:                   421611,
+		URLs:                      strings.Split(os.Getenv("EVM_URLS"), ","),
+		Simulated:                 false,
+		PrivateKeys:               strings.Split(os.Getenv("EVM_PRIVATE_KEYS"), ","),
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   time.Minute,
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
 	}
 )
 

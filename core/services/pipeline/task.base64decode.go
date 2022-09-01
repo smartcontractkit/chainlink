@@ -10,10 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//
 // Return types:
-//     bytes
 //
+//	bytes
 type Base64DecodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	Input    string `json:"input"`
@@ -34,7 +33,7 @@ func (t *Base64DecodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	var input StringParam
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo

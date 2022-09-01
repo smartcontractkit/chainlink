@@ -81,6 +81,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmMinGasPriceWei                 *big.Int
 	GlobalEvmNonceAutoSync                  null.Bool
 	GlobalEvmRPCDefaultBatchSize            null.Int
+	GlobalEvmUseForwarders                  null.Bool
 	GlobalFlagsContractAddress              null.String
 	GlobalGasEstimatorMode                  null.String
 	GlobalMinIncomingConfirmations          null.Int
@@ -562,44 +563,44 @@ func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmGasFeeCapDefault()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitDefault.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitDefault.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitDefault()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitOCRJobType() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitOCRJobType() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitOCRJobType.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitOCRJobType.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitOCRJobType.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitOCRJobType()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitDRJobType() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitDRJobType() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitDRJobType.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitDRJobType.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitDRJobType.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitDRJobType()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitVRFJobType() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitVRFJobType() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitVRFJobType.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitVRFJobType.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitVRFJobType.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitVRFJobType()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitFMJobType() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitFMJobType.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitFMJobType.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitFMJobType.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitFMJobType()
 }
 
-func (c *TestGeneralConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
+func (c *TestGeneralConfig) GlobalEvmGasLimitKeeperJobType() (uint32, bool) {
 	if c.Overrides.GlobalEvmGasLimitKeeperJobType.Valid {
-		return uint64(c.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), true
+		return uint32(c.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), true
 	}
 	return c.GeneralConfig.GlobalEvmGasLimitKeeperJobType()
 }
@@ -815,4 +816,11 @@ func (c *TestGeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool
 		return *c.Overrides.NodeNoNewHeadsThreshold, true
 	}
 	return c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
+}
+
+func (c *TestGeneralConfig) GlobalEvmUseForwarders() (bool, bool) {
+	if c.Overrides.GlobalEvmUseForwarders.Valid {
+		return c.Overrides.GlobalEvmUseForwarders.Bool, true
+	}
+	return c.GeneralConfig.GlobalEvmUseForwarders()
 }

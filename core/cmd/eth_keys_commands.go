@@ -24,16 +24,17 @@ func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
+		fmt.Sprintf("%d", p.NextNonce),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
-		fmt.Sprintf("%v", p.IsFunding),
+		fmt.Sprintf("%v", p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
 		p.MaxGasPriceWei.String(),
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "Next Nonce", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
@@ -61,7 +62,7 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 
 // ListETHKeys renders the active account address with its ETH & LINK balance
 func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/keys/eth")
+	resp, err := cli.HTTP.Get("/v2/keys/evm")
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -78,7 +79,7 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 // as the one used to unlock the existing key.
 func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	createUrl := url.URL{
-		Path: "/v2/keys/eth",
+		Path: "/v2/keys/evm",
 	}
 	query := createUrl.Query()
 
@@ -111,7 +112,7 @@ func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
 	}
 	address := c.Args().Get(0)
 	updateUrl := url.URL{
-		Path: "/v2/keys/eth/" + address,
+		Path: "/v2/keys/evm/" + address,
 	}
 
 	query := updateUrl.Query()
@@ -143,7 +144,7 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	}
 	address := c.Args().Get(0)
 	deleteUrl := url.URL{
-		Path: "/v2/keys/eth/" + address,
+		Path: "/v2/keys/evm/" + address,
 	}
 	query := deleteUrl.Query()
 
@@ -196,7 +197,7 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 	}
 
 	importUrl := url.URL{
-		Path: "/v2/keys/eth/import",
+		Path: "/v2/keys/evm/import",
 	}
 	query := importUrl.Query()
 
@@ -243,7 +244,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 
 	address := c.Args().Get(0)
 	exportUrl := url.URL{
-		Path: "/v2/keys/eth/export/" + address,
+		Path: "/v2/keys/evm/export/" + address,
 	}
 	query := exportUrl.Query()
 	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
@@ -279,4 +280,47 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	}
 
 	return nil
+}
+
+// UpdateChainEVMKey updates settings for the given key on the given chain
+func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	addr := c.String("address")
+	query.Set("address", addr)
+	cid := c.String("evmChainID")
+	query.Set("evmChainID", cid)
+
+	if c.IsSet("setNextNonce") {
+		query.Set("nextNonce", c.String("setNextNonce"))
+	}
+	if c.IsSet("enable") && c.IsSet("disable") {
+		return cli.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
+	} else if c.Bool("enable") {
+		query.Set("enabled", "true")
+	} else if c.Bool("disable") {
+		query.Set("enabled", "false")
+	}
+
+	chainURL.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(chainURL.String(), nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		resp, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return cli.errorOut(errors.Errorf("Error resetting key: %s", err.Error()))
+		}
+		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
+	}
+
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
 }

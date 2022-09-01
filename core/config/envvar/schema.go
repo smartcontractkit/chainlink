@@ -127,6 +127,7 @@ type ConfigSchema struct {
 	TerraEnabled    bool   `env:"TERRA_ENABLED" default:"false"`
 	TerraNodes      string `env:"TERRA_NODES"`
 	StarknetEnabled bool   `env:"STARKNET_ENABLED" default:"false"`
+	StarknetNodes   string `env:"STARKNET_NODES"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
@@ -160,6 +161,7 @@ type ConfigSchema struct {
 	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
 	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
 	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
+	NodeSelectionMode        string        `env:"NODE_SELECTION_MODE"`
 
 	// EVM Gas Controls
 	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
@@ -167,20 +169,20 @@ type ConfigSchema struct {
 	EvmGasBumpThreshold   uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
 	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
 	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
-	EvmGasLimitDefault    uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitDefault    uint32   `env:"ETH_GAS_LIMIT_DEFAULT"`
 	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
-	EvmGasLimitTransfer   uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
+	EvmGasLimitTransfer   uint32   `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
 	EvmGasTipCapDefault   *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
 	EvmGasTipCapMinimum   *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
 	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
 	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	// Gas limits per job type
-	EvmGasLimitOCRJobType    *uint64 `env:"ETH_GAS_LIMIT_OCR_JOB_TYPE"`
-	EvmGasLimitDRJobType     *uint64 `env:"ETH_GAS_LIMIT_DR_JOB_TYPE"`
-	EvmGasLimitVRFJobType    *uint64 `env:"ETH_GAS_LIMIT_VRF_JOB_TYPE"`
-	EvmGasLimitFMJobType     *uint64 `env:"ETH_GAS_LIMIT_FM_JOB_TYPE"`
-	EvmGasLimitKeeperJobType *uint64 `env:"ETH_GAS_LIMIT_KEEPER_JOB_TYPE"`
+	EvmGasLimitOCRJobType    *uint32 `env:"ETH_GAS_LIMIT_OCR_JOB_TYPE"`
+	EvmGasLimitDRJobType     *uint32 `env:"ETH_GAS_LIMIT_DR_JOB_TYPE"`
+	EvmGasLimitVRFJobType    *uint32 `env:"ETH_GAS_LIMIT_VRF_JOB_TYPE"`
+	EvmGasLimitFMJobType     *uint32 `env:"ETH_GAS_LIMIT_FM_JOB_TYPE"`
+	EvmGasLimitKeeperJobType *uint32 `env:"ETH_GAS_LIMIT_KEEPER_JOB_TYPE"`
 	// Gas Estimation
 	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
 	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
@@ -218,7 +220,6 @@ type ConfigSchema struct {
 	OCR2ContractTransmitterTransmitTimeout time.Duration `env:"OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"` //nodoc
 	OCR2DatabaseTimeout                    time.Duration `env:"OCR2_DATABASE_TIMEOUT" default:"10s"`                      //nodoc
 	OCR2KeyBundleID                        string        `env:"OCR2_KEY_BUNDLE_ID"`                                       //nodoc
-	OCR2MonitoringEndpoint                 string        `env:"OCR2_MONITORING_ENDPOINT"`                                 //nodoc
 
 	// OCR V1
 	FeatureOffchainReporting bool `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
@@ -235,7 +236,6 @@ type ConfigSchema struct {
 	OCRDefaultTransactionQueueDepth uint32        `env:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"` //nodoc
 	// Optional
 	OCRKeyBundleID          string `env:"OCR_KEY_BUNDLE_ID"`
-	OCRMonitoringEndpoint   string `env:"OCR_MONITORING_ENDPOINT"`
 	OCRSimulateTransactions bool   `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
 	OCRTraceLogging         bool   `env:"OCR_TRACE_LOGGING" default:"false"` //nodoc
 	OCRTransmitterAddress   string `env:"OCR_TRANSMITTER_ADDRESS"`
