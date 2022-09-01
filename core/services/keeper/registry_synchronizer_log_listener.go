@@ -3,11 +3,10 @@ package keeper
 import (
 	"reflect"
 
-	registry2_0 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry2_0 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 func (rs *RegistrySynchronizer) JobID() int32 {
