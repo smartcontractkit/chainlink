@@ -713,15 +713,14 @@ contract KeeperRegistry2_0 is
     s_upkeep[upkeepId].balance -= total;
     s_upkeep[upkeepId].amountSpent += total;
 
-    UpkeepPerformedLogFields memory upkeepPerformedLogFields = UpkeepPerformedLogFields({
-      checkBlockNumber: checkBlockNumber,
-      gasUsed: upkeepTransmitInfo.gasUsed,
-      gasOverhead: gasOverhead,
-      linkNative: upkeepTransmitInfo.paymentParams.linkNative,
-      premiumPayment: premium,
-      totalPayment: total
-    });
-    emit UpkeepPerformed(upkeepId, upkeepTransmitInfo.performSuccess, upkeepPerformedLogFields);
+    emit UpkeepPerformed(
+      upkeepId,
+      upkeepTransmitInfo.performSuccess,
+      checkBlockNumber,
+      upkeepTransmitInfo.gasUsed,
+      gasOverhead,
+      total
+    );
 
     return (gasPayment, premium);
   }
