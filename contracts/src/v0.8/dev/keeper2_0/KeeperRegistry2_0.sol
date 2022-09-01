@@ -157,12 +157,12 @@ contract KeeperRegistry2_0 is
 
     {
       // Separate code block to relieve stack pressure
-      uint96 gasPayment;
-      uint96 premiumPayment;
+      uint96 upkeepGasPayment;
+      uint96 upkeepPremiumPayment;
       uint96 totalGasPayment;
       uint96 totalPremiumPayment;
       for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-        (gasPayment, premiumPayment) = _postPerformUpkeep(
+        (upkeepGasPayment, upkeepPremiumPayment) = _postPerformUpkeep(
           hotVars,
           parsedReport.upkeepIds[i],
           uint96(signerIndices.length),
@@ -170,8 +170,8 @@ contract KeeperRegistry2_0 is
           gasOverhead,
           upkeepTransmitInfo[i]
         );
-        totalGasPayment += gasPayment;
-        totalPremiumPayment += premiumPayment;
+        totalGasPayment += upkeepGasPayment;
+        totalPremiumPayment += upkeepPremiumPayment;
       }
 
       // Reimburse totalGasPayment to transmitter
