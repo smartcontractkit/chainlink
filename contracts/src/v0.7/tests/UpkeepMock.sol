@@ -4,6 +4,7 @@ pragma solidity ^0.7.0;
 import "../KeeperCompatible.sol";
 
 contract UpkeepMock is KeeperCompatible {
+  bool public shouldRevertCheck;
   bool public canCheck;
   bool public canPerform;
   uint256 public checkGasToBurn;
@@ -12,6 +13,10 @@ contract UpkeepMock is KeeperCompatible {
   uint256 constant gasBuffer = 1000; // use all but this amount in gas burn loops
 
   event UpkeepPerformedWith(bytes upkeepData);
+
+  function setShouldRevertCheck(bool value) public {
+    shouldRevertCheck = value;
+  }
 
   function setCanCheck(bool value) public {
     canCheck = value;
@@ -37,6 +42,7 @@ contract UpkeepMock is KeeperCompatible {
     cannotExecute
     returns (bool callable, bytes calldata executedata)
   {
+    require(!shouldRevertCheck, "shouldRevertCheck should be false");
     uint256 startGas = gasleft();
     bool couldCheck = canCheck;
 
