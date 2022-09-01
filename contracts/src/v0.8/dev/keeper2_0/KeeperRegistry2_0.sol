@@ -164,11 +164,11 @@ contract KeeperRegistry2_0 is
     }
 
     uint96 gasPayment;
-    uint96 premium;
+    uint96 premiumPayment;
     uint96 totalGasPayment;
-    uint96 totalPremium;
+    uint96 totalPremiumPayment;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      (gasPayment, premium) = _postPerformUpkeep(
+      (gasPayment, premiumPayment) = _postPerformUpkeep(
         hotVars,
         parsedReport.upkeepIds[i],
         uint96(signerIndices.length),
@@ -177,7 +177,7 @@ contract KeeperRegistry2_0 is
         upkeepTransmitInfo[i]
       );
       totalGasPayment += gasPayment;
-      totalPremium += premium;
+      totalPremiumPayment += premiumPayment;
     }
 
     // Reimburse totalGasPayment to transmitter
@@ -185,11 +185,11 @@ contract KeeperRegistry2_0 is
 
     if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       // Pay all the premium to transmitter as there are no signers in case of skipSigVerification
-      s_transmitters[msg.sender].balance += totalPremium;
+      s_transmitters[msg.sender].balance += totalPremiumPayment;
     } else {
       // Split totalPremium among signers
       address transmitterToPay;
-      uint96 premiumPerSigner = totalPremium / uint96(signerIndices.length);
+      uint96 premiumPerSigner = totalPremiumPayment / uint96(signerIndices.length);
       for (uint256 i = 0; i < signerIndices.length; i++) {
         transmitterToPay = s_transmittersList[signerIndices[i]];
         s_transmitters[transmitterToPay].balance += premiumPerSigner;
