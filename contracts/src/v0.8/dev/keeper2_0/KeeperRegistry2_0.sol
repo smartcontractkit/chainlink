@@ -2,6 +2,7 @@
 pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/proxy/Proxy.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
@@ -16,6 +17,7 @@ import "./interfaces/OCR2Abstract.sol";
  */
 contract KeeperRegistry2_0 is
   KeeperRegistryBase2_0,
+  ReentrancyGuard,
   Proxy,
   OCR2Abstract,
   KeeperRegistryExecutableInterface,
