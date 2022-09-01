@@ -302,6 +302,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			chain.Client(),
 			cfg.LookbackBlocks,
 			chain.LogPoller(),
+			chain.Config().EvmFinalityDepth(),
 		)
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "create ocr2vrf coordinator")

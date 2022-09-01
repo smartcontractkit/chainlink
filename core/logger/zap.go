@@ -74,7 +74,7 @@ func (l *zapLogger) Helper(skip int) Logger {
 }
 
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {
-	return l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()
+	return l.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))
 }
 
 func (l *zapLogger) ErrorIf(err error, msg string) {

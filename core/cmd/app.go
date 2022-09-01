@@ -354,6 +354,11 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:   "validate",
+					Usage:  "Validate provided TOML config file",
+					Action: client.ConfigFileValidate,
+				},
 			},
 		},
 
@@ -500,6 +505,10 @@ func NewApp(client *Client) *cli.App {
 								cli.BoolFlag{
 									Name:  "setEnabled",
 									Usage: "enable/disable the key for the given chain",
+								},
+								cli.BoolFlag{
+									Name:  "abandon",
+									Usage: "if set, will abandon all pending and unconfirmed transactions and mark them as fatally errored. Use with caution, this can result in nonce gaps or 'stuck' transactions",
 								},
 							},
 						},

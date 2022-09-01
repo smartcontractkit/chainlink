@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
 - Keypath now supports paths with any depth, instead of limiting it to 2
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
-- Updated `Arbitrum Rinkeby` configuration for Nitro
+- Updated `Arbitrum Rinkeby & Mainnet` configurations for Nitro
 - Add `Arbitrum Goerli` configuration
 - `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 - It is now possible to use the same key across multiple chains.
@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
     - Disable a key for a particular chain:
       - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
+    - Abandon all currently pending transactions (use with caution!):
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --nuke`
 
 ### Changed
 

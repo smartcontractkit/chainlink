@@ -942,11 +942,12 @@ func (lsn *listenerV2) runPipelines(
 }
 
 func (lsn *listenerV2) estimateFeeJuels(
+	ctx context.Context,
 	req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
 	maxGasPriceWei *big.Int,
 ) (*big.Int, error) {
 	// Don't use up too much time to get this info, it's not critical for operating vrf.
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -977,7 +978,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		err error
 	)
 	// estimate how much juels are needed so that we can log it if the simulation fails.
-	res.juelsNeeded, err = lsn.estimateFeeJuels(req.req, maxGasPriceWei)
+	res.juelsNeeded, err = lsn.estimateFeeJuels(ctx, req.req, maxGasPriceWei)
 	if err != nil {
 		// not critical, just log and continue
 		lg.Warnw("unable to estimate juels needed for request, continuing anyway",

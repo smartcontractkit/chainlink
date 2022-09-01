@@ -27,6 +27,12 @@ type (
 		OffchainKeyring []byte
 		TerraKeyring    []byte
 	}
+	XXXOldV1GenericKeyBundleRawData struct {
+		ChainType       chaintype.ChainType
+		OffchainKeyring []byte
+		Keyring         []byte
+		// missing ID
+	}
 )
 
 func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
@@ -55,15 +61,21 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		// test Unmarshal with old raw bundle
 		bundle := newKeyBundle(&evmKeyring{})
 		require.NoError(t, bundle.Unmarshal(bundleBytes))
-		newBundleBytes, err := bundle.Marshal()
+		newBundleBytes, err := bundle.Marshal() // marshalling migrates to a generic struct
 		require.NoError(t, err)
 
 		// new bundle == old bundle (only difference is <chain>Keyring == Keyring)
-		var newBundle keyBundleRawData
-		require.NoError(t, json.Unmarshal(newBundleBytes, &newBundle))
-		assert.Equal(t, oldKey.ChainType, newBundle.ChainType)
-		assert.Equal(t, oldKey.OffchainKeyring, newBundle.OffchainKeyring)
-		assert.Equal(t, oldKey.EVMKeyring, newBundle.Keyring)
+		var newRawBundle keyBundleRawData
+		require.NoError(t, json.Unmarshal(newBundleBytes, &newRawBundle))
+		assert.Equal(t, oldKey.ChainType, newRawBundle.ChainType)
+		assert.Equal(t, oldKey.OffchainKeyring, newRawBundle.OffchainKeyring)
+		assert.Equal(t, oldKey.EVMKeyring, newRawBundle.Keyring)
+
+		// test unmarshalling again to ensure ID has not changed
+		// the underlying bytes have changed, but ID should be preserved
+		newBundle := newKeyBundle(&evmKeyring{})
+		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
+		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})
 
 	t.Run("Solana", func(t *testing.T) {
@@ -89,11 +101,17 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		// new bundle == old bundle (only difference is <chain>Keyring == Keyring)
-		var newBundle keyBundleRawData
-		require.NoError(t, json.Unmarshal(newBundleBytes, &newBundle))
-		assert.Equal(t, oldKey.ChainType, newBundle.ChainType)
-		assert.Equal(t, oldKey.OffchainKeyring, newBundle.OffchainKeyring)
-		assert.Equal(t, oldKey.SolanaKeyring, newBundle.Keyring)
+		var newRawBundle keyBundleRawData
+		require.NoError(t, json.Unmarshal(newBundleBytes, &newRawBundle))
+		assert.Equal(t, oldKey.ChainType, newRawBundle.ChainType)
+		assert.Equal(t, oldKey.OffchainKeyring, newRawBundle.OffchainKeyring)
+		assert.Equal(t, oldKey.SolanaKeyring, newRawBundle.Keyring)
+
+		// test unmarshalling again to ensure ID has not changed
+		// the underlying bytes have changed, but ID should be preserved
+		newBundle := newKeyBundle(&solanaKeyring{})
+		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
+		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})
 
 	t.Run("Terra", func(t *testing.T) {
@@ -119,10 +137,45 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		// new bundle == old bundle (only difference is <chain>Keyring == Keyring)
-		var newBundle keyBundleRawData
-		require.NoError(t, json.Unmarshal(newBundleBytes, &newBundle))
-		assert.Equal(t, oldKey.ChainType, newBundle.ChainType)
-		assert.Equal(t, oldKey.OffchainKeyring, newBundle.OffchainKeyring)
-		assert.Equal(t, oldKey.TerraKeyring, newBundle.Keyring)
+		var newRawBundle keyBundleRawData
+		require.NoError(t, json.Unmarshal(newBundleBytes, &newRawBundle))
+		assert.Equal(t, oldKey.ChainType, newRawBundle.ChainType)
+		assert.Equal(t, oldKey.OffchainKeyring, newRawBundle.OffchainKeyring)
+		assert.Equal(t, oldKey.TerraKeyring, newRawBundle.Keyring)
+
+		// test unmarshalling again to ensure ID has not changed
+		// the underlying bytes have changed, but ID should be preserved
+		newBundle := newKeyBundle(&terraKeyring{})
+		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
+		assert.Equal(t, bundle.ID(), newBundle.ID())
+	})
+
+	t.Run("MissingID", func(t *testing.T) {
+		// onchain key
+		onKey, err := newEVMKeyring(cryptorand.Reader)
+		require.NoError(t, err)
+		onBytes, err := onKey.Marshal()
+		require.NoError(t, err)
+
+		// build key without ID parameter
+		oldKey := XXXOldV1GenericKeyBundleRawData{
+			ChainType:       chaintype.EVM,
+			OffchainKeyring: offBytes,
+			Keyring:         onBytes,
+		}
+		bundleBytes, err := json.Marshal(oldKey)
+		require.NoError(t, err)
+
+		// unmarshal first time to generate ID
+		bundle := newKeyBundle(&evmKeyring{})
+		require.NoError(t, bundle.Unmarshal(bundleBytes))
+
+		// marshal and unmarshal again
+		// different bytes generated, ID should not change
+		newBundleBytes, err := bundle.Marshal()
+		require.NoError(t, err)
+		newBundle := newKeyBundle(&evmKeyring{})
+		require.NoError(t, newBundle.Unmarshal(newBundleBytes))
+		assert.Equal(t, bundle.ID(), newBundle.ID())
 	})
 }

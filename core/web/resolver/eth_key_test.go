@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -77,7 +78,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
-				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address).Return(assets.NewLinkFromJuels(12), nil)
+				f.Mocks.ethClient.On("GetLINKBalance", mock.Anything, linkAddr, address).Return(assets.NewLinkFromJuels(12), nil)
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
@@ -287,7 +288,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
-				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address).Return(assets.NewLinkFromJuels(12), gError)
+				f.Mocks.ethClient.On("GetLINKBalance", mock.Anything, linkAddr, address).Return(assets.NewLinkFromJuels(12), gError)
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
@@ -341,7 +342,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
-				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address).Return(assets.NewLinkFromJuels(12), nil)
+				f.Mocks.ethClient.On("GetLINKBalance", mock.Anything, linkAddr, address).Return(assets.NewLinkFromJuels(12), nil)
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.chain.On("BalanceMonitor").Return(nil)
