@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 /**
- * @notice OnChainConfig of the registry
+ * @notice OnchainConfig of the registry
  * @dev only used in params and return values
  * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
@@ -21,7 +21,7 @@ pragma solidity ^0.8.0;
  * @member transcoder address of the transcoder contract
  * @member registrar address of the registrar contract
  */
-struct OnChainConfig {
+struct OnchainConfig {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
   uint32 checkGasLimit;
@@ -139,12 +139,10 @@ interface KeeperRegistryBaseInterface {
     view
     returns (
       State memory state,
-      OnChainConfig memory config,
+      OnchainConfig memory config,
       address[] memory signers,
       address[] memory transmitters,
-      uint8 f,
-      uint64 offchainConfigVersion,
-      bytes memory offchainConfig
+      uint8 f
     );
 }
 

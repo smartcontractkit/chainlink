@@ -54,18 +54,16 @@ contract KeeperRegistry2_0 is
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
-   * @param onChainConfig registry on chain config settings
+   * @param keeperRegistryLogic address of the logic contract
    */
   constructor(
     PaymentModel paymentModel,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address keeperRegistryLogic,
-    OnChainConfig memory onChainConfig
+    address keeperRegistryLogic
   ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {
     i_keeperRegistryLogic = keeperRegistryLogic;
-    setOnChainConfig(onChainConfig);
   }
 
   ////////
@@ -253,7 +251,6 @@ contract KeeperRegistry2_0 is
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
-    if (onchainConfig.length != 0) revert OnchainConfigNonEmpty();
 
     // remove any old signer/transmitter addresses
     uint256 oldLength = s_signersList.length;
@@ -280,80 +277,67 @@ contract KeeperRegistry2_0 is
     }
     s_signersList = signers;
     s_transmittersList = transmitters;
-    s_hotVars.f = f;
-    s_offchainConfigVersion = offchainConfigVersion;
-    s_offchainConfig = offchainConfig;
 
-    _computeAndStoreConfigDigest(
-      signers,
-      transmitters,
-      f,
-      abi.encode(
-        OnChainConfig({
-          paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
-          flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
-          checkGasLimit: s_storage.checkGasLimit,
-          stalenessSeconds: s_hotVars.stalenessSeconds,
-          gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
-          minUpkeepSpend: s_storage.minUpkeepSpend,
-          maxPerformGas: s_storage.maxPerformGas,
-          maxCheckDataSize: s_storage.maxCheckDataSize,
-          maxPerformDataSize: s_storage.maxPerformDataSize,
-          fallbackGasPrice: s_storage.fallbackGasPrice,
-          fallbackLinkPrice: s_storage.fallbackLinkPrice,
-          transcoder: s_storage.transcoder,
-          registrar: s_storage.registrar
-        })
-      ),
-      offchainConfigVersion,
-      offchainConfig
-    );
-  }
-
-  /**
-   * @notice updates the configuration of the registry
-   * @param onChainConfig registry config fields
-   */
-  function setOnChainConfig(OnChainConfig memory onChainConfig) public onlyOwner {
-    if (onChainConfig.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    if (onChainConfig.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
-    if (onChainConfig.maxPerformDataSize < s_storage.maxPerformDataSize) revert MaxPerformDataSizeCanOnlyIncrease();
+    // Set the onchain config
+    OnchainConfig memory onchainConfigStruct = abi.decode(onchainConfig, (OnchainConfig));
+    if (onchainConfigStruct.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
+    if (onchainConfigStruct.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
+    if (onchainConfigStruct.maxPerformDataSize < s_storage.maxPerformDataSize)
+      revert MaxPerformDataSizeCanOnlyIncrease();
 
     s_hotVars = HotVars({
-      f: s_hotVars.f,
+      f: f,
       latestConfigDigest: s_hotVars.latestConfigDigest,
-      paymentPremiumPPB: onChainConfig.paymentPremiumPPB,
-      flatFeeMicroLink: onChainConfig.flatFeeMicroLink,
-      stalenessSeconds: onChainConfig.stalenessSeconds,
-      gasCeilingMultiplier: onChainConfig.gasCeilingMultiplier
+      paymentPremiumPPB: onchainConfigStruct.paymentPremiumPPB,
+      flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
+      stalenessSeconds: onchainConfigStruct.stalenessSeconds,
+      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier
     });
 
     s_storage = Storage({
-      checkGasLimit: onChainConfig.checkGasLimit,
-      minUpkeepSpend: onChainConfig.minUpkeepSpend,
-      maxPerformGas: onChainConfig.maxPerformGas,
-      transcoder: onChainConfig.transcoder,
-      registrar: onChainConfig.registrar,
-      maxCheckDataSize: onChainConfig.maxCheckDataSize,
-      maxPerformDataSize: onChainConfig.maxPerformDataSize,
+      checkGasLimit: onchainConfigStruct.checkGasLimit,
+      minUpkeepSpend: onchainConfigStruct.minUpkeepSpend,
+      maxPerformGas: onchainConfigStruct.maxPerformGas,
+      transcoder: onchainConfigStruct.transcoder,
+      registrar: onchainConfigStruct.registrar,
+      maxCheckDataSize: onchainConfigStruct.maxCheckDataSize,
+      maxPerformDataSize: onchainConfigStruct.maxPerformDataSize,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       ownerLinkBalance: s_storage.ownerLinkBalance,
       expectedLinkBalance: s_storage.expectedLinkBalance,
-      fallbackGasPrice: onChainConfig.fallbackGasPrice,
-      fallbackLinkPrice: onChainConfig.fallbackLinkPrice
+      fallbackGasPrice: onchainConfigStruct.fallbackGasPrice,
+      fallbackLinkPrice: onchainConfigStruct.fallbackLinkPrice
     });
 
-    _computeAndStoreConfigDigest(
-      s_signersList,
-      s_transmittersList,
-      s_hotVars.f,
-      abi.encode(onChainConfig),
-      s_offchainConfigVersion,
-      s_offchainConfig
+    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
+    s_storage.latestConfigBlockNumber = uint32(block.number);
+    s_storage.configCount += 1;
+
+    s_hotVars.latestConfigDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(this),
+      s_storage.configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
     );
-    emit OnChainConfigSet(onChainConfig);
+
+    emit ConfigSet(
+      previousConfigBlockNumber,
+      s_hotVars.latestConfigDigest,
+      s_storage.configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
   }
 
   ////////
@@ -435,12 +419,10 @@ contract KeeperRegistry2_0 is
     override
     returns (
       State memory state,
-      OnChainConfig memory config,
+      OnchainConfig memory config,
       address[] memory signers,
       address[] memory transmitters,
-      uint8 f,
-      uint64 offchainConfigVersion,
-      bytes memory offchainConfig
+      uint8 f
     )
   {
     state = State({
@@ -453,7 +435,7 @@ contract KeeperRegistry2_0 is
       latestConfigDigest: s_hotVars.latestConfigDigest
     });
 
-    config = OnChainConfig({
+    config = OnchainConfig({
       paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
       flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
       checkGasLimit: s_storage.checkGasLimit,
@@ -469,7 +451,7 @@ contract KeeperRegistry2_0 is
       registrar: s_storage.registrar
     });
 
-    return (state, config, s_signersList, s_transmittersList, s_hotVars.f, s_offchainConfigVersion, s_offchainConfig);
+    return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
   }
 
   /**
@@ -585,47 +567,6 @@ contract KeeperRegistry2_0 is
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
     return success;
-  }
-
-  /**
-   * @dev Should be called on every config change, either OCR or onChainConfig
-   * Recomputes the config digest and stores it
-   */
-  function _computeAndStoreConfigDigest(
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) internal {
-    uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(block.number);
-    s_storage.configCount += 1;
-
-    s_hotVars.latestConfigDigest = _configDigestFromConfigData(
-      block.chainid,
-      address(this),
-      s_storage.configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    emit ConfigSet(
-      previousConfigBlockNumber,
-      s_hotVars.latestConfigDigest,
-      s_storage.configCount,
-      signers,
-      transmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
   }
 
   // The constant-length components of the msg.data sent to transmit.
