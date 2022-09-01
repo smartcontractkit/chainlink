@@ -153,17 +153,10 @@ contract KeeperRegistry2_0 is
     gasOverhead =
       (gasOverhead - gasleft() + 16 * report.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
       numUpkeepsPassedChecks;
-    // @dev We put cap on gasOverhead as we don't want it to increase it beyond which we did an
-    // initial payment check to prevent a revert in payment processing.
-    if (gasOverhead > REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1))) {
-      gasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
-    }
-    if (upkeepTransmitInfo[0].upkeep.skipSigVerification && gasOverhead > REGISTRY_GAS_OVERHEAD) {
-      gasOverhead = REGISTRY_GAS_OVERHEAD;
-    }
+    gasOverhead = _getCappedGasOverhead(gasOverhead, upkeepTransmitInfo[0].upkeep.skipSigVerification, hotVars.f);
 
     {
-      // Separate block to relieve stack pressure
+      // Separate code block to relieve stack pressure
       uint96 gasPayment;
       uint96 premiumPayment;
       uint96 totalGasPayment;
@@ -723,6 +716,25 @@ contract KeeperRegistry2_0 is
     );
 
     return (gasPayment, premium);
+  }
+
+  /**
+   * @dev Caps the gas overhead by the constant overhead used within initial payment checks in order to
+   * prevent a revert in payment processing.
+   */
+  function _getCappedGasOverhead(
+    uint256 calculatedOverhead,
+    bool skipSigVerification,
+    uint8 f
+  ) private returns (uint256) {
+    uint256 cappedOverhead = calculatedOverhead;
+    if (cappedOverhead > REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1))) {
+      cappedOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1));
+    }
+    if (skipSigVerification && cappedOverhead > REGISTRY_GAS_OVERHEAD) {
+      cappedOverhead = REGISTRY_GAS_OVERHEAD;
+    }
+    return cappedOverhead;
   }
 
   ////////
