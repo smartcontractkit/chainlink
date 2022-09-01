@@ -160,38 +160,44 @@ contract KeeperRegistry2_0 is
       gasOverhead = REGISTRY_GAS_OVERHEAD;
     }
 
-    uint96 gasPayment;
-    uint96 premiumPayment;
-    uint96 totalGasPayment;
-    uint96 totalPremiumPayment;
-    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      (gasPayment, premiumPayment) = _postPerformUpkeep(
-        hotVars,
-        parsedReport.upkeepIds[i],
-        uint96(signerIndices.length),
-        parsedReport.wrappedPerformDatas[i].checkBlockNumber,
-        gasOverhead,
-        upkeepTransmitInfo[i]
-      );
-      totalGasPayment += gasPayment;
-      totalPremiumPayment += premiumPayment;
-    }
+    {
+      // Separate block to relieve stack pressure
+      uint96 gasPayment;
+      uint96 premiumPayment;
+      uint96 totalGasPayment;
+      uint96 totalPremiumPayment;
+      for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+        (gasPayment, premiumPayment) = _postPerformUpkeep(
+          hotVars,
+          parsedReport.upkeepIds[i],
+          uint96(signerIndices.length),
+          parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+          gasOverhead,
+          upkeepTransmitInfo[i]
+        );
+        totalGasPayment += gasPayment;
+        totalPremiumPayment += premiumPayment;
+      }
 
-    // Reimburse totalGasPayment to transmitter
-    s_transmitters[msg.sender].balance += totalGasPayment;
+      // Reimburse totalGasPayment to transmitter
+      s_transmitters[msg.sender].balance += totalGasPayment;
 
-    if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      // Pay all the premium to transmitter as there are no signers in case of skipSigVerification
-      s_transmitters[msg.sender].balance += totalPremiumPayment;
-    } else {
-      // Split totalPremium among signers
-      address transmitterToPay;
-      uint96 premiumPerSigner = totalPremiumPayment / uint96(signerIndices.length);
-      for (uint256 i = 0; i < signerIndices.length; i++) {
-        transmitterToPay = s_transmittersList[signerIndices[i]];
-        s_transmitters[transmitterToPay].balance += premiumPerSigner;
+      if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
+        // Pay all the premium to transmitter as there are no signers in case of skipSigVerification
+        s_transmitters[msg.sender].balance += totalPremiumPayment;
+      } else {
+        // Split totalPremium among signers
+        address transmitterToPay;
+        uint96 premiumPerSigner = totalPremiumPayment / uint96(signerIndices.length);
+        for (uint256 i = 0; i < signerIndices.length; i++) {
+          transmitterToPay = s_transmittersList[signerIndices[i]];
+          s_transmitters[transmitterToPay].balance += premiumPerSigner;
+        }
       }
     }
+
+    uint40 epochAndRound = uint40(uint256(reportContext[1]));
+    emit Transmitted(hotVars.latestConfigDigest, uint32(epochAndRound >> 8));
   }
 
   /**
