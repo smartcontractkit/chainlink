@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -10,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
-
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+
+	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 )
 
 func TestBalanceMonitor(t *testing.T) {
@@ -35,6 +34,7 @@ func TestBalanceMonitor(t *testing.T) {
 	}
 
 	client := new(mocks.ReaderWriter)
+	client.Test(t)
 	type update struct{ acc, bal string }
 	var exp []update
 	for i := range bals {
@@ -60,7 +60,7 @@ func TestBalanceMonitor(t *testing.T) {
 	}
 	b.reader = client
 
-	require.NoError(t, b.Start(context.Background()))
+	require.NoError(t, b.Start(testutils.Context(t)))
 	t.Cleanup(func() {
 		assert.NoError(t, b.Close())
 		client.AssertExpectations(t)

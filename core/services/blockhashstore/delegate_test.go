@@ -114,7 +114,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("missing SendingKeys", func(t *testing.T) {
+	t.Run("missing EnabledKeysForChain", func(t *testing.T) {
 		testData.ethKeyStore.Delete(testData.sendingKey.ID())
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
@@ -144,7 +144,7 @@ func TestDelegate_StartStop(t *testing.T) {
 
 	blocks := cltest.NewBlocks(t, 1)
 	testData.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(blocks.Head(0), nil)
-	err = services[0].Start(testutils.TestCtx(t))
+	err = services[0].Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool {

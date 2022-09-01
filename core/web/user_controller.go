@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,16 @@ func (c *UserController) Create(ctx *gin.Context) {
 		return
 	}
 
+	if verr := clsession.ValidateEmail(request.Email); verr != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, verr)
+		return
+	}
+
+	if verr := utils.VerifyPasswordComplexity(request.Password, request.Email); verr != nil {
+		jsonAPIError(ctx, http.StatusBadRequest, verr)
+		return
+	}
+
 	user, err := clsession.NewUser(request.Email, request.Password, userRole)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("error creating API user: %s", err))
@@ -81,13 +92,11 @@ func (c *UserController) Create(ctx *gin.Context) {
 	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
-// Update changes sets email, password, or role fields of a specified API user.
-func (c *UserController) Update(ctx *gin.Context) {
+// UpdateRole changes role field of a specified API user.
+func (c *UserController) UpdateRole(ctx *gin.Context) {
 	type updateUserRequest struct {
-		Email       string `json:"email"`
-		NewEmail    string `json:"newEmail"`
-		NewPassword string `json:"newPassword"`
-		NewRole     string `json:"newRole"`
+		Email   string `json:"email"`
+		NewRole string `json:"newRole"`
 	}
 
 	var request updateUserRequest
@@ -102,12 +111,12 @@ func (c *UserController) Update(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	if sessionUser.Email == request.Email {
+	if strings.EqualFold(sessionUser.Email, request.Email) {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("can not change state or permissions of current admin user"))
 		return
 	}
 
-	user, err := c.App.SessionORM().UpdateUser(request.Email, request.NewEmail, request.NewPassword, request.NewRole)
+	user, err := c.App.SessionORM().UpdateRole(request.Email, request.NewRole)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("error updating API user"))
 		return
@@ -133,7 +142,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("failed to obtain current user from context"))
 		return
 	}
-	if sessionUser.Email == email {
+	if strings.EqualFold(sessionUser.Email, email) {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("can not delete currently logged in admin user"))
 		return
 	}

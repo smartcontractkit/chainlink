@@ -49,6 +49,8 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
+	t.Parallel()
+
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
@@ -96,15 +98,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
 		eventuallyA := cltest.NewAwaiter()
-		serviceA1 := new(mocks.ServiceCtx)
-		serviceA2 := new(mocks.ServiceCtx)
+		serviceA1 := mocks.NewServiceCtx(t)
+		serviceA2 := mocks.NewServiceCtx(t)
 		serviceA1.On("Start", mock.Anything).Return(nil).Once()
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
 		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, make(chan struct{}), dA}
 		eventuallyB := cltest.NewAwaiter()
-		serviceB1 := new(mocks.ServiceCtx)
-		serviceB2 := new(mocks.ServiceCtx)
+		serviceB1 := mocks.NewServiceCtx(t)
+		serviceB2 := mocks.NewServiceCtx(t)
 		serviceB1.On("Start", mock.Anything).Return(nil).Once()
 		serviceB2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
@@ -122,7 +124,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		close(delegateA.chContinueCreatingServices)
 
 		eventuallyA.AwaitOrFail(t, 20*time.Second)
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		err = spawner.CreateJob(jobB)
 		require.NoError(t, err)
@@ -131,7 +132,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		close(delegateB.chContinueCreatingServices)
 
 		eventuallyB.AwaitOrFail(t, 20*time.Second)
-		mock.AssertExpectationsForObjects(t, serviceB1, serviceB2)
 
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
@@ -144,10 +144,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, spawner.Close())
-		serviceA1.AssertExpectations(t)
-		serviceA2.AssertExpectations(t)
-		serviceB1.AssertExpectations(t)
-		serviceB2.AssertExpectations(t)
 	})
 
 	clearDB(t, db)
@@ -156,8 +152,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		eventually := cltest.NewAwaiter()
-		serviceA1 := new(mocks.ServiceCtx)
-		serviceA2 := new(mocks.ServiceCtx)
+		serviceA1 := mocks.NewServiceCtx(t)
+		serviceA2 := mocks.NewServiceCtx(t)
 		serviceA1.On("Start", mock.Anything).Return(nil).Once()
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
@@ -182,8 +178,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2.On("Close").Return(nil).Once()
 
 		require.NoError(t, spawner.Close())
-
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 	})
 
 	clearDB(t, db)
@@ -192,8 +186,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		eventuallyStart := cltest.NewAwaiter()
-		serviceA1 := new(mocks.ServiceCtx)
-		serviceA2 := new(mocks.ServiceCtx)
+		serviceA1 := mocks.NewServiceCtx(t)
+		serviceA2 := mocks.NewServiceCtx(t)
 		serviceA1.On("Start", mock.Anything).Return(nil).Once()
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
@@ -220,7 +214,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
-		}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
 
 		eventuallyClose := cltest.NewAwaiter()
 		serviceA1.On("Close").Return(nil).Once()
@@ -236,8 +230,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
-		}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
-
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
+		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
 	})
 }

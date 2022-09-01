@@ -26,7 +26,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 	o := gas.NewL2SuggestedEstimator(logger.TestLogger(t), config, client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
-	var gasLimit uint64 = 80000
+	var gasLimit uint32 = 80000
 
 	t.Run("calling EstimateGas on unstarted estimator returns error", func(t *testing.T) {
 		_, _, err := o.GetLegacyGas(calldata, gasLimit, maxGasPrice)
@@ -64,7 +64,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 is greater than the maximum gas price configured: 40")
 		assert.Nil(t, gasPrice)
-		assert.Equal(t, uint64(0), chainSpecificGasLimit)
+		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
 
 	t.Run("gas price is lower than global max gas price", func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestL2SuggestedEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit, big.NewInt(110))
 		assert.EqualError(t, err, "estimated gas price: 120 is greater than the maximum gas price configured: 110")
 		assert.Nil(t, gasPrice)
-		assert.Equal(t, uint64(0), chainSpecificGasLimit)
+		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
 
 	t.Run("calling BumpGas always returns error", func(t *testing.T) {

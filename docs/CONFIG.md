@@ -40,20 +40,12 @@
 
 ## Global<a id='Global'></a>
 ```toml
-Dev = false # Default
 ExplorerURL = 'ws://explorer.url' # Example
 InsecureFastScrypt = false # Default
-ReaperExpiration = '240h' # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
 
-
-### Dev<a id='Dev'></a>
-```toml
-Dev = false # Default
-```
-Dev enables development mode. This setting is not recommended for production deployments. It can be useful for enabling experimental features and collecting debug information.
 
 ### ExplorerURL<a id='ExplorerURL'></a>
 ```toml
@@ -67,12 +59,6 @@ ExplorerURL is the websocket URL for the node to push stats to.
 InsecureFastScrypt = false # Default
 ```
 InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
-
-### ReaperExpiration<a id='ReaperExpiration'></a>
-```toml
-ReaperExpiration = '240h' # Default
-```
-ReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
 
 ### RootDir<a id='RootDir'></a>
 ```toml
@@ -91,8 +77,7 @@ ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exce
 [Feature]
 FeedsManager = false # Default
 LogPoller = false # Default
-OffchainReporting2 = false # Default
-OffchainReporting = false # Default
+UICSAKeys = false # Default
 ```
 
 
@@ -108,17 +93,11 @@ LogPoller = false # Default
 ```
 LogPoller enables the log poller, an experimental approach to processing logs, required if also using Evm.UseForwarders or OCR2.
 
-### OffchainReporting2<a id='Feature-OffchainReporting2'></a>
+### UICSAKeys<a id='Feature-UICSAKeys'></a>
 ```toml
-OffchainReporting2 = false # Default
+UICSAKeys = false # Default
 ```
-OffchainReporting2 enables OCR2 jobs.
-
-### OffchainReporting<a id='Feature-OffchainReporting'></a>
-```toml
-OffchainReporting = false # Default
-```
-OffchainReporting enables OCR jobs.
+UICSAKeys enables CSA Keys in the UI.
 
 ## Database<a id='Database'></a>
 ```toml
@@ -178,7 +157,6 @@ Postgres has connection limits, so you must use cation when increasing this valu
 Mode = 'none' # Default
 Dir = 'test/backup/dir' # Example
 OnVersionUpgrade = true # Default
-URL = 'http://test.back.up/fake' # Example
 Frequency = '1h' # Default
 ```
 As a best practice, take regular database backups in case of accidental data loss. This best practice is especially important when you upgrade your Chainlink node to a new version. Chainlink nodes support automated database backups to make this process easier.
@@ -208,14 +186,6 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 OnVersionUpgrade = true # Default
 ```
 OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
-
-### URL<a id='Database-Backup-URL'></a>
-```toml
-URL = 'http://test.back.up/fake' # Example
-```
-URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
-
-It is recommended to set this value to a _read replica_ if you have one to avoid excessive load on the main database.
 
 ### Frequency<a id='Database-Backup-Frequency'></a>
 ```toml
@@ -257,53 +227,18 @@ FallbackPollInterval controls how often clients should manually poll as a fallba
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
 ```toml
 [Database.Lock]
-Mode = 'dual' # Default
-AdvisoryCheckInterval = '1s' # Default
-AdvisoryID = 1027321974924625846 # Default
 LeaseDuration = '10s' # Default
 LeaseRefreshInterval = '1s' # Default
 ```
 Ideally, you should use a container orchestration system like [Kubernetes](https://kubernetes.io/) to ensure that only one Chainlink node instance can ever use a specific Postgres database. However, some node operators do not have the technical capacity to do this. Common use cases run multiple Chainlink node instances in failover mode as recommended by our official documentation. The first instance takes a lock on the database and subsequent instances will wait trying to take this lock in case the first instance fails.
 
-By default, Chainlink nodes use the `dual` setting to provide both advisory locks and lease locks for backward and forward compatibility. Using advisory locks alone presents the following problems:
-
 - If your nodes or applications hold locks open for several hours or days, Postgres is unable to complete internal cleanup tasks. The Postgres maintainers explicitly discourage holding locks open for long periods of time.
-- Advisory locks can silently disappear when you upgrade Postgres, so a new Chainlink node instance can take over even while the old node is still running.
-- Advisory locks do not work well with pooling tools such as [pgbouncer](https://www.pgbouncer.org/).
-- If the Chainlink node crashes, an advisory lock can hang around for up to several hours, which might require you to manually remove it so another instance of the Chainlink node will allow itself to boot.
 
-Because of the complications with advisory locks, Chainlink nodes with v1.1.0 and later support a new `lease` locking mode. This mode might become the default in future. The `lease` locking mode works using the following process:
+Because of the complications with advisory locks, Chainlink nodes with v2.0 and later only support `lease` locking mode. The `lease` locking mode works using the following process:
 
 - Node A creates one row in the database with the client ID and updates it once per second.
 - Node B spinlocks and checks periodically to see if the client ID is too old. If the client ID is not updated after a period of time, node B assumes that node A failed and takes over. Node B becomes the owner of the row and updates the client ID once per second.
 - If node A comes back, it attempts to take out a lease, realizes that the database has been leased to another process, and exits the entire application immediately.
-
-### Mode<a id='Database-Lock-Mode'></a>
-```toml
-Mode = 'dual' # Default
-```
-Mode variable can be set to 'dual', 'advisorylock', 'lease', or 'none'. It controls which mode to use to enforce that only one Chainlink node can use the database. It is recommended to set this to `lease`.
-
-- `dual` - The default: Uses both advisory locks and lease locks for backward and forward compatibility
-- `advisorylock` - Advisory lock only
-- `lease` - Lease lock only
-- _none_ - No locking at all: This option useful for advanced deployment environments when you are sure that only one instance of a Chainlink node will ever be running.
-
-### AdvisoryCheckInterval<a id='Database-Lock-AdvisoryCheckInterval'></a>
-```toml
-AdvisoryCheckInterval = '1s' # Default
-```
-AdvisoryCheckInterval controls how often the Chainlink node checks to make sure it still holds the advisory lock when advisory locking is enabled. If a node no longer holds the lock, it will try to re-acquire it. If the node cannot re-acquire the lock, the application will exit.
-
-This setting applies only if `Mode` is set to enable advisory locking.
-
-### AdvisoryID<a id='Database-Lock-AdvisoryID'></a>
-```toml
-AdvisoryID = 1027321974924625846 # Default
-```
-AdvisoryID must match all other Chainlink nodes that might access this database. It is unlikely you will ever need to change this from the default.
-
-This setting applies only if `Mode` is set to enable advisory locking.
 
 ### LeaseDuration<a id='Database-Lock-LeaseDuration'></a>
 ```toml
@@ -464,6 +399,7 @@ HTTPWriteTimeout = '10s' # Default
 HTTPPort = 6688 # Default
 SecureCookies = true # Default
 SessionTimeout = '15m' # Default
+SessionReaperExpiration = '240h' # Default
 ```
 
 
@@ -509,6 +445,12 @@ SecureCookies requires the use of secure cookies for authentication. Set to fals
 SessionTimeout = '15m' # Default
 ```
 SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+
+### SessionReaperExpiration<a id='WebServer-SessionReaperExpiration'></a>
+```toml
+SessionReaperExpiration = '240h' # Default
+```
+SessionReaperExpiration represents how long an API session lasts before expiring and requiring a new login.
 
 ## WebServer.RateLimit<a id='WebServer-RateLimit'></a>
 ```toml
@@ -687,6 +629,7 @@ SimulateTransactions enables transaction simulation for Flux Monitor.
 ## OCR2<a id='OCR2'></a>
 ```toml
 [OCR2]
+Enabled = true # Default
 ContractConfirmations = 3 # Default
 BlockchainTimeout = '20s' # Default
 ContractPollInterval = '1m' # Default
@@ -696,6 +639,12 @@ DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 ```
 
+
+### Enabled<a id='OCR2-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables OCR2 jobs.
 
 ### ContractConfirmations<a id='OCR2-ContractConfirmations'></a>
 ```toml
@@ -776,6 +725,7 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 ## OCR<a id='OCR'></a>
 ```toml
 [OCR]
+Enabled = true # Default
 ObservationTimeout = '5s' # Default
 BlockchainTimeout = '20s' # Default
 ContractPollInterval = '1m' # Default
@@ -786,6 +736,12 @@ SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 ```
 This section applies only if you are running off-chain reporting jobs.
+
+### Enabled<a id='OCR-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables OCR jobs.
 
 ### ObservationTimeout<a id='OCR-ObservationTimeout'></a>
 ```toml
@@ -1034,8 +990,8 @@ GasPriceBufferPercent = 20 # Default
 GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
 MaximumGracePeriod = 100 # Default
-RegistryCheckGasOverhead = '200000' # Default
-RegistryPerformGasOverhead = '150000' # Default
+RegistryCheckGasOverhead = 200_000 # Default
+RegistryPerformGasOverhead = 150_000 # Default
 RegistrySyncInterval = '30m' # Default
 RegistrySyncUpkeepQueueSize = 10 # Default
 TurnLookBack = 1000 # Default
@@ -1079,14 +1035,14 @@ MaximumGracePeriod is the maximum number of blocks that a keeper will wait after
 ### RegistryCheckGasOverhead<a id='Keeper-RegistryCheckGasOverhead'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-RegistryCheckGasOverhead = '200000' # Default
+RegistryCheckGasOverhead = 200_000 # Default
 ```
 RegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
 
 ### RegistryPerformGasOverhead<a id='Keeper-RegistryPerformGasOverhead'></a>
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-RegistryPerformGasOverhead = '150000' # Default
+RegistryPerformGasOverhead = 150_000 # Default
 ```
 RegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
 
@@ -1309,6 +1265,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1374,6 +1331,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1439,6 +1397,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1504,6 +1463,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1570,6 +1530,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -1635,6 +1596,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1700,6 +1662,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1766,6 +1729,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1831,6 +1795,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1895,6 +1860,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -1959,6 +1925,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2025,6 +1992,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2091,6 +2059,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2156,6 +2125,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2221,6 +2191,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2286,9 +2257,77 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Optimism Goerli (420)<a id='EVM-420'></a></summary><p>
+
+```toml
+ChainType = 'optimism'
+FinalityDepth = 1
+LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 1
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '15s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 0
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '30m0s'
+HistoryDepth = 10
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 ObservationGracePeriod = '1s'
@@ -2351,6 +2390,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2416,6 +2456,72 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Simulated (1337)<a id='EVM-1337'></a></summary><p>
+
+```toml
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 1
+MinimumContractPayment = '100'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '0s'
+TxResendAfterThreshold = '0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 8
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 10
+MaxBufferSize = 100
+SamplingInterval = '0s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2472,15 +2578,16 @@ TransactionPercentile = 60
 
 
 [HeadTracker]
-BlockEmissionIdleWarningThreshold = '15s'
+BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
-NoNewHeadsThreshold = '30s'
+NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2519,9 +2626,9 @@ Mode = 'FixedPrice'
 PriceDefault = '1 micro'
 PriceMax = '1 micro'
 PriceMin = '1 micro'
-LimitDefault = 7000000
+LimitDefault = 500000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2547,6 +2654,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2612,6 +2720,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2677,6 +2786,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2742,6 +2852,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2780,9 +2891,9 @@ Mode = 'FixedPrice'
 PriceDefault = '1 micro'
 PriceMax = '1 micro'
 PriceMin = '1 micro'
-LimitDefault = 7000000
+LimitDefault = 500000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -2808,6 +2919,73 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Arbitrum Goerli (421613)<a id='EVM-421613'></a></summary><p>
+
+```toml
+ChainType = 'arbitrum'
+FinalityDepth = 50
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '1 micro'
+PriceMax = '1 micro'
+PriceMin = '1 micro'
+LimitDefault = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 0
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 1
@@ -2873,6 +3051,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '3m0s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -2938,6 +3117,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -3003,6 +3183,7 @@ SamplingInterval = '1s'
 NoNewHeadsThreshold = '30s'
 PollFailureThreshold = 5
 PollInterval = '10s'
+SelectionMode = 'HighestHead'
 
 [OCR]
 ContractConfirmations = 4
@@ -3547,6 +3728,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 NoNewHeadsThreshold = '3m' # Default
 PollFailureThreshold = 3 # Default
 PollInterval = '10s' # Default
+SelectionMode = 'HighestHead' # Default
 ```
 
 
@@ -3573,6 +3755,12 @@ PollInterval = '10s' # Default
 PollInterval controls how often to poll the node to check for liveness.
 
 Set to zero to disable poll checking.
+
+### SelectionMode<a id='EVM-NodePool-SelectionMode'></a>
+```toml
+SelectionMode = 'HighestHead' # Default
+```
+SelectionMode controls node selection strategy: HighestHead or RoundRobin.
 
 ## EVM.OCR<a id='EVM-OCR'></a>
 ```toml

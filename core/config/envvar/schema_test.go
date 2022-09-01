@@ -148,6 +148,7 @@ func TestConfigSchema(t *testing.T) {
 		"NodeNoNewHeadsThreshold":                        "NODE_NO_NEW_HEADS_THRESHOLD",
 		"NodePollFailureThreshold":                       "NODE_POLL_FAILURE_THRESHOLD",
 		"NodePollInterval":                               "NODE_POLL_INTERVAL",
+		"NodeSelectionMode":                              "NODE_SELECTION_MODE",
 		"ORMMaxIdleConns":                                "ORM_MAX_IDLE_CONNS",
 		"ORMMaxOpenConns":                                "ORM_MAX_OPEN_CONNS",
 		"OptimismGasFees":                                "OPTIMISM_GAS_FEES",
@@ -192,7 +193,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCR2DatabaseTimeout":                    "OCR2_DATABASE_TIMEOUT",
 		"OCR2ContractConfirmations":              "OCR2_CONTRACT_CONFIRMATIONS",
 		"OCR2KeyBundleID":                        "OCR2_KEY_BUNDLE_ID",
-		"OCR2MonitoringEndpoint":                 "OCR2_MONITORING_ENDPOINT",
 		"OCR2TraceLogging":                       "OCR2_TRACE_LOGGING",
 
 		// OCR v1
@@ -203,7 +203,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCRDatabaseTimeout":                    "OCR_DATABASE_TIMEOUT",
 		"OCRContractConfirmations":              "OCR_CONTRACT_CONFIRMATIONS",
 		"OCRKeyBundleID":                        "OCR_KEY_BUNDLE_ID",
-		"OCRMonitoringEndpoint":                 "OCR_MONITORING_ENDPOINT",
 		"OCRDefaultTransactionQueueDepth":       "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"OCRTraceLogging":                       "OCR_TRACE_LOGGING",
 		"OCRObservationGracePeriod":             "OCR_OBSERVATION_GRACE_PERIOD",

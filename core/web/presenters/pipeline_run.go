@@ -3,9 +3,10 @@ package presenters
 import (
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"gopkg.in/guregu/null.v4"
 )
 
 // Corresponds with models.d.ts PipelineRun
@@ -79,16 +80,16 @@ func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 		outputStr := string(outputBytes)
 		output = &outputStr
 	}
-	var error *string
+	var errString *string
 	if tr.Error.Valid {
-		error = &tr.Error.String
+		errString = &tr.Error.String
 	}
 	return PipelineTaskRunResource{
 		Type:       tr.Type,
 		CreatedAt:  tr.CreatedAt,
 		FinishedAt: tr.FinishedAt,
 		Output:     output,
-		Error:      error,
+		Error:      errString,
 		DotID:      tr.GetDotID(),
 	}
 }

@@ -7,14 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.8.0 - 2022-09-01
+
 ### Added
 
+- Added `hexencode` and `base64encode` tasks (pipeline).
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
+- Keypath now supports paths with any depth, instead of limiting it to 2
+- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
+- Updated `Arbitrum Rinkeby & Mainnet` configurations for Nitro
+- Add `Arbitrum Goerli` configuration
+- It is now possible to use the same key across multiple chains.
+- `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
+  - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
+  - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
+  For chains having `NODE_NO_NEW_HEADS_THRESHOLD=0` (such as Arbitrum, Optimism), the implementation will fall back to `RoundRobin` mode.
+- New `keys eth chain` command
+  - This can also be accessed at `/v2/keys/evm/chain`.
+  - Usage examples:
+    - Manually (re)set a nonce:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+    - Enable a key for a particular chain:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
+    - Disable a key for a particular chain:
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
 
 ### Changed
 
-- `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
-- Updated `Arbitrum Rinkeby` configuration for Nitro
+- The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 
 ## 1.7.1 - 2022-08-22
 
@@ -24,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.7.0 - 2022-08-08
 
-### Added 
+### Added
 
 - `p2pv2Bootstrappers` has been added as a new optional property of OCR1 job specs; default may still be specified with P2PV2_BOOTSTRAPPERS config param
 - Added official support for Sepolia chain

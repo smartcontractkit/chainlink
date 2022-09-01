@@ -28,7 +28,7 @@ describe('EVMAccountRow', () => {
       queryByText(shortenHex(ethKey.address, { start: 6, end: 6 })),
     ).toBeInTheDocument()
     expect(queryByText(ethKey.chain.id)).toBeInTheDocument()
-    expect(queryByText('Regular')).toBeInTheDocument()
+    expect(queryByText('Enabled')).toBeInTheDocument()
     expect(queryByText('1.00000000')).toBeInTheDocument()
     expect(queryByText('0.100000000000000000')).toBeInTheDocument()
     expect(queryByText('1 minute ago')).toBeInTheDocument()

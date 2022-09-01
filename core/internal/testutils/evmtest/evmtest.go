@@ -278,13 +278,11 @@ func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
 		logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 }
 
-func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
-	mockEth := new(evmMocks.Client)
-	mockEth.Test(t)
-	return mockEth
+func NewEthClientMock(t *testing.T) *evmMocks.Client {
+	return evmMocks.NewClient(t)
 }
 
-func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+func NewEthClientMockWithDefaultChain(t *testing.T) *evmMocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(testutils.FixtureChainID).Maybe()
 	return c
@@ -301,15 +299,6 @@ type MockEth struct {
 	unsubscribeCalls atomic.Int32
 }
 
-func (m *MockEth) AssertExpectations(t *testing.T) {
-	m.EthClient.AssertExpectations(t)
-	m.subsMu.RLock()
-	defer m.subsMu.RUnlock()
-	for _, sub := range m.subs {
-		sub.AssertExpectations(t)
-	}
-}
-
 func (m *MockEth) SubscribeCallCount() int32 {
 	return m.subscribeCalls.Load()
 }
@@ -320,11 +309,10 @@ func (m *MockEth) UnsubscribeCallCount() int32 {
 
 func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
 	m.subscribeCalls.Inc()
-	sub := new(evmMocks.Subscription)
-	sub.Test(t)
+	sub := evmMocks.NewSubscription(t)
 	errCh := make(chan error)
 	sub.On("Err").
-		Return(func() <-chan error { return errCh })
+		Return(func() <-chan error { return errCh }).Maybe()
 	sub.On("Unsubscribe").
 		Run(func(mock.Arguments) {
 			m.unsubscribeCalls.Inc()
