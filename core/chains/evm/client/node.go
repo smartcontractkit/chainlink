@@ -85,7 +85,10 @@ type Node interface {
 	Start(ctx context.Context) error
 	Close()
 
+	// State() returns NodeState
 	State() NodeState
+	// StateAndLatestBlockNumber() returns NodeState and the latest received block number
+	StateAndLatestBlockNumber() (NodeState, int64)
 	// Unique identifier for node
 	ID() int32
 	ChainID() *big.Int
@@ -107,6 +110,7 @@ type Node interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error)
 
@@ -135,6 +139,9 @@ type node struct {
 	state   NodeState
 	stateMu sync.RWMutex
 
+	// Each node is tracking the last received head number
+	latestReceivedBlockNumber int64
+
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
 	subs []ethereum.Subscription
@@ -143,8 +150,10 @@ type node struct {
 	// this node. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as node Close.
 	chStopInFlight chan struct{}
-	// chStop signals the node to exit
-	chStop chan struct{}
+	// nodeCtx is the node lifetime's context
+	nodeCtx context.Context
+	// cancelNodeCtx cancels nodeCtx when stopping the node
+	cancelNodeCtx context.CancelFunc
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -161,6 +170,7 @@ type NodeConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	NodePollFailureThreshold() uint32
 	NodePollInterval() time.Duration
+	NodeSelectionMode() string
 }
 
 // NewNode returns a new *node as Node
@@ -175,7 +185,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 		n.http = &rawclient{uri: *httpuri}
 	}
 	n.chStopInFlight = make(chan struct{})
-	n.chStop = make(chan struct{})
+	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
 	lggr = lggr.Named("Node").With(
 		"nodeTier", "primary",
 		"nodeName", name,
@@ -184,6 +194,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
+	n.latestReceivedBlockNumber = -1
 	return n
 }
 
@@ -337,7 +348,7 @@ func (n *node) Close() {
 		n.stateMu.Lock()
 		defer n.stateMu.Unlock()
 
-		close(n.chStop)
+		n.cancelNodeCtx()
 		n.cancelInflightRequests()
 		n.state = NodeStateClosed
 		if n.ws.rpc != nil {
@@ -520,7 +531,31 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 	}
 	duration := time.Since(start)
 
-	n.logResult(lggr, err, duration, n.getRPCDomain(), "HeaderByNumber",
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "HeaderByNumber", "header", header)
+
+	return
+}
+
+func (n *node) HeaderByHash(ctx context.Context, hash common.Hash) (header *types.Header, err error) {
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr(switching(n)).With("hash", hash)
+
+	lggr.Debug("RPC call: evmclient.Client#HeaderByHash")
+	start := time.Now()
+	if n.http != nil {
+		header, err = n.http.geth.HeaderByHash(ctx, hash)
+		err = n.wrapHTTP(err)
+	} else {
+		header, err = n.ws.geth.HeaderByHash(ctx, hash)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "HeaderByHash",
 		"header", header,
 	)
 

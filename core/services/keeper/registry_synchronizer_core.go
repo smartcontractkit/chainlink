@@ -39,7 +39,7 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
-	newTurnEnabled           bool
+	NewTurnEnabled           bool
 }
 
 type RegistrySynchronizer struct {
@@ -82,7 +82,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		orm:                      opts.ORM,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
-		newTurnEnabled:           opts.newTurnEnabled,
+		newTurnEnabled:           opts.NewTurnEnabled,
 	}
 }
 

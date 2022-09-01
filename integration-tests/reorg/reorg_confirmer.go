@@ -63,7 +63,7 @@ type ReorgController struct {
 	ctx                   context.Context
 	cancel                context.CancelFunc
 	doneChan              chan struct{}
-	done                  bool
+	complete              bool
 }
 
 // NewReorgController creates a type that can create reorg chaos and confirm reorg has happened
@@ -87,6 +87,7 @@ func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 		ctx:                ctx,
 		cancel:             ctxCancel,
 		networkStep:        atomic.NewInt64(InitConsensus),
+		complete:           false,
 	}
 	cfg.Network.AddHeaderEventSubscription("reorg", rc)
 	<-rc.initConsensusReady
@@ -116,9 +117,6 @@ func (rc *ReorgController) WaitReorgStarted() {
 func (rc *ReorgController) ReceiveBlock(blk blockchain.NodeBlock) error {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	if blk.Block == nil {
-		return nil
-	}
 	rc.appendBlockHeader(blk)
 	switch rc.networkStep.Load() {
 	case Wait:
@@ -137,11 +135,15 @@ func (rc *ReorgController) ReceiveBlock(blk blockchain.NodeBlock) error {
 		}
 	case Consensus:
 		if rc.hasNetworkFormedConsensus(blk) {
-			rc.done = true
+			rc.complete = true
 			rc.cancel()
 		}
 	}
 	return nil
+}
+
+func (rc *ReorgController) Complete() bool {
+	return rc.complete
 }
 
 // VerifyReorgComplete verifies that all blocks are replaced by reorg
@@ -212,7 +214,7 @@ func (rc *ReorgController) compareBlocks(blk blockchain.NodeBlock) error {
 func (rc *ReorgController) Wait() error {
 	<-rc.ctx.Done()
 	rc.cfg.Network.DeleteHeaderEventSubscription("reorg")
-	if rc.done {
+	if rc.complete {
 		return nil
 	}
 	return errors.New("timeout waiting for reorg to complete")

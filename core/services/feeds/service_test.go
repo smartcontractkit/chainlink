@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -78,42 +79,17 @@ type TestService struct {
 
 func setupTestService(t *testing.T) *TestService {
 	var (
-		orm          = &mocks.ORM{}
-		jobORM       = &jobmocks.ORM{}
-		connMgr      = &mocks.ConnectionsManager{}
-		spawner      = &jobmocks.Spawner{}
-		fmsClient    = &mocks.FeedsManagerClient{}
-		csaKeystore  = &ksmocks.CSA{}
-		p2pKeystore  = &ksmocks.P2P{}
-		ocr1Keystore = &ksmocks.OCR{}
-		ocr2Keystore = &ksmocks.OCR2{}
-		cfg          = &mocks.Config{}
+		orm          = mocks.NewORM(t)
+		jobORM       = jobmocks.NewORM(t)
+		connMgr      = mocks.NewConnectionsManager(t)
+		spawner      = jobmocks.NewSpawner(t)
+		fmsClient    = mocks.NewFeedsManagerClient(t)
+		csaKeystore  = ksmocks.NewCSA(t)
+		p2pKeystore  = ksmocks.NewP2P(t)
+		ocr1Keystore = ksmocks.NewOCR(t)
+		ocr2Keystore = ksmocks.NewOCR2(t)
+		cfg          = mocks.NewConfig(t)
 	)
-	orm.Test(t)
-	jobORM.Test(t)
-	connMgr.Test(t)
-	spawner.Test(t)
-	fmsClient.Test(t)
-	csaKeystore.Test(t)
-	p2pKeystore.Test(t)
-	ocr1Keystore.Test(t)
-	ocr2Keystore.Test(t)
-	cfg.Test(t)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			orm,
-			jobORM,
-			connMgr,
-			spawner,
-			fmsClient,
-			csaKeystore,
-			p2pKeystore,
-			ocr1Keystore,
-			ocr2Keystore,
-			cfg,
-		)
-	})
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
@@ -179,7 +155,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 		Return([]int64{}, nil)
 	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(params)
@@ -242,7 +218,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	err := svc.UpdateManager(context.Background(), mgr)
+	err := svc.UpdateManager(testutils.Context(t), mgr)
 	require.NoError(t, err)
 }
 
@@ -284,7 +260,6 @@ func Test_Service_CountManagers(t *testing.T) {
 
 func Test_Service_CreateChainConfig(t *testing.T) {
 	var (
-		ctx         = context.Background()
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -293,8 +268,8 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
 			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0000",
-			AdminAddress:   "0x0001",
+			AccountAddress: "0x0000000000000000000000000000000000000000",
+			AdminAddress:   "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -313,7 +288,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 	svc.orm.On("GetManager", mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version: nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{
 			{
@@ -335,9 +310,29 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 	assert.Equal(t, int64(1), actual)
 }
 
+func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.CreateChainConfig(cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
+}
+
 func Test_Service_DeleteChainConfig(t *testing.T) {
 	var (
-		ctx         = context.Background()
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -355,7 +350,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("GetManager", mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version:      nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
@@ -386,7 +381,6 @@ func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 
 func Test_Service_UpdateChainConfig(t *testing.T) {
 	var (
-		ctx         = context.Background()
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
@@ -395,8 +389,8 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			FeedsManagerID:    mgr.ID,
 			ChainID:           "42",
 			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0000",
-			AdminAddress:      "0x0001",
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
 			OCR2Config:        feeds.OCR2Config{Enabled: false},
@@ -409,7 +403,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 	svc.orm.On("GetChainConfig", cfg.ID).Return(&cfg, nil)
 	svc.connMgr.On("GetClient", mgr.ID).Return(svc.fmsClient, nil)
 	svc.orm.On("ListChainConfigsByManagerIDs", []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version: nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{
 			{
@@ -429,6 +423,27 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 	actual, err := svc.UpdateChainConfig(cfg)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+}
+
+func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
+	var (
+		mgr = feeds.FeedsManager{ID: 1}
+		cfg = feeds.ChainConfig{
+			FeedsManagerID:    mgr.ID,
+			ChainID:           "42",
+			ChainType:         feeds.ChainTypeEVM,
+			AccountAddress:    "0x0000000000000000000000000000000000000000",
+			AdminAddress:      "0x00000000000",
+			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:        feeds.OCR1Config{Enabled: false},
+			OCR2Config:        feeds.OCR2Config{Enabled: false},
+		}
+
+		svc = setupTestService(t)
+	)
+	_, err := svc.UpdateChainConfig(cfg)
+	require.Error(t, err)
+	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
 func Test_Service_ProposeJob(t *testing.T) {
@@ -573,7 +588,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 				tc.before(svc)
 			}
 
-			actual, err := svc.ProposeJob(context.Background(), tc.args)
+			actual, err := svc.ProposeJob(testutils.Context(t), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -594,7 +609,6 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		ctx       = context.Background()
 		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
 		mgr       = &feeds.FeedsManager{ID: 1}
 		ccfg      = feeds.ChainConfig{
@@ -632,7 +646,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
 	svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
-	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
+	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
 		Version: nodeVersion.Version,
 		ChainConfigs: []*proto.ChainConfig{
 			{
@@ -674,7 +688,7 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	t.Parallel()
 
 	svc := setupTestService(t)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	jobID := int64(1)
 
 	svc.orm.On("IsJobManaged", jobID, mock.Anything).Return(true, nil)
@@ -915,7 +929,7 @@ func Test_Service_CancelSpec(t *testing.T) {
 				tc.before(svc)
 			}
 
-			err := svc.CancelSpec(context.Background(), tc.specID)
+			err := svc.CancelSpec(testutils.Context(t), tc.specID)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -971,7 +985,7 @@ func Test_Service_ApproveSpec(t *testing.T) {
 	address := ethkey.EIP55AddressFromAddress(common.Address{})
 
 	var (
-		ctx  = context.Background()
+		ctx  = testutils.Context(t)
 		defn = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 schemaVersion = 1
@@ -1353,7 +1367,7 @@ answer1 [type=median index=0];
 
 func Test_Service_RejectSpec(t *testing.T) {
 	var (
-		ctx = context.Background()
+		ctx = testutils.Context(t)
 		jp  = &feeds.JobProposal{
 			ID:             1,
 			FeedsManagerID: 100,
@@ -1478,7 +1492,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 
 func Test_Service_UpdateSpecDefinition(t *testing.T) {
 	var (
-		ctx         = context.Background()
+		ctx         = testutils.Context(t)
 		specID      = int64(1)
 		updatedSpec = "updated spec"
 		spec        = &feeds.JobProposalSpec{

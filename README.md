@@ -68,7 +68,7 @@ In this case, try the following steps:
 4. `go work init /path/to/chainlink`
 5. `go work use /path/to/terra-core`
 
-### Ethereum Node Requirements
+### Ethereum Execution Client Requirements
 
 In order to run the Chainlink node you must have access to a running Ethereum node with an open websocket connection.
 Any Ethereum based network will work once you've [configured](https://github.com/smartcontractkit/chainlink#configure) the chain ID.
@@ -77,11 +77,21 @@ Ethereum node versions currently tested and supported:
 [Officially supported]
 - [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
-- [Nethermind](https://github.com/NethermindEth/nethermind)
-- [Besu](https://github.com/hyperledger/besu)
 
-[Unofficially supported]
+[Supported but broken]
+These clients are supported by Chainlink, but have bugs that prevent Chainlink from working reliably on these execution clients.
+- [Nethermind](https://github.com/NethermindEth/nethermind)
+    Blocking issues:
+    - https://github.com/NethermindEth/nethermind/issues/4384
+- [Besu](https://github.com/hyperledger/besu)
+    Blocking issues:
+    - https://github.com/hyperledger/besu/issues/4212
+    - https://github.com/hyperledger/besu/issues/4192
+    - https://github.com/hyperledger/besu/issues/4114
 - [Erigon](https://github.com/ledgerwatch/erigon)
+    Blocking issues:
+    - https://github.com/ledgerwatch/erigon/discussions/4946
+    - https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 

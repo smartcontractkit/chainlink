@@ -127,6 +127,7 @@ type Job struct {
 	Type                 Type
 	SchemaVersion        uint32
 	GasLimit             clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed    null.Bool     `toml:"forwardingAllowed"`
 	Name                 null.String
 	MaxTaskDuration      models.Interval
 	Pipeline             pipeline.Pipeline `toml:"observationSource"`
@@ -302,6 +303,7 @@ type OCR2OracleSpec struct {
 	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
 	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
 	PluginType                        OCR2PluginType  `toml:"pluginType"`
+	EVMChainID                        *utils.Big      `toml:"evmChainID"`
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 }

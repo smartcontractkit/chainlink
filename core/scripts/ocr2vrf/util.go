@@ -24,11 +24,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
+	dkgContract "github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/dkg"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/ocr2vrf/generated/vrf_beacon_coordinator"
 	"github.com/smartcontractkit/chainlink/core/logger"
-
-	dkgContract "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/ocr2vrf/generated/dkg"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -104,8 +103,8 @@ func setDKGConfig(e helpers.Environment, dkgAddress string, c dkgSetConfigArgs) 
 
 	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
 
-	offchainConfig, err := dkg.OffchainConfig(dkg.EncryptionPublicKeys(encryptionKeys), dkg.SigningPublicKeys(signingKeys), &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
-		&altbn_128.PairingSuite{},
+	offchainConfig, err := dkg.OffchainConfig(encryptionKeys, signingKeys, &altbn_128.G1{}, &ocr2vrftypes.PairingTranslation{
+		Suite: &altbn_128.PairingSuite{},
 	})
 	helpers.PanicErr(err)
 	onchainConfig, err := dkg.OnchainConfig(dkg.KeyID(keyIDBytes))
@@ -149,10 +148,6 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 		strings.Split(c.peerIDs, ","),
 		strings.Split(c.transmitters, ","))
 
-	keyIDBytes := decodeHexTo32ByteArray(c.keyID)
-
-	offchainConfig := ocr2vrf.OffchainConfig(keyIDBytes)
-
 	confDelays := make(map[uint32]struct{})
 	for _, c := range strings.Split(c.confDelays, ",") {
 		confDelay, err := strconv.ParseUint(c, 0, 32)
@@ -171,7 +166,7 @@ func setVRFBeaconCoordinatorConfig(e helpers.Environment, vrfBeaconCoordinatorAd
 		c.maxRounds,
 		helpers.ParseIntSlice(c.schedule),
 		oracleIdentities,
-		offchainConfig,
+		nil, // off-chain config
 		c.maxDurationQuery,
 		c.maxDurationObservation,
 		c.maxDurationReport,
@@ -265,7 +260,7 @@ func requestRandomnessFromConsumer(e helpers.Environment, consumerAddress string
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err := consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID
@@ -296,7 +291,7 @@ func requestRandomnessCallback(
 	fmt.Println("nextBeaconOutputHeight: ", nextBeaconOutputHeight)
 
 	requestID, err = consumer.SRequestsIDs(nil, nextBeaconOutputHeight, confDelay)
-
+	helpers.PanicErr(err)
 	fmt.Println("requestID: ", requestID)
 
 	return requestID

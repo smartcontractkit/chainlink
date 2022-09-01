@@ -113,17 +113,17 @@ func (o *l2SuggestedEstimator) refreshPrice() (t *time.Timer) {
 
 func (o *l2SuggestedEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (*l2SuggestedEstimator) GetDynamicFee(_ uint64, _ *big.Int) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*l2SuggestedEstimator) GetDynamicFee(_ uint32, _ *big.Int) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (*l2SuggestedEstimator) BumpDynamicFee(_ DynamicFee, _ uint64, _ *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*l2SuggestedEstimator) BumpDynamicFee(_ DynamicFee, _ uint32, _ *big.Int) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
-func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint32, maxGasPriceWei *big.Int, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = l2GasLimit
 	ok := o.IfStarted(func() {
 		var forceRefetch bool
@@ -158,7 +158,7 @@ func (o *l2SuggestedEstimator) GetLegacyGas(_ []byte, l2GasLimit uint64, maxGasP
 	return
 }
 
-func (o *l2SuggestedEstimator) BumpLegacyGas(_ *big.Int, _ uint64, _ *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func (o *l2SuggestedEstimator) BumpLegacyGas(_ *big.Int, _ uint32, _ *big.Int) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
 	return nil, 0, errors.New("bump gas is not supported for this l2")
 }
 

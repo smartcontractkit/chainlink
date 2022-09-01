@@ -20,7 +20,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config, lggr)
 
-	err := ldb.Open(context.Background())
+	err := ldb.Open(testutils.Context(t))
 	require.NoError(t, err)
 	require.NotNil(t, ldb.DB())
 
@@ -36,7 +36,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config, lggr)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(testutils.Context(t))
 	cancel()
 	err := ldb.Open(ctx)
 	require.Error(t, err)
@@ -50,10 +50,10 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config, lggr)
 
-	err := ldb.Open(context.Background())
+	err := ldb.Open(testutils.Context(t))
 	require.NoError(t, err)
 	require.Panics(t, func() {
-		_ = ldb.Open(context.Background())
+		_ = ldb.Open(testutils.Context(t))
 	})
 
 	_ = ldb.Close()
@@ -66,7 +66,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	ldb1 := pg.NewLockedDB(config, lggr)
-	err := ldb1.Open(context.Background())
+	err := ldb1.Open(testutils.Context(t))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, ldb1.Close())
@@ -74,7 +74,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 
 	// second instance would wait for locks to be released,
 	// hence we use some timeout
-	ctx, cancel := context.WithTimeout(context.Background(), config.LeaseLockDuration())
+	ctx, cancel := context.WithTimeout(testutils.Context(t), config.LeaseLockDuration())
 	defer cancel()
 	ldb2 := pg.NewLockedDB(config, lggr)
 	err = ldb2.Open(ctx)

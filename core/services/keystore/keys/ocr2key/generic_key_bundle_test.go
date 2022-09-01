@@ -40,7 +40,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		// onchain key
 		onKey, err := newEVMKeyring(cryptorand.Reader)
 		require.NoError(t, err)
-		onBytes, err := onKey.marshal()
+		onBytes, err := onKey.Marshal()
 		require.NoError(t, err)
 
 		// marshal old key format
@@ -70,7 +70,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		// onchain key
 		onKey, err := newSolanaKeyring(cryptorand.Reader)
 		require.NoError(t, err)
-		onBytes, err := onKey.marshal()
+		onBytes, err := onKey.Marshal()
 		require.NoError(t, err)
 
 		// marshal old key format
@@ -100,7 +100,7 @@ func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 		// onchain key
 		onKey, err := newTerraKeyring(cryptorand.Reader)
 		require.NoError(t, err)
-		onBytes, err := onKey.marshal()
+		onBytes, err := onKey.Marshal()
 		require.NoError(t, err)
 
 		// marshal old key format

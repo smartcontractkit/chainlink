@@ -1,0 +1,43 @@
+[[EVM]]
+ChainID = '1'
+
+[[EVM.Nodes]]
+Name = 'foo'
+
+[[EVM.Nodes]]
+Name = 'foo'
+SendOnly = true
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM.KeySpecific]]
+Key = '0xde709f2102306220921060314715629080e2fb77'
+
+[[EVM.KeySpecific]]
+Key = '0xde709f2102306220921060314715629080e2fb77'
+
+
+[[Solana]]
+ChainID = 'mainnet'
+
+[[Solana]]
+ChainID = 'mainnet'
+
+[[Solana.Nodes]]
+Name = 'bar'
+
+[[Solana.Nodes]]
+Name = 'bar'
+
+[[Terra]]
+ChainID = 'Bombay-12'
+
+[[Terra.Nodes]]
+Name = 'test'
+
+[[Terra.Nodes]]
+Name = 'test'
+
+[[Terra]]
+ChainID = 'Bombay-12'

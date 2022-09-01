@@ -50,12 +50,6 @@ func ValidatePluginConfig(config PluginConfig, dkgSignKs keystore.DKGSign, dkgEn
 		return errors.New("linkEthFieldAddress field must be provided")
 	}
 
-	if len(config.ConfirmationDelays) != 8 {
-		// TODO: this should not be here, should read it from the chain
-		// However that's not possible at the moment, since that field is private.
-		return errors.New("confirmationDelays field must be an array of 8 elements")
-	}
-
 	if config.LookbackBlocks <= 0 {
 		return errors.New("lookbackBlocks field must be positive")
 	}

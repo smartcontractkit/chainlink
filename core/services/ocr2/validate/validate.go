@@ -49,16 +49,16 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 		return jb, errors.Errorf("no such relay %v supported", spec.Relay)
 	}
 	if len(spec.P2PV2Bootstrappers) > 0 {
-		_, err := ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
+		_, err = ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
 		if err != nil {
 			return jb, err
 		}
 	}
 
-	if err := validateSpec(tree, jb); err != nil {
+	if err = validateSpec(tree, jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(config, spec); err != nil {
+	if err = validateTimingParameters(config, spec); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -171,9 +171,6 @@ func validateOCR2VRFSpec(jsonConfig job.JSONConfig) error {
 	if cfg.DKGContractAddress == "" {
 		return errors.New("dkgContractAddress must be provided")
 	}
-	if len(cfg.ConfirmationDelays) != 8 {
-		return fmt.Errorf("confirmationDelays must have length 8, given: %+v", cfg.ConfirmationDelays)
-	}
 	if cfg.LookbackBlocks <= 0 {
 		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
 	}
@@ -186,22 +183,13 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	}
 
 	var cfg ocr2keeperconfig.PluginConfig
-	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
-	if err != nil {
+	if err := json.Unmarshal(jsonConfig.Bytes(), &cfg); err != nil {
 		return errors.Wrap(err, "json unmarshal plugin config")
 	}
 
-	/*if cfg.LinkEthFeedAddress == "" {
-		return errors.New("linkEthFeedAddress must be provided")
+	if err := cfg.Validate(); err != nil {
+		return err
 	}
-
-	if len(cfg.ConfirmationDelays) != 8 {
-		return fmt.Errorf("confirmationDelays must have length 8, given: %+v", cfg.ConfirmationDelays)
-	}
-
-	if cfg.LookbackBlocks <= 0 {
-		return fmt.Errorf("lookbackBlocks must be > 0, given: %+v", cfg.LookbackBlocks)
-	}*/
 
 	return nil
 }
