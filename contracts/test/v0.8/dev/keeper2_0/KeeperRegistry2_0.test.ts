@@ -266,6 +266,7 @@ describe('KeeperRegistry2_0', () => {
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
       assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
 
     it('returns false and error code if the upkeep is cancelled by owner', async () => {
@@ -278,7 +279,46 @@ describe('KeeperRegistry2_0', () => {
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
       assert.equal(checkUpkeepResult.upkeepFailureReason, 1)
+      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
+
+    it('returns false and error code if the upkeep is paused', async () => {
+      await registry.connect(admin).pauseUpkeep(upkeepId)
+
+      let checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 2)
+      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
+    })
+
+    it('returns false and error code if the users checkUpkeep reverts', async () => {
+      await mock.setShouldRevertCheck(true)
+      let checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 3)
+      assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('returns false and error code if the upkeep is not needed', async () => {
+      await mock.setCanCheck(false)
+      let checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.performData, '0x')
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 4)
+      assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
     /*
     context('when the registration is funded', () => {
       beforeEach(async () => {
@@ -286,23 +326,9 @@ describe('KeeperRegistry2_0', () => {
         await registry.connect(keeper1).addFunds(upkeepId, toWei('100'))
       })
 
-      it('reverts if executed', async () => {
-        await mock.setCanPerform(true)
-        await mock.setCanCheck(true)
-        await evmRevert(
-          registry.checkUpkeep(upkeepId),
-          'OnlySimulatedBackend()',
-        )
-      })
 
-      it('reverts if the specified keeper is not valid', async () => {
-        await mock.setCanPerform(true)
-        await mock.setCanCheck(true)
-        await evmRevert(
-          registry.checkUpkeep(upkeepId),
-          'OnlySimulatedBackend()',
-        )
-      })
+
+
 
       context('and upkeep is not needed', () => {
         beforeEach(async () => {
@@ -353,16 +379,7 @@ describe('KeeperRegistry2_0', () => {
           await mock.setCanPerform(true)
         })
 
-        it('reverts if the upkeep is paused', async () => {
-          await registry.connect(admin).pauseUpkeep(upkeepId)
-
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(upkeepId),
-            'OnlyUnpausedUpkeep()',
-          )
-        })
+       
 
         it('returns true with pricing info if the target can execute', async () => {
           const newGasMultiplier = BigNumber.from(10)
