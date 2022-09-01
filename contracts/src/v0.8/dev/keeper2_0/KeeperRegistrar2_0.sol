@@ -37,7 +37,8 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
 
   /**
    * @notice versions:
-   * - KeeperRegistrar 2.0.0: Add skipSigVerification parameter to register
+   * - KeeperRegistrar 2.0.0: Remove source from register
+   *                        : Add skipSigVerification parameter to register
    * - KeeperRegistrar 1.1.0: Add functionality for sender allowlist in auto approve
    *                        : Remove rate limit and add max allowed for auto approve
    * - KeeperRegistrar 1.0.0: initial release
@@ -128,7 +129,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @param source application sending this request
    * @param sender address of the sender making the request
    * @param skipSigVerification whether to skip signature verification for low security low cost
    */
@@ -140,7 +140,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address adminAddress,
     bytes calldata checkData,
     uint96 amount,
-    uint8 source,
     address sender,
     bool skipSigVerification
   ) external onlyLINK {
@@ -409,12 +408,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param expected amount that should match the actual amount
    * @param data bytes
    */
-  modifier isActualAmount(uint256 expected, bytes memory data) {
-    uint256 actual;
-    assembly {
-      actual := mload(add(data, 228))
-    }
-    if (expected != actual) {
+  modifier isActualAmount(uint256 expected, bytes calldata data) {
+    // decode register function arguments to get actual amount
+    (, , , , , , uint96 amount, ) = abi.decode(
+      data[4:],
+      (string, bytes, address, uint32, address, bytes, uint96, address)
+    );
+    if (expected != amount) {
       revert AmountMismatch();
     }
     _;
@@ -425,12 +425,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param expected address that should match the actual sender address
    * @param data bytes
    */
-  modifier isActualSender(address expected, bytes memory data) {
-    address actual;
-    assembly {
-      actual := mload(add(data, 292))
-    }
-    if (expected != actual) {
+  modifier isActualSender(address expected, bytes calldata data) {
+    // decode register function arguments to get actual sender
+    (, , , , , , , address sender) = abi.decode(
+      data[4:],
+      (string, bytes, address, uint32, address, bytes, uint96, address)
+    );
+    if (expected != sender) {
       revert SenderMismatch();
     }
     _;
