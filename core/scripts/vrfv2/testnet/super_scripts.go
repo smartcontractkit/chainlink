@@ -18,6 +18,41 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
+const formattedVRFJob = `
+type = "vrf"
+name = "vrf_v2"
+schemaVersion = 1
+coordinatorAddress = "%s"
+publicKey = "%s"
+minIncomingConfirmations = 3
+evmChainID = "%d"
+fromAddresses = ["%s"]
+pollPeriod = "5s"
+requestTimeout = "24hr"
+observationSource = """decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"]
+simulate     [type=ethcall
+              to="%s"
+              gas="$(estimate_gas)"
+              gasPrice="$(jobSpec.maxGasPrice)"
+              extractRevertReason=true
+              contract="%s"
+              data="$(vrf.output)"]
+decode_log->vrf->estimate_gas->simulate
+""" 
+`
+
 func deployUniverse(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
@@ -29,6 +64,8 @@ func deployUniverse(e helpers.Environment) {
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60_000_000).String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
+	registerKeyCompressedPubKey := deployCmd.String("compressed-pub-key", "<COMPRESSED_VRF_KEY>", "compressed public key")
+	registerKeyHash := deployCmd.String("key-hash", "<KEY_HASH>", "key hash")
 	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
 	minConfs := deployCmd.Int("min-confs", 3, "min confs")
 	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100_000_000).Int64(), "amount to fund sending oracle")
@@ -147,6 +184,17 @@ func deployUniverse(e helpers.Environment) {
 		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
 	}
 
+	formattedJobSpec := fmt.Sprintf(
+		formattedVRFJob,
+		coordinatorAddress,
+		*registerKeyCompressedPubKey,
+		e.ChainID,
+		*registerKeyOracleAddress,
+		coordinatorAddress,
+		coordinatorAddress,
+		coordinatorAddress,
+	)
+
 	fmt.Println(
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
@@ -158,7 +206,10 @@ func deployUniverse(e helpers.Environment) {
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalanceString,
-		"\nA node can now be configured to run a VRF job with the above configuration.",
+		"\nPossible VRF Request command: ",
+		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, *registerKeyHash),
+		"\nA node can now be configured to run a VRF job with the below job spec :\n",
+		formattedJobSpec,
 	)
 }
 
