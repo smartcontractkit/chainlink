@@ -18,7 +18,7 @@ import "../../interfaces/UpkeepTranscoderInterface.sol";
  * @notice Base Keeper Registry contract, contains shared logic between
  * KeeperRegistry and KeeperRegistryLogic
  */
-abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, ReentrancyGuard, Pausable {
+abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, Pausable {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
