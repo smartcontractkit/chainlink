@@ -164,11 +164,11 @@ contract KeeperRegistry2_0 is
     }
 
     uint96 gasPayment;
-    uint96 premiumPerSigner;
+    uint96 premium;
     uint96 totalGasPayment;
-    uint96 totalPremiumPerSigner;
+    uint96 totalPremium;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      (gasPayment, premiumPerSigner) = _postPerformUpkeep(
+      (gasPayment, premium) = _postPerformUpkeep(
         hotVars,
         parsedReport.upkeepIds[i],
         uint96(signerIndices.length),
@@ -177,20 +177,22 @@ contract KeeperRegistry2_0 is
         upkeepTransmitInfo[i]
       );
       totalGasPayment += gasPayment;
-      totalPremiumPerSigner += premiumPerSigner;
+      totalPremium += premium;
     }
 
     // Reimburse totalGasPayment to transmitter
     s_transmitters[msg.sender].balance += totalGasPayment;
+
     if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       // Pay all the premium to transmitter as there are no signers in case of skipSigVerification
-      s_transmitters[msg.sender].balance += totalPremiumPerSigner * uint96(signerIndices.length);
+      s_transmitters[msg.sender].balance += totalPremium;
     } else {
-      // Split premium among signers
+      // Split totalPremium among signers
       address transmitterToPay;
+      uint96 premiumPerSigner = totalPremium / uint96(signerIndices.length);
       for (uint256 i = 0; i < signerIndices.length; i++) {
         transmitterToPay = s_transmittersList[signerIndices[i]];
-        s_transmitters[transmitterToPay].balance += totalPremiumPerSigner;
+        s_transmitters[transmitterToPay].balance += premiumPerSigner;
       }
     }
   }
@@ -782,8 +784,12 @@ contract KeeperRegistry2_0 is
       upkeepTransmitInfo.paymentParams.linkNative,
       true
     );
-    uint96 premiumPerSigner = premium / numSigners;
-    uint96 total = gasPayment + premiumPerSigner * numSigners;
+
+    if (numSigners > 0) {
+      // In case of sig verification, reduce premium so that it's exactly divisible by num signers
+      premium = premium - (premium % numSigners);
+    }
+    uint96 total = gasPayment + premium;
 
     s_upkeep[upkeepId].balance -= total;
     s_upkeep[upkeepId].amountSpent += total;
@@ -793,12 +799,12 @@ contract KeeperRegistry2_0 is
       gasUsed: upkeepTransmitInfo.gasUsed,
       gasOverhead: gasOverhead,
       linkNative: upkeepTransmitInfo.paymentParams.linkNative,
-      premiumPayment: premiumPerSigner * numSigners,
+      premiumPayment: premium,
       totalPayment: total
     });
     emit UpkeepPerformed(upkeepId, upkeepTransmitInfo.performSuccess, upkeepPerformedLogFields);
 
-    return (gasPayment, premiumPerSigner);
+    return (gasPayment, premium);
   }
 
   ////////
