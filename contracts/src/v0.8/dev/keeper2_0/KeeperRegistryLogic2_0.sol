@@ -57,7 +57,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     bytes memory userPerformData;
     (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
     if (!upkeepNeeded) return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
-    if (performData.length > s_storage.maxPerformDataSize)
+    if (userPerformData.length > s_storage.maxPerformDataSize)
       return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
 
     performData = abi.encode(

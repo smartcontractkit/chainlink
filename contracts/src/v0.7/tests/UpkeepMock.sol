@@ -20,8 +20,8 @@ contract UpkeepMock is KeeperCompatible {
     shouldRevertCheck = value;
   }
 
-  function setPerformData(bytes calldata performData) public {
-    performData = performData;
+  function setPerformData(bytes calldata data) public {
+    performData = data;
   }
 
   function setCanCheck(bool value) public {
