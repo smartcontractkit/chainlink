@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -457,18 +458,23 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 			OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
-			ReportingPluginFactory: keeperreportingplugin.NewFactory(
-				lggr.Named("OCR2Keeper"),
-				jobSpec.ID,
-				chainID,
-				chain.Config(),
-				orm,
-				chain.Client(),
-				chain.HeadBroadcaster(),
-				spec.ContractID,
-				d.pipelineRunner,
-				chain.TxManager().GetGasEstimator(),
-			),
+			ReportingPluginFactory: keeperreportingplugin.NewFactory(keeperreportingplugin.FactoryOptions{
+				Logger:          lggr.Named("OCR2Keeper"),
+				JobID:           jobSpec.ID,
+				ChainID:         chainID,
+				Cfg:             chain.Config(),
+				ORM:             orm,
+				EthClient:       chain.Client(),
+				HeadBroadcaster: chain.HeadBroadcaster(),
+				ContractAddress: spec.ContractID,
+				PipelineRunner:  d.pipelineRunner,
+				GasEstimator:    chain.TxManager().GetGasEstimator(),
+				PluginLimits: libocr2types.ReportingPluginLimits{
+					MaxQueryLength:       cfg.MaxQueryLength,
+					MaxObservationLength: cfg.MaxObservationLength,
+					MaxReportLength:      cfg.MaxReportLength,
+				},
+			}),
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")

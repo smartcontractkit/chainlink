@@ -10,6 +10,26 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
+const (
+	reportingPluginName   = "OCR2Keeper"
+	generateUniqueReports = false
+)
+
+// FactoryOptions contains required options to create a reporting plugin factory
+type FactoryOptions struct {
+	Logger          logger.Logger
+	JobID           int32
+	ChainID         int64
+	Cfg             Config
+	ORM             ORM
+	EthClient       evmclient.Client
+	HeadBroadcaster httypes.HeadBroadcaster
+	ContractAddress string
+	PipelineRunner  pipeline.Runner
+	GasEstimator    gas.Estimator
+	PluginLimits    types.ReportingPluginLimits
+}
+
 // factory implements types.ReportingPluginFactory interface and creates keepers reporting plugin.
 type factory struct {
 	logger          logger.Logger
@@ -22,45 +42,31 @@ type factory struct {
 	contractAddress string
 	pr              pipeline.Runner
 	gasEstimator    gas.Estimator
+	pluginLimits    types.ReportingPluginLimits
 }
 
 // NewFactory is the constructor of factory
-func NewFactory(
-	logger logger.Logger,
-	jobID int32,
-	chainID int64,
-	cfg Config,
-	orm ORM,
-	ethClient evmclient.Client,
-	hb httypes.HeadBroadcaster,
-	contractAddress string,
-	pr pipeline.Runner,
-	gasEstimator gas.Estimator,
-) types.ReportingPluginFactory {
+func NewFactory(opts FactoryOptions) types.ReportingPluginFactory {
 	return &factory{
-		logger:          logger,
-		jobID:           jobID,
-		chainID:         chainID,
-		cfg:             cfg,
-		orm:             orm,
-		ethClient:       ethClient,
-		hb:              hb,
-		contractAddress: contractAddress,
-		pr:              pr,
-		gasEstimator:    gasEstimator,
+		logger:          opts.Logger,
+		jobID:           opts.JobID,
+		chainID:         opts.ChainID,
+		cfg:             opts.Cfg,
+		orm:             opts.ORM,
+		ethClient:       opts.EthClient,
+		hb:              opts.HeadBroadcaster,
+		contractAddress: opts.ContractAddress,
+		pr:              opts.PipelineRunner,
+		gasEstimator:    opts.GasEstimator,
+		pluginLimits:    opts.PluginLimits,
 	}
 }
 
 func (f *factory) NewReportingPlugin(rpc types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	p := NewPlugin(f.logger, f.jobID, f.chainID, f.cfg, f.orm, f.ethClient, f.hb, f.contractAddress, f.pr, f.gasEstimator)
-	pi := types.ReportingPluginInfo{
-		Name:          "OCR2Keeper",
-		UniqueReports: false,
-		Limits: types.ReportingPluginLimits{
-			MaxQueryLength:       2000, // TODO: Configure
-			MaxObservationLength: 2000, // TODO: Configure
-			MaxReportLength:      2000, // TODO: Configure
-		},
-	}
-	return p, pi, nil
+	return p, types.ReportingPluginInfo{
+		Name:          reportingPluginName,
+		UniqueReports: generateUniqueReports,
+		Limits:        f.pluginLimits,
+	}, nil
 }
