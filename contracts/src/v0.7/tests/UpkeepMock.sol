@@ -11,7 +11,8 @@ contract UpkeepMock is KeeperCompatible {
   uint256 public checkGasToBurn;
   uint256 public performGasToBurn;
 
-  uint256 constant gasBuffer = 1000; // use all but this amount in gas burn loops
+  uint256 constant checkGasBuffer = 6000; // use all but this amount in gas burn loops
+  uint256 constant performGasBuffer = 1000; // use all but this amount in gas burn loops
 
   event UpkeepPerformedWith(bytes upkeepData);
 
@@ -32,13 +33,21 @@ contract UpkeepMock is KeeperCompatible {
   }
 
   function setCheckGasToBurn(uint256 value) public {
-    require(value > gasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
-    checkGasToBurn = value - gasBuffer;
+    require(value > checkGasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
+    if (value > 0) {
+      checkGasToBurn = value - checkGasBuffer;
+    } else {
+      checkGasToBurn = 0;
+    }
   }
 
   function setPerformGasToBurn(uint256 value) public {
-    require(value > gasBuffer || value == 0, "performGasToBurn must be 0 (disabled) or greater than buffer");
-    performGasToBurn = value - gasBuffer;
+    require(value > performGasBuffer || value == 0, "performGasToBurn must be 0 (disabled) or greater than buffer");
+    if (value > 0) {
+      performGasToBurn = value - performGasBuffer;
+    } else {
+      performGasToBurn = 0;
+    }
   }
 
   function checkUpkeep(bytes calldata data)
