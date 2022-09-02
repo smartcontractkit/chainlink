@@ -539,27 +539,6 @@ describe('KeeperRegistrar', () => {
     })
   })
 
-  describe('#registerUpkeep', () => {
-    it('reverts if amount sent is not available in LINK allowance', async () => {
-      await evmRevert(
-        registrar
-          .connect(someAddress)
-          .register(
-            upkeepName,
-            emptyBytes,
-            mock.address,
-            executeGas,
-            await admin.getAddress(),
-            emptyBytes,
-            amount,
-            source,
-            await requestSender.getAddress(),
-          ),
-        'OnlyLink()',
-      )
-    })
-  })
-
   describe('#setAutoApproveAllowedSender', () => {
     it('reverts if not called by the owner', async () => {
       const tx = registrar
