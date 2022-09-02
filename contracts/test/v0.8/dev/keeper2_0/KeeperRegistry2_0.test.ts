@@ -269,6 +269,153 @@ describe('KeeperRegistry2_0', () => {
   // TODO: transmit
   // TODO: simulatePerformUpkeep
 
+  const linkForGas = (
+    upkeepGasSpent: BigNumber,
+    gasOverhead: BigNumber,
+    gasMultiplier: BigNumber,
+    premiumPPB: BigNumber,
+    flatFee: BigNumber,
+    l1CostWei?: BigNumber,
+  ) => {
+    l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
+
+    const gasSpent = gasOverhead.add(BigNumber.from(upkeepGasSpent))
+    const base = gasWei
+      .mul(gasMultiplier)
+      .mul(gasSpent)
+      .mul(linkDivisibility)
+      .div(linkEth)
+    const l1Fee = l1CostWei
+      .mul(gasMultiplier)
+      .mul(linkDivisibility)
+      .div(linkEth)
+    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
+    const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
+    return base.add(premium).add(flatFeeJules).add(l1Fee)
+  }
+
+  const verifyMaxPayment = async (
+    paymentModel: number,
+    multipliers: BigNumber[],
+    gasAmounts: number[],
+    premiums: number[],
+    flatFees: number[],
+    l1CostWei?: BigNumber,
+  ) => {
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxCheckDataSize,
+      maxPerformDataSize,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder: transcoder.address,
+      registrar: ethers.constants.AddressZero,
+    }
+
+    // Deploy a new registry since we change payment model
+    let registry = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(
+        paymentModel,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        registryLogic.address,
+      )
+    await registry
+      .connect(owner)
+      .setConfig(
+        keepers,
+        keepers,
+        f,
+        encodeConfig(config),
+        offchainVersion,
+        offchainBytes,
+      )
+
+    let fPlusOne = BigNumber.from(f + 1)
+    let totalGasOverhead = registryGasOverhead.add(
+      verifySigOverhead.mul(fPlusOne),
+    )
+
+    for (let idx = 0; idx < gasAmounts.length; idx++) {
+      const gas = gasAmounts[idx]
+      for (let jdx = 0; jdx < premiums.length; jdx++) {
+        const premium = premiums[jdx]
+        for (let kdx = 0; kdx < flatFees.length; kdx++) {
+          const flatFee = flatFees[kdx]
+          for (let ldx = 0; ldx < multipliers.length; ldx++) {
+            const multiplier = multipliers[ldx]
+
+            await registry.connect(owner).setConfig(
+              keepers,
+              keepers,
+              f,
+              encodeConfig({
+                paymentPremiumPPB: premium,
+                flatFeeMicroLink: flatFee,
+                checkGasLimit,
+                stalenessSeconds,
+                gasCeilingMultiplier: multiplier,
+                minUpkeepSpend,
+                maxCheckDataSize,
+                maxPerformDataSize,
+                maxPerformGas,
+                fallbackGasPrice,
+                fallbackLinkPrice,
+                transcoder: transcoder.address,
+                registrar: ethers.constants.AddressZero,
+              }),
+              offchainVersion,
+              offchainBytes,
+            )
+
+            const price = await registry.getMaxPaymentForGas(gas)
+            expect(price).to.equal(
+              linkForGas(
+                BigNumber.from(gas),
+                totalGasOverhead,
+                multiplier,
+                BigNumber.from(premium),
+                BigNumber.from(flatFee),
+                l1CostWei,
+              ),
+            )
+          }
+        }
+      }
+    }
+  }
+
+  describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
+    it('calculates the minimum balance appropriately', async () => {
+      await mock.setCanCheck(true)
+      const oneWei = BigNumber.from('1')
+      const minBalance = await registry.getMinBalanceForUpkeep(upkeepId)
+      const tooLow = minBalance.sub(oneWei)
+
+      await registry.connect(admin).addFunds(upkeepId, tooLow)
+      let checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+
+      assert.equal(checkUpkeepResult.upkeepNeeded, false)
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+
+      await registry.connect(admin).addFunds(upkeepId, oneWei)
+      checkUpkeepResult = await registry
+        .connect(zeroAddress)
+        .callStatic.checkUpkeep(upkeepId)
+      assert.equal(checkUpkeepResult.upkeepNeeded, true)
+    })
+  })
+
   describe('#checkUpkeep', () => {
     it('reverts if called by non zero address', async () => {
       await evmRevert(
@@ -416,193 +563,7 @@ describe('KeeperRegistry2_0', () => {
         assert.equal(checkUpkeepResult.upkeepNeeded, true)
       })
     })
-    /*
-
-
-   
-
-
-
-    /*
-   
-
-
-
-      context('and upkeep check simulations succeeds', () => {
-        beforeEach(async () => {
-          await mock.setCanCheck(true)
-          await mock.setCanPerform(true)
-        })
-
-       
-
-        it('returns true with pricing info if the target can execute', async () => {
-          const newGasMultiplier = BigNumber.from(10)
-          await registry.connect(owner).setConfig({
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier: newGasMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          })
-          const response = await registry
-            .connect(zeroAddress)
-            .callStatic.checkUpkeep(upkeepId)
-          assert.isTrue(response.gasLimit.eq(executeGas))
-          assert.isTrue(response.linkEth.eq(linkEth))
-          assert.isTrue(
-            response.adjustedGasWei.eq(gasWei.mul(newGasMultiplier)),
-          )
-          assert.isTrue(
-            response.maxLinkPayment.eq(
-              linkForGas(executeGas.toNumber()).mul(newGasMultiplier),
-            ),
-          )
-        })
-
-        it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
-          await mock.setCheckGasToBurn(checkGasLimit)
-          const gas = checkGasLimit.add(CHECK_GAS_OVERHEAD)
-          await registry
-            .connect(zeroAddress)
-            .callStatic.checkUpkeep(upkeepId, {
-              gasLimit: gas,
-            })
-        })
-      })
-    })*/
   })
-
-  const linkForGas = (
-    upkeepGasSpent: BigNumber,
-    gasOverhead: BigNumber,
-    gasMultiplier: BigNumber,
-    premiumPPB: BigNumber,
-    flatFee: BigNumber,
-    l1CostWei?: BigNumber,
-  ) => {
-    l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
-
-    const gasSpent = gasOverhead.add(BigNumber.from(upkeepGasSpent))
-    const base = gasWei
-      .mul(gasMultiplier)
-      .mul(gasSpent)
-      .mul(linkDivisibility)
-      .div(linkEth)
-    const l1Fee = l1CostWei
-      .mul(gasMultiplier)
-      .mul(linkDivisibility)
-      .div(linkEth)
-    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
-    const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
-    return base.add(premium).add(flatFeeJules).add(l1Fee)
-  }
-
-  const verifyMaxPayment = async (
-    paymentModel: number,
-    multipliers: BigNumber[],
-    gasAmounts: number[],
-    premiums: number[],
-    flatFees: number[],
-    l1CostWei?: BigNumber,
-  ) => {
-    const config = {
-      paymentPremiumPPB,
-      flatFeeMicroLink,
-      checkGasLimit,
-      stalenessSeconds,
-      gasCeilingMultiplier,
-      minUpkeepSpend,
-      maxCheckDataSize,
-      maxPerformDataSize,
-      maxPerformGas,
-      fallbackGasPrice,
-      fallbackLinkPrice,
-      transcoder: transcoder.address,
-      registrar: ethers.constants.AddressZero,
-    }
-
-    // Deploy a new registry since we change payment model
-    let registry = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(
-        paymentModel,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-      )
-    await registry
-      .connect(owner)
-      .setConfig(
-        keepers,
-        keepers,
-        f,
-        encodeConfig(config),
-        offchainVersion,
-        offchainBytes,
-      )
-
-    let fPlusOne = BigNumber.from(f + 1)
-    let totalGasOverhead = registryGasOverhead.add(
-      verifySigOverhead.mul(fPlusOne),
-    )
-
-    for (let idx = 0; idx < gasAmounts.length; idx++) {
-      const gas = gasAmounts[idx]
-      for (let jdx = 0; jdx < premiums.length; jdx++) {
-        const premium = premiums[jdx]
-        for (let kdx = 0; kdx < flatFees.length; kdx++) {
-          const flatFee = flatFees[kdx]
-          for (let ldx = 0; ldx < multipliers.length; ldx++) {
-            const multiplier = multipliers[ldx]
-
-            await registry.connect(owner).setConfig(
-              keepers,
-              keepers,
-              f,
-              encodeConfig({
-                paymentPremiumPPB: premium,
-                flatFeeMicroLink: flatFee,
-                checkGasLimit,
-                stalenessSeconds,
-                gasCeilingMultiplier: multiplier,
-                minUpkeepSpend,
-                maxCheckDataSize,
-                maxPerformDataSize,
-                maxPerformGas,
-                fallbackGasPrice,
-                fallbackLinkPrice,
-                transcoder: transcoder.address,
-                registrar: ethers.constants.AddressZero,
-              }),
-              offchainVersion,
-              offchainBytes,
-            )
-
-            const price = await registry.getMaxPaymentForGas(gas)
-            expect(price).to.equal(
-              linkForGas(
-                BigNumber.from(gas),
-                totalGasOverhead,
-                multiplier,
-                BigNumber.from(premium),
-                BigNumber.from(flatFee),
-                l1CostWei,
-              ),
-            )
-          }
-        }
-      }
-    }
-  }
 
   describe('#addFunds', () => {
     const amount = toWei('1')
@@ -2244,29 +2205,6 @@ describe('KeeperRegistry2_0', () => {
         .withArgs(keepers, payees)
     })
   })
-
-  /*
-  describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
-    it('calculates the minimum balance appropriately', async () => {
-      const oneWei = BigNumber.from('1')
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await mock.setCanCheck(true)
-      await mock.setCanPerform(true)
-      const minBalance = await registry.getMinBalanceForUpkeep(id)
-      const tooLow = minBalance.sub(oneWei)
-      await registry.connect(keeper1).addFunds(id, tooLow)
-      await evmRevert(
-        registry
-          .connect(zeroAddress)
-          .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'InsufficientFunds()',
-      )
-      await registry.connect(keeper1).addFunds(id, oneWei)
-      await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(id, await keeper1.getAddress())
-    })
-  })*/
 
   /*
   describe('#performUpkeep', () => {
