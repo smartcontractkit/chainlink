@@ -406,8 +406,8 @@ func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address,
 		return attempts
 	}
 
-	firstAttemptNonce := *attempts[len(attempts)-1].EthTx.Nonce
-	lastAttemptNonce := *attempts[0].EthTx.Nonce
+	firstAttemptNonce := *attempts[0].EthTx.Nonce
+	lastAttemptNonce := *attempts[len(attempts)-1].EthTx.Nonce
 	latestMinedNonce := int64(minedTransactionCount) - 1 // this can be -1 if a transaction has never been mined on this account
 	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
 		len(attempts), from.Hex(), minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
