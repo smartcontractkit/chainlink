@@ -10,12 +10,15 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
 const formattedVRFJob = `
@@ -64,8 +67,6 @@ func deployUniverse(e helpers.Environment) {
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", assets.GWei(60_000_000).String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
-	registerKeyCompressedPubKey := deployCmd.String("compressed-pub-key", "<COMPRESSED_VRF_KEY>", "compressed public key")
-	registerKeyHash := deployCmd.String("key-hash", "<KEY_HASH>", "key hash")
 	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
 	minConfs := deployCmd.Int("min-confs", 3, "min confs")
 	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100_000_000).Int64(), "amount to fund sending oracle")
@@ -93,6 +94,24 @@ func deployUniverse(e helpers.Environment) {
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
 		*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 	}
+
+	// Generate compressed public key and key hash
+	pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
+	helpers.PanicErr(err)
+	pk, err := crypto.UnmarshalPubkey(pubBytes)
+	helpers.PanicErr(err)
+	var pkBytes []byte
+	if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
+		pkBytes = append(pk.X.Bytes(), 1)
+	} else {
+		pkBytes = append(pk.X.Bytes(), 0)
+	}
+	var newPK secp256k1.PublicKey
+	copy(newPK[:], pkBytes)
+
+	compressedPkHex := hexutil.Encode(pkBytes)
+	keyHash, err := newPK.Hash()
+	helpers.PanicErr(err)
 
 	if len(*linkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
@@ -187,7 +206,7 @@ func deployUniverse(e helpers.Environment) {
 	formattedJobSpec := fmt.Sprintf(
 		formattedVRFJob,
 		coordinatorAddress,
-		*registerKeyCompressedPubKey,
+		compressedPkHex,
 		e.ChainID,
 		*registerKeyOracleAddress,
 		coordinatorAddress,
@@ -207,7 +226,7 @@ func deployUniverse(e helpers.Environment) {
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalanceString,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, *registerKeyHash),
+		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, keyHash),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
 		formattedJobSpec,
 	)
