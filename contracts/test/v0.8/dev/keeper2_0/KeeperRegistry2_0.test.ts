@@ -78,7 +78,7 @@ const encodeReport = (upkeeps: any) => {
     upkeepIds.push(upkeeps[i].Id)
     wrappedPerformDatas.push(
       ethers.utils.defaultAbiCoder.encode(
-        ['tuple(uint32,uint32,uint32)'],
+        ['tuple(uint32,bytes32,bytes)'],
         [
           [
             upkeeps[i].checkBlockNum,
@@ -90,7 +90,7 @@ const encodeReport = (upkeeps: any) => {
     )
   }
   return ethers.utils.defaultAbiCoder.encode(
-    ['uint256[], bytes[]'],
+    ['uint256[]', 'bytes[]'],
     [upkeepIds, wrappedPerformDatas],
   )
 }
@@ -426,21 +426,28 @@ describe('KeeperRegistry2_0', () => {
     }
   }
 
-  describe.only('#withdrawFunds', () => {
+  describe('#withdrawFunds', () => {
     beforeEach(async () => {
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       const latestBlock = await ethers.provider.getBlock('latest')
 
       let report = encodeReport([
         {
-          Id: upkeepId,
+          Id: upkeepId.toString(),
           checkBlockNum: latestBlock.number,
           checkBlockHash: latestBlock.parentHash,
           performData: '0x',
         },
       ])
-      console.log(report)
-      //await registry.connect(keeper1).transmit([emptyBytes32,emptyBytes32, emptyBytes32], )
+      await registry
+        .connect(keeper1)
+        .transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          report,
+          [],
+          [],
+          emptyBytes32,
+        )
     })
     it('TODO', async () => {
       assert(false)
