@@ -24,6 +24,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
+		fmt.Sprintf("%d", p.NextNonce),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
 		fmt.Sprintf("%v", p.Disabled),
@@ -33,7 +34,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "Next Nonce", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
@@ -296,8 +297,12 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	if c.IsSet("setNextNonce") {
 		query.Set("nextNonce", c.String("setNextNonce"))
 	}
-	if c.IsSet("setEnabled") {
-		query.Set("enabled", c.String("setEnabled"))
+	if c.IsSet("enable") && c.IsSet("disable") {
+		return cli.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
+	} else if c.Bool("enable") {
+		query.Set("enabled", "true")
+	} else if c.Bool("disable") {
+		query.Set("enabled", "false")
 	}
 
 	chainURL.RawQuery = query.Encode()
@@ -319,5 +324,5 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
 	}
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Imported ETH key")
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
 }
