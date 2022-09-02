@@ -71,6 +71,30 @@ const encodeConfig = (config: any) => {
   )
 }
 
+const encodeReport = (upkeeps: any) => {
+  let upkeepIds = []
+  let wrappedPerformDatas = []
+  for (let i = 0; i < upkeeps.length; i++) {
+    upkeepIds.push(upkeeps[i].Id)
+    wrappedPerformDatas.push(
+      ethers.utils.defaultAbiCoder.encode(
+        ['tuple(uint32,uint32,uint32)'],
+        [
+          [
+            upkeeps[i].checkBlockNum,
+            upkeeps[i].checkBlockHash,
+            upkeeps[i].performData,
+          ],
+        ],
+      ),
+    )
+  }
+  return ethers.utils.defaultAbiCoder.encode(
+    ['uint256[], bytes[]'],
+    [upkeepIds, wrappedPerformDatas],
+  )
+}
+
 before(async () => {
   personas = (await getUsers()).personas
 
@@ -266,8 +290,17 @@ describe('KeeperRegistry2_0', () => {
     upkeepId = await getUpkeepID(tx)
   })
 
-  // TODO: transmit
-  // TODO: simulatePerformUpkeep
+  describe('#transmit', () => {
+    it('TODO', async () => {
+      assert(false)
+    })
+  })
+
+  describe('#simulatePerformUpkeep', () => {
+    it('TODO', async () => {
+      assert(false)
+    })
+  })
 
   const linkForGas = (
     upkeepGasSpent: BigNumber,
@@ -392,6 +425,82 @@ describe('KeeperRegistry2_0', () => {
       }
     }
   }
+
+  describe.only('#withdrawFunds', () => {
+    beforeEach(async () => {
+      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      const latestBlock = await ethers.provider.getBlock('latest')
+
+      let report = encodeReport([
+        {
+          Id: upkeepId,
+          checkBlockNum: latestBlock.number,
+          checkBlockHash: latestBlock.parentHash,
+          performData: '0x',
+        },
+      ])
+      console.log(report)
+      //await registry.connect(keeper1).transmit([emptyBytes32,emptyBytes32, emptyBytes32], )
+    })
+    it('TODO', async () => {
+      assert(false)
+    })
+    /*
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .withdrawFunds(id.add(1), await payee1.getAddress()),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if called on an uncanceled upkeep', async () => {
+      await evmRevert(
+        registry.connect(admin).withdrawFunds(id, await payee1.getAddress()),
+        'UpkeepNotCanceled()',
+      )
+    })
+
+    it('reverts if called with the 0 address', async () => {
+      await evmRevert(
+        registry.connect(admin).withdrawFunds(id, zeroAddress),
+        'InvalidRecipient()',
+      )
+    })
+
+    describe('after the registration is cancelled', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).cancelUpkeep(id)
+      })
+
+      it('moves the funds out and updates the balance and emits an event', async () => {
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        const registryBefore = await linkToken.balanceOf(registry.address)
+
+        let registration = await registry.getUpkeep(id)
+        let previousBalance = registration.balance
+
+        const tx = await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+        await expect(tx)
+          .to.emit(registry, 'FundsWithdrawn')
+          .withArgs(id, previousBalance, await payee1.getAddress())
+
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        const registryAfter = await linkToken.balanceOf(registry.address)
+
+        assert.isTrue(payee1Before.add(previousBalance).eq(payee1After))
+        assert.isTrue(registryBefore.sub(previousBalance).eq(registryAfter))
+
+        registration = await registry.getUpkeep(id)
+        assert.equal(0, registration.balance.toNumber())
+      })
+    })*/
+  })
 
   describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
     it('calculates the minimum balance appropriately', async () => {
@@ -2674,72 +2783,6 @@ describe('KeeperRegistry2_0', () => {
         registration = await registry.getUpkeep(upkeepID)
         const newExpiration = registration.maxValidBlocknumber
         assert.isTrue(newExpiration.lt(oldExpiration))
-      })
-    })
-  })
-  */
-
-  /*
-  requires performUpkeep
-  describe('#withdrawFunds', () => {
-    beforeEach(async () => {
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await registry.connect(keeper1).addFunds(id, toWei('100'))
-      await registry.connect(keeper1).performUpkeep(id, '0x')
-    })
-
-    it('reverts if called by anyone but the admin', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .withdrawFunds(id.add(1), await payee1.getAddress()),
-        'OnlyCallableByAdmin()',
-      )
-    })
-
-    it('reverts if called on an uncanceled upkeep', async () => {
-      await evmRevert(
-        registry.connect(admin).withdrawFunds(id, await payee1.getAddress()),
-        'UpkeepNotCanceled()',
-      )
-    })
-
-    it('reverts if called with the 0 address', async () => {
-      await evmRevert(
-        registry.connect(admin).withdrawFunds(id, zeroAddress),
-        'InvalidRecipient()',
-      )
-    })
-
-    describe('after the registration is cancelled', () => {
-      beforeEach(async () => {
-        await registry.connect(owner).cancelUpkeep(id)
-      })
-
-      it('moves the funds out and updates the balance and emits an event', async () => {
-        const payee1Before = await linkToken.balanceOf(
-          await payee1.getAddress(),
-        )
-        const registryBefore = await linkToken.balanceOf(registry.address)
-
-        let registration = await registry.getUpkeep(id)
-        let previousBalance = registration.balance
-
-        const tx = await registry
-          .connect(admin)
-          .withdrawFunds(id, await payee1.getAddress())
-        await expect(tx)
-          .to.emit(registry, 'FundsWithdrawn')
-          .withArgs(id, previousBalance, await payee1.getAddress())
-
-        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
-        const registryAfter = await linkToken.balanceOf(registry.address)
-
-        assert.isTrue(payee1Before.add(previousBalance).eq(payee1After))
-        assert.isTrue(registryBefore.sub(previousBalance).eq(registryAfter))
-
-        registration = await registry.getUpkeep(id)
-        assert.equal(0, registration.balance.toNumber())
       })
     })
   })
