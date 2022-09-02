@@ -67,7 +67,7 @@ func (orm ksORM) getEncryptedKeyRing() (kr encryptedKeyRing, err error) {
 func (orm ksORM) loadKeyStates() (*keyStates, error) {
 	ks := newKeyStates()
 	var ethkeystates []*ethkey.State
-	if err := orm.q.Select(&ethkeystates, `SELECT id, address, evm_chain_id, disabled, created_at, updated_at FROM evm_key_states`); err != nil {
+	if err := orm.q.Select(&ethkeystates, `SELECT id, address, evm_chain_id, next_nonce, disabled, created_at, updated_at FROM evm_key_states`); err != nil {
 		return ks, errors.Wrap(err, "error loading evm_key_states from DB")
 	}
 	for _, state := range ethkeystates {
@@ -87,20 +87,10 @@ func (orm ksORM) getNextNonce(address common.Address, chainID *big.Int, qopts ..
 }
 
 // incrementNextNonce increments evm_key_states.next_nonce by 1
-func (orm ksORM) incrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) error {
+func (orm ksORM) incrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) (incrementedNonce int64, err error) {
 	q := orm.q.WithOpts(qopts...)
-	res, err := q.Exec("UPDATE evm_key_states SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = $1 AND next_nonce = $2 AND evm_chain_id = $3 AND disabled = false", address, currentNonce, chainID.String())
-	if err != nil {
-		return errors.Wrap(err, "IncrementNextNonce failed to update keys")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "IncrementNextNonce failed to get rowsAffected")
-	}
-	if rowsAffected == 0 {
-		return errors.Wrapf(sql.ErrNoRows, "key with address %s is not enabled for chain %s", address.Hex(), chainID.String())
-	}
-	return nil
+	err = q.Get(&incrementedNonce, "UPDATE evm_key_states SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = $1 AND next_nonce = $2 AND evm_chain_id = $3 AND disabled = false RETURNING next_nonce", address, currentNonce, chainID.String())
+	return incrementedNonce, errors.Wrap(err, "IncrementNextNonce failed to update keys")
 }
 
 // ~~~~~~~~~~~~~~~~~~~~ LEGACY FUNCTIONS FOR V1 MIGRATION ~~~~~~~~~~~~~~~~~~~~
