@@ -39,7 +39,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
 //const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-//const CHECK_GAS_OVERHEAD = BigNumber.from(362287)
+const CHECK_GAS_OVERHEAD = BigNumber.from(400000)
 
 const registryGasOverhead = BigNumber.from(80000)
 const verifySigOverhead = BigNumber.from(20000)
@@ -252,7 +252,7 @@ describe('KeeperRegistry2_0', () => {
     await linkToken
       .connect(owner)
       .transfer(await admin.getAddress(), toWei('1000'))
-    await linkToken.connect(admin).approve(registry.address, toWei('100'))
+    await linkToken.connect(admin).approve(registry.address, toWei('1000'))
 
     const tx = await registry
       .connect(owner)
@@ -328,101 +328,105 @@ describe('KeeperRegistry2_0', () => {
       assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
-    /*
-    it('returns false and error code if the upkeep is not needed', async () => {
-      await mock.setCanCheck(false)
-      let checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
 
-      assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 4)
-      assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
-    })
-
-    it('returns false and error code if the performData exceeds limit', async () => {
-      await mock.setCanCheck(true)
-      let longBytes = '0x'
-      for (let i = 0; i < 10000; i++) {
-        longBytes += '1'
-      }
-      await mock.setPerformData(longBytes)
-      let checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
-
-      assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 5)
-      assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
-    })
-
-    it('returns false and error code if it has insufficient funds', async () => {
-      await mock.setCanCheck(true)
-      let checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
-
-      assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
-      assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
-    })*/
-
-    /*
     context('when the registration is funded', () => {
       beforeEach(async () => {
-        await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-        await registry.connect(keeper1).addFunds(upkeepId, toWei('100'))
+        await linkToken.connect(admin).approve(registry.address, toWei('100'))
+        await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       })
 
+      it('returns false and error code if the target check reverts', async () => {
+        await mock.setShouldRevertCheck(true)
+        let checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic.checkUpkeep(upkeepId)
 
-
-
-
-      context('and upkeep is not needed', () => {
-        beforeEach(async () => {
-          await mock.setCanCheck(false)
-        })
-
-        it('reverts', async () => {
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(upkeepId),
-            'UpkeepNotNeeded()',
-          )
-        })
+        assert.equal(checkUpkeepResult.upkeepNeeded, false)
+        assert.equal(checkUpkeepResult.performData, '0x')
+        assert.equal(checkUpkeepResult.upkeepFailureReason, 3)
+        assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
-      context('and the upkeep check fails', () => {
-        beforeEach(async () => {
-          const reverter = await upkeepReverterFactory.deploy()
-          const tx = await registry
-            .connect(owner)
-            .registerUpkeep(
-              reverter.address,
-              2500000,
-              await admin.getAddress(),
-              emptyBytes,
-            )
-          id = await getUpkeepID(tx)
-          await linkToken
-            .connect(keeper1)
-            .approve(registry.address, toWei('100'))
-          await registry.connect(keeper1).addFunds(id, toWei('100'))
-        })
+      it('returns false and error code if the upkeep is not needed', async () => {
+        await mock.setCanCheck(false)
+        let checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic.checkUpkeep(upkeepId)
 
-        it('reverts', async () => {
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(upkeepId),
-            'TargetCheckReverted',
-          )
-        })
+        assert.equal(checkUpkeepResult.upkeepNeeded, false)
+        assert.equal(checkUpkeepResult.performData, '0x')
+        assert.equal(checkUpkeepResult.upkeepFailureReason, 4)
+        assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
+
+      it('returns false and error code if the performData exceeds limit', async () => {
+        let longBytes = '0x'
+        for (let i = 0; i < 5000; i++) {
+          longBytes += '1'
+        }
+        await mock.setCanCheck(true)
+        await mock.setPerformData(longBytes)
+
+        let checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic.checkUpkeep(upkeepId)
+
+        assert.equal(checkUpkeepResult.upkeepNeeded, false)
+        assert.equal(checkUpkeepResult.performData, '0x')
+        assert.equal(checkUpkeepResult.upkeepFailureReason, 5)
+        assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+      })
+
+      it('returns true with wrapped perform data and gas used if the target can execute', async () => {
+        await mock.setCanCheck(true)
+        await mock.setPerformData(randomBytes)
+
+        const latestBlock = await ethers.provider.getBlock('latest')
+
+        let checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic.checkUpkeep(upkeepId, {
+            blockTag: latestBlock.number,
+          })
+
+        let wrappedPerfromData = ethers.utils.defaultAbiCoder.decode(
+          [
+            'tuple(uint32 checkBlockNum, bytes32 checkBlockHash, bytes performData)',
+          ],
+          checkUpkeepResult.performData,
+        )
+
+        assert.equal(checkUpkeepResult.upkeepNeeded, true)
+        assert.equal(wrappedPerfromData[0].checkBlockNum, latestBlock.number)
+        assert.equal(wrappedPerfromData[0].performData, randomBytes)
+        assert.equal(checkUpkeepResult.upkeepFailureReason, 0)
+        assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+      })
+
+      it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
+        await mock.setCanCheck(true)
+        await mock.setCheckGasToBurn(checkGasLimit)
+        const gas = checkGasLimit.add(CHECK_GAS_OVERHEAD)
+        let checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic.checkUpkeep(upkeepId, {
+            gasLimit: gas,
+          })
+
+        assert.equal(checkUpkeepResult.upkeepNeeded, true)
+      })
+    })
+    /*
+
+
+   
+
+
+
+    /*
+   
+
+
 
       context('and upkeep check simulations succeeds', () => {
         beforeEach(async () => {
