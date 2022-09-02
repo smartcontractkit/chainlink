@@ -774,7 +774,7 @@ func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger
 
 	// If there is only a single DB user, select it within the context of CLI
 	if len(users) == 1 {
-		lggr.Infof("Defaulted to assume single DB API User", "email", users[0].Email)
+		lggr.Infow("Defaulted to assume single DB API User", "email", users[0].Email)
 		return users[0], true
 	}
 
@@ -794,7 +794,7 @@ func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger
 		}
 	}
 	if populatedUser {
-		lggr.Infof("Defaulted to assume single DB admin API User", "email", singleAdmin)
+		lggr.Infow("Defaulted to assume single DB admin API User", "email", singleAdmin)
 		return singleAdmin, true
 	}
 

@@ -899,3 +899,33 @@ func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 	}
 	return nil
 }
+
+func (c *Chainlink) CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, error) {
+	nkb := make([]NodeKeysBundle, 0)
+	for _, n := range nodes {
+		p2pkeys, err := n.MustReadP2PKeys()
+		if err != nil {
+			return nil, err
+		}
+
+		peerID := p2pkeys.Data[0].Attributes.PeerID
+		txKey, _, err := n.CreateTxKey(chainId)
+		if err != nil {
+			return nil, err
+		}
+
+		ocrKey, _, err := n.CreateOCR2Key(chainName)
+		if err != nil {
+			return nil, err
+		}
+		nkb = append(nkb, NodeKeysBundle{
+			PeerID:  peerID,
+			OCR2Key: *ocrKey,
+			TXKey:   *txKey,
+			P2PKeys: *p2pkeys,
+		})
+
+	}
+
+	return nkb, nil
+}
