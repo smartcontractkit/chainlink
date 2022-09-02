@@ -317,19 +317,18 @@ describe('KeeperRegistry2_0', () => {
       assert.equal(checkUpkeepResult.upkeepFailureReason, 2)
       assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
-    /*
-    it('returns false and error code if the users checkUpkeep reverts', async () => {
-      await mock.setShouldRevertCheck(true)
+
+    it('returns false and error code if user is out of funds', async () => {
       let checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic.checkUpkeep(upkeepId)
 
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(checkUpkeepResult.performData, '0x')
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 3)
-      assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
+      assert.equal(checkUpkeepResult.gasUsed.toString(), '0')
     })
-
+    /*
     it('returns false and error code if the upkeep is not needed', async () => {
       await mock.setCanCheck(false)
       let checkUpkeepResult = await registry
