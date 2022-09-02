@@ -221,7 +221,7 @@ func (t *OCRSoakTest) processNewEvent(
 				log.Info().
 					Str("Contract", event.Address.Hex()).
 					Str("Event Name", eventDetails.Name).
-					Uint64("Block Number", event.BlockNumber).
+					Uint64("Header Number", event.BlockNumber).
 					Msg("Contract Event Published")
 			}
 			return

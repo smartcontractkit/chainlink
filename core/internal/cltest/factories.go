@@ -447,11 +447,11 @@ func MustInsertRandomKey(
 			}
 		}
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
+		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
+		require.NoError(t, err)
 		if !enabled {
 			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
 		}
-		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
-		require.NoError(t, err)
 	}
 
 	return key, key.Address
