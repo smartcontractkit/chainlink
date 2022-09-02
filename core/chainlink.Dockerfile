@@ -11,20 +11,15 @@ ARG COMMIT_SHA
 # Install yarn dependencies
 COPY yarn.lock package.json .yarnrc ./
 COPY .yarn .yarn
-COPY operator_ui/package.json ./operator_ui/
 COPY contracts/package.json ./contracts/
 RUN make yarndep
 
 COPY contracts ./contracts
 COPY tsconfig.cjs.json ./
 COPY core/web/schema core/web/schema
-COPY operator_ui ./operator_ui
 
 # Create the directory that the operator-ui build assets will be placed in.
 RUN mkdir -p core/web
-
-# Build operator-ui 
-RUN make operator-ui
 
 # Build image: Chainlink binary
 FROM golang:1.19-buster as buildgo
@@ -40,8 +35,6 @@ RUN go mod download
 ARG COMMIT_SHA
 
 COPY core core
-# Copy over operator-ui build assets to the web module so that we embed them correctly
-COPY --from=buildui /chainlink/core/web/assets ./core/web/assets
 
 # Build the golang binary
 RUN make chainlink-build
