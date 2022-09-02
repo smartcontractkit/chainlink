@@ -433,13 +433,18 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 	db := app.GetSqlxDB()
 	client, _ := app.NewClientAndRenderer()
 
-	fs := testutils.NewTestFlagSet()
-	fs.String("evmChainID", "", "")
-	fs.String("address", "", "")
-	fs.Uint64("setNextNonce", uint64(0), "")
-	fs.Bool("setEnabled", false, "")
+	newFlagSet := func() *flag.FlagSet {
+		fs := testutils.NewTestFlagSet()
+		fs.String("evmChainID", "", "")
+		fs.String("address", "", "")
+		fs.Uint64("setNextNonce", uint64(0), "")
+		fs.Bool("enable", false, "")
+		fs.Bool("disable", false, "")
+		return fs
+	}
 
 	t.Run("resets a key nonce", func(t *testing.T) {
+		fs := newFlagSet()
 		fs.Set("evmChainID", "0")
 		fs.Set("setNextNonce", "42")
 		fs.Set("address", app.Key.Address.Hex())
@@ -451,28 +456,41 @@ func TestClient_UpdateChainEVMKey(t *testing.T) {
 		require.Equal(t, int64(42), nonce)
 	})
 
-	fs.Set("setNextNonce", "")
-
 	t.Run("disables and enables a key", func(t *testing.T) {
+		fs := newFlagSet()
 		fs.Set("evmChainID", "0")
-		fs.Set("setEnabled", "false")
+		fs.Set("disable", "true")
+		fs.Set("enable", "true")
 		fs.Set("address", app.Key.Address.Hex())
 		c := cli.NewContext(nil, fs, nil)
 
-		assert.NoError(t, client.UpdateChainEVMKey(c))
+		err := client.UpdateChainEVMKey(c)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot set both --enable and --disable simultaneously")
 
-		var disabled bool
-		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states`))
-		require.True(t, disabled)
-
+		fs = newFlagSet()
 		fs.Set("evmChainID", "0")
-		fs.Set("setEnabled", "true")
+		fs.Set("disable", "true")
 		fs.Set("address", app.Key.Address.Hex())
 		c = cli.NewContext(nil, fs, nil)
 
 		assert.NoError(t, client.UpdateChainEVMKey(c))
 
-		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states`))
-		require.False(t, disabled)
+		testutils.AssertCount(t, db, "evm_key_states", 1)
+		var disabled bool
+		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Key.Address))
+		require.True(t, disabled)
+
+		fs = newFlagSet()
+		fs.Set("evmChainID", "0")
+		fs.Set("enable", "true")
+		fs.Set("address", app.Key.Address.Hex())
+		c = cli.NewContext(nil, fs, nil)
+
+		assert.NoError(t, client.UpdateChainEVMKey(c))
+
+		testutils.AssertCount(t, db, "evm_key_states", 1)
+		require.NoError(t, db.Get(&disabled, `SELECT disabled FROM evm_key_states WHERE address = $1`, app.Key.Address))
+		assert.False(t, disabled)
 	})
 }

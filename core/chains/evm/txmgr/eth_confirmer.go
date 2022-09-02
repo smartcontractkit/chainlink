@@ -584,7 +584,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		// Counters are prune to being in-accurate due to re-orgs.
 		if ec.config.EvmUseForwarders() {
 			meta, err := attempt.EthTx.GetMeta()
-			if err != nil {
+			if err != nil || meta == nil {
 				continue
 			}
 			if meta.FwdrDestAddress != nil {

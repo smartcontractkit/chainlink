@@ -28,12 +28,80 @@ import (
 var _ = Describe("VRFv2 suite @v2vrf", func() {
 	var (
 		testScenarios = []TableEntry{
-			Entry("VRFv2 suite on Simulated Network @simulated", networks.SimulatedEVM, big.NewFloat(5)),
-			Entry("VRFv2 suite on General EVM @general", networks.GeneralEVM(), big.NewFloat(.05)),
-			Entry("VRFv2 suite on Metis Stardust @metis", networks.MetisStardust, big.NewFloat(.005)),
-			Entry("VRFv2 suite on Sepolia Testnet @sepolia", networks.SepoliaTestnet, big.NewFloat(.05)),
-			Entry("VRFv2 suite on on Görli Testnet @goerli", networks.GoerliTestnet, big.NewFloat(.05)),
-			Entry("VRFv2 suite on Klaytn Baobab @klaytn", networks.KlaytnBaobab, big.NewFloat(.5)),
+			Entry("VRFv2 suite on Simulated Network @simulated",
+				networks.SimulatedEVM,
+				big.NewFloat(5),
+				environment.New(&environment.Config{}).
+					AddHelm(ethdeploy.New(nil)).
+					AddHelm(chainlink.New(0, map[string]interface{}{
+						"env": networks.SimulatedEVM.ChainlinkValuesMap(),
+					})),
+			),
+			Entry("VRFv2 suite on General EVM @general",
+				networks.GeneralEVM(),
+				big.NewFloat(.05),
+				environment.New(&environment.Config{}).
+					AddHelm(ethdeploy.New(&ethdeploy.Props{
+						NetworkName: networks.GeneralEVM().Name,
+						Simulated:   networks.GeneralEVM().Simulated,
+						WsURLs:      networks.GeneralEVM().URLs,
+					})).
+					AddHelm(chainlink.New(0, map[string]interface{}{
+						"env": networks.GeneralEVM().ChainlinkValuesMap(),
+					})),
+			),
+			Entry("VRFv2 suite on Metis Stardust @metis",
+				networks.MetisStardust,
+				big.NewFloat(.005),
+				environment.New(&environment.Config{}).
+					AddHelm(ethdeploy.New(&ethdeploy.Props{
+						NetworkName: networks.MetisStardust.Name,
+						Simulated:   networks.MetisStardust.Simulated,
+						WsURLs:      networks.MetisStardust.URLs,
+					})).
+					AddHelm(chainlink.New(0, map[string]interface{}{
+						"env": networks.MetisStardust.ChainlinkValuesMap(),
+					})),
+			),
+			Entry("VRFv2 suite on Sepolia Testnet @sepolia",
+				networks.SepoliaTestnet,
+				big.NewFloat(.05),
+				environment.New(&environment.Config{}).
+					AddHelm(ethdeploy.New(&ethdeploy.Props{
+						NetworkName: networks.SepoliaTestnet.Name,
+						Simulated:   networks.SepoliaTestnet.Simulated,
+						WsURLs:      networks.SepoliaTestnet.URLs,
+					})).
+					AddHelm(chainlink.New(0, map[string]interface{}{
+						"env": networks.SepoliaTestnet.ChainlinkValuesMap(),
+					})),
+			),
+			Entry("VRFv2 suite on on Görli Testnet @goerli",
+				networks.GoerliTestnet,
+				big.NewFloat(.05),
+				environment.New(&environment.Config{}).
+					AddHelm(ethdeploy.New(&ethdeploy.Props{
+						NetworkName: networks.GoerliTestnet.Name,
+						Simulated:   networks.GoerliTestnet.Simulated,
+						WsURLs:      networks.GoerliTestnet.URLs,
+					})).
+					AddHelm(chainlink.New(0, map[string]interface{}{
+						"env": networks.GoerliTestnet.ChainlinkValuesMap(),
+					})),
+			),
+			Entry("VRFv2 suite on Klaytn Baobab @klaytn",
+				networks.KlaytnBaobab,
+				big.NewFloat(.5),
+				environment.New(&environment.Config{}).
+					AddHelm(ethdeploy.New(&ethdeploy.Props{
+						NetworkName: networks.KlaytnBaobab.Name,
+						Simulated:   networks.KlaytnBaobab.Simulated,
+						WsURLs:      networks.KlaytnBaobab.URLs,
+					})).
+					AddHelm(chainlink.New(0, map[string]interface{}{
+						"env": networks.KlaytnBaobab.ChainlinkValuesMap(),
+					})),
+			),
 		}
 
 		testEnvironment *environment.Environment
@@ -53,23 +121,11 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 	DescribeTable("VRFv2 suite on different EVM networks", func(
 		testNetwork *blockchain.EVMNetwork,
 		funding *big.Float,
+		env *environment.Environment,
 	) {
-		evmChart := ethdeploy.New(nil)
-		if !testNetwork.Simulated {
-			evmChart = ethdeploy.New(&ethdeploy.Props{
-				NetworkName: testNetwork.Name,
-				Simulated:   testNetwork.Simulated,
-				WsURLs:      testNetwork.URLs,
-			})
-		}
 		By("Deploying the environment")
-		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		}).
-			AddHelm(evmChart).
-			AddHelm(chainlink.New(0, map[string]interface{}{
-				"env": testNetwork.ChainlinkValuesMap(),
-			}))
+		testEnvironment = env
+		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-vrfv2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
 		err := testEnvironment.Run()
 		Expect(err).ShouldNot(HaveOccurred())
 
