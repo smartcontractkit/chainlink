@@ -199,7 +199,7 @@ func Test_Eth_Errors(t *testing.T) {
 		assert.False(t, err.IsTxFeeExceedsCap())
 	})
 
-	t.Run("Optimism Fees errors", func(t *testing.T) {
+	t.Run("L2 Fees errors", func(t *testing.T) {
 		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
 		assert.True(t, err.IsL2FeeTooHigh())
 		assert.False(t, err.L2FeeTooLow())
@@ -213,6 +213,11 @@ func Test_Eth_Errors(t *testing.T) {
 		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
+
+		err = evmclient.NewSendErrorS("queue full")
+		assert.True(t, err.IsL2Full())
+		err = evmclient.NewSendErrorS("sequencer pending tx pool full, please try again")
+		assert.True(t, err.IsL2Full())
 
 		assert.False(t, randomError.IsL2FeeTooHigh())
 		assert.False(t, randomError.L2FeeTooLow())

@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits. This is the new default for all Arbitrum networks.
+- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well 
+as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).  
 - `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
 
 ## 1.8.0 - 2022-09-01

@@ -48,13 +48,14 @@ const (
 	TerminallyUnderpriced
 	InsufficientEth
 	TxFeeExceedsCap
-	// Note: L2FeeTooLow/L2FeeTooHigh have a very specific meaning specific
+	// Note: L2FeeTooLow/L2FeeTooHigh/L2Full have a very specific meaning specific
 	// to L2s (Arbitrum, Optimism and clones). Do not implement this for non-L2
 	// chains. This is potentially confusing because some RPC nodes e.g.
 	// Nethermind implement an error called `FeeTooLow` which has distinct
 	// meaning from this one.
 	L2FeeTooLow
 	L2FeeTooHigh
+	L2Full
 	TransactionAlreadyMined
 	Fatal
 )
@@ -130,6 +131,7 @@ var arbitrum = ClientErrors{
 	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
+	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 }
 
 var optimism = ClientErrors{
@@ -247,6 +249,11 @@ func (s *SendError) L2FeeTooLow() bool {
 // IsL2FeeTooHigh is an l2-specific error returned when total fee is too high
 func (s *SendError) IsL2FeeTooHigh() bool {
 	return s.is(L2FeeTooHigh)
+}
+
+// IsL2Full is an l2-specific error returned when the queue or mempool is full.
+func (s *SendError) IsL2Full() bool {
+	return s.is(L2Full)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline

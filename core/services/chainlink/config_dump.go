@@ -363,9 +363,7 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].GasEstimator.LimitDefault = e
 		}
 	}
-	fmt.Println("EvmGasLimitMax", os.Getenv("ETH_GAS_LIMIT_MAX"))
 	if e := envvar.NewUint32("EvmGasLimitMax").ParsePtr(); e != nil {
-		fmt.Println("EvmGasLimitMax", e)
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
 				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
