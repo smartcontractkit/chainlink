@@ -55,7 +55,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 	)
 	switch s {
 	case "Arbitrum":
-		return NewArbitrumEstimator(lggr, ethClient, ethClient)
+		return NewArbitrumEstimator(lggr, cfg, ethClient, ethClient)
 	case "BlockHistory":
 		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
 	case "FixedPrice":
@@ -123,6 +123,7 @@ type Config interface {
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpWei() *big.Int
 	EvmGasFeeCapDefault() *big.Int
+	EvmGasLimitMax() uint32
 	EvmGasLimitMultiplier() float32
 	EvmGasPriceDefault() *big.Int
 	EvmGasTipCapDefault() *big.Int

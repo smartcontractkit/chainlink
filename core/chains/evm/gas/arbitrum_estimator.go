@@ -2,6 +2,7 @@ package gas
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -17,6 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type ArbConfig interface {
+	EvmGasLimitMax() uint32
+}
+
 type ethClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 }
@@ -24,6 +29,8 @@ type ethClient interface {
 // arbitrumEstimator is an Estimator which extends l2SuggestedPriceEstimator to use getPricesInArbGas() for gas limit estimation.
 type arbitrumEstimator struct {
 	utils.StartStopOnce
+
+	cfg ArbConfig
 
 	Estimator // *l2SuggestedPriceEstimator
 
@@ -41,9 +48,10 @@ type arbitrumEstimator struct {
 	chDone         chan struct{}
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, rpcClient rpcClient, ethClient ethClient) Estimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) Estimator {
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
+		cfg:            cfg,
 		Estimator:      NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
@@ -107,7 +115,10 @@ func (a *arbitrumEstimator) GetLegacyGas(calldata []byte, l2GasLimit uint32, max
 	} else if err != nil {
 		return
 	}
-	//TODO enforce a maximum? (limit, or overall fee? txm could limit overall fee instead....)
+	if max := a.cfg.EvmGasLimitMax(); chainSpecificGasLimit > max {
+		err = fmt.Errorf("estimated gas limit: %d is greater than the maximum gas limit configured: %d", chainSpecificGasLimit, max)
+		return
+	}
 	return
 }
 

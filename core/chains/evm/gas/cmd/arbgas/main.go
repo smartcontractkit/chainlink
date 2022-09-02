@@ -29,6 +29,7 @@ func main() {
 	run(context.Background(), lggr, url, func(e gas.Estimator) {
 		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.GWei(1))
 		printGetLegacyGas(e, make([]byte, 10), 500_000, assets.GWei(1), gas.OptForceRefetch)
+		printGetLegacyGas(e, make([]byte, 10), 5_000_000, assets.GWei(1))
 	})
 }
 
@@ -48,7 +49,7 @@ func run(ctx context.Context, lggr logger.Logger, url string, f func(e gas.Estim
 		log.Fatal(err)
 	}
 	ec := ethclient.NewClient(rc)
-	e := gas.NewArbitrumEstimator(lggr, rc, ec)
+	e := gas.NewArbitrumEstimator(lggr, &config{max: 50_000_000}, rc, ec)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	err = e.Start(ctx)
@@ -59,3 +60,13 @@ func run(ctx context.Context, lggr logger.Logger, url string, f func(e gas.Estim
 
 	f(e)
 }
+
+type config struct {
+	max uint32
+}
+
+func (c *config) EvmGasLimitMax() uint32 {
+	return c.max
+}
+
+var _ gas.ArbConfig = &config{}

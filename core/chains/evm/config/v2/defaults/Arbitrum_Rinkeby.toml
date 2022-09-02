@@ -5,6 +5,9 @@ OCR.ContractConfirmations = 1
 
 [GasEstimator]
 Mode = 'Arbitrum'
+LimitDefault = 10_000_000
+LimitMax = 500_000_000
+LimitTransfer = 80_000
 # Arbitrum uses the suggested gas price, so we don't want to place any limits on the minimum
 PriceMin = '0'
 # Disable gas bumping on arbitrum

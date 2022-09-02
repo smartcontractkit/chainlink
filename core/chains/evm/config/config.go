@@ -47,6 +47,7 @@ type ChainScopedOnlyConfig interface {
 	EvmGasBumpWei() *big.Int
 	EvmGasFeeCapDefault() *big.Int
 	EvmGasLimitDefault() uint32
+	EvmGasLimitMax() uint32
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint32
 	EvmGasLimitOCRJobType() *uint32
@@ -961,6 +962,22 @@ func (c *chainScopedConfig) EvmUseForwarders() bool {
 		return p.Bool
 	}
 	return c.defaultSet.useForwarders
+}
+
+func (c *chainScopedConfig) EvmGasLimitMax() uint32 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitMax()
+	if ok {
+		c.logEnvOverrideOnce("EvmGasLimitMax", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasLimitMax
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasLimitMax", p.Int64)
+		return uint32(p.Int64)
+	}
+	return c.defaultSet.gasLimitMax
 }
 
 // EvmGasLimitMultiplier is a factor by which a transaction's GasLimit is

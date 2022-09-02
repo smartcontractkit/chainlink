@@ -44,6 +44,7 @@ type (
 		gasEstimatorMode                               string
 		gasFeeCapDefault                               big.Int
 		gasLimitDefault                                uint32
+		gasLimitMax                                    uint32
 		gasLimitMultiplier                             float32
 		gasLimitTransfer                               uint32
 		gasLimitOCRJobType                             *uint32
@@ -128,6 +129,7 @@ func setChainSpecificConfigDefaultSets() {
 		gasFeeCapDefault:                      *DefaultGasFeeCap,
 		gasLimitDefault:                       DefaultGasLimit,
 		gasLimitMultiplier:                    1.0,
+		gasLimitMax:                           DefaultGasLimit * 100,
 		gasLimitTransfer:                      21000,
 		gasPriceDefault:                       *DefaultGasPrice,
 		gasTipCapDefault:                      *DefaultGasTip,
@@ -287,6 +289,9 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.chainType = config.ChainArbitrum
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasEstimatorMode = "Arbitrum"
+	arbitrumMainnet.gasLimitDefault = 10_000_000
+	arbitrumMainnet.gasLimitMax = 500_000_000
+	arbitrumMainnet.gasLimitTransfer = 80_000
 	arbitrumMainnet.minGasPriceWei = *big.NewInt(0)           // Arbitrum uses the suggested gas price so we don't want to place any limits on the minimum
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"

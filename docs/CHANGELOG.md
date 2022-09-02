@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits. This is the new default for all Arbitrum networks.
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+
 ## 1.8.0 - 2022-09-01
 
 ### Added
