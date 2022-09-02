@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
@@ -149,7 +149,7 @@ type EthereumKeeperRegistry struct {
 	client      blockchain.EVMClient
 	version     ethereum.KeeperRegistryVersion
 	registry1_1 *ethereum.KeeperRegistry11
-	registry1_2 *ethereum.KeeperRegistry
+	registry1_2 *ethereum.KeeperRegistry12
 	address     *common.Address
 }
 
@@ -591,8 +591,8 @@ func NewKeeperConsumerRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest Keeper round and check to see whether the round has confirmed
-func (o *KeeperConsumerRoundConfirmer) ReceiveBlock(_ blockchain.NodeBlock) error {
+// ReceiveHeader will query the latest Keeper round and check to see whether the round has confirmed
+func (o *KeeperConsumerRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 	upkeeps, err := o.instance.Counter(context.Background())
 	if err != nil {
 		return err
@@ -670,12 +670,12 @@ func NewKeeperConsumerPerformanceRoundConfirmer(
 	}
 }
 
-// ReceiveBlock will query the latest Keeper round and check to see whether the round has confirmed
-func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveBlock(receivedBlock blockchain.NodeBlock) error {
-	if receivedBlock.NumberU64() <= o.lastBlockNum { // Uncle / reorg we won't count
+// ReceiveHeader will query the latest Keeper round and check to see whether the round has confirmed
+func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader blockchain.NodeHeader) error {
+	if receivedHeader.Number.Uint64() <= o.lastBlockNum { // Uncle / reorg we won't count
 		return nil
 	}
-	o.lastBlockNum = receivedBlock.NumberU64()
+	o.lastBlockNum = receivedHeader.Number.Uint64()
 	// Increment block counters
 	o.blocksSinceSubscription++
 	o.blocksSinceSuccessfulUpkeep++

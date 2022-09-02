@@ -202,7 +202,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		}
 	}
 
-	id, err := fsvc.CreateChainConfig(params)
+	id, err := fsvc.CreateChainConfig(ctx, params)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewCreateFeedsManagerChainConfigPayload(nil, err, nil), nil
@@ -246,7 +246,7 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
-	if _, err := fsvc.DeleteChainConfig(id); err != nil {
+	if _, err := fsvc.DeleteChainConfig(ctx, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteFeedsManagerChainConfigPayload(nil, err), nil
 		}
@@ -317,7 +317,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		}
 	}
 
-	id, err = fsvc.UpdateChainConfig(params)
+	id, err = fsvc.UpdateChainConfig(ctx, params)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateFeedsManagerChainConfigPayload(nil, err, nil), nil
@@ -366,7 +366,7 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 
 	feedsService := r.App.GetFeedsService()
 
-	id, err := feedsService.RegisterManager(params)
+	id, err := feedsService.RegisterManager(ctx, params)
 	if err != nil {
 		if errors.Is(err, feeds.ErrSingleFeedsManager) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil

@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
 - Keypath now supports paths with any depth, instead of limiting it to 2
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
-- Updated `Arbitrum Rinkeby & Mainnet` configurations for Nitro
+- Updated `Arbitrum Rinkeby & Mainnet & Mainnet` configurationss for Nitro
 - Add `Arbitrum Goerli` configuration
 - It is now possible to use the same key across multiple chains.
 - `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
