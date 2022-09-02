@@ -95,6 +95,16 @@ const encodeReport = (upkeeps: any) => {
   )
 }
 
+const encodeLatestBlockReport = async (upkeeps: any) => {
+  let latestBlock = await ethers.provider.getBlock('latest')
+  for (let i = 0; i < upkeeps.length; i++) {
+    upkeeps[i].checkBlockNum = latestBlock.number + 1
+    upkeeps[i].checkBlockHash = latestBlock.hash
+    upkeeps[i].performData = '0x'
+  }
+  return encodeReport(upkeeps)
+}
+
 before(async () => {
   personas = (await getUsers()).personas
 
@@ -153,7 +163,7 @@ describe('KeeperRegistry2_0', () => {
   let keeper2: Signer
   let keeper3: Signer
   let keeper4: Signer
-  //let nonkeeper: Signer
+  let nonkeeper: Signer
   let admin: Signer
   let payee1: Signer
   let payee2: Signer
@@ -183,7 +193,7 @@ describe('KeeperRegistry2_0', () => {
     keeper2 = personas.Eddy
     keeper3 = personas.Nancy
     keeper4 = personas.Norbert
-    //nonkeeper = personas.Ned
+    nonkeeper = personas.Ned
     admin = personas.Neil
     payee1 = personas.Nelly
     payee2 = personas.Norbert
@@ -426,6 +436,149 @@ describe('KeeperRegistry2_0', () => {
     }
   }
 
+  describe('#recoverFunds', () => {
+    const sent = toWei('7')
+
+    beforeEach(async () => {
+      await registry.connect(owner).setPayees(payees)
+      await linkToken.connect(admin).approve(registry.address, toWei('100'))
+      await linkToken
+        .connect(owner)
+        .transfer(await keeper1.getAddress(), toWei('1000'))
+
+      // add funds to upkeep 1 and perform and withdraw some payment
+      const tx = await registry
+        .connect(owner)
+        .registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          true,
+          emptyBytes,
+        )
+
+      const id1 = await getUpkeepID(tx)
+      await registry.connect(admin).addFunds(id1, toWei('5'))
+
+      await registry
+        .connect(keeper1)
+        .transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport([{ Id: id1.toString() }]),
+          [],
+          [],
+          emptyBytes32,
+        )
+      await registry
+        .connect(keeper2)
+        .transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport([{ Id: id1.toString() }]),
+          [],
+          [],
+          emptyBytes32,
+        )
+      await registry
+        .connect(keeper3)
+        .transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport([{ Id: id1.toString() }]),
+          [],
+          [],
+          emptyBytes32,
+        )
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+
+      // transfer funds directly to the registry
+      await linkToken.connect(keeper1).transfer(registry.address, sent)
+
+      // add funds to upkeep 2 and perform and withdraw some payment
+      const tx2 = await registry
+        .connect(owner)
+        .registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          true,
+          emptyBytes,
+        )
+      const id2 = await getUpkeepID(tx2)
+      await registry.connect(admin).addFunds(id2, toWei('5'))
+
+      await registry
+        .connect(keeper1)
+        .transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport([{ Id: id2.toString() }]),
+          [],
+          [],
+          emptyBytes32,
+        ) /*
+      await registry
+      .connect(keeper2)
+      .transmit(
+        [emptyBytes32, emptyBytes32, emptyBytes32],
+        await encodeLatestBlockReport([{  Id: id2.toString()}]),
+        [],
+        [],
+        emptyBytes32,
+      )
+      await registry
+      .connect(keeper3)
+      .transmit(
+        [emptyBytes32, emptyBytes32, emptyBytes32],
+        await encodeLatestBlockReport([{  Id: id2.toString()}]),
+        [],
+        [],
+        emptyBytes32,
+      )*/
+
+      await registry
+        .connect(payee2)
+        .withdrawPayment(
+          await keeper2.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+
+      // transfer funds using onTokenTransfer
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id2])
+      await linkToken
+        .connect(owner)
+        .transferAndCall(registry.address, toWei('1'), data)
+
+      // withdraw some funds
+      await registry.connect(owner).cancelUpkeep(id1)
+      await registry
+        .connect(admin)
+        .withdrawFunds(id1, await nonkeeper.getAddress())
+    })
+
+    it('reverts if not called by owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).recoverFunds(),
+        'Only callable by owner',
+      )
+    })
+
+    it('allows any funds that have been accidentally transfered to be moved', async () => {
+      const balanceBefore = await linkToken.balanceOf(registry.address)
+      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
+
+      await registry.connect(owner).recoverFunds()
+
+      const balanceAfter = await linkToken.balanceOf(registry.address)
+      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
+
+      assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)))
+      assert.isTrue(ownerAfter.eq(ownerBefore.add(sent)))
+    })
+  })
+
   describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
     it('calculates the minimum balance appropriately for skip verification upkeep', async () => {
       await mock.setCanCheck(true)
@@ -485,22 +638,11 @@ describe('KeeperRegistry2_0', () => {
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
 
       // Do a perform so that upkeep is charged some amount
-      const latestBlock = await ethers.provider.getBlock('latest')
-
-      let report = encodeReport([
-        {
-          Id: upkeepId.toString(),
-          checkBlockNum: latestBlock.number,
-          checkBlockHash: latestBlock.parentHash,
-          performData: '0x',
-        },
-      ])
-
       await registry
         .connect(keeper1)
         .transmit(
           [emptyBytes32, emptyBytes32, emptyBytes32],
-          report,
+          await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
           [],
           [],
           emptyBytes32,
@@ -3177,97 +3319,6 @@ describe('KeeperRegistry2_0', () => {
     })
   })
    */
-
-  /*
-  requires performUpkeep
-  describe('#recoverFunds', () => {
-    const sent = toWei('7')
-
-    beforeEach(async () => {
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-
-      // add funds to upkeep 1 and perform and withdraw some payment
-      const tx = await registry
-        .connect(owner)
-        .registerUpkeep(
-          mock.address,
-          executeGas,
-          await admin.getAddress(),
-          emptyBytes,
-        )
-      const id1 = await getUpkeepID(tx)
-      await registry.connect(keeper1).addFunds(id1, toWei('5'))
-      await registry.connect(keeper1).performUpkeep(id1, '0x')
-      await registry.connect(keeper2).performUpkeep(id1, '0x')
-      await registry.connect(keeper3).performUpkeep(id1, '0x')
-      await registry
-        .connect(payee1)
-        .withdrawPayment(
-          await keeper1.getAddress(),
-          await nonkeeper.getAddress(),
-        )
-
-      // transfer funds directly to the registry
-      await linkToken.connect(keeper1).transfer(registry.address, sent)
-
-      // add funds to upkeep 2 and perform and withdraw some payment
-      const tx2 = await registry
-        .connect(owner)
-        .registerUpkeep(
-          mock.address,
-          executeGas,
-          await admin.getAddress(),
-          emptyBytes,
-        )
-      const id2 = await getUpkeepID(tx2)
-      await registry.connect(keeper1).addFunds(id2, toWei('5'))
-      await registry.connect(keeper1).performUpkeep(id2, '0x')
-      await registry.connect(keeper2).performUpkeep(id2, '0x')
-      await registry.connect(keeper3).performUpkeep(id2, '0x')
-      await registry
-        .connect(payee2)
-        .withdrawPayment(
-          await keeper2.getAddress(),
-          await nonkeeper.getAddress(),
-        )
-
-      // transfer funds using onTokenTransfer
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id2])
-      await linkToken
-        .connect(owner)
-        .transferAndCall(registry.address, toWei('1'), data)
-
-      // remove a keeper
-      await registry
-        .connect(owner)
-        .setKeepers(
-          [await keeper1.getAddress(), await keeper2.getAddress()],
-          [await payee1.getAddress(), await payee2.getAddress()],
-        )
-
-      // withdraw some funds
-      await registry.connect(owner).cancelUpkeep(id1)
-      await registry.connect(admin).withdrawFunds(id1, await admin.getAddress())
-    })
-
-    it('reverts if not called by owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).recoverFunds(),
-        'Only callable by owner',
-      )
-    })
-
-    it('allows any funds that have been accidentally transfered to be moved', async () => {
-      const balanceBefore = await linkToken.balanceOf(registry.address)
-
-      await linkToken.balanceOf(registry.address)
-
-      await registry.connect(owner).recoverFunds()
-      const balanceAfter = await linkToken.balanceOf(registry.address)
-      assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)))
-    })
-  })
-  */
 
   /*
   requires performUpkeep
