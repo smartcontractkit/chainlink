@@ -8,6 +8,9 @@ type PluginConfig struct {
 	MaxQueryLength       int `json:"maxQueryLength"`
 	MaxObservationLength int `json:"maxObservationLength"`
 	MaxReportLength      int `json:"maxReportLength"`
+
+	// MinIncomingConfirmations is the minimum number of confirmations required ty sync updates from keeper registry
+	MinIncomingConfirmations uint32 `json:"minIncomingConfirmations"`
 }
 
 // Validate validates that the given OCR2Keeper plugin configuration is correct.

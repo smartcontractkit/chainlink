@@ -423,9 +423,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		}
 
 		minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
-		//if spec.KeeperSpec.MinIncomingConfirmations != nil {
-		//	minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
-		//}
+		if cfg.MinIncomingConfirmations > 0 {
+			minIncomingConfirmations = cfg.MinIncomingConfirmations
+		}
 
 		jobSpec.KeeperSpec = &job.KeeperSpec{
 			ID:              spec.ID,
