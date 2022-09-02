@@ -223,13 +223,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -280,13 +282,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -343,13 +347,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -409,13 +415,15 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}, nil)
 
 		c := &coordinator{
-			coordinatorContract: coordinatorContract,
-			coordinatorAddress:  coordinatorAddress,
-			lp:                  lp,
-			lookbackBlocks:      lookbackBlocks,
-			lggr:                logger.TestLogger(t),
-			topics:              tp,
-			evmClient:           evmClient,
+			coordinatorContract:      coordinatorContract,
+			coordinatorAddress:       coordinatorAddress,
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			topics:                   tp,
+			evmClient:                evmClient,
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
 		}
 
 		blocks, callbacks, err := c.ReportBlocks(
@@ -473,8 +481,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			lggr:                     logger.TestLogger(t),
 			topics:                   tp,
 			evmClient:                evmClient,
-			toBeTransmittedBlocks:    make(map[block]struct{}),
-			toBeTransmittedCallbacks: make(map[callback]struct{}),
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
 		}
 
 		report := ocr2vrftypes.AbstractReport{
@@ -521,11 +529,13 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
 	lookbackBlocks := int64(0)
-	lp := getLogPoller(t, []uint64{}, 200, false)
+	lp := getLogPoller(t, []uint64{}, 200, true)
 	c := &coordinator{
-		lp:             lp,
-		lookbackBlocks: lookbackBlocks,
-		lggr:           logger.TestLogger(t),
+		lp:                       lp,
+		lookbackBlocks:           lookbackBlocks,
+		lggr:                     logger.TestLogger(t),
+		toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+		toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
 	}
 	assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{}))
 }
