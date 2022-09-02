@@ -503,8 +503,12 @@ func NewApp(client *Client) *cli.App {
 									Usage: "manually set the next nonce for the key on the given chain. This should not be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node",
 								},
 								cli.BoolFlag{
-									Name:  "setEnabled",
-									Usage: "enable/disable the key for the given chain",
+									Name:  "enable",
+									Usage: "enable the key for the given chain",
+								},
+								cli.BoolFlag{
+									Name:  "disable",
+									Usage: "disable the key for the given chain",
 								},
 								cli.BoolFlag{
 									Name:  "abandon",
