@@ -291,6 +291,8 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	query.Set("address", addr)
 	cid := c.String("evmChainID")
 	query.Set("evmChainID", cid)
+	abandon := c.String("abandon")
+	query.Set("abandon", abandon)
 
 	if c.IsSet("setNextNonce") {
 		query.Set("nextNonce", c.String("setNextNonce"))

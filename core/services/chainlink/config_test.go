@@ -357,6 +357,11 @@ func TestConfig_Marshal(t *testing.T) {
 		MemThreshold:         ptr[utils.FileSize](utils.GB),
 		GoroutineThreshold:   ptr[int64](999),
 	}
+	full.Pyroscope = &config.Pyroscope{
+		AuthToken:     ptr("pyroscope-token"),
+		ServerAddress: ptr("http://localhost:4040"),
+		Environment:   ptr("tests"),
+	}
 	full.Sentry = &config.Sentry{
 		Debug:       ptr(true),
 		DSN:         ptr("sentry-dsn"),
@@ -707,6 +712,12 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 `},
+		{"Pyroscope", Config{Core: config.Core{Pyroscope: full.Pyroscope}}, `
+[Pyroscope]
+AuthToken = 'pyroscope-token'
+ServerAddress = 'http://localhost:4040'
+Environment = 'tests'
+`},
 		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `
 [Sentry]
 Debug = true
@@ -995,6 +1006,19 @@ func TestNewGeneralConfig_Logger(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
+	invalidTOML := "{ bad syntax {"
+	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	assert.EqualError(t, err, "toml: invalid character at start of key: {")
+}
+
+func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
+	invalidTOML := `Dev = false
+Dev = true`
+	_, err := NewGeneralConfig(invalidTOML, secretsTOML, nil)
+	assert.EqualError(t, err, "toml: key Dev is already defined")
 }
 
 func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {

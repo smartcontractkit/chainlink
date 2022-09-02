@@ -7,11 +7,11 @@ import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
 import {Config, State, Upkeep} from "./interfaces/KeeperRegistryInterface2_0.sol";
-import "../interfaces/UpkeepTranscoderInterfaceDev.sol";
 import "../../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/KeeperCompatibleInterface.sol";
+import "../../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -28,7 +28,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
   uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
-  UpkeepFormatDev internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormatDev.V2;
+  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V2;
 
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes public L1_FEE_DATA_PADDING = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";

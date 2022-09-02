@@ -13,10 +13,11 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
@@ -34,20 +35,14 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 
 	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
-	second, err := utils.NewDuration(time.Second)
-	require.NoError(t, err)
-	minute, err := utils.NewDuration(time.Minute)
-	require.NoError(t, err)
-	hour, err := utils.NewDuration(time.Hour)
-	require.NoError(t, err)
 	body, err := json.Marshal(web.NewCreateChainRequest(
 		newChainId,
 		&db.ChainCfg{
-			BalancePollPeriod:   &second,
-			ConfirmPollPeriod:   &minute,
-			OCR2CachePollPeriod: &minute,
-			OCR2CacheTTL:        &second,
-			TxTimeout:           &hour,
+			BalancePollPeriod:   utils.MustNewDuration(time.Second),
+			ConfirmPollPeriod:   utils.MustNewDuration(time.Minute),
+			OCR2CachePollPeriod: utils.MustNewDuration(time.Minute),
+			OCR2CacheTTL:        utils.MustNewDuration(time.Second),
+			TxTimeout:           utils.MustNewDuration(time.Hour),
 			SkipPreflight:       null.BoolFrom(false),
 			Commitment:          null.StringFrom(string(rpc.CommitmentRecent)),
 		}))
@@ -81,8 +76,6 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 
 	const validId = "Chainlink-12"
 
-	hour, err := utils.NewDuration(time.Hour)
-	require.NoError(t, err)
 	testCases := []struct {
 		name           string
 		inputId        string
@@ -95,7 +88,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				newChainConfig := db.ChainCfg{
 					SkipPreflight: null.BoolFrom(false),
-					TxTimeout:     &hour,
+					TxTimeout:     utils.MustNewDuration(time.Hour),
 				}
 
 				chain := db.Chain{
@@ -152,13 +145,11 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 
 	controller := setupSolanaChainsControllerTest(t)
 
-	hour, err := utils.NewDuration(time.Hour)
-	require.NoError(t, err)
 	newChains := []web.CreateChainRequest[string, *db.ChainCfg]{
 		{
 			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
 			Config: &db.ChainCfg{
-				TxTimeout: &hour,
+				TxTimeout: utils.MustNewDuration(time.Hour),
 			},
 		},
 		{
@@ -224,13 +215,11 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 func Test_SolanaChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	hour, err := utils.NewDuration(time.Hour)
-	require.NoError(t, err)
 	chainUpdate := web.UpdateChainRequest[*db.ChainCfg]{
 		Enabled: true,
 		Config: &db.ChainCfg{
 			SkipPreflight: null.BoolFrom(false),
-			TxTimeout:     &hour,
+			TxTimeout:     utils.MustNewDuration(time.Hour),
 		},
 	}
 
@@ -248,7 +237,7 @@ func Test_SolanaChainsController_Update(t *testing.T) {
 			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				newChainConfig := db.ChainCfg{
 					SkipPreflight: null.BoolFrom(false),
-					TxTimeout:     &hour,
+					TxTimeout:     utils.MustNewDuration(time.Hour),
 				}
 
 				chain := db.Chain{
@@ -311,11 +300,9 @@ func Test_SolanaChainsController_Delete(t *testing.T) {
 
 	controller := setupSolanaChainsControllerTest(t)
 
-	hour, err := utils.NewDuration(time.Hour)
-	require.NoError(t, err)
 	newChainConfig := db.ChainCfg{
 		SkipPreflight: null.BoolFrom(false),
-		TxTimeout:     &hour,
+		TxTimeout:     utils.MustNewDuration(time.Hour),
 	}
 
 	chainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))

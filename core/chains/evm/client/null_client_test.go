@@ -42,19 +42,15 @@ func TestNullClient(t *testing.T) {
 		nc.Close()
 		require.Equal(t, 1, logs.FilterMessage("Close").Len())
 
-		b, err := nc.GetERC20Balance(common.Address{}, common.Address{})
+		b, err := nc.GetERC20Balance(ctx, common.Address{}, common.Address{})
 		require.NoError(t, err)
 		require.Zero(t, b.Int64())
 		require.Equal(t, 1, logs.FilterMessage("GetERC20Balance").Len())
 
-		l, err := nc.GetLINKBalance(common.Address{}, common.Address{})
+		l, err := nc.GetLINKBalance(ctx, common.Address{}, common.Address{})
 		require.NoError(t, err)
 		require.True(t, l.IsZero())
 		require.Equal(t, 1, logs.FilterMessage("GetLINKBalance").Len())
-
-		err = nc.Call(nil, "")
-		require.NoError(t, err)
-		require.Equal(t, 1, logs.FilterMessage("Call").Len())
 
 		err = nc.CallContext(ctx, nil, "")
 		require.NoError(t, err)

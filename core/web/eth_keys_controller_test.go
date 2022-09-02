@@ -41,9 +41,9 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, addr0, mock.Anything).Return(big.NewInt(256), nil).Once()
 	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("BalanceAt", mock.Anything, addr2, mock.Anything).Return(big.NewInt(1), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, addr0).Return(assets.NewLinkFromJuels(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, addr1).Return(assets.NewLinkFromJuels(1), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, addr2).Return(assets.NewLinkFromJuels(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr0).Return(assets.NewLinkFromJuels(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr1).Return(assets.NewLinkFromJuels(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, addr2).Return(assets.NewLinkFromJuels(1), nil).Once()
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -82,7 +82,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	cfg.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
 
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
