@@ -191,6 +191,7 @@ contract KeeperRegistry2_0 is
       }
     }
 
+    // Olny do this for sig verif
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
     emit Transmitted(hotVars.latestConfigDigest, uint32(epochAndRound >> 8));
   }
