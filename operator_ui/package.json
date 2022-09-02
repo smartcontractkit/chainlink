@@ -13,6 +13,7 @@
     "test:ci": "yarn test --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
     "clean": "tsc -b --clean && rimraf -rf artifacts tmp dist",
+    "prebuild": "yarn generate",
     "build": "NODE_ENV=production webpack --config webpack.prod.js",
     "presetup": "yarn generate",
     "setup": "tsc -b",

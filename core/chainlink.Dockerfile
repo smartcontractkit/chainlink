@@ -23,8 +23,8 @@ COPY operator_ui ./operator_ui
 # Create the directory that the operator-ui build assets will be placed in.
 RUN mkdir -p core/web
 
-# Build operator-ui and the smart contracts
-RUN make contracts-operator-ui-build
+# Build operator-ui 
+RUN make operator-ui
 
 # Build image: Chainlink binary
 FROM golang:1.19-buster as buildgo
