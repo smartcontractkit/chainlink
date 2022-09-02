@@ -99,7 +99,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}},
 	}
 
-	cc, err := evm.NewChainSet(opts, chains, nodes)
+	cc, err := evm.NewChainSet(testutils.Context(t), opts, chains, nodes)
 	require.NoError(t, err)
 	return cc
 }

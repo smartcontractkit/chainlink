@@ -89,14 +89,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
 	appLggr, closeLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
@@ -159,7 +159,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		EventBroadcaster: eventBroadcaster,
 	}
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(ccOpts)
+	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}

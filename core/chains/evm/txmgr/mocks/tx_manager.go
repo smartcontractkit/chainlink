@@ -123,6 +123,20 @@ func (_m *TxManager) RegisterResumeCallback(fn txmgr.ResumeCallback) {
 	_m.Called(fn)
 }
 
+// Reset provides a mock function with given fields: f, addr, abandon
+func (_m *TxManager) Reset(f func(), addr common.Address, abandon bool) error {
+	ret := _m.Called(f, addr, abandon)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(func(), common.Address, bool) error); ok {
+		r0 = rf(f, addr, abandon)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SendEther provides a mock function with given fields: chainID, from, to, value, gasLimit
 func (_m *TxManager) SendEther(chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint32) (txmgr.EthTx, error) {
 	ret := _m.Called(chainID, from, to, value, gasLimit)
