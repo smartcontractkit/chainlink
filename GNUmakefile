@@ -47,12 +47,6 @@ chainlink-build: ## Build & install the chainlink binary.
 
 .PHONY: operator-ui
 operator-ui: ## Build the static frontend UI.
-	yarn setup:chainlink
-	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
-
-.PHONY: contracts-operator-ui-build
-contracts-operator-ui-build: # Only compiles tsc and builds contracts and operator-ui.
-	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 
 .PHONY: abigen
