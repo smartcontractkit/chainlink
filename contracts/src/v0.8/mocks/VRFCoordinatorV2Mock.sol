@@ -67,6 +67,26 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     return false;
   }
 
+   /**
+   * @notice changeSubOwner allows to change subscription owner
+   * @param _subId the subscription which owner will be changed
+   * @param _newOwner the address of new owner
+   * @dev this function is a shotcut of requestSubscriptionOwnerTransfer 
+   * @dev and acceptSubscriptionOwnerTransfer functions
+   */
+  function changeSubOwner(uint64 _subId, address _newOwner) external onlySubOwner(_subId) {
+    s_subscriptions[_subId].owner = _newOwner;
+  }
+
+  /**
+   * @notice getLastRequestId returns last requestId
+   * @return requestId as last request id
+   * @dev it helps testing fulfillRandomWords 
+   */
+  function getLastRequestId() view external returns (uint256) {
+    return s_nextRequestId - 1;
+  }
+
   modifier onlyValidConsumer(uint64 _subId, address _consumer) {
     if (!consumerIsAdded(_subId, _consumer)) {
       revert InvalidConsumer();
