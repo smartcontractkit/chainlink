@@ -75,6 +75,9 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
    * @dev and acceptSubscriptionOwnerTransfer functions
    */
   function changeSubOwner(uint64 _subId, address _newOwner) external onlySubOwner(_subId) {
+    if (s_subscriptions[_subId].owner == address(0)) {
+      revert InvalidSubscription();
+    }
     s_subscriptions[_subId].owner = _newOwner;
   }
 
