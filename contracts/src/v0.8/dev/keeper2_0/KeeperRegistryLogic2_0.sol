@@ -76,7 +76,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   function withdrawOwnerFunds() external onlyOwner {
     uint96 amount = s_storage.ownerLinkBalance;
 
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - amount;
+    s_expectedLinkBalance = s_expectedLinkBalance - amount;
     s_storage.ownerLinkBalance = 0;
 
     emit OwnerFundsWithdrawn(amount);
@@ -88,7 +88,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    */
   function recoverFunds() external onlyOwner {
     uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_storage.expectedLinkBalance);
+    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
   /**
@@ -196,7 +196,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = upkeep.balance + amount;
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + amount;
+    s_expectedLinkBalance = s_expectedLinkBalance + amount;
     i_link.transferFrom(msg.sender, address(this), amount);
     emit FundsAdded(id, msg.sender, amount);
   }
@@ -211,7 +211,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (upkeep.maxValidBlocknumber > block.number) revert UpkeepNotCanceled();
 
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - amountToWithdraw;
+    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
     i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
@@ -237,7 +237,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
 
     s_transmitters[from].balance = 0;
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - transmitter.balance;
+    s_expectedLinkBalance = s_expectedLinkBalance - transmitter.balance;
     emit PaymentWithdrawn(from, transmitter.balance, to, msg.sender);
 
     i_link.transfer(to, transmitter.balance);
@@ -361,7 +361,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance - totalBalanceRemaining;
+    s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       UpkeepTranscoderInterface(s_storage.transcoder).transcodeUpkeeps(
@@ -432,7 +432,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       skipSigVerification: skipSigVerification
     });
     s_upkeepAdmin[id] = admin;
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + balance;
+    s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);
   }

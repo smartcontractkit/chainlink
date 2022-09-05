@@ -234,7 +234,7 @@ contract KeeperRegistry2_0 is
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + amount;
+    s_expectedLinkBalance = s_expectedLinkBalance + amount;
 
     emit FundsAdded(id, sender, uint96(amount));
   }
@@ -313,11 +313,10 @@ contract KeeperRegistry2_0 is
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_storage.expectedLinkBalance,
-      fallbackGasPrice: onchainConfigStruct.fallbackGasPrice,
-      fallbackLinkPrice: onchainConfigStruct.fallbackLinkPrice
+      ownerLinkBalance: s_storage.ownerLinkBalance
     });
+    s_fallbackGasPrice = onchainConfigStruct.fallbackGasPrice;
+    s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(block.number);
@@ -436,7 +435,7 @@ contract KeeperRegistry2_0 is
     state = State({
       nonce: s_storage.nonce,
       ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_storage.expectedLinkBalance,
+      expectedLinkBalance: s_expectedLinkBalance,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
@@ -454,8 +453,8 @@ contract KeeperRegistry2_0 is
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
-      fallbackGasPrice: s_storage.fallbackGasPrice,
-      fallbackLinkPrice: s_storage.fallbackLinkPrice,
+      fallbackGasPrice: s_fallbackGasPrice,
+      fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrar: s_storage.registrar
     });
