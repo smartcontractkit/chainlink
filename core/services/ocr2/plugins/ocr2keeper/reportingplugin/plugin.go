@@ -91,7 +91,6 @@ func (qd *observationData) raw() ([]byte, error) {
 }
 
 type checkUpkeepOutput struct {
-	GasUsed             *utils.Big          `json:"gasUsed"`
 	PerformData         string              `json:"performData"`
 	UpkeepFailureReason upkeepFailureReason `json:"upkeepFailureReason"`
 	UpkeepNeeded        bool                `json:"upkeepNeeded"`
@@ -110,7 +109,6 @@ type plugin struct {
 	pr              pipeline.Runner
 	gasEstimator    gas.Estimator
 	chStop          chan struct{}
-	// TODO: Keepers ORM
 }
 
 // NewPlugin is the constructor of plugin
