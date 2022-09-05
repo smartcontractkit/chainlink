@@ -114,14 +114,18 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    * @dev Called through KeeperRegistry main contract
    */
   function pause() external onlyOwner {
-    _pause();
+    s_hotVars.paused = true;
+
+    emit Paused(msg.sender);
   }
 
   /**
    * @dev Called through KeeperRegistry main contract
    */
   function unpause() external onlyOwner {
-    _unpause();
+    s_hotVars.paused = false;
+
+    emit Unpaused(msg.sender);
   }
 
   /**
@@ -412,7 +416,8 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     bytes memory checkData,
     bool paused,
     bool skipSigVerification
-  ) internal whenNotPaused {
+  ) internal {
+    if (s_hotVars.paused) revert RegistryPaused();
     if (!target.isContract()) revert NotAContract();
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();

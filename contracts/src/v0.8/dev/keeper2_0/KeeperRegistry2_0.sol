@@ -98,9 +98,10 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
-  ) external override whenNotPaused {
+  ) external override {
     uint256 gasOverhead = gasleft();
     HotVars memory hotVars = s_hotVars;
+    if (hotVars.paused) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
     Report memory parsedReport = _decodeReport(report);
@@ -210,9 +211,10 @@ contract KeeperRegistry2_0 is
   function simulatePerformUpkeep(uint256 id, bytes calldata performData)
     external
     cannotExecute
-    whenNotPaused
     returns (bool success, uint256 gasUsed)
   {
+    if (s_hotVars.paused) revert RegistryPaused();
+
     Upkeep memory upkeep = s_upkeep[id];
     return _performUpkeep(upkeep, performData);
   }
@@ -297,7 +299,8 @@ contract KeeperRegistry2_0 is
       paymentPremiumPPB: onchainConfigStruct.paymentPremiumPPB,
       flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
       stalenessSeconds: onchainConfigStruct.stalenessSeconds,
-      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier
+      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
+      paused: false
     });
 
     s_storage = Storage({
@@ -438,7 +441,8 @@ contract KeeperRegistry2_0 is
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      latestConfigDigest: s_hotVars.latestConfigDigest
+      latestConfigDigest: s_hotVars.latestConfigDigest,
+      paused: s_hotVars.paused
     });
 
     config = OnchainConfig({

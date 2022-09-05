@@ -110,9 +110,9 @@ before(async () => {
 
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
-  mockV3AggregatorFactory = (await ethers.getContractFactory(
+  mockV3AggregatorFactory = ((await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )) as unknown as MockV3AggregatorFactory
+  )) as unknown) as MockV3AggregatorFactory
   // @ts-ignore bug in autogen file
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_0')
   // @ts-ignore bug in autogen file
@@ -818,7 +818,7 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#checkUpkeep / #performUpkeep', () => {
     /*
-  
+
     const performData = '0xc0ffeec0ffee'
     const multiplier = BigNumber.from(10)
     const flatFee = BigNumber.from('100000') //0.1 LINK
@@ -2113,7 +2113,7 @@ describe('KeeperRegistry2_0', () => {
             false,
             emptyBytes,
           ),
-        'Pausable: paused',
+        'RegistryPaused()',
       )
     })
 
@@ -2305,6 +2305,14 @@ describe('KeeperRegistry2_0', () => {
         registry.connect(admin).unpauseUpkeep(upkeepId),
         'UpkeepCancelled()',
       )
+    })
+
+    it('marks the contract as paused', async () => {
+      assert.isFalse((await registry.getState()).state.paused)
+
+      await registry.connect(owner).pause()
+
+      assert.isTrue((await registry.getState()).state.paused)
     })
 
     it('reverts if the upkeep is not paused', async () => {
@@ -2744,11 +2752,11 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('marks the contract as paused', async () => {
-      assert.isFalse(await registry.paused())
+      assert.isFalse((await registry.getState()).state.paused)
 
       await registry.connect(owner).pause()
 
-      assert.isTrue(await registry.paused())
+      assert.isTrue((await registry.getState()).state.paused)
     })
 
     it('Does not allow transmits when paused', async () => {
@@ -2762,7 +2770,7 @@ describe('KeeperRegistry2_0', () => {
           [],
           emptyBytes32,
         ),
-        'Pausable: paused',
+        'RegistryPaused()',
       )
     })
 
@@ -2779,7 +2787,7 @@ describe('KeeperRegistry2_0', () => {
             false,
             emptyBytes,
           ),
-        'Pausable: paused',
+        'RegistryPaused()',
       )
     })
   })
@@ -2797,11 +2805,11 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('marks the contract as not paused', async () => {
-      assert.isTrue(await registry.paused())
+      assert.isTrue((await registry.getState()).state.paused)
 
       await registry.connect(owner).unpause()
 
-      assert.isFalse(await registry.paused())
+      assert.isFalse((await registry.getState()).state.paused)
     })
   })
 
