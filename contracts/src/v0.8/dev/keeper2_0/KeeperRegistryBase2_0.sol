@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/security/ReentrancyGuard.sol";
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
@@ -111,6 +110,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   error MaxPerformDataSizeCanOnlyIncrease();
   error InvalidReport();
   error RegistryPaused();
+  error ReentrantCall();
 
   enum MigrationPermission {
     NONE,
@@ -140,6 +140,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint24 stalenessSeconds; // Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
     bool paused; // pause switch for all upkeeps in the registry
+    bool reentrancyGuard; // guard against reentrancy
     // <14 bytes to 1 EVM word
   }
 
@@ -394,5 +395,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     );
 
     return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: gasPayment + premium});
+  }
+
+  /**
+   * @notice replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
+   */
+  modifier nonReentrant() {
+    if (s_hotVars.reentrancyGuard) revert ReentrantCall();
+    s_hotVars.reentrancyGuard = true;
+    _;
+    s_hotVars.reentrancyGuard = false;
   }
 }

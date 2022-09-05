@@ -2,7 +2,6 @@
 pragma solidity 0.8.6;
 
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/security/ReentrancyGuard.sol";
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
@@ -17,7 +16,6 @@ import "./interfaces/OCR2Abstract.sol";
  */
 contract KeeperRegistry2_0 is
   KeeperRegistryBase2_0,
-  ReentrancyGuard,
   Proxy,
   OCR2Abstract,
   KeeperRegistryExecutableInterface,
@@ -300,7 +298,8 @@ contract KeeperRegistry2_0 is
       flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
       stalenessSeconds: onchainConfigStruct.stalenessSeconds,
       gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
-      paused: false
+      paused: false,
+      reentrancyGuard: false
     });
 
     s_storage = Storage({
