@@ -65,6 +65,7 @@ contract KeeperRegistry2_0 is
     address fastGasFeed,
     address keeperRegistryLogic
   ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {
+    // TODO: Pick arguments from logic
     i_keeperRegistryLogic = keeperRegistryLogic;
   }
 
