@@ -208,6 +208,7 @@ PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'
 LimitDefault = 12
+LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
 LimitOCRJobType = 1001
