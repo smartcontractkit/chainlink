@@ -141,7 +141,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     bytes calldata checkData,
     uint96 amount,
     address sender,
-    bool skipSigVerification
+    bool skipSigVerification //TODO: Rebase on top of latest changes
   ) external onlyLINK {
     if (adminAddress == address(0)) {
       revert InvalidAdminAddress();
