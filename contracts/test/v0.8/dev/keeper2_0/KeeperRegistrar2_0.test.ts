@@ -563,7 +563,7 @@ describe('KeeperRegistrar2_0', () => {
             emptyBytes,
             amount,
           ),
-        'LinkTransferFailed('+someAddress+')',
+        '',
       )
     })
   })
