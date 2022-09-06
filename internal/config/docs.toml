@@ -568,6 +568,8 @@ PriceMin = '1 gwei' # Default
 # LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 # Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
 LimitDefault = 500_000 # Default
+# LimitMax sets a maximum for _estimated_ gas limits. This currently only applies to `Arbitrum` `GasEstimatorMode`.
+LimitMax = 500_000 # Default
 # LimitOCRJobType overrides LimitDefault for OCR jobs.
 LimitOCRJobType = 100_000 # Example
 # LimitDRJobType overrides LimitDefault for Direct Request jobs.
