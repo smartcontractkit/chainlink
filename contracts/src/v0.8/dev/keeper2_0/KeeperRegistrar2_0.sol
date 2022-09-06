@@ -45,7 +45,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   string public constant override typeAndVersion = "KeeperRegistrar 2.0.0";
 
-  struct Config {
+  struct RegistrarConfig {
     AutoApproveType autoApproveConfigType;
     uint32 autoApproveMaxAllowed;
     uint32 approvedCount;
@@ -58,7 +58,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint96 balance;
   }
 
-  Config private s_config;
+  RegistrarConfig private s_config;
   // Only applicable if s_config.configType is ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;
 
@@ -189,7 +189,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
 
     uint256 upkeepId;
-    Config memory config = s_config;
+    RegistrarConfig memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
       s_config.approvedCount = config.approvedCount + 1;
 
@@ -261,7 +261,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint96 minLINKJuels
   ) public onlyOwner {
     uint32 approvedCount = s_config.approvedCount;
-    s_config = Config({
+    s_config = RegistrarConfig({
       autoApproveConfigType: autoApproveConfigType,
       autoApproveMaxAllowed: autoApproveMaxAllowed,
       approvedCount: approvedCount,
@@ -305,7 +305,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       uint256 minLINKJuels
     )
   {
-    Config memory config = s_config;
+    RegistrarConfig memory config = s_config;
     return (
       config.autoApproveConfigType,
       config.autoApproveMaxAllowed,
@@ -384,7 +384,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @dev verify sender allowlist if needed and check max limit
    */
-  function _shouldAutoApprove(Config memory config, address sender) private returns (bool) {
+  function _shouldAutoApprove(RegistrarConfig memory config, address sender) private returns (bool) {
     if (config.autoApproveConfigType == AutoApproveType.DISABLED) {
       return false;
     }
