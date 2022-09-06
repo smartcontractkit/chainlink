@@ -281,6 +281,7 @@ describe('KeeperRegistry2_0', () => {
         offchainVersion,
         offchainBytes,
       )
+    await registry.connect(owner).setPayees(payees)
 
     mock = await upkeepMockFactory.deploy()
     await linkToken
@@ -311,84 +312,6 @@ describe('KeeperRegistry2_0', () => {
       assert(false)
     })
   })
-
-  /*
-  requires performUpkeep
-  describe('#withdrawPayment', () => {
-    beforeEach(async () => {
-      await linkToken.connect(owner).approve(registry.address, toWei('100'))
-      await registry.connect(owner).addFunds(id, toWei('100'))
-      await registry.connect(keeper1).performUpkeep(id, '0x')
-    })
-
-    it('reverts if called by anyone but the payee', async () => {
-      await evmRevert(
-        registry
-          .connect(payee2)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          ),
-        'OnlyCallableByPayee()',
-      )
-    })
-
-    it('reverts if called with the 0 address', async () => {
-      await evmRevert(
-        registry
-          .connect(payee2)
-          .withdrawPayment(await keeper1.getAddress(), zeroAddress),
-        'InvalidRecipient()',
-      )
-    })
-
-    it('updates the balances', async () => {
-      const to = await nonkeeper.getAddress()
-      const keeperBefore = (
-        await registry.getKeeperInfo(await keeper1.getAddress())
-      ).balance
-      const registrationBefore = (await registry.getUpkeep(id)).balance
-      const toLinkBefore = await linkToken.balanceOf(to)
-      const registryLinkBefore = await linkToken.balanceOf(registry.address)
-
-      //// Do the thing
-      await registry
-        .connect(payee1)
-        .withdrawPayment(await keeper1.getAddress(), to)
-
-      const keeperAfter = (
-        await registry.getKeeperInfo(await keeper1.getAddress())
-      ).balance
-      const registrationAfter = (await registry.getUpkeep(id)).balance
-      const toLinkAfter = await linkToken.balanceOf(to)
-      const registryLinkAfter = await linkToken.balanceOf(registry.address)
-
-      assert.isTrue(keeperAfter.eq(BigNumber.from(0)))
-      assert.isTrue(registrationBefore.eq(registrationAfter))
-      assert.isTrue(toLinkBefore.add(keeperBefore).eq(toLinkAfter))
-      assert.isTrue(registryLinkBefore.sub(keeperBefore).eq(registryLinkAfter))
-    })
-
-    it('emits a log announcing the withdrawal', async () => {
-      const balance = (await registry.getKeeperInfo(await keeper1.getAddress()))
-        .balance
-      const tx = await registry
-        .connect(payee1)
-        .withdrawPayment(
-          await keeper1.getAddress(),
-          await nonkeeper.getAddress(),
-        )
-      await expect(tx)
-        .to.emit(registry, 'PaymentWithdrawn')
-        .withArgs(
-          await keeper1.getAddress(),
-          balance,
-          await nonkeeper.getAddress(),
-          await payee1.getAddress(),
-        )
-    })
-  })
-   */
 
   const linkForGas = (
     upkeepGasSpent: BigNumber,
@@ -518,7 +441,6 @@ describe('KeeperRegistry2_0', () => {
     const sent = toWei('7')
 
     beforeEach(async () => {
-      await registry.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(registry.address, toWei('100'))
       await linkToken
         .connect(owner)
@@ -2123,11 +2045,6 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#transferPayeeship', () => {
-    beforeEach(async () => {
-      // Set initial payees
-      await registry.connect(owner).setPayees(payees)
-    })
-
     it('reverts when called by anyone but the current payee', async () => {
       await evmRevert(
         registry
@@ -2201,9 +2118,6 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#acceptPayeeship', () => {
     beforeEach(async () => {
-      // Set initial payees
-      await registry.connect(owner).setPayees(payees)
-
       await registry
         .connect(payee1)
         .transferPayeeship(
@@ -2484,6 +2398,30 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#setPayees', () => {
     const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
+
+    beforeEach(async () => {
+      // Redeploy registry with zero address payees
+      registry = await keeperRegistryFactory
+        .connect(owner)
+        .deploy(
+          0,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+          registryLogic.address,
+        )
+
+      await registry
+        .connect(owner)
+        .setConfig(
+          keepers,
+          keepers,
+          f,
+          encodeConfig(config),
+          offchainVersion,
+          offchainBytes,
+        )
+    })
 
     it('reverts when not called by the owner', async () => {
       await evmRevert(
@@ -2898,6 +2836,90 @@ describe('KeeperRegistry2_0', () => {
           assert.isTrue(payee1Before.eq(payee1After))
         })
       })
+    })
+  })
+
+  describe('#withdrawPayment', () => {
+    beforeEach(async () => {
+      await linkToken.connect(owner).approve(registry.address, toWei('100'))
+      await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+      registry
+        .connect(keeper1)
+        .transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+          [],
+          [],
+          emptyBytes32,
+        )
+    })
+
+    it('reverts if called by anyone but the payee', async () => {
+      await evmRevert(
+        registry
+          .connect(payee2)
+          .withdrawPayment(
+            await keeper1.getAddress(),
+            await nonkeeper.getAddress(),
+          ),
+        'OnlyCallableByPayee()',
+      )
+    })
+
+    it('reverts if called with the 0 address', async () => {
+      await evmRevert(
+        registry
+          .connect(payee2)
+          .withdrawPayment(await keeper1.getAddress(), zeroAddress),
+        'InvalidRecipient()',
+      )
+    })
+
+    it('updates the balances', async () => {
+      const to = await nonkeeper.getAddress()
+      const keeperBefore = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      const registrationBefore = (await registry.getUpkeep(upkeepId)).balance
+      const toLinkBefore = await linkToken.balanceOf(to)
+      const registryLinkBefore = await linkToken.balanceOf(registry.address)
+
+      //// Do the thing
+      await registry
+        .connect(payee1)
+        .withdrawPayment(await keeper1.getAddress(), to)
+
+      const keeperAfter = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      const registrationAfter = (await registry.getUpkeep(upkeepId)).balance
+      const toLinkAfter = await linkToken.balanceOf(to)
+      const registryLinkAfter = await linkToken.balanceOf(registry.address)
+
+      assert.isTrue(keeperAfter.eq(BigNumber.from(0)))
+      assert.isTrue(registrationBefore.eq(registrationAfter))
+      assert.isTrue(toLinkBefore.add(keeperBefore).eq(toLinkAfter))
+      assert.isTrue(registryLinkBefore.sub(keeperBefore).eq(registryLinkAfter))
+    })
+
+    it('emits a log announcing the withdrawal', async () => {
+      const balance = (
+        await registry.getTransmitterInfo(await keeper1.getAddress())
+      ).balance
+      const tx = await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await expect(tx)
+        .to.emit(registry, 'PaymentWithdrawn')
+        .withArgs(
+          await keeper1.getAddress(),
+          balance,
+          await nonkeeper.getAddress(),
+          await payee1.getAddress(),
+        )
     })
   })
 
