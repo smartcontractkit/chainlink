@@ -14,6 +14,14 @@ jobs:
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Configure AWS Credentials
@@ -49,6 +57,14 @@ jobs:
     needs:
       - build-chainlink
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: EVM Chaos Tests
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run Tests
