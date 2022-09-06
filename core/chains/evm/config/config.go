@@ -47,6 +47,7 @@ type ChainScopedOnlyConfig interface {
 	EvmGasBumpWei() *big.Int
 	EvmGasFeeCapDefault() *big.Int
 	EvmGasLimitDefault() uint64
+	EvmGasLimitMax() uint64
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint64
 	EvmGasLimitOCRJobType() *uint64
@@ -215,12 +216,6 @@ func (c *chainScopedConfig) validate() (err error) {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
 	} else {
 		switch chainType {
-		case config.ChainArbitrum:
-			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
-				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q", gasEst, config.ChainArbitrum, "FixedPrice"))
-			}
-
 		case config.ChainOptimism, config.ChainMetis:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
@@ -232,7 +227,7 @@ func (c *chainScopedConfig) validate() (err error) {
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
 					"must be %q (or the equivalent, deprecated %q)", gasEst, chainType, "L2Suggested", "Optimism2"))
 			}
-		case config.ChainXDai:
+		case config.ChainArbitrum, config.ChainXDai:
 
 		}
 	}
@@ -988,6 +983,22 @@ func (c *chainScopedConfig) EvmUseForwarders() bool {
 		return p.Bool
 	}
 	return c.defaultSet.useForwarders
+}
+
+func (c *chainScopedConfig) EvmGasLimitMax() uint64 {
+	val, ok := c.GeneralConfig.GlobalEvmGasLimitMax()
+	if ok {
+		c.logEnvOverrideOnce("EvmGasLimitMax", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasLimitMax
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasLimitMax", p.Int64)
+		return uint64(p.Int64)
+	}
+	return c.defaultSet.gasLimitMax
 }
 
 // EvmGasLimitMultiplier is a factor by which a transaction's GasLimit is

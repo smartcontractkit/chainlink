@@ -32,7 +32,7 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-//nolint
+// nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -199,6 +199,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpWei() (*big.Int, bool)
 	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint64, bool)
+	GlobalEvmGasLimitMax() (uint64, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
 	GlobalEvmGasLimitOCRJobType() (uint64, bool)
@@ -1255,6 +1256,9 @@ func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint64)
+}
+func (c *generalConfig) GlobalEvmGasLimitMax() (uint64, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitMax"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)

@@ -264,34 +264,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 
 	// Invalid Cases:
 
-	t.Run("arbitrum-estimator", func(t *testing.T) {
-		t.Run("custom", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(config.ChainArbitrum)),
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
-			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
-		})
-		t.Run("mainnet", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(42161), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("BlockHistory"),
-			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
-		})
-		t.Run("testnet", func(t *testing.T) {
-			gcfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.TestLogger(t)
-			cfg := evmconfig.NewChainScopedConfig(big.NewInt(421611), evmtypes.ChainCfg{
-				GasEstimatorMode: null.StringFrom("Optimism"),
-			}, nil, lggr, gcfg)
-			assert.Error(t, cfg.Validate())
-		})
-	})
-
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
