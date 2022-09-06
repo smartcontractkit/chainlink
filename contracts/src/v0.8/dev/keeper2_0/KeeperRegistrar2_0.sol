@@ -202,7 +202,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     return upkeepId;
   }
 
-
   /**
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
    */
@@ -384,7 +383,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @dev verify sender allowlist if needed and check max limit
    */
-  function _shouldAutoApprove(RegistrarConfig memory config, address sender) private returns (bool) {
+  function _shouldAutoApprove(RegistrarConfig memory config, address sender) private view returns (bool) {
     if (config.autoApproveConfigType == AutoApproveType.DISABLED) {
       return false;
     }
