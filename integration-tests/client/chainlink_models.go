@@ -75,6 +75,13 @@ type TaskRun struct {
 	DotID      string      `json:"dotId"`
 }
 
+type NodeKeysBundle struct {
+	OCR2Key OCR2Key
+	PeerID  string
+	TXKey   TxKey
+	P2PKeys P2PKeys
+}
+
 // RunInputs run inputs (value)
 type RunInputs struct {
 	Parse int `json:"parse"`

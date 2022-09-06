@@ -49,7 +49,7 @@ jobs:
       - run: yarn install --frozen-lockfile
       - name: Run coverage
         env:
-          NODE_OPTIONS: "--max-old-space-size=6144"
+          NODE_OPTIONS: "--max-old-space-size=8192"
         run: ./tools/ci/solidity_coverage
 
   solidity:
@@ -82,6 +82,8 @@ jobs:
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
       - name: Run tests
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
         run: ./tools/ci/solidity_test_hardhat
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test

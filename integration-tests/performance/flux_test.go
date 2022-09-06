@@ -44,6 +44,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 		testEnvironment  *environment.Environment
 		profileTest      *testsetups.ChainlinkProfileTest
 	)
+
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			testEnvironment = environment.New(&environment.Config{NamespacePrefix: "performance-flux"}).
