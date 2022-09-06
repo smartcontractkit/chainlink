@@ -67,6 +67,7 @@ type ChainCfg struct {
 	EvmGasBumpWei                                  *utils.Big
 	EvmGasFeeCapDefault                            *utils.Big
 	EvmGasLimitDefault                             null.Int
+	EvmGasLimitMax                                 null.Int
 	EvmGasLimitMultiplier                          null.Float
 	EvmGasLimitOCRJobType                          null.Int
 	EvmGasLimitDRJobType                           null.Int
