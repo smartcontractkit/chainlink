@@ -314,269 +314,6 @@ describe('KeeperRegistry2_0', () => {
 
   /*
   requires performUpkeep
-  describe('#cancelUpkeep', () => {
-    it('reverts if the ID is not valid', async () => {
-      await evmRevert(
-        registry.connect(owner).cancelUpkeep(id.add(1)),
-        'CannotCancel()',
-      )
-    })
-
-    it('reverts if called by a non-owner/non-admin', async () => {
-      await evmRevert(
-        registry.connect(keeper1).cancelUpkeep(id),
-        'OnlyCallableByOwnerOrAdmin()',
-      )
-    })
-
-    describe('when called by the owner', async () => {
-      it('sets the registration to invalid immediately', async () => {
-        const tx = await registry.connect(owner).cancelUpkeep(id)
-        const receipt = await tx.wait()
-        const registration = await registry.getUpkeep(id)
-        assert.equal(
-          registration.maxValidBlocknumber.toNumber(),
-          receipt.blockNumber,
-        )
-      })
-
-      it('emits an event', async () => {
-        const tx = await registry.connect(owner).cancelUpkeep(id)
-        const receipt = await tx.wait()
-        await expect(tx)
-          .to.emit(registry, 'UpkeepCanceled')
-          .withArgs(id, BigNumber.from(receipt.blockNumber))
-      })
-
-      it('immediately prevents upkeep', async () => {
-        await registry.connect(owner).cancelUpkeep(id)
-
-        await evmRevert(
-          registry.connect(keeper2).performUpkeep(id, '0x'),
-          'UpkeepCancelled()',
-        )
-      })
-
-      it('does not revert if reverts if called multiple times', async () => {
-        await registry.connect(owner).cancelUpkeep(id)
-        await evmRevert(
-          registry.connect(owner).cancelUpkeep(id),
-          'CannotCancel()',
-        )
-      })
-
-      describe('when called by the owner when the admin has just canceled', () => {
-        let oldExpiration: BigNumber
-
-        beforeEach(async () => {
-          await registry.connect(admin).cancelUpkeep(id)
-          const registration = await registry.getUpkeep(id)
-          oldExpiration = registration.maxValidBlocknumber
-        })
-
-        it('allows the owner to cancel it more quickly', async () => {
-          await registry.connect(owner).cancelUpkeep(id)
-
-          const registration = await registry.getUpkeep(id)
-          const newExpiration = registration.maxValidBlocknumber
-          assert.isTrue(newExpiration.lt(oldExpiration))
-        })
-      })
-    })
-
-    describe('when called by the admin', async () => {
-      const delay = 50
-
-      it('reverts if called again by the admin', async () => {
-        await registry.connect(admin).cancelUpkeep(id)
-
-        await evmRevert(
-          registry.connect(admin).cancelUpkeep(id),
-          'CannotCancel()',
-        )
-      })
-
-      it('reverts if called by the owner after the timeout', async () => {
-        await registry.connect(admin).cancelUpkeep(id)
-
-        for (let i = 0; i < delay; i++) {
-          await ethers.provider.send('evm_mine', [])
-        }
-
-        await evmRevert(
-          registry.connect(owner).cancelUpkeep(id),
-          'CannotCancel()',
-        )
-      })
-
-      it('sets the registration to invalid in 50 blocks', async () => {
-        const tx = await registry.connect(admin).cancelUpkeep(id)
-        const receipt = await tx.wait()
-        const registration = await registry.getUpkeep(id)
-        assert.equal(
-          registration.maxValidBlocknumber.toNumber(),
-          receipt.blockNumber + 50,
-        )
-      })
-
-      it('emits an event', async () => {
-        const tx = await registry.connect(admin).cancelUpkeep(id)
-        const receipt = await tx.wait()
-        await expect(tx)
-          .to.emit(registry, 'UpkeepCanceled')
-          .withArgs(id, BigNumber.from(receipt.blockNumber + delay))
-      })
-
-      it('immediately prevents upkeep', async () => {
-        await linkToken.connect(owner).approve(registry.address, toWei('100'))
-        await registry.connect(owner).addFunds(id, toWei('100'))
-        await registry.connect(admin).cancelUpkeep(id)
-        await registry.connect(keeper2).performUpkeep(id, '0x') // still works
-
-        for (let i = 0; i < delay; i++) {
-          await ethers.provider.send('evm_mine', [])
-        }
-
-        await evmRevert(
-          registry.connect(keeper2).performUpkeep(id, '0x'),
-          'UpkeepCancelled()',
-        )
-      })
-
-      describe('when an upkeep has been performed', async () => {
-        beforeEach(async () => {
-          await linkToken.connect(owner).approve(registry.address, toWei('100'))
-          await registry.connect(owner).addFunds(id, toWei('100'))
-          await registry.connect(keeper1).performUpkeep(id, '0x')
-        })
-
-        it('deducts a cancellation fee from the upkeep and gives to owner', async () => {
-          let minUpkeepSpend = toWei('10')
-          await registry.connect(owner).setConfig({
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          })
-
-          const payee1Before = await linkToken.balanceOf(
-            await payee1.getAddress(),
-          )
-          let upkeepBefore = (await registry.getUpkeep(id)).balance
-          let ownerBefore = (await registry.getState()).state.ownerLinkBalance
-          assert.equal(0, ownerBefore.toNumber())
-
-          let amountSpent = toWei('100').sub(upkeepBefore)
-          let cancellationFee = minUpkeepSpend.sub(amountSpent)
-
-          await registry.connect(admin).cancelUpkeep(id)
-
-          const payee1After = await linkToken.balanceOf(
-            await payee1.getAddress(),
-          )
-          let upkeepAfter = (await registry.getUpkeep(id)).balance
-          let ownerAfter = (await registry.getState()).state.ownerLinkBalance
-
-          // post upkeep balance should be previous balance minus cancellation fee
-          assert.isTrue(upkeepBefore.sub(cancellationFee).eq(upkeepAfter))
-          // payee balance should not change
-          assert.isTrue(payee1Before.eq(payee1After))
-          // owner should receive the cancellation fee
-          assert.isTrue(ownerAfter.eq(cancellationFee))
-        })
-
-        it('deducts up to balance as cancellation fee', async () => {
-          // Very high min spend, should deduct whole balance as cancellation fees
-          let minUpkeepSpend = toWei('1000')
-          await registry.connect(owner).setConfig({
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          })
-          const payee1Before = await linkToken.balanceOf(
-            await payee1.getAddress(),
-          )
-          let upkeepBefore = (await registry.getUpkeep(id)).balance
-          let ownerBefore = (await registry.getState()).state.ownerLinkBalance
-          assert.equal(0, ownerBefore.toNumber())
-
-          await registry.connect(admin).cancelUpkeep(id)
-          const payee1After = await linkToken.balanceOf(
-            await payee1.getAddress(),
-          )
-          let ownerAfter = (await registry.getState()).state.ownerLinkBalance
-          let upkeepAfter = (await registry.getUpkeep(id)).balance
-
-          // all upkeep balance is deducted for cancellation fee
-          assert.equal(0, upkeepAfter.toNumber())
-          // payee balance should not change
-          assert.isTrue(payee1After.eq(payee1Before))
-          // all upkeep balance is transferred to the owner
-          assert.isTrue(ownerAfter.eq(upkeepBefore))
-        })
-
-        it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
-          // Very low min spend, already spent in one perform upkeep
-          let minUpkeepSpend = BigNumber.from(420)
-          await registry.connect(owner).setConfig({
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
-          })
-          const payee1Before = await linkToken.balanceOf(
-            await payee1.getAddress(),
-          )
-          let upkeepBefore = (await registry.getUpkeep(id)).balance
-          let ownerBefore = (await registry.getState()).state.ownerLinkBalance
-          assert.equal(0, ownerBefore.toNumber())
-
-          await registry.connect(admin).cancelUpkeep(id)
-          const payee1After = await linkToken.balanceOf(
-            await payee1.getAddress(),
-          )
-          let ownerAfter = (await registry.getState()).state.ownerLinkBalance
-          let upkeepAfter = (await registry.getUpkeep(id)).balance
-
-          // upkeep does not pay cancellation fee after cancellation because minimum upkeep spent is met
-          assert.isTrue(upkeepBefore.eq(upkeepAfter))
-          // owner balance does not change
-          assert.equal(0, ownerAfter.toNumber())
-          // payee balance does not change
-          assert.isTrue(payee1Before.eq(payee1After))
-        })
-      })
-    })
-  })
-  */
-
-  /*
-  requires performUpkeep
   describe('#withdrawPayment', () => {
     beforeEach(async () => {
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
@@ -2844,6 +2581,323 @@ describe('KeeperRegistry2_0', () => {
       await expect(tx)
         .to.emit(registry, 'PayeesUpdated')
         .withArgs(keepers, payees)
+    })
+  })
+
+  describe('#cancelUpkeep', () => {
+    it('reverts if the ID is not valid', async () => {
+      await evmRevert(
+        registry.connect(owner).cancelUpkeep(upkeepId.add(1)),
+        'CannotCancel()',
+      )
+    })
+
+    it('reverts if called by a non-owner/non-admin', async () => {
+      await evmRevert(
+        registry.connect(keeper1).cancelUpkeep(upkeepId),
+        'OnlyCallableByOwnerOrAdmin()',
+      )
+    })
+
+    describe('when called by the owner', async () => {
+      it('sets the registration to invalid immediately', async () => {
+        const tx = await registry.connect(owner).cancelUpkeep(upkeepId)
+        const receipt = await tx.wait()
+        const registration = await registry.getUpkeep(upkeepId)
+        assert.equal(
+          registration.maxValidBlocknumber.toNumber(),
+          receipt.blockNumber,
+        )
+      })
+
+      it('emits an event', async () => {
+        const tx = await registry.connect(owner).cancelUpkeep(upkeepId)
+        const receipt = await tx.wait()
+        await expect(tx)
+          .to.emit(registry, 'UpkeepCanceled')
+          .withArgs(upkeepId, BigNumber.from(receipt.blockNumber))
+      })
+
+      it('immediately prevents upkeep', async () => {
+        await registry.connect(owner).cancelUpkeep(upkeepId)
+
+        await evmRevert(
+          registry
+            .connect(keeper1)
+            .transmit(
+              [emptyBytes32, emptyBytes32, emptyBytes32],
+              await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+              [],
+              [],
+              emptyBytes32,
+            ),
+          'StaleReport()',
+        )
+      })
+
+      it('does not revert if reverts if called multiple times', async () => {
+        await registry.connect(owner).cancelUpkeep(upkeepId)
+        await evmRevert(
+          registry.connect(owner).cancelUpkeep(upkeepId),
+          'CannotCancel()',
+        )
+      })
+
+      describe('when called by the owner when the admin has just canceled', () => {
+        let oldExpiration: BigNumber
+
+        beforeEach(async () => {
+          await registry.connect(admin).cancelUpkeep(upkeepId)
+          const registration = await registry.getUpkeep(upkeepId)
+          oldExpiration = registration.maxValidBlocknumber
+        })
+
+        it('allows the owner to cancel it more quickly', async () => {
+          await registry.connect(owner).cancelUpkeep(upkeepId)
+
+          const registration = await registry.getUpkeep(upkeepId)
+          const newExpiration = registration.maxValidBlocknumber
+          assert.isTrue(newExpiration.lt(oldExpiration))
+        })
+      })
+    })
+
+    describe('when called by the admin', async () => {
+      const delay = 50
+
+      it('reverts if called again by the admin', async () => {
+        await registry.connect(admin).cancelUpkeep(upkeepId)
+
+        await evmRevert(
+          registry.connect(admin).cancelUpkeep(upkeepId),
+          'CannotCancel()',
+        )
+      })
+
+      it('reverts if called by the owner after the timeout', async () => {
+        await registry.connect(admin).cancelUpkeep(upkeepId)
+
+        for (let i = 0; i < delay; i++) {
+          await ethers.provider.send('evm_mine', [])
+        }
+
+        await evmRevert(
+          registry.connect(owner).cancelUpkeep(upkeepId),
+          'CannotCancel()',
+        )
+      })
+
+      it('sets the registration to invalid in 50 blocks', async () => {
+        const tx = await registry.connect(admin).cancelUpkeep(upkeepId)
+        const receipt = await tx.wait()
+        const registration = await registry.getUpkeep(upkeepId)
+        assert.equal(
+          registration.maxValidBlocknumber.toNumber(),
+          receipt.blockNumber + 50,
+        )
+      })
+
+      it('emits an event', async () => {
+        const tx = await registry.connect(admin).cancelUpkeep(upkeepId)
+        const receipt = await tx.wait()
+        await expect(tx)
+          .to.emit(registry, 'UpkeepCanceled')
+          .withArgs(upkeepId, BigNumber.from(receipt.blockNumber + delay))
+      })
+
+      it('immediately prevents upkeep', async () => {
+        await linkToken.connect(owner).approve(registry.address, toWei('100'))
+        await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+        await registry.connect(admin).cancelUpkeep(upkeepId)
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+            [],
+            [],
+            emptyBytes32,
+          ) // still works
+
+        for (let i = 0; i < delay; i++) {
+          await ethers.provider.send('evm_mine', [])
+        }
+
+        await evmRevert(
+          registry
+            .connect(keeper1)
+            .transmit(
+              [emptyBytes32, emptyBytes32, emptyBytes32],
+              await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+              [],
+              [],
+              emptyBytes32,
+            ),
+          'StaleReport()',
+        )
+      })
+
+      describe('when an upkeep has been performed', async () => {
+        beforeEach(async () => {
+          await linkToken.connect(owner).approve(registry.address, toWei('100'))
+          await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+          registry
+            .connect(keeper1)
+            .transmit(
+              [emptyBytes32, emptyBytes32, emptyBytes32],
+              await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+              [],
+              [],
+              emptyBytes32,
+            )
+        })
+
+        it('deducts a cancellation fee from the upkeep and gives to owner', async () => {
+          let minUpkeepSpend = toWei('10')
+
+          await registry.connect(owner).setConfig(
+            keepers,
+            keepers,
+            f,
+            encodeConfig({
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier,
+              minUpkeepSpend,
+              maxCheckDataSize,
+              maxPerformDataSize,
+              maxPerformGas,
+              fallbackGasPrice,
+              fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
+            }),
+            offchainVersion,
+            offchainBytes,
+          )
+
+          const payee1Before = await linkToken.balanceOf(
+            await payee1.getAddress(),
+          )
+          let upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
+          let ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          assert.equal(0, ownerBefore.toNumber())
+
+          let amountSpent = toWei('100').sub(upkeepBefore)
+          let cancellationFee = minUpkeepSpend.sub(amountSpent)
+
+          await registry.connect(admin).cancelUpkeep(upkeepId)
+
+          const payee1After = await linkToken.balanceOf(
+            await payee1.getAddress(),
+          )
+          let upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
+          let ownerAfter = (await registry.getState()).state.ownerLinkBalance
+
+          // post upkeep balance should be previous balance minus cancellation fee
+          assert.isTrue(upkeepBefore.sub(cancellationFee).eq(upkeepAfter))
+          // payee balance should not change
+          assert.isTrue(payee1Before.eq(payee1After))
+          // owner should receive the cancellation fee
+          assert.isTrue(ownerAfter.eq(cancellationFee))
+        })
+
+        it('deducts up to balance as cancellation fee', async () => {
+          // Very high min spend, should deduct whole balance as cancellation fees
+          let minUpkeepSpend = toWei('1000')
+          await registry.connect(owner).setConfig(
+            keepers,
+            keepers,
+            f,
+            encodeConfig({
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier,
+              minUpkeepSpend,
+              maxCheckDataSize,
+              maxPerformDataSize,
+              maxPerformGas,
+              fallbackGasPrice,
+              fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
+            }),
+            offchainVersion,
+            offchainBytes,
+          )
+          const payee1Before = await linkToken.balanceOf(
+            await payee1.getAddress(),
+          )
+          let upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
+          let ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          assert.equal(0, ownerBefore.toNumber())
+
+          await registry.connect(admin).cancelUpkeep(upkeepId)
+          const payee1After = await linkToken.balanceOf(
+            await payee1.getAddress(),
+          )
+          let ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          let upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
+
+          // all upkeep balance is deducted for cancellation fee
+          assert.equal(0, upkeepAfter.toNumber())
+          // payee balance should not change
+          assert.isTrue(payee1After.eq(payee1Before))
+          // all upkeep balance is transferred to the owner
+          assert.isTrue(ownerAfter.eq(upkeepBefore))
+        })
+
+        it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
+          // Very low min spend, already spent in one perform upkeep
+          let minUpkeepSpend = BigNumber.from(420)
+          await registry.connect(owner).setConfig(
+            keepers,
+            keepers,
+            f,
+            encodeConfig({
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier,
+              minUpkeepSpend,
+              maxCheckDataSize,
+              maxPerformDataSize,
+              maxPerformGas,
+              fallbackGasPrice,
+              fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
+            }),
+            offchainVersion,
+            offchainBytes,
+          )
+          const payee1Before = await linkToken.balanceOf(
+            await payee1.getAddress(),
+          )
+          let upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
+          let ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          assert.equal(0, ownerBefore.toNumber())
+
+          await registry.connect(admin).cancelUpkeep(upkeepId)
+          const payee1After = await linkToken.balanceOf(
+            await payee1.getAddress(),
+          )
+          let ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          let upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
+
+          // upkeep does not pay cancellation fee after cancellation because minimum upkeep spent is met
+          assert.isTrue(upkeepBefore.eq(upkeepAfter))
+          // owner balance does not change
+          assert.equal(0, ownerAfter.toNumber())
+          // payee balance does not change
+          assert.isTrue(payee1Before.eq(payee1After))
+        })
+      })
     })
   })
 
