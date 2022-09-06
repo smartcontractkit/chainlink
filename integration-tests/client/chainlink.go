@@ -473,6 +473,20 @@ func (c *Chainlink) PrimaryEthAddress() (string, error) {
 	return c.primaryEthAddress, nil
 }
 
+// PrimaryEthAddressForChain returns the primary ETH address for the Chainlink node for mentioned chain
+func (c *Chainlink) PrimaryEthAddressForChain(chainId string) (string, error) {
+	ethKeys, err := c.MustReadETHKeys()
+	if err != nil {
+		return "", err
+	}
+	for _, ethKey := range ethKeys.Data {
+		if ethKey.Attributes.ChainID == chainId {
+			return ethKey.Attributes.Address, nil
+		}
+	}
+	return "", nil
+}
+
 // CreateTxKey creates a tx key on the Chainlink node
 func (c *Chainlink) CreateTxKey(chain string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
@@ -900,7 +914,7 @@ func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 	return nil
 }
 
-func (c *Chainlink) CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, error) {
+func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, error) {
 	nkb := make([]NodeKeysBundle, 0)
 	for _, n := range nodes {
 		p2pkeys, err := n.MustReadP2PKeys()
@@ -918,14 +932,30 @@ func (c *Chainlink) CreateNodeKeysBundle(nodes []*Chainlink, chainName string, c
 		if err != nil {
 			return nil, err
 		}
+		ethAddress, err := n.PrimaryEthAddressForChain(chainId)
+		if err != nil {
+			return nil, err
+		}
 		nkb = append(nkb, NodeKeysBundle{
-			PeerID:  peerID,
-			OCR2Key: *ocrKey,
-			TXKey:   *txKey,
-			P2PKeys: *p2pkeys,
+			PeerID:     peerID,
+			OCR2Key:    *ocrKey,
+			TXKey:      *txKey,
+			P2PKeys:    *p2pkeys,
+			EthAddress: ethAddress,
 		})
-
 	}
 
 	return nkb, nil
+}
+
+func SetupCLNodesWithKeys(nodes []*Chainlink, chainName string, chainId string) ([]*CLNodesWithKeys, error) {
+	bundle, err := CreateNodeKeysBundle(nodes, chainName, chainId)
+	if err != nil {
+		return nil, err
+	}
+	var clNodes []*CLNodesWithKeys
+	for i, n := range nodes {
+		clNodes = append(clNodes, &CLNodesWithKeys{Node: n, KeysBundle: bundle[i]})
+	}
+	return clNodes, nil
 }
