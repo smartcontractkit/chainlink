@@ -56,6 +56,7 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			BumpTxDepth:        ptr(set.gasBumpTxDepth),
 			FeeCapDefault:      utils.NewWei(&set.gasFeeCapDefault),
 			LimitDefault:       ptr(uint32(set.gasLimitDefault)),
+			LimitMax:           ptr(uint32(set.gasLimitMax)),
 			LimitMultiplier:    ptr(decimal.NewFromFloat32(set.gasLimitMultiplier)),
 			LimitTransfer:      ptr(uint32(set.gasLimitTransfer)),
 			LimitOCRJobType:    set.gasLimitOCRJobType,
