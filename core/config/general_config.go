@@ -207,6 +207,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpWei() (*big.Int, bool)
 	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint32, bool)
+	GlobalEvmGasLimitMax() (uint32, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint32, bool)
 	GlobalEvmGasLimitOCRJobType() (uint32, bool)
@@ -1279,6 +1280,9 @@ func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint32)
+}
+func (c *generalConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitMax"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)
