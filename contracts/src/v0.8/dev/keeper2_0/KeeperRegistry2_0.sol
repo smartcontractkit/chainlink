@@ -694,9 +694,9 @@ contract KeeperRegistry2_0 is
     uint32 checkBlockNumber,
     uint256 gasOverhead,
     UpkeepTransmitInfo memory upkeepTransmitInfo
-  ) internal returns (uint96, uint96) {
+  ) internal returns (uint96 gasPayment, uint96 premium) {
     s_upkeep[upkeepId].lastPerformBlockNumber = uint32(block.number);
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+    (gasPayment, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
       gasOverhead,
