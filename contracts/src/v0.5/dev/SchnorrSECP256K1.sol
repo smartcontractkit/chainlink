@@ -6,7 +6,8 @@ pragma solidity ^0.5.0;
 
 contract SchnorrSECP256K1 {
   // See https://en.bitcoin.it/wiki/Secp256k1 for this constant.
-  uint256 constant public Q = // Group order of secp256k1
+  // Group order of secp256k1
+  uint256 constant public Q =
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
   // solium-disable-next-line zeppelin/no-arithmetic-operations

@@ -550,7 +550,7 @@ describe('KeeperRegistrar2_0', () => {
   })
 
   describe('#registerUpkeep', () => {
-    it('reverts if amount sent is not available in LINK allowance', async () => {
+    it('reverts with empty message if amount sent is not available in LINK allowance', async () => {
       await evmRevert(
         registrar
           .connect(someAddress)
@@ -563,7 +563,7 @@ describe('KeeperRegistrar2_0', () => {
             emptyBytes,
             amount,
           ),
-        'InsufficientFunds()',
+        'LinkTransferFailed('+someAddress+')',
       )
     })
   })

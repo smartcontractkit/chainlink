@@ -167,7 +167,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
       revert InsufficientPayment();
     }
 
-    LINK.transferFrom(msg.sender, address(this), amount);
+    // using the success response allows for a custom error message
+    // the default for transferFrom is to revert with no message
+    bool success = LINK.transferFrom(msg.sender, address(this), amount);
+    if (!success) {
+      revert LinkTransferFailed(address(this));
+    }
+
     return _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, msg.sender);
   }
 
