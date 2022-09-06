@@ -171,37 +171,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     return _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, msg.sender);
   }
 
-  function _register(
-    string memory name,
-    bytes calldata encryptedEmail,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    bytes calldata checkData,
-    uint96 amount,
-    address sender
-  ) private returns (uint256) {
-    if (adminAddress == address(0)) {
-      revert InvalidAdminAddress();
-    }
-    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
-
-    emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
-
-    uint256 upkeepId;
-    RegistrarConfig memory config = s_config;
-    if (_shouldAutoApprove(config, sender)) {
-      s_config.approvedCount = config.approvedCount + 1;
-
-      upkeepId = _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
-    } else {
-      uint96 newBalance = s_pendingRequests[hash].balance + amount;
-      s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
-    }
-
-    return upkeepId;
-  }
-
   /**
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
    */
@@ -352,6 +321,40 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   //PRIVATE
+
+  /**
+   * @dev verify registration request and emit RegistrationRequested event
+   */
+  function _register(
+    string memory name,
+    bytes calldata encryptedEmail,
+    address upkeepContract,
+    uint32 gasLimit,
+    address adminAddress,
+    bytes calldata checkData,
+    uint96 amount,
+    address sender
+  ) private returns (uint256) {
+    if (adminAddress == address(0)) {
+      revert InvalidAdminAddress();
+    }
+    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
+
+    emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
+
+    uint256 upkeepId;
+    RegistrarConfig memory config = s_config;
+    if (_shouldAutoApprove(config, sender)) {
+      s_config.approvedCount = config.approvedCount + 1;
+
+      upkeepId = _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
+    } else {
+      uint96 newBalance = s_pendingRequests[hash].balance + amount;
+      s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
+    }
+
+    return upkeepId;
+  }
 
   /**
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
