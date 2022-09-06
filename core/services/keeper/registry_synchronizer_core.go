@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -17,17 +18,6 @@ var (
 	_ job.ServiceCtx = (*RegistrySynchronizer)(nil)
 	_ log.Listener   = (*RegistrySynchronizer)(nil)
 )
-
-// MailRoom holds the log mailboxes for all the log types that keeper cares about
-type MailRoom struct {
-	mbUpkeepCanceled    *utils.Mailbox[log.Broadcast]
-	mbSyncRegistry      *utils.Mailbox[log.Broadcast]
-	mbUpkeepPerformed   *utils.Mailbox[log.Broadcast]
-	mbUpkeepRegistered  *utils.Mailbox[log.Broadcast]
-	mbUpkeepReceived    *utils.Mailbox[log.Broadcast]
-	mbUpkeepMigrated    *utils.Mailbox[log.Broadcast]
-	mbUpkeepGasLimitSet *utils.Mailbox[log.Broadcast]
-}
 
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
@@ -50,7 +40,7 @@ type RegistrySynchronizer struct {
 	job                      job.Job
 	jrm                      job.ORM
 	logBroadcaster           log.Broadcaster
-	mailRoom                 MailRoom
+	mbLogs                   *utils.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	orm                      ORM
 	logger                   logger.SugaredLogger
@@ -61,15 +51,6 @@ type RegistrySynchronizer struct {
 
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
 func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
-	mailRoom := MailRoom{
-		mbUpkeepCanceled:    utils.NewMailbox[log.Broadcast](500),
-		mbSyncRegistry:      utils.NewMailbox[log.Broadcast](1),
-		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](3000),
-		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](500),
-		mbUpkeepReceived:    utils.NewMailbox[log.Broadcast](500),
-		mbUpkeepMigrated:    utils.NewMailbox[log.Broadcast](500),
-		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](500),
-	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),
 		registryWrapper:          opts.RegistryWrapper,
@@ -77,7 +58,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		job:                      opts.Job,
 		jrm:                      opts.JRM,
 		logBroadcaster:           opts.LogBroadcaster,
-		mailRoom:                 mailRoom,
+		mbLogs:                   utils.NewMailbox[log.Broadcast](5000), // Arbitrary limit, better to have excess capacity
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
@@ -128,11 +109,9 @@ func (rs *RegistrySynchronizer) Close() error {
 }
 
 func (rs *RegistrySynchronizer) run() {
-	syncTicker := time.NewTicker(rs.interval)
-	logTicker := time.NewTicker(time.Second)
+	syncTicker := utils.NewResettableTimer()
 	defer rs.wgDone.Done()
 	defer syncTicker.Stop()
-	defer logTicker.Stop()
 
 	rs.fullSync()
 
@@ -140,10 +119,12 @@ func (rs *RegistrySynchronizer) run() {
 		select {
 		case <-rs.chStop:
 			return
-		case <-syncTicker.C:
+		case <-syncTicker.Ticks():
 			rs.fullSync()
-		case <-logTicker.C:
+			syncTicker.Reset(rs.interval)
+		case <-rs.mbLogs.Notify():
 			rs.processLogs()
+			syncTicker.Reset(rs.interval)
 		}
 	}
 }
