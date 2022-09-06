@@ -184,6 +184,7 @@ contract KeeperRegistry2_0 is
         s_transmitters[msg.sender].balance += totalPremiumPayment;
       } else {
         // Split totalPremium among signers
+        // TODO: Finalize the payment splitting logic
         address transmitterToPay;
         uint96 premiumPerSigner = totalPremiumPayment / uint96(signerIndices.length);
         for (uint256 i = 0; i < signerIndices.length; i++) {
