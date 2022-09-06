@@ -71,6 +71,7 @@ func TestConfigSchema(t *testing.T) {
 		"EvmGasBumpWei":                                  "ETH_GAS_BUMP_WEI",
 		"EvmGasFeeCapDefault":                            "EVM_GAS_FEE_CAP_DEFAULT",
 		"EvmGasLimitDefault":                             "ETH_GAS_LIMIT_DEFAULT",
+		"EvmGasLimitMax":                                 "ETH_GAS_LIMIT_MAX",
 		"EvmGasLimitMultiplier":                          "ETH_GAS_LIMIT_MULTIPLIER",
 		"EvmGasLimitTransfer":                            "ETH_GAS_LIMIT_TRANSFER",
 		"EvmGasLimitOCRJobType":                          "ETH_GAS_LIMIT_OCR_JOB_TYPE",

@@ -30,7 +30,7 @@ func TestDoc(t *testing.T) {
 
 	cfgtest.AssertFieldsNotNil(t, c)
 
-	//TODO validate defaults?
+	//TODO validate defaults? https://app.shortcut.com/chainlinklabs/story/33615/create-new-implementation-of-chainscopedconfig-generalconfig-interfaces-that-sources-config-from-a-config-toml-file
 }
 
 var (
