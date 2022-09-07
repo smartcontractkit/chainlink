@@ -207,6 +207,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpWei() (*big.Int, bool)
 	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint32, bool)
+	GlobalEvmGasLimitMax() (uint32, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint32, bool)
 	GlobalEvmGasLimitOCRJobType() (uint32, bool)
@@ -871,7 +872,8 @@ func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
-// sync of the keeper registry contract it is tracking
+// sync of the keeper registry contract it is tracking *after* the most recent update triggered
+// by an on-chain log.
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return getEnvWithFallback(c, envvar.KeeperRegistrySyncInterval)
 }
@@ -1279,6 +1281,9 @@ func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint32)
 }
+func (c *generalConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitMax"), parse.Uint32)
+}
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)
 }
@@ -1431,12 +1436,12 @@ func (c *generalConfig) LogFileDir() string {
 
 // Implemented only in config V2. V1 uses a --password flag.
 func (c *generalConfig) KeystorePassword() string {
-	c.lggr.Warn("Config V1 should us --password flag instead of calling KeystorePassword()")
+	c.lggr.Warn("Config V1 should use --password flag instead of calling KeystorePassword()")
 	return ""
 }
 
 // Implemented only in config V2. V1 uses a --vrfpassword flag.
 func (c *generalConfig) VRFPassword() string {
-	c.lggr.Warn("Config V1 should us --vrfpassword flag instead of calling VRFPassword()")
+	c.lggr.Warn("Config V1 should use --vrfpassword flag instead of calling VRFPassword()")
 	return ""
 }

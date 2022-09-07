@@ -9,33 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well 
+as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).  
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+
+## 1.8.0 - 2022-09-01
+
+### Added
+
 - Added `hexencode` and `base64encode` tasks (pipeline).
 - `forwardingAllowed` per job attribute to allow forwarding txs submitted by the job.
 - Keypath now supports paths with any depth, instead of limiting it to 2
 - `Arbitrum` chains are no longer restricted to only `FixedPrice` `GAS_ESTIMATOR_MODE`
-- Updated `Arbitrum Rinkeby & Mainnet` configurations for Nitro
+- Updated `Arbitrum Rinkeby & Mainnet & Mainnet` configurationss for Nitro
 - Add `Arbitrum Goerli` configuration
-- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 - It is now possible to use the same key across multiple chains.
 - `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
   - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
   - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
-  This mode requires `NODE_NO_NEW_HEADS_THRESHOLD` to be configured, otherwise it will always use the first alive node.
-- New `evm keys chain` command
+  For chains having `NODE_NO_NEW_HEADS_THRESHOLD=0` (such as Arbitrum, Optimism), the implementation will fall back to `RoundRobin` mode.
+- New `keys eth chain` command
   - This can also be accessed at `/v2/keys/evm/chain`.
   - Usage examples:
     - Manually (re)set a nonce:
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42`
     - Enable a key for a particular chain:
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled true`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
     - Disable a key for a particular chain:
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setEnabled false`
-    - Abandon all currently pending transactions (use with caution!):
-      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --nuke`
+      - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
 
 ### Changed
 
 - The `setnextnonce` local client command has been removed, and replaced by a more general key/chain client command.
+- `chainlink admin users update` command is replaced with `chainlink admin users chrole` (only the role can be changed for a user)
 
 ## 1.7.1 - 2022-08-22
 

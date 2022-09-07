@@ -12,8 +12,7 @@ import (
 )
 
 func (rs *RegistrySynchronizer) fullSync() {
-	contractAddress := rs.job.KeeperSpec.ContractAddress
-	rs.logger.Debugf("fullSyncing registry %s", contractAddress.Hex())
+	rs.logger.Debugf("fullSyncing registry %s", rs.job.KeeperSpec.ContractAddress.Hex())
 
 	registry, err := rs.syncRegistry()
 	if err != nil {
@@ -25,7 +24,7 @@ func (rs *RegistrySynchronizer) fullSync() {
 		rs.logger.Error(errors.Wrap(err, "failed to sync upkeeps during fullSyncing registry"))
 		return
 	}
-	rs.logger.Debugf("fullSyncing registry successful %s", contractAddress.Hex())
+	rs.logger.Debugf("fullSyncing registry successful %s", rs.job.KeeperSpec.ContractAddress.Hex())
 }
 
 func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
@@ -34,7 +33,8 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
 	}
 
-	if err := rs.orm.UpsertRegistry(&registry); err != nil {
+	err = rs.orm.UpsertRegistry(&registry)
+	if err != nil {
 		return Registry{}, errors.Wrap(err, "failed to upsert registry")
 	}
 
@@ -46,6 +46,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to get active upkeep IDs")
 	}
+
 	existingUpkeepIDs, err := rs.orm.AllUpkeepIDsForRegistry(reg.ID)
 	if err != nil {
 		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
