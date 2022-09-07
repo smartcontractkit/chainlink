@@ -349,7 +349,108 @@ describe('KeeperRegistry2_0', () => {
     upkeepId = await getUpkeepID(tx)
   })
 
-  describe('#transmit', () => {
+  describe.only('#transmit', () => {
+    it('reverts when registry is paused', async () => {
+      await registry.connect(owner).pause()
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'RegistryPaused()',
+      )
+    })
+
+    it('reverts when called by non active transmitter', async () => {
+      await evmRevert(
+        registry
+          .connect(payee1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'OnlyActiveTransmitters()',
+      )
+    })
+
+    it('reverts when upkeeps and performData length mismatches', async () => {
+      let upkeepIds = []
+      let wrappedPerformDatas = []
+      let latestBlock = await ethers.provider.getBlock('latest')
+
+      upkeepIds.push(upkeepId)
+      wrappedPerformDatas.push(
+        ethers.utils.defaultAbiCoder.encode(
+          ['tuple(uint32,bytes32,bytes)'],
+          [[latestBlock.number + 1, latestBlock.hash, '0x']],
+        ),
+      )
+      // Push an extra perform data
+      wrappedPerformDatas.push(
+        ethers.utils.defaultAbiCoder.encode(
+          ['tuple(uint32,bytes32,bytes)'],
+          [[latestBlock.number + 1, latestBlock.hash, '0x']],
+        ),
+      )
+
+      let report = ethers.utils.defaultAbiCoder.encode(
+        ['uint256[]', 'bytes[]'],
+        [upkeepIds, wrappedPerformDatas],
+      )
+
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            report,
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'InvalidReport()',
+      )
+    })
+
+    it('reverts when wrappedPerformData is incorrectly encoded', async () => {
+      let upkeepIds = []
+      let wrappedPerformDatas = []
+      let latestBlock = await ethers.provider.getBlock('latest')
+
+      upkeepIds.push(upkeepId)
+      wrappedPerformDatas.push(
+        ethers.utils.defaultAbiCoder.encode(
+          ['tuple(uint32,bytes32)'], // missing performData
+          [[latestBlock.number + 1, latestBlock.hash]],
+        ),
+      )
+
+      let report = ethers.utils.defaultAbiCoder.encode(
+        ['uint256[]', 'bytes[]'],
+        [upkeepIds, wrappedPerformDatas],
+      )
+
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            report,
+            [],
+            [],
+            emptyBytes32,
+          ),
+      )
+    })
+
     describe('when signatures are validated', () => {
       beforeEach(async () => {
         const tx = await registry
