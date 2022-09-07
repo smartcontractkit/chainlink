@@ -65,6 +65,7 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   error ArrayHasNoEntries();
   error CannotCancel();
   error DuplicateEntry();
+  error EmptyAddress();
   error GasLimitCanOnlyIncrease();
   error GasLimitOutsideRange();
   error IndexOutOfRange();
@@ -180,6 +181,9 @@ abstract contract KeeperRegistryBase is ConfirmedOwner, ExecutionPrevention, Ree
   ) ConfirmedOwner(msg.sender) {
     PAYMENT_MODEL = paymentModel;
     REGISTRY_GAS_OVERHEAD = registryGasOverhead;
+    if (ZERO_ADDRESS == link || ZERO_ADDRESS == linkEthFeed || ZERO_ADDRESS == fastGasFeed) {
+      revert EmptyAddress();
+    }
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
