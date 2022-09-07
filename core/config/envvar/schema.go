@@ -21,7 +21,7 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 //
-// A note on Feature Flags
+// # A note on Feature Flags
 //
 // Feature flags should be used during development of large features that might
 // span more than one release cycle. Most changes that are not considered "complete"
@@ -167,7 +167,8 @@ type ConfigSchema struct {
 	EvmGasBumpThreshold   uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
 	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
 	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
-	EvmGasLimitDefault    uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitDefault    uint32   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMax        uint32   `env:"ETH_GAS_LIMIT_MAX"`
 	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
 	EvmGasLimitTransfer   uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
 	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`

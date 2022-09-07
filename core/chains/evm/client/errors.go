@@ -48,13 +48,14 @@ const (
 	TerminallyUnderpriced
 	InsufficientEth
 	TxFeeExceedsCap
-	// Note: OptimismFeeTooLow/OptimismFeeTooHigh have a very specific meaning
-	// specific to Optimism and clones. Do not implement this for non-L2
+	// Note: L2FeeTooLow/L2FeeTooHigh/L2Full have a very specific meaning specific
+	// to L2s (Arbitrum, Optimism and clones). Do not implement this for non-L2
 	// chains. This is potentially confusing because some RPC nodes e.g.
 	// Nethermind implement an error called `FeeTooLow` which has distinct
 	// meaning from this one.
-	OptimismFeeTooLow
-	OptimismFeeTooHigh
+	L2FeeTooLow
+	L2FeeTooHigh
+	L2Full
 	TransactionAlreadyMined
 	Fatal
 )
@@ -100,6 +101,24 @@ var besu = ClientErrors{
 	Fatal:                             besuFatal,
 }
 
+// Erigon
+// See:
+//   - https://github.com/ledgerwatch/erigon/blob/devel/core/tx_pool.go
+//   - https://github.com/ledgerwatch/erigon/blob/devel/core/error.go
+//   - https://github.com/ledgerwatch/erigon/blob/devel/core/vm/errors.go
+//
+// Note: some error definitions are unused, many errors are created inline.
+var erigonFatal = regexp.MustCompile(`(: |^)(exceeds block gas limit|invalid sender|negative value|oversized data|gas uint64 overflow|intrinsic gas too low|nonce too high)$`)
+var erigon = ClientErrors{
+	NonceTooLow:                       regexp.MustCompile(`(: |^)nonce too low$`),
+	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
+	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(block already known|already known)`),
+	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
+	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
+	Fatal:                             erigonFatal,
+}
+
 // Arbitrum
 // https://github.com/OffchainLabs/arbitrum/blob/cac30586bc10ecc1ae73e93de517c90984677fdb/packages/arb-evm/evm/result.go#L158
 // nitro: https://github.com/OffchainLabs/go-ethereum/blob/master/core/state_transition.go
@@ -107,20 +126,21 @@ var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden 
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
 	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
-	NonceTooLow: regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
-	// TODO: Is it terminally or replacement?
+	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
 	InsufficientEth:       regexp.MustCompile(`(: |^)(not enough funds for gas|insufficient funds for gas \* price \+ value)`),
 	Fatal:                 arbitrumFatal,
+	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
+	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 }
 
 var optimism = ClientErrors{
-	OptimismFeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
-	OptimismFeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
+	L2FeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
+	L2FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
 }
 
 var metis = ClientErrors{
-	OptimismFeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
+	L2FeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
 }
 
 // Substrate (Moonriver)
@@ -221,14 +241,19 @@ func (s *SendError) IsTxFeeExceedsCap() bool {
 	return s.is(TxFeeExceedsCap)
 }
 
-// IsOptimismFeeTooLow is an optimism-specific error returned when total fee is too low
-func (s *SendError) IsOptimismFeeTooLow() bool {
-	return s.is(OptimismFeeTooLow)
+// L2FeeTooLow is an l2-specific error returned when total fee is too low
+func (s *SendError) L2FeeTooLow() bool {
+	return s.is(L2FeeTooLow)
 }
 
-// IsOptimismFeeTooHigh is an optimism-specific error returned when total fee is too high
-func (s *SendError) IsOptimismFeeTooHigh() bool {
-	return s.is(OptimismFeeTooHigh)
+// IsL2FeeTooHigh is an l2-specific error returned when total fee is too high
+func (s *SendError) IsL2FeeTooHigh() bool {
+	return s.is(L2FeeTooHigh)
+}
+
+// IsL2Full is an l2-specific error returned when the queue or mempool is full.
+func (s *SendError) IsL2Full() bool {
+	return s.is(L2Full)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline

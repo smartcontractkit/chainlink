@@ -62,6 +62,7 @@ type GasEstimator struct {
 	PriceMin     *utils.Wei
 
 	LimitDefault    *uint32
+	LimitMax        *uint32
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 
@@ -252,6 +253,13 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		}
 		v := uint32(cfg.EvmGasLimitDefault.Int64)
 		c.GasEstimator.LimitDefault = &v
+	}
+	if cfg.EvmGasLimitMax.Valid {
+		if c.GasEstimator == nil {
+			c.GasEstimator = &GasEstimator{}
+		}
+		v := uint32(cfg.EvmGasLimitMax.Int64)
+		c.GasEstimator.LimitMax = &v
 	}
 	if cfg.EvmGasLimitOCRJobType.Valid {
 		if c.GasEstimator == nil {

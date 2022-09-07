@@ -260,6 +260,20 @@ func (_m *Config) EvmGasLimitDefault() uint64 {
 	return r0
 }
 
+// EvmGasLimitMax provides a mock function with given fields:
+func (_m *Config) EvmGasLimitMax() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // EvmGasLimitMultiplier provides a mock function with given fields:
 func (_m *Config) EvmGasLimitMultiplier() float32 {
 	ret := _m.Called()

@@ -377,6 +377,7 @@ func TestConfig_Marshal(t *testing.T) {
 					BumpMin:            utils.NewBigI(100).Wei(),
 					FeeCapDefault:      utils.NewBigI(math.MaxInt64).Wei(),
 					LimitDefault:       ptr[uint32](12),
+					LimitMax:           ptr[uint32](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
 					LimitOCRJobType:    ptr[uint32](1001),
@@ -741,6 +742,7 @@ PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'
 LimitDefault = 12
+LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
 LimitOCRJobType = 1001

@@ -986,6 +986,20 @@ func (_m *ChainScopedConfig) EvmGasLimitKeeperJobType() *uint64 {
 	return r0
 }
 
+// EvmGasLimitMax provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasLimitMax() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // EvmGasLimitMultiplier provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasLimitMultiplier() float32 {
 	ret := _m.Called()
@@ -1925,6 +1939,27 @@ func (_m *ChainScopedConfig) GlobalEvmGasLimitFMJobType() (uint64, bool) {
 
 // GlobalEvmGasLimitKeeperJobType provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmGasLimitKeeperJobType() (uint64, bool) {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasLimitMax provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasLimitMax() (uint64, bool) {
 	ret := _m.Called()
 
 	var r0 uint64
