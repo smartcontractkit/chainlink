@@ -209,7 +209,7 @@ describe('KeeperRegistry2_0', () => {
   let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 
   let upkeepId: BigNumber
-  let keepers: string[]
+  let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
   let config: any
@@ -242,7 +242,7 @@ describe('KeeperRegistry2_0', () => {
       '0x7777777000000000000000000000000000000000000000000000000000000004',
     )
 
-    keepers = [
+    keeperAddresses = [
       await keeper1.getAddress(),
       await keeper2.getAddress(),
       await keeper3.getAddress(),
@@ -322,7 +322,7 @@ describe('KeeperRegistry2_0', () => {
       .connect(owner)
       .setConfig(
         signerAddresses,
-        keepers,
+        keeperAddresses,
         f,
         encodeConfig(config),
         offchainVersion,
@@ -1033,8 +1033,8 @@ describe('KeeperRegistry2_0', () => {
     await registry
       .connect(owner)
       .setConfig(
-        keepers,
-        keepers,
+        keeperAddresses,
+        keeperAddresses,
         f,
         encodeConfig(config),
         offchainVersion,
@@ -1056,8 +1056,8 @@ describe('KeeperRegistry2_0', () => {
             const multiplier = multipliers[ldx]
 
             await registry.connect(owner).setConfig(
-              keepers,
-              keepers,
+              keeperAddresses,
+              keeperAddresses,
               f,
               encodeConfig({
                 paymentPremiumPPB: premium,
@@ -1799,8 +1799,8 @@ describe('KeeperRegistry2_0', () => {
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
         registry.connect(payee1).setConfig(
-          keepers,
-          keepers,
+          keeperAddresses,
+          keeperAddresses,
           f,
           encodeConfig({
             paymentPremiumPPB: payment,
@@ -1834,8 +1834,8 @@ describe('KeeperRegistry2_0', () => {
       assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
       await registry.connect(owner).setConfig(
-        keepers,
-        keepers,
+        keeperAddresses,
+        keeperAddresses,
         f,
         encodeConfig({
           paymentPremiumPPB: payment,
@@ -1896,8 +1896,8 @@ describe('KeeperRegistry2_0', () => {
 
     it('emits an event', async () => {
       const tx = await registry.connect(owner).setConfig(
-        keepers,
-        keepers,
+        keeperAddresses,
+        keeperAddresses,
         f,
         encodeConfig({
           paymentPremiumPPB: payment,
@@ -1923,8 +1923,8 @@ describe('KeeperRegistry2_0', () => {
     it('reverts upon decreasing max limits', async () => {
       await evmRevert(
         registry.connect(owner).setConfig(
-          keepers,
-          keepers,
+          keeperAddresses,
+          keeperAddresses,
           f,
           encodeConfig({
             paymentPremiumPPB: payment,
@@ -1948,8 +1948,8 @@ describe('KeeperRegistry2_0', () => {
       )
       await evmRevert(
         registry.connect(owner).setConfig(
-          keepers,
-          keepers,
+          keeperAddresses,
+          keeperAddresses,
           f,
           encodeConfig({
             paymentPremiumPPB: payment,
@@ -1973,8 +1973,8 @@ describe('KeeperRegistry2_0', () => {
       )
       await evmRevert(
         registry.connect(owner).setConfig(
-          keepers,
-          keepers,
+          keeperAddresses,
+          keeperAddresses,
           f,
           encodeConfig({
             paymentPremiumPPB: payment,
@@ -2027,7 +2027,7 @@ describe('KeeperRegistry2_0', () => {
       )
     })
 
-    it('reverts if too many keepers set', async () => {
+    it('reverts if too many keeperAddresses set', async () => {
       for (let i = 0; i < 40; i++) {
         newKeepers.push(randomAddress())
       }
@@ -2163,8 +2163,8 @@ describe('KeeperRegistry2_0', () => {
       const updatedState = updated.state
 
       // Old signer addresses which are not in new signers should be non active
-      for (var i = 0; i < keepers.length; i++) {
-        let signer = keepers[i]
+      for (var i = 0; i < keeperAddresses.length; i++) {
+        let signer = keeperAddresses[i]
         if (!newKeepers.includes(signer)) {
           assert((await registry.getSignerInfo(signer)).active == false)
           assert((await registry.getSignerInfo(signer)).index == 0)
@@ -2177,8 +2177,8 @@ describe('KeeperRegistry2_0', () => {
         assert((await registry.getSignerInfo(signer)).index == i)
       }
       // Old transmitter addresses which are not in new transmitter should be non active, but retain other info
-      for (var i = 0; i < keepers.length; i++) {
-        let transmitter = keepers[i]
+      for (var i = 0; i < keeperAddresses.length; i++) {
+        let transmitter = keeperAddresses[i]
         if (!newKeepers.includes(transmitter)) {
           assert(
             (await registry.getTransmitterInfo(transmitter)).active == false,
@@ -2725,8 +2725,8 @@ describe('KeeperRegistry2_0', () => {
       // Very high min spend, whole balance as cancellation fees
       let minUpkeepSpend = toWei('1000')
       await registry.connect(owner).setConfig(
-        keepers,
-        keepers,
+        keeperAddresses,
+        keeperAddresses,
         f,
         encodeConfig({
           paymentPremiumPPB,
@@ -2985,7 +2985,14 @@ describe('KeeperRegistry2_0', () => {
         )
       await registry2
         .connect(owner)
-        .setConfig(keepers, keepers, f, encodeConfig(config), 1, '0x')
+        .setConfig(
+          keeperAddresses,
+          keeperAddresses,
+          f,
+          encodeConfig(config),
+          1,
+          '0x',
+        )
     })
 
     context('when permissions are set', () => {
@@ -3140,8 +3147,8 @@ describe('KeeperRegistry2_0', () => {
       await registry
         .connect(owner)
         .setConfig(
-          keepers,
-          keepers,
+          keeperAddresses,
+          keeperAddresses,
           f,
           encodeConfig(config),
           offchainVersion,
@@ -3192,15 +3199,17 @@ describe('KeeperRegistry2_0', () => {
 
     it('sets the payees when exisitng payees are zero address', async () => {
       //Initial payees should be zero address
-      for (let i = 0; i < keepers.length; i++) {
-        let payee = (await registry.getTransmitterInfo(keepers[i])).payee
+      for (let i = 0; i < keeperAddresses.length; i++) {
+        let payee = (await registry.getTransmitterInfo(keeperAddresses[i]))
+          .payee
         assert.equal(payee, zeroAddress)
       }
 
       await registry.connect(owner).setPayees(payees)
 
-      for (let i = 0; i < keepers.length; i++) {
-        let payee = (await registry.getTransmitterInfo(keepers[i])).payee
+      for (let i = 0; i < keeperAddresses.length; i++) {
+        let payee = (await registry.getTransmitterInfo(keeperAddresses[i]))
+          .payee
         assert.equal(payee, payees[i])
       }
     })
@@ -3244,7 +3253,7 @@ describe('KeeperRegistry2_0', () => {
       const tx = await registry.connect(owner).setPayees(payees)
       await expect(tx)
         .to.emit(registry, 'PayeesUpdated')
-        .withArgs(keepers, payees)
+        .withArgs(keeperAddresses, payees)
     })
   })
 
@@ -3420,8 +3429,8 @@ describe('KeeperRegistry2_0', () => {
           let minUpkeepSpend = toWei('10')
 
           await registry.connect(owner).setConfig(
-            keepers,
-            keepers,
+            keeperAddresses,
+            keeperAddresses,
             f,
             encodeConfig({
               paymentPremiumPPB,
@@ -3472,8 +3481,8 @@ describe('KeeperRegistry2_0', () => {
           // Very high min spend, should deduct whole balance as cancellation fees
           let minUpkeepSpend = toWei('1000')
           await registry.connect(owner).setConfig(
-            keepers,
-            keepers,
+            keeperAddresses,
+            keeperAddresses,
             f,
             encodeConfig({
               paymentPremiumPPB,
@@ -3519,8 +3528,8 @@ describe('KeeperRegistry2_0', () => {
           // Very low min spend, already spent in one perform upkeep
           let minUpkeepSpend = BigNumber.from(420)
           await registry.connect(owner).setConfig(
-            keepers,
-            keepers,
+            keeperAddresses,
+            keeperAddresses,
             f,
             encodeConfig({
               paymentPremiumPPB,
