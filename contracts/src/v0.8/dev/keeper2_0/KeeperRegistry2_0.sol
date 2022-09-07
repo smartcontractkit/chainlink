@@ -158,6 +158,7 @@ contract KeeperRegistry2_0 is
 
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes, which is approximated to be report.length
+    // TODO: fix ACCOUNTING_GAS_OVERHEAD in case of non sig verification
     gasOverhead =
       (gasOverhead - gasleft() + 16 * report.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
       numUpkeepsPassedChecks;
