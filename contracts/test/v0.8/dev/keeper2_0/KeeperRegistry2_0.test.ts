@@ -44,6 +44,7 @@ const CHECK_GAS_OVERHEAD = BigNumber.from(400000)
 const registryGasOverhead = BigNumber.from(80000)
 const verifySigOverhead = BigNumber.from(20000)
 //const accountGasOverhead = BigNumber.from(20000)
+const cancellationDelay = 50
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -604,7 +605,33 @@ describe('KeeperRegistry2_0', () => {
           { Id: upkeepId.toString() },
         ])
 
-        for (let i = 0; i < 256; i++) {
+        await registry.connect(admin).cancelUpkeep(upkeepId)
+
+        for (let i = 0; i < cancellationDelay; i++) {
+          await ethers.provider.send('evm_mine', [])
+        }
+
+        await evmRevert(
+          registry
+            .connect(keeper1)
+            .transmit(
+              [emptyBytes32, emptyBytes32, emptyBytes32],
+              latestBlockReport,
+              [],
+              [],
+              emptyBytes32,
+            ),
+          'StaleReport()',
+        )
+      })
+
+      it('reverts when upkeep is cancelled and cancellation delay has gone', async () => {
+        let latestBlockReport = await encodeLatestBlockReport([
+          { Id: upkeepId.toString() },
+        ])
+        await registry.connect(admin).cancelUpkeep(upkeepId)
+
+        for (let i = 0; i < cancellationDelay; i++) {
           await ethers.provider.send('evm_mine', [])
         }
 
@@ -3597,8 +3624,6 @@ describe('KeeperRegistry2_0', () => {
     })
 
     describe('when called by the admin', async () => {
-      const delay = 50
-
       it('reverts if called again by the admin', async () => {
         await registry.connect(admin).cancelUpkeep(upkeepId)
 
@@ -3611,7 +3636,7 @@ describe('KeeperRegistry2_0', () => {
       it('reverts if called by the owner after the timeout', async () => {
         await registry.connect(admin).cancelUpkeep(upkeepId)
 
-        for (let i = 0; i < delay; i++) {
+        for (let i = 0; i < cancellationDelay; i++) {
           await ethers.provider.send('evm_mine', [])
         }
 
@@ -3636,7 +3661,10 @@ describe('KeeperRegistry2_0', () => {
         const receipt = await tx.wait()
         await expect(tx)
           .to.emit(registry, 'UpkeepCanceled')
-          .withArgs(upkeepId, BigNumber.from(receipt.blockNumber + delay))
+          .withArgs(
+            upkeepId,
+            BigNumber.from(receipt.blockNumber + cancellationDelay),
+          )
       })
 
       it('immediately prevents upkeep', async () => {
@@ -3653,7 +3681,7 @@ describe('KeeperRegistry2_0', () => {
             emptyBytes32,
           ) // still works
 
-        for (let i = 0; i < delay; i++) {
+        for (let i = 0; i < cancellationDelay; i++) {
           await ethers.provider.send('evm_mine', [])
         }
 
