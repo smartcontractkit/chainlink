@@ -914,48 +914,39 @@ func VerifyStatusCode(actStatusCd, expStatusCd int) error {
 	return nil
 }
 
-func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, error) {
+func CreateNodeKeysBundle(nodes []*Chainlink, chainName string, chainId string) ([]NodeKeysBundle, []*CLNodesWithKeys, error) {
 	nkb := make([]NodeKeysBundle, 0)
+	var clNodes []*CLNodesWithKeys
 	for _, n := range nodes {
 		p2pkeys, err := n.MustReadP2PKeys()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		peerID := p2pkeys.Data[0].Attributes.PeerID
 		txKey, _, err := n.CreateTxKey(chainId)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		ocrKey, _, err := n.CreateOCR2Key(chainName)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ethAddress, err := n.PrimaryEthAddressForChain(chainId)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		nkb = append(nkb, NodeKeysBundle{
+		bundle := NodeKeysBundle{
 			PeerID:     peerID,
 			OCR2Key:    *ocrKey,
 			TXKey:      *txKey,
 			P2PKeys:    *p2pkeys,
 			EthAddress: ethAddress,
-		})
+		}
+		nkb = append(nkb, bundle)
+		clNodes = append(clNodes, &CLNodesWithKeys{Node: n, KeysBundle: bundle})
 	}
 
-	return nkb, nil
-}
-
-func SetupCLNodesWithKeys(nodes []*Chainlink, chainName string, chainId string) ([]*CLNodesWithKeys, error) {
-	bundle, err := CreateNodeKeysBundle(nodes, chainName, chainId)
-	if err != nil {
-		return nil, err
-	}
-	var clNodes []*CLNodesWithKeys
-	for i, n := range nodes {
-		clNodes = append(clNodes, &CLNodesWithKeys{Node: n, KeysBundle: bundle[i]})
-	}
-	return clNodes, nil
+	return nkb, clNodes, nil
 }
