@@ -144,7 +144,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
     bool paused; // pause switch for all upkeeps in the registry
     bool reentrancyGuard; // guard against reentrancy
-    // <14 bytes to 1 EVM word
+    // 12 bytes to 1 EVM word
   }
 
   // Config + State storage struct which is not on hot transmit path
