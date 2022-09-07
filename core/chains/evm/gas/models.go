@@ -54,12 +54,14 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Es
 		"minGasPriceWei", cfg.EvmMinGasPriceWei(),
 	)
 	switch s {
+	case "Arbitrum":
+		return NewArbitrumEstimator(lggr, cfg, ethClient, ethClient)
 	case "BlockHistory":
 		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
 	case "FixedPrice":
 		return NewFixedPriceEstimator(cfg, lggr)
 	case "Optimism2", "L2Suggested":
-		return NewL2SuggestedEstimator(lggr, cfg, ethClient)
+		return NewL2SuggestedPriceEstimator(lggr, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(cfg, lggr)
@@ -73,6 +75,7 @@ type DynamicFee struct {
 }
 
 // Estimator provides an interface for estimating gas price and limit
+//
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
@@ -105,6 +108,7 @@ func applyMultiplier(gasLimit uint32, multiplier float32) uint32 {
 }
 
 // Config defines an interface for configuration in the gas package
+//
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	BlockHistoryEstimatorBatchSize() uint32
@@ -119,6 +123,7 @@ type Config interface {
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpWei() *big.Int
 	EvmGasFeeCapDefault() *big.Int
+	EvmGasLimitMax() uint32
 	EvmGasLimitMultiplier() float32
 	EvmGasPriceDefault() *big.Int
 	EvmGasTipCapDefault() *big.Int
