@@ -563,6 +563,93 @@ describe('KeeperRegistrar2_0', () => {
     })
   })
 
+  describe('#registerUpkeep', () => {
+    it('reverts with empty message if amount sent is not available in LINK allowance', async () => {
+      await evmRevert(
+        registrar
+          .connect(someAddress)
+          .registerUpkeep(
+            upkeepName,
+            emptyBytes,
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+            amount,
+          ),
+        '',
+      )
+    })
+
+    it('reverts if the amount passed in data is less than configured minimum', async () => {
+      await registrar
+        .connect(registrarOwner)
+        .setRegistrationConfig(
+          autoApproveType_ENABLED_ALL,
+          maxAllowedAutoApprove,
+          registry.address,
+          minUpkeepSpend,
+        )
+
+      // amt is one order of magnitude less than minUpkeepSpend
+      const amt = BigNumber.from('100000000000000000')
+
+      await evmRevert(
+        registrar
+          .connect(someAddress)
+          .registerUpkeep(
+            upkeepName,
+            emptyBytes,
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+            amt,
+          ),
+        'InsufficientPayment()',
+      )
+    })
+
+    it('Auto Approve ON - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
+      //set auto approve ON with high threshold limits
+      await registrar
+        .connect(registrarOwner)
+        .setRegistrationConfig(
+          autoApproveType_ENABLED_ALL,
+          maxAllowedAutoApprove,
+          registry.address,
+          minUpkeepSpend,
+        )
+
+      await linkToken.connect(requestSender).approve(registrar.address, amount)
+
+      const tx = await registrar
+        .connect(requestSender)
+        .registerUpkeep(
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+        )
+      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
+
+      //confirm if a new upkeep has been registered and the details are the same as the one just registered
+      const [id] = await registry.getActiveUpkeepIDs(0, 1)
+      const newupkeep = await registry.getUpkeep(id)
+      assert.equal(newupkeep.target, mock.address)
+      assert.equal(newupkeep.admin, await admin.getAddress())
+      assert.equal(newupkeep.checkData, emptyBytes)
+      assert.equal(newupkeep.balance.toString(), amount.toString())
+      assert.equal(newupkeep.executeGas, executeGas.toNumber())
+
+      await expect(tx).to.emit(registrar, 'RegistrationRequested')
+      await expect(tx).to.emit(registrar, 'RegistrationApproved')
+    })
+  })
+
   describe('#setAutoApproveAllowedSender', () => {
     it('reverts if not called by the owner', async () => {
       const tx = registrar

@@ -39,6 +39,8 @@ $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 $SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
 $SCRIPTPATH/native_solc8_6_compile KeeperRegistry1_2.sol
 $SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistry1_3.sol
+$SCRIPTPATH/native_solc8_6_compile dev/KeeperRegistryLogic1_3.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol

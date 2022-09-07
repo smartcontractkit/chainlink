@@ -10,12 +10,12 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/fac
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
+import { KeeperRegistry13__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry13__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
-import { KeeperRegistryLogic__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic__factory'
-import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
-import { KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic'
+import { KeeperRegistryLogic13__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic13__factory'
+import { KeeperRegistry13 as KeeperRegistry } from '../../../typechain/KeeperRegistry13'
+import { KeeperRegistryLogic13 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic13'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -59,9 +59,11 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_3')
+  // @ts-ignore bug in autogen file
   keeperRegistryLogicFactory = await ethers.getContractFactory(
-    'KeeperRegistryLogic',
+    'KeeperRegistryLogic1_3',
   )
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
@@ -73,7 +75,7 @@ before(async () => {
   )
 })
 
-describe('KeeperRegistryDev', () => {
+describe('KeeperRegistry1_3', () => {
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -201,15 +203,7 @@ describe('KeeperRegistryDev', () => {
     }
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-        config,
-      )
+      .deploy(registryLogic.address, config)
     registryLogic2 = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
@@ -221,15 +215,7 @@ describe('KeeperRegistryDev', () => {
       )
     registry2 = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic2.address,
-        config,
-      )
+      .deploy(registryLogic2.address, config)
     mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
@@ -274,7 +260,7 @@ describe('KeeperRegistryDev', () => {
   }
 
   const verifyMaxPayment = async (
-    paymentModel: number,
+    keeperRegistryLogic: KeeperRegistryLogic,
     gasAmounts: number[],
     premiums: number[],
     flatFees: number[],
@@ -297,15 +283,7 @@ describe('KeeperRegistryDev', () => {
 
     let registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        paymentModel,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-        config,
-      )
+      .deploy(keeperRegistryLogic.address, config)
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
       const gas = gasAmounts[idx]
@@ -2354,15 +2332,54 @@ describe('KeeperRegistryDev', () => {
     const premiums = [0, 250000000]
     const flatFees = [0, 1000000]
     it('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(0, gasAmounts, premiums, flatFees)
+      const registryLogicL1 = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(
+          0,
+          registryGasOverhead,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
+      await verifyMaxPayment(registryLogicL1, gasAmounts, premiums, flatFees)
     })
 
     it('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(1, gasAmounts, premiums, flatFees, l1CostWeiArb)
+      const registryLogicArb = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(
+          1,
+          registryGasOverhead,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
+      await verifyMaxPayment(
+        registryLogicArb,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiArb,
+      )
     })
 
     it('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(2, gasAmounts, premiums, flatFees, l1CostWeiOpt)
+      const registryLogicOpt = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(
+          2,
+          registryGasOverhead,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
+      await verifyMaxPayment(
+        registryLogicOpt,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiOpt,
+      )
     })
   })
 
