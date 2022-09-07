@@ -893,12 +893,6 @@ describe('KeeperRegistry2_0', () => {
     */
   })
 
-  describe('#simulatePerformUpkeep', () => {
-    it('TODO', async () => {
-      assert(false)
-    })
-  })
-
   describe('#checkUpkeep / #performUpkeep', () => {
     /*
 
@@ -1377,6 +1371,66 @@ describe('KeeperRegistry2_0', () => {
         registration = await registry.getUpkeep(upkeepId)
         assert.equal(0, registration.balance.toNumber())
       })
+    })
+  })
+
+  describe('#simulatePerformUpkeep', () => {
+    it('reverts if called by non zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(await owner.getAddress())
+          .callStatic.simulatePerformUpkeep(upkeepId, '0x'),
+        'OnlySimulatedBackend()',
+      )
+    })
+
+    it('reverts when registry is paused', async () => {
+      await registry.connect(owner).pause()
+      await evmRevert(
+        registry
+          .connect(zeroAddress)
+          .callStatic.simulatePerformUpkeep(upkeepId, '0x'),
+        'RegistryPaused()',
+      )
+    })
+
+    it('returns false and gasUsed when perform fails', async () => {
+      await mock.setCanPerform(false)
+
+      let simulatePerformResult = await registry
+        .connect(zeroAddress)
+        .callStatic.simulatePerformUpkeep(upkeepId, '0x')
+
+      assert.equal(simulatePerformResult.success, false)
+      assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('returns true and gasUsed when perform succeeds', async () => {
+      await mock.setCanPerform(true)
+
+      let simulatePerformResult = await registry
+        .connect(zeroAddress)
+        .callStatic.simulatePerformUpkeep(upkeepId, '0x')
+
+      assert.equal(simulatePerformResult.success, true)
+      assert.isTrue(simulatePerformResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+    })
+
+    it('returns correct amount of gasUsed when perform succeeds', async () => {
+      await mock.setCanPerform(true)
+      await mock.setPerformGasToBurn(executeGas)
+
+      let simulatePerformResult = await registry
+        .connect(zeroAddress)
+        .callStatic.simulatePerformUpkeep(upkeepId, '0x')
+
+      assert.equal(simulatePerformResult.success, true)
+      // Full execute gas should be used, with some performGasBuffer(1000)
+      assert.isTrue(
+        simulatePerformResult.gasUsed.gt(
+          executeGas.sub(BigNumber.from('1000')),
+        ),
+      )
     })
   })
 
