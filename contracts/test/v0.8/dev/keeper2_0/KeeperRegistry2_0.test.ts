@@ -690,6 +690,17 @@ describe('KeeperRegistry2_0', () => {
       describe('When signatures are NOT validated', () => {
         it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event', async () => {
           mock.setCanPerform(true)
+
+          const keeperBefore = await registry.getTransmitterInfo(
+            await keeper1.getAddress(),
+          )
+          const registrationBefore = await registry.getUpkeep(upkeepId)
+          const keeperLinkBefore = await linkToken.balanceOf(
+            await keeper1.getAddress(),
+          )
+          const registryLinkBefore = await linkToken.balanceOf(registry.address)
+          assert.equal(registrationBefore.lastPerformBlockNumber.toString(), '0')
+
           const tx = await registry
             .connect(keeper1)
             .transmit(
@@ -701,10 +712,34 @@ describe('KeeperRegistry2_0', () => {
             )
           await tx.wait()
 
-          let lastPerformBlockNumber = (await registry.getUpkeep(upkeepId))
-            .lastPerformBlockNumber
+          const keeperAfter = await registry.getTransmitterInfo(
+            await keeper1.getAddress(),
+          )
+          const registrationAfter = await registry.getUpkeep(upkeepId)
+          const keeperLinkAfter = await linkToken.balanceOf(
+            await keeper1.getAddress(),
+          )
+          const registryLinkAfter = await linkToken.balanceOf(registry.address)
+
+          assert.isTrue(keeperAfter.balance.gt(keeperBefore.balance))
+          assert.isTrue(
+            registrationBefore.balance.gt(registrationAfter.balance),
+          )
+          assert.isTrue(keeperLinkAfter.eq(keeperLinkBefore))
+          assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
+
+          // Amount spent should be updated correctly
+          assert.isTrue(
+            registrationAfter.amountSpent.gt(registrationBefore.amountSpent),
+          )
+          assert.isTrue(
+            registrationAfter.amountSpent
+              .sub(registrationBefore.amountSpent)
+              .eq(registrationBefore.balance.sub(registrationAfter.balance)),
+          )
+          // Last perform block number should be updated
           assert.equal(
-            lastPerformBlockNumber.toString(),
+            registrationAfter.lastPerformBlockNumber.toString(),
             tx.blockNumber?.toString(),
           )
 
@@ -786,26 +821,6 @@ describe('KeeperRegistry2_0', () => {
         await registry.connect(keeper3).performUpkeep(id, '0x')
       })
 
-      it('returns false if the target cannot execute', async () => {
-        const mockResponse = await mock
-          .connect(zeroAddress)
-          .callStatic.checkUpkeep('0x')
-        assert.isFalse(mockResponse.callable)
-
-        assert.isFalse(
-          await registry.connect(keeper1).callStatic.performUpkeep(id, '0x'),
-        )
-      })
-
-      it('returns true if called', async () => {
-        await mock.setCanPerform(true)
-
-        const response = await registry
-          .connect(keeper1)
-          .callStatic.performUpkeep(id, '0x')
-        assert.isTrue(response)
-      })
-
       it('reverts if not enough gas supplied', async () => {
         await mock.setCanPerform(true)
 
@@ -833,56 +848,7 @@ describe('KeeperRegistry2_0', () => {
         assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress())
         assert.isNotEmpty(eventLog?.[1].args?.[3])
         assert.equal(eventLog?.[1].args?.[4], performData)
-      })
-
-      it('updates payment balances', async () => {
-        const keeperBefore = await registry.getKeeperInfo(
-          await keeper1.getAddress(),
-        )
-        const registrationBefore = await registry.getUpkeep(id)
-        const keeperLinkBefore = await linkToken.balanceOf(
-          await keeper1.getAddress(),
-        )
-        const registryLinkBefore = await linkToken.balanceOf(registry.address)
-
-        // Do the thing
-        await registry.connect(keeper1).performUpkeep(id, '0x')
-
-        const keeperAfter = await registry.getKeeperInfo(
-          await keeper1.getAddress(),
-        )
-        const registrationAfter = await registry.getUpkeep(id)
-        const keeperLinkAfter = await linkToken.balanceOf(
-          await keeper1.getAddress(),
-        )
-        const registryLinkAfter = await linkToken.balanceOf(registry.address)
-
-        assert.isTrue(keeperAfter.balance.gt(keeperBefore.balance))
-        assert.isTrue(registrationBefore.balance.gt(registrationAfter.balance))
-        assert.isTrue(keeperLinkAfter.eq(keeperLinkBefore))
-        assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
-      })
-
-      it('updates amount spent correctly', async () => {
-        const registrationBefore = await registry.getUpkeep(id)
-        const balanceBefore = registrationBefore.balance
-        const amountSpentBefore = registrationBefore.amountSpent
-
-        // Do the thing
-        await registry.connect(keeper1).performUpkeep(id, '0x')
-
-        const registrationAfter = await registry.getUpkeep(id)
-        const balanceAfter = registrationAfter.balance
-        const amountSpentAfter = registrationAfter.amountSpent
-
-        assert.isTrue(balanceAfter.lt(balanceBefore))
-        assert.isTrue(amountSpentAfter.gt(amountSpentBefore))
-        assert.isTrue(
-          amountSpentAfter
-            .sub(amountSpentBefore)
-            .eq(balanceBefore.sub(balanceAfter)),
-        )
-      })
+      })  
 
       it('only pays for gas used [ @skip-coverage ]', async () => {
         const before = (
@@ -1002,12 +968,6 @@ describe('KeeperRegistry2_0', () => {
         assert.isTrue(keeperBalanceAfter.gt(keeperBalanceBefore))
       })
 
-      it('reverts if called by a non-keeper', async () => {
-        await evmRevert(
-          registry.connect(nonkeeper).performUpkeep(id, '0x'),
-          'OnlyActiveKeepers()',
-        )
-      })
 
       it('reverts if the upkeep has been canceled', async () => {
         await mock.setCanPerform(true)
@@ -1020,14 +980,6 @@ describe('KeeperRegistry2_0', () => {
         )
       })
 
-      it('reverts if the upkeep is paused', async () => {
-        await registry.connect(admin).pauseUpkeep(id)
-
-        await evmRevert(
-          registry.connect(keeper1).performUpkeep(id, '0x'),
-          'OnlyUnpausedUpkeep()',
-        )
-      })
 
       it('uses the fallback gas price if the feed price is stale [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
@@ -1089,19 +1041,6 @@ describe('KeeperRegistry2_0', () => {
         assert.isTrue(normalAmount.lt(amountWithZeroFeed))
       })
 
-      it('reverts if the same caller calls twice in a row', async () => {
-        await registry.connect(keeper1).performUpkeep(id, '0x')
-        await evmRevert(
-          registry.connect(keeper1).performUpkeep(id, '0x'),
-          'KeepersMustTakeTurns()',
-        )
-        await registry.connect(keeper2).performUpkeep(id, '0x')
-        await evmRevert(
-          registry.connect(keeper2).performUpkeep(id, '0x'),
-          'KeepersMustTakeTurns()',
-        )
-        await registry.connect(keeper1).performUpkeep(id, '0x')
-      })
 
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
         await registry.connect(admin).setUpkeepGasLimit(id, maxPerformGas)
