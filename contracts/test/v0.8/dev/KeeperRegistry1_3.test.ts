@@ -203,15 +203,7 @@ describe('KeeperRegistry1_3', () => {
     }
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-        config,
-      )
+      .deploy(registryLogic.address, config)
     registryLogic2 = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
@@ -223,15 +215,7 @@ describe('KeeperRegistry1_3', () => {
       )
     registry2 = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        0,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic2.address,
-        config,
-      )
+      .deploy(registryLogic2.address, config)
     mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
@@ -276,7 +260,7 @@ describe('KeeperRegistry1_3', () => {
   }
 
   const verifyMaxPayment = async (
-    paymentModel: number,
+    keeperRegistryLogic: KeeperRegistryLogic,
     gasAmounts: number[],
     premiums: number[],
     flatFees: number[],
@@ -299,15 +283,7 @@ describe('KeeperRegistry1_3', () => {
 
     let registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        paymentModel,
-        registryGasOverhead,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-        config,
-      )
+      .deploy(keeperRegistryLogic.address, config)
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
       const gas = gasAmounts[idx]
@@ -2356,15 +2332,54 @@ describe('KeeperRegistry1_3', () => {
     const premiums = [0, 250000000]
     const flatFees = [0, 1000000]
     it('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(0, gasAmounts, premiums, flatFees)
+      const registryLogicL1 = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(
+          0,
+          registryGasOverhead,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
+      await verifyMaxPayment(registryLogicL1, gasAmounts, premiums, flatFees)
     })
 
     it('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(1, gasAmounts, premiums, flatFees, l1CostWeiArb)
+      const registryLogicArb = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(
+          1,
+          registryGasOverhead,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
+      await verifyMaxPayment(
+        registryLogicArb,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiArb,
+      )
     })
 
     it('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(2, gasAmounts, premiums, flatFees, l1CostWeiOpt)
+      const registryLogicOpt = await keeperRegistryLogicFactory
+        .connect(owner)
+        .deploy(
+          2,
+          registryGasOverhead,
+          linkToken.address,
+          linkEthFeed.address,
+          gasPriceFeed.address,
+        )
+      await verifyMaxPayment(
+        registryLogicOpt,
+        gasAmounts,
+        premiums,
+        flatFees,
+        l1CostWeiOpt,
+      )
     })
   })
 
