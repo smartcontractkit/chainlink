@@ -118,13 +118,7 @@ describe('KeeperRegistrar2_0', () => {
 
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        0,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-      )
+      .deploy(registryLogic.address)
 
     mock = await upkeepMockFactory.deploy()
 
