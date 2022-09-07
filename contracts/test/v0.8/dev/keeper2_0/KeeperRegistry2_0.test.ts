@@ -371,7 +371,7 @@ describe('KeeperRegistry2_0', () => {
     upkeepId = await getUpkeepID(tx)
   })
 
-  describe.only('#transmit', () => {
+  describe('#transmit', () => {
     let sigVerificationUpkeepId: BigNumber
     beforeEach(async () => {
       const tx = await registry
@@ -708,7 +708,7 @@ describe('KeeperRegistry2_0', () => {
         )
       })
 
-      describe('When signatures are NOT validated', () => {
+      describe.only('When signatures are NOT validated', () => {
         it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event', async () => {
           mock.setCanPerform(true)
           let checkBlock = await ethers.provider.getBlock('latest')
@@ -774,13 +774,6 @@ describe('KeeperRegistry2_0', () => {
             ).toString(),
             totalPayment.toString(),
           )
-          // total gas charged for should be almost equal to tx gas
-          assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
-          assert.isTrue(
-            gasUsed
-              .add(gasOverhead)
-              .lt(receipt.gasUsed.add(BigNumber.from(gasMargin))),
-          )
 
           const keeperAfter = await registry.getTransmitterInfo(
             await keeper1.getAddress(),
@@ -820,6 +813,48 @@ describe('KeeperRegistry2_0', () => {
 
           // Transmitted should not be emitted for skip sig validation
           expect(tx).to.not.emit(registry, 'Transmitted')
+        })
+
+        it('calculates gas overhead appropriately within a margin', async () => {
+          mock.setCanPerform(true)
+          // TODO test for success, false, high perform gas, change f
+
+          const tx = await registry.connect(keeper1).transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([
+              {
+                Id: upkeepId.toString(),
+              },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          )
+          const receipt = await tx.wait()
+          let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+          // exactly 1 Upkeep Performed should be emitted
+          assert.equal(upkeepPerformedLogs.length, 1)
+          let upkeepPerformedLog = upkeepPerformedLogs[0]
+
+          let gasUsed = upkeepPerformedLog.args.gasUsed
+          let gasOverhead = upkeepPerformedLog.args.gasOverhead
+          let totalPayment = upkeepPerformedLog.args.totalPayment
+
+          assert.isTrue(gasUsed.gt(BigNumber.from('0')))
+          assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+          assert.isTrue(totalPayment.gt(BigNumber.from('0')))
+
+          console.log(gasUsed.toString())
+          console.log(gasOverhead.toString())
+          console.log(receipt.gasUsed.toString())
+
+          // total gas charged should be greater than tx gas but within a margin
+          assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+          assert.isTrue(
+            gasUsed
+              .add(gasOverhead)
+              .lt(receipt.gasUsed.add(BigNumber.from(gasMargin))),
+          )
         })
       })
 
