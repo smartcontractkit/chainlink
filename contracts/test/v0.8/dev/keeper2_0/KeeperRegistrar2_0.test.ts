@@ -567,6 +567,35 @@ describe('KeeperRegistrar2_0', () => {
       )
     })
 
+    it('reverts if the amount passed in data is less than configured minimum', async () => {
+      await registrar
+        .connect(registrarOwner)
+        .setRegistrationConfig(
+          autoApproveType_ENABLED_ALL,
+          maxAllowedAutoApprove,
+          registry.address,
+          minUpkeepSpend,
+        )
+
+      // amt is one order of magnitude less than minUpkeepSpend
+      const amt = BigNumber.from('100000000000000000')
+
+      await evmRevert(
+        registrar
+          .connect(someAddress)
+          .registerUpkeep(
+            upkeepName,
+            emptyBytes,
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            emptyBytes,
+            amt,
+          ),
+        'InsufficientPayment()',
+      )
+    })
+
     it('Auto Approve ON - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
       //set auto approve ON with high threshold limits
       await registrar
