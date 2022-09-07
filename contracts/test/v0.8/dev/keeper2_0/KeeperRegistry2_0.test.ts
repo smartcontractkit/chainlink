@@ -212,6 +212,7 @@ describe('KeeperRegistry2_0', () => {
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
+  let signerAddresses: string[]
   let config: any
 
   beforeEach(async () => {
@@ -314,7 +315,7 @@ describe('KeeperRegistry2_0', () => {
         registryLogic.address,
       )
 
-    let signerAddresses = []
+    signerAddresses = []
     for (let signer of signers) {
       signerAddresses.push(await signer.getAddress())
     }
@@ -1033,7 +1034,7 @@ describe('KeeperRegistry2_0', () => {
     await registry
       .connect(owner)
       .setConfig(
-        keeperAddresses,
+        signerAddresses,
         keeperAddresses,
         f,
         encodeConfig(config),
@@ -1056,7 +1057,7 @@ describe('KeeperRegistry2_0', () => {
             const multiplier = multipliers[ldx]
 
             await registry.connect(owner).setConfig(
-              keeperAddresses,
+              signerAddresses,
               keeperAddresses,
               f,
               encodeConfig({
@@ -1799,7 +1800,7 @@ describe('KeeperRegistry2_0', () => {
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
         registry.connect(payee1).setConfig(
-          keeperAddresses,
+          signerAddresses,
           keeperAddresses,
           f,
           encodeConfig({
@@ -1834,7 +1835,7 @@ describe('KeeperRegistry2_0', () => {
       assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
       await registry.connect(owner).setConfig(
-        keeperAddresses,
+        signerAddresses,
         keeperAddresses,
         f,
         encodeConfig({
@@ -1896,7 +1897,7 @@ describe('KeeperRegistry2_0', () => {
 
     it('emits an event', async () => {
       const tx = await registry.connect(owner).setConfig(
-        keeperAddresses,
+        signerAddresses,
         keeperAddresses,
         f,
         encodeConfig({
@@ -1923,7 +1924,7 @@ describe('KeeperRegistry2_0', () => {
     it('reverts upon decreasing max limits', async () => {
       await evmRevert(
         registry.connect(owner).setConfig(
-          keeperAddresses,
+          signerAddresses,
           keeperAddresses,
           f,
           encodeConfig({
@@ -1948,7 +1949,7 @@ describe('KeeperRegistry2_0', () => {
       )
       await evmRevert(
         registry.connect(owner).setConfig(
-          keeperAddresses,
+          signerAddresses,
           keeperAddresses,
           f,
           encodeConfig({
@@ -1973,7 +1974,7 @@ describe('KeeperRegistry2_0', () => {
       )
       await evmRevert(
         registry.connect(owner).setConfig(
-          keeperAddresses,
+          signerAddresses,
           keeperAddresses,
           f,
           encodeConfig({
@@ -2725,7 +2726,7 @@ describe('KeeperRegistry2_0', () => {
       // Very high min spend, whole balance as cancellation fees
       let minUpkeepSpend = toWei('1000')
       await registry.connect(owner).setConfig(
-        keeperAddresses,
+        signerAddresses,
         keeperAddresses,
         f,
         encodeConfig({
@@ -2986,7 +2987,7 @@ describe('KeeperRegistry2_0', () => {
       await registry2
         .connect(owner)
         .setConfig(
-          keeperAddresses,
+          signerAddresses,
           keeperAddresses,
           f,
           encodeConfig(config),
@@ -3147,7 +3148,7 @@ describe('KeeperRegistry2_0', () => {
       await registry
         .connect(owner)
         .setConfig(
-          keeperAddresses,
+          signerAddresses,
           keeperAddresses,
           f,
           encodeConfig(config),
@@ -3429,7 +3430,7 @@ describe('KeeperRegistry2_0', () => {
           let minUpkeepSpend = toWei('10')
 
           await registry.connect(owner).setConfig(
-            keeperAddresses,
+            signerAddresses,
             keeperAddresses,
             f,
             encodeConfig({
@@ -3481,7 +3482,7 @@ describe('KeeperRegistry2_0', () => {
           // Very high min spend, should deduct whole balance as cancellation fees
           let minUpkeepSpend = toWei('1000')
           await registry.connect(owner).setConfig(
-            keeperAddresses,
+            signerAddresses,
             keeperAddresses,
             f,
             encodeConfig({
@@ -3528,7 +3529,7 @@ describe('KeeperRegistry2_0', () => {
           // Very low min spend, already spent in one perform upkeep
           let minUpkeepSpend = BigNumber.from(420)
           await registry.connect(owner).setConfig(
-            keeperAddresses,
+            signerAddresses,
             keeperAddresses,
             f,
             encodeConfig({
