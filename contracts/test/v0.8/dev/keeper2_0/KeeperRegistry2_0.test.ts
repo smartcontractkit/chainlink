@@ -507,37 +507,146 @@ describe('KeeperRegistry2_0', () => {
       )
     })
 
-    describe('when signatures are validated', () => {
+    it('reverts when upkeep has insufficient funds', async () => {
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'StaleReport()',
+      )
+    })
+
+    context('When the upkeep is funded', async () => {
       beforeEach(async () => {
         // Fund the upkeep
+        await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+
         await registry
           .connect(admin)
           .addFunds(sigVerificationUpkeepId, toWei('100'))
       })
 
-      it('emits an OCR Transmitted event', async () => {
-      
-        const configDigest = (await registry.getState()).state
-          .latestConfigDigest
-
-        const report = await encodeLatestBlockReport([
-          { Id: sigVerificationUpkeepId.toString() },
-        ])
-
-        const reportContext = [configDigest, emptyBytes32, emptyBytes32]
-        const sigs = signReport(reportContext, report, signers.slice(2))
+      it('reverts when check block number is less than last perform', async () => {
+        // First perform an upkeep to put last perform block number on upkeep state
 
         const tx = await registry
           .connect(keeper1)
           .transmit(
-            [reportContext[0], reportContext[1], reportContext[2]],
-            report,
-            sigs.rs,
-            sigs.ss,
-            sigs.vs,
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+            [],
+            [],
+            emptyBytes32,
           )
+        await tx.wait()
 
-        await expect(tx).to.emit(registry, 'Transmitted')
+        let lastPerformBlockNumber = (await registry.getUpkeep(upkeepId))
+          .lastPerformBlockNumber
+        let lastPerformBlock = await ethers.provider.getBlock(
+          lastPerformBlockNumber,
+        )
+        assert.equal(
+          lastPerformBlockNumber.toString(),
+          tx.blockNumber?.toString(),
+        )
+
+        // Try to transmit a report which has checkBlockNumber = lastPerformBlockNumber, should result in staleReport
+        await evmRevert(
+          registry.connect(keeper1).transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeReport([
+              {
+                Id: upkeepId.toString(),
+                checkBlockNum: lastPerformBlockNumber,
+                checkBlockHash: lastPerformBlock.parentHash,
+                performData: '0x',
+              },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+          'StaleReport()',
+        )
+      })
+
+      it('reverts when check block hash does not match', async () => {
+        await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+        let latestBlock = await ethers.provider.getBlock('latest')
+        // Try to transmit a report which has incorrect checkBlockHash
+        await evmRevert(
+          registry.connect(keeper1).transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeReport([
+              {
+                Id: upkeepId.toString(),
+                checkBlockNum: latestBlock.number,
+                checkBlockHash: latestBlock.hash,
+                performData: '0x',
+              }, // should be latestBlock.parentHash
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+          'StaleReport()',
+        )
+      })
+
+      it('reverts when check block number is older than 256 blocks', async () => {
+        let latestBlockReport = await encodeLatestBlockReport([
+          { Id: upkeepId.toString() },
+        ])
+
+        for (let i = 0; i < 256; i++) {
+          await ethers.provider.send('evm_mine', [])
+        }
+
+        // Try to transmit a report which is older than 256 blocks so block hash cannot be matched
+        await evmRevert(
+          registry
+            .connect(keeper1)
+            .transmit(
+              [emptyBytes32, emptyBytes32, emptyBytes32],
+              latestBlockReport,
+              [],
+              [],
+              emptyBytes32,
+            ),
+          'StaleReport()',
+        )
+      })
+
+      describe('When signatures are validated', () => {
+        it('emits an OCR Transmitted event', async () => {
+          const configDigest = (await registry.getState()).state
+            .latestConfigDigest
+
+          const report = await encodeLatestBlockReport([
+            { Id: sigVerificationUpkeepId.toString() },
+          ])
+
+          const reportContext = [configDigest, emptyBytes32, emptyBytes32]
+          const sigs = signReport(reportContext, report, signers.slice(2))
+
+          const tx = await registry
+            .connect(keeper1)
+            .transmit(
+              [reportContext[0], reportContext[1], reportContext[2]],
+              report,
+              sigs.rs,
+              sigs.ss,
+              sigs.vs,
+            )
+
+          await expect(tx).to.emit(registry, 'Transmitted')
+        })
       })
     })
 
