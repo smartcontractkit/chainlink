@@ -283,7 +283,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     return address(i_linkNativeFeed);
   }
 
-  function getFastGasFeedAddressl() external view returns (address) {
+  function getFastGasFeedAddress() external view returns (address) {
     return address(i_fastGasFeed);
   }
 

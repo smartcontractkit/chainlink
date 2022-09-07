@@ -49,7 +49,7 @@ const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase this margin
-const gasMargin = BigNumber.from(5000)
+//const gasMargin = BigNumber.from(5000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -332,13 +332,7 @@ describe('KeeperRegistry2_0', () => {
     }
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(
-        0,
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        registryLogic.address,
-      )
+      .deploy(registryLogic.address)
 
     signerAddresses = []
     for (let signer of signers) {
@@ -711,7 +705,7 @@ describe('KeeperRegistry2_0', () => {
         )
       })
 
-      describe.only('When signatures are NOT validated', () => {
+      describe('When signatures are NOT validated', () => {
         it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event', async () => {
           mock.setCanPerform(true)
           let checkBlock = await ethers.provider.getBlock('latest')
@@ -1389,15 +1383,18 @@ describe('KeeperRegistry2_0', () => {
     }
 
     // Deploy a new registry since we change payment model
-    let registry = await keeperRegistryFactory
+    let registryLogic = await keeperRegistryLogicFactory
       .connect(owner)
       .deploy(
         paymentModel,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
-        registryLogic.address,
       )
+    // Deploy a new registry since we change payment model
+    let registry = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(registryLogic.address)
     await registry
       .connect(owner)
       .setConfig(
@@ -3344,13 +3341,7 @@ describe('KeeperRegistry2_0', () => {
       }
       registry2 = await keeperRegistryFactory
         .connect(owner)
-        .deploy(
-          0,
-          linkToken.address,
-          linkEthFeed.address,
-          gasPriceFeed.address,
-          registryLogic2.address,
-        )
+        .deploy(registryLogic2.address)
       await registry2
         .connect(owner)
         .setConfig(
@@ -3504,13 +3495,7 @@ describe('KeeperRegistry2_0', () => {
       // Redeploy registry with zero address payees
       registry = await keeperRegistryFactory
         .connect(owner)
-        .deploy(
-          0,
-          linkToken.address,
-          linkEthFeed.address,
-          gasPriceFeed.address,
-          registryLogic.address,
-        )
+        .deploy(registryLogic.address)
 
       await registry
         .connect(owner)

@@ -50,21 +50,17 @@ contract KeeperRegistry2_0 is
   UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
   /**
-   * @param paymentModel one of Default, Arbitrum, and Optimism
-   * @param link address of the LINK Token
-   * @param linkNativeFeed address of the LINK/Native price feed
-   * @param fastGasFeed address of the Fast Gas price feed
    * @param keeperRegistryLogic address of the logic contract
    */
-  constructor(
-    PaymentModel paymentModel,
-    address link,
-    address linkNativeFeed,
-    address fastGasFeed,
-    address keeperRegistryLogic
-  ) KeeperRegistryBase2_0(paymentModel, link, linkNativeFeed, fastGasFeed) {
-    // TODO: Pick arguments from logic
-    i_keeperRegistryLogic = keeperRegistryLogic;
+  constructor(KeeperRegistryBase2_0 keeperRegistryLogic)
+    KeeperRegistryBase2_0(
+      keeperRegistryLogic.getPaymentModel(),
+      keeperRegistryLogic.getLinkAddress(),
+      keeperRegistryLogic.getLinkNativeFeedAddress(),
+      keeperRegistryLogic.getFastGasFeedAddress()
+    )
+  {
+    i_keeperRegistryLogic = address(keeperRegistryLogic);
   }
 
   ////////
