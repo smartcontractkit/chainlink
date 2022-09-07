@@ -821,7 +821,7 @@ describe('KeeperRegistry2_0', () => {
 
         it('calculates gas overhead appropriately within a margin', async () => {
           // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
-          await registry.connect(keeper1).transmit(
+          let tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
             await encodeLatestBlockReport([
               {
@@ -832,11 +832,12 @@ describe('KeeperRegistry2_0', () => {
             [],
             emptyBytes32,
           )
+          await tx.wait()
 
           mock.setCanPerform(true)
           // TODO test for success, false, high perform gas, performData, change f
 
-          const tx = await registry.connect(keeper1).transmit(
+          tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
             await encodeLatestBlockReport([
               {
@@ -1092,19 +1093,6 @@ describe('KeeperRegistry2_0', () => {
         ).balance
         assert.isTrue(keeperBalanceAfter.gt(keeperBalanceBefore))
       })
-
-
-      it('reverts if the upkeep has been canceled', async () => {
-        await mock.setCanPerform(true)
-
-        await registry.connect(owner).cancelUpkeep(id)
-
-        await evmRevert(
-          registry.connect(keeper1).performUpkeep(id, '0x'),
-          'UpkeepCancelled()',
-        )
-      })
-
 
       it('uses the fallback gas price if the feed price is stale [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
