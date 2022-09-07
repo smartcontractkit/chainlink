@@ -508,10 +508,15 @@ describe('KeeperRegistry2_0', () => {
     })
 
     describe('when signatures are validated', () => {
-      it('emits an OCR Transmitted event', async () => {
+      beforeEach(async () => {
+        // Fund the upkeep
         await registry
           .connect(admin)
           .addFunds(sigVerificationUpkeepId, toWei('100'))
+      })
+
+      it('emits an OCR Transmitted event', async () => {
+      
         const configDigest = (await registry.getState()).state
           .latestConfigDigest
 
