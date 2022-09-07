@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase.sol";
-import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterfaceDev.sol";
+import {KeeperRegistryExecutableInterface} from "./interfaces/KeeperRegistryInterface1_3.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
@@ -14,7 +14,7 @@ import "../interfaces/ERC677ReceiverInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistryDev is
+contract KeeperRegistry1_3 is
   KeeperRegistryBase,
   Proxy,
   TypeAndVersionInterface,

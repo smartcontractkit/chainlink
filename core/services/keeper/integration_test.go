@@ -21,8 +21,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/basic_upkeep_contract"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic1_3"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -99,6 +101,47 @@ func deployKeeperRegistry(
 		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
+	case keeper.RegistryVersion_1_3:
+		logicAddr, _, _, err := keeper_registry_logic1_3.DeployKeeperRegistryLogic(
+			auth,
+			backend,
+			0,
+			big.NewInt(80000),
+			linkAddr,
+			linkFeedAddr,
+			gasFeedAddr)
+		require.NoError(t, err)
+		backend.Commit()
+
+		regAddr, _, _, err := keeper_registry_wrapper1_3.DeployKeeperRegistry(
+			auth,
+			backend,
+			0,
+			big.NewInt(80000),
+			linkAddr,
+			linkFeedAddr,
+			gasFeedAddr,
+			logicAddr,
+			keeper_registry_wrapper1_3.Config{
+				PaymentPremiumPPB:    250_000_000,
+				FlatFeeMicroLink:     0,
+				BlockCountPerTurn:    big.NewInt(1),
+				CheckGasLimit:        20_000_000,
+				StalenessSeconds:     big.NewInt(3600),
+				GasCeilingMultiplier: 1,
+				MinUpkeepSpend:       big.NewInt(0),
+				MaxPerformGas:        5_000_000,
+				FallbackGasPrice:     big.NewInt(60000000000),
+				FallbackLinkPrice:    big.NewInt(20000000000000000),
+				Transcoder:           testutils.NewAddress(),
+				Registrar:            testutils.NewAddress(),
+			},
+		)
+		require.NoError(t, err)
+		backend.Commit()
+		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		require.NoError(t, err)
+		return regAddr, wrapper
 	default:
 		panic(errors.Errorf("Deployment of registry verdion %d not defined", version))
 	}
@@ -123,6 +166,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
 		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
 		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
+		{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
+		{"eip1559_mode_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
 	for _, tt := range tests {
