@@ -133,8 +133,7 @@ pragma solidity 0.6.6;
 contract VRF {
 
   // See https://www.secg.org/sec2-v2.pdf, section 2.4.1, for these constants.
-  // Number of points in Secp256k1
-  uint256 constant private GROUP_ORDER =
+  uint256 constant private GROUP_ORDER = // Number of points in Secp256k1
     // solium-disable-next-line indentation
     0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
   // Prime characteristic of the galois field over which Secp256k1 is defined

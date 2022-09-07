@@ -144,8 +144,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   }
 
   /**
-   * @notice Allows external users to register upkeeps
-   * @notice registerUpkeep can only be called through transferAndCall on LINK contract
+   * @notice Allows external users to register upkeeps; assumes amount is approved for transfer by the contract
    * @param name string of the upkeep to be registered
    * @param encryptedEmail email address of upkeep contact
    * @param upkeepContract address to perform upkeep on
