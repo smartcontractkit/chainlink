@@ -44,6 +44,7 @@ type (
 		gasEstimatorMode                               string
 		gasFeeCapDefault                               big.Int
 		gasLimitDefault                                uint32
+		gasLimitMax                                    uint32
 		gasLimitMultiplier                             float32
 		gasLimitTransfer                               uint32
 		gasLimitOCRJobType                             *uint32
@@ -127,6 +128,7 @@ func setChainSpecificConfigDefaultSets() {
 		gasEstimatorMode:                      "BlockHistory",
 		gasFeeCapDefault:                      *DefaultGasFeeCap,
 		gasLimitDefault:                       DefaultGasLimit,
+		gasLimitMax:                           DefaultGasLimit, // equal since no effect other than Arbitrum
 		gasLimitMultiplier:                    1.0,
 		gasLimitTransfer:                      21000,
 		gasPriceDefault:                       *DefaultGasPrice,
@@ -285,17 +287,18 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.blockEmissionIdleWarningThreshold = 0
 	arbitrumMainnet.nodeDeadAfterNoNewHeadersThreshold = 0 // Arbitrum only emits blocks when a new tx is received, so this method of liveness detection is not useful
 	arbitrumMainnet.chainType = config.ChainArbitrum
-	arbitrumMainnet.gasBumpThreshold = 0                 // Disable gas bumping on arbitrum
-	arbitrumMainnet.gasPriceDefault = *assets.GWei(1000) // Arbitrum uses something like a Vickrey auction model where gas price represents a "max bid". In practice we usually pay much less
-	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
-	arbitrumMainnet.minGasPriceWei = *assets.GWei(1000)  // Fix the gas price
-	arbitrumMainnet.gasEstimatorMode = "FixedPrice"
+	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
+	arbitrumMainnet.gasEstimatorMode = "Arbitrum"
+	arbitrumMainnet.gasLimitMax = 1_000_000_000
+	arbitrumMainnet.minGasPriceWei = *big.NewInt(0)          // Arbitrum uses the suggested gas price so we don't want to place any limits on the minimum
+	arbitrumMainnet.gasPriceDefault = *big.NewInt(100000000) // 0.1 gwei
+	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)
+	arbitrumMainnet.gasFeeCapDefault = *assets.GWei(1000)
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.ocrContractConfirmations = 1
 	arbitrumRinkeby := arbitrumMainnet
 	arbitrumRinkeby.linkContractAddress = "0x615fBe6372676474d9e6933d310469c9b68e9726"
-	// nitro does not use an auction, so reduce the fixed gas price as it no longer represents an upper-bound bid.
 	arbitrumGoerli := arbitrumRinkeby
 	arbitrumGoerli.linkContractAddress = "" //TODO
 
