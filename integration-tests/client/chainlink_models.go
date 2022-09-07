@@ -9,7 +9,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -810,7 +809,7 @@ func (p P2PData) P2PV2Bootstrapper() string {
 	if p.RemotePort == "" {
 		p.RemotePort = "6690"
 	}
-	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.RemotePort, p.RemotePort)
+	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.RemoteIP, p.RemotePort)
 }
 
 // Type returns the type of the job
@@ -892,51 +891,87 @@ observationSource                      = """
 // and provide their answers
 type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
+	JobType           string `toml:"type"`
 	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
 // Type returns the type of the job
-func (o *OCR2TaskJobSpec) Type() string { return pipeline.OffchainReporting2JobType }
+func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
-	ocr2TemplateString := fmt.Sprintf(`type = "%s"
+	specWrap := struct {
+		Name                     string
+		JobType                  string
+		ContractID               string
+		Relay                    string
+		PluginType               string
+		RelayConfig              map[string]interface{}
+		PluginConfig             map[string]interface{}
+		P2PV2Bootstrappers       []string
+		OCRKeyBundleID           string
+		MonitoringEndpoint       string
+		TransmitterID            string
+		BlockchainTimeout        time.Duration
+		TrackerSubscribeInterval time.Duration
+		TrackerPollInterval      time.Duration
+		ContractConfirmations    uint16
+		ObservationSource        string
+	}{
+		Name:                  o.Name,
+		JobType:               o.JobType,
+		ContractID:            o.OCR2OracleSpec.ContractID,
+		Relay:                 string(o.OCR2OracleSpec.Relay),
+		PluginType:            string(o.OCR2OracleSpec.PluginType),
+		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
+		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
+		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
+		MonitoringEndpoint:    o.OCR2OracleSpec.MonitoringEndpoint.String,
+		TransmitterID:         o.OCR2OracleSpec.TransmitterID.String,
+		BlockchainTimeout:     o.OCR2OracleSpec.BlockchainTimeout.Duration(),
+		ContractConfirmations: o.OCR2OracleSpec.ContractConfigConfirmations,
+		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
+		ObservationSource:     o.ObservationSource,
+	}
+	ocr2TemplateString := `type = "{{ .JobType }}"
 schemaVersion                          = 1
-blockchainTimeout                      ={{if not .OCR2OracleSpec.BlockchainTimeout}} "20s" {{else}} "{{.OCR2OracleSpec.BlockchainTimeout}}" {{end}}
-contractConfigConfirmations            ={{if not .OCR2OracleSpec.ContractConfigConfirmations}} 3 {{else}} {{.OCR2OracleSpec.ContractConfigConfirmations}} {{end}}
-contractConfigTrackerPollInterval      ={{if not .OCR2OracleSpec.ContractConfigTrackerPollInterval}} "1m" {{else}} "{{.OCR2OracleSpec.ContractConfigTrackerPollInterval}}" {{end}}
-name 								   = "{{.Name}}"
-relay								   = "{{.OCR2OracleSpec.Relay}}"
-contractID		                       = "{{.OCR2OracleSpec.ContractID}}"
-{{if .OCR2OracleSpec.P2PV2Bootstrappers}}
-p2pv2Bootstrappers                     = [
-  {{range .OCR2OracleSpec.P2PV2Bootstrappers}}"{{.}}",
-  {{end}}]
+blockchainTimeout                      ={{if not .BlockchainTimeout}} "20s" {{else}} "{{.BlockchainTimeout}}" {{end}}
+contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{else}} {{.ContractConfirmations}} {{end}}
+contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} "{{.TrackerPollInterval}}" {{end}}
+contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} "{{.TrackerSubscribeInterval}}" {{end}}
+name 																	 = "{{.Name}}"
+relay																	 = "{{.Relay}}"
+contractID		                         = "{{.ContractID}}"
+{{if .P2PV2Bootstrappers}}
+p2pv2Bootstrappers                      = [
+  {{range .P2PV2Bootstrappers}}"{{.}}",
+  {{end}}
+]
 {{else}}
-p2pv2Bootstrappers                     = []
+p2pv2Bootstrappers                      = []
 {{end}}
-monitoringEndpoint                     ={{if not .OCR2OracleSpec.MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.OCR2OracleSpec.MonitoringEndpoint}}" {{end}}
+monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}
-pluginType                             = "{{ .OCR2OracleSpec.PluginType }}"
-ocrKeyBundleID                         = "{{.OCR2OracleSpec.OCRKeyBundleID}}"
-transmitterID                     	   = "{{.OCR2OracleSpec.TransmitterID}}"
+pluginType                             = "{{ .PluginType }}"
+ocrKeyBundleID                         = "{{.OCRKeyBundleID}}"
+transmitterID                     		 = "{{.TransmitterID}}"
 observationSource                      = """
 {{.ObservationSource}}
 """
-
 [pluginConfig]
-{{range $key, $value := .OCR2OracleSpec.PluginConfig}}
+{{range $key, $value := .PluginConfig}}
 {{$key}} = {{$value}}
 {{end}}
 {{end}}
 
 [relayConfig]
-{{range $key, $value := .OCR2OracleSpec.RelayConfig}}
+{{range $key, $value := .RelayConfig}}
 {{$key}} = {{$value}}
-{{end}}`, pipeline.OffchainReporting2JobType)
+{{end}}`
 
-	return marshallTemplate(o, "OCR2 Job", ocr2TemplateString)
+	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 
 // VRFV2JobSpec represents a VRFV2 job
