@@ -350,6 +350,20 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe.only('#transmit', () => {
+    let sigVerificationUpkeepId: BigNumber
+    beforeEach(async () => {
+      const tx = await registry
+        .connect(owner)
+        .registerUpkeep(
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          false,
+          randomBytes,
+        )
+      sigVerificationUpkeepId = await getUpkeepID(tx)
+    })
+
     it('reverts when registry is paused', async () => {
       await registry.connect(owner).pause()
       await evmRevert(
@@ -451,27 +465,58 @@ describe('KeeperRegistry2_0', () => {
       )
     })
 
-    describe('when signatures are validated', () => {
-      beforeEach(async () => {
-        const tx = await registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            executeGas,
-            await admin.getAddress(),
-            false,
-            randomBytes,
-          )
-        upkeepId = await getUpkeepID(tx)
-      })
+    it('reverts when non sig verification and sig verification upkeeps are included in batch', async () => {
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([
+              { Id: upkeepId.toString() },
+              { Id: sigVerificationUpkeepId.toString() },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'InvalidReport()',
+      )
+    })
 
+    it('reverts when no upkeeps are included in report', async () => {
+      let upkeepIds: string[]
+      let wrappedPerformDatas: string[]
+      upkeepIds = []
+      wrappedPerformDatas = []
+      let report = ethers.utils.defaultAbiCoder.encode(
+        ['uint256[]', 'bytes[]'],
+        [upkeepIds, wrappedPerformDatas],
+      )
+
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            report,
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'StaleReport()',
+      )
+    })
+
+    describe('when signatures are validated', () => {
       it('emits an OCR Transmitted event', async () => {
-        await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+        await registry
+          .connect(admin)
+          .addFunds(sigVerificationUpkeepId, toWei('100'))
         const configDigest = (await registry.getState()).state
           .latestConfigDigest
 
         const report = await encodeLatestBlockReport([
-          { Id: upkeepId.toString() },
+          { Id: sigVerificationUpkeepId.toString() },
         ])
 
         const reportContext = [configDigest, emptyBytes32, emptyBytes32]
