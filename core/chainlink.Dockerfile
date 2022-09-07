@@ -1,5 +1,7 @@
 # MAKE ALL CHANGES WITHIN THE DEFAULT WORKDIR FOR YARN AND GO DEP CACHE HITS
-FROM node:16-buster
+
+# Build image: Operator UI 
+FROM node:16-buster as buildui
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
@@ -24,15 +26,13 @@ RUN mkdir -p core/web
 # Build operator-ui and the smart contracts
 RUN make contracts-operator-ui-build
 
-# Build the golang binary
-
-FROM golang:1.18-buster
+# Build image: Chainlink binary
+FROM golang:1.18-buster as buildgo
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# Env vars needed for chainlink build
 ADD go.mod go.sum ./
 RUN go mod download
 
@@ -41,11 +41,12 @@ ARG COMMIT_SHA
 
 COPY core core
 # Copy over operator-ui build assets to the web module so that we embed them correctly
-COPY --from=0 /chainlink/core/web/assets ./core/web/assets
+COPY --from=buildui /chainlink/core/web/assets ./core/web/assets
 
+# Build the golang binary
 RUN make chainlink-build
 
-# Final layer: ubuntu with chainlink binary
+# Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
 
 ARG CHAINLINK_USER=root
@@ -59,10 +60,10 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && apt-get update && apt-get install -y postgresql-client-14 \
   && apt-get clean all
 
-COPY --from=1 /go/bin/chainlink /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
 # dependency of terra-money/core
-COPY --from=1 /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/api/libwasmvm.so /usr/lib/libwasmvm.so
+COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/api/libwasmvm.so /usr/lib/libwasmvm.so
 RUN chmod 755 /usr/lib/libwasmvm.so
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
