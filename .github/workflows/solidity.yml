@@ -26,6 +26,14 @@ jobs:
     name: Solidity Coverage
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity Coverage
+        continue-on-error: true
       - name: Setup node
         uses: actions/setup-node@v2
         with:
@@ -56,6 +64,14 @@ jobs:
     name: Solidity
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity
+        continue-on-error: true
       - name: Setup node
         uses: actions/setup-node@v2
         with:
