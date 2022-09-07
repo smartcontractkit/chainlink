@@ -134,9 +134,9 @@ before(async () => {
 
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
-  mockV3AggregatorFactory = ((await ethers.getContractFactory(
+  mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )) as unknown) as MockV3AggregatorFactory
+  )) as unknown as MockV3AggregatorFactory
   // @ts-ignore bug in autogen file
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry2_0')
   // @ts-ignore bug in autogen file
