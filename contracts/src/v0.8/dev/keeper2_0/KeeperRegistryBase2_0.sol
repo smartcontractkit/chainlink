@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../ExecutionPrevention.sol";
@@ -18,7 +16,7 @@ import "../../interfaces/UpkeepTranscoderInterface.sol";
  * @notice Base Keeper Registry contract, contains shared logic between
  * KeeperRegistry and KeeperRegistryLogic
  */
-abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, Pausable {
+abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   address internal constant ZERO_ADDRESS = address(0);
   address internal constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 internal constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
@@ -64,6 +62,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   HotVars internal s_hotVars; // Mixture of config and state, used in transmit
   Storage internal s_storage; // Mixture of config and state, not used in transmit
+  uint256 internal s_fallbackGasPrice;
+  uint256 internal s_fallbackLinkPrice;
+  uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
 
   error ArrayHasNoEntries();
@@ -111,6 +112,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();
   error InvalidReport();
+  error RegistryPaused();
+  error ReentrantCall();
 
   enum MigrationPermission {
     NONE,
@@ -139,23 +142,19 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
-    // 14 bytes to 1 EVM word
+    bool paused; // pause switch for all upkeeps in the registry
+    bool reentrancyGuard; // guard against reentrancy
+    // 12 bytes to 1 EVM word
   }
 
   // Config + State storage struct which is not on hot transmit path
   struct Storage {
-    uint256 fallbackGasPrice; // Used in case feed is stale
-    // 1 EVM word full
-    uint256 fallbackLinkPrice; // Used in case feed is stale
-    // 2 EVM word full
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
-    // 3 EVM word full
+    // 1 EVM word full
     uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     address registrar; // Address of registrar used to register upkeeps
-    // 4 EVM word full
-    uint256 expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
-    // 5 EVM word full
+    // 2 EVM word full
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
@@ -164,7 +163,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
     uint32 maxCheckDataSize; // max length of checkData bytes
     uint32 maxPerformDataSize; // max length of performData bytes
-    // 4 bytes to 6th EVM word
+    // 4 bytes to 3rd EVM word
   }
 
   struct Transmitter {
@@ -246,6 +245,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
   event ReorgedUpkeepReport(uint256 indexed id);
   event InsufficientFundsUpkeepReport(uint256 indexed id);
   event CancelledUpkeepReport(uint256 indexed id);
+  event Paused(address account);
+  event Unpaused(address account);
 
   /**
    * @param paymentModel the payment model of default, Arbitrum, or Optimism
@@ -304,7 +305,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      gasWei = s_storage.fallbackGasPrice;
+      gasWei = s_fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
@@ -312,7 +313,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      linkNative = s_storage.fallbackLinkPrice;
+      linkNative = s_fallbackLinkPrice;
     } else {
       linkNative = uint256(feedValue);
     }
@@ -391,5 +392,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention, 
     );
 
     return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: gasPayment + premium});
+  }
+
+  /**
+   * @notice replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
+   */
+  modifier nonReentrant() {
+    if (s_hotVars.reentrancyGuard) revert ReentrantCall();
+    s_hotVars.reentrancyGuard = true;
+    _;
+    s_hotVars.reentrancyGuard = false;
   }
 }

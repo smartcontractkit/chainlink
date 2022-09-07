@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "@openzeppelin/contracts/proxy/Proxy.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
+import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./KeeperRegistryBase2_0.sol";
 import {KeeperRegistryExecutableInterface, UpkeepInfo} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../interfaces/MigratableKeeperRegistryInterface.sol";
@@ -17,7 +16,6 @@ import "./interfaces/OCR2Abstract.sol";
  */
 contract KeeperRegistry2_0 is
   KeeperRegistryBase2_0,
-  ReentrancyGuard,
   Proxy,
   OCR2Abstract,
   KeeperRegistryExecutableInterface,
@@ -98,9 +96,10 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
-  ) external override whenNotPaused {
+  ) external override {
     uint256 gasOverhead = gasleft();
     HotVars memory hotVars = s_hotVars;
+    if (hotVars.paused) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
     Report memory parsedReport = _decodeReport(report);
@@ -210,9 +209,10 @@ contract KeeperRegistry2_0 is
   function simulatePerformUpkeep(uint256 id, bytes calldata performData)
     external
     cannotExecute
-    whenNotPaused
     returns (bool success, uint256 gasUsed)
   {
+    if (s_hotVars.paused) revert RegistryPaused();
+
     Upkeep memory upkeep = s_upkeep[id];
     return _performUpkeep(upkeep, performData);
   }
@@ -234,7 +234,7 @@ contract KeeperRegistry2_0 is
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
 
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_storage.expectedLinkBalance = s_storage.expectedLinkBalance + amount;
+    s_expectedLinkBalance = s_expectedLinkBalance + amount;
 
     emit FundsAdded(id, sender, uint96(amount));
   }
@@ -297,7 +297,9 @@ contract KeeperRegistry2_0 is
       paymentPremiumPPB: onchainConfigStruct.paymentPremiumPPB,
       flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
       stalenessSeconds: onchainConfigStruct.stalenessSeconds,
-      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier
+      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
+      paused: false,
+      reentrancyGuard: false
     });
 
     s_storage = Storage({
@@ -311,11 +313,10 @@ contract KeeperRegistry2_0 is
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_storage.expectedLinkBalance,
-      fallbackGasPrice: onchainConfigStruct.fallbackGasPrice,
-      fallbackLinkPrice: onchainConfigStruct.fallbackLinkPrice
+      ownerLinkBalance: s_storage.ownerLinkBalance
     });
+    s_fallbackGasPrice = onchainConfigStruct.fallbackGasPrice;
+    s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(block.number);
@@ -434,11 +435,12 @@ contract KeeperRegistry2_0 is
     state = State({
       nonce: s_storage.nonce,
       ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_storage.expectedLinkBalance,
+      expectedLinkBalance: s_expectedLinkBalance,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      latestConfigDigest: s_hotVars.latestConfigDigest
+      latestConfigDigest: s_hotVars.latestConfigDigest,
+      paused: s_hotVars.paused
     });
 
     config = OnchainConfig({
@@ -451,8 +453,8 @@ contract KeeperRegistry2_0 is
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
-      fallbackGasPrice: s_storage.fallbackGasPrice,
-      fallbackLinkPrice: s_storage.fallbackLinkPrice,
+      fallbackGasPrice: s_fallbackGasPrice,
+      fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrar: s_storage.registrar
     });
@@ -692,9 +694,9 @@ contract KeeperRegistry2_0 is
     uint32 checkBlockNumber,
     uint256 gasOverhead,
     UpkeepTransmitInfo memory upkeepTransmitInfo
-  ) internal returns (uint96, uint96) {
+  ) internal returns (uint96 gasPayment, uint96 premium) {
     s_upkeep[upkeepId].lastPerformBlockNumber = uint32(block.number);
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+    (gasPayment, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
       gasOverhead,
