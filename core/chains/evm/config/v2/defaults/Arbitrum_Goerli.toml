@@ -3,11 +3,13 @@ ChainType = 'arbitrum'
 OCR.ContractConfirmations = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-# Arbitrum uses something like a Vickrey auction model where gas price represents a "max bid". In practice we usually pay much less
-PriceDefault = '1000 gwei'
-PriceMax = '1000 gwei' # Fix the gas price
-PriceMin = '1000 gwei' # Fix the gas price
+Mode = 'Arbitrum'
+LimitMax = 1_000_000_000
+# Arbitrum uses the suggested gas price, so we don't want to place any limits on the minimum
+PriceMin = '0'
+PriceDefault = '0.1 gwei'
+PriceMax = '1000 gwei'
+FeeCapDefault = '1000 gwei'
 # Disable gas bumping on arbitrum
 BumpThreshold = 0
 
