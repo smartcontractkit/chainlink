@@ -116,11 +116,6 @@ func deployKeeperRegistry(
 		regAddr, _, _, err := keeper_registry_wrapper1_3.DeployKeeperRegistry(
 			auth,
 			backend,
-			0,
-			big.NewInt(80000),
-			linkAddr,
-			linkFeedAddr,
-			gasFeedAddr,
 			logicAddr,
 			keeper_registry_wrapper1_3.Config{
 				PaymentPremiumPPB:    250_000_000,
