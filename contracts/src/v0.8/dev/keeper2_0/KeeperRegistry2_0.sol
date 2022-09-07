@@ -159,12 +159,10 @@ contract KeeperRegistry2_0 is
 
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
-    gasOverhead = (gasOverhead - gasleft() + 16 * report.length);
-    if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      gasOverhead += ACCOUNTING_GAS_OVERHEAD;
-    } else {
-      // Accounting overhead scales with f in case of signature verification
-      gasOverhead += (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1));
+    // Rest of msg.Data is accounted for in accounting overheads
+    gasOverhead = (gasOverhead - gasleft() + 16 * report.length) + ACCOUNTING_GAS_FIXED_OVERHEAD;
+    if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
+      gasOverhead += (ACCOUNTING_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
     }
     gasOverhead = _getCappedGasOverhead(
       gasOverhead / numUpkeepsPassedChecks,
