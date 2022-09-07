@@ -37,15 +37,19 @@ function randomAddress() {
 }
 
 // -----------------------------------------------------------------------------------------------
-// DEV: these *should* match the perform/check gas overhead values in the contract and on the node
-//const PERFORM_GAS_OVERHEAD = BigNumber.from(160000)
-const CHECK_GAS_OVERHEAD = BigNumber.from(400000)
+// These are the gas overheads that off chain systems should provide to check upkeep / transmit
+// These overheads are not actually charged for
+//const transmitGasOverhead = BigNumber.from(160000)
+const checkGasOverhead = BigNumber.from(400000)
 
+// These values should match the constants declared in registry
 const registryGasOverhead = BigNumber.from(100000)
 const verifySigOverhead = BigNumber.from(20000)
 //const accountGasOverhead = BigNumber.from(14000)
 const cancellationDelay = 50
-// Margin for gas that we can charge over used gas
+
+// This is the margin for gas that we test for. Gas charged should always be greater
+// than total gas used in tx but should not increase this margin
 const gasMargin = BigNumber.from(5000)
 // -----------------------------------------------------------------------------------------------
 
@@ -816,8 +820,21 @@ describe('KeeperRegistry2_0', () => {
         })
 
         it('calculates gas overhead appropriately within a margin', async () => {
+          // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
+          await registry.connect(keeper1).transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([
+              {
+                Id: upkeepId.toString(),
+              },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          )
+
           mock.setCanPerform(true)
-          // TODO test for success, false, high perform gas, change f
+          // TODO test for success, false, high perform gas, performData, change f
 
           const tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
@@ -1934,7 +1951,7 @@ describe('KeeperRegistry2_0', () => {
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
         await mock.setCanCheck(true)
         await mock.setCheckGasToBurn(checkGasLimit)
-        const gas = checkGasLimit.add(CHECK_GAS_OVERHEAD)
+        const gas = checkGasLimit.add(checkGasOverhead)
         let checkUpkeepResult = await registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(upkeepId, {

@@ -99,13 +99,14 @@ contract KeeperRegistry2_0 is
   ) external override {
     uint256 gasOverhead = gasleft();
     HotVars memory hotVars = s_hotVars;
+
     if (hotVars.paused) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
     Report memory parsedReport = _decodeReport(report);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
-
     uint16 numUpkeepsPassedChecks;
+
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
       if (upkeepTransmitInfo[i].upkeep.skipSigVerification != upkeepTransmitInfo[0].upkeep.skipSigVerification) {
@@ -148,7 +149,7 @@ contract KeeperRegistry2_0 is
           parsedReport.wrappedPerformDatas[i].performData
         );
 
-        // Deduct that gasUsed by upkeep from our running overhead counter
+        // Deduct that gasUsed by upkeep from our running counter
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
         // Store last perform block number for upkeep
@@ -157,15 +158,22 @@ contract KeeperRegistry2_0 is
     }
 
     // This is the overall gas overhead that will be split across performed upkeeps
-    // Take upper bound of 16 gas per callData bytes, which is approximated to be report.length
-    // TODO: fix ACCOUNTING_GAS_OVERHEAD in case of non sig verification
-    gasOverhead =
-      (gasOverhead - gasleft() + 16 * report.length + (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1))) /
-      numUpkeepsPassedChecks;
-    gasOverhead = _getCappedGasOverhead(gasOverhead, upkeepTransmitInfo[0].upkeep.skipSigVerification, hotVars.f);
+    // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
+    gasOverhead = (gasOverhead - gasleft() + 16 * report.length);
+    if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
+      gasOverhead += ACCOUNTING_GAS_OVERHEAD;
+    } else {
+      // Accounting overhead scales with f in case of signature verification
+      gasOverhead += (ACCOUNTING_GAS_OVERHEAD * (hotVars.f + 1));
+    }
+    gasOverhead = _getCappedGasOverhead(
+      gasOverhead / numUpkeepsPassedChecks,
+      upkeepTransmitInfo[0].upkeep.skipSigVerification,
+      hotVars.f
+    );
 
     {
-      // Separate code block to relieve stack pressure
+      // Separate code block to process payment and to relieve stack pressure
       uint96 upkeepGasPayment;
       uint96 upkeepPremiumPayment;
       uint96 totalGasPayment;
@@ -183,15 +191,15 @@ contract KeeperRegistry2_0 is
         totalPremiumPayment += upkeepPremiumPayment;
       }
 
-      // Reimburse totalGasPayment to transmitter
-      s_transmitters[msg.sender].balance += totalGasPayment;
-
       if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-        // Pay all the premium to transmitter as there are no signers in case of skipSigVerification
-        s_transmitters[msg.sender].balance += totalPremiumPayment;
+        // Pay all the gas payment and premium to transmitter as there are no signers
+        // in case of skipSigVerification
+        s_transmitters[msg.sender].balance += (totalGasPayment + totalPremiumPayment);
       } else {
+        // Reimburse totalGasPayment to transmitter
+        s_transmitters[msg.sender].balance += totalGasPayment;
+
         // Split totalPremium among signers
-        // TODO: Finalize the payment splitting logic
         address transmitterToPay;
         uint96 premiumPerSigner = totalPremiumPayment / uint96(signerIndices.length);
         for (uint256 i = 0; i < signerIndices.length; i++) {
@@ -738,18 +746,20 @@ contract KeeperRegistry2_0 is
    * prevent a revert in payment processing.
    */
   function _getCappedGasOverhead(
-    uint256 calculatedOverhead,
+    uint256 calculatedGasOverhead,
     bool skipSigVerification,
     uint8 f
-  ) private returns (uint256) {
-    uint256 cappedOverhead = calculatedOverhead;
-    if (cappedOverhead > REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1))) {
-      cappedOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1));
+  ) private pure returns (uint256 cappedGasOverhead) {
+    if (skipSigVerification) {
+      cappedGasOverhead = REGISTRY_GAS_OVERHEAD;
+    } else {
+      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1));
     }
-    if (skipSigVerification && cappedOverhead > REGISTRY_GAS_OVERHEAD) {
-      cappedOverhead = REGISTRY_GAS_OVERHEAD;
+
+    if (calculatedGasOverhead < cappedGasOverhead) {
+      return calculatedGasOverhead;
     }
-    return cappedOverhead;
+    return cappedGasOverhead;
   }
 
   ////////
