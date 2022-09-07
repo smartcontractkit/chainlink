@@ -178,6 +178,9 @@ func (c *Chain) SetFrom(f *Chain) {
 		if v := g.LimitDefault; v != nil {
 			c.GasEstimator.LimitDefault = v
 		}
+		if v := g.LimitMax; v != nil {
+			c.GasEstimator.LimitMax = v
+		}
 		if v := g.LimitMultiplier; v != nil {
 			c.GasEstimator.LimitMultiplier = v
 		}
