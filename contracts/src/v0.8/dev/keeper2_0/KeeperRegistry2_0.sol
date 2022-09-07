@@ -755,6 +755,7 @@ contract KeeperRegistry2_0 is
     }
 
     if (calculatedGasOverhead < cappedGasOverhead) {
+      // Should always happen in practice
       return calculatedGasOverhead;
     }
     return cappedGasOverhead;
