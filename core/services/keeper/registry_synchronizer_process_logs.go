@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	registry1_3 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -33,29 +34,46 @@ func (rs *RegistrySynchronizer) processLogs() {
 		case *registry1_1.KeeperRegistryKeepersUpdated,
 			*registry1_1.KeeperRegistryConfigSet,
 			*registry1_2.KeeperRegistryKeepersUpdated,
-			*registry1_2.KeeperRegistryConfigSet:
+			*registry1_2.KeeperRegistryConfigSet,
+			*registry1_3.KeeperRegistryKeepersUpdated,
+			*registry1_3.KeeperRegistryConfigSet:
 			err = rs.handleSyncRegistryLog(broadcast)
 
 		case *registry1_1.KeeperRegistryUpkeepCanceled,
-			*registry1_2.KeeperRegistryUpkeepCanceled:
+			*registry1_2.KeeperRegistryUpkeepCanceled,
+			*registry1_3.KeeperRegistryUpkeepCanceled:
 			err = rs.handleUpkeepCancelled(broadcast)
 
 		case *registry1_1.KeeperRegistryUpkeepRegistered,
-			*registry1_2.KeeperRegistryUpkeepRegistered:
+			*registry1_2.KeeperRegistryUpkeepRegistered,
+			*registry1_3.KeeperRegistryUpkeepRegistered:
 			err = rs.handleUpkeepRegistered(broadcast)
 
 		case *registry1_1.KeeperRegistryUpkeepPerformed,
-			*registry1_2.KeeperRegistryUpkeepPerformed:
+			*registry1_2.KeeperRegistryUpkeepPerformed,
+			*registry1_3.KeeperRegistryUpkeepPerformed:
 			err = rs.handleUpkeepPerformed(broadcast)
 
-		case *registry1_2.KeeperRegistryUpkeepGasLimitSet:
+		case *registry1_2.KeeperRegistryUpkeepGasLimitSet,
+			*registry1_3.KeeperRegistryUpkeepGasLimitSet:
 			err = rs.handleUpkeepGasLimitSet(broadcast)
 
-		case *registry1_2.KeeperRegistryUpkeepReceived:
+		case *registry1_2.KeeperRegistryUpkeepReceived,
+			*registry1_3.KeeperRegistryUpkeepReceived:
 			err = rs.handleUpkeepReceived(broadcast)
 
-		case *registry1_2.KeeperRegistryUpkeepMigrated:
+		case *registry1_2.KeeperRegistryUpkeepMigrated,
+			*registry1_3.KeeperRegistryUpkeepMigrated:
 			err = rs.handleUpkeepMigrated(broadcast)
+
+		case *registry1_3.KeeperRegistryUpkeepPaused:
+			err = rs.handleUpkeepPaused(broadcast)
+
+		case *registry1_3.KeeperRegistryUpkeepUnpaused:
+			err = rs.handleUpkeepUnpaused(broadcast)
+
+		case *registry1_3.KeeperRegistryUpkeepCheckDataUpdated:
+			err = rs.handleUpkeepCheckDataUpdated(broadcast)
 
 		default:
 			rs.logger.Warn("unexpected log type")
@@ -193,5 +211,64 @@ func (rs *RegistrySynchronizer) handleUpkeepMigrated(broadcast log.Broadcast) er
 		return errors.Wrap(err, "unable to batch delete upkeeps")
 	}
 	rs.logger.Debugw(fmt.Sprintf("deleted %v upkeep registrations", affected), "txHash", broadcast.RawLog().TxHash.Hex())
+	return nil
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepPaused(broadcast log.Broadcast) error {
+	rs.logger.Debugw("processing UpkeepPaused log", "txHash", broadcast.RawLog().TxHash.Hex())
+
+	pausedUpkeepId, err := rs.registryWrapper.GetUpkeepIdFromUpkeepPausedLog(broadcast)
+	if err != nil {
+		return errors.Wrap(err, "Unable to fetch upkeep ID from upkeep paused log")
+	}
+
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(pausedUpkeepId)})
+	if err != nil {
+		return errors.Wrap(err, "unable to batch delete upkeeps")
+	}
+	rs.logger.Debugw(fmt.Sprintf("paused upkeep %s", pausedUpkeepId.String()), "txHash", broadcast.RawLog().TxHash.Hex())
+	return nil
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepUnpaused(broadcast log.Broadcast) error {
+	rs.logger.Debugw("processing UpkeepUnpaused log", "txHash", broadcast.RawLog().TxHash.Hex())
+
+	registry, err := rs.orm.RegistryForJob(rs.job.ID)
+	if err != nil {
+		return errors.Wrap(err, "unable to find registry for job")
+	}
+
+	unpausedUpkeepId, err := rs.registryWrapper.GetUpkeepIdFromUpkeepUnpausedLog(broadcast)
+	if err != nil {
+		return errors.Wrap(err, "Unable to fetch upkeep ID from upkeep unpaused log")
+	}
+
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(unpausedUpkeepId))
+	if err != nil {
+		return errors.Wrapf(err, "failed to sync upkeep, log: %s", broadcast.String())
+	}
+	rs.logger.Debugw(fmt.Sprintf("unpaused upkeep %s", unpausedUpkeepId.String()), "txHash", broadcast.RawLog().TxHash.Hex())
+	return nil
+}
+
+func (rs *RegistrySynchronizer) handleUpkeepCheckDataUpdated(broadcast log.Broadcast) error {
+	rs.logger.Debugw("processing Upkeep check data updated log", "txHash", broadcast.RawLog().TxHash.Hex())
+
+	registry, err := rs.orm.RegistryForJob(rs.job.ID)
+	if err != nil {
+		return errors.Wrap(err, "unable to find registry for job")
+	}
+
+	updateLog, err := rs.registryWrapper.ParseUpkeepCheckDataUpdatedLog(broadcast)
+	if err != nil {
+		return errors.Wrap(err, "Unable to parse update log from upkeep check data updated log")
+	}
+
+	err = rs.syncUpkeep(&rs.registryWrapper, registry, utils.NewBig(updateLog.UpkeepID))
+	if err != nil {
+		return errors.Wrapf(err, "unable to update check data for upkeep %s", updateLog.UpkeepID.String())
+	}
+
+	rs.logger.Debugw(fmt.Sprintf("updated check data for upkeep %s", updateLog.UpkeepID.String()), "txHash", broadcast.RawLog().TxHash.Hex())
 	return nil
 }
