@@ -4,7 +4,7 @@
  */
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { BigNumber, Signer } from 'ethers'
+import { BigNumber, Signer, Wallet } from 'ethers'
 import { evmRevert } from '../../../test-helpers/matchers'
 import { getUsers, Personas } from '../../../test-helpers/setup'
 import { toWei } from '../../../test-helpers/helpers'
@@ -105,6 +105,30 @@ const encodeLatestBlockReport = async (upkeeps: any) => {
   return encodeReport(upkeeps)
 }
 
+const signReport = (
+  reportContext: string[],
+  report: any,
+  signers: Wallet[],
+) => {
+  const reportDigest = ethers.utils.keccak256(report)
+  const packedArgs = ethers.utils.solidityPack(
+    ['bytes32', 'bytes32[3]'],
+    [reportDigest, reportContext],
+  )
+  const packedDigest = ethers.utils.keccak256(packedArgs)
+
+  let signatures = []
+  for (let signer of signers) {
+    signatures.push(signer._signingKey().signDigest(packedDigest))
+  }
+  const vs = signatures.map((i) => '0' + (i.v - 27).toString(16)).join('')
+  return {
+    vs: '0x' + vs.padEnd(64, '0'),
+    rs: signatures.map((i) => i.r),
+    ss: signatures.map((i) => i.s),
+  }
+}
+
 before(async () => {
   personas = (await getUsers()).personas
 
@@ -164,6 +188,10 @@ describe('KeeperRegistry2_0', () => {
   let keeper3: Signer
   let keeper4: Signer
   let nonkeeper: Signer
+  let signer1: Wallet
+  let signer2: Wallet
+  let signer3: Wallet
+  let signer4: Wallet
   let admin: Signer
   let payee1: Signer
   let payee2: Signer
@@ -183,6 +211,7 @@ describe('KeeperRegistry2_0', () => {
   let upkeepId: BigNumber
   let keepers: string[]
   let payees: string[]
+  let signers: Wallet[]
   let config: any
 
   beforeEach(async () => {
@@ -199,6 +228,19 @@ describe('KeeperRegistry2_0', () => {
     payee2 = personas.Norbert
     payee3 = personas.Nick
     payee4 = personas.Eddy
+    // signers
+    signer1 = new ethers.Wallet(
+      '0x7777777000000000000000000000000000000000000000000000000000000001',
+    )
+    signer2 = new ethers.Wallet(
+      '0x7777777000000000000000000000000000000000000000000000000000000002',
+    )
+    signer3 = new ethers.Wallet(
+      '0x7777777000000000000000000000000000000000000000000000000000000003',
+    )
+    signer4 = new ethers.Wallet(
+      '0x7777777000000000000000000000000000000000000000000000000000000004',
+    )
 
     keepers = [
       await keeper1.getAddress(),
@@ -212,6 +254,7 @@ describe('KeeperRegistry2_0', () => {
       await payee3.getAddress(),
       await payee4.getAddress(),
     ]
+    signers = [signer1, signer2, signer3, signer4]
 
     linkToken = await linkTokenFactory.connect(owner).deploy()
     gasPriceFeed = await mockV3AggregatorFactory
@@ -271,10 +314,14 @@ describe('KeeperRegistry2_0', () => {
         registryLogic.address,
       )
 
+    let signerAddresses = []
+    for (let signer of signers) {
+      signerAddresses.push(await signer.getAddress())
+    }
     await registry
       .connect(owner)
       .setConfig(
-        keepers,
+        signerAddresses,
         keepers,
         f,
         encodeConfig(config),
@@ -302,8 +349,44 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#transmit', () => {
-    it('TODO', async () => {
-      assert(false)
+    describe('when signatures are validated', () => {
+      beforeEach(async () => {
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            executeGas,
+            await admin.getAddress(),
+            false,
+            randomBytes,
+          )
+        upkeepId = await getUpkeepID(tx)
+      })
+
+      it('emits an OCR Transmitted event', async () => {
+        await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+        const configDigest = (await registry.getState()).state
+          .latestConfigDigest
+
+        const report = await encodeLatestBlockReport([
+          { Id: upkeepId.toString() },
+        ])
+
+        const reportContext = [configDigest, emptyBytes32, emptyBytes32]
+        const sigs = signReport(reportContext, report, signers.slice(2))
+
+        const tx = await registry
+          .connect(keeper1)
+          .transmit(
+            [reportContext[0], reportContext[1], reportContext[2]],
+            report,
+            sigs.rs,
+            sigs.ss,
+            sigs.vs,
+          )
+
+        await expect(tx).to.emit(registry, 'Transmitted')
+      })
     })
 
     // Previous test cases
