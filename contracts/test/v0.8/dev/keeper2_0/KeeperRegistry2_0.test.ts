@@ -687,6 +687,34 @@ describe('KeeperRegistry2_0', () => {
         )
       })
 
+      describe('When signatures are NOT validated', () => {
+        it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event', async () => {
+          mock.setCanPerform(true)
+          const tx = await registry
+            .connect(keeper1)
+            .transmit(
+              [emptyBytes32, emptyBytes32, emptyBytes32],
+              await encodeLatestBlockReport([{ Id: upkeepId.toString() }]),
+              [],
+              [],
+              emptyBytes32,
+            )
+          await tx.wait()
+
+          let lastPerformBlockNumber = (await registry.getUpkeep(upkeepId))
+            .lastPerformBlockNumber
+          assert.equal(
+            lastPerformBlockNumber.toString(),
+            tx.blockNumber?.toString(),
+          )
+
+          // Upkeep Performed should be emitted
+          expect(tx).to.emit(registry, 'UpkeepPerformed')
+          // Transmitted should not be emitted for skip sig validation
+          expect(tx).to.not.emit(registry, 'Transmitted')
+        })
+      })
+
       describe('When signatures are validated', () => {
         it('emits an OCR Transmitted event', async () => {
           const configDigest = (await registry.getState()).state
@@ -712,6 +740,8 @@ describe('KeeperRegistry2_0', () => {
           await expect(tx).to.emit(registry, 'Transmitted')
         })
       })
+
+      describe('When upkeeps are batched', () => {})
     })
 
     // Previous test cases
@@ -745,46 +775,7 @@ describe('KeeperRegistry2_0', () => {
 
     /*
   describe('#performUpkeep', () => {
-    let _lastKeeper = keeper1
 
-    async function getPerformPaymentAmount() {
-      _lastKeeper = _lastKeeper === keeper1 ? keeper2 : keeper1
-      const before = (
-        await registry.getKeeperInfo(await _lastKeeper.getAddress())
-      ).balance
-      await registry.connect(_lastKeeper).performUpkeep(id, '0x')
-      const after = (
-        await registry.getKeeperInfo(await _lastKeeper.getAddress())
-      ).balance
-      const difference = after.sub(before)
-      return difference
-    }
-
-    it('reverts if the registration is not funded', async () => {
-      await evmRevert(
-        registry.connect(keeper2).performUpkeep(id, '0x'),
-        'InsufficientFunds()',
-      )
-    })
-
-    context('and the registry is paused', () => {
-      beforeEach(async () => {
-        await registry.connect(owner).pause()
-      })
-
-      it('reverts', async () => {
-        await evmRevert(
-          registry.connect(keeper2).performUpkeep(id, '0x'),
-          'Pausable: paused',
-        )
-      })
-    })
-
-    context('when the registration is funded', () => {
-      beforeEach(async () => {
-        await linkToken.connect(owner).approve(registry.address, toWei('100'))
-        await registry.connect(owner).addFunds(id, toWei('100'))
-      })
 
       it('does not revert if the target cannot execute', async () => {
         const mockResponse = await mock
