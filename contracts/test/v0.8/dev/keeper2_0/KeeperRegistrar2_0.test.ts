@@ -578,21 +578,19 @@ describe('KeeperRegistrar2_0', () => {
           minUpkeepSpend,
         )
 
-      await linkToken
-        .connect(requestSender)
-        .approve(registrar.address, amount)
+      await linkToken.connect(requestSender).approve(registrar.address, amount)
 
       const tx = await registrar
-          .connect(someAddress)
-          .registerUpkeep(
-            upkeepName,
-            emptyBytes,
-            mock.address,
-            executeGas,
-            await admin.getAddress(),
-            emptyBytes,
-            amount,
-          )
+        .connect(requestSender)
+        .registerUpkeep(
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+        )
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
 
       //confirm if a new upkeep has been registered and the details are the same as the one just registered
