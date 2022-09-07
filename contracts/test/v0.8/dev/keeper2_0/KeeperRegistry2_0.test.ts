@@ -508,6 +508,43 @@ describe('KeeperRegistry2_0', () => {
       )
     })
 
+    it('reverts when invalid upkeepIds are included in report', async () => {
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([
+              { Id: upkeepId.add(BigNumber.from('1')).toString() },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'StaleReport()',
+      )
+    })
+
+    it('reverts when duplicated upkeepIds are included in report', async () => {
+      // Fund the upkeep so that pre-checks pass
+      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      await evmRevert(
+        registry
+          .connect(keeper1)
+          .transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([
+              { Id: upkeepId.toString() },
+              { Id: upkeepId.toString() },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+          ),
+        'InvalidReport()',
+      )
+    })
+
     it('reverts when upkeep has insufficient funds', async () => {
       await evmRevert(
         registry

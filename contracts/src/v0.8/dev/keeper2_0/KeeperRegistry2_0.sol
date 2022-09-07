@@ -137,6 +137,11 @@ contract KeeperRegistry2_0 is
 
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
+        // Check if this upkeep was already performed in this report
+        if (s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber == uint32(block.number)) {
+          revert InvalidReport();
+        }
+
         // Actually perform the target upkeep
         (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
           upkeepTransmitInfo[i].upkeep,
@@ -145,6 +150,9 @@ contract KeeperRegistry2_0 is
 
         // Deduct that gasUsed by upkeep from our running overhead counter
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
+
+        // Store last perform block number for upkeep
+        s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
       }
     }
 
@@ -684,7 +692,7 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @dev does postPerform payment processing for an upkeep. Stores lastPerformBlock. Calculates
+   * @dev does postPerform payment processing for an upkeep. Calculates
    * gasPayment and premiumPerSigner. Deducts upkeep's balance for the total payment
    */
   function _postPerformUpkeep(
@@ -695,7 +703,6 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead,
     UpkeepTransmitInfo memory upkeepTransmitInfo
   ) internal returns (uint96 gasPayment, uint96 premium) {
-    s_upkeep[upkeepId].lastPerformBlockNumber = uint32(block.number);
     (gasPayment, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
