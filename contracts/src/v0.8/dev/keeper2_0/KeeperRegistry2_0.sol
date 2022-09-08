@@ -81,6 +81,7 @@ contract KeeperRegistry2_0 is
     PerformPaymentParams paymentParams;
     bool performSuccess;
     uint256 gasUsed;
+    uint256 gasOverhead;
   }
 
   /**
@@ -174,7 +175,7 @@ contract KeeperRegistry2_0 is
       uint96 totalGasPayment;
       uint96 totalPremiumPayment;
       for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-        gasOverhead = _getCappedGasOverhead(
+        upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
           gasOverhead,
           uint32(parsedReport.wrappedPerformDatas[i].performData.length),
           upkeepTransmitInfo[i].upkeep.skipSigVerification,
@@ -184,13 +185,21 @@ contract KeeperRegistry2_0 is
         (upkeepGasPayment, upkeepPremiumPayment) = _postPerformPayment(
           hotVars,
           parsedReport.upkeepIds[i],
-          uint96(signerIndices.length),
-          parsedReport.wrappedPerformDatas[i].checkBlockNumber,
-          gasOverhead,
-          upkeepTransmitInfo[i]
+          upkeepTransmitInfo[i],
+          numUpkeepsPassedChecks,
+          uint96(signerIndices.length)
         );
         totalGasPayment += upkeepGasPayment;
         totalPremiumPayment += upkeepPremiumPayment;
+
+        emit UpkeepPerformed(
+          parsedReport.upkeepIds[i],
+          upkeepTransmitInfo[i].performSuccess,
+          parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+          upkeepTransmitInfo[i].gasUsed,
+          upkeepTransmitInfo[i].gasOverhead,
+          upkeepGasPayment + upkeepPremiumPayment
+        );
       }
 
       if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
@@ -710,18 +719,17 @@ contract KeeperRegistry2_0 is
   function _postPerformPayment(
     HotVars memory hotVars,
     uint256 upkeepId,
-    uint96 numSigners,
-    uint32 checkBlockNumber,
-    uint256 gasOverhead,
-    UpkeepTransmitInfo memory upkeepTransmitInfo
+    UpkeepTransmitInfo memory upkeepTransmitInfo,
+    uint16 numBatchedUpkeeps,
+    uint96 numSigners
   ) internal returns (uint96 gasPayment, uint96 premium) {
     (gasPayment, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
-      gasOverhead,
+      upkeepTransmitInfo.gasOverhead,
       upkeepTransmitInfo.paymentParams.fastGasWei,
       upkeepTransmitInfo.paymentParams.linkNative,
-      1, // TODO
+      numBatchedUpkeeps,
       true
     );
 
@@ -733,15 +741,6 @@ contract KeeperRegistry2_0 is
 
     s_upkeep[upkeepId].balance -= total;
     s_upkeep[upkeepId].amountSpent += total;
-
-    emit UpkeepPerformed(
-      upkeepId,
-      upkeepTransmitInfo.performSuccess,
-      checkBlockNumber,
-      upkeepTransmitInfo.gasUsed,
-      gasOverhead,
-      total
-    );
 
     return (gasPayment, premium);
   }
