@@ -33,11 +33,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  // Needs to be updated after benchmarking
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 100_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 15_000; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
-  uint256 internal constant ACCOUNTING_GAS_FIXED_OVERHEAD = 31_000; // Used in actual payment.
-  uint256 internal constant ACCOUNTING_PER_SIGNER_OVERHEAD = 9_000; // Used in actual payment. Value scales with f.
+  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
+  uint256 internal constant ACCOUNTING_GAS_FIXED_OVERHEAD = 33_000; // Used in actual payment.
+  uint256 internal constant ACCOUNTING_PER_SIGNER_OVERHEAD = 1_100; // Used in actual payment. Value scales with f.
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
 
@@ -338,7 +337,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint256 linkNative,
     uint16 numBatchedUpkeeps,
     bool isExecution
-  ) internal view returns (uint96, uint96) {
+  ) internal view returns (uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
@@ -365,14 +364,14 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     if (!isExecution) {
       l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
     }
-    // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged to upkeep
+    // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
 
     uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNative;
     uint256 premium = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return (uint96(gasPayment), uint96(premium));
+    return uint96(gasPayment + premium);
   }
 
   /**
@@ -386,7 +385,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 gasOverhead = _getMaxGasOverhead(performDataLength, upkeep.skipSigVerification, hotVars.f);
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
+    uint96 maxLinkPayment = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
       gasOverhead,
@@ -396,7 +395,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       isExecution
     );
 
-    return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: gasPayment + premium});
+    return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: maxLinkPayment});
   }
 
   /**
