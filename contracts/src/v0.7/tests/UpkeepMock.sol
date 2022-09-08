@@ -72,8 +72,6 @@ contract UpkeepMock is KeeperCompatible {
 
     require(canPerform, "Cannot perform");
 
-    setCanPerform(false);
-
     emit UpkeepPerformedWith(data);
 
     while (startGas - gasleft() < performGasToBurn) {} // burn gas

@@ -43,13 +43,13 @@ function randomAddress() {
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(100000)
+const registryGasOverhead = BigNumber.from(115000)
 const verifySigOverhead = BigNumber.from(20000)
 const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
-// than total gas used in tx but should not increase this margin
-//const gasMargin = BigNumber.from(5000)
+// than total gas used in tx but should not increase beyond this margin
+const gasCalculationMargin = BigNumber.from(2000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -182,7 +182,7 @@ describe('KeeperRegistry2_0', () => {
   const linkEth = BigNumber.from(500000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
-  const executeGas = BigNumber.from('100000')
+  const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')
   const paymentPremiumPPB = BigNumber.from('250000000')
   const flatFeeMicroLink = BigNumber.from(0)
@@ -827,46 +827,69 @@ describe('KeeperRegistry2_0', () => {
           )
           await tx.wait()
 
-          mock.setCanPerform(true)
-          // TODO test for success, false, high perform gas, performData, change f
-          // assert that the overhead remains less than constant overheads
-          /*
-          tx = await registry.connect(keeper1).transmit(
-            [emptyBytes32, emptyBytes32, emptyBytes32],
-            await encodeLatestBlockReport([
-              {
-                Id: upkeepId.toString(),
-              },
-            ]),
-            [],
-            [],
-            emptyBytes32,
-          )
-          const receipt = await tx.wait()
-          let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-          // exactly 1 Upkeep Performed should be emitted
-          assert.equal(upkeepPerformedLogs.length, 1)
-          let upkeepPerformedLog = upkeepPerformedLogs[0]
+          // TODO test for changing f
+          // Different test scenarios
+          let longBytes = '0x'
+          for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
+            longBytes += '11'
+          }
+          let upkeepSuccessArray = [true, false]
+          let performGasArray = [5000, 100000, executeGas]
+          let performDataArray = ['0x', randomBytes, longBytes]
 
-          let gasUsed = upkeepPerformedLog.args.gasUsed
-          let gasOverhead = upkeepPerformedLog.args.gasOverhead
-          let totalPayment = upkeepPerformedLog.args.totalPayment
+          for (let i in upkeepSuccessArray) {
+            for (let j in performGasArray) {
+              for (let k in performDataArray) {
+                const upkeepSuccess = upkeepSuccessArray[i]
+                const performGas = performGasArray[j]
+                const performData = performDataArray[k]
 
-          assert.isTrue(gasUsed.gt(BigNumber.from('0')))
-          assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
-          assert.isTrue(totalPayment.gt(BigNumber.from('0')))
+                mock.setCanPerform(upkeepSuccess)
+                mock.setPerformGasToBurn(performGas)
+                let latestBlock = await ethers.provider.getBlock('latest')
 
-          console.log(gasUsed.toString())
-          console.log(gasOverhead.toString())
-          console.log(receipt.gasUsed.toString())
+                tx = await registry.connect(keeper1).transmit(
+                  [emptyBytes32, emptyBytes32, emptyBytes32],
+                  await encodeReport([
+                    {
+                      Id: upkeepId.toString(),
+                      checkBlockNum: latestBlock.number + 1,
+                      checkBlockHash: latestBlock.hash,
+                      performData: performData,
+                    },
+                  ]),
+                  [],
+                  [],
+                  emptyBytes32,
+                )
+                const receipt = await tx.wait()
+                let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+                // exactly 1 Upkeep Performed should be emitted
+                assert.equal(upkeepPerformedLogs.length, 1)
+                let upkeepPerformedLog = upkeepPerformedLogs[0]
 
-          // total gas charged should be greater than tx gas but within a margin
-          assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
-          assert.isTrue(
-            gasUsed
-              .add(gasOverhead)
-              .lt(receipt.gasUsed.add(BigNumber.from(gasMargin))),
-          )*/
+                let gasUsed = upkeepPerformedLog.args.gasUsed
+                let gasOverhead = upkeepPerformedLog.args.gasOverhead
+                let totalPayment = upkeepPerformedLog.args.totalPayment
+
+                assert.isTrue(gasUsed.gt(BigNumber.from('0')))
+                assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+                assert.isTrue(totalPayment.gt(BigNumber.from('0')))
+
+                // Overhead should not get capped
+                assert.isTrue(gasOverhead.lt(registryGasOverhead))
+                // total gas charged should be greater than tx gas but within a margin
+                assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                assert.isTrue(
+                  gasUsed
+                    .add(gasOverhead)
+                    .lt(
+                      receipt.gasUsed.add(BigNumber.from(gasCalculationMargin)),
+                    ),
+                )
+              }
+            }
+          }
         })
       })
 
