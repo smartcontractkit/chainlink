@@ -39,7 +39,7 @@ function randomAddress() {
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(115000)
+const registryGasOverhead = BigNumber.from(100000)
 const verifySigOverhead = BigNumber.from(15000)
 const cancellationDelay = 50
 
@@ -892,7 +892,13 @@ describe('KeeperRegistry2_0', () => {
                   assert.isTrue(totalPayment.gt(BigNumber.from('0')))
 
                   // Overhead should not get capped
-                  assert.isTrue(gasOverhead.lt(registryGasOverhead))
+                  assert.isTrue(
+                    gasOverhead.lt(
+                      registryGasOverhead.add(
+                        BigNumber.from(16 * performData.length),
+                      ),
+                    ),
+                  )
                   // total gas charged should be greater than tx gas but within gasCalculationMargin
                   assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
                   assert.isTrue(
@@ -1145,9 +1151,9 @@ describe('KeeperRegistry2_0', () => {
                   // Overhead should not get capped
                   assert.isTrue(
                     gasOverhead.lt(
-                      registryGasOverhead.add(
-                        verifySigOverhead.mul(BigNumber.from(newF + 1)),
-                      ),
+                      registryGasOverhead
+                        .add(verifySigOverhead.mul(BigNumber.from(newF + 1)))
+                        .add(BigNumber.from(16 * performData.length)),
                     ),
                   )
                   // total gas charged should be greater than tx gas but within gasCalculationMargin

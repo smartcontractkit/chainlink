@@ -34,7 +34,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // Needs to be updated after benchmarking
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 115_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 100_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 15_000; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
   uint256 internal constant ACCOUNTING_GAS_FIXED_OVERHEAD = 31_000; // Used in actual payment.
   uint256 internal constant ACCOUNTING_PER_SIGNER_OVERHEAD = 9_000; // Used in actual payment. Value scales with f.
@@ -376,6 +376,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   function _generatePerformPaymentParams(
     Upkeep memory upkeep,
     HotVars memory hotVars,
+    uint32 performDataLength,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
@@ -383,6 +384,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     if (upkeep.skipSigVerification) {
       gasOverhead = REGISTRY_GAS_OVERHEAD;
     }
+    gasOverhead += 16 * performDataLength;
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
