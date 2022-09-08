@@ -503,6 +503,7 @@ contract KeeperRegistry2_0 is
       gasOverhead,
       fastGasWei,
       linkNative,
+      1, // Consider only 1 upkeep in batch to get maxPayment
       false
     );
     return gasPayment + premium;
@@ -720,6 +721,7 @@ contract KeeperRegistry2_0 is
       gasOverhead,
       upkeepTransmitInfo.paymentParams.fastGasWei,
       upkeepTransmitInfo.paymentParams.linkNative,
+      1, // TODO
       true
     );
 

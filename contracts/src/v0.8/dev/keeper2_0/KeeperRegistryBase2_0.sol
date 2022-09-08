@@ -324,8 +324,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
+   * @param gasOverhead the amount of gas overhead
    * @param fastGasWei the fast gas price
    * @param linkNative the exchange ratio between LINK and Native token
+   * @param numBatchedUpkeeps the number of upkeeps in this batch. Used to divide the L1 cost
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
@@ -334,6 +336,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint256 gasOverhead,
     uint256 fastGasWei,
     uint256 linkNative,
+    uint16 numBatchedUpkeeps,
     bool isExecution
   ) internal view returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
@@ -362,6 +365,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     if (!isExecution) {
       l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
     }
+    // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged to upkeep
+    l1CostWei = l1CostWei / numBatchedUpkeeps;
 
     uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNative;
     uint256 premium = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
@@ -387,6 +392,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       gasOverhead,
       fastGasWei,
       linkNative,
+      1, // Consider only 1 upkeep in batch to get maxPayment
       isExecution
     );
 
