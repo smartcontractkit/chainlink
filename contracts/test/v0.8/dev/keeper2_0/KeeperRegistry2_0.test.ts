@@ -1998,7 +1998,17 @@ describe('KeeperRegistry2_0', () => {
       })
 
       describe('When upkeeps are batched', () => {
-        // TODO
+        it('performs multiple upkeeps in batch')
+
+        it('performs some of the upkeeps while some fail prePerformChecks')
+
+        it('splits gas overhead appropriately among performed upkeeps')
+
+        it('splits l1 payment among performed upkeeps')
+
+        it(
+          'caps gasOverhead when a single upkeep is batched with multiple failing upkeeps',
+        )
       })
     })
   })
