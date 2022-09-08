@@ -110,7 +110,12 @@ contract KeeperRegistry2_0 is
         revert InvalidReport();
       }
 
-      upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(upkeepTransmitInfo[i].upkeep, hotVars, true);
+      upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(
+        upkeepTransmitInfo[i].upkeep,
+        hotVars,
+        uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+        true
+      );
       upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
         parsedReport.upkeepIds[i],
         parsedReport.wrappedPerformDatas[i],
@@ -160,12 +165,7 @@ contract KeeperRegistry2_0 is
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       gasOverhead += (ACCOUNTING_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
     }
-    gasOverhead = _getCappedGasOverhead(
-      gasOverhead / numUpkeepsPassedChecks,
-      numUpkeepsPassedChecks,
-      upkeepTransmitInfo[0].upkeep.skipSigVerification,
-      hotVars.f
-    );
+    gasOverhead = gasOverhead / numUpkeepsPassedChecks;
 
     {
       // Separate code block to process payment and to relieve stack pressure
@@ -174,7 +174,14 @@ contract KeeperRegistry2_0 is
       uint96 totalGasPayment;
       uint96 totalPremiumPayment;
       for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-        (upkeepGasPayment, upkeepPremiumPayment) = _postPerformUpkeep(
+        gasOverhead = _getCappedGasOverhead(
+          gasOverhead,
+          uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+          upkeepTransmitInfo[i].upkeep.skipSigVerification,
+          hotVars.f
+        );
+
+        (upkeepGasPayment, upkeepPremiumPayment) = _postPerformPayment(
           hotVars,
           parsedReport.upkeepIds[i],
           uint96(signerIndices.length),
@@ -488,7 +495,10 @@ contract KeeperRegistry2_0 is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    uint256 gasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
+    uint256 gasOverhead = REGISTRY_GAS_OVERHEAD +
+      (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1)) +
+      16 *
+      s_storage.maxPerformDataSize;
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       gasLimit,
@@ -698,7 +708,7 @@ contract KeeperRegistry2_0 is
    * @dev does postPerform payment processing for an upkeep. Calculates
    * gasPayment and premiumPerSigner. Deducts upkeep's balance for the total payment
    */
-  function _postPerformUpkeep(
+  function _postPerformPayment(
     HotVars memory hotVars,
     uint256 upkeepId,
     uint96 numSigners,
@@ -742,18 +752,14 @@ contract KeeperRegistry2_0 is
    */
   function _getCappedGasOverhead(
     uint256 calculatedGasOverhead,
-    uint16 numUpkeeps,
+    uint32 performDataLength,
     bool skipSigVerification,
     uint8 f
   ) private pure returns (uint256 cappedGasOverhead) {
     if (skipSigVerification) {
-      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (16 * msg.data.length) / numUpkeeps;
+      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (16 * performDataLength);
     } else {
-      cappedGasOverhead =
-        REGISTRY_GAS_OVERHEAD +
-        (VERIFY_SIG_GAS_OVERHEAD * (f + 1)) +
-        (16 * msg.data.length) /
-        numUpkeeps;
+      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1)) + (16 * performDataLength);
     }
 
     if (calculatedGasOverhead < cappedGasOverhead) {
