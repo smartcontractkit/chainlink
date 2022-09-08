@@ -706,7 +706,7 @@ describe('KeeperRegistry2_0', () => {
       })
 
       describe('When signatures are NOT validated', () => {
-        it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event', async () => {
+        it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event [ @skip-coverage ]', async () => {
           mock.setCanPerform(true)
           let checkBlock = await ethers.provider.getBlock('latest')
 
