@@ -1,7 +1,3 @@
-/**
- * NOTE: The unit tests only cover skipSigVerification path. sigVerification path
- * is coverred by go integration tests
- */
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { BigNumber, Signer, Wallet } from 'ethers'
@@ -44,7 +40,7 @@ const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
 const registryGasOverhead = BigNumber.from(115000)
-const verifySigOverhead = BigNumber.from(20000)
+const verifySigOverhead = BigNumber.from(15000)
 const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
@@ -919,7 +915,8 @@ describe('KeeperRegistry2_0', () => {
         /*
         it('reverts when configDigest mismatches')
         it('reverts with incorrect number of signatures')
-         it('reverts with invalid signature')
+         it('reverts with invalid signature for inactive signers')
+          it('reverts with invalid signature for duplicated signers')
 */
 
         it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits events', async () => {
@@ -1051,6 +1048,122 @@ describe('KeeperRegistry2_0', () => {
             await expect(tx)
               .to.emit(registry, 'Transmitted')
               .withArgs(configDigest, 5)
+          }
+        })
+
+        it('calculates gas overhead appropriately within a margin for different scenarios [ @skip-coverage ]', async () => {
+          // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
+          let configDigest = (await registry.getState()).state
+            .latestConfigDigest
+          let report = await encodeLatestBlockReport([
+            {
+              Id: sigVerificationUpkeepId.toString(),
+            },
+          ])
+          let reportContext = [configDigest, epochAndRound5_1, emptyBytes32]
+          let sigs = signReport(reportContext, report, signers.slice(0, f + 1))
+          let tx = await registry
+            .connect(keeper1)
+            .transmit(
+              [reportContext[0], reportContext[1], reportContext[2]],
+              report,
+              sigs.rs,
+              sigs.ss,
+              sigs.vs,
+            )
+          await tx.wait()
+
+          // Different test scenarios
+          let longBytes = '0x'
+          for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
+            longBytes += '11'
+          }
+          let upkeepSuccessArray = [true, false]
+          let performGasArray = [5000, 100000, executeGas]
+          let performDataArray = ['0x', randomBytes, longBytes]
+
+          for (let i in upkeepSuccessArray) {
+            for (let j in performGasArray) {
+              for (let k in performDataArray) {
+                for (let l in fArray) {
+                  const upkeepSuccess = upkeepSuccessArray[i]
+                  const performGas = performGasArray[j]
+                  const performData = performDataArray[k]
+                  let newF = fArray[l]
+
+                  mock.setCanPerform(upkeepSuccess)
+                  mock.setPerformGasToBurn(performGas)
+                  await registry
+                    .connect(owner)
+                    .setConfig(
+                      signerAddresses,
+                      keeperAddresses,
+                      newF,
+                      encodeConfig(config),
+                      offchainVersion,
+                      offchainBytes,
+                    )
+
+                  let latestBlock = await ethers.provider.getBlock('latest')
+                  configDigest = (await registry.getState()).state
+                    .latestConfigDigest
+                  report = encodeReport([
+                    {
+                      Id: sigVerificationUpkeepId.toString(),
+                      checkBlockNum: latestBlock.number + 1,
+                      checkBlockHash: latestBlock.hash,
+                      performData: performData,
+                    },
+                  ])
+                  reportContext = [configDigest, epochAndRound5_1, emptyBytes32]
+                  sigs = signReport(
+                    reportContext,
+                    report,
+                    signers.slice(0, newF + 1),
+                  )
+                  tx = await registry
+                    .connect(keeper1)
+                    .transmit(
+                      [reportContext[0], reportContext[1], reportContext[2]],
+                      report,
+                      sigs.rs,
+                      sigs.ss,
+                      sigs.vs,
+                    )
+                  const receipt = await tx.wait()
+                  let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+                  // exactly 1 Upkeep Performed should be emitted
+                  assert.equal(upkeepPerformedLogs.length, 1)
+                  let upkeepPerformedLog = upkeepPerformedLogs[0]
+
+                  let gasUsed = upkeepPerformedLog.args.gasUsed
+                  let gasOverhead = upkeepPerformedLog.args.gasOverhead
+
+                  assert.isTrue(gasUsed.gt(BigNumber.from('0')))
+                  assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+
+                  // Overhead should not get capped
+                  assert.isTrue(
+                    gasOverhead.lt(
+                      registryGasOverhead.add(
+                        verifySigOverhead.mul(BigNumber.from(newF + 1)),
+                      ),
+                    ),
+                  )
+                  // total gas charged should be greater than tx gas but within gasCalculationMargin
+                  assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                  assert.isTrue(
+                    gasUsed
+                      .add(gasOverhead)
+                      .lt(
+                        receipt.gasUsed.add(
+                          BigNumber.from(gasCalculationMargin),
+                        ),
+                      ),
+                  )
+                }
+              }
+            }
           }
         })
       })
