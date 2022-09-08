@@ -918,12 +918,110 @@ describe('KeeperRegistry2_0', () => {
       })
 
       describe('When signatures are validated', () => {
-        /*
-        it('reverts when configDigest mismatches')
-        it('reverts with incorrect number of signatures')
-         it('reverts with invalid signature for inactive signers')
-          it('reverts with invalid signature for duplicated signers')
-*/
+        it('reverts when configDigest mismatches', async () => {
+          const report = await encodeLatestBlockReport([
+            {
+              Id: sigVerificationUpkeepId.toString(),
+            },
+          ])
+          const reportContext = [emptyBytes32, epochAndRound5_1, emptyBytes32] // wrong config digest
+          const sigs = signReport(
+            reportContext,
+            report,
+            signers.slice(0, f + 1),
+          )
+          await evmRevert(
+            registry
+              .connect(keeper1)
+              .transmit(
+                [reportContext[0], reportContext[1], reportContext[2]],
+                report,
+                sigs.rs,
+                sigs.ss,
+                sigs.vs,
+              ),
+            'ConfigDigestMismatch()',
+          )
+        })
+
+        it('reverts with incorrect number of signatures', async () => {
+          const configDigest = (await registry.getState()).state
+            .latestConfigDigest
+          const report = await encodeLatestBlockReport([
+            {
+              Id: sigVerificationUpkeepId.toString(),
+            },
+          ])
+          const reportContext = [configDigest, epochAndRound5_1, emptyBytes32] // wrong config digest
+          const sigs = signReport(
+            reportContext,
+            report,
+            signers.slice(0, f + 2),
+          )
+          await evmRevert(
+            registry
+              .connect(keeper1)
+              .transmit(
+                [reportContext[0], reportContext[1], reportContext[2]],
+                report,
+                sigs.rs,
+                sigs.ss,
+                sigs.vs,
+              ),
+            'IncorrectNumberOfSignatures()',
+          )
+        })
+
+        it('reverts with invalid signature for inactive signers', async () => {
+          const configDigest = (await registry.getState()).state
+            .latestConfigDigest
+          const report = await encodeLatestBlockReport([
+            {
+              Id: sigVerificationUpkeepId.toString(),
+            },
+          ])
+          const reportContext = [configDigest, epochAndRound5_1, emptyBytes32] // wrong config digest
+          const sigs = signReport(reportContext, report, [
+            new ethers.Wallet(randomAddress()),
+            new ethers.Wallet(randomAddress()),
+          ])
+          await evmRevert(
+            registry
+              .connect(keeper1)
+              .transmit(
+                [reportContext[0], reportContext[1], reportContext[2]],
+                report,
+                sigs.rs,
+                sigs.ss,
+                sigs.vs,
+              ),
+            'OnlyActiveSigners()',
+          )
+        })
+
+        it('reverts with invalid signature for duplicated signers', async () => {
+          const configDigest = (await registry.getState()).state
+            .latestConfigDigest
+          const report = await encodeLatestBlockReport([
+            {
+              Id: sigVerificationUpkeepId.toString(),
+            },
+          ])
+          const reportContext = [configDigest, epochAndRound5_1, emptyBytes32] // wrong config digest
+          const sigs = signReport(reportContext, report, [signer1, signer1])
+          await evmRevert(
+            registry
+              .connect(keeper1)
+              .transmit(
+                [reportContext[0], reportContext[1], reportContext[2]],
+                report,
+                sigs.rs,
+                sigs.ss,
+                sigs.vs,
+              ),
+            'DuplicateSigners()',
+          )
+        })
 
         it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits events', async () => {
           for (let i in fArray) {
