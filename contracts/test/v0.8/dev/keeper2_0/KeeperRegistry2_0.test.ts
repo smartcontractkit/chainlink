@@ -212,16 +212,19 @@ describe('KeeperRegistry2_0', () => {
   let keeper2: Signer
   let keeper3: Signer
   let keeper4: Signer
+  let keeper5: Signer
   let nonkeeper: Signer
   let signer1: Wallet
   let signer2: Wallet
   let signer3: Wallet
   let signer4: Wallet
+  let signer5: Wallet
   let admin: Signer
   let payee1: Signer
   let payee2: Signer
   let payee3: Signer
   let payee4: Signer
+  let payee5: Signer
 
   let linkToken: LinkToken
   let linkEthFeed: MockV3Aggregator
@@ -248,12 +251,14 @@ describe('KeeperRegistry2_0', () => {
     keeper2 = personas.Eddy
     keeper3 = personas.Nancy
     keeper4 = personas.Norbert
+    keeper5 = personas.Nick
     nonkeeper = personas.Ned
     admin = personas.Neil
     payee1 = personas.Nelly
     payee2 = personas.Norbert
     payee3 = personas.Nick
     payee4 = personas.Eddy
+    payee5 = personas.Carol
     // signers
     signer1 = new ethers.Wallet(
       '0x7777777000000000000000000000000000000000000000000000000000000001',
@@ -267,20 +272,36 @@ describe('KeeperRegistry2_0', () => {
     signer4 = new ethers.Wallet(
       '0x7777777000000000000000000000000000000000000000000000000000000004',
     )
+    signer5 = new ethers.Wallet(
+      '0x7777777000000000000000000000000000000000000000000000000000000005',
+    )
 
     keeperAddresses = [
       await keeper1.getAddress(),
       await keeper2.getAddress(),
       await keeper3.getAddress(),
       await keeper4.getAddress(),
+      await keeper5.getAddress(),
     ]
     payees = [
       await payee1.getAddress(),
       await payee2.getAddress(),
       await payee3.getAddress(),
       await payee4.getAddress(),
+      await payee5.getAddress(),
     ]
-    signers = [signer1, signer2, signer3, signer4]
+    signers = [signer1, signer2, signer3, signer4, signer5]
+
+    // We append 11 random addresses to keepers, payees and signers to get a system of 16 nodes
+    for (let i = 0; i < 11; i++) {
+      keeperAddresses.push(randomAddress())
+      payees.push(randomAddress())
+      signers.push(new ethers.Wallet(randomAddress()))
+    }
+    signerAddresses = []
+    for (let signer of signers) {
+      signerAddresses.push(await signer.getAddress())
+    }
 
     linkToken = await linkTokenFactory.connect(owner).deploy()
     gasPriceFeed = await mockV3AggregatorFactory
@@ -334,10 +355,6 @@ describe('KeeperRegistry2_0', () => {
       .connect(owner)
       .deploy(registryLogic.address)
 
-    signerAddresses = []
-    for (let signer of signers) {
-      signerAddresses.push(await signer.getAddress())
-    }
     await registry
       .connect(owner)
       .setConfig(
@@ -903,7 +920,7 @@ describe('KeeperRegistry2_0', () => {
           ])
 
           const reportContext = [configDigest, emptyBytes32, emptyBytes32]
-          const sigs = signReport(reportContext, report, signers.slice(2))
+          const sigs = signReport(reportContext, report, signers.slice(0, 2))
 
           const tx = await registry
             .connect(keeper1)
@@ -3515,7 +3532,11 @@ describe('KeeperRegistry2_0', () => {
     const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
 
     beforeEach(async () => {
-      // Redeploy registry with zero address payees
+      keeperAddresses = keeperAddresses.slice(0, 4)
+      signerAddresses = signerAddresses.slice(0, 4)
+      payees = payees.slice(0, 4)
+
+      // Redeploy registry with zero address payees (non set)
       registry = await keeperRegistryFactory
         .connect(owner)
         .deploy(registryLogic.address)
