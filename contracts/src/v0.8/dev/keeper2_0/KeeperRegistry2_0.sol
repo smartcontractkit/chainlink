@@ -162,6 +162,7 @@ contract KeeperRegistry2_0 is
     }
     gasOverhead = _getCappedGasOverhead(
       gasOverhead / numUpkeepsPassedChecks,
+      numUpkeepsPassedChecks,
       upkeepTransmitInfo[0].upkeep.skipSigVerification,
       hotVars.f
     );
@@ -741,13 +742,18 @@ contract KeeperRegistry2_0 is
    */
   function _getCappedGasOverhead(
     uint256 calculatedGasOverhead,
+    uint16 numUpkeeps,
     bool skipSigVerification,
     uint8 f
   ) private pure returns (uint256 cappedGasOverhead) {
     if (skipSigVerification) {
-      cappedGasOverhead = REGISTRY_GAS_OVERHEAD;
+      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (16 * msg.data.length) / numUpkeeps;
     } else {
-      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1));
+      cappedGasOverhead =
+        REGISTRY_GAS_OVERHEAD +
+        (VERIFY_SIG_GAS_OVERHEAD * (f + 1)) +
+        (16 * msg.data.length) /
+        numUpkeeps;
     }
 
     if (calculatedGasOverhead < cappedGasOverhead) {
