@@ -131,11 +131,10 @@ contract KeeperRegistry2_0 is
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
-    uint8[] memory signerIndices;
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
       if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-      signerIndices = _verifyReportSignature(reportContext, report, rs, ss, rawVs);
+      _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
 
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
@@ -161,68 +160,47 @@ contract KeeperRegistry2_0 is
 
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
-    // Rest of msg.Data is accounted for in accounting overheads
+    // Rest of msg.data is accounted for in accounting overheads
     gasOverhead = (gasOverhead - gasleft() + 16 * report.length) + ACCOUNTING_GAS_FIXED_OVERHEAD;
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       gasOverhead += (ACCOUNTING_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
     }
     gasOverhead = gasOverhead / numUpkeepsPassedChecks;
 
-    {
-      // Separate code block to process payment and to relieve stack pressure
-      uint96 upkeepGasPayment;
-      uint96 upkeepPremiumPayment;
-      uint96 totalGasPayment;
-      uint96 totalPremiumPayment;
-      for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-        upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
-          gasOverhead,
-          uint32(parsedReport.wrappedPerformDatas[i].performData.length),
-          upkeepTransmitInfo[i].upkeep.skipSigVerification,
-          hotVars.f
-        );
+    // Separate code block to process payment and to relieve stack pressure
+    uint96 upkeepPayment;
+    uint96 totalPayment;
+    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+      upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
+        gasOverhead,
+        uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+        upkeepTransmitInfo[i].upkeep.skipSigVerification,
+        hotVars.f
+      );
 
-        (upkeepGasPayment, upkeepPremiumPayment) = _postPerformPayment(
-          hotVars,
-          parsedReport.upkeepIds[i],
-          upkeepTransmitInfo[i],
-          numUpkeepsPassedChecks,
-          uint96(signerIndices.length)
-        );
-        totalGasPayment += upkeepGasPayment;
-        totalPremiumPayment += upkeepPremiumPayment;
+      upkeepPayment = _postPerformPayment(
+        hotVars,
+        parsedReport.upkeepIds[i],
+        upkeepTransmitInfo[i],
+        numUpkeepsPassedChecks
+      );
+      totalPayment += upkeepPayment;
 
-        emit UpkeepPerformed(
-          parsedReport.upkeepIds[i],
-          upkeepTransmitInfo[i].performSuccess,
-          parsedReport.wrappedPerformDatas[i].checkBlockNumber,
-          upkeepTransmitInfo[i].gasUsed,
-          upkeepTransmitInfo[i].gasOverhead,
-          upkeepGasPayment + upkeepPremiumPayment
-        );
-      }
-
-      if (upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-        // Pay all the gas payment and premium to transmitter as there are no signers
-        // in case of skipSigVerification
-        s_transmitters[msg.sender].balance += (totalGasPayment + totalPremiumPayment);
-      } else {
-        // Reimburse totalGasPayment to transmitter
-        s_transmitters[msg.sender].balance += totalGasPayment;
-
-        // Split totalPremium among signers
-        address transmitterToPay;
-        uint96 premiumPerSigner = totalPremiumPayment / uint96(signerIndices.length);
-        for (uint256 i = 0; i < signerIndices.length; i++) {
-          transmitterToPay = s_transmittersList[signerIndices[i]];
-          s_transmitters[transmitterToPay].balance += premiumPerSigner;
-        }
-      }
+      emit UpkeepPerformed(
+        parsedReport.upkeepIds[i],
+        upkeepTransmitInfo[i].performSuccess,
+        parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+        upkeepTransmitInfo[i].gasUsed,
+        upkeepTransmitInfo[i].gasOverhead,
+        upkeepPayment
+      );
     }
+    // Pay total amount to transmitter
+    s_transmitters[msg.sender].balance += totalPayment;
 
-    uint40 epochAndRound = uint40(uint256(reportContext[1]));
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       // Only emit event for signature verified reports
+      uint40 epochAndRound = uint40(uint256(reportContext[1]));
       emit Transmitted(hotVars.latestConfigDigest, uint32(epochAndRound >> 8));
     }
   }
@@ -506,16 +484,16 @@ contract KeeperRegistry2_0 is
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, false, hotVars.f);
 
-    (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
-      hotVars,
-      gasLimit,
-      gasOverhead,
-      fastGasWei,
-      linkNative,
-      1, // Consider only 1 upkeep in batch to get maxPayment
-      false
-    );
-    return gasPayment + premium;
+    return
+      _calculatePaymentAmount(
+        hotVars,
+        gasLimit,
+        gasOverhead,
+        fastGasWei,
+        linkNative,
+        1, // Consider only 1 upkeep in batch to get maxPayment
+        false
+      );
   }
 
   /**
@@ -664,35 +642,32 @@ contract KeeperRegistry2_0 is
     return true;
   }
 
+  /**
+   * @dev Verify signatures attached to report
+   */
   function _verifyReportSignature(
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
-  ) internal view returns (uint8[] memory) {
-    uint8[] memory signerIndices = new uint8[](rs.length);
-    // Verify signatures attached to report
-    {
-      bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
-      // i-th byte counts number of sigs made by i-th signer
-      uint256 signedCount = 0;
+  ) internal view {
+    bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
+    // i-th byte counts number of sigs made by i-th signer
+    uint256 signedCount = 0;
 
-      Signer memory signer;
-      address signerAddress;
-      for (uint256 i = 0; i < rs.length; i++) {
-        signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-        signer = s_signers[signerAddress];
-        if (!signer.active) revert OnlyActiveSigners();
-        unchecked {
-          signedCount += 1 << (8 * signer.index);
-        }
-        signerIndices[i] = signer.index;
+    Signer memory signer;
+    address signerAddress;
+    for (uint256 i = 0; i < rs.length; i++) {
+      signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+      signer = s_signers[signerAddress];
+      if (!signer.active) revert OnlyActiveSigners();
+      unchecked {
+        signedCount += 1 << (8 * signer.index);
       }
-
-      if (signedCount & ORACLE_MASK != signedCount) revert DuplicateSigners();
     }
-    return signerIndices;
+
+    if (signedCount & ORACLE_MASK != signedCount) revert DuplicateSigners();
   }
 
   /**
@@ -713,17 +688,16 @@ contract KeeperRegistry2_0 is
   }
 
   /**
-   * @dev does postPerform payment processing for an upkeep. Calculates
-   * gasPayment and premiumPerSigner. Deducts upkeep's balance for the total payment
+   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
+   * amount spent.
    */
   function _postPerformPayment(
     HotVars memory hotVars,
     uint256 upkeepId,
     UpkeepTransmitInfo memory upkeepTransmitInfo,
-    uint16 numBatchedUpkeeps,
-    uint96 numSigners
-  ) internal returns (uint96 gasPayment, uint96 premium) {
-    (gasPayment, premium) = _calculatePaymentAmount(
+    uint16 numBatchedUpkeeps
+  ) internal returns (uint96 payment) {
+    payment = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
@@ -733,16 +707,10 @@ contract KeeperRegistry2_0 is
       true
     );
 
-    if (numSigners > 0) {
-      // In case of sig verification, reduce premium so that it's exactly divisible by num signers
-      premium = premium - (premium % numSigners);
-    }
-    uint96 total = gasPayment + premium;
+    s_upkeep[upkeepId].balance -= payment;
+    s_upkeep[upkeepId].amountSpent += payment;
 
-    s_upkeep[upkeepId].balance -= total;
-    s_upkeep[upkeepId].amountSpent += total;
-
-    return (gasPayment, premium);
+    return payment;
   }
 
   /**
@@ -757,7 +725,6 @@ contract KeeperRegistry2_0 is
   ) private pure returns (uint256 cappedGasOverhead) {
     cappedGasOverhead = _getMaxGasOverhead(performDataLength, skipSigVerification, f);
     if (calculatedGasOverhead < cappedGasOverhead) {
-      // Should always happen in practice
       return calculatedGasOverhead;
     }
     return cappedGasOverhead;

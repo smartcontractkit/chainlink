@@ -40,12 +40,12 @@ const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
 const registryGasOverhead = BigNumber.from(100000)
-const verifySigOverhead = BigNumber.from(15000)
+const verifySigOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
-const gasCalculationMargin = BigNumber.from(2000)
+const gasCalculationMargin = BigNumber.from(4000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -290,8 +290,9 @@ describe('KeeperRegistry2_0', () => {
     ]
     signers = [signer1, signer2, signer3, signer4, signer5]
 
-    // We append 11 random addresses to keepers, payees and signers to get a system of 16 nodes
-    for (let i = 0; i < 11; i++) {
+    // We append 26 random addresses to keepers, payees and signers to get a system of 31 oracles
+    // This allows f value of 1 - 10
+    for (let i = 0; i < 26; i++) {
       keeperAddresses.push(randomAddress())
       payees.push(randomAddress())
       signers.push(new ethers.Wallet(randomAddress()))
@@ -385,7 +386,7 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#transmit', () => {
     let sigVerificationUpkeepId: BigNumber
-    const fArray = [1, 3, 5]
+    const fArray = [1, 5, 10]
     beforeEach(async () => {
       const tx = await registry
         .connect(owner)
@@ -885,11 +886,9 @@ describe('KeeperRegistry2_0', () => {
 
                   let gasUsed = upkeepPerformedLog.args.gasUsed
                   let gasOverhead = upkeepPerformedLog.args.gasOverhead
-                  let totalPayment = upkeepPerformedLog.args.totalPayment
 
                   assert.isTrue(gasUsed.gt(BigNumber.from('0')))
                   assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
-                  assert.isTrue(totalPayment.gt(BigNumber.from('0')))
 
                   // Overhead should not get capped
                   assert.isTrue(
