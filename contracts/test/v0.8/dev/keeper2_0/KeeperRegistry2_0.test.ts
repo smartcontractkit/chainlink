@@ -1702,9 +1702,9 @@ describe('KeeperRegistry2_0', () => {
       )
 
     let fPlusOne = BigNumber.from(f + 1)
-    let totalGasOverhead = registryGasOverhead.add(
-      verifySigOverhead.mul(fPlusOne),
-    )
+    let totalGasOverhead = registryGasOverhead
+      .add(verifySigOverhead.mul(fPlusOne))
+      .add(BigNumber.from('16').mul(maxPerformDataSize))
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
       const gas = gasAmounts[idx]
