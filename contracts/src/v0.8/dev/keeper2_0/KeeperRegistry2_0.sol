@@ -495,10 +495,8 @@ contract KeeperRegistry2_0 is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    uint256 gasOverhead = REGISTRY_GAS_OVERHEAD +
-      (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1)) +
-      16 *
-      s_storage.maxPerformDataSize;
+    uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, false, hotVars.f);
+
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       gasLimit,
@@ -756,12 +754,7 @@ contract KeeperRegistry2_0 is
     bool skipSigVerification,
     uint8 f
   ) private pure returns (uint256 cappedGasOverhead) {
-    if (skipSigVerification) {
-      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (16 * performDataLength);
-    } else {
-      cappedGasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1)) + (16 * performDataLength);
-    }
-
+    cappedGasOverhead = _getMaxGasOverhead(performDataLength, skipSigVerification, f);
     if (calculatedGasOverhead < cappedGasOverhead) {
       // Should always happen in practice
       return calculatedGasOverhead;

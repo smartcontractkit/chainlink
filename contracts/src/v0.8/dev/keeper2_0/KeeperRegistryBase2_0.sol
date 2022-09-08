@@ -380,11 +380,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    uint256 gasOverhead = REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (hotVars.f + 1));
-    if (upkeep.skipSigVerification) {
-      gasOverhead = REGISTRY_GAS_OVERHEAD;
-    }
-    gasOverhead += 16 * performDataLength;
+    uint256 gasOverhead = _getMaxGasOverhead(performDataLength, upkeep.skipSigVerification, hotVars.f);
     (uint96 gasPayment, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
@@ -395,6 +391,20 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     );
 
     return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: gasPayment + premium});
+  }
+
+  /**
+   * @dev returns the max gas overhead that can be charged for an upkeep
+   */
+  function _getMaxGasOverhead(
+    uint32 performDataLength,
+    bool skipSigVerification,
+    uint8 f
+  ) internal pure returns (uint256) {
+    if (skipSigVerification) {
+      return REGISTRY_GAS_OVERHEAD + 16 * performDataLength;
+    }
+    return REGISTRY_GAS_OVERHEAD + (VERIFY_SIG_GAS_OVERHEAD * (f + 1)) + 16 * performDataLength;
   }
 
   /**
