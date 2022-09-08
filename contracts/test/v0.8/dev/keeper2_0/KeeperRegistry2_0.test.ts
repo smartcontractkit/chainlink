@@ -206,6 +206,8 @@ describe('KeeperRegistry2_0', () => {
   const offchainVersion = 1
   const offchainBytes = '0x'
   const zeroAddress = ethers.constants.AddressZero
+  const epochAndRound5_1 =
+    '0x0000000000000000000000000000000000000000000000000000000000000501'
 
   let owner: Signer
   let keeper1: Signer
@@ -387,6 +389,7 @@ describe('KeeperRegistry2_0', () => {
 
   describe('#transmit', () => {
     let sigVerificationUpkeepId: BigNumber
+    const fArray = [1, 3, 5]
     beforeEach(async () => {
       const tx = await registry
         .connect(owner)
@@ -723,7 +726,7 @@ describe('KeeperRegistry2_0', () => {
       })
 
       describe('When signatures are NOT validated', () => {
-        it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event [ @skip-coverage ]', async () => {
+        it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits event', async () => {
           mock.setCanPerform(true)
           let checkBlock = await ethers.provider.getBlock('latest')
 
@@ -742,7 +745,7 @@ describe('KeeperRegistry2_0', () => {
 
           const tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
-            await encodeReport([
+            encodeReport([
               {
                 Id: upkeepId.toString(),
                 checkBlockNum: checkBlock.number,
@@ -776,18 +779,6 @@ describe('KeeperRegistry2_0', () => {
           assert.isTrue(gasUsed.gt(BigNumber.from('0')))
           assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
           assert.isTrue(totalPayment.gt(BigNumber.from('0')))
-
-          // payment calculation should be correct
-          assert.equal(
-            linkForGas(
-              gasUsed,
-              gasOverhead,
-              BigNumber.from('1'),
-              paymentPremiumPPB,
-              flatFeeMicroLink,
-            ).toString(),
-            totalPayment.toString(),
-          )
 
           const keeperAfter = await registry.getTransmitterInfo(
             await keeper1.getAddress(),
@@ -829,7 +820,7 @@ describe('KeeperRegistry2_0', () => {
           expect(tx).to.not.emit(registry, 'Transmitted')
         })
 
-        it('calculates gas overhead appropriately within a margin', async () => {
+        it('calculates gas overhead appropriately within a margin for different scenarios [ @skip-coverage ]', async () => {
           // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
           let tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
@@ -844,7 +835,6 @@ describe('KeeperRegistry2_0', () => {
           )
           await tx.wait()
 
-          // TODO test for changing f
           // Different test scenarios
           let longBytes = '0x'
           for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
@@ -857,53 +847,68 @@ describe('KeeperRegistry2_0', () => {
           for (let i in upkeepSuccessArray) {
             for (let j in performGasArray) {
               for (let k in performDataArray) {
-                const upkeepSuccess = upkeepSuccessArray[i]
-                const performGas = performGasArray[j]
-                const performData = performDataArray[k]
+                for (let l in fArray) {
+                  const upkeepSuccess = upkeepSuccessArray[i]
+                  const performGas = performGasArray[j]
+                  const performData = performDataArray[k]
+                  let newF = fArray[l]
 
-                mock.setCanPerform(upkeepSuccess)
-                mock.setPerformGasToBurn(performGas)
-                let latestBlock = await ethers.provider.getBlock('latest')
+                  mock.setCanPerform(upkeepSuccess)
+                  mock.setPerformGasToBurn(performGas)
+                  await registry
+                    .connect(owner)
+                    .setConfig(
+                      signerAddresses,
+                      keeperAddresses,
+                      newF,
+                      encodeConfig(config),
+                      offchainVersion,
+                      offchainBytes,
+                    )
+                  let latestBlock = await ethers.provider.getBlock('latest')
 
-                tx = await registry.connect(keeper1).transmit(
-                  [emptyBytes32, emptyBytes32, emptyBytes32],
-                  await encodeReport([
-                    {
-                      Id: upkeepId.toString(),
-                      checkBlockNum: latestBlock.number + 1,
-                      checkBlockHash: latestBlock.hash,
-                      performData: performData,
-                    },
-                  ]),
-                  [],
-                  [],
-                  emptyBytes32,
-                )
-                const receipt = await tx.wait()
-                let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-                // exactly 1 Upkeep Performed should be emitted
-                assert.equal(upkeepPerformedLogs.length, 1)
-                let upkeepPerformedLog = upkeepPerformedLogs[0]
+                  tx = await registry.connect(keeper1).transmit(
+                    [emptyBytes32, emptyBytes32, emptyBytes32],
+                    encodeReport([
+                      {
+                        Id: upkeepId.toString(),
+                        checkBlockNum: latestBlock.number + 1,
+                        checkBlockHash: latestBlock.hash,
+                        performData: performData,
+                      },
+                    ]),
+                    [],
+                    [],
+                    emptyBytes32,
+                  )
+                  const receipt = await tx.wait()
+                  let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+                  // exactly 1 Upkeep Performed should be emitted
+                  assert.equal(upkeepPerformedLogs.length, 1)
+                  let upkeepPerformedLog = upkeepPerformedLogs[0]
 
-                let gasUsed = upkeepPerformedLog.args.gasUsed
-                let gasOverhead = upkeepPerformedLog.args.gasOverhead
-                let totalPayment = upkeepPerformedLog.args.totalPayment
+                  let gasUsed = upkeepPerformedLog.args.gasUsed
+                  let gasOverhead = upkeepPerformedLog.args.gasOverhead
+                  let totalPayment = upkeepPerformedLog.args.totalPayment
 
-                assert.isTrue(gasUsed.gt(BigNumber.from('0')))
-                assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
-                assert.isTrue(totalPayment.gt(BigNumber.from('0')))
+                  assert.isTrue(gasUsed.gt(BigNumber.from('0')))
+                  assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+                  assert.isTrue(totalPayment.gt(BigNumber.from('0')))
 
-                // Overhead should not get capped
-                assert.isTrue(gasOverhead.lt(registryGasOverhead))
-                // total gas charged should be greater than tx gas but within a margin
-                assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
-                assert.isTrue(
-                  gasUsed
-                    .add(gasOverhead)
-                    .lt(
-                      receipt.gasUsed.add(BigNumber.from(gasCalculationMargin)),
-                    ),
-                )
+                  // Overhead should not get capped
+                  assert.isTrue(gasOverhead.lt(registryGasOverhead))
+                  // total gas charged should be greater than tx gas but within gasCalculationMargin
+                  assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                  assert.isTrue(
+                    gasUsed
+                      .add(gasOverhead)
+                      .lt(
+                        receipt.gasUsed.add(
+                          BigNumber.from(gasCalculationMargin),
+                        ),
+                      ),
+                  )
+                }
               }
             }
           }
@@ -911,33 +916,164 @@ describe('KeeperRegistry2_0', () => {
       })
 
       describe('When signatures are validated', () => {
-        it('emits an OCR Transmitted event', async () => {
-          const configDigest = (await registry.getState()).state
-            .latestConfigDigest
+        /*
+        it('reverts when configDigest mismatches')
+        it('reverts with incorrect number of signatures')
+         it('reverts with invalid signature')
+*/
 
-          const report = await encodeLatestBlockReport([
-            { Id: sigVerificationUpkeepId.toString() },
-          ])
+        it('performs upkeep, deducts payment, updates lastPerformBlockNumber and emits events', async () => {
+          for (let i in fArray) {
+            let newF = fArray[i]
+            await registry
+              .connect(owner)
+              .setConfig(
+                signerAddresses,
+                keeperAddresses,
+                newF,
+                encodeConfig(config),
+                offchainVersion,
+                offchainBytes,
+              )
+            mock.setCanPerform(true)
+            let checkBlock = await ethers.provider.getBlock('latest')
 
-          const reportContext = [configDigest, emptyBytes32, emptyBytes32]
-          const sigs = signReport(reportContext, report, signers.slice(0, 2))
-
-          const tx = await registry
-            .connect(keeper1)
-            .transmit(
-              [reportContext[0], reportContext[1], reportContext[2]],
-              report,
-              sigs.rs,
-              sigs.ss,
-              sigs.vs,
+            let totalKeeperBalanceBefore = BigNumber.from('0') // Total balance for first (f+1) keepers who will get paid for this perform
+            for (let i = 0; i < newF + 1; i++) {
+              totalKeeperBalanceBefore = totalKeeperBalanceBefore.add(
+                (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
+              )
+            }
+            const registrationBefore = await registry.getUpkeep(
+              sigVerificationUpkeepId,
+            )
+            const keeperLinkBefore = await linkToken.balanceOf(
+              await keeper1.getAddress(),
+            )
+            const registryLinkBefore = await linkToken.balanceOf(
+              registry.address,
             )
 
-          await expect(tx).to.emit(registry, 'Transmitted')
+            // Do the thing
+            const configDigest = (await registry.getState()).state
+              .latestConfigDigest
+            const report = encodeReport([
+              {
+                Id: sigVerificationUpkeepId.toString(),
+                checkBlockNum: checkBlock.number,
+                checkBlockHash: checkBlock.parentHash,
+                performData: '0x',
+              },
+            ])
+            const reportContext = [configDigest, epochAndRound5_1, emptyBytes32]
+            const sigs = signReport(
+              reportContext,
+              report,
+              signers.slice(0, newF + 1),
+            )
+            const tx = await registry
+              .connect(keeper1)
+              .transmit(
+                [reportContext[0], reportContext[1], reportContext[2]],
+                report,
+                sigs.rs,
+                sigs.ss,
+                sigs.vs,
+              )
+            const receipt = await tx.wait()
+
+            let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+            // exactly 1 Upkeep Performed should be emitted
+            assert.equal(upkeepPerformedLogs.length, 1)
+            let upkeepPerformedLog = upkeepPerformedLogs[0]
+
+            let id = upkeepPerformedLog.args.id
+            let success = upkeepPerformedLog.args.success
+            let checkBlockNumber = upkeepPerformedLog.args.checkBlockNumber
+            let gasUsed = upkeepPerformedLog.args.gasUsed
+            let gasOverhead = upkeepPerformedLog.args.gasOverhead
+            let totalPayment = upkeepPerformedLog.args.totalPayment
+
+            assert.equal(id.toString(), sigVerificationUpkeepId.toString())
+            assert.equal(success, true)
+            assert.equal(
+              checkBlockNumber.toString(),
+              checkBlock.number.toString(),
+            )
+            assert.isTrue(gasUsed.gt(BigNumber.from('0')))
+            assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+            assert.isTrue(totalPayment.gt(BigNumber.from('0')))
+
+            let totalKeeperBalanceAfter = BigNumber.from('0') // Total balance for first (f+1) keepers who will get paid for this perform
+            for (let i = 0; i < newF + 1; i++) {
+              totalKeeperBalanceAfter = totalKeeperBalanceAfter.add(
+                (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
+              )
+            }
+            const registrationAfter = await registry.getUpkeep(
+              sigVerificationUpkeepId,
+            )
+            const keeperLinkAfter = await linkToken.balanceOf(
+              await keeper1.getAddress(),
+            )
+            const registryLinkAfter = await linkToken.balanceOf(
+              registry.address,
+            )
+
+            assert.equal(
+              totalKeeperBalanceAfter.sub(totalPayment).toString(),
+              totalKeeperBalanceBefore.toString(),
+            )
+            assert.equal(
+              registrationBefore.balance.sub(totalPayment).toString(),
+              registrationAfter.balance.toString(),
+            )
+            assert.isTrue(keeperLinkAfter.eq(keeperLinkBefore))
+            assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
+
+            // Amount spent should be updated correctly
+            assert.equal(
+              registrationAfter.amountSpent.sub(totalPayment).toString(),
+              registrationBefore.amountSpent.toString(),
+            )
+            assert.isTrue(
+              registrationAfter.amountSpent
+                .sub(registrationBefore.amountSpent)
+                .eq(registrationBefore.balance.sub(registrationAfter.balance)),
+            )
+            // Last perform block number should be updated
+            assert.equal(
+              registrationAfter.lastPerformBlockNumber.toString(),
+              tx.blockNumber?.toString(),
+            )
+
+            // Epoch should be 5 as we used epochAndRound5_1
+            await expect(tx)
+              .to.emit(registry, 'Transmitted')
+              .withArgs(configDigest, 5)
+          }
         })
       })
 
       describe('When upkeeps are batched', () => {})
     })
+
+    /*
+    payment verification
+
+          // payment calculation should be correct
+          assert.equal(
+            linkForGas(
+              gasUsed,
+              gasOverhead,
+              BigNumber.from('1'),
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+            ).toString(),
+            totalPayment.toString(),
+          )
+
+    */
 
     // Previous test cases
 
