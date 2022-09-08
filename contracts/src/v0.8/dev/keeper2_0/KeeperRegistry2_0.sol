@@ -167,7 +167,6 @@ contract KeeperRegistry2_0 is
     }
     gasOverhead = gasOverhead / numUpkeepsPassedChecks;
 
-    // Separate code block to process payment and to relieve stack pressure
     uint96 upkeepPayment;
     uint96 totalPayment;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
