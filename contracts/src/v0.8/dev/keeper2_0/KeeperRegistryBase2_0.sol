@@ -35,9 +35,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   // Needs to be updated after benchmarking
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 115_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 20_000; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
+  uint256 internal constant VERIFY_SIG_GAS_OVERHEAD = 15_000; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
   uint256 internal constant ACCOUNTING_GAS_FIXED_OVERHEAD = 31_000; // Used in actual payment.
-  uint256 internal constant ACCOUNTING_PER_SIGNER_OVERHEAD = 5_000; // Used in actual payment. Value scales with f.
+  uint256 internal constant ACCOUNTING_PER_SIGNER_OVERHEAD = 9_000; // Used in actual payment. Value scales with f.
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
 
