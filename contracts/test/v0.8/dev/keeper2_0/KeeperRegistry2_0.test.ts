@@ -999,7 +999,7 @@ describe('KeeperRegistry2_0', () => {
           expect(tx).to.not.emit(registry, 'Transmitted')
         })
 
-        it('calculates gas overhead appropriately within a margin for different scenarios', async () => {
+        it('calculates gas overhead appropriately within a margin for different scenarios [ @skip-coverage ]', async () => {
           // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
           let tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
