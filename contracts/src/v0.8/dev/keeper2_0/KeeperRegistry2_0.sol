@@ -170,29 +170,31 @@ contract KeeperRegistry2_0 is
     uint96 upkeepPayment;
     uint96 totalPayment;
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
-        gasOverhead,
-        uint32(parsedReport.wrappedPerformDatas[i].performData.length),
-        upkeepTransmitInfo[i].upkeep.skipSigVerification,
-        hotVars.f
-      );
+      if (upkeepTransmitInfo[i].earlyChecksPassed) {
+        upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
+          gasOverhead,
+          uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+          upkeepTransmitInfo[i].upkeep.skipSigVerification,
+          hotVars.f
+        );
 
-      upkeepPayment = _postPerformPayment(
-        hotVars,
-        parsedReport.upkeepIds[i],
-        upkeepTransmitInfo[i],
-        numUpkeepsPassedChecks
-      );
-      totalPayment += upkeepPayment;
+        upkeepPayment = _postPerformPayment(
+          hotVars,
+          parsedReport.upkeepIds[i],
+          upkeepTransmitInfo[i],
+          numUpkeepsPassedChecks
+        );
+        totalPayment += upkeepPayment;
 
-      emit UpkeepPerformed(
-        parsedReport.upkeepIds[i],
-        upkeepTransmitInfo[i].performSuccess,
-        parsedReport.wrappedPerformDatas[i].checkBlockNumber,
-        upkeepTransmitInfo[i].gasUsed,
-        upkeepTransmitInfo[i].gasOverhead,
-        upkeepPayment
-      );
+        emit UpkeepPerformed(
+          parsedReport.upkeepIds[i],
+          upkeepTransmitInfo[i].performSuccess,
+          parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+          upkeepTransmitInfo[i].gasUsed,
+          upkeepTransmitInfo[i].gasOverhead,
+          upkeepPayment
+        );
+      }
     }
     // Pay total amount to transmitter
     s_transmitters[msg.sender].balance += totalPayment;

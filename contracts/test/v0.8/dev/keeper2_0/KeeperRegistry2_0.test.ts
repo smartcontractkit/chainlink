@@ -2001,10 +2001,13 @@ describe('KeeperRegistry2_0', () => {
         it('performs multiple upkeeps in batch')
 
         it('performs some of the upkeeps while some fail prePerformChecks')
+        // Verify that the failing upkeeps don't have balance updated etc
 
         it('splits gas overhead appropriately among performed upkeeps')
 
         it('splits l1 payment among performed upkeeps')
+
+        it('benchmarks gas usage and verifies that its within margin')
 
         it(
           'caps gasOverhead when a single upkeep is batched with multiple failing upkeeps',
