@@ -184,8 +184,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
 
   // This struct is used to pack information about the user's check function
   struct PerformDataWrapper {
-    uint32 checkBlockNumber; // Block number on which check was called
-    bytes32 checkBlockhash; // blockhash of checkBlockNumber-1. Used for reorg protection
+    uint32 checkBlockNumber; // Block number-1 on which check was simulated
+    bytes32 checkBlockhash; // blockhash of checkBlockNumber. Used for reorg protection
     bytes performData; // actual performData that user's check returned
   }
 

@@ -607,13 +607,13 @@ contract KeeperRegistry2_0 is
     Upkeep memory upkeep,
     PerformPaymentParams memory paymentParams
   ) internal returns (bool) {
-    if (wrappedPerformData.checkBlockNumber <= upkeep.lastPerformBlockNumber) {
+    if (wrappedPerformData.checkBlockNumber < upkeep.lastPerformBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
       emit StaleUpkeepReport(upkeepId);
       return false;
     }
 
-    if (blockhash(wrappedPerformData.checkBlockNumber - 1) != wrappedPerformData.checkBlockhash) {
+    if (blockhash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
       // Can happen when the block on which report was generated got reorged
       // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
       // with the latest checkBlockNumber

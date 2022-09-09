@@ -87,7 +87,7 @@ const encodeReport = (upkeeps: any) => {
 const encodeLatestBlockReport = async (upkeeps: any) => {
   let latestBlock = await ethers.provider.getBlock('latest')
   for (let i = 0; i < upkeeps.length; i++) {
-    upkeeps[i].checkBlockNum = latestBlock.number + 1
+    upkeeps[i].checkBlockNum = latestBlock.number
     upkeeps[i].checkBlockHash = latestBlock.hash
     upkeeps[i].performData = '0x'
   }
@@ -752,14 +752,14 @@ describe('KeeperRegistry2_0', () => {
           tx.blockNumber?.toString(),
         )
 
-        // Try to transmit a report which has checkBlockNumber = lastPerformBlockNumber, should result in staleReport
+        // Try to transmit a report which has checkBlockNumber = lastPerformBlockNumber-1, should result in staleReport
         await evmRevert(
           registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
             await encodeReport([
               {
                 Id: upkeepId.toString(),
-                checkBlockNum: lastPerformBlockNumber,
+                checkBlockNum: lastPerformBlock.number - 1,
                 checkBlockHash: lastPerformBlock.parentHash,
                 performData: '0x',
               },
@@ -782,7 +782,7 @@ describe('KeeperRegistry2_0', () => {
             await encodeReport([
               {
                 Id: upkeepId.toString(),
-                checkBlockNum: latestBlock.number,
+                checkBlockNum: latestBlock.number - 1,
                 checkBlockHash: latestBlock.hash,
                 performData: '0x',
               }, // should be latestBlock.parentHash
@@ -896,7 +896,7 @@ describe('KeeperRegistry2_0', () => {
             encodeReport([
               {
                 Id: upkeepId.toString(),
-                checkBlockNum: checkBlock.number,
+                checkBlockNum: checkBlock.number - 1,
                 checkBlockHash: checkBlock.parentHash,
                 performData: randomBytes,
               },
@@ -1471,7 +1471,7 @@ describe('KeeperRegistry2_0', () => {
             encodeReport([
               {
                 Id: upkeepId.toString(),
-                checkBlockNum: checkBlock.number,
+                checkBlockNum: checkBlock.number - 1,
                 checkBlockHash: checkBlock.parentHash,
                 performData: '0x',
               },
@@ -1497,7 +1497,7 @@ describe('KeeperRegistry2_0', () => {
           assert.equal(success, true)
           assert.equal(
             checkBlockNumber.toString(),
-            checkBlock.number.toString(),
+            (checkBlock.number - 1).toString(),
           )
           assert.isTrue(gasUsed.gt(BigNumber.from('0')))
           assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
@@ -1595,7 +1595,7 @@ describe('KeeperRegistry2_0', () => {
                     encodeReport([
                       {
                         Id: upkeepId.toString(),
-                        checkBlockNum: latestBlock.number + 1,
+                        checkBlockNum: latestBlock.number,
                         checkBlockHash: latestBlock.hash,
                         performData: performData,
                       },
@@ -1792,7 +1792,7 @@ describe('KeeperRegistry2_0', () => {
           let report = encodeReport([
             {
               Id: sigVerificationUpkeepId.toString(),
-              checkBlockNum: latestBlock.number + 1,
+              checkBlockNum: latestBlock.number,
               checkBlockHash: latestBlock.hash,
               performData: performData,
             },
@@ -1847,7 +1847,7 @@ describe('KeeperRegistry2_0', () => {
             const report = encodeReport([
               {
                 Id: sigVerificationUpkeepId.toString(),
-                checkBlockNum: checkBlock.number,
+                checkBlockNum: checkBlock.number - 1,
                 checkBlockHash: checkBlock.parentHash,
                 performData: '0x',
               },
@@ -1885,7 +1885,7 @@ describe('KeeperRegistry2_0', () => {
             assert.equal(success, true)
             assert.equal(
               checkBlockNumber.toString(),
-              checkBlock.number.toString(),
+              (checkBlock.number - 1).toString(),
             )
             assert.isTrue(gasUsed.gt(BigNumber.from('0')))
             assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
@@ -1997,7 +1997,7 @@ describe('KeeperRegistry2_0', () => {
                   report = encodeReport([
                     {
                       Id: sigVerificationUpkeepId.toString(),
-                      checkBlockNum: latestBlock.number + 1,
+                      checkBlockNum: latestBlock.number,
                       checkBlockHash: latestBlock.hash,
                       performData: performData,
                     },
@@ -2817,7 +2817,7 @@ describe('KeeperRegistry2_0', () => {
       let report = encodeReport([
         {
           Id: upkeepID1.toString(),
-          checkBlockNum: checkBlock.number,
+          checkBlockNum: checkBlock.number - 1,
           checkBlockHash: checkBlock.parentHash,
           performData: maxPerformData,
         },
@@ -2843,7 +2843,7 @@ describe('KeeperRegistry2_0', () => {
       report = encodeReport([
         {
           Id: upkeepID1.toString(),
-          checkBlockNum: checkBlock.number,
+          checkBlockNum: checkBlock.number - 1,
           checkBlockHash: checkBlock.parentHash,
           performData: '0x',
         },
@@ -2866,7 +2866,7 @@ describe('KeeperRegistry2_0', () => {
       report = encodeReport([
         {
           Id: upkeepID2.toString(),
-          checkBlockNum: checkBlock.number,
+          checkBlockNum: checkBlock.number - 1,
           checkBlockHash: checkBlock.parentHash,
           performData: maxPerformData,
         },
@@ -3157,7 +3157,14 @@ describe('KeeperRegistry2_0', () => {
         )
 
         assert.equal(checkUpkeepResult.upkeepNeeded, true)
-        assert.equal(wrappedPerfromData[0].checkBlockNum, latestBlock.number)
+        assert.equal(
+          wrappedPerfromData[0].checkBlockNum,
+          latestBlock.number - 1,
+        )
+        assert.equal(
+          wrappedPerfromData[0].checkBlockHash,
+          latestBlock.parentHash,
+        )
         assert.equal(wrappedPerfromData[0].performData, randomBytes)
         assert.equal(checkUpkeepResult.upkeepFailureReason, 0)
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
