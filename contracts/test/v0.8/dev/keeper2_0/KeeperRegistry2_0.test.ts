@@ -1258,7 +1258,84 @@ describe('KeeperRegistry2_0', () => {
           )
         })
 
-        it('correctly accounts for l1 payment')
+        it('correctly accounts for l1 payment', async () => {
+          mock.setCanPerform(true)
+          // Same as MockArbGasInfo.sol
+          const l1CostWeiArb = BigNumber.from(1000000)
+
+          // Deploy a new registry since we change payment model
+          let registryLogic = await keeperRegistryLogicFactory
+            .connect(owner)
+            .deploy(
+              1, // arbitrum
+              linkToken.address,
+              linkEthFeed.address,
+              gasPriceFeed.address,
+            )
+          // Deploy a new registry since we change payment model
+          let registry = await keeperRegistryFactory
+            .connect(owner)
+            .deploy(registryLogic.address)
+          await registry
+            .connect(owner)
+            .setConfig(
+              signerAddresses,
+              keeperAddresses,
+              f,
+              encodeConfig(config),
+              offchainVersion,
+              offchainBytes,
+            )
+          let tx = await registry
+            .connect(owner)
+            .registerUpkeep(
+              mock.address,
+              executeGas,
+              await admin.getAddress(),
+              true,
+              randomBytes,
+            )
+          upkeepId = await getUpkeepID(tx)
+          await linkToken
+            .connect(owner)
+            .approve(registry.address, toWei('1000'))
+          await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+
+          // Do the thing
+          tx = await registry.connect(keeper1).transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport([
+              {
+                Id: upkeepId.toString(),
+              },
+            ]),
+            [],
+            [],
+            emptyBytes32,
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
+          )
+          const receipt = await tx.wait()
+          let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+          // exactly 1 Upkeep Performed should be emitted
+          assert.equal(upkeepPerformedLogs.length, 1)
+          let upkeepPerformedLog = upkeepPerformedLogs[0]
+
+          let gasUsed = upkeepPerformedLog.args.gasUsed
+          let gasOverhead = upkeepPerformedLog.args.gasOverhead
+          let totalPayment = upkeepPerformedLog.args.totalPayment
+
+          assert.equal(
+            linkForGas(
+              gasUsed,
+              gasOverhead,
+              gasCeilingMultiplier,
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+              l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
+            ).toString(),
+            totalPayment.toString(),
+          )
+        })
 
         it('can self fund', async () => {
           const autoFunderUpkeep = await upkeepAutoFunderFactory
