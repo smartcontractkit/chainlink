@@ -2414,7 +2414,96 @@ describe('KeeperRegistry2_0', () => {
       })
 
       it('has enough perform gas overhead for large batches')
-      it('splits l1 payment among performed upkeeps')
+
+      it('splits l1 payment among performed upkeeps', async () => {
+        let numUpkeeps = 7
+        let upkeepIds: string[]
+        // Same as MockArbGasInfo.sol
+        const l1CostWeiArb = BigNumber.from(1000000)
+
+        // Deploy a new registry since we change payment model
+        let registryLogic = await keeperRegistryLogicFactory
+          .connect(owner)
+          .deploy(
+            1, // arbitrum
+            linkToken.address,
+            linkEthFeed.address,
+            gasPriceFeed.address,
+          )
+        // Deploy a new registry since we change payment model
+        let registry = await keeperRegistryFactory
+          .connect(owner)
+          .deploy(registryLogic.address)
+        await registry
+          .connect(owner)
+          .setConfig(
+            signerAddresses,
+            keeperAddresses,
+            f,
+            encodeConfig(config),
+            offchainVersion,
+            offchainBytes,
+          )
+        await linkToken.connect(owner).approve(registry.address, toWei('10000'))
+        upkeepIds = []
+        for (let i = 0; i < numUpkeeps; i++) {
+          mock = await upkeepMockFactory.deploy()
+          let tx = await registry
+            .connect(owner)
+            .registerUpkeep(
+              mock.address,
+              executeGas,
+              await admin.getAddress(),
+              true,
+              randomBytes,
+            )
+          upkeepId = await getUpkeepID(tx)
+          upkeepIds.push(upkeepId.toString())
+
+          // Add funds to passing upkeeps
+          await registry.connect(owner).addFunds(upkeepId, toWei('100'))
+        }
+
+        // Do the thing
+        let tx = await registry.connect(keeper1).transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport(
+            upkeepIds.map((id) => {
+              return {
+                Id: id,
+              }
+            }),
+          ),
+          [],
+          [],
+          emptyBytes32,
+          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
+        )
+        const receipt = await tx.wait()
+        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+        // exactly numPassingUpkeeps Upkeep Performed should be emitted
+        assert.equal(upkeepPerformedLogs.length, numUpkeeps)
+
+        // Verify the payment calculation in upkeepPerformed[0]
+        let upkeepPerformedLog = upkeepPerformedLogs[0]
+
+        let gasUsed = upkeepPerformedLog.args.gasUsed
+        let gasOverhead = upkeepPerformedLog.args.gasOverhead
+        let totalPayment = upkeepPerformedLog.args.totalPayment
+
+        assert.equal(
+          linkForGas(
+            gasUsed,
+            gasOverhead,
+            gasCeilingMultiplier,
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
+            BigNumber.from(numUpkeeps),
+          ).toString(),
+          totalPayment.toString(),
+        )
+      })
     })
   })
 
