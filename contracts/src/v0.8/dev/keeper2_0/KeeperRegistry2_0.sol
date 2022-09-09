@@ -163,7 +163,7 @@ contract KeeperRegistry2_0 is
     // Rest of msg.data is accounted for in accounting overheads
     gasOverhead = (gasOverhead - gasleft() + 16 * report.length) + ACCOUNTING_GAS_FIXED_OVERHEAD;
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      gasOverhead += ACCOUNTING_GAS_FIXED_SIGNER_OVERHEAD + (ACCOUNTING_GAS_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
+      gasOverhead += ACCOUNTING_GAS_FIXED_SIGN_TX_OVERHEAD + (ACCOUNTING_GAS_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
     }
     gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_GAS_PER_UPKEEP_OVERHEAD;
 
