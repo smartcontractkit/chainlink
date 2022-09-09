@@ -351,8 +351,9 @@ lookbackBlocks         = %d # This is an integer
 		t.Logf("TestRedeemRandomness 2nd word err: %+v", err2)
 		rw3, err3 := uni.consumer.SReceivedRandomnessByRequestID(nil, big.NewInt(1), big.NewInt(0))
 		t.Logf("FulfillRandomness 1st word err: %+v", err3)
-		t.Log("randomness from redeemRandomness:", rw1.String(), rw2.String())
-		t.Log("randomness from fulfillRandomness:", rw3.String())
+		t.Log("1st random word from redeemRandomness:", rw1.String())
+		t.Log("2nd random word from redeemRandomness:", rw2.String())
+		t.Log("random word from fulfillRandomness:", rw3.String())
 		return err1 == nil && err2 == nil && err3 == nil
 	}, testutils.WaitTimeout(t), 5*time.Second).Should(gomega.BeTrue())
 }
