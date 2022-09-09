@@ -165,7 +165,7 @@ contract KeeperRegistry2_0 is
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       gasOverhead += (ACCOUNTING_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
     }
-    gasOverhead = gasOverhead / numUpkeepsPassedChecks;
+    gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_OVERHEAD;
 
     uint96 upkeepPayment;
     uint96 totalPayment;

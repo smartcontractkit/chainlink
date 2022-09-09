@@ -1996,8 +1996,8 @@ describe('KeeperRegistry2_0', () => {
     })
 
     describe('When upkeeps are batched (non sig verification)', () => {
-      const numPassingUpkeepsArray = [1, 3, 5]
-      const numFailingUpkeepsArray = [0, 1, 5]
+      const numPassingUpkeepsArray = [1, 2, 5]
+      const numFailingUpkeepsArray = [0, 1, 3]
 
       numPassingUpkeepsArray.forEach(function (numPassingUpkeeps) {
         numFailingUpkeepsArray.forEach(function (numFailingUpkeeps) {
@@ -2014,6 +2014,7 @@ describe('KeeperRegistry2_0', () => {
                 passingUpkeepIds = []
                 failingUpkeepIds = []
                 for (let i = 0; i < numPassingUpkeeps; i++) {
+                  mock = await upkeepMockFactory.deploy()
                   let tx = await registry
                     .connect(owner)
                     .registerUpkeep(
@@ -2030,6 +2031,7 @@ describe('KeeperRegistry2_0', () => {
                   await registry.connect(admin).addFunds(upkeepId, toWei('100'))
                 }
                 for (let i = 0; i < numFailingUpkeeps; i++) {
+                  mock = await upkeepMockFactory.deploy()
                   let tx = await registry
                     .connect(owner)
                     .registerUpkeep(
@@ -2164,6 +2166,8 @@ describe('KeeperRegistry2_0', () => {
                     ].lastPerformBlockNumber.toString(),
                     '0',
                   )
+
+                  // TODO: check event should be emitted for insufficient funds
                 }
 
                 // Keeper should be paid net payment for all passed upkeeps
@@ -2176,11 +2180,97 @@ describe('KeeperRegistry2_0', () => {
                 assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
               })
 
-              it('splits gas overhead appropriately among performed upkeeps')
+              it('splits gas overhead appropriately among performed upkeeps', async () => {
+                // Perform the upkeeps once to remove non-zero storage slots and have predictable gas measurement
+                let tx = await registry.connect(keeper1).transmit(
+                  [emptyBytes32, emptyBytes32, emptyBytes32],
+                  await encodeLatestBlockReport(
+                    passingUpkeepIds.concat(failingUpkeepIds).map((id) => {
+                      return {
+                        Id: id,
+                      }
+                    }),
+                  ),
+                  [],
+                  [],
+                  emptyBytes32,
+                )
+                await tx.wait()
 
-              it('benchmarks gas usage and verifies that its within margin')
+                // Do the thing
+                tx = await registry.connect(keeper1).transmit(
+                  [emptyBytes32, emptyBytes32, emptyBytes32],
+                  await encodeLatestBlockReport(
+                    passingUpkeepIds.concat(failingUpkeepIds).map((id) => {
+                      return {
+                        Id: id,
+                      }
+                    }),
+                  ),
+                  [],
+                  [],
+                  emptyBytes32,
+                )
+                const receipt = await tx.wait()
+                let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+                // exactly numPassingUpkeeps Upkeep Performed should be emitted
+                assert.equal(upkeepPerformedLogs.length, numPassingUpkeeps)
 
-              it('caps gasOverhead when other upkeeps are failing')
+                let gasOverheadCap = registryGasOverhead // No sig verification and 0 performData length
+                let overheadCanGetCapped =
+                  numPassingUpkeeps == 1 && numFailingUpkeeps > 0
+                // Should only happen with 1 successful upkeep and some failing upkeeps.
+                // With 2 successful upkeeps and upto 3 failing upkeeps, overhead should be small enough to not get capped
+                let netGasUsedPlusOverhead = BigNumber.from('0')
+
+                for (let i = 0; i < numPassingUpkeeps; i++) {
+                  let gasUsed = upkeepPerformedLogs[i].args.gasUsed
+                  let gasOverhead = upkeepPerformedLogs[i].args.gasOverhead
+
+                  assert.isTrue(gasUsed.gt(BigNumber.from('0')))
+                  assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+
+                  // Overhead should not exceed capped
+                  assert.isTrue(gasOverhead.lte(gasOverheadCap))
+
+                  // Overhead should be same for every upkeep since they have equal performData, hence same caps
+                  assert.isTrue(
+                    gasOverhead.eq(upkeepPerformedLogs[0].args.gasOverhead),
+                  )
+
+                  netGasUsedPlusOverhead = netGasUsedPlusOverhead
+                    .add(gasUsed)
+                    .add(gasOverhead)
+                }
+
+                let overheadsGotCapped =
+                  upkeepPerformedLogs[0].args.gasOverhead.eq(gasOverheadCap)
+                // Should only get capped in certain scenarios
+                if (overheadsGotCapped) {
+                  assert.isTrue(overheadCanGetCapped)
+                }
+
+                console.log(
+                  'Gas Benchmarking - batching (passedUpkeeps:',
+                  numPassingUpkeeps,
+                  'failedUpkeeps:',
+                  numFailingUpkeeps,
+                  '): ',
+                  'overheadsGotCapped',
+                  overheadsGotCapped,
+                  'calculated overhead',
+                  upkeepPerformedLogs[0].args.gasOverhead.toString(),
+                  ' margin over gasUsed',
+                  netGasUsedPlusOverhead.sub(receipt.gasUsed).toString(),
+                )
+
+                // If overheads dont get capped then total gas charged should be greater than tx gas
+                // We don't check whether the net is within gasMargin as the margin changes with numFailedUpkeeps
+                // Which is ok, as long as individual gas overhead is capped
+                if (!overheadsGotCapped) {
+                  assert.isTrue(netGasUsedPlusOverhead.gt(receipt.gasUsed))
+                }
+              })
             },
           )
         })
