@@ -38,7 +38,8 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(95000)
+const registryGasOverhead = BigNumber.from(90000)
+const verifySignTxGasOverhead = BigNumber.from(5000)
 const verifyPerSignerGasOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
 
@@ -321,6 +322,7 @@ describe('KeeperRegistry2_0', () => {
 
     let fPlusOne = BigNumber.from(f + 1)
     let totalGasOverhead = registryGasOverhead
+      .add(verifySignTxGasOverhead)
       .add(verifyPerSignerGasOverhead.mul(fPlusOne))
       .add(BigNumber.from('16').mul(maxPerformDataSize))
 
@@ -2044,6 +2046,7 @@ describe('KeeperRegistry2_0', () => {
                   assert.isTrue(
                     gasOverhead.lt(
                       registryGasOverhead
+                        .add(verifySignTxGasOverhead)
                         .add(
                           verifyPerSignerGasOverhead.mul(
                             BigNumber.from(newF + 1),
@@ -2347,9 +2350,11 @@ describe('KeeperRegistry2_0', () => {
 
                   let gasOverheadCap = registryGasOverhead // 0 performData length
                   if (sigVerification) {
-                    gasOverheadCap = gasOverheadCap.add(
-                      verifyPerSignerGasOverhead.mul(BigNumber.from(f + 1)),
-                    )
+                    gasOverheadCap = gasOverheadCap
+                      .add(verifySignTxGasOverhead)
+                      .add(
+                        verifyPerSignerGasOverhead.mul(BigNumber.from(f + 1)),
+                      )
                   }
                   let overheadCanGetCapped =
                     numPassingUpkeeps == 1 && numFailingUpkeeps > 0
