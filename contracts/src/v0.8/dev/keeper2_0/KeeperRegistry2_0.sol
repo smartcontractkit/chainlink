@@ -132,7 +132,7 @@ contract KeeperRegistry2_0 is
     if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      if (hotVars.latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
+      if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
       if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
       _verifyReportSignature(reportContext, report, rs, ss, rawVs);
     }
@@ -202,7 +202,7 @@ contract KeeperRegistry2_0 is
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       // Only emit event for signature verified reports
       uint40 epochAndRound = uint40(uint256(reportContext[1]));
-      emit Transmitted(hotVars.latestConfigDigest, uint32(epochAndRound >> 8));
+      emit Transmitted(s_latestConfigDigest, uint32(epochAndRound >> 8));
     }
   }
 
@@ -299,7 +299,6 @@ contract KeeperRegistry2_0 is
 
     s_hotVars = HotVars({
       f: f,
-      latestConfigDigest: s_hotVars.latestConfigDigest,
       paymentPremiumPPB: onchainConfigStruct.paymentPremiumPPB,
       flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
       stalenessSeconds: onchainConfigStruct.stalenessSeconds,
@@ -328,7 +327,7 @@ contract KeeperRegistry2_0 is
     s_storage.latestConfigBlockNumber = uint32(block.number);
     s_storage.configCount += 1;
 
-    s_hotVars.latestConfigDigest = _configDigestFromConfigData(
+    s_latestConfigDigest = _configDigestFromConfigData(
       block.chainid,
       address(this),
       s_storage.configCount,
@@ -342,7 +341,7 @@ contract KeeperRegistry2_0 is
 
     emit ConfigSet(
       previousConfigBlockNumber,
-      s_hotVars.latestConfigDigest,
+      s_latestConfigDigest,
       s_storage.configCount,
       signers,
       transmitters,
@@ -445,7 +444,7 @@ contract KeeperRegistry2_0 is
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      latestConfigDigest: s_hotVars.latestConfigDigest,
+      latestConfigDigest: s_latestConfigDigest,
       paused: s_hotVars.paused
     });
 
@@ -524,7 +523,7 @@ contract KeeperRegistry2_0 is
       bytes32 configDigest
     )
   {
-    return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_hotVars.latestConfigDigest);
+    return (s_storage.configCount, s_storage.latestConfigBlockNumber, s_latestConfigDigest);
   }
 
   /**
