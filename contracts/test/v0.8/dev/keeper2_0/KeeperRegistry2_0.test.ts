@@ -38,8 +38,8 @@ const transmitGasOverhead = BigNumber.from(400000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(100000)
-const verifySigOverhead = BigNumber.from(7500)
+const registryGasOverhead = BigNumber.from(95000)
+const verifyPerSignerGasOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
@@ -72,26 +72,15 @@ const encodeConfig = (config: any) => {
 }
 
 const encodeReport = (upkeeps: any) => {
-  let upkeepIds = []
-  let wrappedPerformDatas = []
-  for (let i = 0; i < upkeeps.length; i++) {
-    upkeepIds.push(upkeeps[i].Id)
-    wrappedPerformDatas.push(
-      ethers.utils.defaultAbiCoder.encode(
-        ['tuple(uint32,bytes32,bytes)'],
-        [
-          [
-            upkeeps[i].checkBlockNum,
-            upkeeps[i].checkBlockHash,
-            upkeeps[i].performData,
-          ],
-        ],
-      ),
-    )
-  }
+  const upkeepIds = upkeeps.map((u: any) => u.Id)
+  const performDataTuples = upkeeps.map((u: any) => [
+    u.checkBlockNum,
+    u.checkBlockHash,
+    u.performData,
+  ])
   return ethers.utils.defaultAbiCoder.encode(
-    ['uint256[]', 'bytes[]'],
-    [upkeepIds, wrappedPerformDatas],
+    ['uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
+    [upkeepIds, performDataTuples],
   )
 }
 
@@ -332,7 +321,7 @@ describe('KeeperRegistry2_0', () => {
 
     let fPlusOne = BigNumber.from(f + 1)
     let totalGasOverhead = registryGasOverhead
-      .add(verifySigOverhead.mul(fPlusOne))
+      .add(verifyPerSignerGasOverhead.mul(fPlusOne))
       .add(BigNumber.from('16').mul(maxPerformDataSize))
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
@@ -577,27 +566,17 @@ describe('KeeperRegistry2_0', () => {
 
     it('reverts when upkeeps and performData length mismatches', async () => {
       let upkeepIds = []
-      let wrappedPerformDatas = []
+      let performDataTuples = []
       let latestBlock = await ethers.provider.getBlock('latest')
 
       upkeepIds.push(upkeepId)
-      wrappedPerformDatas.push(
-        ethers.utils.defaultAbiCoder.encode(
-          ['tuple(uint32,bytes32,bytes)'],
-          [[latestBlock.number + 1, latestBlock.hash, '0x']],
-        ),
-      )
+      performDataTuples.push([latestBlock.number + 1, latestBlock.hash, '0x'])
       // Push an extra perform data
-      wrappedPerformDatas.push(
-        ethers.utils.defaultAbiCoder.encode(
-          ['tuple(uint32,bytes32,bytes)'],
-          [[latestBlock.number + 1, latestBlock.hash, '0x']],
-        ),
-      )
+      performDataTuples.push([latestBlock.number + 1, latestBlock.hash, '0x'])
 
       let report = ethers.utils.defaultAbiCoder.encode(
-        ['uint256[]', 'bytes[]'],
-        [upkeepIds, wrappedPerformDatas],
+        ['uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
+        [upkeepIds, performDataTuples],
       )
 
       await evmRevert(
@@ -1988,7 +1967,11 @@ describe('KeeperRegistry2_0', () => {
                   assert.isTrue(
                     gasOverhead.lt(
                       registryGasOverhead
-                        .add(verifySigOverhead.mul(BigNumber.from(newF + 1)))
+                        .add(
+                          verifyPerSignerGasOverhead.mul(
+                            BigNumber.from(newF + 1),
+                          ),
+                        )
                         .add(BigNumber.from(16 * performData.length)),
                     ),
                   )
@@ -2013,7 +1996,7 @@ describe('KeeperRegistry2_0', () => {
 
     describe('When upkeeps are batched', () => {
       const sigVerificationArray = [true, false]
-      const numPassingUpkeepsArray = [1, 2, 5]
+      const numPassingUpkeepsArray = [1, 2, 10]
       const numFailingUpkeepsArray = [0, 1, 3]
 
       sigVerificationArray.forEach(function (sigVerification) {
@@ -2288,7 +2271,7 @@ describe('KeeperRegistry2_0', () => {
                   let gasOverheadCap = registryGasOverhead // 0 performData length
                   if (sigVerification) {
                     gasOverheadCap = gasOverheadCap.add(
-                      verifySigOverhead.mul(BigNumber.from(f + 1)),
+                      verifyPerSignerGasOverhead.mul(BigNumber.from(f + 1)),
                     )
                   }
                   let overheadCanGetCapped =
