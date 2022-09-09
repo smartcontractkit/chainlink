@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -62,6 +61,7 @@ var _ = Describe("Direct request suite @reorg-direct-request", func() {
 	EVMTrackerHistoryDepth := "400"
 	timeout := "15m"
 	interval := "2s"
+
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			e = environment.New(&environment.Config{TTL: 1 * time.Hour})

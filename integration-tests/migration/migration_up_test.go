@@ -1,7 +1,6 @@
 package migration_test
 
 import (
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,20 +21,6 @@ type Data struct {
 	Enabled   bool      `db:"enabled"`
 }
 
-func getDB(e *environment.Environment) *ctfClient.PostgresConnector {
-	spl := strings.Split(e.URLs["chainlink_db"][1], ":")
-	port := spl[len(spl)-1]
-	db, err := ctfClient.NewPostgresConnector(&ctfClient.PostgresConfig{
-		Host:     "localhost",
-		Port:     port,
-		User:     "postgres",
-		Password: "postgres",
-		DBName:   "chainlink",
-	})
-	Expect(err).ShouldNot(HaveOccurred())
-	return db
-}
-
 // Migration template boiler, for now it's semi-automatic, integrating into CI to make it fully automatic
 var _ = Describe("Migration up test suite @db-migration", func() {
 	var (
@@ -54,17 +39,18 @@ var _ = Describe("Migration up test suite @db-migration", func() {
 			e, err = testsetups.DBMigration(&testsetups.DBMigrationSpec{
 				FromSpec: testsetups.FromVersionSpec{
 					Image: "public.ecr.aws/chainlink/chainlink",
-					Tag:   "1.6.0-nonroot",
+					Tag:   "1.7.1-nonroot",
 				},
 				ToSpec: testsetups.ToVersionSpec{
 					Image: "public.ecr.aws/chainlink/chainlink",
-					Tag:   "1.7.1-nonroot",
+					Tag:   "1.8.0-nonroot",
 				},
 			})
 			Expect(err).ShouldNot(HaveOccurred())
 			// if test haven't failed after that assertion we know that migration is complete
 			// check other stuff via queries if needed
-			db := getDB(e)
+			db, err := ctfClient.ConnectDB(1, e)
+			Expect(err).ShouldNot(HaveOccurred())
 			var d []Data
 			err = db.Select(&d, "select * from evm_chains;")
 			Expect(err).ShouldNot(HaveOccurred())

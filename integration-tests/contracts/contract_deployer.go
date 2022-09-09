@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/log_emitter"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_factory"
@@ -54,6 +56,7 @@ type ContractDeployer interface {
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployBlockhashStore() (BlockHashStore, error)
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
+	DeployLogEmitter() (*EthereumLogEmitter, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -796,5 +799,25 @@ func (e *EthereumContractDeployer) DeployOperatorFactory(linkAddr string) (Opera
 		address:         addr,
 		client:          e.client,
 		operatorFactory: instance.(*operator_factory.OperatorFactory),
+	}, err
+}
+
+// DeployLogEmitter deploys block emitter contract for LogPoller component testing
+func (e *EthereumContractDeployer) DeployLogEmitter() (*EthereumLogEmitter, error) {
+	address, _, instance, err := e.client.DeployContract("LogEmitter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return log_emitter.DeployLogEmitter(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumLogEmitter{
+		client:       e.client,
+		emitter:      instance.(*log_emitter.LogEmitter),
+		address:      address,
+		mu:           &sync.Mutex{},
+		transactions: make([]*types.Transaction, 0),
 	}, err
 }

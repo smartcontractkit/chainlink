@@ -197,12 +197,12 @@ func (lp *logPoller) filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 	sort.Slice(eventSigs, func(i, j int) bool {
 		return bytes.Compare(eventSigs[i][:], eventSigs[j][:]) < 0
 	})
-	if len(eventSigs) == 0 && len(addresses) == 0 {
-		// If no filter specified, ignore everything.
-		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
-		// then as jobs are added dynamically start using their filters.
-		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
-	}
+	//if len(eventSigs) == 0 && len(addresses) == 0 {
+	//	// If no filter specified, ignore everything.
+	//	// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
+	//	// then as jobs are added dynamically start using their filters.
+	//	addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
+	//}
 	lp.cachedAddresses = addresses
 	lp.cachedEventSigs = eventSigs
 	lp.filterDirty = false
