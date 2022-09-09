@@ -1,26 +1,5 @@
 # MAKE ALL CHANGES WITHIN THE DEFAULT WORKDIR FOR YARN AND GO DEP CACHE HITS
 
-# Build image: Operator UI
-FROM node:16-buster as buildui
-WORKDIR /chainlink
-
-COPY GNUmakefile VERSION ./
-COPY tools/bin/ldflags tools/bin/ldflags
-ARG COMMIT_SHA
-
-# Install yarn dependencies
-COPY yarn.lock package.json .yarnrc ./
-COPY .yarn .yarn
-COPY contracts/package.json ./contracts/
-RUN make yarndep
-
-COPY contracts ./contracts
-COPY tsconfig.cjs.json ./
-COPY core/web/schema core/web/schema
-
-# Create the directory that the operator-ui build assets will be placed in.
-RUN mkdir -p core/web
-
 # Build image: Chainlink binary
 FROM golang:1.19-buster as buildgo
 WORKDIR /chainlink
