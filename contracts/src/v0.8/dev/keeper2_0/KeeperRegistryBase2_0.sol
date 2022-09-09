@@ -33,12 +33,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 95_000; // Used only in maxPayment estimation, not in actual payment
+
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 90_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant VERIFY_SIGN_TX_GAS_OVERHEAD = 5_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant VERIFY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
-  uint256 internal constant ACCOUNTING_GAS_FIXED_OVERHEAD = 26_500; // Used in actual payment. Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_GAS_FIXED_SIGN_TX_OVERHEAD = 2_000; // Used in actual payment. fixed overhead for sig verified tx
-  uint256 internal constant ACCOUNTING_GAS_PER_UPKEEP_OVERHEAD = 5_500; // Used in actual payment. overhead per upkeep performed
-  uint256 internal constant ACCOUNTING_GAS_PER_SIGNER_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
+
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 26_500; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_SIGN_TX_GAS_OVERHEAD = 2_000; // Used in actual payment. fixed overhead for sig verified tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_500; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
 
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
@@ -63,6 +66,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
+  bytes32 internal s_latestConfigDigest; // Read on transmit path in case of signature verification
   HotVars internal s_hotVars; // Mixture of config and state, used in transmit
   Storage internal s_storage; // Mixture of config and state, not used in transmit
   uint256 internal s_fallbackGasPrice;
@@ -140,14 +144,13 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint8 f; // maximum number of faulty oracles
-    bytes32 latestConfigDigest; // latest config digest which is checked against every report
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
     uint32 flatFeeMicroLink; // flat fee charged to user for every perform
     uint24 stalenessSeconds; // Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
     bool paused; // pause switch for all upkeeps in the registry
     bool reentrancyGuard; // guard against reentrancy
-    // 12 bytes to 1 EVM word
+    // 16 bytes to 1 EVM word
   }
 
   // Config + State storage struct which is not on hot transmit path
@@ -412,7 +415,12 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     if (skipSigVerification) {
       return REGISTRY_GAS_OVERHEAD + 16 * performDataLength;
     }
-    return REGISTRY_GAS_OVERHEAD + (VERIFY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) + 16 * performDataLength;
+    return
+      REGISTRY_GAS_OVERHEAD +
+      VERIFY_SIGN_TX_GAS_OVERHEAD +
+      (VERIFY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
+      16 *
+      performDataLength;
   }
 
   /**
