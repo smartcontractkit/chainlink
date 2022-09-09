@@ -34,7 +34,7 @@ function randomAddress() {
 // -----------------------------------------------------------------------------------------------
 // These are the gas overheads that off chain systems should provide to check upkeep / transmit
 // These overheads are not actually charged for
-const transmitGasOverhead = BigNumber.from(400000)
+const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
@@ -2413,7 +2413,68 @@ describe('KeeperRegistry2_0', () => {
         })
       })
 
-      it('has enough perform gas overhead for large batches')
+      it('has enough perform gas overhead for large batches', async () => {
+        let numUpkeeps = 20
+        let upkeepIds: string[]
+        upkeepIds = []
+        let totalExecuteGas = BigNumber.from('0')
+        for (let i = 0; i < numUpkeeps; i++) {
+          mock = await upkeepMockFactory.deploy()
+          let tx = await registry
+            .connect(owner)
+            .registerUpkeep(
+              mock.address,
+              executeGas,
+              await admin.getAddress(),
+              true,
+              randomBytes,
+            )
+          upkeepId = await getUpkeepID(tx)
+          upkeepIds.push(upkeepId.toString())
+
+          // Add funds to passing upkeeps
+          await registry.connect(owner).addFunds(upkeepId, toWei('10'))
+
+          mock.setCanPerform(true)
+          mock.setPerformGasToBurn(executeGas)
+
+          totalExecuteGas = totalExecuteGas.add(executeGas)
+        }
+
+        // Should revert with no overhead added
+        await evmRevert(
+          registry.connect(keeper1).transmit(
+            [emptyBytes32, emptyBytes32, emptyBytes32],
+            await encodeLatestBlockReport(
+              upkeepIds.map((id) => {
+                return {
+                  Id: id,
+                }
+              }),
+            ),
+            [],
+            [],
+            emptyBytes32,
+            { gasLimit: totalExecuteGas },
+          ),
+        )
+
+        // Should not revert with overhead added
+        await registry.connect(keeper1).transmit(
+          [emptyBytes32, emptyBytes32, emptyBytes32],
+          await encodeLatestBlockReport(
+            upkeepIds.map((id) => {
+              return {
+                Id: id,
+              }
+            }),
+          ),
+          [],
+          [],
+          emptyBytes32,
+          { gasLimit: totalExecuteGas.add(transmitGasOverhead) },
+        )
+      })
 
       it('splits l1 payment among performed upkeeps', async () => {
         let numUpkeeps = 7
