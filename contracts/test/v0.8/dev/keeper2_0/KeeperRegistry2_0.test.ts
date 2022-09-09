@@ -74,26 +74,15 @@ const encodeConfig = (config: any) => {
 }
 
 const encodeReport = (upkeeps: any) => {
-  let upkeepIds = []
-  let wrappedPerformDatas = []
-  for (let i = 0; i < upkeeps.length; i++) {
-    upkeepIds.push(upkeeps[i].Id)
-    wrappedPerformDatas.push(
-      ethers.utils.defaultAbiCoder.encode(
-        ['tuple(uint32,bytes32,bytes)'],
-        [
-          [
-            upkeeps[i].checkBlockNum,
-            upkeeps[i].checkBlockHash,
-            upkeeps[i].performData,
-          ],
-        ],
-      ),
-    )
-  }
+  const upkeepIds = upkeeps.map((u: any) => u.Id)
+  const performDataTuples = upkeeps.map((u: any) => [
+    u.checkBlockNum,
+    u.checkBlockHash,
+    u.performData,
+  ])
   return ethers.utils.defaultAbiCoder.encode(
-    ['uint256[]', 'bytes[]'],
-    [upkeepIds, wrappedPerformDatas],
+    ['uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
+    [upkeepIds, performDataTuples],
   )
 }
 
@@ -465,7 +454,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             emptyBytes32,
           ),
-        'InvalidReport()',
+        'reverted with panic code 0x41',
       )
     })
 

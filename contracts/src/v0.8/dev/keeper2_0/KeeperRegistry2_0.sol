@@ -601,16 +601,10 @@ contract KeeperRegistry2_0 is
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
     uint256[] memory upkeepIds;
-    bytes[] memory rawBytes;
     PerformDataWrapper[] memory wrappedPerformDatas;
 
-    (upkeepIds, rawBytes) = abi.decode(rawReport, (uint256[], bytes[]));
-    if (upkeepIds.length != rawBytes.length) revert InvalidReport();
-
-    wrappedPerformDatas = new PerformDataWrapper[](upkeepIds.length);
-    for (uint256 i = 0; i < upkeepIds.length; i++) {
-      wrappedPerformDatas[i] = abi.decode(rawBytes[i], (PerformDataWrapper));
-    }
+    (upkeepIds, wrappedPerformDatas) = abi.decode(rawReport, (uint256[], PerformDataWrapper[]));
+    if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
 
     return Report({upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
   }
