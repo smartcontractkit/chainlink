@@ -148,6 +148,22 @@ const parseUpkeepPerformedLogs = (receipt: any) => {
   return parsedLogs
 }
 
+const parseInsufficientFundsUpkeepReportLogs = (receipt: any) => {
+  let logABI = ['  event InsufficientFundsUpkeepReport(uint256 indexed id)']
+  let iface = new ethers.utils.Interface(logABI)
+
+  let parsedLogs = []
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]
+    try {
+      parsedLogs.push(iface.parseLog(log))
+    } catch (e) {
+      // ignore log
+    }
+  }
+  return parsedLogs
+}
+
 before(async () => {
   personas = (await getUsers()).personas
 
@@ -2088,6 +2104,10 @@ describe('KeeperRegistry2_0', () => {
                 let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
                 // exactly numPassingUpkeeps Upkeep Performed should be emitted
                 assert.equal(upkeepPerformedLogs.length, numPassingUpkeeps)
+                let insufficientFundsLogs =
+                  parseInsufficientFundsUpkeepReportLogs(receipt)
+                // exactly numFailingUpkeeps Upkeep Performed should be emitted
+                assert.equal(insufficientFundsLogs.length, numFailingUpkeeps)
 
                 const keeperAfter = await registry.getTransmitterInfo(
                   await keeper1.getAddress(),
@@ -2149,6 +2169,10 @@ describe('KeeperRegistry2_0', () => {
                 }
 
                 for (let i = 0; i < numFailingUpkeeps; i++) {
+                  // InsufficientFunds log should be emitted
+                  let id = insufficientFundsLogs[i].args.id
+                  assert.equal(id.toString(), failingUpkeepIds[i])
+
                   // Balance and amount spent should be same
                   assert.equal(
                     registrationFailingBefore[i].balance.toString(),
@@ -2166,8 +2190,6 @@ describe('KeeperRegistry2_0', () => {
                     ].lastPerformBlockNumber.toString(),
                     '0',
                   )
-
-                  // TODO: check event should be emitted for insufficient funds
                 }
 
                 // Keeper should be paid net payment for all passed upkeeps
