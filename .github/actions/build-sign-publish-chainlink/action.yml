@@ -85,6 +85,12 @@ runs:
       echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
       echo "EOF" >> $GITHUB_ENV
 
+  - name: Fetch operator-ui
+    shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: make operator-ui 
+
   - if: inputs.publish == 'true'
     # Log in to AWS for publish to ECR
     name: Configure AWS Credentials
@@ -113,11 +119,22 @@ runs:
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
 
+    # In case of cache corruption, we need to change the cache key
+    # See https://github.com/docker/build-push-action/issues/577
+  - name: Cache Docker layers
+    uses: actions/cache@v3
+    with:
+      path: /tmp/.buildx-cache
+      key: ${{ runner.os }}-buildx-${{ github.sha }}
+      restore-keys: |
+        ${{ runner.os }}-buildx-
+
   - name: Build and push root docker image
     id: buildpush-root
     uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      context: .
       load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-root.outputs.tags }}
       labels: ${{ steps.meta-root.outputs.labels }}
@@ -125,6 +142,19 @@ runs:
       build-args: |
         CHAINLINK_USER=root
         ${{ env.shared-build-args }}
+      cache-from: type=local,src=/tmp/.buildx-cache
+      cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+    # We use this method of caching rather than buildx's built-in cache
+    # because a failure of caching in buildx causes the build itself to fail
+    # Temp fix
+    # https://github.com/docker/build-push-action/issues/252
+    # https://github.com/moby/buildkit/issues/1896
+  - name: Move cache
+    shell: bash
+    run: |
+      rm -rf /tmp/.buildx-cache
+      mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   - name: Save root image name in GITHUB_ENV
     id: save-root-image-name-env
@@ -149,6 +179,7 @@ runs:
     uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      context: .
       load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-nonroot.outputs.tags }}
       labels: ${{ steps.meta-nonroot.outputs.labels }}
