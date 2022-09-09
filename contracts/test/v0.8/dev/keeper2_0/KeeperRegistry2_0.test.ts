@@ -1163,7 +1163,65 @@ describe('KeeperRegistry2_0', () => {
         })
       })
 
-      describe('When upkeeps are batched', () => {})
+      describe('When upkeeps are batched', () => {
+        describe('and one is underfunded', () => {
+          it.only('does not revert', async () => {
+            let sigVerificationUpkeepId2: BigNumber
+            const tx = await registry
+              .connect(owner)
+              .registerUpkeep(
+                mock.address,
+                executeGas,
+                await admin.getAddress(),
+                false,
+                randomBytes,
+              )
+            sigVerificationUpkeepId2 = await getUpkeepID(tx)
+
+            await registry
+              .connect(owner)
+              .setConfig(
+                signerAddresses,
+                keeperAddresses,
+                1,
+                encodeConfig(config),
+                offchainVersion,
+                offchainBytes,
+              )
+            mock.setCanPerform(true)
+            let checkBlock = await ethers.provider.getBlock('latest')
+
+            // Do the thing
+            const configDigest = (await registry.getState()).state
+              .latestConfigDigest
+            const report = encodeReport([
+              {
+                Id: sigVerificationUpkeepId.toString(),
+                checkBlockNum: checkBlock.number,
+                checkBlockHash: checkBlock.parentHash,
+                performData: '0x',
+              },
+              {
+                Id: sigVerificationUpkeepId2.toString(),
+                checkBlockNum: checkBlock.number,
+                checkBlockHash: checkBlock.parentHash,
+                performData: '0x',
+              },
+            ])
+            const reportContext = [configDigest, epochAndRound5_1, emptyBytes32]
+            const sigs = signReport(reportContext, report, signers.slice(0, 2))
+            await registry
+              .connect(keeper1)
+              .transmit(
+                [reportContext[0], reportContext[1], reportContext[2]],
+                report,
+                sigs.rs,
+                sigs.ss,
+                sigs.vs,
+              )
+          })
+        })
+      })
     })
 
     /*
