@@ -163,9 +163,9 @@ contract KeeperRegistry2_0 is
     // Rest of msg.data is accounted for in accounting overheads
     gasOverhead = (gasOverhead - gasleft() + 16 * report.length) + ACCOUNTING_GAS_FIXED_OVERHEAD;
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      gasOverhead += (ACCOUNTING_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
+      gasOverhead += ACCOUNTING_GAS_FIXED_SIGNER_OVERHEAD + (ACCOUNTING_GAS_PER_SIGNER_OVERHEAD * (hotVars.f + 1));
     }
-    gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_OVERHEAD;
+    gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_GAS_PER_UPKEEP_OVERHEAD;
 
     uint96 upkeepPayment;
     uint96 totalPayment;
@@ -590,16 +590,10 @@ contract KeeperRegistry2_0 is
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
     uint256[] memory upkeepIds;
-    bytes[] memory rawBytes;
     PerformDataWrapper[] memory wrappedPerformDatas;
 
-    (upkeepIds, rawBytes) = abi.decode(rawReport, (uint256[], bytes[]));
-    if (upkeepIds.length != rawBytes.length) revert InvalidReport();
-
-    wrappedPerformDatas = new PerformDataWrapper[](upkeepIds.length);
-    for (uint256 i = 0; i < upkeepIds.length; i++) {
-      wrappedPerformDatas[i] = abi.decode(rawBytes[i], (PerformDataWrapper));
-    }
+    (upkeepIds, wrappedPerformDatas) = abi.decode(rawReport, (uint256[], PerformDataWrapper[]));
+    if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
 
     return Report({upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
   }
