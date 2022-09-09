@@ -67,7 +67,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
     performData = abi.encode(
       PerformDataWrapper({
-        checkBlockNumber: uint32(block.number),
+        checkBlockNumber: uint32(block.number - 1),
         checkBlockhash: blockhash(block.number - 1),
         performData: userPerformData
       })
@@ -243,9 +243,9 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
 
     s_transmitters[from].balance = 0;
     s_expectedLinkBalance = s_expectedLinkBalance - transmitter.balance;
-    emit PaymentWithdrawn(from, transmitter.balance, to, msg.sender);
 
     i_link.transfer(to, transmitter.balance);
+    emit PaymentWithdrawn(from, transmitter.balance, to, msg.sender);
   }
 
   /**
