@@ -133,6 +133,8 @@ func setupOCR2VRFContracts(
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
+	t.Parallel()
+
 	keyID := randomKeyID(t)
 	uni := setupOCR2VRFContracts(t, 5, keyID, false)
 
