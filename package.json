@@ -4,7 +4,6 @@
   "workspaces": {
     "packages": [
       "contracts",
-      "operator_ui",
       "tools",
       "tools/external-adapter"
     ],
@@ -25,7 +24,6 @@
     "prettier:check": "yarn prettier . --check --ignore-unknown",
     "prettier:write": "yarn prettier . --write --ignore-unknown",
     "setup": "wsrun -me -t setup",
-    "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
     "clean": "wsrun -me clean"
   },
