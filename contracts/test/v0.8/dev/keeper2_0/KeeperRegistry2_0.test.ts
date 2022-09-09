@@ -172,8 +172,8 @@ before(async () => {
 })
 
 describe('KeeperRegistry2_0', () => {
-  const linkEth = BigNumber.from(500000000)
-  const gasWei = BigNumber.from(100)
+  const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
+  const gasWei = BigNumber.from(10000000000) // 10 gwei
   const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')
@@ -369,7 +369,7 @@ describe('KeeperRegistry2_0', () => {
   }
 
   beforeEach(async () => {
-    // Deploys a registry, setups of initial configuration (onChain and offChain config)
+    // Deploys a registry, setups of initial configuration
     // Registers an upkeep which is unfunded to start with
     owner = personas.Default
     keeper1 = personas.Carol
@@ -930,33 +930,8 @@ describe('KeeperRegistry2_0', () => {
         })
 
         it('uses actual execution price for payment', async () => {
-          // Increase multiplier to a large value so that actual gas price is lower than cap
-          // We use a very large value because for some reason hardhat increases base fee to be insanely high
-          const multiplier = BigNumber.from(10000)
-          const gasPrice = gasWei.mul(BigNumber.from('1000'))
-
-          // Ensure upkeep has enough funds
-          await linkToken
-            .connect(owner)
-            .transfer(await admin.getAddress(), toWei('100000'))
-          await linkToken
-            .connect(admin)
-            .approve(registry.address, toWei('100000'))
-          await registry.connect(admin).addFunds(upkeepId, toWei('100000'))
-
-          let newConfig = config
-          newConfig.gasCeilingMultiplier = multiplier
-          await registry
-            .connect(owner)
-            .setConfig(
-              signerAddresses,
-              keeperAddresses,
-              f,
-              encodeConfig(newConfig),
-              offchainVersion,
-              offchainBytes,
-            )
-
+          // Actual multiplier is 2, but we set gasPrice to be 1x gasWei
+          const gasPrice = gasWei.mul(BigNumber.from('1'))
           mock.setCanPerform(true)
 
           const tx = await registry.connect(keeper1).transmit(
@@ -985,7 +960,7 @@ describe('KeeperRegistry2_0', () => {
             linkForGas(
               gasUsed,
               gasOverhead,
-              BigNumber.from('1000'), // Not the config multiplier, but actual gas price multiplier used
+              BigNumber.from('1'), // Not the config multiplier, but the actual gas used
               paymentPremiumPPB,
               flatFeeMicroLink,
             ).toString(),
@@ -994,8 +969,8 @@ describe('KeeperRegistry2_0', () => {
         })
 
         it('only pays at a rate up to the gas ceiling', async () => {
-          // Actual multiplier is 2, but we set gasPrice to be 1000x
-          const gasPrice = gasWei.mul(BigNumber.from('1000'))
+          // Actual multiplier is 2, but we set gasPrice to be 100x
+          const gasPrice = gasWei.mul(BigNumber.from('100'))
           mock.setCanPerform(true)
 
           const tx = await registry.connect(keeper1).transmit(
@@ -1024,7 +999,7 @@ describe('KeeperRegistry2_0', () => {
             linkForGas(
               gasUsed,
               gasOverhead,
-              gasCeilingMultiplier,
+              gasCeilingMultiplier, // Should be same with exisitng multiplier
               paymentPremiumPPB,
               flatFeeMicroLink,
             ).toString(),
@@ -1051,7 +1026,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             [],
             emptyBytes32,
-            { gasPrice: gasWei.mul('1000') }, // High gas price so that it gets capped
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
           )
           const receipt = await tx.wait()
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -1094,7 +1069,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             [],
             emptyBytes32,
-            { gasPrice: gasWei.mul('1000') }, // High gas price so that it gets capped
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
           )
           let receipt = await tx.wait()
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -1137,7 +1112,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             [],
             emptyBytes32,
-            { gasPrice: gasWei.mul('1000') }, // High gas price so that it gets capped
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
           )
           let receipt = await tx.wait()
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -1180,7 +1155,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             [],
             emptyBytes32,
-            { gasPrice: gasWei.mul('1000') }, // High gas price so that it gets capped
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
           )
           const receipt = await tx.wait()
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -1222,7 +1197,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             [],
             emptyBytes32,
-            { gasPrice: gasWei.mul('1000') }, // High gas price so that it gets capped
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
           )
           const receipt = await tx.wait()
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -1264,7 +1239,7 @@ describe('KeeperRegistry2_0', () => {
             [],
             [],
             emptyBytes32,
-            { gasPrice: gasWei.mul('1000') }, // High gas price so that it gets capped
+            { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
           )
           const receipt = await tx.wait()
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -2307,6 +2282,7 @@ describe('KeeperRegistry2_0', () => {
             sigs.rs,
             sigs.ss,
             sigs.vs,
+            { gasPrice: gasWei.mul(gasCeilingMultiplier) },
           ),
         'StaleReport()',
       )
