@@ -173,7 +173,7 @@ before(async () => {
 
 describe('KeeperRegistry2_0', () => {
   const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
-  const gasWei = BigNumber.from(10000000000) // 10 gwei
+  const gasWei = BigNumber.from(1000000000) // 1 gwei
   const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')
