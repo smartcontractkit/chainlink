@@ -963,9 +963,9 @@ describe('KeeperRegistry2_0', () => {
           )
         })
 
-        it('only pays at a rate up to the gas ceiling', async () => {
-          // Actual multiplier is 2, but we set gasPrice to be 100x
-          const gasPrice = gasWei.mul(BigNumber.from('100'))
+        it('only pays at a rate up to the gas ceiling [ @skip-coverage ]', async () => {
+          // Actual multiplier is 2, but we set gasPrice to be 10x
+          const gasPrice = gasWei.mul(BigNumber.from('10'))
           mock.setCanPerform(true)
 
           const tx = await registry.connect(keeper1).transmit(
@@ -1543,7 +1543,7 @@ describe('KeeperRegistry2_0', () => {
           expect(tx).to.not.emit(registry, 'Transmitted')
         })
 
-        it('calculates gas overhead appropriately within a margin for different scenarios', async () => {
+        it('calculates gas overhead appropriately within a margin for different scenarios [ @skip-coverage ]', async () => {
           // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
           let tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
@@ -1757,7 +1757,7 @@ describe('KeeperRegistry2_0', () => {
           )
         })
 
-        it('has a large enough gas overhead to cover upkeep that use all its gas', async () => {
+        it('has a large enough gas overhead to cover upkeep that use all its gas [ @skip-coverage ]', async () => {
           await registry.connect(owner).setConfig(
             signerAddresses,
             keeperAddresses,
@@ -1938,7 +1938,7 @@ describe('KeeperRegistry2_0', () => {
           }
         })
 
-        it('calculates gas overhead appropriately within a margin for different scenarios', async () => {
+        it('calculates gas overhead appropriately within a margin for different scenarios [ @skip-coverage ]', async () => {
           // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
           let configDigest = (await registry.getState()).state
             .latestConfigDigest
@@ -2283,7 +2283,7 @@ describe('KeeperRegistry2_0', () => {
                   assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
                 })
 
-                it('splits gas overhead appropriately among performed upkeeps', async () => {
+                it('splits gas overhead appropriately among performed upkeeps [ @skip-coverage ]', async () => {
                   // Perform the upkeeps once to remove non-zero storage slots and have predictable gas measurement
                   let configDigest = (await registry.getState()).state
                     .latestConfigDigest
@@ -2413,7 +2413,7 @@ describe('KeeperRegistry2_0', () => {
         })
       })
 
-      it('has enough perform gas overhead for large batches', async () => {
+      it('has enough perform gas overhead for large batches [ @skip-coverage ]', async () => {
         let numUpkeeps = 20
         let upkeepIds: string[]
         upkeepIds = []
@@ -2858,6 +2858,7 @@ describe('KeeperRegistry2_0', () => {
           sigs.rs,
           sigs.ss,
           sigs.vs,
+          { gasPrice: gasWei.mul(gasCeilingMultiplier) },
         )
 
       // upkeep 2 perform should succeed with max performData size
@@ -2880,6 +2881,7 @@ describe('KeeperRegistry2_0', () => {
           sigs.rs,
           sigs.ss,
           sigs.vs,
+          { gasPrice: gasWei.mul(gasCeilingMultiplier) },
         )
     })
   })
@@ -3161,7 +3163,7 @@ describe('KeeperRegistry2_0', () => {
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
       })
 
-      it('has a large enough gas overhead to cover upkeeps that use all their gas', async () => {
+      it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
         await mock.setCanCheck(true)
         await mock.setCheckGasToBurn(checkGasLimit)
         const gas = checkGasLimit.add(checkGasOverhead)
