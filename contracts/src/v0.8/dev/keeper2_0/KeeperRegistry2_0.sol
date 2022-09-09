@@ -167,37 +167,43 @@ contract KeeperRegistry2_0 is
     }
     gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
-    uint96 upkeepPayment;
-    uint96 totalPayment;
-    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      if (upkeepTransmitInfo[i].earlyChecksPassed) {
-        upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
-          gasOverhead,
-          uint32(parsedReport.wrappedPerformDatas[i].performData.length),
-          upkeepTransmitInfo[i].upkeep.skipSigVerification,
-          hotVars.f
-        );
+    uint96 totalReimbursement;
+    uint96 totalPremium;
+    {
+      uint96 reimbursement;
+      uint96 premium;
+      for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+        if (upkeepTransmitInfo[i].earlyChecksPassed) {
+          upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
+            gasOverhead,
+            uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+            upkeepTransmitInfo[i].upkeep.skipSigVerification,
+            hotVars.f
+          );
 
-        upkeepPayment = _postPerformPayment(
-          hotVars,
-          parsedReport.upkeepIds[i],
-          upkeepTransmitInfo[i],
-          numUpkeepsPassedChecks
-        );
-        totalPayment += upkeepPayment;
+          (reimbursement, premium) = _postPerformPayment(
+            hotVars,
+            parsedReport.upkeepIds[i],
+            upkeepTransmitInfo[i],
+            numUpkeepsPassedChecks
+          );
+          totalPremium += premium;
+          totalReimbursement += reimbursement;
 
-        emit UpkeepPerformed(
-          parsedReport.upkeepIds[i],
-          upkeepTransmitInfo[i].performSuccess,
-          parsedReport.wrappedPerformDatas[i].checkBlockNumber,
-          upkeepTransmitInfo[i].gasUsed,
-          upkeepTransmitInfo[i].gasOverhead,
-          upkeepPayment
-        );
+          emit UpkeepPerformed(
+            parsedReport.upkeepIds[i],
+            upkeepTransmitInfo[i].performSuccess,
+            parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+            upkeepTransmitInfo[i].gasUsed,
+            upkeepTransmitInfo[i].gasOverhead,
+            reimbursement + premium
+          );
+        }
       }
     }
-    // Pay total amount to transmitter
-    s_transmitters[msg.sender].balance += totalPayment;
+    // record payments
+    s_transmitters[msg.sender].balance += totalReimbursement;
+    s_hotVars.totalPremium += totalPremium;
 
     if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
       // Only emit event for signature verified reports
@@ -264,8 +270,14 @@ contract KeeperRegistry2_0 is
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
 
+    // move all pooled payments out of the pool to each transmitter's balance
+    uint96 totalPremium = s_hotVars.totalPremium;
+    uint96 oldLength = uint96(s_transmittersList.length);
+    for (uint256 i = 0; i < oldLength; i++) {
+      _updateTransmitterBalanceFromPool(s_transmittersList[i], totalPremium, oldLength);
+    }
+
     // remove any old signer/transmitter addresses
-    uint256 oldLength = s_signersList.length;
     address signer;
     address transmitter;
     for (uint256 i = 0; i < oldLength; i++) {
@@ -279,13 +291,21 @@ contract KeeperRegistry2_0 is
     delete s_transmittersList;
 
     // add new signer/transmitter addresses
-    for (uint256 i = 0; i < signers.length; i++) {
-      if (s_signers[signers[i]].active) revert RepeatedSigner();
-      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
+    {
+      Transmitter memory transmitter;
+      address temp;
+      for (uint256 i = 0; i < signers.length; i++) {
+        if (s_signers[signers[i]].active) revert RepeatedSigner();
+        s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
 
-      if (s_transmitters[transmitters[i]].active) revert RepeatedTransmitter();
-      s_transmitters[transmitters[i]].active = true;
-      s_transmitters[transmitters[i]].index = uint8(i);
+        temp = transmitters[i];
+        transmitter = s_transmitters[temp];
+        if (transmitter.active) revert RepeatedTransmitter();
+        transmitter.active = true;
+        transmitter.index = uint8(i);
+        transmitter.lastCollected = totalPremium;
+        s_transmitters[temp] = transmitter;
+      }
     }
     s_signersList = signers;
     s_transmittersList = transmitters;
@@ -304,7 +324,8 @@ contract KeeperRegistry2_0 is
       stalenessSeconds: onchainConfigStruct.stalenessSeconds,
       gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
       paused: false,
-      reentrancyGuard: false
+      reentrancyGuard: false,
+      totalPremium: totalPremium
     });
 
     s_storage = Storage({
@@ -411,7 +432,15 @@ contract KeeperRegistry2_0 is
     )
   {
     Transmitter memory transmitter = s_transmitters[query];
-    return (transmitter.active, transmitter.index, transmitter.balance, s_transmitterPayees[query]);
+    uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
+    uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
+
+    return (
+      transmitter.active,
+      transmitter.index,
+      (transmitter.balance + pooledShare),
+      s_transmitterPayees[query]
+    );
   }
 
   /**
@@ -484,8 +513,7 @@ contract KeeperRegistry2_0 is
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, false, hotVars.f);
 
-    return
-      _calculatePaymentAmount(
+    (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(
         hotVars,
         gasLimit,
         gasOverhead,
@@ -494,6 +522,7 @@ contract KeeperRegistry2_0 is
         1, // Consider only 1 upkeep in batch to get maxPayment
         false
       );
+    return gasReimbursement + premium;
   }
 
   /**
@@ -690,8 +719,8 @@ contract KeeperRegistry2_0 is
     uint256 upkeepId,
     UpkeepTransmitInfo memory upkeepTransmitInfo,
     uint16 numBatchedUpkeeps
-  ) internal returns (uint96 payment) {
-    payment = _calculatePaymentAmount(
+  ) internal returns (uint96 gasReimbursement, uint96 premium) {
+    (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
@@ -701,10 +730,11 @@ contract KeeperRegistry2_0 is
       true
     );
 
+    uint96 payment = gasReimbursement + premium;
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
-    return payment;
+    return (gasReimbursement, premium);
   }
 
   /**

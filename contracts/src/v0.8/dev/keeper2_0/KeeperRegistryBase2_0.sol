@@ -40,7 +40,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
 
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 26_500; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_FIXED_SIGN_TX_GAS_OVERHEAD = 2_000; // Used in actual payment. fixed overhead for sig verified tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_500; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 8_500; // Used in actual payment. overhead per upkeep performed
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
 
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
@@ -150,7 +150,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
     bool paused; // pause switch for all upkeeps in the registry
     bool reentrancyGuard; // guard against reentrancy
-    // 16 bytes to 1 EVM word
+    uint96 totalPremium; // total historical payment to oracles for premium
+    // 4 bytes to 1 EVM word
   }
 
   // Config + State storage struct which is not on hot transmit path
@@ -174,9 +175,9 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
 
   struct Transmitter {
     bool active;
-    // Index of oracle in s_signersList/s_transmittersList
-    uint8 index;
+    uint8 index; // Index of oracle in s_signersList/s_transmittersList
     uint96 balance;
+    uint96 lastCollected;
   }
 
   struct Signer {
@@ -343,7 +344,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint256 linkNative,
     uint16 numBatchedUpkeeps,
     bool isExecution
-  ) internal view returns (uint96) {
+  ) internal view returns (uint96 gasPayment, uint96 premium) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
@@ -373,11 +374,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
 
-    uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNative;
-    uint256 premium = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
+    gasPayment = uint96(((weiForGas + l1CostWei) * 1e18) / linkNative);
+    premium = uint96((gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12);
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(gasPayment + premium);
+    return (gasPayment, premium);
   }
 
   /**
@@ -391,7 +392,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 gasOverhead = _getMaxGasOverhead(performDataLength, upkeep.skipSigVerification, hotVars.f);
-    uint96 maxLinkPayment = _calculatePaymentAmount(
+    (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
       gasOverhead,
@@ -401,7 +402,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       isExecution
     );
 
-    return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: maxLinkPayment});
+    return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: (reimbursement + premium)});
   }
 
   /**
@@ -421,6 +422,26 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       (VERIFY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
       16 *
       performDataLength;
+  }
+
+  /**
+   * @dev move a transmitter's balance from total pool to withdrawable balance
+   */
+  function _updateTransmitterBalanceFromPool(
+    address transmitterAddress,
+    uint96 totalPremium,
+    uint96 payeeCount
+  ) internal returns (uint96) {
+    Transmitter memory transmitter = s_transmitters[transmitterAddress];
+
+    uint96 uncollected = totalPremium - transmitter.lastCollected;
+    uint96 due = uncollected / payeeCount;
+    transmitter.balance += due;
+    transmitter.lastCollected = totalPremium;
+
+    s_transmitters[transmitterAddress] = transmitter;
+
+    return transmitter.balance;
   }
 
   /**
