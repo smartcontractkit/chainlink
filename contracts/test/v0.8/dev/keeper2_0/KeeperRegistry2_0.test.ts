@@ -1567,6 +1567,15 @@ describe('KeeperRegistry2_0', () => {
                   assert.isTrue(gasUsed.gt(BigNumber.from('0')))
                   assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
 
+                  if (i == '0' && j == '0' && k == '0' && l == '0') {
+                    console.log(
+                      'Gas Benchmarking - non sig verification: calculated overhead: ',
+                      gasOverhead.toString(),
+                      ' margin over gasUsed: ',
+                      gasUsed.add(gasOverhead).sub(receipt.gasUsed).toString(),
+                    )
+                  }
+
                   // Overhead should not get capped
                   assert.isTrue(
                     gasOverhead.lt(
@@ -1971,6 +1980,17 @@ describe('KeeperRegistry2_0', () => {
                   assert.isTrue(gasUsed.gt(BigNumber.from('0')))
                   assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
 
+                  if (i == '0' && j == '0' && k == '0') {
+                    console.log(
+                      'Gas Benchmarking - sig verification ( f =',
+                      newF,
+                      '): calculated overhead: ',
+                      gasOverhead.toString(),
+                      ' margin over gasUsed: ',
+                      gasUsed.add(gasOverhead).sub(receipt.gasUsed).toString(),
+                    )
+                  }
+
                   // Overhead should not get capped
                   assert.isTrue(
                     gasOverhead.lt(
@@ -2007,7 +2027,13 @@ describe('KeeperRegistry2_0', () => {
 
         it('splits l1 payment among performed upkeeps')
 
-        it('benchmarks gas usage and verifies that its within margin')
+        it(
+          'benchmarks gas usage for non sig verification upkeeps and verifies that its within margin',
+        )
+
+        it(
+          'benchmarks gas usage for sig verification upkeeps and verifies that its within margin',
+        )
 
         it(
           'caps gasOverhead when a single upkeep is batched with multiple failing upkeeps',
