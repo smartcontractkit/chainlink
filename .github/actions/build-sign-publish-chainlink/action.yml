@@ -145,17 +145,6 @@ runs:
       cache-from: type=local,src=/tmp/.buildx-cache
       cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-    # We use this method of caching rather than buildx's built-in cache
-    # because a failure of caching in buildx causes the build itself to fail
-    # Temp fix
-    # https://github.com/docker/build-push-action/issues/252
-    # https://github.com/moby/buildkit/issues/1896
-  - name: Move cache
-    shell: bash
-    run: |
-      rm -rf /tmp/.buildx-cache
-      mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
   - name: Save root image name in GITHUB_ENV
     id: save-root-image-name-env
     shell: sh
@@ -183,10 +172,22 @@ runs:
       load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-nonroot.outputs.tags }}
       labels: ${{ steps.meta-nonroot.outputs.labels }}
+      cache-from: type=local,src=/tmp/.buildx-cache
       file: core/chainlink.Dockerfile
       build-args: |
         CHAINLINK_USER=chainlink
         ${{ env.shared-build-args }}
+
+    # We use this method of caching rather than buildx's built-in cache
+    # because a failure of caching in buildx causes the build itself to fail
+    # Temp fix
+    # https://github.com/docker/build-push-action/issues/252
+    # https://github.com/moby/buildkit/issues/1896
+  - name: Move cache
+    shell: bash
+    run: |
+      rm -rf /tmp/.buildx-cache
+      mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   - name: Save non-root image name in GITHUB_ENV
     id: save-non-root-image-name-env
