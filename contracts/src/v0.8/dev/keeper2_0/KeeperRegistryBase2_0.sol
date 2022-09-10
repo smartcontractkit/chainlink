@@ -40,7 +40,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
 
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 30_000; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_FIXED_SIGN_TX_GAS_OVERHEAD = 2_000; // Used in actual payment. fixed overhead for sig verified tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_500; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_800; // Used in actual payment. overhead per upkeep performed
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
 
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);

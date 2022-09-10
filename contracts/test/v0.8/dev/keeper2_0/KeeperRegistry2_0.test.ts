@@ -935,11 +935,12 @@ describe('KeeperRegistry2_0', () => {
           assert.equal(parsedLogs[0].args.upkeepData, randomBytes)
         })
 
-        it('uses actual execution price for payment', async () => {
+        it('uses actual execution price for payment and premium calculation', async () => {
           // Actual multiplier is 2, but we set gasPrice to be 1x gasWei
           const gasPrice = gasWei.mul(BigNumber.from('1'))
           mock.setCanPerform(true)
-
+          const registryPremiumBefore = (await registry.getState()).state
+            .totalPremium
           const tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
             await encodeLatestBlockReport([
@@ -953,6 +954,10 @@ describe('KeeperRegistry2_0', () => {
             { gasPrice },
           )
           const receipt = await tx.wait()
+          const registryPremiumAfter = (await registry.getState()).state
+            .totalPremium
+          const premium = registryPremiumAfter.sub(registryPremiumBefore)
+
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
           // exactly 1 Upkeep Performed should be emitted
           assert.equal(upkeepPerformedLogs.length, 1)
@@ -971,6 +976,17 @@ describe('KeeperRegistry2_0', () => {
               flatFeeMicroLink,
             ).total.toString(),
             totalPayment.toString(),
+          )
+
+          assert.equal(
+            linkForGas(
+              gasUsed,
+              gasOverhead,
+              BigNumber.from('1'), // Not the config multiplier, but the actual gas used
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+            ).premium.toString(),
+            premium.toString(),
           )
         })
 
@@ -1468,6 +1484,8 @@ describe('KeeperRegistry2_0', () => {
             await keeper1.getAddress(),
           )
           const registrationBefore = await registry.getUpkeep(upkeepId)
+          const registryPremiumBefore = (await registry.getState()).state
+            .totalPremium
           const keeperLinkBefore = await linkToken.balanceOf(
             await keeper1.getAddress(),
           )
@@ -1522,10 +1540,17 @@ describe('KeeperRegistry2_0', () => {
             await keeper1.getAddress(),
           )
           const registryLinkAfter = await linkToken.balanceOf(registry.address)
+          const registryPremiumAfter = (await registry.getState()).state
+            .totalPremium
+          const premium = registryPremiumAfter.sub(registryPremiumBefore)
+          // Keeper payment is gasPayment + premium / num keepers
+          const keeperPayment = totalPayment
+            .sub(premium)
+            .add(premium.div(BigNumber.from(keeperAddresses.length)))
 
           assert.equal(
-            keeperAfter.balance.sub(totalPayment).toString(),
-            keeperBefore.balance.toString(),
+            keeperAfter.balance.toString(),
+            keeperBefore.balance.add(keeperPayment).toString(),
           )
           assert.equal(
             registrationBefore.balance.sub(totalPayment).toString(),
@@ -1850,6 +1875,8 @@ describe('KeeperRegistry2_0', () => {
             const registrationBefore = await registry.getUpkeep(
               sigVerificationUpkeepId,
             )
+            const registryPremiumBefore = (await registry.getState()).state
+              .totalPremium
             const keeperLinkBefore = await linkToken.balanceOf(
               await keeper1.getAddress(),
             )
@@ -1919,9 +1946,16 @@ describe('KeeperRegistry2_0', () => {
             const registryLinkAfter = await linkToken.balanceOf(
               registry.address,
             )
+            const registryPremiumAfter = (await registry.getState()).state
+              .totalPremium
+            const premium = registryPremiumAfter.sub(registryPremiumBefore)
+            // Keeper payment is gasPayment + premium / num keepers
+            const keeperPayment = totalPayment
+              .sub(premium)
+              .add(premium.div(BigNumber.from(keeperAddresses.length)))
 
             assert.equal(
-              keeperAfter.balance.sub(totalPayment).toString(),
+              keeperAfter.balance.sub(keeperPayment).toString(),
               keeperBefore.balance.toString(),
             )
             assert.equal(
@@ -2161,6 +2195,8 @@ describe('KeeperRegistry2_0', () => {
                   const registryLinkBefore = await linkToken.balanceOf(
                     registry.address,
                   )
+                  const registryPremiumBefore = (await registry.getState())
+                    .state.totalPremium
                   const registrationPassingBefore = await Promise.all(
                     passingUpkeepIds.map(async (id) => {
                       let reg = await registry.getUpkeep(BigNumber.from(id))
@@ -2232,6 +2268,11 @@ describe('KeeperRegistry2_0', () => {
                       return await registry.getUpkeep(BigNumber.from(id))
                     }),
                   )
+                  const registryPremiumAfter = (await registry.getState()).state
+                    .totalPremium
+                  const premium = registryPremiumAfter.sub(
+                    registryPremiumBefore,
+                  )
 
                   let netPayment = BigNumber.from('0')
                   for (let i = 0; i < numPassingUpkeeps; i++) {
@@ -2296,9 +2337,14 @@ describe('KeeperRegistry2_0', () => {
                     )
                   }
 
+                  // Keeper payment is gasPayment + premium / num keepers
+                  const keeperPayment = netPayment
+                    .sub(premium)
+                    .add(premium.div(BigNumber.from(keeperAddresses.length)))
+
                   // Keeper should be paid net payment for all passed upkeeps
                   assert.equal(
-                    keeperAfter.balance.sub(netPayment).toString(),
+                    keeperAfter.balance.sub(keeperPayment).toString(),
                     keeperBefore.balance.toString(),
                   )
 
