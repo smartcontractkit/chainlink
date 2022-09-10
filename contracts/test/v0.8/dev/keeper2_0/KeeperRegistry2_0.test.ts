@@ -4534,7 +4534,6 @@ describe('KeeperRegistry2_0', () => {
           )
           let upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
           let ownerBefore = (await registry.getState()).state.ownerLinkBalance
-          assert.equal(0, ownerBefore.toNumber())
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
           const payee1After = await linkToken.balanceOf(
