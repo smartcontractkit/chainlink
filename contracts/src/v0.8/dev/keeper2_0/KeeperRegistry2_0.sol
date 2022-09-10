@@ -465,6 +465,7 @@ contract KeeperRegistry2_0 is
       nonce: s_storage.nonce,
       ownerLinkBalance: s_storage.ownerLinkBalance,
       expectedLinkBalance: s_expectedLinkBalance,
+      totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
