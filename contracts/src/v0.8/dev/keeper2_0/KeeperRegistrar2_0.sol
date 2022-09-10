@@ -38,8 +38,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @notice versions:
    * - KeeperRegistrar 2.0.0: Remove source from register
-   *                        : Add external function for user to directly register upkeep
-   *                        : Add skipSigVerification parameter to register
+   *                          Breaks our example of "Register an Upkeep using your own deployed contract"
    * - KeeperRegistrar 1.1.0: Add functionality for sender allowlist in auto approve
    *                        : Remove rate limit and add max allowed for auto approve
    * - KeeperRegistrar 1.0.0: initial release
@@ -71,8 +70,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint32 gasLimit,
     address adminAddress,
     bytes checkData,
-    uint96 amount,
-    bool skipSigVerification
+    uint96 amount
   );
 
   event RegistrationApproved(bytes32 indexed hash, string displayName, uint256 indexed upkeepId);
@@ -131,7 +129,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param checkData data passed to the contract when checking for upkeep
    * @param amount quantity of LINK upkeep is funded with (specified in Juels)
    * @param sender address of the sender making the request
-   * @param skipSigVerification whether to skip signature verification for low security low cost
    */
   function register(
     string memory name,
@@ -141,20 +138,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address adminAddress,
     bytes calldata checkData,
     uint96 amount,
-    address sender,
-    bool skipSigVerification
+    address sender
   ) external onlyLINK {
-    _register(
-      name,
-      encryptedEmail,
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      checkData,
-      amount,
-      sender,
-      skipSigVerification
-    );
+    _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, sender);
   }
 
   /**
@@ -166,7 +152,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
    * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @param skipSigVerification whether to skip signature verification for low security low cost
    */
   function registerUpkeep(
     string memory name,
@@ -175,26 +160,14 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint32 gasLimit,
     address adminAddress,
     bytes calldata checkData,
-    uint96 amount,
-    bool skipSigVerification
+    uint96 amount
   ) external returns (uint256) {
     if (amount < s_config.minLINKJuels) {
       revert InsufficientPayment();
     }
 
     LINK.transferFrom(msg.sender, address(this), amount);
-    return
-      _register(
-        name,
-        encryptedEmail,
-        upkeepContract,
-        gasLimit,
-        adminAddress,
-        checkData,
-        amount,
-        msg.sender,
-        skipSigVerification
-      );
+    return _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, msg.sender);
   }
 
   /**
@@ -205,7 +178,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
-    bool skipSigVerification,
     bytes calldata checkData,
     bytes32 hash
   ) external onlyOwner {
@@ -213,14 +185,12 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     if (request.admin == address(0)) {
       revert RequestNotFound();
     }
-    bytes32 expectedHash = keccak256(
-      abi.encode(upkeepContract, gasLimit, adminAddress, skipSigVerification, checkData)
-    );
+    bytes32 expectedHash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
     if (hash != expectedHash) {
       revert HashMismatch();
     }
     delete s_pendingRequests[hash];
-    _approve(name, upkeepContract, gasLimit, adminAddress, skipSigVerification, checkData, request.balance, hash);
+    _approve(name, upkeepContract, gasLimit, adminAddress, checkData, request.balance, hash);
   }
 
   /**
@@ -362,31 +332,21 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address adminAddress,
     bytes calldata checkData,
     uint96 amount,
-    address sender,
-    bool skipSigVerification
+    address sender
   ) private returns (uint256) {
     if (adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
-    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, skipSigVerification, checkData));
+    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
 
-    emit RegistrationRequested(
-      hash,
-      name,
-      encryptedEmail,
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      checkData,
-      amount,
-      skipSigVerification
-    );
+    emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
+
     uint256 upkeepId;
     RegistrarConfig memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
       s_config.approvedCount = config.approvedCount + 1;
 
-      upkeepId = _approve(name, upkeepContract, gasLimit, adminAddress, skipSigVerification, checkData, amount, hash);
+      upkeepId = _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
     } else {
       uint96 newBalance = s_pendingRequests[hash].balance + amount;
       s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
@@ -403,7 +363,6 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     address upkeepContract,
     uint32 gasLimit,
     address adminAddress,
-    bool skipSigVerification,
     bytes calldata checkData,
     uint96 amount,
     bytes32 hash
@@ -411,13 +370,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
-    uint256 upkeepId = keeperRegistry.registerUpkeep(
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      skipSigVerification,
-      checkData
-    );
+    uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
     // fund upkeep
     bool success = LINK.transferAndCall(address(keeperRegistry), amount, abi.encode(upkeepId));
     if (!success) {
@@ -482,9 +435,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   modifier isActualAmount(uint256 expected, bytes calldata data) {
     // decode register function arguments to get actual amount
-    (, , , , , , uint96 amount, , ) = abi.decode(
+    (, , , , , , uint96 amount, ) = abi.decode(
       data[4:],
-      (string, bytes, address, uint32, address, bytes, uint96, address, bool)
+      (string, bytes, address, uint32, address, bytes, uint96, address)
     );
     if (expected != amount) {
       revert AmountMismatch();
@@ -499,9 +452,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   modifier isActualSender(address expected, bytes calldata data) {
     // decode register function arguments to get actual sender
-    (, , , , , , , address sender, ) = abi.decode(
+    (, , , , , , , address sender) = abi.decode(
       data[4:],
-      (string, bytes, address, uint32, address, bytes, uint96, address, bool)
+      (string, bytes, address, uint32, address, bytes, uint96, address)
     );
     if (expected != sender) {
       revert SenderMismatch();

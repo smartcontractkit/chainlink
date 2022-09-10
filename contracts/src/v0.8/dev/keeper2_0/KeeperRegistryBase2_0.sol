@@ -34,14 +34,12 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 100_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant VERIFY_SIGN_TX_GAS_OVERHEAD = 5_000; // Used only in maxPayment estimation, not in actual payment
-  uint256 internal constant VERIFY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 110_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 30_000; // Used in actual payment. Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_FIXED_SIGN_TX_GAS_OVERHEAD = 2_000; // Used in actual payment. fixed overhead for sig verified tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_800; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 32_000; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_800; // Used in actual payment. overhead per upkeep performed
 
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
@@ -208,7 +206,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member lastPerformBlockNumber the last block number when this upkeep was performed
    * @member paused if this upkeep has been paused
-   * @member skipSigVerification skip signature verification in transmit for a low security low cost model
    */
   struct Upkeep {
     uint96 balance;
@@ -219,8 +216,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint32 maxValidBlocknumber;
     uint32 lastPerformBlockNumber;
     bool paused;
-    bool skipSigVerification;
-    // 6 bytes left in 2nd EVM word
+    // 7 bytes left in 2nd EVM word
   }
 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
@@ -247,7 +243,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
-  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin, bool skipSigVerification);
+  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
   event StaleUpkeepReport(uint256 indexed id);
   event ReorgedUpkeepReport(uint256 indexed id);
   event InsufficientFundsUpkeepReport(uint256 indexed id);
@@ -391,7 +387,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    uint256 gasOverhead = _getMaxGasOverhead(performDataLength, upkeep.skipSigVerification, hotVars.f);
+    uint256 gasOverhead = _getMaxGasOverhead(performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       upkeep.executeGas,
@@ -409,20 +405,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   /**
    * @dev returns the max gas overhead that can be charged for an upkeep
    */
-  function _getMaxGasOverhead(
-    uint32 performDataLength,
-    bool skipSigVerification,
-    uint8 f
-  ) internal pure returns (uint256) {
-    if (skipSigVerification) {
-      return REGISTRY_GAS_OVERHEAD + 16 * performDataLength;
-    }
-    return
-      REGISTRY_GAS_OVERHEAD +
-      VERIFY_SIGN_TX_GAS_OVERHEAD +
-      (VERIFY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
-      16 *
-      performDataLength;
+  function _getMaxGasOverhead(uint32 performDataLength, uint8 f) internal pure returns (uint256) {
+    return REGISTRY_GAS_OVERHEAD + (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) + 16 * performDataLength;
   }
 
   /**

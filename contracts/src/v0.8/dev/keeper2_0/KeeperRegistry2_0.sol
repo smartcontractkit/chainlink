@@ -106,10 +106,6 @@ contract KeeperRegistry2_0 is
 
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
-      if (upkeepTransmitInfo[i].upkeep.skipSigVerification != upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-        // We don't allow batches with a mix of sigVerification and skipSigVerification upkeeps
-        revert InvalidReport();
-      }
 
       upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(
         upkeepTransmitInfo[i].upkeep,
@@ -131,11 +127,9 @@ contract KeeperRegistry2_0 is
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
-    if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
-      if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-      _verifyReportSignature(reportContext, report, rs, ss, rawVs);
-    }
+    if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
+    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+    _verifyReportSignature(reportContext, report, rs, ss, rawVs);
 
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
@@ -161,10 +155,10 @@ contract KeeperRegistry2_0 is
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
     // Rest of msg.data is accounted for in accounting overheads
-    gasOverhead = (gasOverhead - gasleft() + 16 * report.length) + ACCOUNTING_FIXED_GAS_OVERHEAD;
-    if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      gasOverhead += ACCOUNTING_FIXED_SIGN_TX_GAS_OVERHEAD + (ACCOUNTING_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
-    }
+    gasOverhead =
+      (gasOverhead - gasleft() + 16 * report.length) +
+      ACCOUNTING_FIXED_GAS_OVERHEAD +
+      (ACCOUNTING_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
     gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     uint96 totalReimbursement;
@@ -177,7 +171,6 @@ contract KeeperRegistry2_0 is
           upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
             gasOverhead,
             uint32(parsedReport.wrappedPerformDatas[i].performData.length),
-            upkeepTransmitInfo[i].upkeep.skipSigVerification,
             hotVars.f
           );
 
@@ -205,11 +198,8 @@ contract KeeperRegistry2_0 is
     s_transmitters[msg.sender].balance += totalReimbursement;
     s_hotVars.totalPremium += totalPremium;
 
-    if (!upkeepTransmitInfo[0].upkeep.skipSigVerification) {
-      // Only emit event for signature verified reports
-      uint40 epochAndRound = uint40(uint256(reportContext[1]));
-      emit Transmitted(s_latestConfigDigest, uint32(epochAndRound >> 8));
-    }
+    uint40 epochAndRound = uint40(uint256(reportContext[1]));
+    emit Transmitted(s_latestConfigDigest, uint32(epochAndRound >> 8));
   }
 
   /**
@@ -391,8 +381,7 @@ contract KeeperRegistry2_0 is
       maxValidBlocknumber: reg.maxValidBlocknumber,
       lastPerformBlockNumber: reg.lastPerformBlockNumber,
       amountSpent: reg.amountSpent,
-      paused: reg.paused,
-      skipSigVerification: reg.skipSigVerification
+      paused: reg.paused
     });
     return upkeepInfo;
   }
@@ -514,7 +503,7 @@ contract KeeperRegistry2_0 is
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, false, hotVars.f);
+    uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, hotVars.f);
 
     (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
@@ -747,10 +736,9 @@ contract KeeperRegistry2_0 is
   function _getCappedGasOverhead(
     uint256 calculatedGasOverhead,
     uint32 performDataLength,
-    bool skipSigVerification,
     uint8 f
   ) private pure returns (uint256 cappedGasOverhead) {
-    cappedGasOverhead = _getMaxGasOverhead(performDataLength, skipSigVerification, f);
+    cappedGasOverhead = _getMaxGasOverhead(performDataLength, f);
     if (calculatedGasOverhead < cappedGasOverhead) {
       return calculatedGasOverhead;
     }
@@ -768,13 +756,11 @@ contract KeeperRegistry2_0 is
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
-   * @param skipSigVerification whether to skip signature verification for low security low cost
    */
   function registerUpkeep(
     address target,
     uint32 gasLimit,
     address admin,
-    bool skipSigVerification,
     bytes calldata checkData
   ) external override returns (uint256 id) {
     // Executed through logic contract
