@@ -238,14 +238,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    Transmitter memory transmitter = s_transmitters[from];
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
 
+    uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - transmitter.balance;
+    s_expectedLinkBalance = s_expectedLinkBalance - balance;
 
-    i_link.transfer(to, transmitter.balance);
-    emit PaymentWithdrawn(from, transmitter.balance, to, msg.sender);
+    i_link.transfer(to, balance);
+
+    emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
   /**
