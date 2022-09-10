@@ -135,6 +135,7 @@ interface KeeperRegistryBaseInterface {
       bool active,
       uint8 index,
       uint96 balance,
+      uint96 lastCollected,
       address payee
     );
 

@@ -428,6 +428,7 @@ contract KeeperRegistry2_0 is
       bool active,
       uint8 index,
       uint96 balance,
+      uint96 lastCollected,
       address payee
     )
   {
@@ -435,7 +436,13 @@ contract KeeperRegistry2_0 is
     uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
     uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
 
-    return (transmitter.active, transmitter.index, (transmitter.balance + pooledShare), s_transmitterPayees[query]);
+    return (
+      transmitter.active,
+      transmitter.index,
+      (transmitter.balance + pooledShare),
+      transmitter.lastCollected,
+      s_transmitterPayees[query]
+    );
   }
 
   /**

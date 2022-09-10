@@ -3820,16 +3820,33 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('stores new config and emits event', async () => {
+      // Perform an upkeep so that totalPremium is updated
+      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      let tx = await registry.connect(keeper1).transmit(
+        [emptyBytes32, emptyBytes32, emptyBytes32],
+        await encodeLatestBlockReport([
+          {
+            Id: upkeepId.toString(),
+          },
+        ]),
+        [],
+        [],
+        emptyBytes32,
+      )
+      await tx.wait()
+
       let newOffChainVersion = BigNumber.from('2')
       let newOffChainConfig = '0x1122'
 
       const old = await registry.getState()
       const oldState = old.state
+      assert(oldState.totalPremium.gt(BigNumber.from('0')))
 
-      const tx = await registry
+      let newSigners = newKeepers
+      tx = await registry
         .connect(owner)
         .setConfig(
-          newKeepers,
+          newSigners,
           newKeepers,
           f,
           encodeConfig(config),
@@ -3838,24 +3855,24 @@ describe('KeeperRegistry2_0', () => {
         )
 
       const updated = await registry.getState()
-
       const updatedState = updated.state
+      assert(oldState.totalPremium.eq(updatedState.totalPremium))
 
       // Old signer addresses which are not in new signers should be non active
-      for (var i = 0; i < keeperAddresses.length; i++) {
-        let signer = keeperAddresses[i]
-        if (!newKeepers.includes(signer)) {
+      for (var i = 0; i < signerAddresses.length; i++) {
+        let signer = signerAddresses[i]
+        if (!newSigners.includes(signer)) {
           assert((await registry.getSignerInfo(signer)).active == false)
           assert((await registry.getSignerInfo(signer)).index == 0)
         }
       }
       // New signer addresses should be active
-      for (var i = 0; i < newKeepers.length; i++) {
-        let signer = newKeepers[i]
+      for (var i = 0; i < newSigners.length; i++) {
+        let signer = newSigners[i]
         assert((await registry.getSignerInfo(signer)).active == true)
         assert((await registry.getSignerInfo(signer)).index == i)
       }
-      // Old transmitter addresses which are not in new transmitter should be non active, but retain other info
+      // Old transmitter addresses which are not in new transmitter should be non active, update lastCollected but retain other info
       for (var i = 0; i < keeperAddresses.length; i++) {
         let transmitter = keeperAddresses[i]
         if (!newKeepers.includes(transmitter)) {
@@ -3863,6 +3880,11 @@ describe('KeeperRegistry2_0', () => {
             (await registry.getTransmitterInfo(transmitter)).active == false,
           )
           assert((await registry.getTransmitterInfo(transmitter)).index == i)
+          assert(
+            (
+              await registry.getTransmitterInfo(transmitter)
+            ).lastCollected.toString() == oldState.totalPremium.toString(),
+          )
         }
       }
       // New transmitter addresses should be active
@@ -3870,6 +3892,11 @@ describe('KeeperRegistry2_0', () => {
         let transmitter = newKeepers[i]
         assert((await registry.getTransmitterInfo(transmitter)).active == true)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)
+        assert(
+          (
+            await registry.getTransmitterInfo(transmitter)
+          ).lastCollected.toString() == oldState.totalPremium.toString(),
+        )
       }
 
       // config digest should be updated
@@ -5284,29 +5311,54 @@ describe('KeeperRegistry2_0', () => {
 
     it('updates the balances', async () => {
       const to = await nonkeeper.getAddress()
-      const keeperBefore = (
-        await registry.getTransmitterInfo(await keeper1.getAddress())
-      ).balance
+      const keeperBefore = await registry.getTransmitterInfo(
+        await keeper1.getAddress(),
+      )
       const registrationBefore = (await registry.getUpkeep(upkeepId)).balance
       const toLinkBefore = await linkToken.balanceOf(to)
       const registryLinkBefore = await linkToken.balanceOf(registry.address)
+      const registryPremiumBefore = (await registry.getState()).state
+        .totalPremium
+      const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+
+      // Withdrawing for first time, last collected = 0
+      assert.equal(keeperBefore.lastCollected.toString(), '0')
 
       //// Do the thing
       await registry
         .connect(payee1)
         .withdrawPayment(await keeper1.getAddress(), to)
 
-      const keeperAfter = (
-        await registry.getTransmitterInfo(await keeper1.getAddress())
-      ).balance
+      const keeperAfter = await registry.getTransmitterInfo(
+        await keeper1.getAddress(),
+      )
       const registrationAfter = (await registry.getUpkeep(upkeepId)).balance
       const toLinkAfter = await linkToken.balanceOf(to)
       const registryLinkAfter = await linkToken.balanceOf(registry.address)
+      const registryPremiumAfter = (await registry.getState()).state
+        .totalPremium
+      const ownerAfter = (await registry.getState()).state.ownerLinkBalance
 
-      assert.isTrue(keeperAfter.eq(BigNumber.from(0)))
+      // registry total premium should not change
+      assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
+      // Last collected should be updated
+      assert.equal(
+        keeperAfter.lastCollected.toString(),
+        registryPremiumBefore.toString(),
+      )
+
+      const spareChange = registryPremiumBefore.mod(
+        BigNumber.from(keeperAddresses.length),
+      )
+      // spare change should go to owner
+      assert.isTrue(ownerAfter.sub(spareChange).eq(ownerBefore))
+
+      assert.isTrue(keeperAfter.balance.eq(BigNumber.from(0)))
       assert.isTrue(registrationBefore.eq(registrationAfter))
-      assert.isTrue(toLinkBefore.add(keeperBefore).eq(toLinkAfter))
-      assert.isTrue(registryLinkBefore.sub(keeperBefore).eq(registryLinkAfter))
+      assert.isTrue(toLinkBefore.add(keeperBefore.balance).eq(toLinkAfter))
+      assert.isTrue(
+        registryLinkBefore.sub(keeperBefore.balance).eq(registryLinkAfter),
+      )
     })
 
     it('emits a log announcing the withdrawal', async () => {
