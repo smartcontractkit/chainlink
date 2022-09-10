@@ -38,7 +38,7 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(90000)
+const registryGasOverhead = BigNumber.from(100000)
 const verifySignTxGasOverhead = BigNumber.from(5000)
 const verifyPerSignerGasOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
@@ -1634,9 +1634,13 @@ describe('KeeperRegistry2_0', () => {
                         BigNumber.from(16 * performData.length),
                       ),
                     ),
+                    'Gas overhead got capped, increase REGISTRY_GAS_OVERHEAD',
                   )
                   // total gas charged should be greater than tx gas but within gasCalculationMargin
-                  assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                  assert.isTrue(
+                    gasUsed.add(gasOverhead).gt(receipt.gasUsed),
+                    'Gas overhead calculated is too low, increase account gas variables',
+                  )
                   assert.isTrue(
                     gasUsed
                       .add(gasOverhead)
@@ -1645,6 +1649,7 @@ describe('KeeperRegistry2_0', () => {
                           BigNumber.from(gasCalculationMargin),
                         ),
                       ),
+                    'Gas overhead calculated is too high, decrease account gas variables',
                   )
                 }
               }
@@ -2054,9 +2059,14 @@ describe('KeeperRegistry2_0', () => {
                         )
                         .add(BigNumber.from(16 * performData.length)),
                     ),
+                    'Gas overhead got capped, increase VERIFY_SIGN_TX_GAS_OVERHEAD / VERIFY_PER_SIGNER_GAS_OVERHEAD',
                   )
                   // total gas charged should be greater than tx gas but within gasCalculationMargin
-                  assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                  assert.isTrue(
+                    gasUsed.add(gasOverhead).gt(receipt.gasUsed),
+                    'Gas overhead calculated is too low, increase account gas variables',
+                  )
+
                   assert.isTrue(
                     gasUsed
                       .add(gasOverhead)
@@ -2065,7 +2075,8 @@ describe('KeeperRegistry2_0', () => {
                           BigNumber.from(gasCalculationMargin),
                         ),
                       ),
-                  )
+                  ),
+                    'Gas overhead calculated is too high, decrease account gas variables'
                 }
               }
             }
@@ -2386,7 +2397,10 @@ describe('KeeperRegistry2_0', () => {
                     upkeepPerformedLogs[0].args.gasOverhead.eq(gasOverheadCap)
                   // Should only get capped in certain scenarios
                   if (overheadsGotCapped) {
-                    assert.isTrue(overheadCanGetCapped)
+                    assert.isTrue(
+                      overheadCanGetCapped,
+                      'Gas overheads are too low, increase REGISTRY_GAS_OVERHEAD/VERIFY_SIGN_TX_GAS_OVERHEAD/VERIFY_PER_SIGNER_GAS_OVERHEAD',
+                    )
                   }
 
                   console.log(
@@ -2409,7 +2423,10 @@ describe('KeeperRegistry2_0', () => {
                   // We don't check whether the net is within gasMargin as the margin changes with numFailedUpkeeps
                   // Which is ok, as long as individual gas overhead is capped
                   if (!overheadsGotCapped) {
-                    assert.isTrue(netGasUsedPlusOverhead.gt(receipt.gasUsed))
+                    assert.isTrue(
+                      netGasUsedPlusOverhead.gt(receipt.gasUsed),
+                      'Gas overhead is too low, increase ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD',
+                    )
                   }
                 })
               },
