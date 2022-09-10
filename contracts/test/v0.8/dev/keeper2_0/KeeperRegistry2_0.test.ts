@@ -267,9 +267,18 @@ describe('KeeperRegistry2_0', () => {
       .div(numUpkeepsBatch)
       .mul(linkDivisibility)
       .div(linkEth)
-    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
-    const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
-    return base.add(premium).add(flatFeeJules).add(l1Fee)
+
+    const gasPayment = base.add(l1Fee)
+    const premium = gasPayment
+      .mul(premiumPPB)
+      .div(paymentPremiumBase)
+      .add(BigNumber.from(flatFee).mul('1000000000000'))
+
+    return {
+      total: gasPayment.add(premium),
+      gasPaymemnt: gasPayment,
+      premium: premium,
+    }
   }
 
   const verifyMaxPayment = async (
@@ -367,7 +376,7 @@ describe('KeeperRegistry2_0', () => {
                 BigNumber.from(premium),
                 BigNumber.from(flatFee),
                 l1CostWei,
-              ),
+              ).total,
             )
           }
         }
@@ -960,7 +969,7 @@ describe('KeeperRegistry2_0', () => {
               BigNumber.from('1'), // Not the config multiplier, but the actual gas used
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -999,7 +1008,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier, // Should be same with exisitng multiplier
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1042,7 +1051,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1085,7 +1094,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1128,7 +1137,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1171,7 +1180,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1213,7 +1222,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1255,7 +1264,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1334,7 +1343,7 @@ describe('KeeperRegistry2_0', () => {
               paymentPremiumPPB,
               flatFeeMicroLink,
               l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -2583,7 +2592,7 @@ describe('KeeperRegistry2_0', () => {
             flatFeeMicroLink,
             l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
             BigNumber.from(numUpkeeps),
-          ).toString(),
+          ).total.toString(),
           totalPayment.toString(),
         )
       })
