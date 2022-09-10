@@ -192,7 +192,6 @@ describe('KeeperRegistrar2_0', () => {
             emptyBytes,
             amount,
             await requestSender.getAddress(),
-            false,
           ),
         'OnlyLink()',
       )
@@ -219,7 +218,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount1,
           await requestSender.getAddress(),
-          false,
         ],
       )
 
@@ -243,7 +241,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await admin.getAddress(), // Should have been requestSender.getAddress()
-          false,
         ],
       )
       await evmRevert(
@@ -266,7 +263,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
 
@@ -301,7 +297,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
       const tx = await linkToken
@@ -317,7 +312,6 @@ describe('KeeperRegistrar2_0', () => {
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
       assert.equal(newupkeep.executeGas, executeGas.toNumber())
-      assert.equal(newupkeep.skipSigVerification, false)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -349,7 +343,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
       const tx = await linkToken
@@ -393,7 +386,6 @@ describe('KeeperRegistrar2_0', () => {
         emptyBytes,
         amount,
         await requestSender.getAddress(),
-        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -410,7 +402,6 @@ describe('KeeperRegistrar2_0', () => {
         emptyBytes,
         amount,
         await requestSender.getAddress(),
-        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -433,7 +424,6 @@ describe('KeeperRegistrar2_0', () => {
         emptyBytes,
         amount,
         await requestSender.getAddress(),
-        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -450,7 +440,6 @@ describe('KeeperRegistrar2_0', () => {
         emptyBytes,
         amount,
         await requestSender.getAddress(),
-        false,
       ])
       await linkToken
         .connect(requestSender)
@@ -488,7 +477,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
       const tx = await linkToken
@@ -504,7 +492,6 @@ describe('KeeperRegistrar2_0', () => {
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
       assert.equal(newupkeep.executeGas, executeGas.toNumber())
-      assert.equal(newupkeep.skipSigVerification, false)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -541,7 +528,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
       const tx = await linkToken
@@ -578,7 +564,6 @@ describe('KeeperRegistrar2_0', () => {
             await admin.getAddress(),
             emptyBytes,
             amount,
-            true,
           ),
         '',
       )
@@ -608,7 +593,6 @@ describe('KeeperRegistrar2_0', () => {
             await admin.getAddress(),
             emptyBytes,
             amt,
-            true,
           ),
         'InsufficientPayment()',
       )
@@ -637,7 +621,6 @@ describe('KeeperRegistrar2_0', () => {
           await admin.getAddress(),
           emptyBytes,
           amount,
-          true,
         )
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
 
@@ -649,7 +632,6 @@ describe('KeeperRegistrar2_0', () => {
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
       assert.equal(newupkeep.executeGas, executeGas.toNumber())
-      assert.equal(newupkeep.skipSigVerification, true)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -717,7 +699,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
 
@@ -736,7 +717,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
@@ -751,7 +731,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
@@ -766,7 +745,6 @@ describe('KeeperRegistrar2_0', () => {
           ethers.Wallet.createRandom().address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
@@ -778,7 +756,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           10000,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
@@ -790,7 +767,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           ethers.Wallet.createRandom().address,
-          false,
           emptyBytes,
           hash,
         )
@@ -802,7 +778,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           '0x1234',
           hash,
         )
@@ -817,7 +792,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
@@ -832,7 +806,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
@@ -843,7 +816,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
@@ -876,7 +848,6 @@ describe('KeeperRegistrar2_0', () => {
           emptyBytes,
           amount,
           await requestSender.getAddress(),
-          false,
         ],
       )
       const tx = await linkToken
@@ -923,7 +894,6 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
-          false,
           emptyBytes,
           hash,
         )
