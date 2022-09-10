@@ -162,7 +162,9 @@ interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     );
 }
 
@@ -173,6 +175,8 @@ interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     );
 }

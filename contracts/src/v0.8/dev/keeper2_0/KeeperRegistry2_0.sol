@@ -786,7 +786,9 @@ contract KeeperRegistry2_0 is
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     )
   {
     // Executed through logic contract

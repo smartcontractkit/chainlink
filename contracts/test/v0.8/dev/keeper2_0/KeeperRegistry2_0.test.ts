@@ -2366,6 +2366,8 @@ describe('KeeperRegistry2_0', () => {
         assert.equal(wrappedPerfromData[0].performData, randomBytes)
         assert.equal(checkUpkeepResult.upkeepFailureReason, 0)
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
+        assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
       })
 
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {

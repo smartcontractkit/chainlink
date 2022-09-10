@@ -34,16 +34,18 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     )
   {
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, gasUsed);
-    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, gasUsed);
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, gasUsed, 0, 0);
+    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, gasUsed, 0, 0);
 
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
+    (fastGasWei, linkNative) = _getFeedData(hotVars);
     PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(
       upkeep,
       hotVars,
@@ -53,20 +55,20 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       false
     );
     if (upkeep.balance < paymentParams.maxLinkPayment)
-      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed);
+      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
 
     gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
-    if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed);
+    if (!success) return (false, bytes(""), UpkeepFailureReason.TARGET_CHECK_REVERTED, gasUsed, fastGasWei, linkNative);
 
     bytes memory userPerformData;
     (upkeepNeeded, userPerformData) = abi.decode(result, (bool, bytes));
-    if (!upkeepNeeded) return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
+    if (!upkeepNeeded) return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
     if (userPerformData.length > s_storage.maxPerformDataSize)
-      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
 
     performData = abi.encode(
       PerformDataWrapper({
@@ -75,7 +77,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
         performData: userPerformData
       })
     );
-    return (true, performData, UpkeepFailureReason.NONE, gasUsed);
+    return (true, performData, UpkeepFailureReason.NONE, gasUsed, fastGasWei, linkNative);
   }
 
   /**
