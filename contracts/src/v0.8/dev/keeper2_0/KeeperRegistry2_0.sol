@@ -111,6 +111,8 @@ contract KeeperRegistry2_0 is
         upkeepTransmitInfo[i].upkeep,
         hotVars,
         uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+        parsedReport.fastGasWei,
+        parsedReport.linkNative,
         true
       );
       upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
@@ -508,14 +510,14 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, hotVars.f);
 
     (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(
-      hotVars,
-      gasLimit,
-      gasOverhead,
-      fastGasWei,
-      linkNative,
-      1, // Consider only 1 upkeep in batch to get maxPayment
-      false
-    );
+        hotVars,
+        gasLimit,
+        gasOverhead,
+        fastGasWei,
+        linkNative,
+        1, // Consider only 1 upkeep in batch to get maxPayment
+        false
+      );
     return gasReimbursement + premium;
   }
 
@@ -611,13 +613,15 @@ contract KeeperRegistry2_0 is
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    uint256[] memory upkeepIds;
-    PerformDataWrapper[] memory wrappedPerformDatas;
-
-    (upkeepIds, wrappedPerformDatas) = abi.decode(rawReport, (uint256[], PerformDataWrapper[]));
+    (
+      uint256 fastGasWei,
+      uint256 linkNative,
+      uint256[] memory upkeepIds,
+      PerformDataWrapper[] memory wrappedPerformDatas
+    ) = abi.decode(rawReport, (uint256, uint256, uint256[], PerformDataWrapper[]));
     if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
 
-    return Report({upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
+    return Report({fastGasWei: fastGasWei, linkNative: linkNative, upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
   }
 
   /**

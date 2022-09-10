@@ -193,6 +193,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
 
   // Report transmitted by OCR to transmit function
   struct Report {
+    uint256 fastGasWei;
+    uint256 linkNative;
     uint256[] upkeepIds; // Ids of upkeeps
     PerformDataWrapper[] wrappedPerformDatas; // Contains checkInfo and performData for the corresponding upkeeps
   }
@@ -384,9 +386,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     Upkeep memory upkeep,
     HotVars memory hotVars,
     uint32 performDataLength,
+    uint256 fastGasWei,
+    uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 gasOverhead = _getMaxGasOverhead(performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
