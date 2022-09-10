@@ -38,7 +38,7 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(90000)
+const registryGasOverhead = BigNumber.from(100000)
 const verifySignTxGasOverhead = BigNumber.from(5000)
 const verifyPerSignerGasOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
@@ -267,9 +267,18 @@ describe('KeeperRegistry2_0', () => {
       .div(numUpkeepsBatch)
       .mul(linkDivisibility)
       .div(linkEth)
-    const premium = base.add(l1Fee).mul(premiumPPB).div(paymentPremiumBase)
-    const flatFeeJules = BigNumber.from(flatFee).mul('1000000000000')
-    return base.add(premium).add(flatFeeJules).add(l1Fee)
+
+    const gasPayment = base.add(l1Fee)
+    const premium = gasPayment
+      .mul(premiumPPB)
+      .div(paymentPremiumBase)
+      .add(BigNumber.from(flatFee).mul('1000000000000'))
+
+    return {
+      total: gasPayment.add(premium),
+      gasPaymemnt: gasPayment,
+      premium: premium,
+    }
   }
 
   const verifyMaxPayment = async (
@@ -367,7 +376,7 @@ describe('KeeperRegistry2_0', () => {
                 BigNumber.from(premium),
                 BigNumber.from(flatFee),
                 l1CostWei,
-              ),
+              ).total,
             )
           }
         }
@@ -926,11 +935,12 @@ describe('KeeperRegistry2_0', () => {
           assert.equal(parsedLogs[0].args.upkeepData, randomBytes)
         })
 
-        it('uses actual execution price for payment', async () => {
+        it('uses actual execution price for payment and premium calculation', async () => {
           // Actual multiplier is 2, but we set gasPrice to be 1x gasWei
           const gasPrice = gasWei.mul(BigNumber.from('1'))
           mock.setCanPerform(true)
-
+          const registryPremiumBefore = (await registry.getState()).state
+            .totalPremium
           const tx = await registry.connect(keeper1).transmit(
             [emptyBytes32, emptyBytes32, emptyBytes32],
             await encodeLatestBlockReport([
@@ -944,6 +954,10 @@ describe('KeeperRegistry2_0', () => {
             { gasPrice },
           )
           const receipt = await tx.wait()
+          const registryPremiumAfter = (await registry.getState()).state
+            .totalPremium
+          const premium = registryPremiumAfter.sub(registryPremiumBefore)
+
           let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
           // exactly 1 Upkeep Performed should be emitted
           assert.equal(upkeepPerformedLogs.length, 1)
@@ -960,8 +974,19 @@ describe('KeeperRegistry2_0', () => {
               BigNumber.from('1'), // Not the config multiplier, but the actual gas used
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
+          )
+
+          assert.equal(
+            linkForGas(
+              gasUsed,
+              gasOverhead,
+              BigNumber.from('1'), // Not the config multiplier, but the actual gas used
+              paymentPremiumPPB,
+              flatFeeMicroLink,
+            ).premium.toString(),
+            premium.toString(),
           )
         })
 
@@ -999,7 +1024,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier, // Should be same with exisitng multiplier
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1042,7 +1067,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1085,7 +1110,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1128,7 +1153,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1171,7 +1196,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1213,7 +1238,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1255,7 +1280,7 @@ describe('KeeperRegistry2_0', () => {
               gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
               paymentPremiumPPB,
               flatFeeMicroLink,
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1334,7 +1359,7 @@ describe('KeeperRegistry2_0', () => {
               paymentPremiumPPB,
               flatFeeMicroLink,
               l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
-            ).toString(),
+            ).total.toString(),
             totalPayment.toString(),
           )
         })
@@ -1459,6 +1484,8 @@ describe('KeeperRegistry2_0', () => {
             await keeper1.getAddress(),
           )
           const registrationBefore = await registry.getUpkeep(upkeepId)
+          const registryPremiumBefore = (await registry.getState()).state
+            .totalPremium
           const keeperLinkBefore = await linkToken.balanceOf(
             await keeper1.getAddress(),
           )
@@ -1513,10 +1540,17 @@ describe('KeeperRegistry2_0', () => {
             await keeper1.getAddress(),
           )
           const registryLinkAfter = await linkToken.balanceOf(registry.address)
+          const registryPremiumAfter = (await registry.getState()).state
+            .totalPremium
+          const premium = registryPremiumAfter.sub(registryPremiumBefore)
+          // Keeper payment is gasPayment + premium / num keepers
+          const keeperPayment = totalPayment
+            .sub(premium)
+            .add(premium.div(BigNumber.from(keeperAddresses.length)))
 
           assert.equal(
-            keeperAfter.balance.sub(totalPayment).toString(),
-            keeperBefore.balance.toString(),
+            keeperAfter.balance.toString(),
+            keeperBefore.balance.add(keeperPayment).toString(),
           )
           assert.equal(
             registrationBefore.balance.sub(totalPayment).toString(),
@@ -1634,9 +1668,13 @@ describe('KeeperRegistry2_0', () => {
                         BigNumber.from(16 * performData.length),
                       ),
                     ),
+                    'Gas overhead got capped, increase REGISTRY_GAS_OVERHEAD',
                   )
                   // total gas charged should be greater than tx gas but within gasCalculationMargin
-                  assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                  assert.isTrue(
+                    gasUsed.add(gasOverhead).gt(receipt.gasUsed),
+                    'Gas overhead calculated is too low, increase account gas variables',
+                  )
                   assert.isTrue(
                     gasUsed
                       .add(gasOverhead)
@@ -1645,6 +1683,7 @@ describe('KeeperRegistry2_0', () => {
                           BigNumber.from(gasCalculationMargin),
                         ),
                       ),
+                    'Gas overhead calculated is too high, decrease account gas variables',
                   )
                 }
               }
@@ -1836,6 +1875,8 @@ describe('KeeperRegistry2_0', () => {
             const registrationBefore = await registry.getUpkeep(
               sigVerificationUpkeepId,
             )
+            const registryPremiumBefore = (await registry.getState()).state
+              .totalPremium
             const keeperLinkBefore = await linkToken.balanceOf(
               await keeper1.getAddress(),
             )
@@ -1905,9 +1946,16 @@ describe('KeeperRegistry2_0', () => {
             const registryLinkAfter = await linkToken.balanceOf(
               registry.address,
             )
+            const registryPremiumAfter = (await registry.getState()).state
+              .totalPremium
+            const premium = registryPremiumAfter.sub(registryPremiumBefore)
+            // Keeper payment is gasPayment + premium / num keepers
+            const keeperPayment = totalPayment
+              .sub(premium)
+              .add(premium.div(BigNumber.from(keeperAddresses.length)))
 
             assert.equal(
-              keeperAfter.balance.sub(totalPayment).toString(),
+              keeperAfter.balance.sub(keeperPayment).toString(),
               keeperBefore.balance.toString(),
             )
             assert.equal(
@@ -2054,9 +2102,14 @@ describe('KeeperRegistry2_0', () => {
                         )
                         .add(BigNumber.from(16 * performData.length)),
                     ),
+                    'Gas overhead got capped, increase VERIFY_SIGN_TX_GAS_OVERHEAD / VERIFY_PER_SIGNER_GAS_OVERHEAD',
                   )
                   // total gas charged should be greater than tx gas but within gasCalculationMargin
-                  assert.isTrue(gasUsed.add(gasOverhead).gt(receipt.gasUsed))
+                  assert.isTrue(
+                    gasUsed.add(gasOverhead).gt(receipt.gasUsed),
+                    'Gas overhead calculated is too low, increase account gas variables',
+                  )
+
                   assert.isTrue(
                     gasUsed
                       .add(gasOverhead)
@@ -2065,7 +2118,8 @@ describe('KeeperRegistry2_0', () => {
                           BigNumber.from(gasCalculationMargin),
                         ),
                       ),
-                  )
+                  ),
+                    'Gas overhead calculated is too high, decrease account gas variables'
                 }
               }
             }
@@ -2141,6 +2195,8 @@ describe('KeeperRegistry2_0', () => {
                   const registryLinkBefore = await linkToken.balanceOf(
                     registry.address,
                   )
+                  const registryPremiumBefore = (await registry.getState())
+                    .state.totalPremium
                   const registrationPassingBefore = await Promise.all(
                     passingUpkeepIds.map(async (id) => {
                       let reg = await registry.getUpkeep(BigNumber.from(id))
@@ -2212,6 +2268,11 @@ describe('KeeperRegistry2_0', () => {
                       return await registry.getUpkeep(BigNumber.from(id))
                     }),
                   )
+                  const registryPremiumAfter = (await registry.getState()).state
+                    .totalPremium
+                  const premium = registryPremiumAfter.sub(
+                    registryPremiumBefore,
+                  )
 
                   let netPayment = BigNumber.from('0')
                   for (let i = 0; i < numPassingUpkeeps; i++) {
@@ -2276,9 +2337,14 @@ describe('KeeperRegistry2_0', () => {
                     )
                   }
 
+                  // Keeper payment is gasPayment + premium / num keepers
+                  const keeperPayment = netPayment
+                    .sub(premium)
+                    .add(premium.div(BigNumber.from(keeperAddresses.length)))
+
                   // Keeper should be paid net payment for all passed upkeeps
                   assert.equal(
-                    keeperAfter.balance.sub(netPayment).toString(),
+                    keeperAfter.balance.sub(keeperPayment).toString(),
                     keeperBefore.balance.toString(),
                   )
 
@@ -2386,7 +2452,10 @@ describe('KeeperRegistry2_0', () => {
                     upkeepPerformedLogs[0].args.gasOverhead.eq(gasOverheadCap)
                   // Should only get capped in certain scenarios
                   if (overheadsGotCapped) {
-                    assert.isTrue(overheadCanGetCapped)
+                    assert.isTrue(
+                      overheadCanGetCapped,
+                      'Gas overheads are too low, increase REGISTRY_GAS_OVERHEAD/VERIFY_SIGN_TX_GAS_OVERHEAD/VERIFY_PER_SIGNER_GAS_OVERHEAD',
+                    )
                   }
 
                   console.log(
@@ -2409,7 +2478,10 @@ describe('KeeperRegistry2_0', () => {
                   // We don't check whether the net is within gasMargin as the margin changes with numFailedUpkeeps
                   // Which is ok, as long as individual gas overhead is capped
                   if (!overheadsGotCapped) {
-                    assert.isTrue(netGasUsedPlusOverhead.gt(receipt.gasUsed))
+                    assert.isTrue(
+                      netGasUsedPlusOverhead.gt(receipt.gasUsed),
+                      'Gas overhead is too low, increase ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD',
+                    )
                   }
                 })
               },
@@ -2566,7 +2638,7 @@ describe('KeeperRegistry2_0', () => {
             flatFeeMicroLink,
             l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
             BigNumber.from(numUpkeeps),
-          ).toString(),
+          ).total.toString(),
           totalPayment.toString(),
         )
       })
@@ -3748,16 +3820,33 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('stores new config and emits event', async () => {
+      // Perform an upkeep so that totalPremium is updated
+      await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      let tx = await registry.connect(keeper1).transmit(
+        [emptyBytes32, emptyBytes32, emptyBytes32],
+        await encodeLatestBlockReport([
+          {
+            Id: upkeepId.toString(),
+          },
+        ]),
+        [],
+        [],
+        emptyBytes32,
+      )
+      await tx.wait()
+
       let newOffChainVersion = BigNumber.from('2')
       let newOffChainConfig = '0x1122'
 
       const old = await registry.getState()
       const oldState = old.state
+      assert(oldState.totalPremium.gt(BigNumber.from('0')))
 
-      const tx = await registry
+      let newSigners = newKeepers
+      tx = await registry
         .connect(owner)
         .setConfig(
-          newKeepers,
+          newSigners,
           newKeepers,
           f,
           encodeConfig(config),
@@ -3766,24 +3855,24 @@ describe('KeeperRegistry2_0', () => {
         )
 
       const updated = await registry.getState()
-
       const updatedState = updated.state
+      assert(oldState.totalPremium.eq(updatedState.totalPremium))
 
       // Old signer addresses which are not in new signers should be non active
-      for (var i = 0; i < keeperAddresses.length; i++) {
-        let signer = keeperAddresses[i]
-        if (!newKeepers.includes(signer)) {
+      for (var i = 0; i < signerAddresses.length; i++) {
+        let signer = signerAddresses[i]
+        if (!newSigners.includes(signer)) {
           assert((await registry.getSignerInfo(signer)).active == false)
           assert((await registry.getSignerInfo(signer)).index == 0)
         }
       }
       // New signer addresses should be active
-      for (var i = 0; i < newKeepers.length; i++) {
-        let signer = newKeepers[i]
+      for (var i = 0; i < newSigners.length; i++) {
+        let signer = newSigners[i]
         assert((await registry.getSignerInfo(signer)).active == true)
         assert((await registry.getSignerInfo(signer)).index == i)
       }
-      // Old transmitter addresses which are not in new transmitter should be non active, but retain other info
+      // Old transmitter addresses which are not in new transmitter should be non active, update lastCollected but retain other info
       for (var i = 0; i < keeperAddresses.length; i++) {
         let transmitter = keeperAddresses[i]
         if (!newKeepers.includes(transmitter)) {
@@ -3791,6 +3880,11 @@ describe('KeeperRegistry2_0', () => {
             (await registry.getTransmitterInfo(transmitter)).active == false,
           )
           assert((await registry.getTransmitterInfo(transmitter)).index == i)
+          assert(
+            (
+              await registry.getTransmitterInfo(transmitter)
+            ).lastCollected.toString() == oldState.totalPremium.toString(),
+          )
         }
       }
       // New transmitter addresses should be active
@@ -3798,6 +3892,11 @@ describe('KeeperRegistry2_0', () => {
         let transmitter = newKeepers[i]
         assert((await registry.getTransmitterInfo(transmitter)).active == true)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)
+        assert(
+          (
+            await registry.getTransmitterInfo(transmitter)
+          ).lastCollected.toString() == oldState.totalPremium.toString(),
+        )
       }
 
       // config digest should be updated
@@ -5212,29 +5311,54 @@ describe('KeeperRegistry2_0', () => {
 
     it('updates the balances', async () => {
       const to = await nonkeeper.getAddress()
-      const keeperBefore = (
-        await registry.getTransmitterInfo(await keeper1.getAddress())
-      ).balance
+      const keeperBefore = await registry.getTransmitterInfo(
+        await keeper1.getAddress(),
+      )
       const registrationBefore = (await registry.getUpkeep(upkeepId)).balance
       const toLinkBefore = await linkToken.balanceOf(to)
       const registryLinkBefore = await linkToken.balanceOf(registry.address)
+      const registryPremiumBefore = (await registry.getState()).state
+        .totalPremium
+      const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+
+      // Withdrawing for first time, last collected = 0
+      assert.equal(keeperBefore.lastCollected.toString(), '0')
 
       //// Do the thing
       await registry
         .connect(payee1)
         .withdrawPayment(await keeper1.getAddress(), to)
 
-      const keeperAfter = (
-        await registry.getTransmitterInfo(await keeper1.getAddress())
-      ).balance
+      const keeperAfter = await registry.getTransmitterInfo(
+        await keeper1.getAddress(),
+      )
       const registrationAfter = (await registry.getUpkeep(upkeepId)).balance
       const toLinkAfter = await linkToken.balanceOf(to)
       const registryLinkAfter = await linkToken.balanceOf(registry.address)
+      const registryPremiumAfter = (await registry.getState()).state
+        .totalPremium
+      const ownerAfter = (await registry.getState()).state.ownerLinkBalance
 
-      assert.isTrue(keeperAfter.eq(BigNumber.from(0)))
+      // registry total premium should not change
+      assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
+      // Last collected should be updated
+      assert.equal(
+        keeperAfter.lastCollected.toString(),
+        registryPremiumBefore.toString(),
+      )
+
+      const spareChange = registryPremiumBefore.mod(
+        BigNumber.from(keeperAddresses.length),
+      )
+      // spare change should go to owner
+      assert.isTrue(ownerAfter.sub(spareChange).eq(ownerBefore))
+
+      assert.isTrue(keeperAfter.balance.eq(BigNumber.from(0)))
       assert.isTrue(registrationBefore.eq(registrationAfter))
-      assert.isTrue(toLinkBefore.add(keeperBefore).eq(toLinkAfter))
-      assert.isTrue(registryLinkBefore.sub(keeperBefore).eq(registryLinkAfter))
+      assert.isTrue(toLinkBefore.add(keeperBefore.balance).eq(toLinkAfter))
+      assert.isTrue(
+        registryLinkBefore.sub(keeperBefore.balance).eq(registryLinkAfter),
+      )
     })
 
     it('emits a log announcing the withdrawal', async () => {
