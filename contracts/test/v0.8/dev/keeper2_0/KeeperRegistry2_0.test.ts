@@ -5155,7 +5155,6 @@ describe('KeeperRegistry2_0', () => {
           )
           let upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
           let ownerBefore = (await registry.getState()).state.ownerLinkBalance
-          assert.equal(0, ownerBefore.toNumber())
 
           let amountSpent = toWei('100').sub(upkeepBefore)
           let cancellationFee = minUpkeepSpend.sub(amountSpent)
@@ -5173,7 +5172,7 @@ describe('KeeperRegistry2_0', () => {
           // payee balance should not change
           assert.isTrue(payee1Before.eq(payee1After))
           // owner should receive the cancellation fee
-          assert.isTrue(ownerAfter.eq(cancellationFee))
+          assert.isTrue(ownerAfter.sub(ownerBefore).eq(cancellationFee))
         })
 
         it('deducts up to balance as cancellation fee', async () => {
@@ -5206,7 +5205,6 @@ describe('KeeperRegistry2_0', () => {
           )
           let upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
           let ownerBefore = (await registry.getState()).state.ownerLinkBalance
-          assert.equal(0, ownerBefore.toNumber())
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
           const payee1After = await linkToken.balanceOf(
@@ -5220,7 +5218,7 @@ describe('KeeperRegistry2_0', () => {
           // payee balance should not change
           assert.isTrue(payee1After.eq(payee1Before))
           // all upkeep balance is transferred to the owner
-          assert.isTrue(ownerAfter.eq(upkeepBefore))
+          assert.isTrue(ownerAfter.sub(ownerBefore).eq(upkeepBefore))
         })
 
         it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
@@ -5265,7 +5263,7 @@ describe('KeeperRegistry2_0', () => {
           // upkeep does not pay cancellation fee after cancellation because minimum upkeep spent is met
           assert.isTrue(upkeepBefore.eq(upkeepAfter))
           // owner balance does not change
-          assert.equal(0, ownerAfter.toNumber())
+          assert.isTrue(ownerAfter.eq(ownerBefore))
           // payee balance does not change
           assert.isTrue(payee1Before.eq(payee1After))
         })
