@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -188,7 +187,7 @@ func NewHTTPMockServer(
 ) *httptest.Server {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, wantMethod, r.Method)
 		if len(callback) > 0 {

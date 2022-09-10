@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -591,18 +590,18 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(d.cookiePath())
+	b, err := os.ReadFile(d.cookiePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -809,7 +808,7 @@ func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionReque
 	}
 
 	lggr.Debug("Initializing API credentials")
-	dat, err := ioutil.ReadFile(file)
+	dat, err := os.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
 	}
