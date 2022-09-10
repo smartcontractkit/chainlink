@@ -22,6 +22,7 @@ import (
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	tercfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -137,6 +138,17 @@ var (
 				},
 				Nodes: []*solcfg.Node{
 					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+				},
+			},
+		},
+		Starknet: []*StarknetConfig{
+			{
+				ChainID: ptr("foobar"),
+				Chain: stkcfg.Chain{
+					TxSendFrequency: relayutils.MustNewDuration(time.Hour),
+				},
+				Nodes: []*stkcfg.Node{
+					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
 				},
 			},
 		},
@@ -505,6 +517,23 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
+	full.Starknet = []*StarknetConfig{
+		{
+			ChainID: ptr("foobar"),
+			Enabled: ptr(true),
+			Chain: stkcfg.Chain{
+				OCR2CachePollPeriod: relayutils.MustNewDuration(6 * time.Hour),
+				OCR2CacheTTL:        relayutils.MustNewDuration(3 * time.Minute),
+				RequestTimeout:      relayutils.MustNewDuration(time.Minute + 3*time.Second),
+				TxTimeout:           relayutils.MustNewDuration(13 * time.Second),
+				TxSendFrequency:     relayutils.MustNewDuration(42 * time.Second),
+				TxMaxBatchSize:      ptr[int64](17),
+			},
+			Nodes: []*stkcfg.Node{
+				{Name: ptr("primary"), URL: relayutils.MustParseURL("http://stark.node")},
+			},
+		},
+	}
 	full.Terra = []*TerraConfig{
 		{
 			ChainID: ptr("Bombay-12"),
@@ -835,6 +864,20 @@ URL = 'http://solana.foo'
 Name = 'bar'
 URL = 'http://solana.bar'
 `},
+		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
+ChainID = 'foobar'
+Enabled = true
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+`},
 		{"Terra", Config{Terra: full.Terra}, `[[Terra]]
 ChainID = 'Bombay-12'
 Enabled = true
@@ -906,7 +949,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `4 errors:
+		{name: "invalid", toml: invalidTOML, exp: `5 errors:
 	1) Database: Lock: LeaseRefreshInterval (6s) must be less than or equal to half of LeaseDuration (10s)
 	2) EVM: 3 errors:
 		1) 1: ChainID: invalid value 1: duplicate - must be unique
@@ -925,7 +968,10 @@ func TestConfig_Validate(t *testing.T) {
 				1) 1: Name: invalid value bar: duplicate - must be unique
 				2) 0: URL: missing: required for all nodes
 				3) 1: URL: missing: required for all nodes
-	4) Terra: 2 errors:
+	4) Starknet: 0: 2 errors:
+			1) ChainID: missing: required for all chains
+			2) Nodes: Name: invalid value primary: duplicate - must be unique
+	5) Terra: 2 errors:
 		1) 1: ChainID: invalid value Bombay-12: duplicate - must be unique
 		2) 0: Nodes: 3 errors:
 				1) 1: Name: invalid value test: duplicate - must be unique
