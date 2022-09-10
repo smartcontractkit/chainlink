@@ -344,7 +344,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     uint256 linkNative,
     uint16 numBatchedUpkeeps,
     bool isExecution
-  ) internal view returns (uint96 gasPayment, uint96 premium) {
+  ) internal view returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
@@ -374,11 +374,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
 
-    gasPayment = uint96(((weiForGas + l1CostWei) * 1e18) / linkNative);
-    premium = uint96((gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12);
+    uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNative;
+    uint256 premium = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return (gasPayment, premium);
+    return (uint96(gasPayment), uint96(premium));
   }
 
   /**
@@ -402,7 +402,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       isExecution
     );
 
-    return PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: (reimbursement + premium)});
+    return
+      PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: (reimbursement + premium)});
   }
 
   /**
@@ -439,6 +440,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     transmitter.balance += due;
     transmitter.lastCollected = totalPremium;
 
+    // Transfer spare change to owner
+    s_storage.ownerLinkBalance += (uncollected - due * payeeCount);
     s_transmitters[transmitterAddress] = transmitter;
 
     return transmitter.balance;

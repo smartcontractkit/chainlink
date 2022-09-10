@@ -435,12 +435,7 @@ contract KeeperRegistry2_0 is
     uint96 totalDifference = s_hotVars.totalPremium - transmitter.lastCollected;
     uint96 pooledShare = totalDifference / uint96(s_transmittersList.length);
 
-    return (
-      transmitter.active,
-      transmitter.index,
-      (transmitter.balance + pooledShare),
-      s_transmitterPayees[query]
-    );
+    return (transmitter.active, transmitter.index, (transmitter.balance + pooledShare), s_transmitterPayees[query]);
   }
 
   /**
@@ -514,14 +509,14 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, false, hotVars.f);
 
     (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(
-        hotVars,
-        gasLimit,
-        gasOverhead,
-        fastGasWei,
-        linkNative,
-        1, // Consider only 1 upkeep in batch to get maxPayment
-        false
-      );
+      hotVars,
+      gasLimit,
+      gasOverhead,
+      fastGasWei,
+      linkNative,
+      1, // Consider only 1 upkeep in batch to get maxPayment
+      false
+    );
     return gasReimbursement + premium;
   }
 
