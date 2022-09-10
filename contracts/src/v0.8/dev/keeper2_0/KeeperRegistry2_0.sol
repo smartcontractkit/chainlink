@@ -127,10 +127,12 @@ contract KeeperRegistry2_0 is
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) revert StaleReport();
 
+    // Verify signatures
     if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
     if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
     _verifyReportSignature(reportContext, report, rs, ss, rawVs);
 
+    // Actually perform upkeeps
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         // Check if this upkeep was already performed in this report
