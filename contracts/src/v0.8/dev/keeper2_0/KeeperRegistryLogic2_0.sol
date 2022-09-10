@@ -147,15 +147,14 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address target,
     uint32 gasLimit,
     address admin,
-    bool skipSigVerification,
     bytes calldata checkData
   ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
     id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, skipSigVerification);
+    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
     s_storage.nonce++;
-    emit UpkeepRegistered(id, gasLimit, admin, skipSigVerification);
+    emit UpkeepRegistered(id, gasLimit, admin);
     return id;
   }
 
@@ -397,8 +396,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
         upkeepAdmins[idx],
         upkeeps[idx].balance,
         checkDatas[idx],
-        upkeeps[idx].paused,
-        upkeeps[idx].skipSigVerification
+        upkeeps[idx].paused
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
@@ -420,8 +418,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address admin,
     uint96 balance,
     bytes memory checkData,
-    bool paused,
-    bool skipSigVerification
+    bool paused
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!target.isContract()) revert NotAContract();
@@ -434,8 +431,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
       maxValidBlocknumber: UINT32_MAX,
       lastPerformBlockNumber: 0,
       amountSpent: 0,
-      paused: paused,
-      skipSigVerification: skipSigVerification
+      paused: paused
     });
     s_upkeepAdmin[id] = admin;
     s_expectedLinkBalance = s_expectedLinkBalance + balance;
