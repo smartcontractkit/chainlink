@@ -272,14 +272,14 @@ contract KeeperRegistry2_0 is
     }
 
     // remove any old signer/transmitter addresses
-    address signer;
-    address transmitter;
+    address signerAddress;
+    address transmitterAddress;
     for (uint256 i = 0; i < oldLength; i++) {
-      signer = s_signersList[i];
-      transmitter = s_transmittersList[i];
-      delete s_signers[signer];
+      signerAddress = s_signersList[i];
+      transmitterAddress = s_transmittersList[i];
+      delete s_signers[signerAddress];
       // Do not delete the whole transmitter struct as it has balance information stored
-      s_transmitters[transmitter].active = false;
+      s_transmitters[transmitterAddress].active = false;
     }
     delete s_signersList;
     delete s_transmittersList;
