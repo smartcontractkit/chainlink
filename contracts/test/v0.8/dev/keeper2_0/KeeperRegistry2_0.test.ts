@@ -38,7 +38,7 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(110000)
+const registryGasOverhead = BigNumber.from(85000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
 
@@ -71,7 +71,13 @@ const encodeConfig = (config: any) => {
   )
 }
 
-const encodeReport = (upkeeps: any) => {
+const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
+const gasWei = BigNumber.from(1000000000) // 1 gwei
+const encodeReport = (
+  upkeeps: any,
+  gasWeiReport = gasWei,
+  linkEthReport = linkEth,
+) => {
   const upkeepIds = upkeeps.map((u: any) => u.Id)
   const performDataTuples = upkeeps.map((u: any) => [
     u.checkBlockNum,
@@ -79,8 +85,8 @@ const encodeReport = (upkeeps: any) => {
     u.performData,
   ])
   return ethers.utils.defaultAbiCoder.encode(
-    ['uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
-    [upkeepIds, performDataTuples],
+    ['uint256', 'uint256', 'uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
+    [gasWeiReport, linkEthReport, upkeepIds, performDataTuples],
   )
 }
 
@@ -177,8 +183,6 @@ before(async () => {
 })
 
 describe('KeeperRegistry2_0', () => {
-  const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
-  const gasWei = BigNumber.from(1000000000) // 1 gwei
   const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')
@@ -614,8 +618,8 @@ describe('KeeperRegistry2_0', () => {
       performDataTuples.push([latestBlock.number + 1, latestBlock.hash, '0x'])
 
       let report = ethers.utils.defaultAbiCoder.encode(
-        ['uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
-        [upkeepIds, performDataTuples],
+        ['uint256', 'uint256', 'uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
+        [0, 0, upkeepIds, performDataTuples],
       )
 
       await evmRevert(
@@ -651,8 +655,8 @@ describe('KeeperRegistry2_0', () => {
       upkeepIds = []
       wrappedPerformDatas = []
       let report = ethers.utils.defaultAbiCoder.encode(
-        ['uint256[]', 'bytes[]'],
-        [upkeepIds, wrappedPerformDatas],
+        ['uint256', 'uint256', 'uint256[]', 'bytes[]'],
+        [0, 0, upkeepIds, wrappedPerformDatas],
       )
 
       await evmRevert(
@@ -935,235 +939,6 @@ describe('KeeperRegistry2_0', () => {
             gasUsed,
             gasOverhead,
             gasCeilingMultiplier, // Should be same with exisitng multiplier
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
-
-      it('uses the fallback gas price if the feed price is stale', async () => {
-        const roundId = 99
-        const answer = 100
-        const updatedAt = 946684800 // New Years 2000 🥳
-        const startedAt = 946684799
-        await gasPriceFeed
-          .connect(owner)
-          .updateRoundData(roundId, answer, updatedAt, startedAt)
-
-        const tx = await getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-
-        const receipt = await tx.wait()
-        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        let upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        let gasUsed = upkeepPerformedLog.args.gasUsed
-        let gasOverhead = upkeepPerformedLog.args.gasOverhead
-        let totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
-
-      it('uses the fallback gas price if the feed price is non-sensical (negative)', async () => {
-        const roundId = 99
-        const updatedAt = Math.floor(Date.now() / 1000)
-        const startedAt = 946684799
-        await gasPriceFeed
-          .connect(owner)
-          .updateRoundData(roundId, -100, updatedAt, startedAt)
-
-        // Negative feed value
-        let tx = await getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-
-        let receipt = await tx.wait()
-        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        let upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        let gasUsed = upkeepPerformedLog.args.gasUsed
-        let gasOverhead = upkeepPerformedLog.args.gasOverhead
-        let totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
-
-      it('uses the fallback gas price if the feed price is non-sensical (zero)', async () => {
-        const roundId = 99
-        const updatedAt = Math.floor(Date.now() / 1000)
-        const startedAt = 946684799
-        await gasPriceFeed
-          .connect(owner)
-          .updateRoundData(roundId, 0, updatedAt, startedAt)
-
-        // Negative feed value
-        let tx = await getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-
-        let receipt = await tx.wait()
-        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        let upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        let gasUsed = upkeepPerformedLog.args.gasUsed
-        let gasOverhead = upkeepPerformedLog.args.gasOverhead
-        let totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
-
-      it('uses the fallback link price if the link price is stale', async () => {
-        const roundId = 99
-        const answer = 100
-        const updatedAt = 946684800 // New Years 2000 🥳
-        const startedAt = 946684799
-        await linkEthFeed
-          .connect(owner)
-          .updateRoundData(roundId, answer, updatedAt, startedAt)
-
-        const tx = await getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-        const receipt = await tx.wait()
-        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        let upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        let gasUsed = upkeepPerformedLog.args.gasUsed
-        let gasOverhead = upkeepPerformedLog.args.gasOverhead
-        let totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
-
-      it('uses the fallback link price if the link price is non-sensical (negative)', async () => {
-        const roundId = 99
-        const updatedAt = Math.floor(Date.now() / 1000)
-        const startedAt = 946684799
-        await linkEthFeed
-          .connect(owner)
-          .updateRoundData(roundId, -100, updatedAt, startedAt)
-
-        const tx = await getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-        const receipt = await tx.wait()
-        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        let upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        let gasUsed = upkeepPerformedLog.args.gasUsed
-        let gasOverhead = upkeepPerformedLog.args.gasOverhead
-        let totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-          ).total.toString(),
-          totalPayment.toString(),
-        )
-      })
-
-      it('uses the fallback link price if the link price is non-sensical (zero)', async () => {
-        const roundId = 99
-        const updatedAt = Math.floor(Date.now() / 1000)
-        const startedAt = 946684799
-        await linkEthFeed
-          .connect(owner)
-          .updateRoundData(roundId, 0, updatedAt, startedAt)
-
-        const tx = await getTransmitTx(
-          registry,
-          keeper1,
-          [upkeepId.toString()],
-          f + 1,
-          { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-        )
-        const receipt = await tx.wait()
-        let upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-        // exactly 1 Upkeep Performed should be emitted
-        assert.equal(upkeepPerformedLogs.length, 1)
-        let upkeepPerformedLog = upkeepPerformedLogs[0]
-
-        let gasUsed = upkeepPerformedLog.args.gasUsed
-        let gasOverhead = upkeepPerformedLog.args.gasOverhead
-        let totalPayment = upkeepPerformedLog.args.totalPayment
-
-        assert.equal(
-          linkForGas(
-            gasUsed,
-            gasOverhead,
-            gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
             paymentPremiumPPB,
             flatFeeMicroLink,
           ).total.toString(),
@@ -2182,37 +1957,8 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#getMinBalanceForUpkeep / #checkUpkeep / #transmit', () => {
-    it('calculates the minimum balance appropriately for skip verification upkeep', async () => {
+    it('calculates the minimum balance appropriately', async () => {
       await mock.setCanCheck(true)
-      const oneWei = BigNumber.from(1)
-      const minBalance = await registry.getMinBalanceForUpkeep(upkeepId)
-
-      await registry.connect(admin).addFunds(upkeepId, oneWei)
-      let checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
-
-      assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
-
-      await registry.connect(admin).addFunds(upkeepId, minBalance.sub(oneWei))
-      checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
-      assert.equal(checkUpkeepResult.upkeepNeeded, true)
-    })
-
-    it('calculates the minimum balance appropriately for non skip verification upkeep', async () => {
-      await mock.setCanCheck(true)
-      const tx = await registry
-        .connect(owner)
-        .registerUpkeep(
-          mock.address,
-          executeGas,
-          await admin.getAddress(),
-          randomBytes,
-        )
-      upkeepId = await getUpkeepID(tx)
 
       const oneWei = BigNumber.from(1)
       const minBalance = await registry.getMinBalanceForUpkeep(upkeepId)
@@ -2589,6 +2335,8 @@ describe('KeeperRegistry2_0', () => {
         assert.equal(wrappedPerfromData[0].performData, randomBytes)
         assert.equal(checkUpkeepResult.upkeepFailureReason, 0)
         assert.isTrue(checkUpkeepResult.gasUsed.gt(BigNumber.from('0'))) // Some gas should be used
+        assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
+        assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
       })
 
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
@@ -2740,6 +2488,110 @@ describe('KeeperRegistry2_0', () => {
         premiums,
         flatFees,
         l1CostWeiOpt,
+      )
+    })
+
+    it('uses the fallback gas price if the feed has issues', async () => {
+      const expectedFallbackMaxPayment = linkForGas(
+        executeGas,
+        registryGasOverhead
+          .add(registryPerSignerGasOverhead.mul(f + 1))
+          .add(maxPerformDataSize.mul(16)),
+        gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+      ).total
+
+      // Stale feed
+      let roundId = 99
+      let answer = 100
+      let updatedAt = 946684800 // New Years 2000 🥳
+      let startedAt = 946684799
+      await gasPriceFeed
+        .connect(owner)
+        .updateRoundData(roundId, answer, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Negative feed price
+      roundId = 100
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await gasPriceFeed
+        .connect(owner)
+        .updateRoundData(roundId, -100, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Zero feed price
+      roundId = 101
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await gasPriceFeed
+        .connect(owner)
+        .updateRoundData(roundId, 0, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+    })
+
+    it('uses the fallback link price if the feed has issues', async () => {
+      const expectedFallbackMaxPayment = linkForGas(
+        executeGas,
+        registryGasOverhead
+          .add(registryPerSignerGasOverhead.mul(f + 1))
+          .add(maxPerformDataSize.mul(16)),
+        gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+      ).total
+
+      // Stale feed
+      let roundId = 99
+      let answer = 100
+      let updatedAt = 946684800 // New Years 2000 🥳
+      let startedAt = 946684799
+      await linkEthFeed
+        .connect(owner)
+        .updateRoundData(roundId, answer, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Negative feed price
+      roundId = 100
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await linkEthFeed
+        .connect(owner)
+        .updateRoundData(roundId, -100, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Zero feed price
+      roundId = 101
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await linkEthFeed
+        .connect(owner)
+        .updateRoundData(roundId, 0, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
       )
     })
   })
@@ -3626,6 +3478,51 @@ describe('KeeperRegistry2_0', () => {
       await expect(tx)
         .to.emit(registry, 'UpkeepGasLimitSet')
         .withArgs(upkeepId, newGasLimit)
+    })
+  })
+
+  describe('#setUpkeepOffchainConfig', () => {
+    const newConfig = '0xc0ffeec0ffee'
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(upkeepId.add(1), newConfig),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+      await evmRevert(
+        registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry.connect(owner).setUpkeepOffchainConfig(upkeepId, newConfig),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('updates the config successfully', async () => {
+      const initialConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
+      assert.equal(initialConfig, '0x')
+      await registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig)
+      const updatedConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
+      assert.equal(newConfig, updatedConfig)
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry
+        .connect(admin)
+        .setUpkeepOffchainConfig(upkeepId, newConfig)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepOffchainConfigSet')
+        .withArgs(upkeepId, newConfig)
     })
   })
 
