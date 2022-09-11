@@ -134,12 +134,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     OPTIMISM
   }
 
-  struct PerformPaymentParams {
-    uint256 fastGasWei;
-    uint256 linkNative;
-    uint256 maxLinkPayment;
-  }
-
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint8 f; // maximum number of faulty oracles
@@ -382,20 +376,20 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev generates a PerformPaymentParams struct containing payment information for an upkeep
+   * @dev generates the max link payment for an upkeep
    */
-  function _generatePerformPaymentParams(
-    Upkeep memory upkeep,
+  function _getMaxLinkPayment(
     HotVars memory hotVars,
+    uint32 executeGas,
     uint32 performDataLength,
     uint256 fastGasWei,
     uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
-  ) internal view returns (PerformPaymentParams memory) {
+  ) internal view returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      upkeep.executeGas,
+      executeGas,
       gasOverhead,
       fastGasWei,
       linkNative,
@@ -403,8 +397,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       isExecution
     );
 
-    return
-      PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: (reimbursement + premium)});
+    return reimbursement + premium;
   }
 
   /**
