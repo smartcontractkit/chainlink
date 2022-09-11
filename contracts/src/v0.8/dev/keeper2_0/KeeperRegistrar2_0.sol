@@ -148,6 +148,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint32 gasLimit,
     address adminAddress,
     bytes calldata checkData,
+    bytes calldata offchainConfig,
     uint96 amount,
     address sender
   ) external onlyLINK {
@@ -158,7 +159,7 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
         adminAddress: adminAddress,
         amount: amount,
         checkData: checkData,
-        offchainConfig: "",
+        offchainConfig: offchainConfig,
         name: name,
         encryptedEmail: encryptedEmail
       }),
@@ -444,9 +445,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   modifier isActualAmount(uint256 expected, bytes calldata data) {
     // decode register function arguments to get actual amount
-    (, , , , , , uint96 amount, ) = abi.decode(
+    (, , , , , , , uint96 amount, ) = abi.decode(
       data[4:],
-      (string, bytes, address, uint32, address, bytes, uint96, address)
+      (string, bytes, address, uint32, address, bytes, bytes, uint96, address)
     );
     if (expected != amount) {
       revert AmountMismatch();
@@ -461,9 +462,9 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    */
   modifier isActualSender(address expected, bytes calldata data) {
     // decode register function arguments to get actual sender
-    (, , , , , , , address sender) = abi.decode(
+    (, , , , , , , , address sender) = abi.decode(
       data[4:],
-      (string, bytes, address, uint32, address, bytes, uint96, address)
+      (string, bytes, address, uint32, address, bytes, bytes, uint96, address)
     );
     if (expected != sender) {
       revert SenderMismatch();
