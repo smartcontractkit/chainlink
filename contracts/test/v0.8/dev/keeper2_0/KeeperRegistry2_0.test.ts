@@ -585,6 +585,7 @@ describe('KeeperRegistry2_0', () => {
         executeGas,
         await admin.getAddress(),
         randomBytes,
+        emptyBytes,
       )
     upkeepId = await getUpkeepID(tx)
   })
@@ -981,6 +982,7 @@ describe('KeeperRegistry2_0', () => {
             executeGas,
             await admin.getAddress(),
             randomBytes,
+            emptyBytes,
           )
         upkeepId = await getUpkeepID(tx)
         await linkToken.connect(owner).approve(registry.address, toWei('1000'))
@@ -1028,6 +1030,7 @@ describe('KeeperRegistry2_0', () => {
             executeGas,
             autoFunderUpkeep.address,
             randomBytes,
+            emptyBytes,
           )
         upkeepId = await getUpkeepID(tx)
 
@@ -1076,6 +1079,7 @@ describe('KeeperRegistry2_0', () => {
             executeGas,
             autoFunderUpkeep.address,
             randomBytes,
+            emptyBytes,
           )
         upkeepId = await getUpkeepID(tx)
 
@@ -1208,6 +1212,7 @@ describe('KeeperRegistry2_0', () => {
           maxPerformGas, // max allowed gas
           await admin.getAddress(),
           randomBytes,
+          emptyBytes,
         )
         upkeepId = await getUpkeepID(tx)
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
@@ -1477,6 +1482,7 @@ describe('KeeperRegistry2_0', () => {
                       executeGas,
                       await admin.getAddress(),
                       randomBytes,
+                      emptyBytes,
                     )
                   upkeepId = await getUpkeepID(tx)
                   passingUpkeepIds.push(upkeepId.toString())
@@ -1493,6 +1499,7 @@ describe('KeeperRegistry2_0', () => {
                       executeGas,
                       await admin.getAddress(),
                       randomBytes,
+                      emptyBytes,
                     )
                   upkeepId = await getUpkeepID(tx)
                   failingUpkeepIds.push(upkeepId.toString())
@@ -1751,6 +1758,7 @@ describe('KeeperRegistry2_0', () => {
               executeGas,
               await admin.getAddress(),
               randomBytes,
+              emptyBytes,
             )
           upkeepId = await getUpkeepID(tx)
           upkeepIds.push(upkeepId.toString())
@@ -1816,6 +1824,7 @@ describe('KeeperRegistry2_0', () => {
               executeGas,
               await admin.getAddress(),
               randomBytes,
+              emptyBytes,
             )
           upkeepId = await getUpkeepID(tx)
           upkeepIds.push(upkeepId.toString())
@@ -1878,6 +1887,7 @@ describe('KeeperRegistry2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          emptyBytes,
         )
 
       const id1 = await getUpkeepID(tx)
@@ -1904,6 +1914,7 @@ describe('KeeperRegistry2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          emptyBytes,
           emptyBytes,
         )
       const id2 = await getUpkeepID(tx2)
@@ -1985,6 +1996,7 @@ describe('KeeperRegistry2_0', () => {
           executeGas,
           await admin.getAddress(),
           randomBytes,
+          emptyBytes,
         )
       const upkeepID1 = await getUpkeepID(tx1)
       const tx2 = await registry
@@ -1994,6 +2006,7 @@ describe('KeeperRegistry2_0', () => {
           executeGas,
           await admin.getAddress(),
           randomBytes,
+          emptyBytes,
         )
       const upkeepID2 = await getUpkeepID(tx2)
       await mock.setCanCheck(true)
@@ -2405,6 +2418,7 @@ describe('KeeperRegistry2_0', () => {
           executeGas,
           await admin.getAddress(),
           randomBytes,
+          emptyBytes,
         )
       upkeepId2 = await getUpkeepID(tx)
     })
@@ -3143,6 +3157,7 @@ describe('KeeperRegistry2_0', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
+            emptyBytes,
           ),
         'RegistryPaused()',
       )
@@ -3156,6 +3171,7 @@ describe('KeeperRegistry2_0', () => {
             zeroAddress,
             executeGas,
             await admin.getAddress(),
+            emptyBytes,
             emptyBytes,
           ),
         'NotAContract()',
@@ -3171,6 +3187,7 @@ describe('KeeperRegistry2_0', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
+            emptyBytes,
           ),
         'OnlyCallableByOwnerOrRegistrar()',
       )
@@ -3185,6 +3202,7 @@ describe('KeeperRegistry2_0', () => {
             2299,
             await admin.getAddress(),
             emptyBytes,
+            emptyBytes,
           ),
         'GasLimitOutsideRange()',
       )
@@ -3198,6 +3216,7 @@ describe('KeeperRegistry2_0', () => {
             mock.address,
             5000001,
             await admin.getAddress(),
+            emptyBytes,
             emptyBytes,
           ),
         'GasLimitOutsideRange()',
@@ -3217,6 +3236,7 @@ describe('KeeperRegistry2_0', () => {
             executeGas,
             await admin.getAddress(),
             longBytes,
+            emptyBytes,
           ),
         'CheckDataExceedsLimit()',
       )
@@ -3225,6 +3245,7 @@ describe('KeeperRegistry2_0', () => {
     it('creates a record of the registration', async () => {
       let executeGases = [100000, 500000]
       let checkDatas = [emptyBytes, '0x12']
+      const offchainConfig = '0x1234567890'
 
       for (let jdx = 0; jdx < executeGases.length; jdx++) {
         const executeGas = executeGases[jdx]
@@ -3237,6 +3258,7 @@ describe('KeeperRegistry2_0', () => {
               executeGas,
               await admin.getAddress(),
               checkData,
+              offchainConfig,
             )
 
           //confirm the upkeep details
@@ -3257,6 +3279,7 @@ describe('KeeperRegistry2_0', () => {
           assert.equal(0, registration.lastPerformBlockNumber)
           assert.equal(checkData, registration.checkData)
           assert.equal(registration.paused, false)
+          assert.equal(registration.offchainConfig, offchainConfig)
           assert(registration.maxValidBlocknumber.eq('0xffffffff'))
         }
       }
@@ -3838,6 +3861,7 @@ describe('KeeperRegistry2_0', () => {
             mock.address,
             executeGas,
             await admin.getAddress(),
+            emptyBytes,
             emptyBytes,
           ),
         'RegistryPaused()',
