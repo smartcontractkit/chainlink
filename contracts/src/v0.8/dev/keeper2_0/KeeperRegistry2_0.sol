@@ -78,7 +78,7 @@ contract KeeperRegistry2_0 is
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
     bool earlyChecksPassed;
-    PerformPaymentParams paymentParams;
+    uint96 maxLinkPayment;
     bool performSuccess;
     uint256 gasUsed;
     uint256 gasOverhead;
@@ -107,9 +107,9 @@ contract KeeperRegistry2_0 is
     for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
 
-      upkeepTransmitInfo[i].paymentParams = _generatePerformPaymentParams(
-        upkeepTransmitInfo[i].upkeep,
+      upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
+        upkeepTransmitInfo[i].upkeep.executeGas,
         uint32(parsedReport.wrappedPerformDatas[i].performData.length),
         parsedReport.fastGasWei,
         parsedReport.linkNative,
@@ -119,7 +119,7 @@ contract KeeperRegistry2_0 is
         parsedReport.upkeepIds[i],
         parsedReport.wrappedPerformDatas[i],
         upkeepTransmitInfo[i].upkeep,
-        upkeepTransmitInfo[i].paymentParams
+        upkeepTransmitInfo[i].maxLinkPayment
       );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
@@ -182,6 +182,8 @@ contract KeeperRegistry2_0 is
             hotVars,
             parsedReport.upkeepIds[i],
             upkeepTransmitInfo[i],
+            parsedReport.fastGasWei,
+            parsedReport.linkNative,
             numUpkeepsPassedChecks
           );
           totalPremium += premium;
@@ -203,7 +205,10 @@ contract KeeperRegistry2_0 is
     s_hotVars.totalPremium += totalPremium;
 
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
-    emit Transmitted(s_latestConfigDigest, uint32(epochAndRound >> 8));
+    uint32 epoch = uint32(epochAndRound >> 8);
+    if (epoch > hotVars.latestEpoch) {
+      s_hotVars.latestEpoch = epoch;
+    }
   }
 
   /**
@@ -319,7 +324,8 @@ contract KeeperRegistry2_0 is
       gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
       paused: false,
       reentrancyGuard: false,
-      totalPremium: totalPremium
+      totalPremium: totalPremium,
+      latestEpoch: 0
     });
 
     s_storage = Storage({
@@ -471,6 +477,7 @@ contract KeeperRegistry2_0 is
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       latestConfigDigest: s_latestConfigDigest,
+      latestEpoch: s_hotVars.latestEpoch,
       paused: s_hotVars.paused
     });
 
@@ -505,21 +512,10 @@ contract KeeperRegistry2_0 is
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, hotVars.f);
-
-    (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(
-      hotVars,
-      gasLimit,
-      gasOverhead,
-      fastGasWei,
-      linkNative,
-      1, // Consider only 1 upkeep in batch to get maxPayment
-      false
-    );
-    return gasReimbursement + premium;
+    return _getMaxLinkPayment(hotVars, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
   }
 
   /**
@@ -565,7 +561,7 @@ contract KeeperRegistry2_0 is
       uint32 epoch
     )
   {
-    return (true, configDigest, epoch);
+    return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
   }
 
   ////////
@@ -638,7 +634,7 @@ contract KeeperRegistry2_0 is
     uint256 upkeepId,
     PerformDataWrapper memory wrappedPerformData,
     Upkeep memory upkeep,
-    PerformPaymentParams memory paymentParams
+    uint96 maxLinkPayment
   ) internal returns (bool) {
     if (wrappedPerformData.checkBlockNumber < upkeep.lastPerformBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
@@ -661,7 +657,7 @@ contract KeeperRegistry2_0 is
       return false;
     }
 
-    if (upkeep.balance < paymentParams.maxLinkPayment) {
+    if (upkeep.balance < maxLinkPayment) {
       // Can happen due to flucutations in gas / link prices
       emit InsufficientFundsUpkeepReport(upkeepId);
       return false;
@@ -723,14 +719,16 @@ contract KeeperRegistry2_0 is
     HotVars memory hotVars,
     uint256 upkeepId,
     UpkeepTransmitInfo memory upkeepTransmitInfo,
+    uint256 fastGasWei,
+    uint256 linkNative,
     uint16 numBatchedUpkeeps
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
       upkeepTransmitInfo.gasOverhead,
-      upkeepTransmitInfo.paymentParams.fastGasWei,
-      upkeepTransmitInfo.paymentParams.linkNative,
+      fastGasWei,
+      linkNative,
       numBatchedUpkeeps,
       true
     );

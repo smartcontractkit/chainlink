@@ -46,15 +46,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, gasUsed, 0, 0);
 
     (fastGasWei, linkNative) = _getFeedData(hotVars);
-    PerformPaymentParams memory paymentParams = _generatePerformPaymentParams(
-      upkeep,
+    uint96 maxLinkPayment = _getMaxLinkPayment(
       hotVars,
+      upkeep.executeGas,
       s_storage.maxPerformDataSize,
       fastGasWei,
       linkNative,
       false
     );
-    if (upkeep.balance < paymentParams.maxLinkPayment)
+    if (upkeep.balance < maxLinkPayment)
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
 
     gasUsed = gasleft();
