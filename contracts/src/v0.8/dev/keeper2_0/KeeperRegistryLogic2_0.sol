@@ -156,7 +156,7 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
-    id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
+    id = uint256(keccak256(abi.encode(blockhash(block.number - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
     s_storage.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);

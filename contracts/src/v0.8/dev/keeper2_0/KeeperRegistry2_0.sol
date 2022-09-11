@@ -673,7 +673,7 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata ss,
     bytes32 rawVs
   ) internal view {
-    bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
+    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
     // i-th byte counts number of sigs made by i-th signer
     uint256 signedCount = 0;
 
