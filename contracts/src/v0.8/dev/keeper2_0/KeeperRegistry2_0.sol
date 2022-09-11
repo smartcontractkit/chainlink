@@ -772,7 +772,8 @@ contract KeeperRegistry2_0 is
     address target,
     uint32 gasLimit,
     address admin,
-    bytes calldata checkData
+    bytes calldata checkData,
+    bytes calldata offchainConfig
   ) external override returns (uint256 id) {
     // Executed through logic contract
     _fallback();

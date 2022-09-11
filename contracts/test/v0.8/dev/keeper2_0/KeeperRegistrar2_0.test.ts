@@ -62,6 +62,7 @@ describe('KeeperRegistrar2_0', () => {
   const paymentPremiumPPB = BigNumber.from(250000000)
   const flatFeeMicroLink = BigNumber.from(0)
   const maxAllowedAutoApprove = 5
+  const offchainConfig = '0x01234567'
 
   const emptyBytes = '0x00'
   const stalenessSeconds = BigNumber.from(43820)
@@ -554,17 +555,16 @@ describe('KeeperRegistrar2_0', () => {
   describe('#registerUpkeep', () => {
     it('reverts with empty message if amount sent is not available in LINK allowance', async () => {
       await evmRevert(
-        registrar
-          .connect(someAddress)
-          .registerUpkeep(
-            upkeepName,
-            emptyBytes,
-            mock.address,
-            executeGas,
-            await admin.getAddress(),
-            emptyBytes,
-            amount,
-          ),
+        registrar.connect(someAddress).registerUpkeep({
+          name: upkeepName,
+          upkeepContract: mock.address,
+          gasLimit: executeGas,
+          adminAddress: await admin.getAddress(),
+          checkData: emptyBytes,
+          offchainConfig: emptyBytes,
+          amount: amount,
+          encryptedEmail: emptyBytes,
+        }),
         '',
       )
     })
@@ -583,17 +583,16 @@ describe('KeeperRegistrar2_0', () => {
       const amt = BigNumber.from('100000000000000000')
 
       await evmRevert(
-        registrar
-          .connect(someAddress)
-          .registerUpkeep(
-            upkeepName,
-            emptyBytes,
-            mock.address,
-            executeGas,
-            await admin.getAddress(),
-            emptyBytes,
-            amt,
-          ),
+        registrar.connect(someAddress).registerUpkeep({
+          name: upkeepName,
+          upkeepContract: mock.address,
+          gasLimit: executeGas,
+          adminAddress: await admin.getAddress(),
+          checkData: emptyBytes,
+          offchainConfig: emptyBytes,
+          amount: amt,
+          encryptedEmail: emptyBytes,
+        }),
         'InsufficientPayment()',
       )
     })
@@ -611,17 +610,16 @@ describe('KeeperRegistrar2_0', () => {
 
       await linkToken.connect(requestSender).approve(registrar.address, amount)
 
-      const tx = await registrar
-        .connect(requestSender)
-        .registerUpkeep(
-          upkeepName,
-          emptyBytes,
-          mock.address,
-          executeGas,
-          await admin.getAddress(),
-          emptyBytes,
-          amount,
-        )
+      const tx = await registrar.connect(requestSender).registerUpkeep({
+        name: upkeepName,
+        upkeepContract: mock.address,
+        gasLimit: executeGas,
+        adminAddress: await admin.getAddress(),
+        checkData: emptyBytes,
+        offchainConfig: offchainConfig,
+        amount: amount,
+        encryptedEmail: emptyBytes,
+      })
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
 
       //confirm if a new upkeep has been registered and the details are the same as the one just registered
@@ -632,6 +630,7 @@ describe('KeeperRegistrar2_0', () => {
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
       assert.equal(newupkeep.executeGas, executeGas.toNumber())
+      assert.equal(newupkeep.offchainConfig, offchainConfig)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -718,6 +717,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          emptyBytes,
           hash,
         )
       await evmRevert(tx, 'Only callable by owner')
@@ -731,6 +731,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          emptyBytes,
           emptyBytes,
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
@@ -746,6 +747,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          emptyBytes,
           hash,
         )
       await evmRevert(tx, errorMsgs.hashPayload)
@@ -756,6 +758,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           10000,
           await admin.getAddress(),
+          emptyBytes,
           emptyBytes,
           hash,
         )
@@ -768,6 +771,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           ethers.Wallet.createRandom().address,
           emptyBytes,
+          emptyBytes,
           hash,
         )
       await evmRevert(tx, errorMsgs.hashPayload)
@@ -779,6 +783,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           '0x1234',
+          emptyBytes,
           hash,
         )
       await evmRevert(tx, errorMsgs.hashPayload)
@@ -793,6 +798,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          '0x',
           hash,
         )
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -807,6 +813,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          '0x',
           hash,
         )
       const tx = registrar
@@ -817,6 +824,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          '0x',
           hash,
         )
       await evmRevert(tx, errorMsgs.requestNotFound)
@@ -894,6 +902,7 @@ describe('KeeperRegistrar2_0', () => {
           mock.address,
           executeGas,
           await admin.getAddress(),
+          emptyBytes,
           emptyBytes,
           hash,
         )

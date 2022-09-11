@@ -153,13 +153,15 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
     address target,
     uint32 gasLimit,
     address admin,
-    bytes calldata checkData
+    bytes calldata checkData,
+    bytes calldata offchainConfig
   ) external returns (uint256 id) {
     if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
 
     id = uint256(keccak256(abi.encode(blockhash(block.number - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData, false);
     s_storage.nonce++;
+    s_upkeepOffchainConfig[id] = offchainConfig;
     emit UpkeepRegistered(id, gasLimit, admin);
     return id;
   }

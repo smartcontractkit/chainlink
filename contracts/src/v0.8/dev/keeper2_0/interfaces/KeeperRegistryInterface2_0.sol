@@ -106,7 +106,8 @@ interface KeeperRegistryBaseInterface {
     address target,
     uint32 gasLimit,
     address admin,
-    bytes calldata checkData
+    bytes calldata checkData,
+    bytes calldata offchainConfig
   ) external returns (uint256 id);
 
   function cancelUpkeep(uint256 id) external;

@@ -58,6 +58,17 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint96 balance;
   }
 
+  struct RegistrationParams {
+    address upkeepContract;
+    uint32 gasLimit;
+    address adminAddress;
+    uint96 amount;
+    string name;
+    bytes checkData;
+    bytes offchainConfig;
+    bytes encryptedEmail;
+  }
+
   RegistrarConfig private s_config;
   // Only applicable if s_config.configType is ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;
@@ -140,34 +151,33 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint96 amount,
     address sender
   ) external onlyLINK {
-    _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, sender);
+    _register(
+      RegistrationParams({
+        upkeepContract: upkeepContract,
+        gasLimit: gasLimit,
+        adminAddress: adminAddress,
+        amount: amount,
+        checkData: checkData,
+        offchainConfig: "",
+        name: name,
+        encryptedEmail: encryptedEmail
+      }),
+      sender
+    );
   }
 
   /**
    * @notice Allows external users to register upkeeps; assumes amount is approved for transfer by the contract
-   * @param name string of the upkeep to be registered
-   * @param encryptedEmail email address of upkeep contact
-   * @param upkeepContract address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when performing upkeep
-   * @param adminAddress address to cancel upkeep and withdraw remaining funds
-   * @param checkData data passed to the contract when checking for upkeep
-   * @param amount quantity of LINK upkeep is funded with (specified in Juels)
+   * @param requestParams struct of all possible registration parameters
    */
-  function registerUpkeep(
-    string memory name,
-    bytes calldata encryptedEmail,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    bytes calldata checkData,
-    uint96 amount
-  ) external returns (uint256) {
-    if (amount < s_config.minLINKJuels) {
+  function registerUpkeep(RegistrationParams calldata requestParams) external returns (uint256) {
+    if (requestParams.amount < s_config.minLINKJuels) {
       revert InsufficientPayment();
     }
 
-    LINK.transferFrom(msg.sender, address(this), amount);
-    return _register(name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, msg.sender);
+    LINK.transferFrom(msg.sender, address(this), requestParams.amount);
+
+    return _register(requestParams, msg.sender);
   }
 
   /**
@@ -179,18 +189,31 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     uint32 gasLimit,
     address adminAddress,
     bytes calldata checkData,
+    bytes calldata offchainConfig,
     bytes32 hash
   ) external onlyOwner {
     PendingRequest memory request = s_pendingRequests[hash];
     if (request.admin == address(0)) {
       revert RequestNotFound();
     }
-    bytes32 expectedHash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
+    bytes32 expectedHash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData, offchainConfig));
     if (hash != expectedHash) {
       revert HashMismatch();
     }
     delete s_pendingRequests[hash];
-    _approve(name, upkeepContract, gasLimit, adminAddress, checkData, request.balance, hash);
+    _approve(
+      RegistrationParams({
+        name: name,
+        upkeepContract: upkeepContract,
+        gasLimit: gasLimit,
+        adminAddress: adminAddress,
+        checkData: checkData,
+        offchainConfig: offchainConfig,
+        amount: request.balance,
+        encryptedEmail: ""
+      }),
+      expectedHash
+    );
   }
 
   /**
@@ -325,31 +348,25 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
    * @dev verify registration request and emit RegistrationRequested event
    */
   function _register(
-    string memory name,
-    bytes calldata encryptedEmail,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    bytes calldata checkData,
-    uint96 amount,
+    RegistrationParams memory params,
     address sender
   ) private returns (uint256) {
-    if (adminAddress == address(0)) {
+    if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
-    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
+    bytes32 hash = keccak256(abi.encode(params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.offchainConfig));
 
-    emit RegistrationRequested(hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount);
+    emit RegistrationRequested(hash, params.name, params.encryptedEmail, params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.amount);
 
     uint256 upkeepId;
     RegistrarConfig memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
       s_config.approvedCount = config.approvedCount + 1;
 
-      upkeepId = _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
+      upkeepId = _approve(params, hash);
     } else {
-      uint96 newBalance = s_pendingRequests[hash].balance + amount;
-      s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
+      uint96 newBalance = s_pendingRequests[hash].balance + params.amount;
+      s_pendingRequests[hash] = PendingRequest({admin: params.adminAddress, balance: newBalance});
     }
 
     return upkeepId;
@@ -358,26 +375,18 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
    */
-  function _approve(
-    string memory name,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    bytes calldata checkData,
-    uint96 amount,
-    bytes32 hash
-  ) private returns (uint256) {
+  function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
     KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
-    uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
+    uint256 upkeepId = keeperRegistry.registerUpkeep(params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.offchainConfig);
     // fund upkeep
-    bool success = LINK.transferAndCall(address(keeperRegistry), amount, abi.encode(upkeepId));
+    bool success = LINK.transferAndCall(address(keeperRegistry), params.amount, abi.encode(upkeepId));
     if (!success) {
       revert LinkTransferFailed(address(keeperRegistry));
     }
 
-    emit RegistrationApproved(hash, name, upkeepId);
+    emit RegistrationApproved(hash, params.name, upkeepId);
 
     return upkeepId;
   }
