@@ -205,7 +205,10 @@ contract KeeperRegistry2_0 is
     s_hotVars.totalPremium += totalPremium;
 
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
-    emit Transmitted(s_latestConfigDigest, uint32(epochAndRound >> 8));
+    uint32 epoch = uint32(epochAndRound >> 8);
+    if (epoch > hotVars.latestEpoch) {
+      s_hotVars.latestEpoch = epoch;
+    }
   }
 
   /**
@@ -321,7 +324,8 @@ contract KeeperRegistry2_0 is
       gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
       paused: false,
       reentrancyGuard: false,
-      totalPremium: totalPremium
+      totalPremium: totalPremium,
+      latestEpoch: 0
     });
 
     s_storage = Storage({
@@ -473,6 +477,7 @@ contract KeeperRegistry2_0 is
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       latestConfigDigest: s_latestConfigDigest,
+      latestEpoch: s_hotVars.latestEpoch,
       paused: s_hotVars.paused
     });
 
@@ -556,7 +561,7 @@ contract KeeperRegistry2_0 is
       uint32 epoch
     )
   {
-    return (true, configDigest, epoch);
+    return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
   }
 
   ////////
