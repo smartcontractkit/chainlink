@@ -37,7 +37,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 85_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 30_000; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 27_000; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
   uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_800; // Used in actual payment. overhead per upkeep performed
 
@@ -206,15 +206,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
    * @member paused if this upkeep has been paused
    */
   struct Upkeep {
-    uint96 balance;
-    address target;
-    // 1 full EVM word
-    uint96 amountSpent;
     uint32 executeGas;
     uint32 maxValidBlocknumber;
-    uint32 lastPerformBlockNumber;
     bool paused;
-    // 7 bytes left in 2nd EVM word
+    address target;
+    // 3 bytes left in 1st EVM word - not written to in transmit
+    uint96 amountSpent;
+    uint96 balance;
+    uint32 lastPerformBlockNumber;
+    // 4 bytes left in 2nd EVM word - written in transmit path
   }
 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
