@@ -1258,8 +1258,6 @@ describe('KeeperRegistry2_0', () => {
           const registryLinkBefore = await linkToken.balanceOf(registry.address)
 
           // Do the thing
-          const configDigest = (await registry.getState()).state
-            .latestConfigDigest
           const tx = await getTransmitTx(
             registry,
             keeper1,
@@ -1338,10 +1336,8 @@ describe('KeeperRegistry2_0', () => {
             tx.blockNumber?.toString(),
           )
 
-          // Epoch should be 5 as we used epochAndRound5_1
-          await expect(tx)
-            .to.emit(registry, 'Transmitted')
-            .withArgs(configDigest, 5)
+          // Latest epoch should be 5
+          assert.equal((await registry.getState()).state.latestEpoch, 5)
         }
       })
 
@@ -1413,6 +1409,8 @@ describe('KeeperRegistry2_0', () => {
                     newF,
                     '): calculated overhead: ',
                     gasOverhead.toString(),
+                    ' actual overhead: ',
+                    receipt.gasUsed.sub(gasUsed).toString(),
                     ' margin over gasUsed: ',
                     gasUsed.add(gasOverhead).sub(receipt.gasUsed).toString(),
                   )
@@ -2759,6 +2757,7 @@ describe('KeeperRegistry2_0', () => {
         updatedConfig.fallbackLinkPrice.toNumber(),
         fbLinkEth.toNumber(),
       )
+      assert.equal(updatedState.latestEpoch, 0)
 
       assert(oldState.configCount + 1 == updatedState.configCount)
       assert(

@@ -37,7 +37,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal constant REGISTRY_GAS_OVERHEAD = 85_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 32_000; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 27_000; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
   uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 5_800; // Used in actual payment. overhead per upkeep performed
 
@@ -134,12 +134,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     OPTIMISM
   }
 
-  struct PerformPaymentParams {
-    uint256 fastGasWei;
-    uint256 linkNative;
-    uint256 maxLinkPayment;
-  }
-
   // Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint8 f; // maximum number of faulty oracles
@@ -150,7 +144,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     bool paused; // pause switch for all upkeeps in the registry
     bool reentrancyGuard; // guard against reentrancy
     uint96 totalPremium; // total historical payment to oracles for premium
-    // 4 bytes to 1 EVM word
+    uint32 latestEpoch; // latest epoch for which a report was transmitted
+    // 1 EVM word full
   }
 
   // Config + State storage struct which is not on hot transmit path
@@ -211,15 +206,15 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
    * @member paused if this upkeep has been paused
    */
   struct Upkeep {
-    uint96 balance;
-    address target;
-    // 1 full EVM word
-    uint96 amountSpent;
     uint32 executeGas;
     uint32 maxValidBlocknumber;
-    uint32 lastPerformBlockNumber;
     bool paused;
-    // 7 bytes left in 2nd EVM word
+    address target;
+    // 3 bytes left in 1st EVM word - not written to in transmit
+    uint96 amountSpent;
+    uint96 balance;
+    uint32 lastPerformBlockNumber;
+    // 4 bytes left in 2nd EVM word - written in transmit path
   }
 
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
@@ -382,20 +377,20 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev generates a PerformPaymentParams struct containing payment information for an upkeep
+   * @dev generates the max link payment for an upkeep
    */
-  function _generatePerformPaymentParams(
-    Upkeep memory upkeep,
+  function _getMaxLinkPayment(
     HotVars memory hotVars,
+    uint32 executeGas,
     uint32 performDataLength,
     uint256 fastGasWei,
     uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
-  ) internal view returns (PerformPaymentParams memory) {
+  ) internal view returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      upkeep.executeGas,
+      executeGas,
       gasOverhead,
       fastGasWei,
       linkNative,
@@ -403,8 +398,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       isExecution
     );
 
-    return
-      PerformPaymentParams({fastGasWei: fastGasWei, linkNative: linkNative, maxLinkPayment: (reimbursement + premium)});
+    return reimbursement + premium;
   }
 
   /**
