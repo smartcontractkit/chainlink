@@ -89,7 +89,7 @@ contract KeeperRegistry2_0 is
    */
   function transmit(
     bytes32[3] calldata reportContext,
-    bytes calldata report,
+    bytes calldata rawReport,
     bytes32[] calldata rs,
     bytes32[] calldata ss,
     bytes32 rawVs
@@ -100,24 +100,24 @@ contract KeeperRegistry2_0 is
     if (hotVars.paused) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
-    Report memory parsedReport = _decodeReport(report);
-    UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](parsedReport.upkeepIds.length);
+    Report memory report = _decodeReport(rawReport);
+    UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     uint16 numUpkeepsPassedChecks;
 
-    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
-      upkeepTransmitInfo[i].upkeep = s_upkeep[parsedReport.upkeepIds[i]];
+    for (uint256 i = 0; i < report.upkeepIds.length; i++) {
+      upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
 
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
         upkeepTransmitInfo[i].upkeep.executeGas,
-        uint32(parsedReport.wrappedPerformDatas[i].performData.length),
-        parsedReport.fastGasWei,
-        parsedReport.linkNative,
+        uint32(report.wrappedPerformDatas[i].performData.length),
+        report.fastGasWei,
+        report.linkNative,
         true
       );
       upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
-        parsedReport.upkeepIds[i],
-        parsedReport.wrappedPerformDatas[i],
+        report.upkeepIds[i],
+        report.wrappedPerformDatas[i],
         upkeepTransmitInfo[i].upkeep,
         upkeepTransmitInfo[i].maxLinkPayment
       );
@@ -132,27 +132,27 @@ contract KeeperRegistry2_0 is
     // Verify signatures
     if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
     if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-    _verifyReportSignature(reportContext, report, rs, ss, rawVs);
+    _verifyReportSignature(reportContext, rawReport, rs, ss, rawVs);
 
     // Actually perform upkeeps
-    for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+    for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         // Check if this upkeep was already performed in this report
-        if (s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber == uint32(block.number)) {
+        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(block.number)) {
           revert InvalidReport();
         }
 
         // Actually perform the target upkeep
         (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
           upkeepTransmitInfo[i].upkeep,
-          parsedReport.wrappedPerformDatas[i].performData
+          report.wrappedPerformDatas[i].performData
         );
 
         // Deduct that gasUsed by upkeep from our running counter
         gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
         // Store last perform block number for upkeep
-        s_upkeep[parsedReport.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
+        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(block.number);
       }
     }
 
@@ -160,7 +160,7 @@ contract KeeperRegistry2_0 is
     // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
     // Rest of msg.data is accounted for in accounting overheads
     gasOverhead =
-      (gasOverhead - gasleft() + 16 * report.length) +
+      (gasOverhead - gasleft() + 16 * rawReport.length) +
       ACCOUNTING_FIXED_GAS_OVERHEAD +
       (ACCOUNTING_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
     gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
@@ -170,29 +170,29 @@ contract KeeperRegistry2_0 is
     {
       uint96 reimbursement;
       uint96 premium;
-      for (uint256 i = 0; i < parsedReport.upkeepIds.length; i++) {
+      for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
           upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
             gasOverhead,
-            uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+            uint32(report.wrappedPerformDatas[i].performData.length),
             hotVars.f
           );
 
           (reimbursement, premium) = _postPerformPayment(
             hotVars,
-            parsedReport.upkeepIds[i],
+            report.upkeepIds[i],
             upkeepTransmitInfo[i],
-            parsedReport.fastGasWei,
-            parsedReport.linkNative,
+            report.fastGasWei,
+            report.linkNative,
             numUpkeepsPassedChecks
           );
           totalPremium += premium;
           totalReimbursement += reimbursement;
 
           emit UpkeepPerformed(
-            parsedReport.upkeepIds[i],
+            report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            parsedReport.wrappedPerformDatas[i].checkBlockNumber,
+            report.wrappedPerformDatas[i].checkBlockNumber,
             upkeepTransmitInfo[i].gasUsed,
             upkeepTransmitInfo[i].gasOverhead,
             reimbursement + premium
