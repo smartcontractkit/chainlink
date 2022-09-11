@@ -34,7 +34,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 110_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 85_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 32_000; // Used in actual payment. Fixed overhead per tx
@@ -71,6 +71,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
+  mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general configuration preferences
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -193,6 +194,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
 
   // Report transmitted by OCR to transmit function
   struct Report {
+    uint256 fastGasWei;
+    uint256 linkNative;
     uint256[] upkeepIds; // Ids of upkeeps
     PerformDataWrapper[] wrappedPerformDatas; // Contains checkInfo and performData for the corresponding upkeeps
   }
@@ -231,6 +234,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
   event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(
@@ -384,9 +388,10 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     Upkeep memory upkeep,
     HotVars memory hotVars,
     uint32 performDataLength,
+    uint256 fastGasWei,
+    uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (PerformPaymentParams memory) {
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 gasOverhead = _getMaxGasOverhead(performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,

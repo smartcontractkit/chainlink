@@ -86,6 +86,7 @@ struct UpkeepInfo {
   uint32 lastPerformBlockNumber;
   uint96 amountSpent;
   bool paused;
+  bytes offchainConfig;
 }
 
 enum UpkeepFailureReason {
@@ -121,6 +122,8 @@ interface KeeperRegistryBaseInterface {
   function addFunds(uint256 id, uint96 amount) external;
 
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
+
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external;
 
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
 
@@ -162,7 +165,9 @@ interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     );
 }
 
@@ -173,6 +178,8 @@ interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     );
 }

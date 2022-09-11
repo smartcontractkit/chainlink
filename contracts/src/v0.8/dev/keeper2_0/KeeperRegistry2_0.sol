@@ -8,7 +8,7 @@ import "./KeeperRegistryBase2_0.sol";
 import {KeeperRegistryExecutableInterface, UpkeepInfo} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
-import "./interfaces/OCR2Abstract.sol";
+import "./OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -111,6 +111,8 @@ contract KeeperRegistry2_0 is
         upkeepTransmitInfo[i].upkeep,
         hotVars,
         uint32(parsedReport.wrappedPerformDatas[i].performData.length),
+        parsedReport.fastGasWei,
+        parsedReport.linkNative,
         true
       );
       upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
@@ -383,7 +385,8 @@ contract KeeperRegistry2_0 is
       maxValidBlocknumber: reg.maxValidBlocknumber,
       lastPerformBlockNumber: reg.lastPerformBlockNumber,
       amountSpent: reg.amountSpent,
-      paused: reg.paused
+      paused: reg.paused,
+      offchainConfig: s_upkeepOffchainConfig[id]
     });
     return upkeepInfo;
   }
@@ -611,13 +614,21 @@ contract KeeperRegistry2_0 is
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
   function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    uint256[] memory upkeepIds;
-    PerformDataWrapper[] memory wrappedPerformDatas;
-
-    (upkeepIds, wrappedPerformDatas) = abi.decode(rawReport, (uint256[], PerformDataWrapper[]));
+    (
+      uint256 fastGasWei,
+      uint256 linkNative,
+      uint256[] memory upkeepIds,
+      PerformDataWrapper[] memory wrappedPerformDatas
+    ) = abi.decode(rawReport, (uint256, uint256, uint256[], PerformDataWrapper[]));
     if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
 
-    return Report({upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
+    return
+      Report({
+        fastGasWei: fastGasWei,
+        linkNative: linkNative,
+        upkeepIds: upkeepIds,
+        wrappedPerformDatas: wrappedPerformDatas
+      });
   }
 
   /**
@@ -669,7 +680,7 @@ contract KeeperRegistry2_0 is
     bytes32[] calldata ss,
     bytes32 rawVs
   ) internal view {
-    bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
+    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
     // i-th byte counts number of sigs made by i-th signer
     uint256 signedCount = 0;
 
@@ -782,7 +793,9 @@ contract KeeperRegistry2_0 is
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
-      uint256 gasUsed
+      uint256 gasUsed,
+      uint256 fastGasWei,
+      uint256 linkNative
     )
   {
     // Executed through logic contract
@@ -856,6 +869,16 @@ contract KeeperRegistry2_0 is
    * @param gasLimit new gas limit for the upkeep
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice allows the admin of an upkeep to modify the offchain config
+   * @param id upkeep to be change the gas limit for
+   * @param config instructs oracles of offchain config preferences
+   */
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external override {
     // Executed through logic contract
     _fallback();
   }
