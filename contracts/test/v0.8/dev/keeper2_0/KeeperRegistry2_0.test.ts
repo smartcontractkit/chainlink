@@ -85,8 +85,8 @@ const encodeReport = (
     u.performData,
   ])
   return ethers.utils.defaultAbiCoder.encode(
-    ['uint256', 'uint256', 'uint256[]', 'tuple(uint32,bytes32,bytes)[]'],
-    [gasWeiReport, linkEthReport, upkeepIds, performDataTuples],
+    ['tuple(uint256, uint256, uint256[],tuple(uint32,bytes32,bytes)[])'],
+    [[gasWeiReport, linkEthReport, upkeepIds, performDataTuples]],
   )
 }
 

@@ -609,22 +609,11 @@ contract KeeperRegistry2_0 is
   /**
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
-  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    (
-      uint256 fastGasWei,
-      uint256 linkNative,
-      uint256[] memory upkeepIds,
-      PerformDataWrapper[] memory wrappedPerformDatas
-    ) = abi.decode(rawReport, (uint256, uint256, uint256[], PerformDataWrapper[]));
-    if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
+  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory report) {
+    report = abi.decode(rawReport, (Report));
+    if (report.upkeepIds.length != report.wrappedPerformDatas.length) revert InvalidReport();
 
-    return
-      Report({
-        fastGasWei: fastGasWei,
-        linkNative: linkNative,
-        upkeepIds: upkeepIds,
-        wrappedPerformDatas: wrappedPerformDatas
-      });
+    return report;
   }
 
   /**
