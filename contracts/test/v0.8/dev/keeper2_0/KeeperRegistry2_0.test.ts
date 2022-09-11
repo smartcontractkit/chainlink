@@ -3408,6 +3408,51 @@ describe('KeeperRegistry2_0', () => {
     })
   })
 
+  describe('#setUpkeepOffchainConfig', () => {
+    const newConfig = '0xc0ffeec0ffee'
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepOffchainConfig(upkeepId.add(1), newConfig),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(upkeepId)
+      await evmRevert(
+        registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig),
+        'UpkeepCancelled()',
+      )
+    })
+
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry.connect(owner).setUpkeepOffchainConfig(upkeepId, newConfig),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('updates the config successfully', async () => {
+      const initialGasLimit = (await registry.getUpkeep(upkeepId)).executeGas
+      assert.equal(initialGasLimit, executeGas.toNumber())
+      await registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig)
+      const updatedConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
+      assert.equal(newConfig, updatedConfig)
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry
+        .connect(admin)
+        .setUpkeepOffchainConfig(upkeepId, newConfig)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepOffchainConfigSet')
+        .withArgs(upkeepId, newConfig)
+    })
+  })
+
   describe('#transferUpkeepAdmin', () => {
     it('reverts when called by anyone but the current upkeep admin', async () => {
       await evmRevert(

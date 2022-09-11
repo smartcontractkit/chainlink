@@ -71,6 +71,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
+  mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general configuration preferences
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -233,6 +234,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
   event UpkeepCheckDataUpdated(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(

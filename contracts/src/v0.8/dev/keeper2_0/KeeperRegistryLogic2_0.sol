@@ -240,6 +240,17 @@ contract KeeperRegistryLogic2_0 is KeeperRegistryBase2_0 {
   /**
    * @dev Called through KeeperRegistry main contract
    */
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
+    _requireAdminAndNotCancelled(id);
+
+    s_upkeepOffchainConfig[id] = config;
+
+    emit UpkeepOffchainConfigSet(id, config);
+  }
+
+  /**
+   * @dev Called through KeeperRegistry main contract
+   */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();

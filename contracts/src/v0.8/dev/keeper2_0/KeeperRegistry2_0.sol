@@ -385,7 +385,8 @@ contract KeeperRegistry2_0 is
       maxValidBlocknumber: reg.maxValidBlocknumber,
       lastPerformBlockNumber: reg.lastPerformBlockNumber,
       amountSpent: reg.amountSpent,
-      paused: reg.paused
+      paused: reg.paused,
+      offchainConfig: s_upkeepOffchainConfig[id]
     });
     return upkeepInfo;
   }
@@ -862,6 +863,16 @@ contract KeeperRegistry2_0 is
    * @param gasLimit new gas limit for the upkeep
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override {
+    // Executed through logic contract
+    _fallback();
+  }
+
+  /**
+   * @notice allows the admin of an upkeep to modify the offchain config
+   * @param id upkeep to be change the gas limit for
+   * @param config instructs oracles of offchain config preferences
+   */
+  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external override {
     // Executed through logic contract
     _fallback();
   }
