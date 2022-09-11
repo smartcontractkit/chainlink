@@ -183,8 +183,6 @@ before(async () => {
 })
 
 describe('KeeperRegistry2_0', () => {
-  const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
-  const gasWei = BigNumber.from(1000000000) // 1 gwei
   const linkDivisibility = BigNumber.from('1000000000000000000')
   const executeGas = BigNumber.from('1000000')
   const paymentPremiumBase = BigNumber.from('1000000000')
@@ -3436,8 +3434,8 @@ describe('KeeperRegistry2_0', () => {
     })
 
     it('updates the config successfully', async () => {
-      const initialGasLimit = (await registry.getUpkeep(upkeepId)).executeGas
-      assert.equal(initialGasLimit, executeGas.toNumber())
+      const initialConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
+      assert.equal(initialConfig, '0x')
       await registry.connect(admin).setUpkeepOffchainConfig(upkeepId, newConfig)
       const updatedConfig = (await registry.getUpkeep(upkeepId)).offchainConfig
       assert.equal(newConfig, updatedConfig)
