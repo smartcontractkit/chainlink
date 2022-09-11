@@ -48,6 +48,7 @@ struct OnchainConfig {
  * @member configCount ordinal number of current config, out of all configs applied to this contract so far
  * @member latestConfigBlockNumber last block at which this config was set
  * @member latestConfigDigest domain-separation tag for current config
+ * @member latestEpoch for which a report was transmitted
  * @member paused freeze on execution scoped to the entire registry
  */
 struct State {
@@ -59,6 +60,7 @@ struct State {
   uint32 configCount;
   uint32 latestConfigBlockNumber;
   bytes32 latestConfigDigest;
+  uint32 latestEpoch;
   bool paused;
 }
 
