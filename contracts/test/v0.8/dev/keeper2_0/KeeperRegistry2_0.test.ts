@@ -1957,37 +1957,8 @@ describe('KeeperRegistry2_0', () => {
   })
 
   describe('#getMinBalanceForUpkeep / #checkUpkeep / #transmit', () => {
-    it('calculates the minimum balance appropriately for skip verification upkeep', async () => {
+    it('calculates the minimum balance appropriately', async () => {
       await mock.setCanCheck(true)
-      const oneWei = BigNumber.from(1)
-      const minBalance = await registry.getMinBalanceForUpkeep(upkeepId)
-
-      await registry.connect(admin).addFunds(upkeepId, oneWei)
-      let checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
-
-      assert.equal(checkUpkeepResult.upkeepNeeded, false)
-      assert.equal(checkUpkeepResult.upkeepFailureReason, 6)
-
-      await registry.connect(admin).addFunds(upkeepId, minBalance.sub(oneWei))
-      checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic.checkUpkeep(upkeepId)
-      assert.equal(checkUpkeepResult.upkeepNeeded, true)
-    })
-
-    it('calculates the minimum balance appropriately for non skip verification upkeep', async () => {
-      await mock.setCanCheck(true)
-      const tx = await registry
-        .connect(owner)
-        .registerUpkeep(
-          mock.address,
-          executeGas,
-          await admin.getAddress(),
-          randomBytes,
-        )
-      upkeepId = await getUpkeepID(tx)
 
       const oneWei = BigNumber.from(1)
       const minBalance = await registry.getMinBalanceForUpkeep(upkeepId)
@@ -2517,6 +2488,110 @@ describe('KeeperRegistry2_0', () => {
         premiums,
         flatFees,
         l1CostWeiOpt,
+      )
+    })
+
+    it('uses the fallback gas price if the feed has issues', async () => {
+      const expectedFallbackMaxPayment = linkForGas(
+        executeGas,
+        registryGasOverhead
+          .add(registryPerSignerGasOverhead.mul(f + 1))
+          .add(maxPerformDataSize.mul(16)),
+        gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+      ).total
+
+      // Stale feed
+      let roundId = 99
+      let answer = 100
+      let updatedAt = 946684800 // New Years 2000 🥳
+      let startedAt = 946684799
+      await gasPriceFeed
+        .connect(owner)
+        .updateRoundData(roundId, answer, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Negative feed price
+      roundId = 100
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await gasPriceFeed
+        .connect(owner)
+        .updateRoundData(roundId, -100, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Zero feed price
+      roundId = 101
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await gasPriceFeed
+        .connect(owner)
+        .updateRoundData(roundId, 0, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+    })
+
+    it('uses the fallback link price if the feed has issues', async () => {
+      const expectedFallbackMaxPayment = linkForGas(
+        executeGas,
+        registryGasOverhead
+          .add(registryPerSignerGasOverhead.mul(f + 1))
+          .add(maxPerformDataSize.mul(16)),
+        gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+      ).total
+
+      // Stale feed
+      let roundId = 99
+      let answer = 100
+      let updatedAt = 946684800 // New Years 2000 🥳
+      let startedAt = 946684799
+      await linkEthFeed
+        .connect(owner)
+        .updateRoundData(roundId, answer, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Negative feed price
+      roundId = 100
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await linkEthFeed
+        .connect(owner)
+        .updateRoundData(roundId, -100, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
+      )
+
+      // Zero feed price
+      roundId = 101
+      updatedAt = Math.floor(Date.now() / 1000)
+      startedAt = 946684799
+      await linkEthFeed
+        .connect(owner)
+        .updateRoundData(roundId, 0, updatedAt, startedAt)
+
+      assert.equal(
+        expectedFallbackMaxPayment.toString(),
+        (await registry.getMaxPaymentForGas(executeGas)).toString(),
       )
     })
   })
