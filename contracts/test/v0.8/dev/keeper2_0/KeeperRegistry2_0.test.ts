@@ -1413,6 +1413,8 @@ describe('KeeperRegistry2_0', () => {
                     newF,
                     '): calculated overhead: ',
                     gasOverhead.toString(),
+                    ' actual overhead: ',
+                    receipt.gasUsed.sub(gasUsed).toString(),
                     ' margin over gasUsed: ',
                     gasUsed.add(gasOverhead).sub(receipt.gasUsed).toString(),
                   )
