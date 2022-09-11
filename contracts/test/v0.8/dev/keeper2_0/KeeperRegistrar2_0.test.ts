@@ -191,6 +191,7 @@ describe('KeeperRegistrar2_0', () => {
             executeGas,
             await admin.getAddress(),
             emptyBytes,
+            offchainConfig,
             amount,
             await requestSender.getAddress(),
           ),
@@ -217,6 +218,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount1,
           await requestSender.getAddress(),
         ],
@@ -240,6 +242,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await admin.getAddress(), // Should have been requestSender.getAddress()
         ],
@@ -262,6 +265,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           '0x0000000000000000000000000000000000000000',
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
@@ -296,6 +300,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
@@ -313,6 +318,7 @@ describe('KeeperRegistrar2_0', () => {
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
       assert.equal(newupkeep.executeGas, executeGas.toNumber())
+      assert.equal(newupkeep.offchainConfig, offchainConfig)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -342,6 +348,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
@@ -385,6 +392,7 @@ describe('KeeperRegistrar2_0', () => {
         executeGas,
         await admin.getAddress(),
         emptyBytes,
+        offchainConfig,
         amount,
         await requestSender.getAddress(),
       ])
@@ -401,6 +409,7 @@ describe('KeeperRegistrar2_0', () => {
         executeGas.toNumber() + 1, // make unique hash
         await admin.getAddress(),
         emptyBytes,
+        offchainConfig,
         amount,
         await requestSender.getAddress(),
       ])
@@ -423,6 +432,7 @@ describe('KeeperRegistrar2_0', () => {
         executeGas.toNumber() + 2, // make unique hash
         await admin.getAddress(),
         emptyBytes,
+        offchainConfig,
         amount,
         await requestSender.getAddress(),
       ])
@@ -439,6 +449,7 @@ describe('KeeperRegistrar2_0', () => {
         executeGas.toNumber() + 3, // make unique hash
         await admin.getAddress(),
         emptyBytes,
+        offchainConfig,
         amount,
         await requestSender.getAddress(),
       ])
@@ -476,6 +487,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
@@ -527,6 +539,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
@@ -696,6 +709,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
@@ -798,7 +812,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          '0x',
+          offchainConfig,
           hash,
         )
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -813,7 +827,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          '0x',
+          offchainConfig,
           hash,
         )
       const tx = registrar
@@ -824,7 +838,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
-          '0x',
+          offchainConfig,
           hash,
         )
       await evmRevert(tx, errorMsgs.requestNotFound)
@@ -854,6 +868,7 @@ describe('KeeperRegistrar2_0', () => {
           executeGas,
           await admin.getAddress(),
           emptyBytes,
+          offchainConfig,
           amount,
           await requestSender.getAddress(),
         ],
