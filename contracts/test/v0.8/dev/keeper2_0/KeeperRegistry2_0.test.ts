@@ -38,7 +38,7 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(110000)
+const registryGasOverhead = BigNumber.from(85000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
 const cancellationDelay = 50
 

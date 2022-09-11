@@ -34,7 +34,7 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 110_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 85_000; // Used only in maxPayment estimation, not in actual payment
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 32_000; // Used in actual payment. Fixed overhead per tx
