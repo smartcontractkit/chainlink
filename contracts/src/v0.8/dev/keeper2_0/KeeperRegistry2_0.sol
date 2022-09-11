@@ -8,7 +8,7 @@ import "./KeeperRegistryBase2_0.sol";
 import {KeeperRegistryExecutableInterface, UpkeepInfo} from "./interfaces/KeeperRegistryInterface2_0.sol";
 import "../../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
-import "./interfaces/OCR2Abstract.sol";
+import "./OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
