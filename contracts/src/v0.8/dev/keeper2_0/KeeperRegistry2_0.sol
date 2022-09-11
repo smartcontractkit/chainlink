@@ -511,14 +511,14 @@ contract KeeperRegistry2_0 is
     uint256 gasOverhead = _getMaxGasOverhead(s_storage.maxPerformDataSize, hotVars.f);
 
     (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(
-        hotVars,
-        gasLimit,
-        gasOverhead,
-        fastGasWei,
-        linkNative,
-        1, // Consider only 1 upkeep in batch to get maxPayment
-        false
-      );
+      hotVars,
+      gasLimit,
+      gasOverhead,
+      fastGasWei,
+      linkNative,
+      1, // Consider only 1 upkeep in batch to get maxPayment
+      false
+    );
     return gasReimbursement + premium;
   }
 
@@ -622,7 +622,13 @@ contract KeeperRegistry2_0 is
     ) = abi.decode(rawReport, (uint256, uint256, uint256[], PerformDataWrapper[]));
     if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
 
-    return Report({fastGasWei: fastGasWei, linkNative: linkNative, upkeepIds: upkeepIds, wrappedPerformDatas: wrappedPerformDatas});
+    return
+      Report({
+        fastGasWei: fastGasWei,
+        linkNative: linkNative,
+        upkeepIds: upkeepIds,
+        wrappedPerformDatas: wrappedPerformDatas
+      });
   }
 
   /**
