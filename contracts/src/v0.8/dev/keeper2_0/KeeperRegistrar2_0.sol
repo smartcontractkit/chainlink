@@ -348,16 +348,24 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
   /**
    * @dev verify registration request and emit RegistrationRequested event
    */
-  function _register(
-    RegistrationParams memory params,
-    address sender
-  ) private returns (uint256) {
+  function _register(RegistrationParams memory params, address sender) private returns (uint256) {
     if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
-    bytes32 hash = keccak256(abi.encode(params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.offchainConfig));
+    bytes32 hash = keccak256(
+      abi.encode(params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.offchainConfig)
+    );
 
-    emit RegistrationRequested(hash, params.name, params.encryptedEmail, params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.amount);
+    emit RegistrationRequested(
+      hash,
+      params.name,
+      params.encryptedEmail,
+      params.upkeepContract,
+      params.gasLimit,
+      params.adminAddress,
+      params.checkData,
+      params.amount
+    );
 
     uint256 upkeepId;
     RegistrarConfig memory config = s_config;
@@ -380,7 +388,13 @@ contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677Re
     KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
-    uint256 upkeepId = keeperRegistry.registerUpkeep(params.upkeepContract, params.gasLimit, params.adminAddress, params.checkData, params.offchainConfig);
+    uint256 upkeepId = keeperRegistry.registerUpkeep(
+      params.upkeepContract,
+      params.gasLimit,
+      params.adminAddress,
+      params.checkData,
+      params.offchainConfig
+    );
     // fund upkeep
     bool success = LINK.transferAndCall(address(keeperRegistry), params.amount, abi.encode(upkeepId));
     if (!success) {
