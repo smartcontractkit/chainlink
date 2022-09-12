@@ -699,7 +699,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
-	logBroadcast := logmocks.NewBroadcast(t)
+	_ = logmocks.NewBroadcast(t)
 	newCheckData := []byte("Chainlink")
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_3ABI, contractAddress)
 	newConfig := upkeepConfig1_3
@@ -707,7 +707,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeep", newConfig).Once()
 
 	updatedLog := registry1_3.KeeperRegistryUpkeepCheckDataUpdated{Id: upkeepId, NewCheckData: newCheckData}
-	logBroadcast = logmocks.NewBroadcast(t)
+	logBroadcast := logmocks.NewBroadcast(t)
 	logBroadcast.On("DecodedLog").Return(&updatedLog)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
