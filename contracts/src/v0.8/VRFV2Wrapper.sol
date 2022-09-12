@@ -268,7 +268,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       _data,
       (uint32, uint16, uint32)
     );
-    uint32 eip150Fee = getEIP150Overhead(callbackGasLimit);
+    uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     require(_amount >= price, "fee too low");
