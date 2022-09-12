@@ -30,7 +30,7 @@ func Test_validateDBURL(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			url := testutils.MustParseURL(t, test.url)
-			err := validateDBURL(*url)
+			err := ValidateDBURL(*url)
 			if test.wantErr == "" {
 				assert.Nil(t, err)
 			} else {
