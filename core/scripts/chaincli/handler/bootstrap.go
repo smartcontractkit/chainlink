@@ -8,9 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
