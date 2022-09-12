@@ -345,7 +345,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   }
 
   /**
-   * @dev Calculates premium needed for running an assembly call() post-EIP150.
+   * @dev Calculates extra amount of gas required for running an assembly call() post-EIP150.
    */
   function getEIP150Overhead(uint32 gas) private pure returns (uint32) {
     return gas / 63 + 1;
