@@ -197,7 +197,7 @@ describe('VRFV2Wrapper', () => {
       bigNumEquals(BigNumber.from('5820000000000000000'), result)
     })
 
-    it('can calculate price at 200 gwei, 100k limit', async () => {
+    it('can calculate price at 100 gwei, 100k limit', async () => {
       const result = calculatePrice(
         200_000,
         wrapperGasOverhead,
@@ -210,7 +210,7 @@ describe('VRFV2Wrapper', () => {
       bigNumEquals(BigNumber.from('11540000000000000000'), result)
     })
 
-    it('can calculate price at 200 gwei, 100k limit, 25% premium', async () => {
+    it('can calculate price at 100 gwei, 100k limit, 25% premium', async () => {
       const result = calculatePrice(
         200_000,
         wrapperGasOverhead,
