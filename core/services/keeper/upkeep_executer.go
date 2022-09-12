@@ -322,13 +322,12 @@ func buildJobSpec(
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID.String(),
 			"prettyID":              upkeep.PrettyID(),
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-				exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": chainID,
+			"performUpkeepGasLimit": 20000000,
+			"checkUpkeepGasLimit":   20000000,
+			"gasPrice":              gasPrice,
+			"gasTipCap":             gasTipCap,
+			"gasFeeCap":             gasFeeCap,
+			"evmChainID":            chainID,
 		},
 	}
 }
