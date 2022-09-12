@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"net/url"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry11 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/upkeep_counter_wrapper"
@@ -20,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 // Keeper is the keepers commands handler
@@ -350,7 +347,7 @@ func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registry
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
 
-	cl, err := k.authenticate(urlStr, email, password, lggr)
+	cl, err := authenticate(urlStr, email, password, lggr)
 	if err != nil {
 		return err
 	}
@@ -360,26 +357,6 @@ func (k *Keeper) createKeeperJobOnExistingNode(urlStr, email, password, registry
 		return err
 	}
 	return nil
-}
-
-// authenticate creates a http client with URL, email and password
-func (k *Keeper) authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPClient, error) {
-	remoteNodeURL, err := url.Parse(urlStr)
-	if err != nil {
-		return nil, err
-	}
-
-	c := cmd.ClientOpts{RemoteNodeURL: *remoteNodeURL}
-	sr := sessions.SessionRequest{Email: email, Password: password}
-	store := &cmd.MemoryCookieStore{}
-
-	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
-	if _, err = tca.Authenticate(sr); err != nil {
-		log.Println("failed to authenticate: ", err)
-		return nil, err
-	}
-
-	return cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr), nil
 }
 
 // getActiveUpkeepIds retrieves active upkeep ids from registry 1.2

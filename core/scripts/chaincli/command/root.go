@@ -34,5 +34,6 @@ func init() {
 
 	RootCmd.AddCommand(keeper.RootCmd)
 	RootCmd.AddCommand(feed.RootCmd)
+	RootCmd.AddCommand(BootstrapNodeCmd)
 	RootCmd.AddCommand(RevertReasonCmd)
 }
