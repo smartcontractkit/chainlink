@@ -585,15 +585,6 @@ type DRSpecConfig interface {
 }
 
 func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
-	// Take the largest of the global vs specific.
-	// Note that the v2 vrf requests specify their own confirmation requirements.
-	// We wait for max(minIncomingConfirmations, request required confs) to be safe.
-	minIncomingConfirmations := cfg.MinIncomingConfirmations()
-	if vrfs.MinIncomingConfirmations <= minIncomingConfirmations {
-		vrfs.ConfirmationsEnv = true
-		vrfs.MinIncomingConfirmations = minIncomingConfirmations
-	}
-
 	if vrfs.PollPeriod == 0 {
 		vrfs.PollPeriodEnv = true
 		vrfs.PollPeriod = 5 * time.Second
@@ -603,7 +594,7 @@ func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
 }
 
 func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
-	// Same as for VRF, take the largest of the global vs specific.
+	// Take the largest of the global vs specific.
 	minIncomingConfirmations := cfg.MinIncomingConfirmations()
 	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < minIncomingConfirmations {
 		drs.MinIncomingConfirmationsEnv = true
