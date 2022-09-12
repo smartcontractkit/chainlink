@@ -317,14 +317,14 @@ func buildJobSpec(
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"jobID":                 jb.ID,
-			"fromAddress":           upkeep.Registry.FromAddress.String(),
-			"contractAddress":       upkeep.Registry.ContractAddress.String(),
-			"upkeepID":              upkeep.UpkeepID.String(),
-			"prettyID":              upkeep.PrettyID(),
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-				exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
+			"jobID":           jb.ID,
+			"fromAddress":     upkeep.Registry.FromAddress.String(),
+			"contractAddress": upkeep.Registry.ContractAddress.String(),
+			"upkeepID":        upkeep.UpkeepID.String(),
+			"prettyID":        upkeep.PrettyID(),
+			//"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
+			//"checkUpkeepGasLimit": exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
+			//	exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
 			"gasPrice":   gasPrice,
 			"gasTipCap":  gasTipCap,
 			"gasFeeCap":  gasFeeCap,
