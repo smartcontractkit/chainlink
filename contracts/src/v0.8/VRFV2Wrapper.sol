@@ -268,6 +268,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       _data,
       (uint32, uint16, uint32)
     );
+    uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     require(_amount >= price, "fee too low");
@@ -277,7 +278,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       s_keyHash,
       SUBSCRIPTION_ID,
       requestConfirmations,
-      callbackGasLimit + s_wrapperGasOverhead,
+      callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords
     );
     s_callbacks[requestId] = Callback({
@@ -341,6 +342,13 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     }
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
     return weiPerUnitLink;
+  }
+
+  /**
+   * @dev Calculates extra amount of gas required for running an assembly call() post-EIP150.
+   */
+  function getEIP150Overhead(uint32 gas) private pure returns (uint32) {
+    return gas / 63 + 1;
   }
 
   /**
