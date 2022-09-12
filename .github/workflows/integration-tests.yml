@@ -216,3 +216,63 @@ jobs:
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
 
   ### End Solana Section
+
+  ### Soak test runners
+  eth-soak-tests-vrfv2:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: ETH vrfv2 Soak Tests
+    runs-on: ubuntu-latest
+    needs: [build-chainlink, changes]
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: core-CI-eth
+      TEST_LOG_LEVEL: debug
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      ## Run this step when changes that require tests to be run are made
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@1f3c81b148e53caaa0563f8963f884f0e5a4f82d # v2.0.15
+        with:
+          test_command_to_run: make test_smoke_simulated args="-nodes=30"
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: latest.${{ github.sha }}
+          artifacts_location: ./integration-tests/smoke/logs
+          publish_check_name: EVM Smoke Test Results
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - uses: convictional/trigger-workflow-and-wait@v1.6.1
+        with:
+          owner: smartcontractkit
+          repo: atlas
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_user: github-user
+          workflow_file_name: vrfv2-soak-tests.yml
+          ref: soak_test_documentation
+          wait_interval: 60
+          client_payload: "{\"unique_ref\": \"${{ github.ref }}\"}"
+          propagate_failure: true
+          trigger_workflow: true
+          wait_workflow: true
+
+      ## Run Cleanup regardless
+      - name: cleanup
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@1f3c81b148e53caaa0563f8963f884f0e5a4f82d # v2.0.15
+        with:
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+
+  ### End Soak test runners
