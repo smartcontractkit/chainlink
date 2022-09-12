@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	executionQueueSize = 10
-	arbitrumChainId    = 42161
-	arbitrumGoerli     = 421613
+	executionQueueSize    = 10
+	arbitrumChainId       = 42161
+	arbitrumGoerliChainId = 421613
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -317,11 +317,12 @@ func buildJobSpec(
 		evmChainID = chainId.String()
 	}
 
-	var checkUpkeepGasLimit, performUpkeepGasLimit uint32
-	if !isArbitrum(chainId) {
-		performUpkeepGasLimit = upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead()
-		checkUpkeepGasLimit = exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-			exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas
+	checkUpkeepGasLimit := exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
+		exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas
+	performUpkeepGasLimit := upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead()
+	if isArbitrumChain(chainId) {
+		performUpkeepGasLimit = 0
+		checkUpkeepGasLimit = 0
 	}
 
 	return map[string]interface{}{
@@ -341,6 +342,6 @@ func buildJobSpec(
 	}
 }
 
-func isArbitrum(chainId *utils.Big) bool {
-	return chainId != nil && (chainId.Int64() == arbitrumChainId || chainId.Int64() == arbitrumGoerli)
+func isArbitrumChain(chainId *utils.Big) bool {
+	return chainId != nil && (chainId.Int64() == arbitrumChainId || chainId.Int64() == arbitrumGoerliChainId)
 }

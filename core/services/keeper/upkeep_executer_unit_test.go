@@ -45,6 +45,11 @@ func (_m *registryGasCheckMock) KeeperRegistryPerformGasOverhead() uint32 {
 }
 
 func TestBuildJobSpec(t *testing.T) {
+	testBuildJobSpec(t, utils.NewBigI(250))
+	testBuildJobSpec(t, utils.NewBigI(arbitrumChainId))
+}
+
+func testBuildJobSpec(t *testing.T, chainId *utils.Big) {
 	jb := job.Job{ID: 10}
 	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
 	contract := ethkey.EIP55Address(testutils.NewAddress().Hex())
@@ -68,7 +73,13 @@ func TestBuildJobSpec(t *testing.T) {
 	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(2)
 	m.On("KeeperRegistryCheckGasOverhead").Return(uint32(6)).Times(1)
 
-	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, utils.NewBigI(250))
+	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, chainId)
+	expectedPerformUpkeepGasLimit := uint32(21)
+	expectedCheckUpkeepGasLimit := uint32(38)
+	if isArbitrumChain(chainId) {
+		expectedPerformUpkeepGasLimit = 0
+		expectedCheckUpkeepGasLimit = 0
+	}
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -77,12 +88,12 @@ func TestBuildJobSpec(t *testing.T) {
 			"contractAddress":       contract.String(),
 			"upkeepID":              "4",
 			"prettyID":              fmt.Sprintf("UPx%064d", 4),
-			"performUpkeepGasLimit": uint32(21),
-			"checkUpkeepGasLimit":   uint32(38),
+			"performUpkeepGasLimit": expectedPerformUpkeepGasLimit,
+			"checkUpkeepGasLimit":   expectedCheckUpkeepGasLimit,
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
 			"gasFeeCap":             gasFeeCap,
-			"evmChainID":            "250",
+			"evmChainID":            chainId.String(),
 		},
 	}
 
