@@ -38,38 +38,6 @@ const styles = (theme: Theme) =>
       padding: theme.spacing.unit * 5,
       paddingBottom: 0,
     },
-    mainRow: {
-      marginBottom: theme.spacing.unit * 2,
-    },
-    actions: {
-      textAlign: 'right',
-    },
-    regionalNavButton: {
-      marginLeft: theme.spacing.unit,
-      marginRight: theme.spacing.unit,
-    },
-    horizontalNav: {
-      paddingBottom: 0,
-    },
-    horizontalNavItem: {
-      display: 'inline',
-      paddingLeft: 0,
-      paddingRight: 0,
-    },
-    horizontalNavLink: {
-      padding: `${theme.spacing.unit * 4}px ${theme.spacing.unit * 4}px`,
-      textDecoration: 'none',
-      display: 'inline-block',
-      borderBottom: 'solid 1px',
-      borderBottomColor: theme.palette.common.white,
-      '&:hover': {
-        borderBottomColor: theme.palette.primary.main,
-      },
-    },
-    activeNavLink: {
-      color: theme.palette.primary.main,
-      borderBottomColor: theme.palette.primary.main,
-    },
     chainId: {
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -103,9 +71,6 @@ const styles = (theme: Theme) =>
       fontSize: theme.spacing.unit * 2,
       fontWeight: 450,
       marginLeft: theme.spacing.unit * 6,
-    },
-    modalTextarea: {
-      marginLeft: theme.spacing.unit * 2,
     },
     modalContent: {
       width: 'inherit',

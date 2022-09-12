@@ -414,13 +414,13 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		if err != nil {
 			return nil, fmt.Errorf("error getting EVM Chain: %v", err)
 		}
+
 		ethKeys = append(ethKeys, ETHKey{
 			addr:  k.EIP55Address,
 			state: state,
 			chain: chain,
 		})
 	}
-
 	// Put disabled keys to the end
 	sort.SliceStable(ethKeys, func(i, j int) bool {
 		return !states[i].Disabled && states[j].Disabled
