@@ -11,6 +11,11 @@ import "../../interfaces/ERC677ReceiverInterface.sol";
 import "./OCR2Abstract.sol";
 
 /**
+ _.  _|_ _ ._ _  _._|_o _ ._  o _  _    ._  _| _  __|_o._
+(_||_||_(_)| | |(_| |_|(_)| | |_> (_)|_||  (_|(/__> |_|| |\/
+                                                          /
+ */
+/**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
