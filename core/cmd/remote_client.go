@@ -466,10 +466,11 @@ func (cli *Client) ConfigDump(c *clipkg.Context) (err error) {
 func (cli *Client) ConfigFileValidate(c *clipkg.Context) error {
 	err := cli.Config.Validate()
 	if err != nil {
-		return err
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
 	}
 	cli.Config.LogConfiguration(func(params ...any) { fmt.Println(params...) })
-	return err
+	return nil
 }
 
 func normalizePassword(password string) string {
