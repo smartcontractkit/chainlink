@@ -27,11 +27,19 @@ chainID = %d`
 )
 
 // StartBootstrapNode starts the ocr2 bootstrap node with the given contract address
-func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string) {
+func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPort, p2pv2Port int) {
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
 
-	url, _, err := h.launchChainlinkNode(ctx, 6688)
+	url, _, err := h.launchChainlinkNode(
+		ctx,
+		uiPort,
+		"FEATURE_OFFCHAIN_REPORTING2=true",
+		"FEATURE_LOG_POLLER=true",
+		"P2P_NETWORKING_STACK=V2",
+		"CHAINLINK_TLS_PORT=0",
+		fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=127.0.0.1:%d", p2pv2Port),
+	)
 	if err != nil {
 		lggr.Fatal("Failed to launch chainlink node, ", err)
 	}

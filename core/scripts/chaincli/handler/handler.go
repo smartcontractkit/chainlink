@@ -165,7 +165,7 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) {
 	}
 }
 
-func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int) (string, func(), error) {
+func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, extraEnvVars ...string) (string, func(), error) {
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -236,7 +236,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int) (string
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: defaultChainlinkNodeImage,
 		Cmd:   []string{"local", "n", "-p", "/run/secrets/chainlink-node-password", "-a", "/run/secrets/chainlink-node-api"},
-		Env: []string{
+		Env: append([]string{
 			"DATABASE_URL=postgresql://postgres:development_password@" + dbContainerInspect.NetworkSettings.IPAddress + ":5432/postgres?sslmode=disable",
 			"ETH_URL=" + h.cfg.NodeURL,
 			fmt.Sprintf("ETH_CHAIN_ID=%d", h.cfg.ChainID),
@@ -252,12 +252,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int) (string
 			"ALLOW_ORIGINS=*",
 			"DATABASE_TIMEOUT=0",
 			"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED=true",
-			"FEATURE_OFFCHAIN_REPORTING2=true",
-			"FEATURE_LOG_POLLER=true",
-			"P2P_NETWORKING_STACK=V2",
-			"CHAINLINK_TLS_PORT=0",
-			fmt.Sprintf("P2PV2_LISTEN_ADDRESSES=127.0.0.1:%d", port/2),
-		},
+		}, extraEnvVars...),
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
 		},
