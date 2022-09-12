@@ -176,7 +176,7 @@ func TestRequireAuth_Error(t *testing.T) {
 }
 
 // Test RBAC (Role based access control) of each route and their required user roles
-// Admin is omited from the fields here since admin should be able to access all routes
+// Admin is omitted from the fields here since admin should be able to access all routes
 type routeRules struct {
 	verb               string
 	path               string
