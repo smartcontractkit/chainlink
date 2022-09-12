@@ -79,18 +79,6 @@ func (c *config) LogSQL() bool {
 	return false
 }
 
-type executionRevertedError struct{}
-
-func (executionRevertedError) Error() string {
-	return "execution reverted"
-}
-
-type networkError struct{}
-
-func (networkError) Error() string {
-	return "network Error"
-}
-
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)

@@ -136,6 +136,7 @@ type GeneralOnlyConfig interface {
 	KeeperTurnLookBack() int64
 	KeeperTurnFlagEnabled() bool
 	KeyFile() string
+	KeystorePassword() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 	LogFileDir() string
@@ -149,6 +150,9 @@ type GeneralOnlyConfig interface {
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
 	Port() uint16
+	PyroscopeAuthToken() string
+	PyroscopeServerAddress() string
+	PyroscopeEnvironment() string
 	RPID() string
 	RPOrigin() string
 	ReaperExpiration() models.Duration
@@ -177,6 +181,7 @@ type GeneralOnlyConfig interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
+	VRFPassword() string
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -202,6 +207,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpWei() (*big.Int, bool)
 	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint32, bool)
+	GlobalEvmGasLimitMax() (uint32, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint32, bool)
 	GlobalEvmGasLimitOCRJobType() (uint32, bool)
@@ -540,6 +546,21 @@ func (c *generalConfig) AutoPprofGoroutineThreshold() int {
 	return c.viper.GetInt(envvar.Name("AutoPprofGoroutineThreshold"))
 }
 
+// PyroscopeAuthToken specifies the Auth Token used to send profiling info to Pyroscope
+func (c *generalConfig) PyroscopeAuthToken() string {
+	return c.viper.GetString(envvar.Name("PyroscopeAuthToken"))
+}
+
+// PyroscopeServerAddress specifies the Server Address where the Pyroscope instance lives
+func (c *generalConfig) PyroscopeServerAddress() string {
+	return c.viper.GetString(envvar.Name("PyroscopeServerAddress"))
+}
+
+// PyroscopeEnvironment specifies the Environment where the Pyroscope logs will be categorized
+func (c *generalConfig) PyroscopeEnvironment() string {
+	return c.viper.GetString(envvar.Name("PyroscopeEnvironment"))
+}
+
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c *generalConfig) BlockBackfillDepth() uint64 {
@@ -851,7 +872,8 @@ func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
-// sync of the keeper registry contract it is tracking
+// sync of the keeper registry contract it is tracking *after* the most recent update triggered
+// by an on-chain log.
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return getEnvWithFallback(c, envvar.KeeperRegistrySyncInterval)
 }
@@ -1259,6 +1281,9 @@ func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint32)
 }
+func (c *generalConfig) GlobalEvmGasLimitMax() (uint32, bool) {
+	return lookupEnv(c, envvar.Name("EvmGasLimitMax"), parse.Uint32)
+}
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
 	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)
 }
@@ -1407,4 +1432,16 @@ func (c *generalConfig) LogFileDir() string {
 		return c.RootDir()
 	}
 	return s
+}
+
+// Implemented only in config V2. V1 uses a --password flag.
+func (c *generalConfig) KeystorePassword() string {
+	c.lggr.Warn("Config V1 should use --password flag instead of calling KeystorePassword()")
+	return ""
+}
+
+// Implemented only in config V2. V1 uses a --vrfpassword flag.
+func (c *generalConfig) VRFPassword() string {
+	c.lggr.Warn("Config V1 should use --vrfpassword flag instead of calling VRFPassword()")
+	return ""
 }

@@ -55,13 +55,13 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		name            string
 		sessionID       string
 		sessionDuration time.Duration
-		wantError       bool
+		wantError       string
 		wantEmail       string
 	}{
-		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), false, "have@email"},
-		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), true, ""},
-		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), true, ""},
-		{"empty", "", cltest.MustParseDuration(t, "3m"), true, ""},
+		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), "", "have@email"},
+		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), "session missing or expired, please login again", ""},
+		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), "no matching user for provided session token: sql: no rows in result set", ""},
+		{"empty", "", cltest.MustParseDuration(t, "3m"), "Session ID cannot be empty", ""},
 	}
 
 	for _, test := range tests {
@@ -79,8 +79,8 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 			expectedTime := utils.ISO8601UTC(time.Now())
 			actual, err := orm.AuthorizedUserWithSession(test.sessionID)
-			if test.wantError {
-				require.Error(t, err)
+			if test.wantError != "" {
+				require.EqualError(t, err, test.wantError)
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, test.wantEmail, actual.Email)
@@ -250,6 +250,7 @@ func TestORM_WebAuthn(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 	_, err = orm.CreateSession(sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,

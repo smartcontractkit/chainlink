@@ -49,3 +49,7 @@ func (s *highestHeadNodeSelector) Select() Node {
 
 	return node
 }
+
+func (s *highestHeadNodeSelector) Name() string {
+	return NodeSelectionMode_HighestHead
+}

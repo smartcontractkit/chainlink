@@ -13,6 +13,14 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Lint
+        continue-on-error: true
       - name: Setup node
         uses: actions/setup-node@v2
         with:
@@ -41,6 +49,14 @@ jobs:
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Prettier Formatting
+        continue-on-error: true
       - name: Setup node
         uses: actions/setup-node@v2
         with:

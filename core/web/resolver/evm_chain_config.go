@@ -215,6 +215,17 @@ func (r *ChainConfigResolver) EvmGasLimitDefault() *int32 {
 	return nil
 }
 
+func (r *ChainConfigResolver) EvmGasLimitMax() *int32 {
+	if r.cfg.EvmGasLimitMax.Valid {
+		val := r.cfg.EvmGasLimitMax.Int64
+		intVal := int32(val)
+
+		return &intVal
+	}
+
+	return nil
+}
+
 func (r *ChainConfigResolver) EvmGasLimitOCRJobType() *int32 {
 	if r.cfg.EvmGasLimitOCRJobType.Valid {
 		val := r.cfg.EvmGasLimitOCRJobType.Int64
@@ -487,6 +498,7 @@ type ChainConfigInput struct {
 	EvmGasBumpTxDepth                     *int32
 	EvmGasBumpWei                         *string
 	EvmGasLimitDefault                    *int32
+	EvmGasLimitMax                        *int32
 	EvmGasLimitMultiplier                 *float64
 	EvmGasLimitOCRJobType                 *int32
 	EvmGasLimitDRJobType                  *int32
@@ -574,6 +586,10 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 
 	if input.EvmGasLimitDefault != nil {
 		cfg.EvmGasLimitDefault = null.IntFrom(int64(*input.EvmGasLimitDefault))
+	}
+
+	if input.EvmGasLimitMax != nil {
+		cfg.EvmGasLimitMax = null.IntFrom(int64(*input.EvmGasLimitMax))
 	}
 
 	if input.EvmGasLimitMultiplier != nil {

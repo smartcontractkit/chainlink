@@ -71,6 +71,7 @@ func TestConfigSchema(t *testing.T) {
 		"EvmGasBumpWei":                                  "ETH_GAS_BUMP_WEI",
 		"EvmGasFeeCapDefault":                            "EVM_GAS_FEE_CAP_DEFAULT",
 		"EvmGasLimitDefault":                             "ETH_GAS_LIMIT_DEFAULT",
+		"EvmGasLimitMax":                                 "ETH_GAS_LIMIT_MAX",
 		"EvmGasLimitMultiplier":                          "ETH_GAS_LIMIT_MULTIPLIER",
 		"EvmGasLimitTransfer":                            "ETH_GAS_LIMIT_TRANSFER",
 		"EvmGasLimitOCRJobType":                          "ETH_GAS_LIMIT_OCR_JOB_TYPE",
@@ -235,6 +236,11 @@ func TestConfigSchema(t *testing.T) {
 		"P2PV2DeltaDial":         "P2PV2_DELTA_DIAL",
 		"P2PV2DeltaReconcile":    "P2PV2_DELTA_RECONCILE",
 		"P2PV2ListenAddresses":   "P2PV2_LISTEN_ADDRESSES",
+
+		// Pyroscope profiling
+		"PyroscopeAuthToken":     "PYROSCOPE_AUTH_TOKEN",
+		"PyroscopeServerAddress": "PYROSCOPE_SERVER_ADDRESS",
+		"PyroscopeEnvironment":   "PYROSCOPE_ENVIRONMENT",
 
 		// P2P deprecated
 		"OCRNewStreamTimeout":          "OCR_NEW_STREAM_TIMEOUT",

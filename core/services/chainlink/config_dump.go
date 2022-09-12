@@ -363,6 +363,14 @@ func (c *Config) loadLegacyEVMEnv() {
 			c.EVM[i].GasEstimator.LimitDefault = e
 		}
 	}
+	if e := envvar.NewUint32("EvmGasLimitMax").ParsePtr(); e != nil {
+		for i := range c.EVM {
+			if c.EVM[i].GasEstimator == nil {
+				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
+			}
+			c.EVM[i].GasEstimator.LimitMax = e
+		}
+	}
 	if e := envvar.NewUint32("EvmGasLimitOCRJobType").ParsePtr(); e != nil {
 		for i := range c.EVM {
 			if c.EVM[i].GasEstimator == nil {
@@ -660,7 +668,6 @@ func (c *Config) loadLegacyCoreEnv() {
 			Frequency:        envDuration("DatabaseBackupFrequency"),
 			Mode:             legacy.DatabaseBackupModeEnvVar.ParsePtr(),
 			OnVersionUpgrade: envvar.NewBool("DatabaseBackupOnVersionUpgrade").ParsePtr(),
-			URL:              envURL("DatabaseBackupDir"),
 		},
 	}
 	if isZeroPtr(c.Database.Listener) {
@@ -885,6 +892,15 @@ func (c *Config) loadLegacyCoreEnv() {
 	}
 	if isZeroPtr(c.AutoPprof) {
 		c.AutoPprof = nil
+	}
+
+	c.Pyroscope = &config.Pyroscope{
+		AuthToken:     envvar.NewString("PyroscopeAuthToken").ParsePtr(),
+		ServerAddress: envvar.NewString("PyroscopeServerAddress").ParsePtr(),
+		Environment:   envvar.NewString("PyroscopeEnvironment").ParsePtr(),
+	}
+	if isZeroPtr(c.Pyroscope) {
+		c.Pyroscope = nil
 	}
 
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {

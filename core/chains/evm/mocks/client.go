@@ -124,23 +124,6 @@ func (_m *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Bl
 	return r0, r1
 }
 
-// Call provides a mock function with given fields: result, method, args
-func (_m *Client) Call(result interface{}, method string, args ...interface{}) error {
-	var _ca []interface{}
-	_ca = append(_ca, result, method)
-	_ca = append(_ca, args...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(interface{}, string, ...interface{}) error); ok {
-		r0 = rf(result, method, args...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // CallContext provides a mock function with given fields: ctx, result, method, args
 func (_m *Client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	var _ca []interface{}
@@ -283,13 +266,13 @@ func (_m *Client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]typ
 	return r0, r1
 }
 
-// GetERC20Balance provides a mock function with given fields: address, contractAddress
-func (_m *Client) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
-	ret := _m.Called(address, contractAddress)
+// GetERC20Balance provides a mock function with given fields: ctx, address, contractAddress
+func (_m *Client) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
+	ret := _m.Called(ctx, address, contractAddress)
 
 	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *big.Int); ok {
-		r0 = rf(address, contractAddress)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) *big.Int); ok {
+		r0 = rf(ctx, address, contractAddress)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
@@ -297,8 +280,8 @@ func (_m *Client) GetERC20Balance(address common.Address, contractAddress common
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, common.Address) error); ok {
-		r1 = rf(address, contractAddress)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address) error); ok {
+		r1 = rf(ctx, address, contractAddress)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -329,13 +312,13 @@ func (_m *Client) GetEthBalance(ctx context.Context, account common.Address, blo
 	return r0, r1
 }
 
-// GetLINKBalance provides a mock function with given fields: linkAddress, address
-func (_m *Client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	ret := _m.Called(linkAddress, address)
+// GetLINKBalance provides a mock function with given fields: ctx, linkAddress, address
+func (_m *Client) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	ret := _m.Called(ctx, linkAddress, address)
 
 	var r0 *assets.Link
-	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *assets.Link); ok {
-		r0 = rf(linkAddress, address)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address) *assets.Link); ok {
+		r0 = rf(ctx, linkAddress, address)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Link)
@@ -343,8 +326,8 @@ func (_m *Client) GetLINKBalance(linkAddress common.Address, address common.Addr
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, common.Address) error); ok {
-		r1 = rf(linkAddress, address)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address) error); ok {
+		r1 = rf(ctx, linkAddress, address)
 	} else {
 		r1 = ret.Error(1)
 	}

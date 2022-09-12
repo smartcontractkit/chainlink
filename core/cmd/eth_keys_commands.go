@@ -3,17 +3,18 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 type EthKeyPresenter struct {
@@ -24,6 +25,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
+		fmt.Sprintf("%d", p.NextNonce),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
 		fmt.Sprintf("%v", p.Disabled),
@@ -33,7 +35,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 	}
 }
 
-var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "Next Nonce", "ETH", "LINK", "Disabled", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
@@ -184,13 +186,13 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 	if len(oldPasswordFile) == 0 {
 		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
 	}
-	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
-	keyJSON, err := ioutil.ReadFile(filepath)
+	keyJSON, err := os.ReadFile(filepath)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -231,7 +233,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	if len(newPasswordFile) == 0 {
 		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
 	}
-	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
@@ -263,7 +265,7 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("Error exporting"))
 	}
 
-	keyJSON, err := ioutil.ReadAll(resp.Body)
+	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
@@ -290,12 +292,18 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	query.Set("address", addr)
 	cid := c.String("evmChainID")
 	query.Set("evmChainID", cid)
+	abandon := c.String("abandon")
+	query.Set("abandon", abandon)
 
 	if c.IsSet("setNextNonce") {
 		query.Set("nextNonce", c.String("setNextNonce"))
 	}
-	if c.IsSet("setEnabled") {
-		query.Set("enabled", c.String("setEnabled"))
+	if c.IsSet("enable") && c.IsSet("disable") {
+		return cli.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
+	} else if c.Bool("enable") {
+		query.Set("enabled", "true")
+	} else if c.Bool("disable") {
+		query.Set("enabled", "false")
 	}
 
 	chainURL.RawQuery = query.Encode()
@@ -310,12 +318,12 @@ func (cli *Client) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		resp, err := ioutil.ReadAll(resp.Body)
+		resp, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return cli.errorOut(errors.Errorf("Error resetting key: %s", err.Error()))
 		}
 		return cli.errorOut(errors.Errorf("Error resetting key: %s", resp))
 	}
 
-	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Imported ETH key")
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "🔑 Updated ETH key")
 }

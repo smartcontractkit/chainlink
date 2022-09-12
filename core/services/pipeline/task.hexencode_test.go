@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -34,6 +35,7 @@ func TestHexEncodeTask(t *testing.T) {
 		{"bigint 2", bigThree.Exp(bigThree, big.NewInt(100), nil), "0x5a4653ca673768565b41f775d6947d55cf3813d1", ""},
 		{"decimal type but integer value", 1.0, "0x1", ""},
 		{"decimal type but integer value zero", 0.0, "0x0", ""},
+		{"decimal.Decimal type but integer value", mustDecimal(t, "256"), "0x100", ""},
 
 		// success strings/bytes
 		{"string ascii bytes", "xyz", "0x78797a", ""},
@@ -55,24 +57,25 @@ func TestHexEncodeTask(t *testing.T) {
 		{"input of type bool", true, "", "bad input for task"},
 		{"input of type decimal", 1.44, "", "decimal input"},
 		{"input of type decimal and negative", -0.44, "", "decimal input"},
+		{"input of decimal.Decimal type but not integer", mustDecimal(t, "3.14"), "", "decimal input"},
 	}
 
 	for _, test := range tests {
+		assertOK := func(result pipeline.Result, runInfo pipeline.RunInfo) {
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			if test.error == "" {
+				require.NoError(t, result.Error)
+				require.Equal(t, test.result, result.Value)
+			} else {
+				require.ErrorContains(t, result.Error, test.error)
+			}
+		}
 		t.Run(test.name, func(t *testing.T) {
 			t.Run("without vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.HexEncodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
-
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-
-				if test.error == "" {
-					require.NoError(t, result.Error)
-					require.Equal(t, test.result, result.Value)
-				} else {
-					require.ErrorContains(t, result.Error, test.error)
-				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -82,18 +85,40 @@ func TestHexEncodeTask(t *testing.T) {
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    "$(foo.bar)",
 				}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
-
-				assert.False(t, runInfo.IsPending)
-				assert.False(t, runInfo.IsRetryable)
-
-				if test.error == "" {
-					require.NoError(t, result.Error)
-					require.Equal(t, test.result, result.Value)
-				} else {
-					require.ErrorContains(t, result.Error, test.error)
-				}
+				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
+		})
+	}
+}
+
+func TestHexEncodeTaskInputParamLiteral(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		input  interface{}
+		result string
+	}{
+		// Only strings can be passed via input param literals (other types will get converted to strings anyway)
+		{"string ascii bytes", "xyz", "0x78797a"},
+		{"string with whitespace", "1 x *", "0x312078202a"},
+		{"string shouldn't convert to int", "456", "0x343536"},
+		{"don't detect hex in string", "0xff", "0x30786666"},
+		{"int gets converted to string", 256, "0x323536"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			vars := pipeline.NewVarsFrom(nil)
+			task := pipeline.HexEncodeTask{
+				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+				Input:    fmt.Sprintf("%v", test.input),
+			}
+			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.result, result.Value)
 		})
 	}
 }

@@ -152,13 +152,6 @@ func (eb *EthBroadcaster) Start(ctx context.Context) error {
 			return errors.Wrap(err, "EthBroadcaster could not start")
 		}
 
-		if eb.config.EvmNonceAutoSync() {
-			syncer := NewNonceSyncer(eb.db, eb.logger, eb.ChainKeyStore.config, eb.ethClient, eb.ChainKeyStore.keystore)
-			if err := syncer.SyncAll(ctx, eb.keyStates); err != nil {
-				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
-			}
-		}
-
 		eb.wg.Add(len(eb.keyStates))
 		for _, k := range eb.keyStates {
 			triggerCh := make(chan struct{}, 1)
@@ -498,12 +491,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		return eb.tryAgainBumpingGas(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 	}
 
-	// Optimism/Metis-specific cases
-	if sendError.IsOptimismFeeTooLow() || sendError.IsOptimismFeeTooHigh() {
-		if eb.ChainKeyStore.config.ChainType().IsOptimismClone() {
+	// L2-specific cases
+	if sendError.L2FeeTooLow() || sendError.IsL2FeeTooHigh() || sendError.IsL2Full() {
+		if eb.ChainKeyStore.config.ChainType().IsL2() {
 			return eb.tryAgainWithNewEstimation(ctx, lgr, sendError, etx, attempt, initialBroadcastAt)
 		}
-		return errors.Wrap(sendError, "this error type only handled for Optimism and clones"), false
+		return errors.Wrap(sendError, "this error type only handled for L2s"), false
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -750,7 +743,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, lgr log
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas"), true
 	}
-	lgr.Warnw("Optimism/Metis rejected transaction due to incorrect fee, re-estimated and will try again",
+	lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 	return eb.tryAgainWithNewLegacyGas(ctx, lgr, etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }

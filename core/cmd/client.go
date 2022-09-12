@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -89,14 +88,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
 	appLggr, closeLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
@@ -159,7 +158,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		EventBroadcaster: eventBroadcaster,
 	}
 	var chains chainlink.Chains
-	chains.EVM, err = evm.LoadChainSet(ccOpts)
+	chains.EVM, err = evm.LoadChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
@@ -591,18 +590,18 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
-	b, err := ioutil.ReadFile(d.cookiePath())
+	b, err := os.ReadFile(d.cookiePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -774,7 +773,7 @@ func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger
 
 	// If there is only a single DB user, select it within the context of CLI
 	if len(users) == 1 {
-		lggr.Infof("Defaulted to assume single DB API User", "email", users[0].Email)
+		lggr.Infow("Defaulted to assume single DB API User", "email", users[0].Email)
 		return users[0], true
 	}
 
@@ -794,7 +793,7 @@ func attemptAssumeAdminUser(users []sessions.User, orm sessions.ORM, lggr logger
 		}
 	}
 	if populatedUser {
-		lggr.Infof("Defaulted to assume single DB admin API User", "email", singleAdmin)
+		lggr.Infow("Defaulted to assume single DB admin API User", "email", singleAdmin)
 		return singleAdmin, true
 	}
 
@@ -809,7 +808,7 @@ func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionReque
 	}
 
 	lggr.Debug("Initializing API credentials")
-	dat, err := ioutil.ReadFile(file)
+	dat, err := os.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
 	}

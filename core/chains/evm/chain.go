@@ -57,7 +57,7 @@ type chain struct {
 	keyStore        keystore.Eth
 }
 
-func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
+func newChain(ctx context.Context, dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !dbchain.Enabled {
@@ -112,7 +112,7 @@ func newChain(dbchain types.DBChain, nodes []types.Node, opts ChainSetOpts) (*ch
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headSaver.LatestHeadFromDB(context.Background())
+	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
 	if err != nil {
 		return nil, err
 	}

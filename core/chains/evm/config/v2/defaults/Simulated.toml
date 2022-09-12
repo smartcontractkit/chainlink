@@ -1,0 +1,26 @@
+ChainID = '1337'
+FinalityDepth = 1
+MinIncomingConfirmations = 1
+MinimumContractPayment = '100'
+TxReaperThreshold = '0s'
+TxResendAfterThreshold = '0s'
+
+[BalanceMonitor]
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceMin = '0'
+BumpThreshold = 0
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 10
+MaxBufferSize = 100
+SamplingInterval = '0s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+
+[OCR]
+ContractConfirmations = 1

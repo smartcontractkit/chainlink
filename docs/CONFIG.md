@@ -23,6 +23,7 @@
 	- [V2](#P2P-V2)
 - [Keeper](#Keeper)
 - [AutoPprof](#AutoPprof)
+- [Pyroscope](#Pyroscope)
 - [Sentry](#Sentry)
 - [EVM](#EVM)
 	- [BalanceMonitor](#EVM-BalanceMonitor)
@@ -157,7 +158,6 @@ Postgres has connection limits, so you must use cation when increasing this valu
 Mode = 'none' # Default
 Dir = 'test/backup/dir' # Example
 OnVersionUpgrade = true # Default
-URL = 'http://test.back.up/fake' # Example
 Frequency = '1h' # Default
 ```
 As a best practice, take regular database backups in case of accidental data loss. This best practice is especially important when you upgrade your Chainlink node to a new version. Chainlink nodes support automated database backups to make this process easier.
@@ -187,14 +187,6 @@ Dir sets the directory to use for saving the backup file. Use this if you want t
 OnVersionUpgrade = true # Default
 ```
 OnVersionUpgrade enables automatic backups of the database before running migrations, when you are upgrading to a new version.
-
-### URL<a id='Database-Backup-URL'></a>
-```toml
-URL = 'http://test.back.up/fake' # Example
-```
-URL, if specified, is an alternative for the automatic database backup to use instead of the main database url.
-
-It is recommended to set this value to a _read replica_ if you have one to avoid excessive load on the main database.
 
 ### Frequency<a id='Database-Backup-Frequency'></a>
 ```toml
@@ -1180,6 +1172,33 @@ GoroutineThreshold = 5000 # Default
 ```
 GoroutineThreshold is the maximum number of actively-running goroutines the node can spawn before profiling begins.
 
+## Pyroscope<a id='Pyroscope'></a>
+```toml
+[Pyroscope]
+ServerAddress = 'http://localhost:4040' # Example
+AuthToken = 'randomly-oauth-generated-token' # Example
+Environment = 'mainnet' # Default
+```
+
+
+### ServerAddress<a id='Pyroscope-ServerAddress'></a>
+```toml
+ServerAddress = 'http://localhost:4040' # Example
+```
+ServerAddress sets the address that will receive the profile logs. It enables the profiling service.
+
+### AuthToken<a id='Pyroscope-AuthToken'></a>
+```toml
+AuthToken = 'randomly-oauth-generated-token' # Example
+```
+AuthToken sets the needed Auth Token on Server Addresses that require an Auth Token.
+
+### Environment<a id='Pyroscope-Environment'></a>
+```toml
+Environment = 'mainnet' # Default
+```
+Environment sets the target environment tag in which profiles will be added to.
+
 ## Sentry<a id='Sentry'></a>
 ```toml
 [Sentry]
@@ -1247,6 +1266,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1313,6 +1333,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1379,6 +1400,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1445,6 +1467,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1512,6 +1535,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1578,6 +1602,7 @@ PriceDefault = '50 mwei'
 PriceMax = '50 gwei'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1644,6 +1669,7 @@ PriceDefault = '50 mwei'
 PriceMax = '50 gwei'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1711,6 +1737,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1777,6 +1804,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1842,6 +1870,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1907,6 +1936,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -1974,6 +2004,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2041,6 +2072,7 @@ PriceDefault = '1 gwei'
 PriceMax = '500 gwei'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2107,6 +2139,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2173,6 +2206,7 @@ PriceDefault = '30 gwei'
 PriceMax = '200 micro'
 PriceMin = '30 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '20 gwei'
@@ -2239,6 +2273,7 @@ PriceDefault = '15 gwei'
 PriceMax = '200 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2306,6 +2341,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2372,6 +2408,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2438,6 +2475,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2460,6 +2498,72 @@ BlockEmissionIdleWarningThreshold = '0s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Simulated (1337)<a id='EVM-1337'></a></summary><p>
+
+```toml
+FinalityDepth = 1
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 1
+MinimumContractPayment = '100'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '0s'
+TxResendAfterThreshold = '0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 0
+
+[GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '20 gwei'
+PriceMax = '100 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 8
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 10
+MaxBufferSize = 100
+SamplingInterval = '0s'
 
 [NodePool]
 NoNewHeadsThreshold = '0s'
@@ -2504,6 +2608,7 @@ PriceDefault = '15 gwei'
 PriceMax = '200 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2566,19 +2671,20 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
-PriceDefault = '1 micro'
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
 PriceMax = '1 micro'
-PriceMin = '1 micro'
-LimitDefault = 7000000
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 1000000000
 LimitMultiplier = '1'
-LimitTransfer = 800000
+LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
@@ -2637,6 +2743,7 @@ PriceDefault = '25 gwei'
 PriceMax = '1 micro'
 PriceMin = '25 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2703,6 +2810,7 @@ PriceDefault = '25 gwei'
 PriceMax = '1 micro'
 PriceMin = '25 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2769,6 +2877,7 @@ PriceDefault = '1 gwei'
 PriceMax = '200 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '20 gwei'
@@ -2831,11 +2940,12 @@ Enabled = true
 BlockDelay = 1
 
 [GasEstimator]
-Mode = 'FixedPrice'
+Mode = 'Arbitrum'
 PriceDefault = '100 mwei'
-PriceMax = '100 mwei'
-PriceMin = '100 mwei'
+PriceMax = '1 micro'
+PriceMin = '0'
 LimitDefault = 500000
+LimitMax = 1000000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2843,7 +2953,74 @@ BumpPercent = 20
 BumpThreshold = 0
 BumpTxDepth = 10
 EIP1559DynamicFees = false
-FeeCapDefault = '100 mwei'
+FeeCapDefault = '1 micro'
+TipCapDefault = '1 wei'
+TipCapMinimum = '1 wei'
+[GasEstimator.BlockHistory]
+BatchSize = 4
+BlockDelay = 1
+BlockHistorySize = 0
+TransactionPercentile = 60
+
+
+[HeadTracker]
+BlockEmissionIdleWarningThreshold = '0s'
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+NoNewHeadsThreshold = '0s'
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+ObservationGracePeriod = '1s'
+```
+
+</p></details>
+
+<details><summary>Arbitrum Goerli (421613)<a id='EVM-421613'></a></summary><p>
+
+```toml
+ChainType = 'arbitrum'
+FinalityDepth = 50
+LogBackfillBatchSize = 100
+LogPollInterval = '15s'
+MaxInFlightTransactions = 16
+MaxQueuedTransactions = 250
+MinIncomingConfirmations = 3
+MinimumContractPayment = '0.00001 link'
+NonceAutoSync = true
+RPCDefaultBatchSize = 100
+TxReaperInterval = '1h0m0s'
+TxReaperThreshold = '168h0m0s'
+TxResendAfterThreshold = '1m0s'
+UseForwarders = false
+
+[BalanceMonitor]
+Enabled = true
+BlockDelay = 1
+
+[GasEstimator]
+Mode = 'Arbitrum'
+PriceDefault = '100 mwei'
+PriceMax = '1 micro'
+PriceMin = '0'
+LimitDefault = 500000
+LimitMax = 1000000000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 0
+BumpTxDepth = 10
+EIP1559DynamicFees = false
+FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
 [GasEstimator.BlockHistory]
@@ -2902,6 +3079,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -2968,6 +3146,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -3034,6 +3213,7 @@ PriceDefault = '5 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -3262,6 +3442,7 @@ PriceDefault = '20 gwei' # Default
 PriceMax = '100 micro' # Default
 PriceMin = '1 gwei' # Default
 LimitDefault = 500_000 # Default
+LimitMax = 500_000 # Default
 LimitOCRJobType = 100_000 # Example
 LimitDRJobType = 100_000 # Example
 LimitVRFJobType = 100_000 # Example
@@ -3337,6 +3518,12 @@ LimitDefault = 500_000 # Default
 ```
 LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
+
+### LimitMax<a id='EVM-GasEstimator-LimitMax'></a>
+```toml
+LimitMax = 500_000 # Default
+```
+LimitMax sets a maximum for _estimated_ gas limits. This currently only applies to `Arbitrum` `GasEstimatorMode`.
 
 ### LimitOCRJobType<a id='EVM-GasEstimator-LimitOCRJobType'></a>
 ```toml

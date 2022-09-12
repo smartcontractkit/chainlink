@@ -219,8 +219,8 @@ func (n *node) start(startCtx context.Context) {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
 
-	dialCtx, cancel := n.makeQueryCtx(startCtx)
-	defer cancel()
+	dialCtx, dialCancel := n.makeQueryCtx(startCtx)
+	defer dialCancel()
 	if err := n.dial(dialCtx); err != nil {
 		n.lfcLog.Errorw("Dial failed: EVM Node is unreachable", "err", err)
 		n.declareUnreachable()
@@ -228,8 +228,8 @@ func (n *node) start(startCtx context.Context) {
 	}
 	n.setState(NodeStateDialed)
 
-	verifyCtx, cancel := n.makeQueryCtx(startCtx)
-	defer cancel()
+	verifyCtx, verifyCancel := n.makeQueryCtx(startCtx)
+	defer verifyCancel()
 	if err := n.verify(verifyCtx); errors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
 		n.declareInvalidChainID()
