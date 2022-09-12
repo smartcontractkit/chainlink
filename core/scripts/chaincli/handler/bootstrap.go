@@ -18,7 +18,6 @@ const (
 schemaVersion = 1
 name = "ocr2keeper bootstrap node"
 externalJobID = "%s"
-id = "1"
 contractID = "%s"
 relay = "evm"
 

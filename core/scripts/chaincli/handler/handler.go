@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	defaultChainlinkNodeImage = "smartcontract/chainlink:1.5.1-root"
+	defaultChainlinkNodeImage = "smartcontract/chainlink:1.8.0-root"
 	defaultPOSTGRESImage      = "postgres:latest"
 
 	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
