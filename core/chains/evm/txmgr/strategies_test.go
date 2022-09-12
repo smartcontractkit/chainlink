@@ -48,7 +48,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	var n int64 = 0
+	var n int64
 
 	cltest.MustInsertFatalErrorEthTx(t, borm, fromAddress)
 	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)

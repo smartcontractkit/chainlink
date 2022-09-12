@@ -2,7 +2,6 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
 
@@ -17,13 +16,12 @@ import (
 
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	bootstrappers []commontypes.BootstrapperLocator
-	db            *sqlx.DB
-	jobORM        job.ORM
-	peerWrapper   *ocrcommon.SingletonPeerWrapper
-	cfg           validate.Config
-	lggr          logger.Logger
-	relayers      map[relay.Network]types.Relayer
+	db          *sqlx.DB
+	jobORM      job.ORM
+	peerWrapper *ocrcommon.SingletonPeerWrapper
+	cfg         validate.Config
+	lggr        logger.Logger
+	relayers    map[relay.Network]types.Relayer
 }
 
 // NewDelegateBootstrap creates a new Delegate
