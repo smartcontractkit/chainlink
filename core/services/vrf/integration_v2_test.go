@@ -406,7 +406,9 @@ func requestRandomnessForWrapper(
 	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(nil, nil)
 	require.NoError(t, err, "could not filter WrapperRequestMade events")
 
+	wrapperConsumerEvents := []*vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExampleWrapperRequestMade{}
 	for wrapperIter.Next() {
+		wrapperConsumerEvents = append(wrapperConsumerEvents, wrapperIter.Event)
 	}
 
 	event := events[len(events)-1]
