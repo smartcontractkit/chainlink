@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -13,32 +12,15 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/manyminds/api2go/jsonapi"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	registry12 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
-)
-
-const (
-	defaultChainlinkNodeImage = "smartcontract/chainlink:1.5.1-root"
-	defaultPOSTGRESImage      = "postgres:latest"
-
-	defaultChainlinkNodeLogin    = "notreal@fakeemail.ch"
-	defaultChainlinkNodePassword = "fj293fbBnlQ!f9vNs"
 )
 
 type startedNodeData struct {
@@ -100,14 +82,14 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		// Create authenticated client
 		var cl cmd.HTTPClient
 		var err error
-		cl, err = k.authenticate(startedNode.url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
+		cl, err = authenticate(startedNode.url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
 		if err != nil {
 			log.Fatal("Authentication failed, ", err)
 		}
 
 		// Get node's wallet address
 		var nodeAddrHex string
-		if nodeAddrHex, err = k.getNodeAddress(cl); err != nil {
+		if nodeAddrHex, err = getNodeAddress(cl); err != nil {
 			log.Println("Failed to get node addr: ", err)
 			continue
 		}
@@ -233,27 +215,6 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 	return nil
 }
 
-// getNodeAddress returns chainlink node's wallet address
-func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
-	resp, err := client.Get("/v2/keys/eth")
-	if err != nil {
-		return "", fmt.Errorf("failed to get ETH keys: %s", err)
-	}
-	defer resp.Body.Close()
-
-	raw, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %s", err)
-	}
-
-	var keys cmd.EthKeyPresenters
-	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response body: %s", err)
-	}
-
-	return keys[0].Address, nil
-}
-
 // createKeeperJob creates a keeper job in the chainlink node by the given address
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
@@ -284,173 +245,4 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 	}
 	log.Println("Keeper job has been successfully created in the Chainlink node with address: ", nodeAddr)
 	return nil
-}
-
-func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, func(), error) {
-	// Create docker client to launch nodes
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to create docker client from env: %s", err)
-	}
-
-	// Make sure everything works well
-	if _, err = dockerClient.Ping(ctx); err != nil {
-		return "", nil, fmt.Errorf("failed to ping docker server: %s", err)
-	}
-
-	// Pull DB image if needed
-	var out io.ReadCloser
-	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultPOSTGRESImage); err != nil {
-		log.Println("Pulling Postgres docker image...")
-		if out, err = dockerClient.ImagePull(ctx, defaultPOSTGRESImage, types.ImagePullOptions{}); err != nil {
-			return "", nil, fmt.Errorf("failed to pull Postgres image: %s", err)
-		}
-		out.Close()
-		log.Println("Postgres docker image successfully pulled!")
-	}
-
-	// Create DB container
-	dbContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: defaultPOSTGRESImage,
-		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
-		Env: []string{
-			"POSTGRES_USER=postgres",
-			"POSTGRES_PASSWORD=development_password",
-		},
-		ExposedPorts: nat.PortSet{"5432": struct{}{}},
-	}, nil, &network.NetworkingConfig{}, nil, "")
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to create Postgres container: %s", err)
-	}
-
-	// Start container
-	if err = dockerClient.ContainerStart(ctx, dbContainerResp.ID, types.ContainerStartOptions{}); err != nil {
-		return "", nil, fmt.Errorf("failed to start DB container: %s", err)
-	}
-	log.Println("Postgres docker container successfully created and started: ", dbContainerResp.ID)
-
-	dbContainerInspect, err := dockerClient.ContainerInspect(ctx, dbContainerResp.ID)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to inspect Postgres container: %s", err)
-	}
-
-	time.Sleep(time.Second * 10)
-
-	// Pull node image if needed
-	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultChainlinkNodeImage); err != nil {
-		log.Println("Pulling node docker image...")
-		if out, err = dockerClient.ImagePull(ctx, defaultChainlinkNodeImage, types.ImagePullOptions{}); err != nil {
-			return "", nil, fmt.Errorf("failed to pull node image: %s", err)
-		}
-		out.Close()
-		log.Println("Node docker image successfully pulled!")
-	}
-
-	// Create temporary file with chainlink node login creds
-	apiFile, passwordFile, fileCleanup, err := k.createCredsFiles()
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to create creds files: %s", err)
-	}
-
-	// Create container with mounted files
-	portStr := fmt.Sprintf("%d", port)
-	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: defaultChainlinkNodeImage,
-		Cmd:   []string{"local", "n", "-p", "/run/secrets/chainlink-node-password", "-a", "/run/secrets/chainlink-node-api"},
-		Env: []string{
-			"DATABASE_URL=postgresql://postgres:development_password@" + dbContainerInspect.NetworkSettings.IPAddress + ":5432/postgres?sslmode=disable",
-			"ETH_URL=" + k.cfg.NodeURL,
-			fmt.Sprintf("ETH_CHAIN_ID=%d", k.cfg.ChainID),
-			"LINK_CONTRACT_ADDRESS=" + k.cfg.LinkTokenAddr,
-			"DATABASE_BACKUP_MODE=lite",
-			"ROOT=/chainlink",
-			"LOG_LEVEL=debug",
-			"MIN_OUTGOING_CONFIRMATIONS=2",
-			"CHAINLINK_TLS_PORT=0",
-			"SECURE_COOKIES=false",
-			"GAS_ESTIMATOR_MODE=BlockHistory",
-			"ALLOW_ORIGINS=*",
-			"DATABASE_TIMEOUT=0",
-			"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED=true",
-		},
-		ExposedPorts: map[nat.Port]struct{}{
-			nat.Port(portStr): {},
-		},
-	}, &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: apiFile,
-				Target: "/run/secrets/chainlink-node-api",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: passwordFile,
-				Target: "/run/secrets/chainlink-node-password",
-			},
-		},
-		PortBindings: nat.PortMap{
-			"6688/tcp": []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: portStr,
-				},
-			},
-		},
-	}, nil, nil, "")
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to create node container: %s", err)
-	}
-
-	// Start container
-	if err = dockerClient.ContainerStart(ctx, nodeContainerResp.ID, types.ContainerStartOptions{}); err != nil {
-		return "", nil, fmt.Errorf("failed to start node container: %s", err)
-	}
-
-	addr := fmt.Sprintf("http://localhost:%s", portStr)
-	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
-
-	time.Sleep(time.Second * 20)
-
-	return addr, func() {
-		fileCleanup()
-
-		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, nil); err != nil {
-			log.Fatal("Failed to stop node container: ", err)
-		}
-		if err = dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
-			log.Fatal("Failed to remove node container: ", err)
-		}
-
-		if err = dockerClient.ContainerStop(ctx, dbContainerResp.ID, nil); err != nil {
-			log.Fatal("Failed to stop DB container: ", err)
-		}
-		if err = dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
-			log.Fatal("Failed to remove DB container: ", err)
-		}
-	}, nil
-}
-
-// createCredsFiles creates two temporary files with node creds: api and password.
-func (k *Keeper) createCredsFiles() (string, string, func(), error) {
-	// Create temporary file with chainlink node login creds
-	apiFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-api")
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to create api file: %s", err)
-	}
-	_, _ = apiFile.WriteString(defaultChainlinkNodeLogin)
-	_, _ = apiFile.WriteString("\n")
-	_, _ = apiFile.WriteString(defaultChainlinkNodePassword)
-
-	// Create temporary file with chainlink node password
-	passwordFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-password")
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to create password file: %s", err)
-	}
-	_, _ = passwordFile.WriteString(defaultChainlinkNodePassword)
-
-	return apiFile.Name(), passwordFile.Name(), func() {
-		os.Remove(apiFile.Name())
-		os.Remove(passwordFile.Name())
-	}, nil
 }
