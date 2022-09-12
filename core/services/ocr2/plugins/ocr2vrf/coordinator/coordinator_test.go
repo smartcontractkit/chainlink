@@ -529,7 +529,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
 	lookbackBlocks := int64(0)
-	lp := getLogPoller(t, []uint64{}, 200, true)
+	lp := getLogPoller(t, []uint64{}, 200, false)
 	c := &coordinator{
 		lp:                       lp,
 		lookbackBlocks:           lookbackBlocks,
@@ -902,12 +902,10 @@ func newAddress(t *testing.T) common.Address {
 	return common.HexToAddress(hexutil.Encode(b))
 }
 
-func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64, needsLatestBlock bool) *lp_mocks.LogPoller {
+func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64, needsGetBlocks bool) *lp_mocks.LogPoller {
 	lp := lp_mocks.NewLogPoller(t)
-	if needsLatestBlock {
-		lp.On("LatestBlock", mock.Anything).
-			Return(latestHeadNumber, nil)
-	}
+	lp.On("LatestBlock", mock.Anything).
+		Return(latestHeadNumber, nil)
 
 	logPollerBlocks := []logpoller.LogPollerBlock{}
 
@@ -920,8 +918,10 @@ func getLogPoller(t *testing.T, requestedBlocks []uint64, latestHeadNumber int64
 		})
 	}
 
-	lp.On("GetBlocks", requestedBlocks, mock.Anything).
-		Return(logPollerBlocks, nil)
+	if needsGetBlocks {
+		lp.On("GetBlocks", requestedBlocks, mock.Anything).
+			Return(logPollerBlocks, nil)
+	}
 
 	return lp
 }

@@ -110,8 +110,8 @@ func New(
 		return nil, err
 	}
 
-	// Allow up to 9 failed transmission rounds on a block or callback
-	cacheEvictionWindow := lookbackBlocks / 10
+	// When a block/callback is transmitted, wait for it to succeed beyond finality depth.
+	cacheEvictionWindow := int64(finalityDepth * 2)
 
 	return &coordinator{
 		coordinatorContract:      coordinatorContract,
@@ -233,7 +233,7 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	blocksRequested := make(map[block]struct{})
-	unfulfilled, err := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
+	unfulfilled, err := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight)
 	if err != nil {
 		err = errors.Wrap(err, "filter requests in ReportBlocks")
 		return
@@ -244,7 +244,7 @@ func (c *coordinator) ReportBlocks(
 
 	c.lggr.Info(fmt.Sprintf("filtered eligible randomness requests: %+v", unfulfilled))
 
-	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
+	callbacksRequested, unfulfilled, err := c.filterEligibleCallbacks(randomnessFulfillmentRequestedLogs, confirmationDelays, currentHeight)
 	if err != nil {
 		err = errors.Wrap(err, "filter clalbacks in ReportBlocks")
 		return
@@ -415,7 +415,6 @@ func (c *coordinator) filterEligibleCallbacks(
 	randomnessFulfillmentRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
-	blockhashesMapping map[uint64]common.Hash,
 ) (callbacks []*vrf_wrapper.VRFBeaconCoordinatorRandomnessFulfillmentRequested, unfulfilled []block, err error) {
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
@@ -434,7 +433,6 @@ func (c *coordinator) filterEligibleCallbacks(
 		cacheKey, err := getCacheKey(callback{
 			blockNumber: r.NextBeaconOutputHeight,
 			requestID:   r.Callback.RequestID.Uint64(),
-			blockHash:   blockhashesMapping[r.NextBeaconOutputHeight],
 		})
 		if err != nil {
 			return nil, nil, err
@@ -463,7 +461,6 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	randomnessRequestedLogs []*vrf_wrapper.VRFBeaconCoordinatorRandomnessRequested,
 	confirmationDelays map[uint32]struct{},
 	currentHeight int64,
-	blockhashesMapping map[uint64]common.Hash,
 ) (unfulfilled []block, err error) {
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
@@ -482,7 +479,6 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 		cacheKey, err := getCacheKey(block{
 			blockNumber: r.NextBeaconOutputHeight,
 			confDelay:   uint32(r.ConfDelay.Uint64()),
-			blockHash:   blockhashesMapping[r.NextBeaconOutputHeight],
 		})
 		if err != nil {
 			return nil, err
@@ -585,22 +581,49 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
 
-	blocksRequested := make(map[block]struct{})
-	blockNumbersRequested := []uint64{}
+	blocksRequested := []block{}
 	callbacksRequested := []callback{}
 
 	// Get all requested blocks and callbacks.
 	for _, output := range report.Outputs {
-		blockNumbersRequested = append(blockNumbersRequested, output.BlockHeight)
-		blocksRequested[block{
+		blockToStore := block{
 			blockNumber: output.BlockHeight,
 			confDelay:   output.ConfirmationDelay,
-		}] = struct{}{}
+		}
+
+		// If proof size is 0, the beacon output is already on chain.
+		if len(output.VRFProof) > 0 {
+			// Ensure block is not already in-flight.
+			key, err := getCacheKey(blockToStore)
+			if err != nil {
+				return errors.Wrapf(err, "Getting block cache key in ReportWillBeTransmitted %v", blockToStore)
+			}
+			if _, err := c.toBeTransmittedBlocks.GetItem(*key); err == nil {
+				return errors.Errorf("Block is already in-flight %v", blockToStore)
+			}
+
+			// Store block in blocksRequested.
+			blocksRequested = append(blocksRequested, blockToStore)
+		}
+
+		// Iterate through callbacks for output.
 		for _, cb := range output.Callbacks {
-			callbacksRequested = append(callbacksRequested, callback{
+			callbackToStore := callback{
 				blockNumber: cb.BeaconHeight,
 				requestID:   cb.RequestID,
-			})
+			}
+
+			// Ensure callback is not already in-flight.
+			key, err := getCacheKey(callbackToStore)
+			if err != nil {
+				return errors.Wrapf(err, "Getting callback cache key in ReportWillBeTransmitted, %v", callbackToStore)
+			}
+			if _, err := c.toBeTransmittedCallbacks.GetItem(*key); err == nil {
+				return errors.Errorf("Callback is already in-flight %v", callbackToStore)
+			}
+
+			// Add callback to callbacksRequested.
+			callbacksRequested = append(callbacksRequested, callbackToStore)
 		}
 	}
 
@@ -609,26 +632,17 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 		return errors.Wrap(err, "Getting latest block in ReportWillBeTransmitted")
 	}
 
-	// Get latest blockhashes from log poller.
-	blockhashesMapping, err := c.getBlockhashesMapping(ctx, blockNumbersRequested)
-	if err != nil {
-		return errors.Wrap(err, "Getting blockhashes in ReportWillBeTransmitted")
-	}
-
 	// Apply blockhashes to blocks and mark them as transmitted.
-	for b := range blocksRequested {
-		b.blockHash = blockhashesMapping[b.blockNumber]
+	for _, b := range blocksRequested {
 		key, err := getCacheKey(b)
 		if err != nil {
 			return errors.Wrap(err, "Getting block cache key in ReportWillBeTransmitted")
 		}
-
 		c.toBeTransmittedBlocks.AddItem(b, *key, latestBlock)
 	}
 
 	// Add the corresponding blockhashes to callbacks and mark them as transmitted.
 	for _, cb := range callbacksRequested {
-		cb.blockHash = blockhashesMapping[cb.blockNumber]
 		key, err := getCacheKey(cb)
 		if err != nil {
 			return errors.Wrap(err, "Getting callback cache key in ReportWillBeTransmitted")
