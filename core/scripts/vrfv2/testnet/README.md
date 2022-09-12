@@ -44,7 +44,7 @@ export ORACLE_ADDRESS=<YOUR ORACLE NODE ADDRESS>
 export PUB_KEY=<YOUR UNCOMPRESSED PUBLIC KEY>
 ```
 
-By default, the script automatically estimates gas limits for operations. Optionally, `GAS_LIMIT` environment variable can be set to override gas limit for operations. 
+By default, the script automatically estimates gas limits for operations. Optionally, `ETH_GAS_LIMIT_DEFAULT` environment variable can be set to override gas limit for operations. 
 
 Now "cd" into the VRF V2 testnet scripts directory:
 
