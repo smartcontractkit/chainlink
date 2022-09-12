@@ -357,3 +357,7 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 // Fix go mod tidy issue for ambiguous imports from go-ethereum
 // See https://github.com/ugorji/go/issues/279
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
+
+exclude (
+	github.com/labstack/echo/v4 v4.5.0
+)
