@@ -35,9 +35,9 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		require.Equal(t, 0, len(keys))
 	})
 
-	t.Run("errors when getting non-existant ID", func(t *testing.T) {
+	t.Run("errors when getting non-existent ID", func(t *testing.T) {
 		defer reset()
-		_, err := ks.Get("non-existant-id")
+		_, err := ks.Get("non-existent-id")
 		require.Error(t, err)
 	})
 
