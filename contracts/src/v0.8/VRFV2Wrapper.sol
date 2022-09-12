@@ -278,7 +278,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       s_keyHash,
       SUBSCRIPTION_ID,
       requestConfirmations,
-      callbackGasLimit + eip150Fee + s_wrapperGasOverhead,
+      callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords
     );
     s_callbacks[requestId] = Callback({
