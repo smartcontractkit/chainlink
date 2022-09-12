@@ -271,9 +271,13 @@ describe('KeeperRegistry2_0', () => {
       .div(numUpkeepsBatch)
       .mul(linkDivisibility)
       .div(linkEth)
-
     const gasPayment = base.add(l1Fee)
-    const premium = gasPayment
+
+    const premium = gasWei
+      .mul(gasMultiplier)
+      .mul(upkeepGasSpent)
+      .mul(linkDivisibility)
+      .div(linkEth)
       .mul(premiumPPB)
       .div(paymentPremiumBase)
       .add(BigNumber.from(flatFee).mul('1000000000000'))
