@@ -347,7 +347,6 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
       gasWei = tx.gasprice;
     }
 
-    uint256 weiForGas = gasWei * (gasLimit + gasOverhead);
     uint256 l1CostWei = 0;
     if (i_paymentModel == PaymentModel.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
@@ -370,8 +369,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
 
-    uint256 gasPayment = ((weiForGas + l1CostWei) * 1e18) / linkNative;
-    uint256 premium = (gasPayment * hotVars.paymentPremiumPPB) / 1e9 + uint256(hotVars.flatFeeMicroLink) * 1e12;
+    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
+    uint256 premium = (gasWei * gasLimit * 1e9 * hotVars.paymentPremiumPPB) /
+      linkNative +
+      uint256(hotVars.flatFeeMicroLink) *
+      1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
     if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
     return (uint96(gasPayment), uint96(premium));
