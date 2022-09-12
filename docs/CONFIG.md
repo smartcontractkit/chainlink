@@ -1277,12 +1277,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1344,12 +1344,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1411,12 +1411,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1478,12 +1478,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1546,12 +1546,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -1613,12 +1613,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1680,12 +1680,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1748,12 +1748,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1815,12 +1815,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -1881,12 +1881,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1947,12 +1947,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -2015,12 +2015,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2083,12 +2083,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -2150,12 +2150,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2217,12 +2217,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2284,12 +2284,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2352,12 +2352,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2419,12 +2419,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2486,12 +2486,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2552,12 +2552,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2619,12 +2619,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2687,12 +2687,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2754,12 +2754,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2821,12 +2821,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2888,12 +2888,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2956,12 +2956,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -3023,12 +3023,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -3090,12 +3090,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -3157,12 +3157,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -3224,12 +3224,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
