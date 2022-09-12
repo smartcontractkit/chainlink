@@ -26,6 +26,8 @@ import (
 
 const (
 	executionQueueSize = 10
+	arbitrumChainId    = 42161
+	arbitrumGoerli     = 421613
 )
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
@@ -210,11 +212,6 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
 
-	evmChainID := ""
-	if ex.job.KeeperSpec.EVMChainID != nil {
-		evmChainID = ex.job.KeeperSpec.EVMChainID.String()
-	}
-
 	var gasPrice, gasTipCap, gasFeeCap *big.Int
 	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
 		price, fee, err := ex.estimateGasPrice(upkeep)
@@ -235,7 +232,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		}
 	}
 
-	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, ex.config, gasPrice, gasTipCap, gasFeeCap, evmChainID))
+	vars := pipeline.NewVarsFrom(buildJobSpec(ex.job, upkeep, ex.orm.config, ex.config, gasPrice, gasTipCap, gasFeeCap, ex.job.KeeperSpec.EVMChainID))
 
 	// DotDagSource in database is empty because all the Keeper pipeline runs make use of the same observation source
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
@@ -313,8 +310,20 @@ func buildJobSpec(
 	gasPrice *big.Int,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
-	chainID string,
+	chainId *utils.Big,
 ) map[string]interface{} {
+	evmChainID := ""
+	if chainId != nil {
+		evmChainID = chainId.String()
+	}
+
+	var checkUpkeepGasLimit, performUpkeepGasLimit uint32
+	if !isArbitrum(chainId) {
+		performUpkeepGasLimit = upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead()
+		checkUpkeepGasLimit = exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
+			exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas
+	}
+
 	return map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"jobID":                 jb.ID,
@@ -322,13 +331,16 @@ func buildJobSpec(
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID.String(),
 			"prettyID":              upkeep.PrettyID(),
-			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
-			"checkUpkeepGasLimit": exConfig.KeeperRegistryCheckGasOverhead() + upkeep.Registry.CheckGas +
-				exConfig.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":   gasPrice,
-			"gasTipCap":  gasTipCap,
-			"gasFeeCap":  gasFeeCap,
-			"evmChainID": chainID,
+			"performUpkeepGasLimit": performUpkeepGasLimit,
+			"checkUpkeepGasLimit":   checkUpkeepGasLimit,
+			"gasPrice":              gasPrice,
+			"gasTipCap":             gasTipCap,
+			"gasFeeCap":             gasFeeCap,
+			"evmChainID":            evmChainID,
 		},
 	}
+}
+
+func isArbitrum(chainId *utils.Big) bool {
+	return chainId != nil && (chainId.Int64() == arbitrumChainId || chainId.Int64() == arbitrumGoerli)
 }

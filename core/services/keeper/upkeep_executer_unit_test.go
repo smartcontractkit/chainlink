@@ -61,7 +61,6 @@ func TestBuildJobSpec(t *testing.T) {
 	gasPrice := big.NewInt(24)
 	gasTipCap := big.NewInt(48)
 	gasFeeCap := big.NewInt(72)
-	chainID := "250"
 
 	m := &registryGasCheckMock{}
 	m.Mock.Test(t)
@@ -69,7 +68,7 @@ func TestBuildJobSpec(t *testing.T) {
 	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(2)
 	m.On("KeeperRegistryCheckGasOverhead").Return(uint32(6)).Times(1)
 
-	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, utils.NewBigI(250))
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
