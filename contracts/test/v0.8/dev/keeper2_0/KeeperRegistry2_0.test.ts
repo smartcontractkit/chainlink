@@ -38,8 +38,9 @@ const transmitGasOverhead = BigNumber.from(800000)
 const checkGasOverhead = BigNumber.from(400000)
 
 // These values should match the constants declared in registry
-const registryGasOverhead = BigNumber.from(85000)
+const registryGasOverhead = BigNumber.from(65000)
 const registryPerSignerGasOverhead = BigNumber.from(7500)
+const registryPerPerformByteGasOverhead = BigNumber.from(20)
 const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
@@ -335,7 +336,7 @@ describe('KeeperRegistry2_0', () => {
     let fPlusOne = BigNumber.from(f + 1)
     let totalGasOverhead = registryGasOverhead
       .add(registryPerSignerGasOverhead.mul(fPlusOne))
-      .add(BigNumber.from('16').mul(maxPerformDataSize))
+      .add(registryPerPerformByteGasOverhead.mul(maxPerformDataSize))
 
     for (let idx = 0; idx < gasAmounts.length; idx++) {
       const gas = gasAmounts[idx]
@@ -1430,7 +1431,12 @@ describe('KeeperRegistry2_0', () => {
                           BigNumber.from(newF + 1),
                         ),
                       )
-                      .add(BigNumber.from(16 * performData.length)),
+                      .add(
+                        BigNumber.from(
+                          registryPerPerformByteGasOverhead.toNumber() *
+                            performData.length,
+                        ),
+                      ),
                   ),
                   'Gas overhead got capped, increase VERIFY_SIGN_TX_GAS_OVERHEAD / VERIFY_PER_SIGNER_GAS_OVERHEAD',
                 )
@@ -2508,7 +2514,7 @@ describe('KeeperRegistry2_0', () => {
         executeGas,
         registryGasOverhead
           .add(registryPerSignerGasOverhead.mul(f + 1))
-          .add(maxPerformDataSize.mul(16)),
+          .add(maxPerformDataSize.mul(registryPerPerformByteGasOverhead)),
         gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
         paymentPremiumPPB,
         flatFeeMicroLink,
@@ -2560,7 +2566,7 @@ describe('KeeperRegistry2_0', () => {
         executeGas,
         registryGasOverhead
           .add(registryPerSignerGasOverhead.mul(f + 1))
-          .add(maxPerformDataSize.mul(16)),
+          .add(maxPerformDataSize.mul(registryPerPerformByteGasOverhead)),
         gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
         paymentPremiumPPB,
         flatFeeMicroLink,

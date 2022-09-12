@@ -34,7 +34,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_GAS_OVERHEAD = 85_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_GAS_OVERHEAD = 65_000; // Used only in maxPayment estimation, not in actual payment
+  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, not in actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, not in actual payment. Value scales with f.
 
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 27_000; // Used in actual payment. Fixed overhead per tx
@@ -405,7 +406,11 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
    * @dev returns the max gas overhead that can be charged for an upkeep
    */
   function _getMaxGasOverhead(uint32 performDataLength, uint8 f) internal pure returns (uint256) {
-    return REGISTRY_GAS_OVERHEAD + (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) + 16 * performDataLength;
+    // performData causes additional overhead in report length and memory operations
+    return
+      REGISTRY_GAS_OVERHEAD +
+      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
+      (REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD * performDataLength);
   }
 
   /**
