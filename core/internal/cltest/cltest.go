@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -652,7 +652,7 @@ func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.LogConfig) keystore.Master {
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 	t.Helper()
 
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	require.NoError(t, err)
 	return models.JSON{Result: gjson.ParseBytes(b)}
 }
@@ -660,7 +660,7 @@ func ParseJSON(t testing.TB, body io.Reader) models.JSON {
 func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 	t.Helper()
 
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	require.NoError(t, err)
 	var respJSON models.JSONAPIErrors
 	err = json.Unmarshal(b, &respJSON)
@@ -672,7 +672,7 @@ func ParseJSONAPIErrors(t testing.TB, body io.Reader) *models.JSONAPIErrors {
 func MustReadFile(t testing.TB, file string) []byte {
 	t.Helper()
 
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	require.NoError(t, err)
 	return content
 }
@@ -718,7 +718,7 @@ func bodyCleaner(t testing.TB, resp *http.Response, err error) (*http.Response, 
 func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 	t.Helper()
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	return b
 }
@@ -766,7 +766,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(dir string) (string, error) {
 	logFile := filepath.Join(dir, logger.LogsFile)
-	b, err := ioutil.ReadFile(logFile)
+	b, err := os.ReadFile(logFile)
 	return string(b), err
 }
 
@@ -1044,7 +1044,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 	t.Logf("expected status code %s got %s", http.StatusText(expectedStatusCode), http.StatusText(resp.StatusCode))
 
 	if resp.StatusCode >= 300 && resp.StatusCode < 600 {
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			assert.FailNowf(t, "Unable to read body", err.Error())
 		}

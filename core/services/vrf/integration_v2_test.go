@@ -406,9 +406,7 @@ func requestRandomnessForWrapper(
 	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(nil, nil)
 	require.NoError(t, err, "could not filter WrapperRequestMade events")
 
-	wrapperConsumerEvents := []*vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExampleWrapperRequestMade{}
 	for wrapperIter.Next() {
-		wrapperConsumerEvents = append(wrapperConsumerEvents, wrapperIter.Event)
 	}
 
 	event := events[len(events)-1]
@@ -1270,6 +1268,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 
 	// Assert that we've completed 0 runs before adding 3 new requests.
 	runs, err := app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
 	assert.Equal(t, 0, len(runs))
 	assert.Equal(t, 3, len(reqIDs))
 
@@ -1299,14 +1298,13 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 
 	// Assert that we've still only completed 1 run before adding new requests.
 	runs, err = app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
 	assert.Equal(t, 1, len(runs))
 
 	// Make some randomness requests, each one block apart, this time without a low-gas request present in the callbackGasLimit slice.
-	reqIDs = []*big.Int{}
 	callbackGasLimits = []uint32{2_500_000, 2_500_000, 2_500_000}
 	for _, limit := range callbackGasLimits {
-		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
-		reqIDs = append(reqIDs, requestID)
+		_, _ = requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni)
 		uni.backend.Commit()
 	}
 
