@@ -194,6 +194,7 @@ MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
+RPCBlockQueryDelay = 10
 TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
@@ -201,7 +202,6 @@ UseForwarders = true
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 17
 
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
@@ -228,7 +228,6 @@ TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
-BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15

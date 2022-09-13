@@ -12,6 +12,7 @@ MinimumContractPayment = '7'
 NonceAutoSync = false
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 99
+RPCBlockQueryDelay = 99
 TxReaperThreshold = '10m0s'
 TxResendAfterThreshold = '5m10s'
 UseForwarders = false
@@ -36,7 +37,6 @@ TipCapDefault = '4.321 kwei'
 TipCapMinimum = '7 wei'
 
 [EVM.GasEstimator.BlockHistory]
-BlockDelay = 99
 BlockHistorySize = 99
 EIP1559FeeCapBufferBlocks = 99
 

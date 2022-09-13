@@ -6,7 +6,7 @@ TxReaperThreshold = '0s'
 TxResendAfterThreshold = '0s'
 
 [BalanceMonitor]
-BlockDelay = 0
+Enabled = true
 
 [GasEstimator]
 Mode = 'FixedPrice'

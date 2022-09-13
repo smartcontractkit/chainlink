@@ -14,7 +14,7 @@ PriceMin = '0'
 BumpThreshold = 0
 
 [BalanceMonitor]
-BlockDelay = 0
+Enabled = true
 
 [GasEstimator.BlockHistory]
 # Force an error if someone enables the estimator by accident; we never want to run the block history estimator on metisaa

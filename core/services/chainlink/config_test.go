@@ -387,8 +387,7 @@ func TestConfig_Marshal(t *testing.T) {
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				BalanceMonitor: &evmcfg.BalanceMonitor{
-					Enabled:    ptr(true),
-					BlockDelay: ptr[uint16](17),
+					Enabled: ptr(true),
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
@@ -421,7 +420,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 					BlockHistory: &evmcfg.BlockHistoryEstimator{
 						BatchSize:                 ptr[uint32](17),
-						BlockDelay:                ptr[uint16](10),
 						BlockHistorySize:          ptr[uint16](12),
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
@@ -451,6 +449,7 @@ func TestConfig_Marshal(t *testing.T) {
 				OperatorFactoryAddress: mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
 
 				RPCDefaultBatchSize:    ptr[uint32](17),
+				RPCBlockQueryDelay:     ptr[uint16](10),
 				TxReaperInterval:       &minute,
 				TxReaperThreshold:      &minute,
 				TxResendAfterThreshold: &hour,
@@ -761,6 +760,7 @@ MinimumContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
+RPCBlockQueryDelay = 10
 TxReaperInterval = '1m0s'
 TxReaperThreshold = '1m0s'
 TxResendAfterThreshold = '1h0m0s'
@@ -768,7 +768,6 @@ UseForwarders = true
 
 [EVM.BalanceMonitor]
 Enabled = true
-BlockDelay = 17
 
 [EVM.GasEstimator]
 Mode = 'L2Suggested'
@@ -795,7 +794,6 @@ TipCapMinimum = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
-BlockDelay = 10
 BlockHistorySize = 12
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15

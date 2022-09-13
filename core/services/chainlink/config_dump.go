@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -537,25 +536,13 @@ func (c *Config) loadLegacyEVMEnv() {
 	}
 	if e := envvar.NewUint16("BlockHistoryEstimatorBlockDelay").ParsePtr(); e != nil {
 		for i := range c.EVM {
-			if c.EVM[i].GasEstimator == nil {
-				c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-			}
-			if c.EVM[i].GasEstimator.BlockHistory == nil {
-				c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
-			}
-			c.EVM[i].GasEstimator.BlockHistory.BlockDelay = e
+			c.EVM[i].RPCBlockQueryDelay = e
 		}
 	} else if s, ok := os.LookupEnv("GAS_UPDATER_BLOCK_DELAY"); ok {
 		l, err := parse.Uint16(s)
 		if err == nil {
 			for i := range c.EVM {
-				if c.EVM[i].GasEstimator == nil {
-					c.EVM[i].GasEstimator = &evmcfg.GasEstimator{}
-				}
-				if c.EVM[i].GasEstimator.BlockHistory == nil {
-					c.EVM[i].GasEstimator.BlockHistory = &evmcfg.BlockHistoryEstimator{}
-				}
-				c.EVM[i].GasEstimator.BlockHistory.BlockDelay = &l
+				c.EVM[i].RPCBlockQueryDelay = &l
 			}
 		}
 	}
@@ -997,15 +984,6 @@ func envSlice[T any](s string, parse func(*T, []byte) error) *[]T {
 		return ts, nil
 	}).ParsePtr()
 }
-
-func envBig(s string) *utils.Big {
-	return envvar.New(s, func(s string) (b utils.Big, err error) {
-		err = b.UnmarshalText([]byte(s))
-		return
-	}).ParsePtr()
-}
-
-var multiLineBreak = regexp.MustCompile("(\n){2,}")
 
 func isZeroPtr[T comparable](p *T) bool {
 	var t T

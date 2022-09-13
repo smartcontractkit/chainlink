@@ -34,6 +34,7 @@ type Chain struct {
 	NonceAutoSync            *bool
 	OperatorFactoryAddress   *ethkey.EIP55Address
 	RPCDefaultBatchSize      *uint32
+	RPCBlockQueryDelay       *uint16
 	TxReaperInterval         *models.Duration
 	TxReaperThreshold        *models.Duration
 	TxResendAfterThreshold   *models.Duration
@@ -61,8 +62,7 @@ func (c Chain) ValidateConfig() (err error) {
 }
 
 type BalanceMonitor struct {
-	Enabled    *bool
-	BlockDelay *uint16
+	Enabled *bool
 }
 
 type GasEstimator struct {
@@ -99,7 +99,6 @@ type GasEstimator struct {
 
 type BlockHistoryEstimator struct {
 	BatchSize                 *uint32
-	BlockDelay                *uint16
 	BlockHistorySize          *uint16
 	EIP1559FeeCapBufferBlocks *uint16
 	TransactionPercentile     *uint16
@@ -198,6 +197,10 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 	if cfg.EvmRPCDefaultBatchSize.Valid {
 		v := uint32(cfg.EvmRPCDefaultBatchSize.Int64)
 		c.RPCDefaultBatchSize = &v
+	}
+	if cfg.BlockHistoryEstimatorBlockDelay.Valid {
+		v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
+		c.RPCBlockQueryDelay = &v
 	}
 	if cfg.FlagsContractAddress.Valid {
 		s := cfg.FlagsContractAddress.String
@@ -324,15 +327,11 @@ func (c *Chain) SetFromDB(cfg *types.ChainCfg) error {
 		c.GasEstimator.LimitKeeperJobType = &v
 	}
 
-	if cfg.BlockHistoryEstimatorBlockDelay.Valid || cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
+	if cfg.BlockHistoryEstimatorBlockHistorySize.Valid || cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks.Valid {
 		if c.GasEstimator == nil {
 			c.GasEstimator = &GasEstimator{}
 		}
 		c.GasEstimator.BlockHistory = &BlockHistoryEstimator{}
-		if cfg.BlockHistoryEstimatorBlockDelay.Valid {
-			v := uint16(cfg.BlockHistoryEstimatorBlockDelay.Int64)
-			c.GasEstimator.BlockHistory.BlockDelay = &v
-		}
 		if cfg.BlockHistoryEstimatorBlockHistorySize.Valid {
 			v := uint16(cfg.BlockHistoryEstimatorBlockHistorySize.Int64)
 			c.GasEstimator.BlockHistory.BlockHistorySize = &v

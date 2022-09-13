@@ -7,6 +7,7 @@ MinIncomingConfirmations = 3
 MinimumContractPayment = '.00001 link'
 NonceAutoSync = true
 RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
 TxReaperInterval = '1h'
 TxReaperThreshold = '168h'
 TxResendAfterThreshold = '1m'
@@ -14,7 +15,6 @@ UseForwarders = false
 
 [BalanceMonitor]
 Enabled = true
-BlockDelay = 1
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -36,7 +36,6 @@ TipCapMinimum = '1'
 
 [GasEstimator.BlockHistory]
 BatchSize = 4
-BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
 

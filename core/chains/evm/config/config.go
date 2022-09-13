@@ -292,14 +292,6 @@ func (c *chainScopedConfig) logKeySpecificOverrideOnce(name string, addr gethcom
 	c.onceMap[k] = struct{}{}
 }
 
-// EvmBalanceMonitorBlockDelay is the number of blocks that the balance monitor
-// trails behind head. This is required e.g. for Infura because they will often
-// announce a new head, then route a request to a different node which does not
-// have this head yet.
-func (c *chainScopedConfig) EvmBalanceMonitorBlockDelay() uint16 {
-	return c.defaultSet.balanceMonitorBlockDelay
-}
-
 // EvmGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
 // Set to 0 to disable gas bumping
 func (c *chainScopedConfig) EvmGasBumpThreshold() uint64 {

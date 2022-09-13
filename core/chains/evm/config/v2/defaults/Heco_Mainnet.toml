@@ -4,10 +4,11 @@ FinalityDepth = 50
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 3
+RPCBlockQueryDelay = 2
 TxResendAfterThreshold = '1m'
 
 [BalanceMonitor]
-BlockDelay = 2
+Enabled = true
 
 [GasEstimator]
 PriceDefault = '5 gwei'
@@ -16,7 +17,6 @@ BumpMin = '5 gwei'
 BumpThreshold = 5
 
 [GasEstimator.BlockHistory]
-BlockDelay = 2
 BlockHistorySize = 24
 
 [HeadTracker]

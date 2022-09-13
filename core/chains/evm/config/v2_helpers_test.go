@@ -39,13 +39,13 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 		NonceAutoSync:            ptr(set.nonceAutoSync),
 		OperatorFactoryAddress:   asEIP155Address(set.operatorFactoryAddress),
 		RPCDefaultBatchSize:      ptr(set.rpcDefaultBatchSize),
+		RPCBlockQueryDelay:       ptr(set.blockHistoryEstimatorBlockDelay),
 		TxReaperInterval:         models.MustNewDuration(set.ethTxReaperInterval),
 		TxReaperThreshold:        models.MustNewDuration(set.ethTxReaperThreshold),
 		TxResendAfterThreshold:   models.MustNewDuration(set.ethTxResendAfterThreshold),
 		UseForwarders:            ptr(set.useForwarders),
 		BalanceMonitor: &v2.BalanceMonitor{
-			Enabled:    ptr(set.balanceMonitorEnabled),
-			BlockDelay: ptr(set.balanceMonitorBlockDelay),
+			Enabled: ptr(set.balanceMonitorEnabled),
 		},
 		GasEstimator: &v2.GasEstimator{
 			Mode:               ptr(set.gasEstimatorMode),
@@ -71,7 +71,6 @@ func (set chainSpecificConfigDefaultSet) asV2() v2.Chain {
 			PriceMin:           utils.NewWei(&set.minGasPriceWei),
 			BlockHistory: &v2.BlockHistoryEstimator{
 				BatchSize:                 ptr(set.blockHistoryEstimatorBatchSize),
-				BlockDelay:                ptr(set.blockHistoryEstimatorBlockDelay),
 				BlockHistorySize:          ptr(set.blockHistoryEstimatorBlockHistorySize),
 				EIP1559FeeCapBufferBlocks: set.blockHistoryEstimatorEIP1559FeeCapBufferBlocks,
 				TransactionPercentile:     ptr(set.blockHistoryEstimatorTransactionPercentile),

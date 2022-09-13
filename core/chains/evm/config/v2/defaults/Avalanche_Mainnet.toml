@@ -4,6 +4,7 @@ LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
 OCR.ContractConfirmations = 1
+RPCBlockQueryDelay = 2
 
 [GasEstimator]
 Mode = 'BlockHistory'
@@ -14,7 +15,6 @@ PriceMin = '25 gwei'
 [GasEstimator.BlockHistory]
 # Average block time of 2s
 BlockHistorySize = 24
-BlockDelay = 2
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'

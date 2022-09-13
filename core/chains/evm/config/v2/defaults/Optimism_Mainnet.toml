@@ -9,7 +9,7 @@ OCR.ContractConfirmations = 1
 TxResendAfterThreshold = '15s'
 
 [BalanceMonitor]
-BlockDelay = 0
+Enabled = true
 
 [GasEstimator]
 Mode = 'L2Suggested'

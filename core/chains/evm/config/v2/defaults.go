@@ -127,6 +127,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.RPCDefaultBatchSize; v != nil {
 		c.RPCDefaultBatchSize = v
 	}
+	if v := f.RPCBlockQueryDelay; v != nil {
+		c.RPCBlockQueryDelay = v
+	}
 	if v := f.TxReaperInterval; v != nil {
 		c.TxReaperInterval = v
 	}
@@ -145,9 +148,6 @@ func (c *Chain) SetFrom(f *Chain) {
 		}
 		if v := b.Enabled; v != nil {
 			c.BalanceMonitor.Enabled = v
-		}
-		if v := b.BlockDelay; v != nil {
-			c.BalanceMonitor.BlockDelay = v
 		}
 	}
 	if g := f.GasEstimator; g != nil {
@@ -223,9 +223,6 @@ func (c *Chain) SetFrom(f *Chain) {
 			}
 			if v := b.BatchSize; v != nil {
 				c.GasEstimator.BlockHistory.BatchSize = v
-			}
-			if v := b.BlockDelay; v != nil {
-				c.GasEstimator.BlockHistory.BlockDelay = v
 			}
 			if v := b.BlockHistorySize; v != nil {
 				c.GasEstimator.BlockHistory.BlockHistorySize = v

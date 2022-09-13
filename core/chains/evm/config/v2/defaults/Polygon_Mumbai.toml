@@ -4,10 +4,11 @@ MaxQueuedTransactions = 5000
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 5
+RPCBlockQueryDelay = 10
 TxResendAfterThreshold = '1m'
 
 [BalanceMonitor]
-BlockDelay = 13
+Enabled = true
 
 [GasEstimator]
 PriceDefault = '1 gwei'
@@ -17,7 +18,6 @@ BumpMin = '20 gwei'
 BumpThreshold = 5
 
 [GasEstimator.BlockHistory]
-BlockDelay = 10
 BlockHistorySize = 24
 
 [HeadTracker]
