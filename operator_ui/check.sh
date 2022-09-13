@@ -22,8 +22,9 @@ if [ "$current_tag" = "$latest_tag" ]; then
   echo "Tag $current_tag is up to date."
   exit 0
 else
-  echo "Tag $current_tag is out of date, updating $tag_file file to latest version.."
+  echo "Tag $current_tag is out of date, updating $tag_file file to latest version..."
   echo "$latest_tag" >"$tag_file"
+  echo "Tag updated $current_tag -> $latest_tag"
   if [ "$CI" ]; then
     echo "::set-output name=current_tag::$current_tag"
     echo "::set-output name=latest_tag::$latest_tag"
