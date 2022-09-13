@@ -142,7 +142,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
 				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
-					callArgs.Gas == 650_000
+					callArgs.Gas == 50000000
 			},
 			checkUpkeepResponse,
 		)
@@ -192,7 +192,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 					)
 
 					return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
-						650_000 == callArgs.Gas
+						callArgs.Gas == 50000000
 				},
 				checkUpkeepResponse,
 			)
@@ -239,7 +239,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
 				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
-					callArgs.Gas == 650_000
+					callArgs.Gas == 50000000
 			},
 			checkUpkeepResponse,
 		)
@@ -338,7 +338,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 					)
 
 					return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
-						650_000 == callArgs.Gas
+						callArgs.Gas == 50000000
 				},
 				checkUpkeepResponse,
 			)
