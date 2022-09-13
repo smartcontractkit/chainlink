@@ -58,6 +58,8 @@ jobs:
       - name: Build Image
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@3ec87dc8f53432e209f1fa6d79ee5ef93ff63b09 
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           install_operator_ui: true
           cl_repo: smartcontractkit/chainlink
