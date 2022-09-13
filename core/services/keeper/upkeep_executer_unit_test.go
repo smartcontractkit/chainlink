@@ -66,10 +66,9 @@ func TestBuildJobSpec(t *testing.T) {
 	m := &registryGasCheckMock{}
 	m.Mock.Test(t)
 
-	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(2)
-	m.On("KeeperRegistryCheckGasOverhead").Return(uint32(6)).Times(1)
+	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
 
-	spec := buildJobSpec(jb, upkeep, m, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -79,7 +78,7 @@ func TestBuildJobSpec(t *testing.T) {
 			"upkeepID":              "4",
 			"prettyID":              fmt.Sprintf("UPx%064d", 4),
 			"performUpkeepGasLimit": uint32(21),
-			"checkUpkeepGasLimit":   uint32(38),
+			"maxGasLimit":           50000000,
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
 			"gasFeeCap":             gasFeeCap,
