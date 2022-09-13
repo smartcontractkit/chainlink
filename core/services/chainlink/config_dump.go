@@ -16,7 +16,9 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	stkdb "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 	terdb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	starknet "github.com/smartcontractkit/chainlink/core/chains/starknet/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/core/chains/evm/config/v2"
@@ -91,6 +93,9 @@ type dbData struct {
 	SolanaChains []solana.DBChain
 	SolanaNodes  map[string][]soldb.Node
 
+	StarknetChains []starknet.DBChain
+	StarknetNodes  map[string][]stkdb.Node
+
 	TerraChains []tertyp.DBChain
 	TerraNodes  map[string][]terdb.Node
 }
@@ -133,6 +138,18 @@ func (c *Config) loadChainsAndNodes(dbData dbData) error {
 			solChain.Enabled = nil
 		}
 		c.Solana = append(c.Solana, &solChain)
+	}
+
+	for _, dbChain := range dbData.StarknetChains {
+		var starkChain StarknetConfig
+		if err := starkChain.setFromDB(dbChain, dbData.StarknetNodes[dbChain.ID]); err != nil {
+			return errors.Wrapf(err, "failed to convert db config for starknet chain %s", dbChain.ID)
+		}
+		if *starkChain.Enabled {
+			// no need to persist if enabled
+			starkChain.Enabled = nil
+		}
+		c.Starknet = append(c.Starknet, &starkChain)
 	}
 
 	for _, dbChain := range dbData.TerraChains {
