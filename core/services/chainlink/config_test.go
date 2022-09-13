@@ -1071,7 +1071,7 @@ Must not comprise:
 	A user's API email
 
 Faults:
-	password is 4 characters long
+	password is less than 16 characters long
 . Database should be secured by a password matching the following complexity requirements: 
 Must have a length of 16-50 characters
 Must not comprise:
