@@ -109,6 +109,7 @@ func (ks *eth) Create(chainIDs ...*big.Int) (ethkey.KeyV2, error) {
 	if err == nil {
 		ks.notify()
 	}
+	ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", key.Address.Hex()), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
 	return key, err
 }
 
