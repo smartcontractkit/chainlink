@@ -1,5 +1,10 @@
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 // ChainType denotes the chain or network to work with
 type ChainType string
 
@@ -10,6 +15,10 @@ const (
 	ChainOptimism ChainType = "optimism"
 	ChainXDai     ChainType = "xdai"
 )
+
+var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
+	string(ChainArbitrum), string(ChainMetis), string(ChainOptimism), string(ChainXDai),
+}, ", "))
 
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {

@@ -755,6 +755,28 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	k3, addr3 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
 	ks.Enable(k3.Address, testutils.SimulatedChainID)
 
+	t.Run("enabling the same key multiple times does not create duplicate states", func(t *testing.T) {
+		ks.Enable(k1.Address, testutils.FixtureChainID)
+		ks.Enable(k1.Address, testutils.FixtureChainID)
+		ks.Enable(k1.Address, testutils.FixtureChainID)
+		ks.Enable(k1.Address, testutils.FixtureChainID)
+
+		states, err := ks.GetStatesForKeys([]ethkey.KeyV2{k1})
+		require.NoError(t, err)
+		assert.Len(t, states, 2)
+		var cids []*big.Int
+		for i := range states {
+			cid := states[i].EVMChainID.ToInt()
+			cids = append(cids, cid)
+		}
+		assert.Contains(t, cids, testutils.FixtureChainID)
+		assert.Contains(t, cids, testutils.SimulatedChainID)
+
+		for _, s := range states {
+			assert.Equal(t, addr1, s.Address.Address())
+		}
+	})
+
 	t.Run("returns nil when key is enabled for given chain", func(t *testing.T) {
 		err := ks.CheckEnabled(addr1, testutils.FixtureChainID)
 		assert.NoError(t, err)
