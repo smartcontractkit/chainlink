@@ -1,0 +1,107 @@
+# Builds external repositories that use this so we can create tickets to update them before their ci pipelines break.
+# NOTE: This is not a required check to merge, merely a check so you know to create tickets to update the products that rely on this.
+name: Build External Repositories
+on:
+  push:
+  pull_request:
+
+# Only run 1 of this workflow at a time per PR
+concurrency:
+  group: integration-build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Build Image
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@1f3c81b148e53caaa0563f8963f884f0e5a4f82d # v2.0.15
+        with:
+          cl_repo: smartcontractkit/chainlink
+          cl_ref: ${{ github.sha }}
+          dep_relay_sha: ${{ github.event.pull_request.head.sha }}
+          push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  solana-build-relay:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Solana Build Relay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Build Relay
+        continue-on-error: true
+      - name: Checkout the solana repo
+        uses: actions/checkout@v3
+        with:
+          repository: smartcontractkit/chainlink-solana
+          ref: relay_ci_updates
+      - uses: smartcontractkit/tool-versions-to-env-action@v1.0.7
+        id: tool-versions
+      - name: Setup go ${{ steps.tool-versions.outputs.golang_version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ steps.tool-versions.outputs.golang_version }}
+      - name: Replace chainlink-relay deps
+        run: go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+      - name: Install Solana CLI
+        run: make test_install_ci
+      - name: Build & Test
+        run: make test_relay_unit
+  starknet-build-relay:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Starknet Build Relay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Starknet Build Relay
+        continue-on-error: true
+      - name: Checkout the starknet repo
+        uses: actions/checkout@v3
+        with:
+          repository: smartcontractkit/chainlink-starknet
+      - name: Replace chainlink-relay deps
+        run: | 
+            cd relayer
+            go get github.com/smartcontractkit/chainlink-relay@${{ github.event.pull_request.head.sha }}
+      - name: Install Nix
+        uses: cachix/install-nix-action@d64e0553100205688c0fb2fa16edb0fc8663c590 # v17
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - name: Build
+        run: nix develop -c make build-go-relayer
+      - name: Test
+        run: nix develop -c make test-unit-go
