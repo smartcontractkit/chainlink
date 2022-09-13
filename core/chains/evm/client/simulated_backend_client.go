@@ -408,6 +408,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			if _, ok := elem.Result.(*evmtypes.Head); !ok {
 				return errors.Errorf("SimulatedBackendClient expected return type of *evmtypes.Head for eth_getBlockByNumber, got type %T", elem.Result)
 			}
+			if len(elem.Args) != 2 {
+				return errors.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_getBlockByNumber", len(elem.Args))
+			}
 			blockNum, is := elem.Args[0].(string)
 			if !is {
 				return errors.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getBlockByNumber, got: %T", elem.Args[0])
@@ -427,7 +430,6 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			if err != nil {
 				return err
 			}
-			fmt.Println("headerByNumber", header, err, n)
 			b[i].Result = &evmtypes.Head{
 				Number: header.Number.Int64(),
 				Hash:   header.Hash(),

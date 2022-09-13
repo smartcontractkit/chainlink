@@ -625,7 +625,7 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 
 	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
 	if err != nil {
-		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers)
+		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
 	}
 	for _, b := range lpBlocks {
 		blocksFound[uint64(b.BlockNumber)] = b
@@ -669,8 +669,11 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 		if block == nil {
 			return nil, errors.New("invariant violation: got nil block")
 		}
-		if block.Hash == utils.EmptyHash {
+		if block.Hash == (common.Hash{}) {
 			return nil, errors.Errorf("missing block hash for block number: %d", block.Number)
+		}
+		if block.Number < 0 {
+			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
 		}
 		blocksFound[uint64(block.Number)] = LogPollerBlock{
 			EvmChainId:  block.EVMChainID,
