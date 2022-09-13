@@ -581,6 +581,24 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 	c.transmittedMu.Lock()
 	defer c.transmittedMu.Unlock()
 
+	latestBlock, err := c.lp.LatestBlock()
+	if err != nil {
+		return errors.Wrap(err, "getting latest block in ReportWillBeTransmitted")
+	}
+
+	// Evict expired items from the cache.
+	c.toBeTransmittedBlocks.EvictExpiredItems(latestBlock)
+	c.toBeTransmittedCallbacks.EvictExpiredItems(latestBlock)
+
+	// Check for a re-org, and return an error if one is present.
+	blockhashesMapping, err := c.getBlockhashesMapping(ctx, []uint64{report.RecentBlockHeight})
+	if err != nil {
+		return errors.Wrap(err, "getting blockhash mapping in ReportWillBeTransmitted")
+	}
+	if blockhashesMapping[report.RecentBlockHeight].String() != report.RecentBlockHash.String() {
+		return errors.Errorf("blockhash of report does not match most recent blockhash in ReportWillBeTransmitted")
+	}
+
 	blocksRequested := []block{}
 	callbacksRequested := []callback{}
 
@@ -591,15 +609,15 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 			confDelay:   output.ConfirmationDelay,
 		}
 
-		// If proof size is 0, the beacon output is already on chain.
+		// If the VRF proof size is 0, the beacon output is already on chain, so skip checks & caching.
 		if len(output.VRFProof) > 0 {
 			// Ensure block is not already in-flight.
 			key, err := getCacheKey(blockToStore)
 			if err != nil {
-				return errors.Wrapf(err, "Getting block cache key in ReportWillBeTransmitted %v", blockToStore)
+				return errors.Wrapf(err, "getting block cache key in ReportWillBeTransmitted %v", blockToStore)
 			}
 			if _, err := c.toBeTransmittedBlocks.GetItem(*key); err == nil {
-				return errors.Errorf("Block is already in-flight %v", blockToStore)
+				return errors.Errorf("block is already in-flight %v", blockToStore)
 			}
 
 			// Store block in blocksRequested.
@@ -616,20 +634,15 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 			// Ensure callback is not already in-flight.
 			key, err := getCacheKey(callbackToStore)
 			if err != nil {
-				return errors.Wrapf(err, "Getting callback cache key in ReportWillBeTransmitted, %v", callbackToStore)
+				return errors.Wrapf(err, "getting callback cache key in ReportWillBeTransmitted, %v", callbackToStore)
 			}
 			if _, err := c.toBeTransmittedCallbacks.GetItem(*key); err == nil {
-				return errors.Errorf("Callback is already in-flight %v", callbackToStore)
+				return errors.Errorf("callback is already in-flight %v", callbackToStore)
 			}
 
 			// Add callback to callbacksRequested.
 			callbacksRequested = append(callbacksRequested, callbackToStore)
 		}
-	}
-
-	latestBlock, err := c.lp.LatestBlock()
-	if err != nil {
-		return errors.Wrap(err, "Getting latest block in ReportWillBeTransmitted")
 	}
 
 	// Apply blockhashes to blocks and mark them as transmitted.
@@ -649,10 +662,6 @@ func (c *coordinator) ReportWillBeTransmitted(ctx context.Context, report ocr2vr
 		}
 		c.toBeTransmittedCallbacks.AddItem(cb, *key, latestBlock)
 	}
-
-	// Evict expired items from cache.
-	c.toBeTransmittedBlocks.EvictExpiredItems(latestBlock)
-	c.toBeTransmittedCallbacks.EvictExpiredItems(latestBlock)
 
 	return nil
 }

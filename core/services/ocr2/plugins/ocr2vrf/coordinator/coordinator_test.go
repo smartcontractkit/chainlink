@@ -486,6 +486,8 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		}
 
 		report := ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 195,
+			RecentBlockHash:   common.HexToHash("0x001"),
 			Outputs: []ocr2vrftypes.AbstractVRFOutput{
 				{
 					BlockHeight:       195,
@@ -528,16 +530,37 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 
 func TestCoordinator_ReportWillBeTransmitted(t *testing.T) {
 
-	lookbackBlocks := int64(0)
-	lp := getLogPoller(t, []uint64{}, 200, false)
-	c := &coordinator{
-		lp:                       lp,
-		lookbackBlocks:           lookbackBlocks,
-		lggr:                     logger.TestLogger(t),
-		toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
-		toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
-	}
-	assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{}))
+	t.Run("happy path", func(t *testing.T) {
+		lookbackBlocks := int64(0)
+		lp := getLogPoller(t, []uint64{199}, 200, true)
+		c := &coordinator{
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
+		}
+		assert.NoError(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 199,
+			RecentBlockHash:   common.HexToHash("0x001"),
+		}))
+	})
+
+	t.Run("re-org", func(t *testing.T) {
+		lookbackBlocks := int64(0)
+		lp := getLogPoller(t, []uint64{199}, 200, true)
+		c := &coordinator{
+			lp:                       lp,
+			lookbackBlocks:           lookbackBlocks,
+			lggr:                     logger.TestLogger(t),
+			toBeTransmittedBlocks:    NewBlockCache[block](lookbackBlocks),
+			toBeTransmittedCallbacks: NewBlockCache[callback](lookbackBlocks),
+		}
+		assert.Error(t, c.ReportWillBeTransmitted(testutils.Context(t), ocr2vrftypes.AbstractReport{
+			RecentBlockHeight: 199,
+			RecentBlockHash:   common.HexToHash("0x009"),
+		}))
+	})
 }
 
 func TestCoordinator_MarshalUnmarshal(t *testing.T) {
