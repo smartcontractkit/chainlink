@@ -63,7 +63,7 @@ var defaultRegistryConfig = contracts.KeeperRegistrySettings{
 	GasCeilingMultiplier: uint16(1),
 	MinUpkeepSpend:       big.NewInt(0),
 	MaxPerformGas:        uint32(5000000),
-	FallbackGasPrice:     big.NewInt(2e11),
+	FallbackGasPrice:     big.NewInt(2e10),
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
@@ -76,7 +76,7 @@ var highBCPTRegistryConfig = contracts.KeeperRegistrySettings{
 	GasCeilingMultiplier: uint16(1),
 	MinUpkeepSpend:       big.NewInt(0),
 	MaxPerformGas:        uint32(5000000),
-	FallbackGasPrice:     big.NewInt(2e11),
+	FallbackGasPrice:     big.NewInt(2e10),
 	FallbackLinkPrice:    big.NewInt(2e18),
 }
 
@@ -484,14 +484,14 @@ var _ = Describe("Keeper Suite @keeper", func() {
 			}, "1m", "1s").Should(Succeed())
 
 			// Grant permission to the registry to fund the upkeep
-			err = linkToken.Approve(registry.Address(), big.NewInt(9e18))
+			err = linkToken.Approve(registry.Address(), big.NewInt(9e21))
 			Expect(err).ShouldNot(HaveOccurred(), "Could not approve permissions for the registry "+
 				"on the link token contract")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")
 
 			// Add funds to the upkeep whose ID we know from above
-			err = registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e18))
+			err = registry.AddUpkeepFunds(upkeepIDs[0], big.NewInt(9e21))
 			Expect(err).ShouldNot(HaveOccurred(), "Could not fund upkeep")
 			err = chainClient.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for events")

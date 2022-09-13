@@ -38,6 +38,7 @@ const KeepersObservationSource = `
                               extractRevertReason=true
                               evmChainID="$(jobSpec.evmChainID)"
                               contract="$(jobSpec.contractAddress)"
+							  gas="$(jobSpec.performUpkeepGasLimit)"
                               from="$(jobSpec.fromAddress)"
                               data="$(encode_perform_upkeep_tx)"]
     decode_check_perform_tx  [type=ethabidecode

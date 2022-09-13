@@ -157,11 +157,11 @@ func TestKeeperEthIntegration(t *testing.T) {
 		registryVersion keeper.RegistryVersion
 	}{
 		// name should be a valid ORM name, only containing alphanumeric/underscore
-		{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
-		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
-		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
-		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
-		{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
+		//{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
+		//{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
+		//{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
+		//{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
+		//{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
 		{"eip1559_mode_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
@@ -187,7 +187,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				carrol.From: {Balance: assets.Ether(1000)},
 				nelly.From:  {Balance: assets.Ether(1000)},
 				nick.From:   {Balance: assets.Ether(1000)},
-				nodeAddress: {Balance: assets.Ether(1000)},
+				nodeAddress: {Balance: assets.Ether(6000)},
 			}
 
 			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
