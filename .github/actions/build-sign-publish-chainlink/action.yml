@@ -126,12 +126,18 @@ runs:
         CHAINLINK_USER=root
         ${{ env.shared-build-args }}
 
-  - name: Save root image name in GITHUB_ENV
+  - name: Save root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
     id: save-root-image-name-env
     shell: sh
     run: |
       IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
-      echo "root_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+      IMAGE_DIGEST=${{ fromJSON(steps.buildpush-root.outputs.metadata)['containerimage.digest'] }}
+      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+      echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+      echo '## Container Images' >> $GITHUB_STEP_SUMMARY
+      echo '### Root Image' >> $GITHUB_STEP_SUMMARY
+      echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
+      echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 
   - name: Generate docker metadata for non-root image
     id: meta-nonroot
@@ -157,12 +163,17 @@ runs:
         CHAINLINK_USER=chainlink
         ${{ env.shared-build-args }}
 
-  - name: Save non-root image name in GITHUB_ENV
+  - name: Save non-root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
     id: save-non-root-image-name-env
     shell: sh
     run: |
       IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
-      echo "nonroot_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+      IMAGE_DIGEST=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['containerimage.digest'] }}
+      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+      echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+      echo '### Non-root Image' >> $GITHUB_STEP_SUMMARY
+      echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
+      echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
 
   - name: Check if non-root image runs as root
     id: check-nonroot-runs-root
