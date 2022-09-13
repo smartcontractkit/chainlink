@@ -192,6 +192,10 @@ func (c *coordinator) ReportBlocks(
 		return
 	}
 
+	// Evict expired items from the cache.
+	c.toBeTransmittedBlocks.EvictExpiredItems(currentHeight)
+	c.toBeTransmittedCallbacks.EvictExpiredItems(currentHeight)
+
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
