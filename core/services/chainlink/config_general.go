@@ -154,7 +154,11 @@ func (g *generalConfig) TerraEnabled() bool {
 }
 
 func (g *generalConfig) StarkNetEnabled() bool {
-	//TODO https://app.shortcut.com/chainlinklabs/story/43210/include-starknet
+	for _, c := range g.c.Starknet {
+		if e := c.Enabled; e != nil && *e {
+			return true
+		}
+	}
 	return false
 }
 
