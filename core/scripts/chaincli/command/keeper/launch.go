@@ -15,6 +15,10 @@ var launchAndTestCmd = &cobra.Command{
 	Long:  `This command launches chainlink nodes, keeper setup and starts performing upkeeps.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
+		if err := cfg.Validate(); err != nil {
+			log.Fatal(err)
+		}
+
 		hdlr := handler.NewKeeper(cfg)
 
 		withdraw, err := cmd.Flags().GetBool("withdraw")

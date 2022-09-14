@@ -21,8 +21,8 @@ func (k *Keeper) createJobs() {
 		if len(pwd) == 0 {
 			pwd = defaultChainlinkNodePassword
 		}
-		err := k.createKeeperJobOnExistingNode(url, email, pwd, k.cfg.RegistryAddress, keeperAddr)
-		if err != nil {
+
+		if err := k.createKeeperJobOnExistingNode(url, email, pwd, k.cfg.RegistryAddress, keeperAddr); err != nil {
 			log.Printf("Keeper Job not created for keeper %d: %s %s\n", i, url, keeperAddr)
 			log.Println("Please create it manually")
 		}

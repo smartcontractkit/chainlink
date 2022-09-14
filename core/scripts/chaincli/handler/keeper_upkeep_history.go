@@ -35,6 +35,7 @@ var (
 	checkUpkeepArguments2 abi.Arguments
 	registry11ABI         = keeper.Registry1_1ABI
 	registry12ABI         = keeper.Registry1_2ABI
+	registry20ABI         = keeper.Registry2_0ABI
 )
 
 type result struct {
@@ -68,9 +69,9 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 	var keeperRegistry12 *registry12.KeeperRegistry
 
 	if isVersion12 {
-		registryAddr, keeperRegistry12 = k.getRegistry2(ctx)
+		registryAddr, keeperRegistry12 = k.getRegistry12(ctx)
 	} else {
-		registryAddr, keeperRegistry11 = k.getRegistry1(ctx)
+		registryAddr, keeperRegistry11 = k.getRegistry11(ctx)
 	}
 
 	// Get positioning constant of the current registry
