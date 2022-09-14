@@ -16,7 +16,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const AUDIT_LOGS_CAPACITY = 2048
+
 type AuditLogger interface {
+	//Audit(ctx context.Context, eventID EventID, data map[string]interface{})
 	Audit(ctx context.Context, eventID EventID, data map[string]interface{})
 }
 
@@ -29,12 +32,18 @@ type AuditLoggerService struct {
 	environmentName string
 	hostname        string
 	localIP         string
+	loggingChannel  chan WrappedAuditLog
 }
 
 // Configurable headers to include in POST to log service
 type serviceHeader struct {
 	header string
 	value  string
+}
+
+type WrappedAuditLog struct {
+	eventID EventID
+	data    map[string]interface{}
 }
 
 // NewAuditLogger returns a buffer push system that ingests audit log events and
@@ -78,6 +87,8 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 		}
 	}
 
+	loggingChannel := make(chan WrappedAuditLog, AUDIT_LOGS_CAPACITY)
+
 	// Finally, create new auditLogger with parameters
 	auditLogger := AuditLoggerService{
 		logger:          logger.Helper(1),
@@ -88,17 +99,60 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 		environmentName: env,
 		hostname:        hostname,
 		localIP:         getLocalIP(),
+		loggingChannel:  loggingChannel,
 	}
+
+	// Start our go routine that will receive logs and send them out to the
+	// configured service.
+	go auditLogger.auditLoggerRoutine()
+
 	return &auditLogger, nil
 }
 
+// / Entrypoint for new audit logs. This buffers all logs that come in they will
+// / sent out by the goroutine that was started when the AuditLoggerService was
+// / created. If this service was not enabled, this immeidately returns.
+// /
+// / This function never blocks.
 func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data map[string]interface{}) {
 	if !l.enabled {
 		return
 	}
-	go l.postLogToLogService(eventID, data)
+
+	wrappedLog := WrappedAuditLog{
+		eventID: eventID,
+		data:    data,
+	}
+
+	select {
+	case l.loggingChannel <- wrappedLog:
+	default:
+		if len(l.loggingChannel) == AUDIT_LOGS_CAPACITY {
+			l.logger.Errorw("Audit log buffer is full. Dropping log with eventID: %s", eventID)
+		} else {
+			l.logger.Errorw("Could not send log to audit subsystem even though queue has %d space", AUDIT_LOGS_CAPACITY-len(l.loggingChannel))
+		}
+	}
 }
 
+// / Entrypoint for our log handling goroutine. This waits on the channel and sends out
+// / logs as they come in.
+// /
+// / This function calls postLogToLogService which blocks.
+func (l *AuditLoggerService) auditLoggerRoutine() {
+	for event := range l.loggingChannel {
+		l.postLogToLogService(event.eventID, event.data)
+	}
+
+	l.logger.Errorw("Audit logger is shut down. Will not send requested audit log")
+}
+
+// / Takes an EventID and associated data and sends it to the configured logging
+// / endpoint. This function blocks on the send by timesout after a period of
+// / several seconds. This helps us prevent getting stuck on a single log
+// / due to transient network errors.
+// /
+// / This function blocks when called.
 func (l *AuditLoggerService) postLogToLogService(eventID EventID, data map[string]interface{}) {
 	// Audit log JSON data
 	logItem := map[string]interface{}{
