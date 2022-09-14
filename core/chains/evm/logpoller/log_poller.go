@@ -622,7 +622,7 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 // response contains blocks in the same order as "numbers" in request parameters
 func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	blocksFound := make(map[uint64]LogPollerBlock)
-
+	qopts = append(qopts, pg.WithParentCtx(ctx))
 	lpBlocks, err := lp.orm.GetBlocks(numbers, qopts...)
 	if err != nil {
 		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)

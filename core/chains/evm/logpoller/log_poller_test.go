@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"context"
 	"database/sql"
 	"math/big"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -559,4 +561,19 @@ func TestLogPoller_GetBlocks(t *testing.T) {
 	assert.Equal(t, blocks[0].BlockHash, reversedBlocks[1].BlockHash)
 	assert.Equal(t, blocks[1].BlockNumber, reversedBlocks[0].BlockNumber)
 	assert.Equal(t, blocks[1].BlockHash, reversedBlocks[0].BlockHash)
+
+	// test RPC context cancellation
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	cancel()
+	_, err = th.lp.GetBlocks(ctx, blockNums)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context canceled")
+
+	// test GetBlocks still works when qopts is cancelled
+	// but context object is not
+	ctx, cancel = context.WithCancel(testutils.Context(t))
+	qopts := pg.WithParentCtx(ctx)
+	cancel()
+	_, err = th.lp.GetBlocks(testutils.Context(t), blockNums, qopts)
+	require.NoError(t, err)
 }

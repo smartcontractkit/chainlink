@@ -388,6 +388,13 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 
 // BatchCallContext makes a batch rpc call.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("context canceled")
+	default:
+		//do nothing
+	}
+
 	for i, elem := range b {
 		switch elem.Method {
 		case "eth_getTransactionReceipt":
