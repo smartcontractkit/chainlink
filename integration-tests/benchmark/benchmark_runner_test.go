@@ -31,7 +31,10 @@ var baseEnvironmentConfig = &environment.Config{
 // Run the Keepers Benchmark test defined in ./tests/keeper_test.go
 func TestKeeperBenchmark(t *testing.T) {
 	activeEVMNetwork := networks.SimulatedEVM // Environment currently being used to run benchmark test on
-	// activeEVMNetwork := networks.GeneralEVM() // To run benchmark test on any mainet/testnet
+	evmSimulated, evmSimulatedExists := os.LookupEnv("EVM_SIMULATED")
+	if evmSimulatedExists && strings.ToLower(evmSimulated) == "false" {
+		activeEVMNetwork = networks.GeneralEVM() // To run benchmark test on any mainet/testnet
+	}
 
 	baseEnvironmentConfig.NamespacePrefix = fmt.Sprintf(
 		"benchmark-keeper-%s",
@@ -41,6 +44,19 @@ func TestKeeperBenchmark(t *testing.T) {
 
 	// Values you want each node to have the exact same of (e.g. eth_chain_id)
 	staticValues := activeEVMNetwork.ChainlinkValuesMap()
+	if !activeEVMNetwork.Simulated {
+		staticValues = map[string]interface{}{
+			"KEEPER_REGISTRY_SYNC_INTERVAL":  "",
+			"ETH_URL":                        "",
+			"ETH_CHAIN_ID":                   "",
+			"ETH_MAX_IN_FLIGHT_TRANSACTIONS": "3",
+			"ETH_MAX_QUEUED_TRANSACTIONS":    "15",
+			"ETH_GAS_BUMP_TX_DEPTH":          "3",
+			"ETH_HEAD_TRACKER_HISTORY_DEPTH": "1500",
+			"ETH_FINALITY_DEPTH":             "1000",
+		}
+	}
+
 	keeperBenchmarkValues := map[string]interface{}{
 		"MIN_INCOMING_CONFIRMATIONS": "1",
 		"KEEPER_TURN_FLAG_ENABLED":   "true",
@@ -68,9 +84,89 @@ func TestKeeperBenchmark(t *testing.T) {
 			"dynamic_value": "5",
 		},
 	}
+	if !activeEVMNetwork.Simulated {
+		dynamicValues = []map[string]interface{}{
+			{
+				"EVM_NODES": os.Getenv("EVM_NODES_0"),
+			},
+			{
+				"EVM_NODES": os.Getenv("EVM_NODES_1"),
+			},
+			{
+				"EVM_NODES": os.Getenv("EVM_NODES_2"),
+			},
+			{
+				"EVM_NODES": os.Getenv("EVM_NODES_3"),
+			},
+			{
+				"EVM_NODES": os.Getenv("EVM_NODES_4"),
+			},
+			{
+				"EVM_NODES": os.Getenv("EVM_NODES_5"),
+			},
+		}
+	}
 	addSeparateChainlinkDeployments(testEnvironment, staticValues, dynamicValues)
 
 	benchmarkTestHelper(t, "@benchmark-keeper", testEnvironment, activeEVMNetwork)
+}
+
+var chainlinkPerformance = map[string]interface{}{
+	"chainlink": map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "4Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "4Gi",
+			},
+		},
+	},
+	"db": map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+		},
+		"stateful": true,
+		"capacity": "20Gi",
+	},
+}
+
+var chainlinkSoak = map[string]interface{}{
+	"chainlink": map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "350m",
+				"memory": "1Gi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "350m",
+				"memory": "1Gi",
+			},
+		},
+	},
+	"db": map[string]interface{}{
+		"resources": map[string]interface{}{
+			"requests": map[string]interface{}{
+				"cpu":    "250m",
+				"memory": "256Mi",
+			},
+			"limits": map[string]interface{}{
+				"cpu":    "250m",
+				"memory": "256Mi",
+			},
+		},
+		"stateful": true,
+		"capacity": "20Gi",
+	},
 }
 
 // adds distinct Chainlink deployments to the test environment, using staticVals on all of them, while distributing
@@ -88,35 +184,16 @@ func addSeparateChainlinkDeployments(
 		for key, value := range dynamicValues {
 			envVals[key] = value
 		}
-		testEnvironment.AddHelm(chainlink.New(index, map[string]interface{}{
+		chartValues := map[string]interface{}{
 			"env": envVals,
-			"chainlink": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "1000m",
-						"memory": "4Gi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "1000m",
-						"memory": "4Gi",
-					},
-				},
-			},
-			"db": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "1000m",
-						"memory": "1Gi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "1000m",
-						"memory": "1Gi",
-					},
-				},
-				"stateful": true,
-				"capacity": "5Gi",
-			},
-		}))
+		}
+		chartResources := chainlinkPerformance
+		testType, testTypeExists := os.LookupEnv("TEST_TYPE")
+		if testTypeExists && strings.ToLower(testType) == "soak" {
+			chartResources = chainlinkSoak
+		}
+		mergo.Merge(&chartValues, &chartResources)
+		testEnvironment.AddHelm(chainlink.New(index, chartValues))
 	}
 }
 
@@ -145,11 +222,11 @@ func benchmarkTestHelper(
 		"remote_test_runner": remoteRunnerValues,
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
-				"cpu":    "1000m",
+				"cpu":    "250m",
 				"memory": "512Mi",
 			},
 			"limits": map[string]interface{}{
-				"cpu":    "1000m",
+				"cpu":    "250m",
 				"memory": "512Mi",
 			},
 		},
