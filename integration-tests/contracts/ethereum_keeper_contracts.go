@@ -829,6 +829,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) logDetails() {
 // KeeperConsumerBenchmarkRoundConfirmer is a header subscription that awaits for a round of upkeeps
 type KeeperConsumerBenchmarkRoundConfirmer struct {
 	instance KeeperConsumerBenchmark
+	registry KeeperRegistry
 	upkeepID *big.Int
 	doneChan chan bool
 	context  context.Context
@@ -853,6 +854,7 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 // Used to track and log benchmark test results for keepers
 func NewKeeperConsumerBenchmarkRoundConfirmer(
 	contract KeeperConsumerBenchmark,
+	registry KeeperRegistry,
 	upkeepID *big.Int,
 	blockRange int64,
 	upkeepSLA int64,
@@ -861,6 +863,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerBenchmarkRoundConfirmer{
 		instance:                contract,
+		registry:                registry,
 		upkeepID:                upkeepID,
 		doneChan:                make(chan bool),
 		context:                 ctx,
@@ -901,6 +904,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 			Str("Contract Address", o.instance.Address()).
 			Int64("Upkeep Count", upkeepCount.Int64()).
 			Int64("Blocks since eligible", o.blocksSinceEligible).
+			Str("Registry Address", o.registry.Address()).
 			Msg("Upkeep Performed")
 
 		if o.blocksSinceEligible > o.upkeepSLA {
@@ -909,6 +913,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 				Str("Upkeep ID", o.upkeepID.String()).
 				Str("Contract Address", o.instance.Address()).
 				Int64("Blocks since eligible", o.blocksSinceEligible).
+				Str("Registry Address", o.registry.Address()).
 				Msg("Upkeep Missed SLA")
 			o.countMissed++
 		}
@@ -930,6 +935,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 				Uint64("Block Number", receivedBlock.NumberU64()).
 				Str("Upkeep ID", o.upkeepID.String()).
 				Str("Contract Address", o.instance.Address()).
+				Str("Registry Address", o.registry.Address()).
 				Msg("Upkeep Now Eligible")
 		}
 		o.blocksSinceEligible++
@@ -943,6 +949,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 					Str("Upkeep ID", o.upkeepID.String()).
 					Str("Contract Address", o.instance.Address()).
 					Int64("Blocks since eligible", o.blocksSinceEligible).
+					Str("Registry Address", o.registry.Address()).
 					Msg("Upkeep remained eligible at end of test and missed SLA")
 				o.countMissed++
 			} else {
@@ -952,6 +959,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 					Str("Contract Address", o.instance.Address()).
 					Int64("Upkeep Count", upkeepCount.Int64()).
 					Int64("Blocks since eligible", o.blocksSinceEligible).
+					Str("Registry Address", o.registry.Address()).
 					Msg("Upkeep remained eligible at end of test and was within SLA")
 			}
 			o.allCheckDelays = append(o.allCheckDelays, o.blocksSinceEligible)
@@ -963,6 +971,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveBlock(receivedBlock block
 			Str("Contract Address", o.instance.Address()).
 			Int64("Upkeeps Performed", upkeepCount.Int64()).
 			Int64("Total Blocks Watched", o.blocksSinceSubscription).
+			Str("Registry Address", o.registry.Address()).
 			Msg("Finished Watching for Upkeeps")
 
 		o.doneChan <- true
@@ -998,6 +1007,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) logDetails() {
 		TotalSLAMissedUpkeeps: o.countMissed,
 		TotalPerformedUpkeeps: o.upkeepCount,
 		AllCheckDelays:        o.allCheckDelays,
+		RegistryAddress:       o.registry.Address(),
 	}
 	o.metricsReporter.ReportMutex.Lock()
 	o.metricsReporter.Reports = append(o.metricsReporter.Reports, report)

@@ -74,18 +74,29 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	k.keeperConsumerContracts = make([][]contracts.KeeperConsumerBenchmark, len(inputs.RegistryVersions))
 	k.upkeepIDs = make([][]*big.Int, len(inputs.RegistryVersions))
 
+	var err error
+	// Connect to networks and prepare for contract deployment
+	contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
+	Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
+	k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
+	Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
+	k.chainClient.ParallelTransactions(true)
+
+	if len(inputs.RegistryVersions) > 1 {
+		for nodeIndex, node := range k.chainlinkNodes {
+			for registryIndex := 1; registryIndex < len(inputs.RegistryVersions); registryIndex++ {
+				log.Debug().Str("URL", node.URL()).Int("NodeIndex", nodeIndex).Int("RegistryIndex", registryIndex).Msg("Create Tx key")
+				_, _, err := node.CreateTxKey(k.Inputs.BlockchainClient.GetChainID().String())
+				Expect(err).ShouldNot(HaveOccurred(), "Creating transaction key shouldn't fail")
+			}
+		}
+	}
+
 	for index := range inputs.RegistryVersions {
 		log.Info().Int("Index", index).Msg("Starting Test Setup")
-		var err error
-		// Connect to networks and prepare for contract deployment
-		contractDeployer, err := contracts.NewContractDeployer(k.chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Building a new contract deployer shouldn't fail")
-		k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-		k.chainClient.ParallelTransactions(true)
 
 		// Fund chainlink nodes
-		err = actions.FundChainlinkNodes(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding)
+		err = actions.FundChainlinkNodesAddress(k.chainlinkNodes, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
 		Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
 		linkToken, err := contractDeployer.DeployLinkTokenContract()
 		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
@@ -106,8 +117,6 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 			inputs.PerformGasToBurn,
 			inputs.FirstEligibleBuffer,
 		)
-		// Send keeper jobs to registry and chainlink nodes
-		actions.CreateKeeperJobs(k.chainlinkNodes, k.keeperRegistries[index])
 	}
 
 	log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
@@ -118,10 +127,13 @@ func (k *KeeperBenchmarkTest) Run() {
 	startTime := time.Now()
 
 	for rIndex := range k.keeperRegistries {
+		// Send keeper jobs to registry and chainlink nodes
+		actions.CreateKeeperJobsWithKeyIndex(k.chainlinkNodes, k.keeperRegistries[rIndex], rIndex)
 		for index, keeperConsumer := range k.keeperConsumerContracts[rIndex] {
-			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d", index),
+			k.chainClient.AddHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index),
 				contracts.NewKeeperConsumerBenchmarkRoundConfirmer(
 					keeperConsumer,
+					k.keeperRegistries[rIndex],
 					k.upkeepIDs[rIndex][index],
 					k.Inputs.BlockRange+k.Inputs.FirstEligibleBuffer+k.Inputs.BlockInterval,
 					k.Inputs.UpkeepSLA,
@@ -133,7 +145,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	defer func() { // Cleanup the subscriptions
 		for rIndex := range k.keeperRegistries {
 			for index := range k.keeperConsumerContracts[rIndex] {
-				k.chainClient.DeleteHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d", index))
+				k.chainClient.DeleteHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index))
 			}
 		}
 
@@ -168,6 +180,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		"BlockInterval":       k.Inputs.BlockInterval,
 		"UpkeepSLA":           k.Inputs.UpkeepSLA,
 		"FirstEligibleBuffer": k.Inputs.FirstEligibleBuffer,
+		"NumberOfRegistries":  len(k.keeperRegistries),
 	}
 
 	k.TestReporter.Summary.Config.Chainlink, err = k.env.ResourcesSummary("app=chainlink-0")
@@ -224,6 +237,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Bool("Success", parsedLog.Success).
 						Str("From", parsedLog.From.String()).
+						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got successful Upkeep Performed log on Registry")
 
 				} else {
@@ -231,6 +245,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(doneChan chan bool
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Bool("Success", parsedLog.Success).
 						Str("From", parsedLog.From.String()).
+						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got reverted Upkeep Performed log on Registry")
 					numRevertedUpkeeps++
 				}

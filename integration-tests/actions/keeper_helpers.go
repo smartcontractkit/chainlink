@@ -46,6 +46,34 @@ func CreateKeeperJobs(chainlinkNodes []*client.Chainlink, keeperRegistry contrac
 	}
 }
 
+func CreateKeeperJobsWithKeyIndex(chainlinkNodes []*client.Chainlink, keeperRegistry contracts.KeeperRegistry, keyIndex int) {
+	// Send keeper jobs to registry and chainlink nodes
+	primaryNode := chainlinkNodes[0]
+	primaryNodeAddresses, err := primaryNode.EthAddresses()
+	Expect(err).ShouldNot(HaveOccurred(), "Reading ETH Keys from Chainlink Client shouldn't fail")
+	nodeAddresses, err := ChainlinkNodeAddressesAtIndex(chainlinkNodes, keyIndex)
+	Expect(err).ShouldNot(HaveOccurred(), "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	nodeAddressesStr, payees := make([]string, 0), make([]string, 0)
+	for _, cla := range nodeAddresses {
+		nodeAddressesStr = append(nodeAddressesStr, cla.Hex())
+		payees = append(payees, primaryNodeAddresses[keyIndex])
+	}
+	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees)
+	Expect(err).ShouldNot(HaveOccurred(), "Setting keepers in the registry shouldn't fail")
+
+	for _, chainlinkNode := range chainlinkNodes {
+		chainlinkNodeAddress, err := chainlinkNode.EthAddresses()
+		Expect(err).ShouldNot(HaveOccurred(), "Error retrieving chainlink node address")
+		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
+			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
+			ContractAddress:          keeperRegistry.Address(),
+			FromAddress:              chainlinkNodeAddress[keyIndex],
+			MinIncomingConfirmations: 1,
+		})
+		Expect(err).ShouldNot(HaveOccurred(), "Creating KeeperV2 Job shouldn't fail")
+	}
+}
+
 // DeployKeeperContracts deploys keeper registry and a number of basic upkeep contracts with an update interval of 5.
 // It returns the freshly deployed registry, registrar, consumers and the IDs of the upkeeps.
 func DeployKeeperContracts(

@@ -62,6 +62,7 @@ type KeeperBenchmarkTestMetrics struct {
 
 // KeeperBenchmarkTestReport holds a report information for a single Upkeep Consumer contract
 type KeeperBenchmarkTestReport struct {
+	RegistryAddress       string  `json:"registryAddress"`
 	ContractAddress       string  `json:"contractAddress"`
 	TotalEligibleCount    int64   `json:"totalEligibleCount"`
 	TotalSLAMissedUpkeeps int64   `json:"totalSLAMissedUpkeeps"`
@@ -152,6 +153,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 
 	err = keeperReportWriter.Write([]string{
 		"Contract Index",
+		"RegistryAddress",
 		"Contract Address",
 		"Total Times Eligible",
 		"Total Performed Upkeeps",
@@ -170,6 +172,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		avg, median, ninetyPct, ninetyNinePct, max := intListStats(report.AllCheckDelays)
 		err = keeperReportWriter.Write([]string{
 			fmt.Sprint(contractIndex),
+			report.RegistryAddress,
 			report.ContractAddress,
 			fmt.Sprint(report.TotalEligibleCount),
 			fmt.Sprint(report.TotalPerformedUpkeeps),
