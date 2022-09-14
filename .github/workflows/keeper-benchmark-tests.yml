@@ -1,0 +1,48 @@
+name: Keeper Benchmark Test
+on:
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: docker image tag to use
+        required: true
+        default: develop-nonroot
+        type: string
+jobs:
+  run_tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: run keepers benchmark test
+    runs-on: ubuntu-latest
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: core-CI-eth
+      TEST_LOG_LEVEL: debug
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # v3.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        with:
+          test_command_to_run: make test_benchmark_keeper
+          test_download_vendor_packages_command: make gomod
+          test_download_ginkgo_command: make test_install_ginkgo
+          cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: latest.${{ github.sha }}
+          artifacts_location: ./integration-tests/smoke/logs
+          publish_check_name: Keepers Benchmark Test Results
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: cleanup
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@bc093a9a1fccd7effb4fc9e7c5f9694710922d76 # v2.0.11
+        with:
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
