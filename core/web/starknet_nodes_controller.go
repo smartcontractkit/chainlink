@@ -39,5 +39,5 @@ func NewStarkNetNodesController(app chainlink.Application) NodesController {
 				ChainID: request.ChainID,
 				URL:     request.URL,
 			}, nil
-		})
+		}, app.GetLogger(), app.GetAuditLogger())
 }
