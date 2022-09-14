@@ -605,7 +605,7 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bo
 	}
 	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
 
-	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
+	remoteSemverUnset := remoteVersion == static.Unset || remoteVersion == "" || remoteSha == static.Unset || remoteSha == ""
 	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
 
 	if remoteSemverUnset || cliRemoteSemverMismatch {
