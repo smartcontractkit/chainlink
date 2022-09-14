@@ -136,7 +136,6 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cltest.NewTestGeneralConfig(t), &audit.AuditLoggerService{})
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
