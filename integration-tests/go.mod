@@ -365,3 +365,5 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
 replace github.com/smartcontractkit/chainlink => ../../chainlink
+
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.6.1-0.20220914115841-a2da24505886
