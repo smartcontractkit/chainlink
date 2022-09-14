@@ -1166,7 +1166,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
 	fm.SetOracleAddress()
-	fm.ExportedRoundState()
+	fm.ExportedRoundState(t)
 	fm.Start(testutils.Context(t))
 
 	g.Eventually(ch).Should(gomega.BeClosed())
