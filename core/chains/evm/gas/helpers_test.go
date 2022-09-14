@@ -2,7 +2,10 @@ package gas
 
 import (
 	"math/big"
+	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -48,6 +51,6 @@ func GetLatestBaseFee(b *BlockHistoryEstimator) *big.Int {
 	return b.latestBaseFee
 }
 
-func SimulateStart(b *BlockHistoryEstimator) {
-	b.StartOnce("BlockHistoryEstimatorSimulatedStart", func() error { return nil })
+func SimulateStart(t *testing.T, b *BlockHistoryEstimator) {
+	require.NoError(t, b.StartOnce("BlockHistoryEstimatorSimulatedStart", func() error { return nil }))
 }
