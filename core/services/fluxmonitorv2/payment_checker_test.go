@@ -4,9 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestPaymentChecker_SufficientFunds(t *testing.T) {
@@ -46,8 +47,8 @@ func TestPaymentChecker_SufficientPayment(t *testing.T) {
 	var (
 		payment int64 = 10
 		eq            = payment
-		gt      int64 = payment + 1
-		lt      int64 = payment - 1
+		gt            = payment + 1
+		lt            = payment - 1
 	)
 
 	testCases := []struct {

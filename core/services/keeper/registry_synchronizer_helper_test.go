@@ -44,12 +44,16 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
 	switch version {
 	case keeper.RegistryVersion_1_0, keeper.RegistryVersion_1_1:
+		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
 		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.1.1").Once()
 	case keeper.RegistryVersion_1_2:
+		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_2ABI, contractAddress)
 		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
+	case keeper.RegistryVersion_1_3:
+		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_3ABI, contractAddress)
+		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.3.0").Once()
 	}
 
 	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)

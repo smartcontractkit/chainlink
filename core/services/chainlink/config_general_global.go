@@ -46,6 +46,7 @@ func (g *generalConfig) GlobalEvmGasBumpTxDepth() (uint16, bool)      { panic("u
 func (g *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool)        { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool)  { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasLimitDefault() (uint32, bool)     { panic("unimplemented") }
+func (g *generalConfig) GlobalEvmGasLimitMax() (uint32, bool)         { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasLimitTransfer() (uint32, bool)    { panic("unimplemented") }
 func (g *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool)   { panic("unimplemented") }

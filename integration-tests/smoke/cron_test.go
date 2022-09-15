@@ -27,83 +27,27 @@ var _ = Describe("Cronjob suite @cron", func() {
 		testScenarios = []TableEntry{
 			Entry("Cronjob suite on Simulated Network @simulated",
 				networks.SimulatedEVM,
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(nil)).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.SimulatedEVM.ChainlinkValuesMap(),
-					})),
+				defaultCronEnv(networks.SimulatedEVM),
 			),
 			Entry("Cronjob suite on General EVM Network read from env vars @general",
 				networks.GeneralEVM(),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.GeneralEVM().Name,
-						Simulated:   networks.GeneralEVM().Simulated,
-						WsURLs:      networks.GeneralEVM().URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.GeneralEVM().ChainlinkValuesMap(),
-					})),
+				defaultCronEnv(networks.GeneralEVM()),
 			),
 			Entry("Cronjob suite on Metis Stardust @metis",
 				networks.MetisStardust,
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.MetisStardust.Name,
-						Simulated:   networks.MetisStardust.Simulated,
-						WsURLs:      networks.MetisStardust.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.MetisStardust.ChainlinkValuesMap(),
-					})),
+				defaultCronEnv(networks.MetisStardust),
 			),
 			Entry("Cronjob suite on Sepolia Testnet @sepolia",
 				networks.SepoliaTestnet,
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.MetisStardust.Name,
-						Simulated:   networks.MetisStardust.Simulated,
-						WsURLs:      networks.MetisStardust.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.MetisStardust.ChainlinkValuesMap(),
-					})),
+				defaultCronEnv(networks.SepoliaTestnet),
 			),
 			Entry("Cronjob suite on Görli Testnet @goerli",
 				networks.GoerliTestnet,
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.GoerliTestnet.Name,
-						Simulated:   networks.GoerliTestnet.Simulated,
-						WsURLs:      networks.GoerliTestnet.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.GoerliTestnet.ChainlinkValuesMap(),
-					})),
+				defaultCronEnv(networks.GoerliTestnet),
 			),
 			Entry("Cronjob suite on Klaytn Baobab @klaytn",
 				networks.KlaytnBaobab,
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.KlaytnBaobab.Name,
-						Simulated:   networks.KlaytnBaobab.Simulated,
-						WsURLs:      networks.KlaytnBaobab.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.KlaytnBaobab.ChainlinkValuesMap(),
-					})),
+				defaultCronEnv(networks.KlaytnBaobab),
 			),
 		}
 
@@ -169,3 +113,21 @@ var _ = Describe("Cronjob suite @cron", func() {
 		testScenarios,
 	)
 })
+
+func defaultCronEnv(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConfig := ethereum.New(nil)
+	if !network.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env": network.ChainlinkValuesMap(),
+		}))
+}

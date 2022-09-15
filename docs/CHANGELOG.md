@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well 
+as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).  
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+- `/keys` page in Operator UI now exposes several admin commands, namely:
+  - "abandon" to abandon all current txes
+  - enable/disable a key for a given chain
+  - manually set the nonce for a key
+  See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
+
 ## 1.8.0 - 2022-09-01
 
 ### Added
@@ -31,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --enable`
     - Disable a key for a particular chain:
       - `chainlink keys eth chain --address "0xEXAMPLE" --evmChainID 99 --disable`
+    - Abandon all currently pending transactions (use with caution!):
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --abandon`
+  - Commands can be combined e.g.
+    - Reset nonce and abandon all currently pending transaction:
+      - `chainlink evm keys chain --address "0xEXAMPLE" --evmChainID 99 --setNextNonce 42 --abandon`
 
 ### Changed
 

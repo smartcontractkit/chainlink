@@ -1,4 +1,3 @@
-
 [[EVM]]
 ChainID = '0'
 Enabled = false
@@ -28,7 +27,8 @@ Enabled = true
 Mode = 'FixedPrice'
 PriceDefault = '100.2 kwei'
 PriceMax = '9 mwei'
-LimitDefault = 1020304050
+LimitDefault = 102030405
+LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
 LimitOCRJobType = 9901
@@ -108,7 +108,8 @@ Enabled = true
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 PriceDefault = '100.2 kwei'
-LimitDefault = 1020304050
+LimitDefault = 102030405
+LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
 LimitOCRJobType = 9901
@@ -172,7 +173,8 @@ Enabled = true
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 PriceDefault = '100.2 kwei'
-LimitDefault = 1020304050
+LimitDefault = 102030405
+LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
 LimitOCRJobType = 9901
@@ -238,7 +240,8 @@ Enabled = true
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 PriceDefault = '100.2 kwei'
-LimitDefault = 1020304050
+LimitDefault = 102030405
+LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
 LimitOCRJobType = 9901

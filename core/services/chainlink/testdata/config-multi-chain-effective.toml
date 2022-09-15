@@ -1,7 +1,6 @@
 RootDir = 'my/root/dir'
 
 [Database]
-
 [Database.Listener]
 FallbackPollInterval = '2m0s'
 
@@ -54,6 +53,7 @@ PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -126,6 +126,7 @@ PriceDefault = '9.223372036854775807 ether'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '5 gwei'
@@ -192,6 +193,7 @@ PriceDefault = '30 gwei'
 PriceMax = '200 micro'
 PriceMin = '30 gwei'
 LimitDefault = 500000
+LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 BumpMin = '20 gwei'
@@ -246,6 +248,14 @@ OCR2CachePollPeriod = '1m0s'
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://testnet.solana.com'
+
+[[Starknet]]
+ChainID = 'foobar'
+TxSendFrequency = '1h0m0s'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'

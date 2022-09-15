@@ -200,7 +200,8 @@ Enabled = true
 Mode = 'FixedPrice'
 PriceDefault = '100.2 kwei'
 PriceMax = '9 mwei'
-LimitDefault = 1020304050
+LimitDefault = 102030405
+LimitMax = 1020304050
 LimitMultiplier = '1.003'
 LimitTransfer = 4294967295
 LimitOCRJobType = 9901
@@ -279,6 +280,19 @@ URL = 'http://foo.bar'
 [[Solana.Nodes]]
 Name = 'mainnet-2'
 URL = 'http://fake.url'
+
+[[Starknet]]
+ChainID = 'foobar'
+OCR2CachePollPeriod = '6h0m0s'
+OCR2CacheTTL = '3m0s'
+RequestTimeout = '1m3s'
+TxTimeout = '13s'
+TxSendFrequency = '42s'
+TxMaxBatchSize = 17
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'

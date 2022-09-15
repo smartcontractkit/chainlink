@@ -10,7 +10,7 @@ import "../interfaces/UpkeepTranscoderInterface.sol";
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogic is KeeperRegistryBase {
+contract KeeperRegistryLogic1_3 is KeeperRegistryBase {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
 
