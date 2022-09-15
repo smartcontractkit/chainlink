@@ -311,6 +311,7 @@ const (
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMerge            TaskType = "merge"
 	TaskTypeLowercase        TaskType = "lowercase"
+	TaskTypeLength           TaskType = "length"
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeConditional      TaskType = "conditional"
 	TaskTypeHexDecode        TaskType = "hexdecode"
