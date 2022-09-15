@@ -18,8 +18,10 @@ import (
 
 const AUDIT_LOGS_CAPACITY = 2048
 
+type Data = map[string]any
+
 type AuditLogger interface {
-	Audit(ctx context.Context, eventID EventID, data map[string]interface{})
+	Audit(ctx context.Context, eventID EventID, data Data)
 }
 
 type AuditLoggerService struct {
@@ -42,7 +44,7 @@ type serviceHeader struct {
 
 type WrappedAuditLog struct {
 	eventID EventID
-	data    map[string]interface{}
+	data    Data
 }
 
 // NewAuditLogger returns a buffer push system that ingests audit log events and
@@ -113,7 +115,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 // / created. If this service was not enabled, this immeidately returns.
 // /
 // / This function never blocks.
-func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data map[string]interface{}) {
+func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data Data) {
 	if !l.enabled {
 		return
 	}
@@ -152,7 +154,7 @@ func (l *AuditLoggerService) auditLoggerRoutine() {
 // / due to transient network errors.
 // /
 // / This function blocks when called.
-func (l *AuditLoggerService) postLogToLogService(eventID EventID, data map[string]interface{}) {
+func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	// Audit log JSON data
 	logItem := map[string]interface{}{
 		"eventID":  eventID,
