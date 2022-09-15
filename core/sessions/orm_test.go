@@ -250,6 +250,7 @@ func TestORM_WebAuthn(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 	_, err = orm.CreateSession(sessions.SessionRequest{
 		Email:    initial.Email,
 		Password: cltest.Password,

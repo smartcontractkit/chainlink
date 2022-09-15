@@ -21,7 +21,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 	}{
 		{"thispasswordislongenough", "", []error{}},
 		{"exactlyrightlen1", "", []error{}},
-		{"notlongenough", "", []error{errors.New("password is 13 characters long")}},
+		{"notlongenough", "", []error{errors.New("password is less than 16 characters long")}},
 		{"whitespace in password is ok", "", []error{}},
 		{"\t leading whitespace not ok", "", []error{utils.ErrWhitespace}},
 		{"trailing whitespace not ok\n", "", []error{utils.ErrWhitespace}},

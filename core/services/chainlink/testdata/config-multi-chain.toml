@@ -1,7 +1,6 @@
 RootDir = 'my/root/dir'
 
 [Database]
-
 [Database.Listener]
 FallbackPollInterval = '2m0s'
 
@@ -74,6 +73,14 @@ OCR2CachePollPeriod = '1m0s'
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://testnet.solana.com'
+
+[[Starknet]]
+ChainID = 'foobar'
+TxSendFrequency = '1h0m0s'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
 
 [[Terra]]
 ChainID = 'Columbus-5'

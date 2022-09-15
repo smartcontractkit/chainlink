@@ -51,7 +51,7 @@ func VerifyPasswordComplexity(password string, disallowedStrings ...string) (mer
 	}
 
 	if len(password) < MinRequiredLen {
-		stringErrs = append(stringErrs, fmt.Sprintf("password is %d characters long", len(password)))
+		stringErrs = append(stringErrs, fmt.Sprintf("password is less than %d characters long", MinRequiredLen))
 	}
 
 	for _, s := range disallowedStrings {

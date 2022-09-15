@@ -116,11 +116,6 @@ func deployKeeperRegistry(
 		regAddr, _, _, err := keeper_registry_wrapper1_3.DeployKeeperRegistry(
 			auth,
 			backend,
-			0,
-			big.NewInt(80000),
-			linkAddr,
-			linkFeedAddr,
-			gasFeedAddr,
 			logicAddr,
 			keeper_registry_wrapper1_3.Config{
 				PaymentPremiumPPB:    250_000_000,
@@ -148,7 +143,7 @@ func deployKeeperRegistry(
 }
 
 func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
-	receipt, err := backend.TransactionReceipt(nil, registrationTx.Hash())
+	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
 	require.NoError(t, err)

@@ -32,88 +32,32 @@ var _ = Describe("Direct request suite @runlog", func() {
 			Entry("Runlog suite on Simulated Network @simulated",
 				networks.SimulatedEVM,
 				big.NewFloat(10),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(nil)).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.SimulatedEVM.ChainlinkValuesMap(),
-					})),
+				defaultRunlogEnv(networks.SimulatedEVM),
 			),
 			Entry("Runlog suite on General EVM @general",
 				networks.GeneralEVM(),
 				big.NewFloat(.1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.GeneralEVM().Name,
-						Simulated:   networks.GeneralEVM().Simulated,
-						WsURLs:      networks.GeneralEVM().URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.GeneralEVM().ChainlinkValuesMap(),
-					})),
+				defaultRunlogEnv(networks.GeneralEVM()),
 			),
 			Entry("Runlog suite on Metis Stardust @metis",
 				networks.MetisStardust,
 				big.NewFloat(.01),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.MetisStardust.Name,
-						Simulated:   networks.MetisStardust.Simulated,
-						WsURLs:      networks.MetisStardust.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.MetisStardust.ChainlinkValuesMap(),
-					})),
+				defaultRunlogEnv(networks.MetisStardust),
 			),
 			Entry("Runlog suite on Sepolia Testnet @sepolia",
 				networks.SepoliaTestnet,
 				big.NewFloat(.1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.SepoliaTestnet.Name,
-						Simulated:   networks.SepoliaTestnet.Simulated,
-						WsURLs:      networks.SepoliaTestnet.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.SepoliaTestnet.ChainlinkValuesMap(),
-					})),
+				defaultRunlogEnv(networks.SepoliaTestnet),
 			),
 			Entry("Runlog suite on on Görli Testnet @goerli",
 				networks.GoerliTestnet,
 				big.NewFloat(.1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.GoerliTestnet.Name,
-						Simulated:   networks.GoerliTestnet.Simulated,
-						WsURLs:      networks.GoerliTestnet.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.GoerliTestnet.ChainlinkValuesMap(),
-					})),
+				defaultRunlogEnv(networks.GoerliTestnet),
 			),
 			Entry("Runlog suite on Klaytn Baobab @klaytn",
 				networks.KlaytnBaobab,
 				big.NewFloat(1),
-				environment.New(&environment.Config{}).
-					AddHelm(mockservercfg.New(nil)).
-					AddHelm(mockserver.New(nil)).
-					AddHelm(ethereum.New(&ethereum.Props{
-						NetworkName: networks.KlaytnBaobab.Name,
-						Simulated:   networks.KlaytnBaobab.Simulated,
-						WsURLs:      networks.KlaytnBaobab.URLs,
-					})).
-					AddHelm(chainlink.New(0, map[string]interface{}{
-						"env": networks.KlaytnBaobab.ChainlinkValuesMap(),
-					})),
+				defaultRunlogEnv(networks.KlaytnBaobab),
 			),
 		}
 
@@ -228,3 +172,21 @@ var _ = Describe("Direct request suite @runlog", func() {
 		testScenarios,
 	)
 })
+
+func defaultRunlogEnv(network *blockchain.EVMNetwork) *environment.Environment {
+	evmConfig := ethereum.New(nil)
+	if !network.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
+	return environment.New(&environment.Config{}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlink.New(0, map[string]interface{}{
+			"env": network.ChainlinkValuesMap(),
+		}))
+}

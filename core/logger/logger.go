@@ -128,18 +128,7 @@ func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
 }
 
 func verShaNameStatic() string {
-	return verShaName(static.Version, static.Sha)
-}
-
-func verShaName(ver, sha string) string {
-	if sha == "" {
-		sha = "unset"
-	} else if len(sha) > 7 {
-		sha = sha[:7]
-	}
-	if ver == "" {
-		ver = "unset"
-	}
+	sha, ver := static.Short()
 	return fmt.Sprintf("%s@%s", ver, sha)
 }
 

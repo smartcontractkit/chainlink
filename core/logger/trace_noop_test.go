@@ -10,7 +10,7 @@ import (
 )
 
 func TestTrace(t *testing.T) {
-	lgr, observered := TestLoggerObserved(t, zapcore.InfoLevel)
+	lgr, observed := TestLoggerObserved(t, zapcore.InfoLevel)
 
 	const (
 		testName    = "TestTrace"
@@ -18,10 +18,10 @@ func TestTrace(t *testing.T) {
 	)
 	lgr.Trace(testMessage)
 	// [DEBUG] [TRACE] Trace message		logger/test_logger_test.go:23    logger=TestLogger
-	require.Empty(t, observered.TakeAll())
+	require.Empty(t, observed.TakeAll())
 
 	lgr.SetLogLevel(zapcore.DebugLevel)
 	lgr.Trace(testMessage)
 	// [DEBUG] [TRACE] Trace message		logger/test_logger_test.go:23    logger=TestLogger
-	require.Empty(t, observered.TakeAll())
+	require.Empty(t, observed.TakeAll())
 }

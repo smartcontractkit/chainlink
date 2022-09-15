@@ -9,7 +9,7 @@ import {
 import { buildETHKeys } from 'support/factories/gql/fetchETHKeys'
 import { shortenHex } from 'src/utils/shortenHex'
 
-const { queryByRole, queryByText } = screen
+const { queryByRole, queryByText, queryAllByText } = screen
 
 function renderComponent(cardProps: EVMAccountsCardProps) {
   render(<EVMAccountsCard {...cardProps} />)
@@ -30,7 +30,7 @@ describe('ETHKeysCard', () => {
 
     expect(queryByText('Address')).toBeInTheDocument()
     expect(queryByText('Chain ID')).toBeInTheDocument()
-    expect(queryByText('Type')).toBeInTheDocument()
+    expect(queryAllByText('Enabled')).toHaveLength(3)
     expect(queryByText('LINK Balance')).toBeInTheDocument()
     expect(queryByText('ETH Balance')).toBeInTheDocument()
     expect(queryByText('Created')).toBeInTheDocument()
