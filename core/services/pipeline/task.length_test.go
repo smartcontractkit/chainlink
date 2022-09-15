@@ -55,7 +55,7 @@ func TestLengthTask(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.LengthTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-					Data:     inputStr,
+					Input:    inputStr,
 				}
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
@@ -65,7 +65,7 @@ func TestLengthTask(t *testing.T) {
 				})
 				task := pipeline.LengthTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-					Data:     "$(foo.bar)",
+					Input:    "$(foo.bar)",
 				}
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})

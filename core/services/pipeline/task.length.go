@@ -15,7 +15,7 @@ import (
 //	*decimal.Decimal
 type LengthTask struct {
 	BaseTask `mapstructure:",squash"`
-	Data     string `json:"input"`
+	Input    string `json:"input"`
 }
 
 var _ Task = (*LengthTask)(nil)
@@ -33,7 +33,7 @@ func (t *LengthTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 	var input BytesParam
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Data, vars), NonemptyString(t.Data), Input(inputs, 0))), "input"),
+		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
