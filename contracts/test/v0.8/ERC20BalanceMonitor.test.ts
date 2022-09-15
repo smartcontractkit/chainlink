@@ -229,6 +229,19 @@ describe('ERC20BalanceMonitor', () => {
       await expect(setTx).to.be.revertedWith(errMsg)
     })
 
+    it('Should not allow larger than maximum watchlist size', async () => {
+      const watchlist: any[][] = [[], [], []]
+      Array.from(Array(301).keys()).forEach(() => {
+        watchlist[0].push(owner.address)
+        watchlist[1].push(oneLINK)
+        watchlist[2].push(twoLINK)
+      })
+      const tx = bm
+        .connect(owner)
+        .setWatchList(watchlist[0], watchlist[1], watchlist[2])
+      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+    })
+
     it('Should not allow strangers to set the watchlist', async () => {
       const setTxStranger = bm
         .connect(stranger)
