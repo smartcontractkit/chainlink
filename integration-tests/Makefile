@@ -123,29 +123,29 @@ test_perf: test_need_operator_assets ## Run core node performance tests.
 # Soak
 .PHONY: test_soak_ocr
 test_soak_ocr:
-	go test -v -count=1 -run TestOCRSoak ./soak
+	go test -v -count=1 -race -run TestOCRSoak ./soak
 
 .PHONY: test_soak_ocr_simulated
 test_soak_ocr_simulated:
-	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestOCRSoak ./soak
+	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -race -run TestOCRSoak ./soak
 
 .PHONY: test_soak_forwarder_ocr
 test_soak_forwarder_ocr:
-	go test -v -count=1 -run TestForwarderOCRSoak ./soak
+	go test -v -count=1 -race -run TestForwarderOCRSoak ./soak
 
 .PHONY: test_soak_forwarder_ocr_simulated
 test_soak_forwarder_ocr_simulated:
-	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestForwarderOCRSoak ./soak
+	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -race -run TestForwarderOCRSoak ./soak
 
 .PHONY: test_soak_automation
 test_soak_automation:
-	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
+	go test -v -race -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_soak_automation_simulated
 test_soak_automation_simulated:
 	SELECTED_NETWORKS="SIMULATED" \
 	TEST_INPUTS="TEST_TYPE=SOAK,NUMBEROFCONTRACTS=50,BLOCKRANGE=1000,BLOCKINTERVAL=50,GRAFANA_DASHBOARD_URL=https://chainlinklabs.grafana.net/d/Q8n6m1unz/chainlink-keepers-qa?orgId=1" \
-	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
+	go test -v -race -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
 test_benchmark_automation: test_need_operator_assets ## Run the automation benchmark tests
