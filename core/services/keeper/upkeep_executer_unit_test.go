@@ -78,7 +78,6 @@ func TestBuildJobSpec(t *testing.T) {
 			"upkeepID":              "4",
 			"prettyID":              fmt.Sprintf("UPx%064d", 4),
 			"performUpkeepGasLimit": uint32(21),
-			"maxGasLimit":           50000000,
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
 			"gasFeeCap":             gasFeeCap,

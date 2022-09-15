@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-// KeepersObservationSource is the same for all keeper jobs and it is not perisisted in DB
+// KeepersObservationSource is the same for all keeper jobs and it is not persisted in DB
 const KeepersObservationSource = `
     encode_check_upkeep_tx   [type=ethabiencode
                               abi="checkUpkeep(uint256 id, address from)"
@@ -25,7 +25,7 @@ const KeepersObservationSource = `
                               extractRevertReason=true
                               evmChainID="$(jobSpec.evmChainID)"
                               contract="$(jobSpec.contractAddress)"
-                              gas="$(jobSpec.maxGasLimit)"
+							  unlimitedGas=true
                               gasPrice="$(jobSpec.gasPrice)"
                               gasTipCap="$(jobSpec.gasTipCap)"
                               gasFeeCap="$(jobSpec.gasFeeCap)"
@@ -40,7 +40,7 @@ const KeepersObservationSource = `
                               evmChainID="$(jobSpec.evmChainID)"
                               contract="$(jobSpec.contractAddress)"
                               from="$(jobSpec.fromAddress)"
-                              gas="$(jobSpec.maxGasLimit)"
+							  unlimitedGas=true
                               data="$(encode_perform_upkeep_tx)"]
     decode_check_perform_tx  [type=ethabidecode
                               abi="bool success"]
