@@ -67,7 +67,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
-		defer close()
+		defer func() { assert.NoError(t, close()) }()
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
@@ -100,7 +100,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
-		defer close()
+		defer func() { assert.NoError(t, close()) }()
 
 		pollChan <- time.Now()
 		<-zapCfg.testDiskLogLvlChan
@@ -133,7 +133,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr, close, err := zapCfg.newLogger(cfg)
 		assert.NoError(t, err)
-		defer close()
+		defer func() { assert.NoError(t, close()) }()
 
 		lggr.Debug("writing to disk on test")
 
