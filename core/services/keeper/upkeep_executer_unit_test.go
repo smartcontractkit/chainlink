@@ -80,7 +80,7 @@ func TestBuildJobSpec(t *testing.T) {
 	m.Mock.Test(t)
 
 	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
-	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(5000)).Times(1)
+	m.On("KeeperRegistryMaxPerformDataSize").Return(uint32(1000)).Times(1)
 
 	spec := buildJobSpec(jb, upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 
@@ -92,6 +92,7 @@ func TestBuildJobSpec(t *testing.T) {
 			"upkeepID":              "4",
 			"prettyID":              fmt.Sprintf("UPx%064d", 4),
 			"performUpkeepGasLimit": uint32(21),
+			"maxPerformDataSize":    1000,
 			"maxGasLimit":           50000000,
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
