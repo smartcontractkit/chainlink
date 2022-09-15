@@ -103,7 +103,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
 
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
 		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
 		if err != nil {
@@ -134,7 +134,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg config.Gene
 	}
 
 	// Update to latest version
-	if static.Version != "unset" {
+	if static.Version != static.Unset {
 		version := versioning.NewNodeVersion(static.Version)
 		if err = verORM.UpsertNodeVersion(version); err != nil {
 			return nil, errors.Wrap(err, "UpsertNodeVersion")
