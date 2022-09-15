@@ -61,7 +61,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20220913010951-94dd0368b953
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220824174951-d1e2bcd51e46
 	github.com/smartcontractkit/libocr v0.0.0-20220812191430-db92a9fdaa52
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20220909190548-896b26e69934
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20220915095942-76b59bf918bc
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.10-0.20220317191700-8c8ecdcaed4a
@@ -359,6 +359,6 @@ replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.
 replace github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.1
 
 exclude (
-	github.com/labstack/echo/v4 v4.5.0
 	github.com/influxdata/influxdb v1.8.3
+	github.com/labstack/echo/v4 v4.5.0
 )
