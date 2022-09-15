@@ -140,6 +140,7 @@ BaseFeeBufferPercent = 7
 MaximumGracePeriod = 42
 RegistryCheckGasOverhead = 6
 RegistryPerformGasOverhead = 900
+RegistryMaxPerformDataSize = 5000
 RegistrySyncInterval = '1m0s'
 RegistrySyncUpkeepQueueSize = 99
 TurnLookBack = 67
