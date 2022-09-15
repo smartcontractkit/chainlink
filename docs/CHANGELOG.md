@@ -19,6 +19,9 @@ as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` defau
   - manually set the nonce for a key
   See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
 
+- New optional external logger added
+  - To opt in to receiving audit log events over HEC of actions performed within the node, set the `AUDIT_LOGS_FORWARDER_URL` and `AUDIT_LOGS_FORWARDER_HEADERS` environment variables accordingly.
+
 ## 1.8.0 - 2022-09-01
 
 ### Added
@@ -143,8 +146,6 @@ For backward compatibility all insecure passwords will continue to work, however
   - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
   - `$(jobRun.blockTransactionsRoot)` : the root of the transaction trie of the block (hash)
   - `$(jobRun.blockStateRoot)` : the root of the final state trie of the block (hash)
-- New optional Splunk logger added
-  - To opt in to receiving audit log events over HEC of actions performed within the node, set the `SPLUNK_URL` and `SPLUNK_TOKEN` environment variables accordingly. `SPLUNK_URL` is in the format of 'https://xxxxx.splunkcloud.com/services/collector'
 - `ethtx` tasks can now be configured to error if the transaction reverts on-chain. You must set `failOnRevert=true` on the task to enable this behavior, like so:
 
 `foo [type=ethtx failOnRevert=true ...]`
