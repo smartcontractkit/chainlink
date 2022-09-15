@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
@@ -241,7 +240,7 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %s", err)
 	}
@@ -275,7 +274,7 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read error response body: %s", err)
 		}
@@ -434,7 +433,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 // createCredsFiles creates two temporary files with node creds: api and password.
 func (k *Keeper) createCredsFiles() (string, string, func(), error) {
 	// Create temporary file with chainlink node login creds
-	apiFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-api")
+	apiFile, err := os.CreateTemp("", "chainlink-node-api")
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create api file: %s", err)
 	}
@@ -443,7 +442,7 @@ func (k *Keeper) createCredsFiles() (string, string, func(), error) {
 	_, _ = apiFile.WriteString(defaultChainlinkNodePassword)
 
 	// Create temporary file with chainlink node password
-	passwordFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-password")
+	passwordFile, err := os.CreateTemp("", "chainlink-node-password")
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to create password file: %s", err)
 	}

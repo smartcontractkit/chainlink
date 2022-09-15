@@ -36,6 +36,8 @@
 	- [Nodes](#EVM-Nodes)
 - [Solana](#Solana)
 	- [Nodes](#Solana-Nodes)
+- [Starknet](#Starknet)
+	- [Nodes](#Starknet-Nodes)
 - [Terra](#Terra)
 	- [Nodes](#Terra-Nodes)
 
@@ -1277,12 +1279,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1344,12 +1346,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1411,12 +1413,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1478,12 +1480,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1546,12 +1548,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -1613,12 +1615,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1680,12 +1682,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 mwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1748,12 +1750,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1815,12 +1817,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -1881,12 +1883,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -1947,12 +1949,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -2015,12 +2017,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2083,12 +2085,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -2150,12 +2152,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2217,12 +2219,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2284,12 +2286,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2352,12 +2354,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '30m0s'
@@ -2419,12 +2421,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2486,12 +2488,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2552,12 +2554,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2619,12 +2621,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2687,12 +2689,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -2754,12 +2756,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2821,12 +2823,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 2
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2888,12 +2890,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 10
 BlockHistorySize = 24
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -2956,12 +2958,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -3023,12 +3025,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '1 micro'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 0
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '0s'
@@ -3090,12 +3092,12 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 4
 TransactionPercentile = 50
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '1m0s'
@@ -3157,12 +3159,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -3224,12 +3226,12 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMinimum = '1 wei'
+
 [GasEstimator.BlockHistory]
 BatchSize = 4
 BlockDelay = 1
 BlockHistorySize = 8
 TransactionPercentile = 60
-
 
 [HeadTracker]
 BlockEmissionIdleWarningThreshold = '15s'
@@ -4012,6 +4014,88 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://solana.web' # Example
 ```
 URL is the HTTP(S) endpoint for this node.
+
+## Starknet<a id='Starknet'></a>
+```toml
+[[Starknet]]
+ChainID = 'foobar' # Example
+Enabled = true # Default
+OCR2CachePollPeriod = '5s' # Default
+OCR2CacheTTL = '1m' # Default
+RequestTimeout = '10s' # Default
+TxTimeout = '1m' # Default
+TxSendFrequency = '5s' # Default
+TxMaxBatchSize = 100 # Default
+```
+
+
+### ChainID<a id='Starknet-ChainID'></a>
+```toml
+ChainID = 'foobar' # Example
+```
+ChainID is the Starknet chain ID.
+
+### Enabled<a id='Starknet-Enabled'></a>
+```toml
+Enabled = true # Default
+```
+Enabled enables this chain.
+
+### OCR2CachePollPeriod<a id='Starknet-OCR2CachePollPeriod'></a>
+```toml
+OCR2CachePollPeriod = '5s' # Default
+```
+OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
+
+### OCR2CacheTTL<a id='Starknet-OCR2CacheTTL'></a>
+```toml
+OCR2CacheTTL = '1m' # Default
+```
+OCR2CacheTTL is the stale OCR2 cache deadline.
+
+### RequestTimeout<a id='Starknet-RequestTimeout'></a>
+```toml
+RequestTimeout = '10s' # Default
+```
+RequestTimeout is the RPC client timeout.
+
+### TxTimeout<a id='Starknet-TxTimeout'></a>
+```toml
+TxTimeout = '1m' # Default
+```
+TxTimeout is the timeout for sending txes to an RPC endpoint.
+
+### TxSendFrequency<a id='Starknet-TxSendFrequency'></a>
+```toml
+TxSendFrequency = '5s' # Default
+```
+TxSendFrequency is how often to broadcast batches of txes.
+
+### TxMaxBatchSize<a id='Starknet-TxMaxBatchSize'></a>
+```toml
+TxMaxBatchSize = 100 # Default
+```
+TxMaxBatchSize limits the size of tx batches.
+
+## Starknet.Nodes<a id='Starknet-Nodes'></a>
+```toml
+[[Starknet.Nodes]]
+Name = 'primary' # Example
+URL = 'http://stark.node' # Example
+```
+
+
+### Name<a id='Starknet-Nodes-Name'></a>
+```toml
+Name = 'primary' # Example
+```
+Name is a unique (per-chain) identifier for this node.
+
+### URL<a id='Starknet-Nodes-URL'></a>
+```toml
+URL = 'http://stark.node' # Example
+```
+URL is the base HTTP(S) endpoint for this node.
 
 ## Terra<a id='Terra'></a>
 ```toml
