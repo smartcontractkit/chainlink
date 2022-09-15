@@ -280,14 +280,14 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	}
 
 	if decoded != nil {
-		decoded, err := reinterpetJsonNumbers(decoded)
+		reinterpreted, err := reinterpetJsonNumbers(decoded)
 		if err != nil {
 			return err
 		}
 
 		*js = JSONSerializable{
 			Valid: true,
-			Val:   decoded,
+			Val:   reinterpreted,
 		}
 	}
 
