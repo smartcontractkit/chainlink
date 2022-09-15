@@ -91,11 +91,21 @@ func Array(items Schema) Schema {
 
 type Union []Schema
 
+type fixed struct {
+	Typ  string `json:"type"`
+	Name string `json:"name"`
+	Size int    `json:"size"`
+}
+
+func Fixed(name string, size int) Schema {
+	return fixed{"fixed", name, size}
+}
+
 // Type checking
 
 func (p primitive) IsSchema() {}
 func (r record) IsSchema()    {}
 func (a array) IsSchema()     {}
 func (u Union) IsSchema()     {}
-
-func (f field) IsField() {}
+func (f fixed) IsSchema()     {}
+func (f field) IsField()      {}
