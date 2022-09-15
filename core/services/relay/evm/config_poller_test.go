@@ -32,6 +32,7 @@ func TestConfigPoller(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	require.NoError(t, err)
 	b := backends.NewSimulatedBackend(core.GenesisAlloc{
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
@@ -137,6 +138,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		1, // faults
 		nil,
 	)
+	require.NoError(t, err)
 	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
 	transmitterAddresses, err := AccountToAddress(transmitters)

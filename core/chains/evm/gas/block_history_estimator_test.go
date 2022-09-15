@@ -58,8 +58,8 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 	config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
-	var batchSize uint32 = 0
-	var blockDelay uint16 = 0
+	var batchSize uint32
+	var blockDelay uint16
 	var historySize uint16 = 2
 	var percentile uint16 = 35
 	minGasPrice := big.NewInt(1)
@@ -279,7 +279,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
 		var blockDelay uint16 = 3
-		var historySize uint16 = 0
+		var historySize uint16
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
 		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 
@@ -314,7 +314,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 3
-		var batchSize uint32 = 0
+		var batchSize uint32
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
 		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 		config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
@@ -331,7 +331,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		var blockDelay uint16 = 0
+		var blockDelay uint16
 		var historySize uint16 = 3
 		var batchSize uint32 = 2
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
@@ -421,7 +421,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		var blockDelay uint16 = 0
+		var blockDelay uint16
 		var historySize uint16 = 3
 		var batchSize uint32 = 2
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
@@ -480,7 +480,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		var blockDelay uint16 = 0
+		var blockDelay uint16
 		var historySize uint16 = 3
 		var batchSize uint32 = 2
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
@@ -547,7 +547,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		var blockDelay uint16 = 0
+		var blockDelay uint16
 		var historySize uint16 = 3
 		var batchSize uint32 = 2
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
@@ -779,7 +779,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		require.Equal(t, big.NewInt(70), price)
 	})
 
-	t.Run("takes into account zero priced transctions if chain is not xDai", func(t *testing.T) {
+	t.Run("takes into account zero priced transactions if chain is not xDai", func(t *testing.T) {
 		// Because everyone loves free gas!
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
@@ -1504,7 +1504,7 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 
 	gas.SetRollingBlockHistory(bhe, blocks)
 	bhe.Recalculate(cltest.Head(1))
-	gas.SimulateStart(bhe)
+	gas.SimulateStart(t, bhe)
 
 	t.Run("if gas price is lower than global max and user specified max gas price", func(t *testing.T) {
 		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, maxGasPrice)
@@ -1531,7 +1531,7 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 	bhe = newBlockHistoryEstimator(t, nil, cfg)
 	gas.SetRollingBlockHistory(bhe, blocks)
 	bhe.Recalculate(cltest.Head(1))
-	gas.SimulateStart(bhe)
+	gas.SimulateStart(t, bhe)
 
 	t.Run("if gas price is higher than global max", func(t *testing.T) {
 		fee, limit, err := bhe.GetLegacyGas(make([]byte, 0), 10000, maxGasPrice)
@@ -1574,7 +1574,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	gas.SetRollingBlockHistory(bhe, blocks)
 
 	bhe.Recalculate(cltest.Head(1))
-	gas.SimulateStart(bhe)
+	gas.SimulateStart(t, bhe)
 
 	t.Run("if estimator is missing base fee and gas bumping is enabled", func(t *testing.T) {
 		cfg.On("EvmGasBumpThreshold").Return(uint64(1)).Once()

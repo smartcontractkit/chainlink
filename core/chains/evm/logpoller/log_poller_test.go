@@ -62,6 +62,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 		blk, err := orm.SelectBlockByNumber(int64(i))
 		require.NoError(t, err, "block %v", i)
 		chainBlk, err := ec.BlockByNumber(testutils.Context(t), big.NewInt(int64(i)))
+		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
 }

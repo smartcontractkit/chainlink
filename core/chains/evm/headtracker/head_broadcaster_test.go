@@ -39,7 +39,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	var d time.Duration = 0
+	var d time.Duration
 	cfg.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewSqlxDB(t)

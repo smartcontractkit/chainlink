@@ -25,7 +25,6 @@ type testCase struct {
 
 	expectedLogLevel  zapcore.Level
 	expectedLogSQL    bool
-	expectedSvcLevel  map[string]zapcore.Level
 	expectedErrorCode int
 }
 

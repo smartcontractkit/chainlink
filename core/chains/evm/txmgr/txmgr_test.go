@@ -103,7 +103,7 @@ func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	var n int64 = 0
+	var n int64
 	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
