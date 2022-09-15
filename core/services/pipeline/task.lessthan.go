@@ -12,21 +12,21 @@ import (
 // Return types:
 //
 //	bool
-type LessThan struct {
+type LessThanTask struct {
 	BaseTask `mapstructure:",squash"`
 	Input    string `json:"input"`
 	Limit    string `json:"limit"`
 }
 
 var (
-	_ Task = (*LessThan)(nil)
+	_ Task = (*LessThanTask)(nil)
 )
 
-func (t *LessThan) Type() TaskType {
+func (t *LessThanTask) Type() TaskType {
 	return TaskTypeLessThan
 }
 
-func (t *LessThan) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *LessThanTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo

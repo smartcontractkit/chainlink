@@ -395,6 +395,10 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLength:
+		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLessThan:
+		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeLowercase:
 		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeUppercase:

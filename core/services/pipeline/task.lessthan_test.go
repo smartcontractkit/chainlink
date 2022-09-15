@@ -75,12 +75,12 @@ func TestLessThanTask_Happy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
-				task := pipeline.LessThan{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Limit: test.limit}
+				task := pipeline.LessThanTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Limit: test.limit}
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
-				task := pipeline.LessThan{
+				task := pipeline.LessThanTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    fmt.Sprintf("%v", test.input),
 					Limit:    test.limit,
@@ -92,7 +92,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 					"foo":   map[string]interface{}{"bar": test.input},
 					"chain": map[string]interface{}{"link": test.limit},
 				})
-				task := pipeline.LessThan{
+				task := pipeline.LessThanTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    "$(foo.bar)",
 					Limit:    "$(chain.link)",
@@ -125,7 +125,7 @@ func TestLessThanTask_Unhappy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.LessThan{
+			task := pipeline.LessThanTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,
 				Limit:    test.limit,
