@@ -49,7 +49,7 @@ func (b *fixedBlockhashProvider) OnchainVerifiableBlocks(
 
 	var blockhashes []common.Hash
 
-	heads, err := b.lp.GetBlocks(blockHeights, pg.WithParentCtx(ctx))
+	heads, err := b.lp.GetBlocks(ctx, blockHeights)
 	if err != nil {
 		return 0, nil, err
 	}
