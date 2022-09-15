@@ -17,9 +17,8 @@ Before starting, you will need:
 2. The chain ID corresponding to your chain
 3. The private key of an account funded with LINK, and the chain's native token
    (to pay transaction fees)
-4. [The LINK address, VRF coordinator address, and key hash](https://deploy-preview-249--dreamy-villani-0e9e5c.netlify.app/docs/vrf-deployments/)
-   for your chain (TODO: Replace with docs.chain.link link once the V2
-   documentation is deployed).
+4. [The LINK address, VRF coordinator address, and key hash](https://docs.chain.link/docs/vrf/v2/supported-networks/)
+   for your chain.
 5. [Go](https://go.dev/doc/install)
 
 The endpoint URL can be a locally running node, or an externally hosted one like
