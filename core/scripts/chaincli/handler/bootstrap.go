@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -30,9 +31,10 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 	lggr, closeLggr := logger.NewLogger()
 	defer closeLggr()
 
-	url, _, err := h.launchChainlinkNode(
+	urlRaw, _, err := h.launchChainlinkNode(
 		ctx,
 		uiPort,
+		"bootstrap",
 		"FEATURE_OFFCHAIN_REPORTING2=true",
 		"FEATURE_LOG_POLLER=true",
 		"P2P_NETWORKING_STACK=V2",
@@ -43,15 +45,27 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		lggr.Fatal("Failed to launch chainlink node, ", err)
 	}
 
-	cl, err := authenticate(url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
+	cl, err := authenticate(urlRaw, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
 	if err != nil {
 		lggr.Fatal("Authentication failed, ", err)
+	}
+
+	nodeURL, err := url.Parse(urlRaw)
+	if err != nil {
+		lggr.Fatal("Failed to parse URL, ", err)
+	}
+
+	p2pKeyID, err := getP2PKeyID(cl)
+	if err != nil {
+		lggr.Fatal("Failed to get P2P key ID, ", err)
 	}
 
 	if err = h.createBootstrapJob(cl, addr); err != nil {
 		lggr.Fatal("Failed to create keeper job: ", err)
 	}
-	lggr.Info("Bootstrap job has been successfully created in the Chainlink node with address ", url)
+
+	tcpAddr := fmt.Sprintf("%s@%s", p2pKeyID, nodeURL.Host)
+	lggr.Info("Bootstrap job has been successfully created in the Chainlink node with address ", urlRaw, ", tcp: ", tcpAddr)
 }
 
 // createBootstrapJob creates a bootstrap job in the chainlink node by the given address

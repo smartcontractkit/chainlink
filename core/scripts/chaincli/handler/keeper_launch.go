@@ -66,7 +66,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 
 			// Run chainlink node
 			var err error
-			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, extraEvars...); err != nil {
+			if startedNodes[i].url, startedNodes[i].cleanup, err = k.launchChainlinkNode(ctx, 6688+i, fmt.Sprintf("keeper-%d", i), extraEvars...); err != nil {
 				startedNodes[i].err = fmt.Errorf("failed to launch chainlink node: %s", err)
 				return
 			}
@@ -232,7 +232,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	var err error
 	if k.cfg.OCR2Keepers {
-		err = k.createOCR2KeeperJob(client, registryAddr)
+		err = k.createOCR2KeeperJob(client, registryAddr, nodeAddr)
 	} else {
 		err = k.createLegacyKeeperJob(client, registryAddr, nodeAddr)
 	}
@@ -300,36 +300,18 @@ maxObservationLength = 2000
 maxReportLength = 2000`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
-func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr string) error {
-	// TODO: Fetch ocrKeyBundleID and transmitterID
-	/*resp, err := client.Get("/v2/keys/eth")
+func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
+	ocr2KeyBundleID, err := getNodeOCR2KeyBundleID(client)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get node OCR2 key bundle ID: %s", err)
 	}
-
-	respRaw, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(resp.StatusCode, string(respRaw))
-
-	resp, err = client.Get("/v2/keys/ocr2")
-	if err != nil {
-		return err
-	}
-	respRaw, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(resp.StatusCode, string(respRaw))
-	return*/
 
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: fmt.Sprintf(ocr2keeperJobTemplate,
-			uuid.New().String(), // externalJobID: UUID
-			contractAddr,        // contractID
-			"aa53dde3867589b0df01a80429ec641b7a2b963fb1f3381a9207769aed7a0acd", // ocrKeyBundleID
-			"",                      // transmitterID - node wallet address
+			uuid.New().String(),     // externalJobID
+			contractAddr,            // contractID
+			ocr2KeyBundleID,         // ocrKeyBundleID
+			nodeAddr,                // transmitterID - node wallet address
 			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
 			k.cfg.ChainID,           // chainID
 		),
