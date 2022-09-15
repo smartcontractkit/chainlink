@@ -19,7 +19,6 @@ import (
 const AUDIT_LOGS_CAPACITY = 2048
 
 type AuditLogger interface {
-	//Audit(ctx context.Context, eventID EventID, data map[string]interface{})
 	Audit(ctx context.Context, eventID EventID, data map[string]interface{})
 }
 
