@@ -323,7 +323,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 func TestMaxPerformDataSize(t *testing.T) {
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
-		maxPerformDataSize := 5000
+		maxPerformDataSize := 1000 // Will be set as config override
 		g := gomega.NewWithT(t)
 
 		// setup node key
@@ -399,7 +399,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		// helps prevent missed heads
 		config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 		// set the max perform data size
-		// config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+		config.Overrides.KeeperRegistryMaxPerformDataSize = null.IntFrom(int64(maxPerformDataSize))
 
 		app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))

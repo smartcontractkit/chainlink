@@ -44,6 +44,19 @@ func (_m *registryGasCheckMock) KeeperRegistryPerformGasOverhead() uint32 {
 	return r0
 }
 
+func (_m *registryGasCheckMock) KeeperRegistryMaxPerformDataSize() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 func TestBuildJobSpec(t *testing.T) {
 	jb := job.Job{ID: 10}
 	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
@@ -67,6 +80,7 @@ func TestBuildJobSpec(t *testing.T) {
 	m.Mock.Test(t)
 
 	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
+	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(5000)).Times(1)
 
 	spec := buildJobSpec(jb, upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
 

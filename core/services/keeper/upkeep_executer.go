@@ -323,7 +323,7 @@ func buildJobSpec(
 			"prettyID":              upkeep.PrettyID(),
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ormConfig.KeeperRegistryPerformGasOverhead(),
 			"maxGasLimit":           50000000,
-			"maxPerformDataLength":  5000,
+			"maxPerformDataLength":  ormConfig.KeeperRegistryMaxPerformDataSize(),
 			"gasPrice":              gasPrice,
 			"gasTipCap":             gasTipCap,
 			"gasFeeCap":             gasFeeCap,
