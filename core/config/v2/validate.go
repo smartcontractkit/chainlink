@@ -56,8 +56,15 @@ func validate(s interface{}) (err error) {
 			if !fv.CanInterface() {
 				continue
 			}
+			if fv.Kind() == reflect.Ptr && fv.IsNil() {
+				continue
+			}
 			if fe := Validate(fv.Interface()); fe != nil {
-				err = multierr.Append(err, namedMultiErrorList(fe, ft.Name))
+				if ft.Anonymous {
+					err = multierr.Append(err, fe)
+				} else {
+					err = multierr.Append(err, namedMultiErrorList(fe, ft.Name))
+				}
 			}
 		}
 		return
@@ -69,6 +76,9 @@ func validate(s interface{}) (err error) {
 			if !v.CanInterface() {
 				continue
 			}
+			if mv.Kind() == reflect.Ptr && mv.IsNil() {
+				continue
+			}
 			if me := Validate(mv.Interface()); me != nil {
 				err = multierr.Append(err, namedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
 			}
@@ -78,6 +88,9 @@ func validate(s interface{}) (err error) {
 		for i := 0; i < v.Len(); i++ {
 			iv := v.Index(i)
 			if !v.CanInterface() {
+				continue
+			}
+			if iv.Kind() == reflect.Ptr && iv.IsNil() {
 				continue
 			}
 			if me := Validate(iv.Interface()); me != nil {
