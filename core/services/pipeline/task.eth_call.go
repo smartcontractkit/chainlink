@@ -29,9 +29,9 @@ type ETHCallTask struct {
 	GasPrice            string `json:"gasPrice"`
 	GasTipCap           string `json:"gasTipCap"`
 	GasFeeCap           string `json:"gasFeeCap"`
+	GasUnlimited        string `json:"unlimitedGas"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
-	UnlimitedGas        string `json:"unlimitedGas"`
 
 	specGasLimit *uint32
 	chainSet     evm.ChainSet
@@ -68,8 +68,8 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasPrice     MaybeBigIntParam
 		gasTipCap    MaybeBigIntParam
 		gasFeeCap    MaybeBigIntParam
+		gasUnlimited BoolParam
 		chainID      StringParam
-		unlimitedGas BoolParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
@@ -80,7 +80,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
-		errors.Wrap(ResolveParam(&unlimitedGas, From(NonemptyString(t.UnlimitedGas), false)), "unlimitedGas"),
+		errors.Wrap(ResolveParam(&gasUnlimited, From(NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -93,9 +93,9 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: err}, runInfo
 	}
 	var selectedGas uint32
-	if unlimitedGas {
+	if gasUnlimited {
 		if gas > 0 {
-			return Result{Error: errors.New("")}, retryableRunInfo()
+			return Result{Error: errors.Wrapf(ErrBadInput, "gas must be zero when gasUnlimited is true")}, runInfo
 		}
 	} else {
 		if gas > 0 {
