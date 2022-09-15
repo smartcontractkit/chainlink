@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const AUDIT_LOGS_CAPACITY = 2048
+const bufferCapacity = 2048
 
 type Data = map[string]any
 
@@ -88,7 +88,7 @@ func NewAuditLogger(logger logger.Logger) (AuditLogger, error) {
 		}
 	}
 
-	loggingChannel := make(chan WrappedAuditLog, AUDIT_LOGS_CAPACITY)
+	loggingChannel := make(chan WrappedAuditLog, bufferCapacity)
 
 	// Finally, create new auditLogger with parameters
 	auditLogger := AuditLoggerService{
@@ -128,10 +128,10 @@ func (l *AuditLoggerService) Audit(ctx context.Context, eventID EventID, data Da
 	select {
 	case l.loggingChannel <- wrappedLog:
 	default:
-		if len(l.loggingChannel) == AUDIT_LOGS_CAPACITY {
+		if len(l.loggingChannel) == bufferCapacity {
 			l.logger.Errorw("Audit log buffer is full. Dropping log with eventID: %s", eventID)
 		} else {
-			l.logger.Errorw("Could not send log to audit subsystem even though queue has %d space", AUDIT_LOGS_CAPACITY-len(l.loggingChannel))
+			l.logger.Errorw("Could not send log to audit subsystem even though queue has %d space", bufferCapacity-len(l.loggingChannel))
 		}
 	}
 }
