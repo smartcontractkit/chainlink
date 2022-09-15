@@ -138,7 +138,7 @@ func TestSchemaRegistry(t *testing.T) {
 }
 
 // This section contains previous versions of the schema in schemas.go
-// Whenever schemas are updates, check for compatibility by pasting the previsous
+// Whenever schemas are updated, check for compatibility by pasting the previsous
 // versions here running the test suite above against a running schema registry process.
 // NOTE: you must set the FEATURE_TEST_ONLY_LIVE_SCHEMA_REGISTRY and SCHEMA_REGISTRY_URL env vars.
 

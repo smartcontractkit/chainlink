@@ -31,10 +31,16 @@ func TestMapping(t *testing.T) {
 		transmission, ok := deserialized.(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, transmission["block_number"], uint64ToBeBytes(envelope.BlockNumber))
+		require.Equal(t, transmission["block_number_fixed"], map[string]interface{}{
+			"link.chain.ocr2.transmission_block_number": uint64ToBeBytes(envelope.BlockNumber),
+		})
 
 		answer, ok := transmission["answer"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, answer["data"], envelope.LatestAnswer.Bytes())
+		require.Equal(t, answer["data_string"], map[string]interface{}{
+			"string": envelope.LatestAnswer.String(),
+		})
 		require.Equal(t, answer["timestamp"].(int64), envelope.LatestTimestamp.Unix())
 
 		configDigest, ok := answer["config_digest"].(map[string]interface{})

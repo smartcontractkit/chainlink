@@ -24,8 +24,14 @@ func MakeTransmissionMapping(
 	}
 	out := map[string]interface{}{
 		"block_number": uint64ToBeBytes(envelope.BlockNumber),
+		"block_number_fixed": map[string]interface{}{
+			"link.chain.ocr2.transmission_block_number": uint64ToBeBytes(envelope.BlockNumber),
+		},
 		"answer": map[string]interface{}{
-			"data":      data,
+			"data": data,
+			"data_string": map[string]interface{}{
+				"string": envelope.LatestAnswer.String(),
+			},
 			"timestamp": envelope.LatestTimestamp.Unix(),
 			"config_digest": map[string]interface{}{
 				"string": base64.StdEncoding.EncodeToString(envelope.ConfigDigest[:]),
@@ -80,16 +86,34 @@ func MakeConfigSetSimplifiedMapping(
 		return nil, fmt.Errorf("failed to encode oracle set: %w", err)
 	}
 	out := map[string]interface{}{
-		"config_digest":      base64.StdEncoding.EncodeToString(envelope.ConfigDigest[:]),
-		"block_number":       uint64ToBeBytes(envelope.BlockNumber),
-		"signers":            string(signers),
-		"transmitters":       string(transmitters),
-		"f":                  int32(envelope.ContractConfig.F),
-		"delta_progress":     uint64ToBeBytes(offchainConfig.DeltaProgressNanoseconds),
-		"delta_resend":       uint64ToBeBytes(offchainConfig.DeltaResendNanoseconds),
-		"delta_round":        uint64ToBeBytes(offchainConfig.DeltaRoundNanoseconds),
-		"delta_grace":        uint64ToBeBytes(offchainConfig.DeltaGraceNanoseconds),
-		"delta_stage":        uint64ToBeBytes(offchainConfig.DeltaStageNanoseconds),
+		"config_digest": base64.StdEncoding.EncodeToString(envelope.ConfigDigest[:]),
+		"block_number":  uint64ToBeBytes(envelope.BlockNumber),
+		"block_number_fixed": map[string]interface{}{
+			"link.chain.ocr2.config_block_number": uint64ToBeBytes(envelope.BlockNumber),
+		},
+		"signers":        string(signers),
+		"transmitters":   string(transmitters),
+		"f":              int32(envelope.ContractConfig.F),
+		"delta_progress": uint64ToBeBytes(offchainConfig.DeltaProgressNanoseconds),
+		"delta_resend":   uint64ToBeBytes(offchainConfig.DeltaResendNanoseconds),
+		"delta_round":    uint64ToBeBytes(offchainConfig.DeltaRoundNanoseconds),
+		"delta_grace":    uint64ToBeBytes(offchainConfig.DeltaGraceNanoseconds),
+		"delta_stage":    uint64ToBeBytes(offchainConfig.DeltaStageNanoseconds),
+		"delta_progress_fixed": map[string]interface{}{
+			"link.chain.ocr2.config_delta_progress": uint64ToBeBytes(offchainConfig.DeltaProgressNanoseconds),
+		},
+		"delta_resend_fixed": map[string]interface{}{
+			"link.chain.ocr2.config_delta_resend": uint64ToBeBytes(offchainConfig.DeltaResendNanoseconds),
+		},
+		"delta_round_fixed": map[string]interface{}{
+			"link.chain.ocr2.config_delta_round": uint64ToBeBytes(offchainConfig.DeltaRoundNanoseconds),
+		},
+		"delta_grace_fixed": map[string]interface{}{
+			"link.chain.ocr2.config_delta_grace": uint64ToBeBytes(offchainConfig.DeltaGraceNanoseconds),
+		},
+		"delta_stage_fixed": map[string]interface{}{
+			"link.chain.ocr2.config_delta_stage": uint64ToBeBytes(offchainConfig.DeltaStageNanoseconds),
+		},
 		"r_max":              int64(offchainConfig.RMax),
 		"s":                  string(s),
 		"oracles":            string(oracles),
