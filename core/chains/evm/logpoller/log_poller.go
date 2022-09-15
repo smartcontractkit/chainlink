@@ -620,6 +620,7 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 // When the log poller does not have requested blocks, it falls back
 // to RPC to fetch the missing blocks.
 // response contains blocks in the same order as "numbers" in request parameters
+// the first context parameter takes precedence over contexts passed through qopts
 func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
 	blocksFound := make(map[uint64]LogPollerBlock)
 	qopts = append(qopts, pg.WithParentCtx(ctx))
@@ -687,7 +688,7 @@ func (lp *logPoller) GetBlocks(ctx context.Context, numbers []uint64, qopts ...p
 	for _, num := range numbers {
 		b, ok := blocksFound[num]
 		if !ok {
-			return nil, errors.Errorf("block: %d was not found", num)
+			return nil, errors.Errorf("block: %d was not found in db or RPC call", num)
 		}
 		blocks = append(blocks, b)
 	}
