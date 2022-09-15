@@ -1,6 +1,7 @@
 import { Api } from 'utils/json-api-client'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { Chains } from './chains'
+import { EVMKeys } from './evmKeys'
 import { Jobs } from './jobs'
 import { LogConfig } from './logConfig'
 import { Nodes } from './nodes'
@@ -15,4 +16,5 @@ export class V2 {
   public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
   public webauthn = new WebAuthn(this.api)
+  public evmKeys = new EVMKeys(this.api)
 }
