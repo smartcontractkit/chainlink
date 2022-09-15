@@ -98,6 +98,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 	var deployer keepersDeployer
 	var keeperRegistry11 *registry11.KeeperRegistry
 	var keeperRegistry12 *registry12.KeeperRegistry
+	var keeperRegistry20 *registry20.KeeperRegistry
 	if k.cfg.RegistryAddress != "" {
 		callOpts := bind.CallOpts{
 			From:    k.fromAddr,
@@ -123,7 +124,13 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = keeperRegistry12
 		case keeper.RegistryVersion_2_0:
-			// TODO: Specify
+			registryAddr, keeperRegistry20 = k.getRegistry20(ctx)
+			state, err := keeperRegistry20.GetState(&callOpts)
+			if err != nil {
+				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
+			}
+			upkeepCount = state.State.NumUpkeeps.Int64()
+			deployer = keeperRegistry20
 		}
 	} else {
 		// Deploy keeper registry
@@ -133,7 +140,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 		case keeper.RegistryVersion_1_2:
 			registryAddr, deployer = k.deployRegistry12(ctx)
 		case keeper.RegistryVersion_2_0:
-			// registryAddr, deployer = k.deployRegistry20(ctx)
+			registryAddr, deployer = k.deployRegistry20(ctx)
 		}
 	}
 
@@ -221,6 +228,29 @@ func (k *Keeper) GetRegistry(ctx context.Context) {
 		registryAddr, _ = k.getRegistry11(ctx)
 	}
 	log.Println("KeeperRegistry at:", registryAddr)
+}
+
+// getRegistry20 attaches to an existing 2.0 registry and possibly updates registry config
+func (k *Keeper) getRegistry20(ctx context.Context) (common.Address, *registry20.KeeperRegistry) {
+	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
+	keeperRegistry20, err := registry20.NewKeeperRegistry(
+		registryAddr,
+		k.client,
+	)
+	if err != nil {
+		log.Fatal("Registry failed: ", err)
+	}
+	if k.cfg.RegistryConfigUpdate {
+		transaction, err := keeperRegistry20.SetOnChainConfig(k.buildTxOpts(ctx), *k.getConfigForRegistry20())
+		if err != nil {
+			log.Fatal("Registry config update: ", err)
+		}
+		k.waitTx(ctx, transaction)
+		log.Println("KeeperRegistry2.0 config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
+	} else {
+		log.Println("KeeperRegistry2.0 config not updated: KEEPER_CONFIG_UPDATE=false")
+	}
+	return registryAddr, keeperRegistry20
 }
 
 // getRegistry12 attaches to an existing 1.2 registry and possibly updates registry config
